@@ -21,7 +21,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
-)
+
+	"github.com/stretchr/testify/require")
 
 // TestCountEntities_Empty tests CountEntities on an empty bundle
 func TestCountEntities_Empty(t *testing.T) {
@@ -128,9 +129,7 @@ func TestGetHTTPByID(t *testing.T) {
 
 	// Test finding existing HTTP request
 	http := bundle.GetHTTPByID(httpID1)
-	if http == nil {
-		t.Fatal("Expected to find HTTP request, got nil")
-	}
+	require.NotNil(t, http, "Expected to find HTTP request, got nil")
 	if http.ID.Compare(httpID1) != 0 {
 		t.Errorf("Expected HTTP ID %s, got %s", httpID1, http.ID)
 	}
@@ -170,9 +169,7 @@ func TestGetFlowByID(t *testing.T) {
 
 	// Test finding existing flow
 	flow := bundle.GetFlowByID(flowID1)
-	if flow == nil {
-		t.Fatal("Expected to find flow, got nil")
-	}
+	require.NotNil(t, flow, "Expected to find flow, got nil")
 	if flow.ID.Compare(flowID1) != 0 {
 		t.Errorf("Expected flow ID %s, got %s", flowID1, flow.ID)
 	}
@@ -201,9 +198,7 @@ func TestGetFlowByName(t *testing.T) {
 
 	// Test finding by name
 	flow := bundle.GetFlowByName("User Registration Flow")
-	if flow == nil {
-		t.Fatal("Expected to find flow by name, got nil")
-	}
+	require.NotNil(t, flow, "Expected to find flow by name, got nil")
 	if flow.Name != "User Registration Flow" {
 		t.Errorf("Expected flow name 'User Registration Flow', got '%s'", flow.Name)
 	}
@@ -230,9 +225,7 @@ func TestGetNodeByID(t *testing.T) {
 
 	// Test finding existing node
 	node := bundle.GetNodeByID(nodeID1)
-	if node == nil {
-		t.Fatal("Expected to find node, got nil")
-	}
+	require.NotNil(t, node, "Expected to find node, got nil")
 	if node.ID.Compare(nodeID1) != 0 {
 		t.Errorf("Expected node ID %s, got %s", nodeID1, node.ID)
 	}
@@ -264,9 +257,7 @@ func TestGetFileByID(t *testing.T) {
 
 	// Test finding existing file
 	file := bundle.GetFileByID(fileID1)
-	if file == nil {
-		t.Fatal("Expected to find file, got nil")
-	}
+	require.NotNil(t, file, "Expected to find file, got nil")
 	if file.ID.Compare(fileID1) != 0 {
 		t.Errorf("Expected file ID %s, got %s", fileID1, file.ID)
 	}
@@ -299,9 +290,7 @@ func TestGetFileByContentID(t *testing.T) {
 
 	// Test finding by ContentID
 	file := bundle.GetFileByContentID(contentID1)
-	if file == nil {
-		t.Fatal("Expected to find file by ContentID, got nil")
-	}
+	require.NotNil(t, file, "Expected to find file by ContentID, got nil")
 	if file.ID.Compare(fileID1) != 0 {
 		t.Errorf("Expected file ID %s, got %s", fileID1, file.ID)
 	}
@@ -345,9 +334,7 @@ func TestGetEnvironmentByID(t *testing.T) {
 
 	// Test finding existing environment
 	env := bundle.GetEnvironmentByID(envID1)
-	if env == nil {
-		t.Fatal("Expected to find environment, got nil")
-	}
+	require.NotNil(t, env, "Expected to find environment, got nil")
 	if env.ID.Compare(envID1) != 0 {
 		t.Errorf("Expected environment ID %s, got %s", envID1, env.ID)
 	}
@@ -376,9 +363,7 @@ func TestGetEnvironmentByName(t *testing.T) {
 
 	// Test finding by name
 	env := bundle.GetEnvironmentByName("Production")
-	if env == nil {
-		t.Fatal("Expected to find environment by name, got nil")
-	}
+	require.NotNil(t, env, "Expected to find environment by name, got nil")
 	if env.Name != "Production" {
 		t.Errorf("Expected environment name 'Production', got '%s'", env.Name)
 	}

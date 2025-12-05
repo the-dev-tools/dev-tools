@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
@@ -158,7 +157,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 			t.Fatal("Timed out waiting for Edge A->B")
 		}
 	}
-	assert.True(t, foundEdge, "Dependency edge not created")
+	require.True(t, foundEdge, "Dependency edge not created")
 
 	// 5. Verify HTTP Events (Base + Delta)
 	// We expect 4 HTTP events: 2 Base, 2 Delta
@@ -187,7 +186,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 
 	require.NotNil(t, baseB_ID, "Base Request B ID not found")
 	require.NotNil(t, deltaB_ID, "Delta Request B ID not found")
-	assert.NotEqual(t, baseB_ID, deltaB_ID)
+	require.NotEqual(t, baseB_ID, deltaB_ID)
 
 	// 5. Verify Header Events
 	// We expect headers for Request B.
@@ -211,13 +210,13 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 				t.Logf("Received Auth Header: IsDelta=%v, Value=%s", evt.Payload.IsDelta, h.Value)
 				if evt.Payload.IsDelta {
 					// Verify Delta Header
-					if assert.Contains(t, h.Value, "{{") {
+					if strings.Contains(h.Value, "{{") {
 						foundDeltaHeader = true
 					}
 				} else {
 					// Verify Base Header
 					// Allow failure for debugging
-					if assert.Contains(t, h.Value, "abc-123") {
+					if strings.Contains(h.Value, "abc-123") {
 						baseHeaderID = h.HttpHeaderId
 						foundBaseHeader = true
 					}
@@ -233,7 +232,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 	}
 
 DoneHeaders:
-	assert.True(t, foundBaseHeader, "Base Authorization header not found")
-	assert.NotEmpty(t, baseHeaderID, "Base Header ID should be captured")
-	assert.True(t, foundDeltaHeader, "Delta Authorization header not found")
+	require.True(t, foundBaseHeader, "Base Authorization header not found")
+	require.NotEmpty(t, baseHeaderID, "Base Header ID should be captured")
+	require.True(t, foundDeltaHeader, "Delta Authorization header not found")
 }

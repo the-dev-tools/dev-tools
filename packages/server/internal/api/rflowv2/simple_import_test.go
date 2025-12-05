@@ -374,12 +374,11 @@ func TestFlowServiceV2_ParseFlowData_Mock(t *testing.T) {
 
 			// For successful cases, we might get auth error, but that's expected
 			if err != nil && !contains(err.Error(), "unauthenticated") {
-				t.Errorf("Unexpected error for %s: %v - %s", tt.name, err, tt.description)
-				return
+				require.FailNow(t, "Unexpected error", "Unexpected error for %s: %v - %s", tt.name, err, tt.description)
 			}
 
 			if result == nil && err == nil {
-				t.Errorf("Expected result for %s: %s", tt.name, tt.description)
+				require.FailNow(t, "Expected result", "Expected result for %s: %s", tt.name, tt.description)
 			}
 		})
 	}

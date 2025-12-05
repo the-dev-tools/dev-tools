@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
@@ -386,15 +385,15 @@ func TestImportRPC_Integration(t *testing.T) {
 			resp, err := fixture.rpc.Import(fixture.ctx, req)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, resp)
+				require.Error(t, err)
+				require.Nil(t, resp)
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 
 				// Verify response structure
 				if tt.expectResp != nil {
-					assert.True(t, tt.expectResp(resp.Msg), "Response validation failed")
+					require.True(t, tt.expectResp(resp.Msg), "Response validation failed")
 				}
 
 				// Verify that data was actually stored in the database
@@ -465,7 +464,7 @@ func TestImportService_ErrorHandling(t *testing.T) {
 	// Use the RPC's service directly
 	service := fixture.rpc.service
 	_, err := service.Import(fixture.ctx, req)
-	assert.Error(t, err) // Should fail
+	require.Error(t, err) // Should fail
 
 	// Verify error handling - the service should not have stored partial data
 	// Check that no unexpected HTTP requests were created for this workspace
@@ -520,12 +519,12 @@ func TestImportService_ConcurrentImports(t *testing.T) {
 	t.Logf("Concurrent imports: %d successful, %d failed", successCount, errorCount)
 
 	// At least some imports should succeed
-	assert.Greater(t, successCount, 0, "At least some concurrent imports should succeed")
+	require.Greater(t, successCount, 0, "At least some concurrent imports should succeed")
 
 	// Verify that successful imports created data
 	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	assert.Greater(t, len(httpReqs), 0, "HTTP requests should exist from successful imports")
+	require.Greater(t, len(httpReqs), 0, "HTTP requests should exist from successful imports")
 }
 
 // TestImportService_LargeHARImport tests importing a large HAR file
@@ -562,10 +561,10 @@ func TestImportService_LargeHARImport(t *testing.T) {
 	// Verify all entries were processed
 	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	assert.Len(t, httpReqs, 50, "All 50 HTTP requests should be imported")
+	require.Len(t, httpReqs, 50, "All 50 HTTP requests should be imported")
 
 	// Domains should be cleared on success
-	assert.Empty(t, resp.Msg.Domains, "Domains should be cleared on successful import")
+	require.Empty(t, resp.Msg.Domains, "Domains should be cleared on successful import")
 }
 
 // TestImportService_DomainProcessingIntegration tests domain processing functionality
@@ -655,14 +654,14 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 			require.NotNil(t, resp)
 
 			// Verify domain processing response
-			assert.True(t, tt.expectResp(resp.Msg), "Domain processing response validation failed")
+			require.True(t, tt.expectResp(resp.Msg), "Domain processing response validation failed")
 
 			// If MissingData is set (waiting for user config), domains should be returned
 			// If MissingData is NOT set (success), domains should be cleared
 			if resp.Msg.MissingData != apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED {
-				assert.NotEmpty(t, resp.Msg.Domains, "Should return domains when waiting for user configuration")
+				require.NotEmpty(t, resp.Msg.Domains, "Should return domains when waiting for user configuration")
 			} else {
-				assert.Empty(t, resp.Msg.Domains, "Should clear domains on successful import")
+				require.Empty(t, resp.Msg.Domains, "Should clear domains on successful import")
 			}
 		})
 	}
@@ -691,13 +690,13 @@ func (f *integrationTestFixture) verifyStoredData(t *testing.T, originalHAR []by
 	// Verify HTTP requests were stored
 	httpReqs, err := f.services.Hs.GetByWorkspaceID(f.ctx, f.workspaceID)
 	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(httpReqs), len(har.Log.Entries),
+	require.GreaterOrEqual(t, len(httpReqs), len(har.Log.Entries),
 		"Should have stored at least as many HTTP requests as HAR entries")
 
 	// Verify flows were created
 	flows, err := f.services.Fls.GetFlowsByWorkspaceID(f.ctx, f.workspaceID)
 	require.NoError(t, err)
-	assert.NotEmpty(t, flows, "Should have created flows")
+	require.NotEmpty(t, flows, "Should have created flows")
 
 	// Verify files if any were referenced in HAR (binary data, etc.)
 	// This is more complex to test without specific HAR content
@@ -745,37 +744,37 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 	// Check HTTP events (at least 2 from complex HAR)
 	select {
 	case evt := <-httpCh:
-		assert.Equal(t, "insert", evt.Payload.Type)
-		assert.NotNil(t, evt.Payload.Http)
+		require.Equal(t, "insert", evt.Payload.Type)
+		require.NotNil(t, evt.Payload.Http)
 	case <-time.After(time.Second):
-		assert.Fail(t, "Timed out waiting for HTTP event")
+		require.Fail(t, "Timed out waiting for HTTP event")
 	}
 
 	// Check File events (for the files created)
 	select {
 	case evt := <-fileCh:
-		assert.Equal(t, "create", evt.Payload.Type)
-		assert.NotNil(t, evt.Payload.File)
+		require.Equal(t, "create", evt.Payload.Type)
+		require.NotNil(t, evt.Payload.File)
 	case <-time.After(time.Second):
-		assert.Fail(t, "Timed out waiting for File event")
+		require.Fail(t, "Timed out waiting for File event")
 	}
 
 	// Check Header events
 	select {
 	case evt := <-headerCh:
-		assert.Equal(t, "insert", evt.Payload.Type)
-		assert.NotNil(t, evt.Payload.HttpHeader)
+		require.Equal(t, "insert", evt.Payload.Type)
+		require.NotNil(t, evt.Payload.HttpHeader)
 	case <-time.After(time.Second):
-		assert.Fail(t, "Timed out waiting for Header event")
+		require.Fail(t, "Timed out waiting for Header event")
 	}
 
 	// Check SearchParam events (Complex HAR has query params)
 	select {
 	case evt := <-paramCh:
-		assert.Equal(t, "insert", evt.Payload.Type)
-		assert.NotNil(t, evt.Payload.HttpSearchParam)
+		require.Equal(t, "insert", evt.Payload.Type)
+		require.NotNil(t, evt.Payload.HttpSearchParam)
 	case <-time.After(time.Second):
-		assert.Fail(t, "Timed out waiting for SearchParam event")
+		require.Fail(t, "Timed out waiting for SearchParam event")
 	}
 }
 
@@ -1215,11 +1214,11 @@ flows:
 		// Verify data was stored
 		httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, len(httpReqs), 3, "Should have at least 3 HTTP requests")
+		require.GreaterOrEqual(t, len(httpReqs), 3, "Should have at least 3 HTTP requests")
 
 		flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 		require.NoError(t, err)
-		assert.NotEmpty(t, flows, "Should have created flows")
+		require.NotEmpty(t, flows, "Should have created flows")
 
 		t.Logf("YAML import completed successfully:")
 		t.Logf("  - HTTP Requests: %d", len(httpReqs))
@@ -1290,7 +1289,7 @@ flows:
 		// Verify flows were created
 		flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 		require.NoError(t, err)
-		assert.Len(t, flows, 1, "Should have exactly 1 flow")
+		require.Len(t, flows, 1, "Should have exactly 1 flow")
 
 		t.Logf("Flow nodes test completed successfully with %d flow(s)", len(flows))
 
@@ -1355,8 +1354,8 @@ flows:
 
 	// Verify file names are NOT empty or "N/A"
 	for _, file := range files {
-		assert.NotEmpty(t, file.Name, "File name should not be empty")
-		assert.NotEqual(t, "N/A", file.Name, "File name should not be N/A")
+		require.NotEmpty(t, file.Name, "File name should not be empty")
+		require.NotEqual(t, "N/A", file.Name, "File name should not be N/A")
 	}
 
 	// Check for expected file names (step names: fetch_users, create_user)
@@ -1365,7 +1364,7 @@ flows:
 		fileNames[file.Name] = true
 	}
 
-	assert.True(t, fileNames["fetch_users"] || fileNames["create_user"],
+	require.True(t, fileNames["fetch_users"] || fileNames["create_user"],
 		"Should have files named after the step names (fetch_users, create_user)")
 }
 
@@ -1455,9 +1454,9 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 	require.NotNil(t, resp1)
 
 	// Verify domains are returned
-	assert.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN, resp1.Msg.MissingData,
+	require.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN, resp1.Msg.MissingData,
 		"Should indicate domain data is missing")
-	assert.Contains(t, resp1.Msg.Domains, "api.example.com",
+	require.Contains(t, resp1.Msg.Domains, "api.example.com",
 		"Should return api.example.com as a detected domain")
 
 	t.Logf("Step 1: Detected domains: %v", resp1.Msg.Domains)
@@ -1481,9 +1480,9 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 	require.NotNil(t, resp2)
 
 	// Verify import succeeded
-	assert.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp2.Msg.MissingData,
+	require.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp2.Msg.MissingData,
 		"Should not indicate any missing data")
-	assert.Empty(t, resp2.Msg.Domains, "Domains should be empty after successful import with domain data")
+	require.Empty(t, resp2.Msg.Domains, "Domains should be empty after successful import with domain data")
 
 	t.Logf("Step 2: Import completed, FlowId: %x", resp2.Msg.FlowId)
 
@@ -1500,9 +1499,9 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 		t.Logf("  HTTP[%d]: Method=%s, URL=%s", i, httpReq.Method, httpReq.Url)
 
 		// URLs should now use {{API_HOST}} instead of https://api.example.com
-		assert.NotContains(t, httpReq.Url, "https://api.example.com",
+		require.NotContains(t, httpReq.Url, "https://api.example.com",
 			"URL should not contain the original domain")
-		assert.Contains(t, httpReq.Url, "{{API_HOST}}",
+		require.Contains(t, httpReq.Url, "{{API_HOST}}",
 			"URL should contain the variable reference {{API_HOST}}")
 	}
 
@@ -1512,9 +1511,9 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 		urlsFound[httpReq.Url] = true
 	}
 
-	assert.True(t, urlsFound["{{API_HOST}}/users"],
+	require.True(t, urlsFound["{{API_HOST}}/users"],
 		"Should have URL {{API_HOST}}/users")
-	assert.True(t, urlsFound["{{API_HOST}}/users/create"],
+	require.True(t, urlsFound["{{API_HOST}}/users/create"],
 		"Should have URL {{API_HOST}}/users/create")
 
 	t.Log("Domain replacement test passed - URLs are correctly replaced in storage")

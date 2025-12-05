@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/referencecompletion"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
@@ -26,24 +27,16 @@ func TestReferenceKindToProto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := referenceKindToProto(tt.kind)
-			if err != nil {
-				t.Fatalf("referenceKindToProto(%v) unexpected error: %v", tt.kind, err)
-			}
-			if got != tt.want {
-				t.Fatalf("referenceKindToProto(%v) got %v, want %v", tt.kind, got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestReferenceKindToProtoFallback(t *testing.T) {
 	got, err := referenceKindToProto(reference.ReferenceKind(-1))
-	if err == nil {
-		t.Fatal("expected error for unknown reference kind")
-	}
-	if got != referenceKindProtoFallback {
-		t.Fatalf("expected fallback kind %v, got %v", referenceKindProtoFallback, got)
-	}
+	require.Error(t, err, "expected error for unknown reference kind")
+	require.Equal(t, referenceKindProtoFallback, got)
 }
 
 func TestReferenceKindFromProto(t *testing.T) {
@@ -62,24 +55,16 @@ func TestReferenceKindFromProto(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := referenceKindFromProto(tt.kind)
-			if err != nil {
-				t.Fatalf("referenceKindFromProto(%v) unexpected error: %v", tt.kind, err)
-			}
-			if got != tt.want {
-				t.Fatalf("referenceKindFromProto(%v) got %v, want %v", tt.kind, got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestReferenceKindFromProtoFallback(t *testing.T) {
 	got, err := referenceKindFromProto(referencev1.ReferenceKind(-1))
-	if err == nil {
-		t.Fatal("expected error for unknown proto reference kind")
-	}
-	if got != reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED {
-		t.Fatalf("expected fallback kind %v, got %v", reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, got)
-	}
+	require.Error(t, err, "expected error for unknown proto reference kind")
+	require.Equal(t, reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, got)
 }
 
 func TestReferenceCompletionInvalidKind(t *testing.T) {
@@ -98,11 +83,6 @@ func TestReferenceCompletionInvalidKind(t *testing.T) {
 	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{})
 
 	_, err := svc.ReferenceCompletion(context.Background(), req)
-	if err == nil {
-		t.Fatal("expected ReferenceCompletion to return an error for invalid kind")
-	}
-
-	if connect.CodeOf(err) != connect.CodeInternal {
-		t.Fatalf("expected internal error code, got %v", connect.CodeOf(err))
-	}
+	require.Error(t, err, "expected ReferenceCompletion to return an error for invalid kind")
+	require.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 }

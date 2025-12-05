@@ -8,7 +8,8 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
-)
+
+	"github.com/stretchr/testify/require")
 
 type testTopic struct {
 	workspace string
@@ -29,9 +30,7 @@ func TestInMemorySyncStreamer_PublishSubscribe(t *testing.T) {
 	t.Cleanup(cancel)
 
 	ch, err := streamer.Subscribe(ctx, allowAll)
-	if err != nil {
-		t.Fatalf("subscribe: %v", err)
-	}
+	require.NoError(t, err, "subscribe")
 
 	streamer.Publish(testTopic{workspace: "w"}, testPayload{ID: "1", Data: "hello"})
 
@@ -59,13 +58,9 @@ func TestInMemorySyncStreamer_RespectsFilter(t *testing.T) {
 	filterB := func(topic testTopic) bool { return topic.workspace == "B" }
 
 	subA, err := streamer.Subscribe(ctx, filterA)
-	if err != nil {
-		t.Fatalf("subscribe A: %v", err)
-	}
+	require.NoError(t, err, "subscribe A")
 	subB, err := streamer.Subscribe(ctx, filterB)
-	if err != nil {
-		t.Fatalf("subscribe B: %v", err)
-	}
+	require.NoError(t, err, "subscribe B")
 
 	streamer.Publish(testTopic{workspace: "A"}, testPayload{ID: "1"})
 	streamer.Publish(testTopic{workspace: "B"}, testPayload{ID: "2"})
@@ -95,9 +90,7 @@ func TestInMemorySyncStreamer_ContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	ch, err := streamer.Subscribe(ctx, allowAll)
-	if err != nil {
-		t.Fatalf("subscribe: %v", err)
-	}
+	require.NoError(t, err, "subscribe")
 
 	cancel()
 
@@ -125,9 +118,7 @@ func TestInMemorySyncStreamer_Snapshot(t *testing.T) {
 	t.Cleanup(cancel)
 
 	ch, err := streamer.Subscribe(ctx, allowAll, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		t.Fatalf("subscribe: %v", err)
-	}
+	require.NoError(t, err, "subscribe")
 
 	select {
 	case evt := <-ch:
@@ -152,9 +143,7 @@ func TestInMemorySyncStreamer_SnapshotErrorIgnored(t *testing.T) {
 	t.Cleanup(cancel)
 
 	ch, err := streamer.Subscribe(ctx, allowAll, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		t.Fatalf("subscribe: %v", err)
-	}
+	require.NoError(t, err, "subscribe")
 
 	streamer.Publish(testTopic{workspace: "A"}, testPayload{ID: "live"})
 

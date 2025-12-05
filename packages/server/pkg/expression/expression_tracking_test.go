@@ -6,7 +6,8 @@ import (
 
 	"iter"
 	"the-dev-tools/server/pkg/flow/tracking"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestExpressionEvaluteAsBool_WithTracking(t *testing.T) {
 	env := NewEnv(map[string]any{
@@ -19,9 +20,7 @@ func TestExpressionEvaluteAsBool_WithTracking(t *testing.T) {
 
 	// Test expression that should evaluate to true
 	result, err := ExpressionEvaluteAsBoolWithTracking(context.Background(), env, "flag && count > 3", tracker)
-	if err != nil {
-		t.Fatalf("Expression evaluation failed: %v", err)
-	}
+	require.NoError(t, err, "Expression evaluation failed")
 	if !result {
 		t.Errorf("Expected true, got %v", result)
 	}
@@ -50,9 +49,7 @@ func TestExpressionEvaluteAsBool_WithoutTracking(t *testing.T) {
 
 	// Test with nil tracker should use regular function
 	result, err := ExpressionEvaluteAsBoolWithTracking(context.Background(), env, "flag", nil)
-	if err != nil {
-		t.Fatalf("Expression evaluation failed: %v", err)
-	}
+	require.NoError(t, err, "Expression evaluation failed")
 	if !result {
 		t.Errorf("Expected true, got %v", result)
 	}
@@ -68,9 +65,7 @@ func TestExpressionEvaluteAsArray_WithTracking(t *testing.T) {
 
 	// Test array expression
 	result, err := ExpressionEvaluteAsArrayWithTracking(context.Background(), env, "items", tracker)
-	if err != nil {
-		t.Fatalf("Expression evaluation failed: %v", err)
-	}
+	require.NoError(t, err, "Expression evaluation failed")
 	if len(result) != 3 {
 		t.Errorf("Expected array length 3, got %d", len(result))
 	}
@@ -103,9 +98,7 @@ func TestExpressionEvaluateAsIter_WithTracking(t *testing.T) {
 
 	// Test iterator expression
 	result, err := ExpressionEvaluateAsIterWithTracking(context.Background(), env, "data", tracker)
-	if err != nil {
-		t.Fatalf("Expression evaluation failed: %v", err)
-	}
+	require.NoError(t, err, "Expression evaluation failed")
 
 	// Should return an iterator
 	if result == nil {
@@ -180,9 +173,7 @@ func TestExpression_VariableAccess_Tracking(t *testing.T) {
 
 	// Test complex expression accessing nested values
 	result, err := ExpressionEvaluteAsBoolWithTracking(context.Background(), env, "nodeA.result == \"success\" && nodeB.value > 30 && config.enabled", tracker)
-	if err != nil {
-		t.Fatalf("Expression evaluation failed: %v", err)
-	}
+	require.NoError(t, err, "Expression evaluation failed")
 	if !result {
 		t.Errorf("Expected true, got %v", result)
 	}

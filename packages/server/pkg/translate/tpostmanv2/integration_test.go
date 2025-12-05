@@ -3,6 +3,7 @@ package tpostmanv2
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 )
 
@@ -113,76 +114,44 @@ func TestIntegration_SimpleWorkflow(t *testing.T) {
 
 	// Parse the collection
 	parsed, err := ParsePostmanCollection([]byte(collectionJSON))
-	if err != nil {
-		t.Fatalf("ParsePostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ParsePostmanCollection() error")
 
-	if parsed.Info.Name != "API Collection" {
-		t.Errorf("Expected collection name 'API Collection', got '%s'", parsed.Info.Name)
-	}
-	if len(parsed.Item) != 2 {
-		t.Fatalf("Expected 2 top-level items, got %d", len(parsed.Item))
-	}
+	require.Equal(t, "API Collection", parsed.Info.Name, "Expected collection name 'API Collection'")
+	require.Len(t, parsed.Item, 2, "Expected 2 top-level items")
 
 	// Convert to modern HTTP models
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
 	// Verify we got the right number of HTTP requests
-	if len(resolved.HTTPRequests) != 2 {
-		t.Fatalf("Expected 2 HTTP requests, got %d", len(resolved.HTTPRequests))
-	}
+	require.Len(t, resolved.HTTPRequests, 2, "Expected 2 HTTP requests")
 
 	// Test first request (Login)
 	loginReq := resolved.HTTPRequests[0]
-	if loginReq.Name != "Login" {
-		t.Errorf("Expected first request name 'Login', got '%s'", loginReq.Name)
-	}
-	if loginReq.Method != "POST" {
-		t.Errorf("Expected login method 'POST', got '%s'", loginReq.Method)
-	}
-	if loginReq.Url != "https://api.example.com/auth/login" {
-		t.Errorf("Expected login URL 'https://api.example.com/auth/login', got '%s'", loginReq.Url)
-	}
+	require.Equal(t, "Login", loginReq.Name, "Expected first request name 'Login'")
+	require.Equal(t, "POST", loginReq.Method, "Expected login method 'POST'")
+	require.Equal(t, "https://api.example.com/auth/login", loginReq.Url, "Expected login URL")
 
 	// Verify login request has raw body
 	loginBodyRaw := extractBodyRawForHTTP(loginReq.ID, resolved.BodyRaw)
-	if loginBodyRaw == nil {
-		t.Fatal("Expected login request to have raw body")
-	}
+	require.NotNil(t, loginBodyRaw, "Expected login request to have raw body")
 	expectedLoginBody := `{"username": "test@example.com", "password": "secret123"}`
-	if string(loginBodyRaw.RawData) != expectedLoginBody {
-		t.Errorf("Expected login body '%s', got '%s'", expectedLoginBody, string(loginBodyRaw.RawData))
-	}
+	require.Equal(t, expectedLoginBody, string(loginBodyRaw.RawData), "Expected login body")
 
 	// Verify login request has content-type header
 	loginHeaders := extractHeadersForHTTP(loginReq.ID, resolved.Headers)
-	if len(loginHeaders) != 1 {
-		t.Fatalf("Expected 1 header for login request, got %d", len(loginHeaders))
-	}
-	if loginHeaders[0].Key != "Content-Type" {
-		t.Errorf("Expected login header key 'Content-Type', got '%s'", loginHeaders[0].Key)
-	}
-	if loginHeaders[0].Value != "application/json" {
-		t.Errorf("Expected login header value 'application/json', got '%s'", loginHeaders[0].Value)
-	}
+	require.Len(t, loginHeaders, 1, "Expected 1 header for login request")
+	require.Equal(t, "Content-Type", loginHeaders[0].Key, "Expected login header key 'Content-Type'")
+	require.Equal(t, "application/json", loginHeaders[0].Value, "Expected login header value 'application/json'")
 
 	// Test second request (Users)
 	usersReq := resolved.HTTPRequests[1]
-	if usersReq.Name != "Users" {
-		t.Errorf("Expected second request name 'Users', got '%s'", usersReq.Name)
-	}
-	if usersReq.Method != "GET" {
-		t.Errorf("Expected users method 'GET', got '%s'", usersReq.Method)
-	}
+	require.Equal(t, "Users", usersReq.Name, "Expected second request name 'Users'")
+	require.Equal(t, "GET", usersReq.Method, "Expected users method 'GET'")
 
 	// Verify users request has search parameters
 	usersSearchParams := extractSearchParamsForHTTP(usersReq.ID, resolved.SearchParams)
-	if len(usersSearchParams) != 3 {
-		t.Fatalf("Expected 3 search parameters for users request, got %d", len(usersSearchParams))
-	}
+	require.Len(t, usersSearchParams, 3, "Expected 3 search parameters for users request")
 
 	// Verify specific search parameters
 	paramMap := make(map[string]string)
@@ -190,41 +159,25 @@ func TestIntegration_SimpleWorkflow(t *testing.T) {
 		paramMap[param.Key] = param.Value
 	}
 
-	if paramMap["page"] != "1" {
-		t.Errorf("Expected page parameter '1', got '%s'", paramMap["page"])
-	}
-	if paramMap["limit"] != "20" {
-		t.Errorf("Expected limit parameter '20', got '%s'", paramMap["limit"])
-	}
-	if paramMap["sort"] != "created_at" {
-		t.Errorf("Expected sort parameter 'created_at', got '%s'", paramMap["sort"])
-	}
+	require.Equal(t, "1", paramMap["page"], "Expected page parameter '1'")
+	require.Equal(t, "20", paramMap["limit"], "Expected limit parameter '20'")
+	require.Equal(t, "created_at", paramMap["sort"], "Expected sort parameter 'created_at'")
 
 	// Verify users request has only enabled headers (disabled header should be filtered out)
 	usersHeaders := extractHeadersForHTTP(usersReq.ID, resolved.Headers)
-	if len(usersHeaders) != 1 {
-		t.Fatalf("Expected 1 enabled header for users request, got %d", len(usersHeaders))
-	}
-	if usersHeaders[0].Key != "Authorization" {
-		t.Errorf("Expected users header key 'Authorization', got '%s'", usersHeaders[0].Key)
-	}
+	require.Len(t, usersHeaders, 1, "Expected 1 enabled header for users request")
+	require.Equal(t, "Authorization", usersHeaders[0].Key, "Expected users header key 'Authorization'")
 
 	// Verify files were created for each HTTP request
-	if len(resolved.Files) != 2 {
-		t.Fatalf("Expected 2 files created, got %d", len(resolved.Files))
-	}
+	require.Len(t, resolved.Files, 2, "Expected 2 files created")
 
 	// Verify file names match request names
 	fileNames := make(map[string]bool)
 	for _, file := range resolved.Files {
 		fileNames[file.Name] = true
 	}
-	if !fileNames["Login"] {
-		t.Error("Expected file named 'Login'")
-	}
-	if !fileNames["Users"] {
-		t.Error("Expected file named 'Users'")
-	}
+	require.True(t, fileNames["Login"], "Expected file named 'Login'")
+	require.True(t, fileNames["Users"], "Expected file named 'Users'")
 }
 
 // TestIntegration_RoundTrip tests that we can convert to HTTP models and back to Postman format
@@ -268,35 +221,21 @@ func TestIntegration_RoundTrip(t *testing.T) {
 
 	// Convert to HTTP models
 	resolved, err := ConvertPostmanCollection([]byte(originalCollection), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
 	// Convert back to Postman format
 	generatedJSON, err := BuildPostmanCollection(resolved)
-	if err != nil {
-		t.Fatalf("BuildPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "BuildPostmanCollection() error")
 
 	// Parse the generated collection to verify it's valid
 	generatedCollection, err := ParsePostmanCollection(generatedJSON)
-	if err != nil {
-		t.Fatalf("Failed to parse generated collection: %v", err)
-	}
+	require.NoError(t, err, "Failed to parse generated collection")
 
 	// Basic verification
-	if generatedCollection.Info.Name != "Generated Collection" {
-		t.Errorf("Expected generated collection name 'Generated Collection', got '%s'", generatedCollection.Info.Name)
-	}
-	if len(generatedCollection.Item) != 1 {
-		t.Fatalf("Expected 1 item in generated collection, got %d", len(generatedCollection.Item))
-	}
+	require.Equal(t, "Generated Collection", generatedCollection.Info.Name, "Expected generated collection name 'Generated Collection'")
+	require.Len(t, generatedCollection.Item, 1, "Expected 1 item in generated collection")
 
 	generatedItem := generatedCollection.Item[0]
-	if generatedItem.Name != "Test Request" {
-		t.Errorf("Expected generated item name 'Test Request', got '%s'", generatedItem.Name)
-	}
-	if generatedItem.Request.Method != "POST" {
-		t.Errorf("Expected generated request method 'POST', got '%s'", generatedItem.Request.Method)
-	}
+	require.Equal(t, "Test Request", generatedItem.Name, "Expected generated item name 'Test Request'")
+	require.Equal(t, "POST", generatedItem.Request.Method, "Expected generated request method 'POST'")
 }

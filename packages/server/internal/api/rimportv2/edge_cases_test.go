@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/pkg/idwrap"
@@ -148,21 +147,21 @@ func TestValidationErrorScenarios(t *testing.T) {
 			err := validator.ValidateImportRequest(ctx, tt.request)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorType != nil {
 					// Special handling for ValidationError type checking
 					if _, ok := tt.errorType.(*ValidationError); ok {
-						assert.True(t, IsValidationError(err), "Expected ValidationError in error chain")
+						require.True(t, IsValidationError(err), "Expected ValidationError in error chain")
 					} else {
 						// Use errors.Is for other error types
-						assert.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
+						require.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
 					}
 				}
 				if validationErr, ok := err.(*ValidationError); ok && tt.errorField != "" {
-					assert.Equal(t, tt.errorField, validationErr.Field)
+					require.Equal(t, tt.errorField, validationErr.Field)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -299,10 +298,10 @@ func TestHARProcessingErrors(t *testing.T) {
 			_, err := translator.ConvertHAR(context.Background(), tt.harData, workspaceID)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorType != nil {
 					// Use errors.Is for wrapped errors
-					assert.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
+					require.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
 				}
 			} else {
 				// Should not error, but may return partial results
@@ -418,16 +417,16 @@ func TestStorageErrorScenarios(t *testing.T) {
 			_, err := service.Import(context.Background(), req)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorType != nil {
 					// Use errors.Is for wrapped errors
-					assert.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
+					require.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
 				}
 				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
+					require.Contains(t, err.Error(), tt.errorContains)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -488,10 +487,10 @@ func TestDomainProcessingErrors(t *testing.T) {
 			domains, err := extractDomains(context.Background(), tt.httpReqs, slog.Default())
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorType != nil {
 					// Use errors.Is for wrapped errors
-					assert.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
+					require.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
 				}
 			} else {
 				// Should not error, but may return partial results
@@ -588,12 +587,12 @@ func TestContextCancellation(t *testing.T) {
 			_, err := service.Import(ctx, req)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				// Should be context error
-				assert.True(t, errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded),
+				require.True(t, errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded),
 					"Should be context cancellation error, got: %v", err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -684,13 +683,13 @@ func TestResourceExhaustion(t *testing.T) {
 			duration := time.Since(start)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorType != nil {
 					// Use errors.Is for wrapped errors
-					assert.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
+					require.True(t, errors.Is(err, tt.errorType), "Expected error to contain %v in error chain", tt.errorType)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Logf("Resource test completed in %v", duration)
 			}
 		})
@@ -780,9 +779,9 @@ func TestInvalidInputFormats(t *testing.T) {
 			_, err = translator.ConvertHAR(context.Background(), harData, workspaceID)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -877,7 +876,7 @@ func TestConcurrentErrorHandling(t *testing.T) {
 		if err != nil {
 			errorCount++
 			// Should be HAR format error for failures
-			assert.True(t, errors.Is(err, ErrInvalidHARFormat),
+			require.True(t, errors.Is(err, ErrInvalidHARFormat),
 				"Should be HAR format error, got: %v", err)
 		} else {
 			successCount++
@@ -887,6 +886,6 @@ func TestConcurrentErrorHandling(t *testing.T) {
 	t.Logf("Concurrent error handling: %d successful, %d failed", successCount, errorCount)
 
 	// Should have some failures due to our mock
-	assert.Greater(t, errorCount, 0, "Should have some failures")
-	assert.Greater(t, successCount, 0, "Should have some successes")
+	require.Greater(t, errorCount, 0, "Should have some failures")
+	require.Greater(t, successCount, 0, "Should have some successes")
 }

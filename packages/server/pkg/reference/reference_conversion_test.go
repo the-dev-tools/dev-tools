@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
-)
+
+	"github.com/stretchr/testify/require")
 
 func stringPtr(v string) *string {
 	return &v
@@ -18,9 +19,7 @@ func TestConvertPkgToRpcTreeSuccess(t *testing.T) {
 	}
 
 	got, err := ConvertPkgToRpcTree(ref)
-	if err != nil {
-		t.Fatalf("ConvertPkgToRpcTree returned unexpected error: %v", err)
-	}
+	require.NoError(t, err, "ConvertPkgToRpcTree returned unexpected error")
 
 	if got.Kind != referencev1.ReferenceKind_REFERENCE_KIND_VALUE {
 		t.Fatalf("unexpected proto kind: %v", got.Kind)
@@ -85,9 +84,7 @@ func TestConvertRpcToPkgSuccess(t *testing.T) {
 	}
 
 	got, err := ConvertRpcToPkg(proto)
-	if err != nil {
-		t.Fatalf("ConvertRpcToPkg returned unexpected error: %v", err)
-	}
+	require.NoError(t, err, "ConvertRpcToPkg returned unexpected error")
 	if got.Kind != ReferenceKind_REFERENCE_KIND_VALUE {
 		t.Fatalf("unexpected package kind: %v", got.Kind)
 	}
@@ -122,9 +119,7 @@ func TestConvertRpcToPkgInvalidKind(t *testing.T) {
 
 func TestConvertRpcToPkgNil(t *testing.T) {
 	got, err := ConvertRpcToPkg(nil)
-	if err != nil {
-		t.Fatalf("expected no error for nil input, got: %v", err)
-	}
+	require.NoError(t, err, "expected no error for nil input, got")
 	if got.Kind != ReferenceKind_REFERENCE_KIND_UNSPECIFIED {
 		t.Fatalf("expected zero value kind, got: %v", got.Kind)
 	}
@@ -156,9 +151,7 @@ func TestConvertRpcKeyToPkgKeyInvalid(t *testing.T) {
 
 func TestConvertRpcKeyToPkgKeyNil(t *testing.T) {
 	got, err := ConvertRpcKeyToPkgKey(nil)
-	if err != nil {
-		t.Fatalf("expected no error for nil key, got: %v", err)
-	}
+	require.NoError(t, err, "expected no error for nil key, got")
 	if got.Kind != ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED {
 		t.Fatalf("expected zero value key kind, got: %v", got.Kind)
 	}

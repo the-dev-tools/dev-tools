@@ -9,11 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
+
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-
-	"connectrpc.com/connect"
 )
 
 func (f *httpFixture) createHttpWithBodyKind(t *testing.T, workspaceID idwrap.IDWrap, name, url, method string, bodyKind mhttp.HttpBodyKind) idwrap.IDWrap {
@@ -30,9 +31,7 @@ func (f *httpFixture) createHttpWithBodyKind(t *testing.T, workspaceID idwrap.ID
 		BodyKind:    bodyKind,
 	}
 
-	if err := f.hs.Create(f.ctx, httpModel); err != nil {
-		t.Fatalf("create http: %v", err)
-	}
+	require.NoError(t, f.hs.Create(f.ctx, httpModel), "create http")
 
 	return httpID
 }
@@ -51,9 +50,7 @@ func (f *httpFixture) createHttpBodyForm(t *testing.T, httpID idwrap.IDWrap, key
 
 	// Access the body form service from the handler
 	formService := f.handler.httpBodyFormService
-	if err := formService.Create(f.ctx, form); err != nil {
-		t.Fatalf("create http body form: %v", err)
-	}
+	require.NoError(t, formService.Create(f.ctx, form), "create http body form")
 }
 
 func (f *httpFixture) createHttpBodyUrlEncoded(t *testing.T, httpID idwrap.IDWrap, key, value string) {
@@ -70,9 +67,7 @@ func (f *httpFixture) createHttpBodyUrlEncoded(t *testing.T, httpID idwrap.IDWra
 
 	// Access the body url encoded service from the handler
 	urlEncodedService := f.handler.httpBodyUrlEncodedService
-	if err := urlEncodedService.Create(f.ctx, urlEncoded); err != nil {
-		t.Fatalf("create http body url encoded: %v", err)
-	}
+	require.NoError(t, urlEncodedService.Create(f.ctx, urlEncoded), "create http body url encoded")
 }
 
 func TestHttpRun_WithFormData(t *testing.T) {
@@ -116,34 +111,26 @@ func TestHttpRun_WithFormData(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
+	require.NoError(t, err, "HttpRun failed")
 
 	// Verify Content-Type header
-	if !strings.Contains(receivedContentType, "multipart/form-data") {
-		t.Errorf("Expected Content-Type to contain 'multipart/form-data', got '%s'", receivedContentType)
-	}
+	require.Contains(t, receivedContentType, "multipart/form-data", "Expected Content-Type to contain 'multipart/form-data'")
 
 	// Verify boundary parameter
 	_, params, err := mime.ParseMediaType(receivedContentType)
-	if err != nil {
-		t.Fatalf("Failed to parse media type: %v", err)
-	}
-	if boundary, ok := params["boundary"]; !ok || boundary == "" {
-		t.Error("Content-Type missing boundary parameter")
-	}
+	require.NoError(t, err, "Failed to parse media type")
+	boundary, ok := params["boundary"]
+	require.True(t, ok, "Content-Type missing boundary parameter")
+	require.NotEmpty(t, boundary, "boundary parameter should not be empty")
 
 	// Verify form values
-	if formValues == nil {
-		t.Fatal("Failed to parse multipart form")
-	}
-	if val, ok := formValues["username"]; !ok || val != "testuser" {
-		t.Errorf("Expected form field 'username'='testuser', got '%s'", val)
-	}
-	if val, ok := formValues["role"]; !ok || val != "admin" {
-		t.Errorf("Expected form field 'role'='admin', got '%s'", val)
-	}
+	require.NotNil(t, formValues, "Failed to parse multipart form")
+	val, ok := formValues["username"]
+	require.True(t, ok, "Expected form field 'username'")
+	require.Equal(t, "testuser", val, "Expected form field 'username'='testuser'")
+	val, ok = formValues["role"]
+	require.True(t, ok, "Expected form field 'role'")
+	require.Equal(t, "admin", val, "Expected form field 'role'='admin'")
 }
 
 func TestHttpRun_WithUrlEncoded(t *testing.T) {
@@ -184,25 +171,14 @@ func TestHttpRun_WithUrlEncoded(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
+	require.NoError(t, err, "HttpRun failed")
 
 	// Verify Content-Type header
-	if receivedContentType != "application/x-www-form-urlencoded" {
-		t.Errorf("Expected Content-Type 'application/x-www-form-urlencoded', got '%s'", receivedContentType)
-	}
+	require.Equal(t, "application/x-www-form-urlencoded", receivedContentType, "Expected Content-Type 'application/x-www-form-urlencoded'")
 
 	// Verify body content
+	require.NotNil(t, formValues, "Failed to parse form values")
 
-	if formValues == nil {
-		t.Fatal("Failed to parse form values")
-	}
-
-	if val := formValues.Get("search"); val != "go testing" {
-		t.Errorf("Expected form field 'search'='go testing', got '%s'", val)
-	}
-	if val := formValues.Get("page"); val != "1" {
-		t.Errorf("Expected form field 'page'='1', got '%s'", val)
-	}
+	require.Equal(t, "go testing", formValues.Get("search"), "Expected form field 'search'='go testing'")
+	require.Equal(t, "1", formValues.Get("page"), "Expected form field 'page'='1'")
 }

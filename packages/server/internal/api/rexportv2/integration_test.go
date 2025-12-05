@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
@@ -199,7 +198,7 @@ func TestIntegration_ExportFullWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NotEmpty(t, resp.Msg.Data)
-	assert.Contains(t, resp.Msg.Name, ".yaml")
+	require.Contains(t, resp.Msg.Name, ".yaml")
 
 	// Verify YAML structure (yamlflowsimplev2 format)
 	var exportData map[string]interface{}
@@ -207,8 +206,8 @@ func TestIntegration_ExportFullWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// yamlflowsimplev2 format uses workspace_name and flows
-	assert.Contains(t, exportData, "workspace_name")
-	assert.Contains(t, exportData, "flows")
+	require.Contains(t, exportData, "workspace_name")
+	require.Contains(t, exportData, "flows")
 }
 
 // TestIntegration_ExportCurlWorkflow tests the cURL export workflow
@@ -230,8 +229,8 @@ func TestIntegration_ExportCurlWorkflow(t *testing.T) {
 
 	// Verify cURL command structure
 	curlData := resp.Msg.Data
-	assert.Contains(t, curlData, "curl")
-	assert.Contains(t, curlData, "https://api.example.com/test")
+	require.Contains(t, curlData, "curl")
+	require.Contains(t, curlData, "https://api.example.com/test")
 }
 
 // TestIntegration_ExportWithFilters tests export with various filters
@@ -277,7 +276,7 @@ func TestIntegration_ExportWithFilters(t *testing.T) {
 
 			// yamlflowsimplev2 format has flows array
 			if flows, ok := exportData["flows"].([]interface{}); ok && tt.expectFlows > 0 {
-				assert.GreaterOrEqual(t, len(flows), tt.expectFlows)
+				require.GreaterOrEqual(t, len(flows), tt.expectFlows)
 			}
 		})
 	}
@@ -316,8 +315,8 @@ func TestIntegration_ImportExportRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	// yamlflowsimplev2 format uses workspace_name and flows
-	assert.Contains(t, exportData, "workspace_name")
-	assert.Contains(t, exportData, "flows")
+	require.Contains(t, exportData, "workspace_name")
+	require.Contains(t, exportData, "flows")
 }
 
 // TestIntegration_ErrorHandling tests error handling in realistic scenarios
@@ -331,11 +330,11 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		}))
 
 		require.Error(t, err)
-		assert.Nil(t, resp)
+		require.Nil(t, resp)
 
 		connectErr, ok := err.(*connect.Error)
 		require.True(t, ok)
-		assert.Equal(t, connect.CodeNotFound, connectErr.Code())
+		require.Equal(t, connect.CodeNotFound, connectErr.Code())
 	})
 
 	t.Run("invalid workspace ID", func(t *testing.T) {
@@ -344,11 +343,11 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		}))
 
 		require.Error(t, err)
-		assert.Nil(t, resp)
+		require.Nil(t, resp)
 
 		connectErr, ok := err.(*connect.Error)
 		require.True(t, ok)
-		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+		require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 	})
 
 	t.Run("filtering non-existent flows", func(t *testing.T) {
@@ -360,11 +359,11 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 
 		// When filtering by specific flow IDs that don't exist, expect an error
 		require.Error(t, err)
-		assert.Nil(t, resp)
+		require.Nil(t, resp)
 
 		connectErr, ok := err.(*connect.Error)
 		require.True(t, ok)
-		assert.Equal(t, connect.CodeNotFound, connectErr.Code())
+		require.Equal(t, connect.CodeNotFound, connectErr.Code())
 	})
 }
 
@@ -419,11 +418,11 @@ func TestIntegration_PerformanceWithLargeDataset(t *testing.T) {
 	require.NoError(t, err)
 
 	// yamlflowsimplev2 format uses workspace_name and flows
-	assert.Contains(t, exportData, "workspace_name")
-	assert.Contains(t, exportData, "flows")
+	require.Contains(t, exportData, "workspace_name")
+	require.Contains(t, exportData, "flows")
 
 	flows := exportData["flows"].([]interface{})
-	assert.Len(t, flows, numFlows)
+	require.Len(t, flows, numFlows)
 }
 
 // TestIntegration_ConcurrentExports tests concurrent export operations

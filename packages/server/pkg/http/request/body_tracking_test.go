@@ -8,7 +8,8 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestBodyTracking(t *testing.T) {
 	// Setup
@@ -41,9 +42,7 @@ func TestBodyTracking(t *testing.T) {
 		nil,      // urlEncoded
 		varMap,
 	)
-	if err != nil {
-		t.Fatalf("PrepareHTTPRequestWithTracking failed: %v", err)
-	}
+	require.NoError(t, err, "PrepareHTTPRequestWithTracking failed")
 
 	// Verify Substitution
 	expectedBody := `{"data": "replacedBody"}`
@@ -102,9 +101,7 @@ func TestBodyOnlyVariableTracking(t *testing.T) {
 		nil, // no urlEncoded
 		varMap,
 	)
-	if err != nil {
-		t.Fatalf("PrepareHTTPRequestWithTracking failed: %v", err)
-	}
+	require.NoError(t, err, "PrepareHTTPRequestWithTracking failed")
 
 	// Verify Substitution worked
 	expectedBody := `{"categoryId": "test-id-123"}`

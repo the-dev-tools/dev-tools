@@ -4,13 +4,15 @@ import (
 	"context"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/mocknode"
 	"the-dev-tools/server/pkg/flow/node/nif"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/testutil"
 )
 
 func TestForNode_RunSync_true(t *testing.T) {
@@ -53,10 +55,8 @@ func TestForNode_RunSync_true(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Errorf("Expected err to be nil, but got %v", resault.Err)
-	}
-	testutil.Assert(t, mockNode1ID, resault.NextNodeID[0])
+	require.NoError(t, resault.Err)
+	require.Equal(t, mockNode1ID, resault.NextNodeID[0])
 }
 
 func TestForNode_RunSync_false(t *testing.T) {
@@ -99,10 +99,8 @@ func TestForNode_RunSync_false(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Errorf("Expected err to be nil, but got %v", resault.Err)
-	}
-	testutil.Assert(t, mockNode2ID, resault.NextNodeID[0])
+	require.NoError(t, resault.Err)
+	require.Equal(t, mockNode2ID, resault.NextNodeID[0])
 }
 
 func TestForNode_RunSync_ThenOnlyTrue(t *testing.T) {
@@ -140,10 +138,8 @@ func TestForNode_RunSync_ThenOnlyTrue(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
-	}
-	testutil.Assert(t, mockNode1ID, resault.NextNodeID[0])
+	require.NoError(t, resault.Err)
+	require.Equal(t, mockNode1ID, resault.NextNodeID[0])
 }
 
 func TestForNode_RunSync_ThenOnlyFalse(t *testing.T) {
@@ -181,12 +177,8 @@ func TestForNode_RunSync_ThenOnlyFalse(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
-	}
-	if len(resault.NextNodeID) != 0 {
-		t.Fatalf("Expected no next node, but got %v", resault.NextNodeID)
-	}
+	require.NoError(t, resault.Err)
+	require.Len(t, resault.NextNodeID, 0)
 }
 
 func TestForNode_RunSync_ElseOnlyTrue(t *testing.T) {
@@ -224,12 +216,8 @@ func TestForNode_RunSync_ElseOnlyTrue(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
-	}
-	if len(resault.NextNodeID) != 0 {
-		t.Fatalf("Expected no next node, but got %v", resault.NextNodeID)
-	}
+	require.NoError(t, resault.Err)
+	require.Len(t, resault.NextNodeID, 0)
 }
 
 func TestForNode_RunSync_ElseOnlyFalse(t *testing.T) {
@@ -267,10 +255,8 @@ func TestForNode_RunSync_ElseOnlyFalse(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
-	}
-	testutil.Assert(t, mockElseID, resault.NextNodeID[0])
+	require.NoError(t, resault.Err)
+	require.Equal(t, mockElseID, resault.NextNodeID[0])
 }
 
 func TestForNode_RunSync_VarTrue(t *testing.T) {
@@ -315,10 +301,8 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Errorf("Expected err to be nil, but got %v", resault.Err)
-	}
-	testutil.Assert(t, mockNode1ID, resault.NextNodeID[0])
+	require.NoError(t, resault.Err)
+	require.Equal(t, mockNode1ID, resault.NextNodeID[0])
 }
 
 func TestForNode_RunSync_VarFalse(t *testing.T) {
@@ -363,8 +347,6 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 	}
 
 	resault := nodeFor.RunSync(ctx, req)
-	if resault.Err != nil {
-		t.Errorf("Expected err to be nil, but got %v", resault.Err)
-	}
-	testutil.Assert(t, mockNode2ID, resault.NextNodeID[0])
+	require.NoError(t, resault.Err)
+	require.Equal(t, mockNode2ID, resault.NextNodeID[0])
 }

@@ -6,7 +6,8 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestPrepareRequestWithTracking_URL(t *testing.T) {
 	// Setup variables
@@ -34,9 +35,7 @@ func TestPrepareRequestWithTracking_URL(t *testing.T) {
 		varMap,
 	)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	// Check the prepared request
 	expectedURL := "https://api.example.com/v1/users"
@@ -91,9 +90,7 @@ func TestPrepareRequestWithTracking_TrimsVariableKeys(t *testing.T) {
 		nil,
 		varMap,
 	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err, "unexpected error")
 
 	expected := map[string]string{
 		"baseUrl":           "https://api.example.com",
@@ -143,9 +140,7 @@ func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 		varMap,
 	)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	// Check tracked variables (should not include static values)
 	expectedVarCount := 2
@@ -216,9 +211,7 @@ func TestPrepareRequestWithTracking_Queries(t *testing.T) {
 		varMap,
 	)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	// Check tracked variables
 	expectedVarCount := 2
@@ -269,9 +262,7 @@ func TestPrepareRequestWithTracking_Body(t *testing.T) {
 		varMap,
 	)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	// Check tracked variables
 	expectedVarCount := 2
@@ -320,9 +311,7 @@ func TestPrepareRequestWithTracking_NoVariables(t *testing.T) {
 		varMap,
 	)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	// Check that no variables were tracked
 	if len(result.ReadVars) != 0 {
@@ -377,9 +366,7 @@ func TestPrepareRequestWithTracking_ComplexScenario(t *testing.T) {
 		varMap,
 	)
 
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	// Check tracked variables - userId appears twice but should be tracked only once
 	expectedVarCount := 5

@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -55,9 +55,8 @@ func TestHttpRunPublishesResponseSyncEvent(t *testing.T) {
 	runReq := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
 	})
-	if _, err := f.handler.HttpRun(f.ctx, runReq); err != nil {
-		t.Fatalf("HttpRun err: %v", err)
-	}
+	_, err := f.handler.HttpRun(f.ctx, runReq)
+	require.NoError(t, err, "HttpRun err")
 
 	// Collect events
 	var items []*httpv1.HttpResponseSync
@@ -65,41 +64,29 @@ func TestHttpRunPublishesResponseSyncEvent(t *testing.T) {
 
 	select {
 	case resp, ok := <-msgCh:
-		if !ok {
-			t.Fatal("channel closed prematurely")
-		}
+		require.True(t, ok, "channel closed prematurely")
 		for _, item := range resp.GetItems() {
 			if item != nil {
 				items = append(items, item)
 			}
 		}
 	case <-timeout:
-		t.Fatal("timeout waiting for response sync event")
+		require.FailNow(t, "timeout waiting for response sync event")
 	}
 
-	if len(items) == 0 {
-		t.Fatal("no response sync events received")
-	}
+	require.NotEmpty(t, items, "no response sync events received")
 
 	val := items[0].GetValue()
-	if val == nil {
-		t.Fatal("response sync item missing value union")
-	}
+	require.NotNil(t, val, "response sync item missing value union")
 
-	if val.GetKind() != httpv1.HttpResponseSync_ValueUnion_KIND_INSERT {
-		t.Fatalf("expected insert kind, got %v", val.GetKind())
-	}
+	require.Equal(t, httpv1.HttpResponseSync_ValueUnion_KIND_INSERT, val.GetKind(), "expected insert kind")
 
 	insert := val.GetInsert()
-	if insert == nil {
-		t.Fatal("expected insert value, got nil")
-	}
+	require.NotNil(t, insert, "expected insert value, got nil")
 
 	// Check if HttpId is populated (this is what fails currently)
 	// If GetHttpId() returns empty bytes, it means it's not populated (or not set)
-	if len(insert.GetHttpId()) == 0 {
-		t.Fatalf("expected HttpId to be populated, got empty bytes")
-	}
+	require.NotEmpty(t, insert.GetHttpId(), "expected HttpId to be populated")
 }
 
 func TestHttpRunDeltaPublishesResponseSyncEvent(t *testing.T) {
@@ -129,9 +116,7 @@ func TestHttpRunDeltaPublishesResponseSyncEvent(t *testing.T) {
 		IsDelta:      true,
 		ParentHttpID: &baseID,
 	}
-	if err := f.hs.Create(f.ctx, &deltaHTTP); err != nil {
-		t.Fatalf("create delta http: %v", err)
-	}
+	require.NoError(t, f.hs.Create(f.ctx, &deltaHTTP), "create delta http")
 
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
@@ -156,9 +141,8 @@ func TestHttpRunDeltaPublishesResponseSyncEvent(t *testing.T) {
 	runReq := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: deltaHTTP.ID.Bytes(),
 	})
-	if _, err := f.handler.HttpRun(f.ctx, runReq); err != nil {
-		t.Fatalf("HttpRun err: %v", err)
-	}
+	_, err := f.handler.HttpRun(f.ctx, runReq)
+	require.NoError(t, err, "HttpRun err")
 
 	// Collect events
 	var items []*httpv1.HttpResponseSync
@@ -166,45 +150,31 @@ func TestHttpRunDeltaPublishesResponseSyncEvent(t *testing.T) {
 
 	select {
 	case resp, ok := <-msgCh:
-		if !ok {
-			t.Fatal("channel closed prematurely")
-		}
+		require.True(t, ok, "channel closed prematurely")
 		for _, item := range resp.GetItems() {
 			if item != nil {
 				items = append(items, item)
 			}
 		}
 	case <-timeout:
-		t.Fatal("timeout waiting for response sync event for delta request")
+		require.FailNow(t, "timeout waiting for response sync event for delta request")
 	}
 
-	if len(items) == 0 {
-		t.Fatal("no response sync events received for delta request")
-	}
+	require.NotEmpty(t, items, "no response sync events received for delta request")
 
 	val := items[0].GetValue()
-	if val == nil {
-		t.Fatal("response sync item missing value union")
-	}
+	require.NotNil(t, val, "response sync item missing value union")
 
-	if val.GetKind() != httpv1.HttpResponseSync_ValueUnion_KIND_INSERT {
-		t.Fatalf("expected insert kind, got %v", val.GetKind())
-	}
+	require.Equal(t, httpv1.HttpResponseSync_ValueUnion_KIND_INSERT, val.GetKind(), "expected insert kind")
 
 	insert := val.GetInsert()
-	if insert == nil {
-		t.Fatal("expected insert value, got nil")
-	}
+	require.NotNil(t, insert, "expected insert value, got nil")
 
 	// Check if HttpId is the delta ID (not base ID)
-	if len(insert.GetHttpId()) == 0 {
-		t.Fatalf("expected HttpId to be populated, got empty bytes")
-	}
+	require.NotEmpty(t, insert.GetHttpId(), "expected HttpId to be populated")
 
 	// Verify the HttpId matches the delta request ID
-	if !bytes.Equal(insert.GetHttpId(), deltaHTTP.ID.Bytes()) {
-		t.Fatalf("expected HttpId to match delta ID %v, got %v", deltaHTTP.ID.Bytes(), insert.GetHttpId())
-	}
+	require.True(t, bytes.Equal(insert.GetHttpId(), deltaHTTP.ID.Bytes()), "expected HttpId to match delta ID %v, got %v", deltaHTTP.ID.Bytes(), insert.GetHttpId())
 
 	t.Logf("Delta request response sync works correctly - HttpId: %v", insert.GetHttpId())
 }
@@ -236,35 +206,27 @@ func TestHttpResponseCollectionIncludesDeltaResponses(t *testing.T) {
 		IsDelta:      true,
 		ParentHttpID: &baseID,
 	}
-	if err := f.hs.Create(f.ctx, &deltaHTTP); err != nil {
-		t.Fatalf("create delta http: %v", err)
-	}
+	require.NoError(t, f.hs.Create(f.ctx, &deltaHTTP), "create delta http")
 
 	// Execute both base and delta requests to generate responses
 	baseRunReq := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: baseID.Bytes(),
 	})
-	if _, err := f.handler.HttpRun(f.ctx, baseRunReq); err != nil {
-		t.Fatalf("HttpRun (base) err: %v", err)
-	}
+	_, err := f.handler.HttpRun(f.ctx, baseRunReq)
+	require.NoError(t, err, "HttpRun (base) err")
 
 	deltaRunReq := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: deltaHTTP.ID.Bytes(),
 	})
-	if _, err := f.handler.HttpRun(f.ctx, deltaRunReq); err != nil {
-		t.Fatalf("HttpRun (delta) err: %v", err)
-	}
+	_, err = f.handler.HttpRun(f.ctx, deltaRunReq)
+	require.NoError(t, err, "HttpRun (delta) err")
 
 	// Call HttpResponseCollection and verify both responses are returned
 	collectionResp, err := f.handler.HttpResponseCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		t.Fatalf("HttpResponseCollection err: %v", err)
-	}
+	require.NoError(t, err, "HttpResponseCollection err")
 
 	responses := collectionResp.Msg.GetItems()
-	if len(responses) < 2 {
-		t.Fatalf("expected at least 2 responses (base + delta), got %d", len(responses))
-	}
+	require.GreaterOrEqual(t, len(responses), 2, "expected at least 2 responses (base + delta)")
 
 	// Verify we have responses for both base and delta HTTP IDs
 	foundBase := false
@@ -282,12 +244,8 @@ func TestHttpResponseCollectionIncludesDeltaResponses(t *testing.T) {
 		}
 	}
 
-	if !foundBase {
-		t.Error("HttpResponseCollection missing response for base HTTP request")
-	}
-	if !foundDelta {
-		t.Error("HttpResponseCollection missing response for delta HTTP request")
-	}
+	require.True(t, foundBase, "HttpResponseCollection missing response for base HTTP request")
+	require.True(t, foundDelta, "HttpResponseCollection missing response for delta HTTP request")
 
 	t.Logf("HttpResponseCollection correctly includes %d responses (base: %v, delta: %v)", len(responses), foundBase, foundDelta)
 }

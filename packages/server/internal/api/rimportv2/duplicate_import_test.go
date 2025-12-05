@@ -7,7 +7,6 @@ import (
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +37,7 @@ func TestImportService_DuplicateImport(t *testing.T) {
 	// Verify count after first import
 	httpReqs1, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(httpReqs1), "Should have 1 HTTP request after first import")
+	require.Equal(t, 1, len(httpReqs1), "Should have 1 HTTP request after first import")
 
 	firstID := httpReqs1[0].ID
 
@@ -59,7 +58,7 @@ func TestImportService_DuplicateImport(t *testing.T) {
 	// Verify count after second import
 	httpReqs2, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	assert.Equal(t, 2, len(httpReqs2), "Should have 2 HTTP requests after second import")
+	require.Equal(t, 2, len(httpReqs2), "Should have 2 HTTP requests after second import")
 
 	// Verify IDs are different
 	foundOld := false
@@ -71,8 +70,8 @@ func TestImportService_DuplicateImport(t *testing.T) {
 			foundNew = true
 		}
 	}
-	assert.True(t, foundOld, "Should still contain the first imported request")
-	assert.True(t, foundNew, "Should contain a new request with a different ID")
+	require.True(t, foundOld, "Should still contain the first imported request")
+	require.True(t, foundNew, "Should contain a new request with a different ID")
 }
 
 func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
@@ -151,7 +150,7 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	// Check Headers for New Request
 	headers, err := fixture.rpc.HttpHeaderService.GetByHttpID(fixture.ctx, newReqID)
 	require.NoError(t, err)
-	assert.NotEmpty(t, headers, "New request should have its own headers")
+	require.NotEmpty(t, headers, "New request should have its own headers")
 
 	// Check Params/Query for New Request (Complex HAR has query string)
 	params, err := fixture.rpc.HttpSearchParamService.GetByHttpID(fixture.ctx, newReqID)
@@ -160,13 +159,13 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	// If we picked the one without params, this might be empty.
 	// Let's just verify we didn't crash and if it has params they belong to newReqID.
 	for _, p := range params {
-		assert.Equal(t, newReqID, p.HttpID, "Params should be linked to new request")
+		require.Equal(t, newReqID, p.HttpID, "Params should be linked to new request")
 	}
 
 	// Check Flows
 	flows2, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	assert.Equal(t, 2, len(flows2), "Should have 2 flows")
+	require.Equal(t, 2, len(flows2), "Should have 2 flows")
 
 	var newFlowID idwrap.IDWrap
 	for _, f := range flows2 {
@@ -180,7 +179,7 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	// Check Nodes for New Flow
 	nodes, err := fixture.rpc.NodeService.GetNodesByFlowID(fixture.ctx, newFlowID)
 	require.NoError(t, err)
-	assert.NotEmpty(t, nodes, "New flow should have nodes")
+	require.NotEmpty(t, nodes, "New flow should have nodes")
 
 	// Verify at least one node points to a New Request
 	// We need to check NodeRequest mapping.
@@ -193,5 +192,5 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	files2, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	// Files should increase. Complex HAR creates files for requests + flow file.
-	assert.Greater(t, len(files2), len(httpReqs1)+1, "Should have more files after second import")
+	require.Greater(t, len(files2), len(httpReqs1)+1, "Should have more files after second import")
 }

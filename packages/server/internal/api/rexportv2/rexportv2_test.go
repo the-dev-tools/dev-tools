@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/pkg/idwrap"
@@ -121,7 +120,7 @@ func TestExportV2RPC_Export_InvalidWorkspaceID(t *testing.T) {
 
 	connectErr, ok := err.(*connect.Error)
 	require.True(t, ok)
-	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
 // TestExportV2RPC_Export_InvalidFlowIDs tests export with invalid flow IDs
@@ -140,7 +139,7 @@ func TestExportV2RPC_Export_InvalidFlowIDs(t *testing.T) {
 
 	connectErr, ok := err.(*connect.Error)
 	require.True(t, ok)
-	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
 // TestExportV2RPC_Export_UnsupportedFormat tests export with unsupported format
@@ -187,7 +186,7 @@ func TestExportV2RPC_ExportCurl_InvalidWorkspaceID(t *testing.T) {
 
 	connectErr, ok := err.(*connect.Error)
 	require.True(t, ok)
-	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
 // TestExportV2RPC_ExportCurl_InvalidHttpIDs tests cURL export with invalid HTTP IDs
@@ -205,7 +204,7 @@ func TestExportV2RPC_ExportCurl_InvalidHttpIDs(t *testing.T) {
 
 	connectErr, ok := err.(*connect.Error)
 	require.True(t, ok)
-	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
 // TestExportV2RPC_ExportWithFlowFilter tests export with flow filtering
@@ -242,7 +241,7 @@ func TestExportV2RPC_ContextCancellation(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, resp)
 	// Expect deadline exceeded since we used WithTimeout
-	assert.Contains(t, err.Error(), "deadline exceeded")
+	require.Contains(t, err.Error(), "deadline exceeded")
 }
 
 // TestConvertToExportRequest tests request conversion function
@@ -306,16 +305,16 @@ func TestConvertToExportRequest(t *testing.T) {
 			req, err := convertToExportRequest(tt.msg)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, req)
+				require.Error(t, err)
+				require.Nil(t, req)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectReq.WorkspaceID, req.WorkspaceID)
-				assert.Equal(t, tt.expectReq.Format, req.Format)
-				assert.Equal(t, tt.expectReq.Simplified, req.Simplified)
+				require.NoError(t, err)
+				require.Equal(t, tt.expectReq.WorkspaceID, req.WorkspaceID)
+				require.Equal(t, tt.expectReq.Format, req.Format)
+				require.Equal(t, tt.expectReq.Simplified, req.Simplified)
 
 				if len(tt.expectReq.FileIDs) > 0 {
-					assert.Equal(t, len(tt.expectReq.FileIDs), len(req.FileIDs))
+					require.Equal(t, len(tt.expectReq.FileIDs), len(req.FileIDs))
 				}
 			}
 		})
@@ -367,12 +366,12 @@ func TestConvertToExportCurlRequest(t *testing.T) {
 			req, err := convertToExportCurlRequest(tt.msg)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, req)
+				require.Error(t, err)
+				require.Nil(t, req)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectReq.WorkspaceID, req.WorkspaceID)
-				assert.Equal(t, len(tt.expectReq.HTTPIDs), len(req.HTTPIDs))
+				require.NoError(t, err)
+				require.Equal(t, tt.expectReq.WorkspaceID, req.WorkspaceID)
+				require.Equal(t, len(tt.expectReq.HTTPIDs), len(req.HTTPIDs))
 			}
 		})
 	}
@@ -389,8 +388,8 @@ func TestConvertToExportResponse(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, protoResp)
-	assert.Equal(t, resp.Name, protoResp.Name)
-	assert.Equal(t, resp.Data, protoResp.Data)
+	require.Equal(t, resp.Name, protoResp.Name)
+	require.Equal(t, resp.Data, protoResp.Data)
 }
 
 // TestHandleServiceError tests error handling function
@@ -461,7 +460,7 @@ func TestHandleServiceError(t *testing.T) {
 
 				connectErr, ok := err.(*connect.Error)
 				require.True(t, ok)
-				assert.Equal(t, connect.CodeInternal, connectErr.Code())
+				require.Equal(t, connect.CodeInternal, connectErr.Code())
 				return
 			}
 
@@ -470,7 +469,7 @@ func TestHandleServiceError(t *testing.T) {
 
 			connectErr, ok := err.(*connect.Error)
 			require.True(t, ok)
-			assert.Equal(t, tt.expectedCode, connectErr.Code())
+			require.Equal(t, tt.expectedCode, connectErr.Code())
 		})
 	}
 }

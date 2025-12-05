@@ -3,6 +3,8 @@ package tracking
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildTree_SimpleNesting(t *testing.T) {
@@ -24,9 +26,7 @@ func TestBuildTree_SimpleNesting(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestBuildTree_MultipleRoots(t *testing.T) {
@@ -58,9 +58,7 @@ func TestBuildTree_MultipleRoots(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestBuildTree_ComplexValues(t *testing.T) {
@@ -85,9 +83,7 @@ func TestBuildTree_ComplexValues(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestBuildTree_WithSpaces(t *testing.T) {
@@ -110,9 +106,7 @@ func TestBuildTree_WithSpaces(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestBuildTree_EmptyInput(t *testing.T) {
@@ -122,9 +116,7 @@ func TestBuildTree_EmptyInput(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestBuildTree_SingleKey(t *testing.T) {
@@ -138,9 +130,7 @@ func TestBuildTree_SingleKey(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestBuildTree_DeepNesting(t *testing.T) {
@@ -164,9 +154,7 @@ func TestBuildTree_DeepNesting(t *testing.T) {
 
 	result := BuildTree(flatMap)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestMergeTreesPreferFirst(t *testing.T) {
@@ -198,9 +186,7 @@ func TestMergeTreesPreferFirst(t *testing.T) {
 
 	result := MergeTreesPreferFirst(first, second)
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestDeepCopyValue_PreventsMutation(t *testing.T) {
@@ -221,8 +207,6 @@ func TestDeepCopyValue_PreventsMutation(t *testing.T) {
 
 	// Original should be unchanged
 	if nestedMap, ok := original["nested"].(map[string]any); ok {
-		if nestedMap["value"] != "original" {
-			t.Error("Original value was modified, deep copy failed")
-		}
+		require.Equal(t, "original", nestedMap["value"], "Original value was modified, deep copy failed")
 	}
 }

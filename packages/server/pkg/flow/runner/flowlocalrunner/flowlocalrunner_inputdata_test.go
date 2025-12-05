@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"github.com/stretchr/testify/require"
 )
 
 type inputTrackingNode struct {
@@ -133,9 +134,7 @@ func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 		},
 		baseVars,
 	)
-	if err != nil {
-		t.Fatalf("runner returned error: %v", err)
-	}
+	require.NoError(t, err, "runner returned error")
 
 	select {
 	case <-statesDone:
@@ -277,9 +276,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		},
 		baseVars,
 	)
-	if err != nil {
-		t.Fatalf("runner returned error: %v", err)
-	}
+	require.NoError(t, err, "runner returned error")
 
 	select {
 	case <-statesDone:
@@ -428,9 +425,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables(t *testing
 		},
 		baseVars,
 	)
-	if err != nil {
-		t.Fatalf("runner returned error: %v", err)
-	}
+	require.NoError(t, err, "runner returned error")
 
 	select {
 	case <-statesDone:

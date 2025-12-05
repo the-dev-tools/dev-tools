@@ -3,7 +3,6 @@ package rhttp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -65,16 +65,15 @@ func newHttpFixture(t *testing.T) *httpFixture {
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	if err := services.Us.CreateUser(context.Background(), &muser.User{
+	err := services.Us.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
+	})
+	require.NoError(t, err, "create user")
 
 	// Create additional services needed for HTTP handler (not used in basic tests)
 	// respService := sexampleresp.New(base.Queries)
@@ -144,9 +143,8 @@ func (f *httpFixture) createWorkspace(t *testing.T, name string) idwrap.IDWrap {
 		ActiveEnv: envID,
 		GlobalEnv: envID,
 	}
-	if err := f.ws.Create(f.ctx, ws); err != nil {
-		t.Fatalf("create workspace: %v", err)
-	}
+	err := f.ws.Create(f.ctx, ws)
+	require.NoError(t, err, "create workspace")
 
 	env := menv.Env{
 		ID:          envID,
@@ -154,9 +152,8 @@ func (f *httpFixture) createWorkspace(t *testing.T, name string) idwrap.IDWrap {
 		Name:        "default",
 		Type:        menv.EnvGlobal,
 	}
-	if err := f.es.CreateEnvironment(f.ctx, &env); err != nil {
-		t.Fatalf("create environment: %v", err)
-	}
+	err = f.es.CreateEnvironment(f.ctx, &env)
+	require.NoError(t, err, "create environment")
 
 	member := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
@@ -164,9 +161,8 @@ func (f *httpFixture) createWorkspace(t *testing.T, name string) idwrap.IDWrap {
 		UserID:      f.userID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
-	if err := f.wus.CreateWorkspaceUser(f.ctx, member); err != nil {
-		t.Fatalf("create workspace user: %v", err)
-	}
+	err = f.wus.CreateWorkspaceUser(f.ctx, member)
+	require.NoError(t, err, "create workspace user")
 
 	return workspaceID
 }
@@ -184,9 +180,8 @@ func (f *httpFixture) createHttp(t *testing.T, workspaceID idwrap.IDWrap, name s
 		Description: "Test HTTP entry",
 	}
 
-	if err := f.hs.Create(f.ctx, httpModel); err != nil {
-		t.Fatalf("create http: %v", err)
-	}
+	err := f.hs.Create(f.ctx, httpModel)
+	require.NoError(t, err, "create http")
 
 	return httpID
 }
@@ -204,9 +199,8 @@ func (f *httpFixture) createHttpWithUrl(t *testing.T, workspaceID idwrap.IDWrap,
 		Description: "Test HTTP entry",
 	}
 
-	if err := f.hs.Create(f.ctx, httpModel); err != nil {
-		t.Fatalf("create http: %v", err)
-	}
+	err := f.hs.Create(f.ctx, httpModel)
+	require.NoError(t, err, "create http")
 
 	return httpID
 }
@@ -225,9 +219,8 @@ func (f *httpFixture) createHttpHeader(t *testing.T, httpID idwrap.IDWrap, key, 
 
 	// Access the header service from the handler
 	headerService := f.handler.httpHeaderService
-	if err := headerService.Create(f.ctx, header); err != nil {
-		t.Fatalf("create http header: %v", err)
-	}
+	err := headerService.Create(f.ctx, header)
+	require.NoError(t, err, "create http header")
 }
 
 func (f *httpFixture) createHttpSearchParam(t *testing.T, httpID idwrap.IDWrap, key, value string) {
@@ -244,9 +237,8 @@ func (f *httpFixture) createHttpSearchParam(t *testing.T, httpID idwrap.IDWrap, 
 
 	// Access the search param service from the handler
 	paramService := f.handler.httpSearchParamService
-	if err := paramService.Create(f.ctx, param); err != nil {
-		t.Fatalf("create http search param: %v", err)
-	}
+	err := paramService.Create(f.ctx, param)
+	require.NoError(t, err, "create http search param")
 }
 
 func (f *httpFixture) createHttpAssertion(t *testing.T, httpID idwrap.IDWrap, expression, description string) {
@@ -266,9 +258,8 @@ func (f *httpFixture) createHttpAssertion(t *testing.T, httpID idwrap.IDWrap, ex
 
 	// Access the assertion service from the handler
 	assertService := f.handler.httpAssertService
-	if err := assertService.Create(f.ctx, assertion); err != nil {
-		t.Fatalf("create http assertion: %v", err)
-	}
+	err := assertService.Create(f.ctx, assertion)
+	require.NoError(t, err, "create http assertion")
 }
 
 // createTestServer creates a test HTTP server for integration testing
@@ -339,9 +330,7 @@ func collectHttpSyncItems(t *testing.T, ch <-chan *httpv1.HttpSyncResponse, coun
 	for len(items) < count {
 		select {
 		case resp, ok := <-ch:
-			if !ok {
-				t.Fatalf("channel closed before collecting %d items", count)
-			}
+			require.True(t, ok, "channel closed before collecting %d items", count)
 			for _, item := range resp.GetItems() {
 				if item != nil {
 					items = append(items, item)
@@ -351,7 +340,7 @@ func collectHttpSyncItems(t *testing.T, ch <-chan *httpv1.HttpSyncResponse, coun
 				}
 			}
 		case <-timeout:
-			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+			require.FailNowf(t, "timeout", "timeout waiting for %d items, collected %d", count, len(items))
 		}
 	}
 
@@ -385,7 +374,7 @@ func TestHttpSyncStreamsSnapshotAndUpdates(t *testing.T) {
 	// Snapshot was removed, so we should not receive the existing items
 	select {
 	case <-msgCh:
-		t.Fatal("Received unexpected snapshot item")
+		require.FailNow(t, "Received unexpected snapshot item")
 	case <-time.After(100 * time.Millisecond):
 		// Good, no snapshot
 	}
@@ -399,21 +388,14 @@ func TestHttpSyncStreamsSnapshotAndUpdates(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpUpdate(f.ctx, updateReq); err != nil {
-		t.Fatalf("HttpUpdate err: %v", err)
-	}
+	_, err := f.handler.HttpUpdate(f.ctx, updateReq)
+	require.NoError(t, err, "HttpUpdate")
 
 	updateItems := collectHttpSyncItems(t, msgCh, 1)
 	updateVal := updateItems[0].GetValue()
-	if updateVal == nil {
-		t.Fatal("update response missing value union")
-	}
-	if updateVal.GetKind() != httpv1.HttpSync_ValueUnion_KIND_UPDATE {
-		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
-	}
-	if got := updateVal.GetUpdate().GetName(); got != newName {
-		t.Fatalf("expected updated name %q, got %q", newName, got)
-	}
+	require.NotNil(t, updateVal, "update response missing value union")
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, updateVal.GetKind(), "expected update kind")
+	require.Equal(t, newName, updateVal.GetUpdate().GetName(), "expected updated name")
 
 	deleteReq := connect.NewRequest(&httpv1.HttpDeleteRequest{
 		Items: []*httpv1.HttpDelete{
@@ -422,25 +404,19 @@ func TestHttpSyncStreamsSnapshotAndUpdates(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpDelete(f.ctx, deleteReq); err != nil {
-		t.Fatalf("HttpDelete err: %v", err)
-	}
+	_, err = f.handler.HttpDelete(f.ctx, deleteReq)
+	require.NoError(t, err, "HttpDelete")
 
 	deleteItems := collectHttpSyncItems(t, msgCh, 1)
 	deleteVal := deleteItems[0].GetValue()
-	if deleteVal == nil {
-		t.Fatal("delete response missing value union")
-	}
-	if deleteVal.GetKind() != httpv1.HttpSync_ValueUnion_KIND_DELETE {
-		t.Fatalf("expected delete kind, got %v", deleteVal.GetKind())
-	}
-	if got := deleteVal.GetDelete().GetHttpId(); string(got) != string(httpB.Bytes()) {
-		t.Fatalf("expected deleted http %s, got %x", httpB.String(), got)
-	}
+	require.NotNil(t, deleteVal, "delete response missing value union")
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_DELETE, deleteVal.GetKind(), "expected delete kind")
+	require.Equal(t, string(httpB.Bytes()), string(deleteVal.GetDelete().GetHttpId()), "expected deleted http ID")
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled, "stream returned unexpected error")
 	}
 }
 
@@ -469,23 +445,22 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	// Snapshot removed, no initial items expected
 	select {
 	case <-msgCh:
-		t.Fatal("Received unexpected snapshot item")
+		require.FailNow(t, "Received unexpected snapshot item")
 	case <-time.After(100 * time.Millisecond):
 		// Good
 	}
 
 	otherUserID := idwrap.NewNow()
 	providerID := fmt.Sprintf("other-%s", otherUserID.String())
-	if err := f.us.CreateUser(context.Background(), &muser.User{
+	err := f.us.CreateUser(context.Background(), &muser.User{
 		ID:           otherUserID,
 		Email:        fmt.Sprintf("%s@example.com", otherUserID.String()),
 		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}); err != nil {
-		t.Fatalf("create other user: %v", err)
-	}
+	})
+	require.NoError(t, err, "create other user")
 
 	otherWorkspaceID := idwrap.NewNow()
 	otherEnvID := idwrap.NewNow()
@@ -497,9 +472,8 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		ActiveEnv: otherEnvID,
 		GlobalEnv: otherEnvID,
 	}
-	if err := f.ws.Create(context.Background(), ws); err != nil {
-		t.Fatalf("create other workspace: %v", err)
-	}
+	err = f.ws.Create(context.Background(), ws)
+	require.NoError(t, err, "create other workspace")
 
 	env := menv.Env{
 		ID:          otherEnvID,
@@ -507,9 +481,8 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		Name:        "default",
 		Type:        menv.EnvGlobal,
 	}
-	if err := f.es.CreateEnvironment(context.Background(), &env); err != nil {
-		t.Fatalf("create other env: %v", err)
-	}
+	err = f.es.CreateEnvironment(context.Background(), &env)
+	require.NoError(t, err, "create other env")
 
 	otherMember := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
@@ -517,9 +490,8 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		UserID:      otherUserID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
-	if err := f.wus.CreateWorkspaceUser(context.Background(), otherMember); err != nil {
-		t.Fatalf("create other workspace user: %v", err)
-	}
+	err = f.wus.CreateWorkspaceUser(context.Background(), otherMember)
+	require.NoError(t, err, "create other workspace user")
 
 	// Create HTTP entry in hidden workspace
 	hiddenHttpID := idwrap.NewNow()
@@ -530,9 +502,8 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		Url:         "https://hidden.com",
 		Method:      "GET",
 	}
-	if err := f.hs.Create(context.Background(), hiddenHttp); err != nil {
-		t.Fatalf("create hidden http: %v", err)
-	}
+	err = f.hs.Create(context.Background(), hiddenHttp)
+	require.NoError(t, err, "create hidden http")
 
 	f.handler.stream.Publish(HttpTopic{WorkspaceID: otherWorkspaceID}, HttpEvent{
 		Type: "insert",
@@ -546,13 +517,14 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 
 	select {
 	case resp := <-msgCh:
-		t.Fatalf("unexpected event for unauthorized workspace: %+v", resp)
+		require.FailNowf(t, "unexpected event", "unexpected event for unauthorized workspace: %+v", resp)
 	case <-time.After(150 * time.Millisecond):
 	}
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled, "stream returned unexpected error")
 	}
 }
 
@@ -588,25 +560,19 @@ func TestHttpCreatePublishesEvent(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpInsert(f.ctx, createReq); err != nil {
-		t.Fatalf("HttpInsert err: %v", err)
-	}
+	_, err := f.handler.HttpInsert(f.ctx, createReq)
+	require.NoError(t, err, "HttpInsert")
 
 	items := collectHttpSyncItems(t, msgCh, 1)
 	val := items[0].GetValue()
-	if val == nil {
-		t.Fatal("create response missing value union")
-	}
-	if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_INSERT {
-		t.Fatalf("expected insert kind, got %v", val.GetKind())
-	}
-	if got := val.GetInsert().GetName(); got != "api-created" {
-		t.Fatalf("expected created name api-created, got %q", got)
-	}
+	require.NotNil(t, val, "create response missing value union")
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_INSERT, val.GetKind(), "expected insert kind")
+	require.Equal(t, "api-created", val.GetInsert().GetName(), "expected created name")
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled, "stream returned unexpected error")
 	}
 }
 
@@ -629,13 +595,8 @@ func TestHttpRun_Success(t *testing.T) {
 	})
 
 	resp, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
-
-	if resp == nil {
-		t.Fatal("Expected non-nil response")
-	}
+	require.NoError(t, err, "HttpRun failed")
+	require.NotNil(t, resp, "Expected non-nil response")
 }
 
 func TestHttpRun_WithHeaders(t *testing.T) {
@@ -673,9 +634,7 @@ func TestHttpRun_WithHeaders(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
+	require.NoError(t, err, "HttpRun failed")
 }
 
 func TestHttpRun_WithQueryParams(t *testing.T) {
@@ -707,9 +666,7 @@ func TestHttpRun_WithQueryParams(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
+	require.NoError(t, err, "HttpRun failed")
 }
 
 func TestHttpRun_WithAssertions(t *testing.T) {
@@ -740,9 +697,7 @@ func TestHttpRun_WithAssertions(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
+	require.NoError(t, err, "HttpRun failed")
 }
 
 func TestHttpRun_ErrorCases(t *testing.T) {
@@ -812,11 +767,10 @@ func TestHttpRun_ErrorCases(t *testing.T) {
 
 			_, err := f.handler.HttpRun(ctx, req)
 
-			if tt.expectedError && err == nil {
-				t.Fatalf("Expected error but got none")
-			}
-			if !tt.expectedError && err != nil {
-				t.Fatalf("Unexpected error: %v", err)
+			if tt.expectedError {
+				require.Error(t, err, "Expected error but got none")
+			} else {
+				require.NoError(t, err, "Unexpected error")
 			}
 		})
 	}
@@ -835,18 +789,11 @@ func TestHttpRun_NotFound(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err == nil {
-		t.Fatal("Expected error for non-existent HTTP ID")
-	}
+	require.Error(t, err, "Expected error for non-existent HTTP ID")
 
 	connectErr, ok := err.(*connect.Error)
-	if !ok {
-		t.Fatalf("Expected Connect error, got: %T", err)
-	}
-
-	if connectErr.Code() != connect.CodeNotFound {
-		t.Fatalf("Expected NotFound code, got: %v", connectErr.Code())
-	}
+	require.True(t, ok, "Expected Connect error, got: %T", err)
+	require.Equal(t, connect.CodeNotFound, connectErr.Code(), "Expected NotFound code")
 }
 
 func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
@@ -860,16 +807,15 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 	// Create a workspace and HTTP entry with a different user
 	otherUserID := idwrap.NewNow()
 	providerID := fmt.Sprintf("other-%s", otherUserID.String())
-	if err := f.us.CreateUser(context.Background(), &muser.User{
+	err := f.us.CreateUser(context.Background(), &muser.User{
 		ID:           otherUserID,
 		Email:        fmt.Sprintf("%s@example.com", otherUserID.String()),
 		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}); err != nil {
-		t.Fatalf("create other user: %v", err)
-	}
+	})
+	require.NoError(t, err, "create other user")
 
 	otherWorkspaceID := idwrap.NewNow()
 	otherEnvID := idwrap.NewNow()
@@ -881,9 +827,8 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 		ActiveEnv: otherEnvID,
 		GlobalEnv: otherEnvID,
 	}
-	if err := f.ws.Create(context.Background(), ws); err != nil {
-		t.Fatalf("create other workspace: %v", err)
-	}
+	err = f.ws.Create(context.Background(), ws)
+	require.NoError(t, err, "create other workspace")
 
 	env := menv.Env{
 		ID:          otherEnvID,
@@ -891,9 +836,8 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 		Name:        "default",
 		Type:        menv.EnvGlobal,
 	}
-	if err := f.es.CreateEnvironment(context.Background(), &env); err != nil {
-		t.Fatalf("create other env: %v", err)
-	}
+	err = f.es.CreateEnvironment(context.Background(), &env)
+	require.NoError(t, err, "create other env")
 
 	otherMember := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
@@ -901,9 +845,8 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 		UserID:      otherUserID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
-	if err := f.wus.CreateWorkspaceUser(context.Background(), otherMember); err != nil {
-		t.Fatalf("create other workspace user: %v", err)
-	}
+	err = f.wus.CreateWorkspaceUser(context.Background(), otherMember)
+	require.NoError(t, err, "create other workspace user")
 
 	// Create HTTP entry in other workspace
 	httpID := f.createHttpWithUrl(t, ws.ID, "test-http", testServer.URL, "GET")
@@ -912,19 +855,12 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 		HttpId: httpID.Bytes(),
 	})
 
-	_, err := f.handler.HttpRun(f.ctx, req)
-	if err == nil {
-		t.Fatal("Expected error for unauthorized workspace access")
-	}
+	_, err = f.handler.HttpRun(f.ctx, req)
+	require.Error(t, err, "Expected error for unauthorized workspace access")
 
 	connectErr, ok := err.(*connect.Error)
-	if !ok {
-		t.Fatalf("Expected Connect error, got: %T", err)
-	}
-
-	if connectErr.Code() != connect.CodeNotFound {
-		t.Fatalf("Expected NotFound code, got: %v", connectErr.Code())
-	}
+	require.True(t, ok, "Expected Connect error, got: %T", err)
+	require.Equal(t, connect.CodeNotFound, connectErr.Code(), "Expected NotFound code")
 }
 
 func TestHttpRun_EmptyHttpId(t *testing.T) {
@@ -937,18 +873,11 @@ func TestHttpRun_EmptyHttpId(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err == nil {
-		t.Fatal("Expected error for empty HTTP ID")
-	}
+	require.Error(t, err, "Expected error for empty HTTP ID")
 
 	connectErr, ok := err.(*connect.Error)
-	if !ok {
-		t.Fatalf("Expected Connect error, got: %T", err)
-	}
-
-	if connectErr.Code() != connect.CodeInvalidArgument {
-		t.Fatalf("Expected InvalidArgument code, got: %v", connectErr.Code())
-	}
+	require.True(t, ok, "Expected Connect error, got: %T", err)
+	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code(), "Expected InvalidArgument code")
 }
 
 // ========== ASSERTION EVALUATION TESTS ==========
@@ -987,9 +916,7 @@ func TestHttpRun_Assertions_StatusCode(t *testing.T) {
 			})
 
 			_, err := f.handler.HttpRun(f.ctx, req)
-			if err != nil {
-				t.Fatalf("HttpRun failed: %v", err)
-			}
+			require.NoError(t, err, "HttpRun failed")
 		})
 	}
 }
@@ -1049,9 +976,7 @@ func TestHttpRun_Assertions_Headers(t *testing.T) {
 			})
 
 			_, err := f.handler.HttpRun(f.ctx, req)
-			if err != nil {
-				t.Fatalf("HttpRun failed: %v", err)
-			}
+			require.NoError(t, err, "HttpRun failed")
 		})
 	}
 }
@@ -1119,9 +1044,7 @@ func TestHttpRun_Assertions_BodyContent(t *testing.T) {
 			})
 
 			_, err := f.handler.HttpRun(f.ctx, req)
-			if err != nil {
-				t.Fatalf("HttpRun failed: %v", err)
-			}
+			require.NoError(t, err, "HttpRun failed")
 		})
 	}
 }
@@ -1189,9 +1112,7 @@ func TestHttpRun_Assertions_CustomExpressions(t *testing.T) {
 			})
 
 			_, err := f.handler.HttpRun(f.ctx, req)
-			if err != nil {
-				t.Fatalf("HttpRun failed: %v", err)
-			}
+			require.NoError(t, err, "HttpRun failed")
 		})
 	}
 }
@@ -1233,9 +1154,7 @@ func TestHttpRun_Assertions_MultipleAssertions(t *testing.T) {
 	})
 
 	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
+	require.NoError(t, err, "HttpRun failed")
 }
 
 func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
@@ -1300,9 +1219,7 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 			})
 
 			_, err := f.handler.HttpRun(f.ctx, req)
-			if err != nil {
-				t.Fatalf("HttpRun failed: %v", err)
-			}
+			require.NoError(t, err, "HttpRun failed")
 		})
 	}
 }
@@ -1545,7 +1462,7 @@ func TestHttpRun_ConcurrentExecutions(t *testing.T) {
 
 	// Check for errors
 	for err := range errors {
-		t.Fatalf("Concurrent HttpRun failed: %v", err)
+		require.FailNowf(t, "Concurrent HttpRun failed", "%v", err)
 	}
 
 	// Verify that we actually achieved concurrency
@@ -1628,7 +1545,7 @@ func TestHttpRun_ConcurrentWithDifferentRequests(t *testing.T) {
 
 	// Check for errors
 	for err := range errors {
-		t.Fatalf("Concurrent different requests failed: %v", err)
+		require.FailNowf(t, "Concurrent different requests failed", "%v", err)
 	}
 }
 
@@ -1671,12 +1588,12 @@ func TestHttpRun_ConcurrentWithSameHttpId(t *testing.T) {
 
 	// Check for errors
 	for err := range errors {
-		t.Fatalf("Concurrent same HTTP ID request failed: %v", err)
+		require.FailNowf(t, "Concurrent same HTTP ID request failed", "%v", err)
 	}
 
 	// All requests should succeed
 	if successCount != int64(numConcurrent) {
-		t.Fatalf("Expected %d successful requests, got %d", numConcurrent, successCount)
+		require.Equalf(t, int64(numConcurrent), successCount, "Expected %d successful requests, got %d", numConcurrent, successCount)
 	}
 }
 
@@ -1750,12 +1667,12 @@ func TestHttpRun_ConcurrentWithTimeouts(t *testing.T) {
 
 	// Check for unexpected errors
 	for err := range errors {
-		t.Fatalf("Concurrent timeout request failed unexpectedly: %v", err)
+		require.FailNowf(t, "Concurrent timeout request failed unexpectedly", "%v", err)
 	}
 
 	// Some should timeout, some should succeed
 	if successCount == 0 {
-		t.Fatal("Expected some successful requests")
+		require.NotZero(t, successCount, "Expected some successful requests")
 	}
 	if timeoutCount == 0 {
 		t.Log("Warning: Expected some timeouts but got none")
@@ -1860,7 +1777,7 @@ func TestHttpRun_VariableSubstitutionInURL(t *testing.T) {
 	// Get workspace to find GlobalEnv
 	ws, err := f.ws.Get(f.ctx, wsID)
 	if err != nil {
-		t.Fatalf("failed to get workspace: %v", err)
+		require.NoError(t, err, "failed to get workspace")
 	}
 
 	// Create variables
@@ -1871,7 +1788,7 @@ func TestHttpRun_VariableSubstitutionInURL(t *testing.T) {
 		Value:   "12345",
 		Enabled: true,
 	}); err != nil {
-		t.Fatalf("create userId variable: %v", err)
+		require.NoError(t, err, "create userId variable")
 	}
 
 	// Create HTTP entry with variable in URL
@@ -1883,13 +1800,11 @@ func TestHttpRun_VariableSubstitutionInURL(t *testing.T) {
 
 	_, err = f.handler.HttpRun(f.ctx, req)
 	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
+		require.NoError(t, err, "HttpRun failed")
 	}
 
 	// Verify that the request was made with the substituted path
-	if requestedPath != "/api/users/12345/profile" {
-		t.Fatalf("Expected path /api/users/12345/profile, got %s", requestedPath)
-	}
+	require.Equal(t, "/api/users/12345/profile", requestedPath, "Expected substituted path")
 }
 
 func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
@@ -1910,7 +1825,7 @@ func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
 	// Get workspace to find GlobalEnv
 	ws, err := f.ws.Get(f.ctx, wsID)
 	if err != nil {
-		t.Fatalf("failed to get workspace: %v", err)
+		require.NoError(t, err, "failed to get workspace")
 	}
 
 	// Create variables
@@ -1921,7 +1836,7 @@ func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
 		Value:   "token123",
 		Enabled: true,
 	}); err != nil {
-		t.Fatalf("create authToken variable: %v", err)
+		require.NoError(t, err, "create authToken variable")
 	}
 
 	// Add header with variable placeholder
@@ -1934,13 +1849,11 @@ func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
 
 	_, err = f.handler.HttpRun(f.ctx, req)
 	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
+		require.NoError(t, err, "HttpRun failed")
 	}
 
 	// Verify that the header was substituted
-	if receivedAuthHeader != "Bearer token123" {
-		t.Fatalf("Expected Authorization header 'Bearer token123', got '%s'", receivedAuthHeader)
-	}
+	require.Equal(t, "Bearer token123", receivedAuthHeader, "Expected substituted Authorization header")
 }
 
 func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
@@ -1961,7 +1874,7 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 	// Get workspace to find GlobalEnv
 	ws, err := f.ws.Get(f.ctx, wsID)
 	if err != nil {
-		t.Fatalf("failed to get workspace: %v", err)
+		require.NoError(t, err, "failed to get workspace")
 	}
 
 	// Create variables
@@ -1972,7 +1885,7 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 		Value:   "user123",
 		Enabled: true,
 	}); err != nil {
-		t.Fatalf("create userId variable: %v", err)
+		require.NoError(t, err, "create userId variable")
 	}
 	if err := f.vs.Create(f.ctx, mvar.Var{
 		ID:      idwrap.NewNow(),
@@ -1981,7 +1894,7 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 		Value:   "sess456",
 		Enabled: true,
 	}); err != nil {
-		t.Fatalf("create sessionId variable: %v", err)
+		require.NoError(t, err, "create sessionId variable")
 	}
 
 	// Add query parameters with variable placeholders
@@ -1993,13 +1906,11 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 
 	_, err = f.handler.HttpRun(f.ctx, req)
 	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
+		require.NoError(t, err, "HttpRun failed")
 	}
 
 	// Verify that query parameters were substituted
-	if receivedQuery != "sessionId=sess456&userId=user123" && receivedQuery != "userId=user123&sessionId=sess456" {
-		t.Fatalf("Expected query with substituted values, got '%s'", receivedQuery)
-	}
+	require.True(t, receivedQuery == "sessionId=sess456&userId=user123" || receivedQuery == "userId=user123&sessionId=sess456", "Expected query with substituted values, got: %s", receivedQuery)
 }
 
 func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
@@ -2029,7 +1940,7 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 	// Get workspace to find active env
 	workspace, err := f.ws.Get(f.ctx, ws)
 	if err != nil {
-		t.Fatalf("failed to get workspace: %v", err)
+		require.NoError(t, err, "failed to get workspace")
 	}
 	envID := workspace.ActiveEnv
 
@@ -2043,15 +1954,14 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 	}
 
 	for k, v := range vars {
-		if err := f.vs.Create(f.ctx, mvar.Var{
+		err := f.vs.Create(f.ctx, mvar.Var{
 			ID:      idwrap.NewNow(),
 			EnvID:   envID,
 			VarKey:  k,
 			Value:   v,
 			Enabled: true,
-		}); err != nil {
-			t.Fatalf("failed to create variable %s: %v", k, err)
-		}
+		})
+		require.NoErrorf(t, err, "failed to create variable %s", k)
 	}
 
 	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL+"/api/v{{version}}/users/{{userId}}", "POST")
@@ -2081,24 +1991,18 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 
 	_, err = f.handler.HttpRun(f.ctx, req)
 	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
+		require.NoError(t, err, "HttpRun failed")
 	}
 
 	// Verify request details contain SUBSTITUTED values
-	if !strings.Contains(requestDetails.Path, "/api/v1/users/12345") {
-		t.Fatalf("Expected path with substituted variables, got %s", requestDetails.Path)
-	}
+	require.Contains(t, requestDetails.Path, "/api/v1/users/12345", "Expected path with substituted variables")
 
 	// Verify headers contain variables
 	authHeader := requestDetails.Headers["Authorization"][0]
-	if authHeader != "Bearer secret-token-123" {
-		t.Fatalf("Expected Authorization header with substituted variable, got %s", authHeader)
-	}
+	require.Equal(t, "Bearer secret-token-123", authHeader, "Expected substituted Authorization header")
 
 	// Verify query parameters contain variables
-	if !strings.Contains(requestDetails.Query, "format=json") {
-		t.Fatalf("Expected query parameters with substituted variables, got %s", requestDetails.Query)
-	}
+	require.Contains(t, requestDetails.Query, "format=json", "Expected query with substituted variables")
 }
 
 func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
@@ -2147,21 +2051,21 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 
 	_, err := f.handler.HttpRun(f.ctx, firstReq)
 	if err != nil {
-		t.Fatalf("First HttpRun failed: %v", err)
+		require.NoError(t, err, "First HttpRun failed")
 	}
 
 	// Manually inject variables to simulate chaining
 	// Get workspace to find GlobalEnv
 	wsObj, err := f.ws.Get(f.ctx, ws)
 	if err != nil {
-		t.Fatalf("failed to get workspace: %v", err)
+		require.NoError(t, err, "failed to get workspace")
 	}
 
 	if err := f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.userId", Value: "12345", Enabled: true}); err != nil {
-		t.Fatalf("create response.userId: %v", err)
+		require.NoError(t, err, "create response.userId")
 	}
 	if err := f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.token", Value: "secret-token-xyz", Enabled: true}); err != nil {
-		t.Fatalf("create response.token: %v", err)
+		require.NoError(t, err, "create response.token")
 	}
 
 	// Execute second request (in real implementation, this would use variables from first response)
@@ -2171,13 +2075,11 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 
 	_, err = f.handler.HttpRun(f.ctx, secondReq)
 	if err != nil {
-		t.Fatalf("Second HttpRun failed: %v", err)
+		require.NoError(t, err, "Second HttpRun failed")
 	}
 
 	// Verify that the second request was made with substituted variable
-	if firstRequestData != "12345" {
-		t.Fatalf("Expected data parameter to be substituted, got %s", firstRequestData)
-	}
+	require.Equal(t, "12345", firstRequestData, "Expected substituted data parameter")
 }
 
 func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
@@ -2236,7 +2138,7 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 			if tt.name == "unicode variables" {
 				wsObj, err := f.ws.Get(f.ctx, ws)
 				if err != nil {
-					t.Fatalf("failed to get workspace: %v", err)
+					require.NoError(t, err, "failed to get workspace")
 				}
 				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "用户ID", Value: "123", Enabled: true})
 				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "令牌", Value: "abc", Enabled: true})
@@ -2260,10 +2162,10 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 			_, err := f.handler.HttpRun(f.ctx, req)
 
 			if tt.expectError && err == nil {
-				t.Fatalf("Expected error but got none")
+				require.Error(t, err, "Expected error but got none")
 			}
 			if !tt.expectError && err != nil {
-				t.Fatalf("Unexpected error: %v", err)
+				require.NoError(t, err, "Unexpected error")
 			}
 		})
 	}

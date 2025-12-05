@@ -3,10 +3,10 @@ package rflowv2
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"the-dev-tools/server/pkg/idwrap"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNodeEventToSyncResponse_StartNode(t *testing.T) {
@@ -38,12 +38,9 @@ func TestNodeEventToSyncResponse_StartNode(t *testing.T) {
 	resp := nodeEventToSyncResponse(evt)
 
 	// We removed the filtering, so now it should return a response
-	if resp == nil {
-		t.Error("StartNode is still filtered out!")
-	} else {
-		t.Log("StartNode is correctly synced")
-		assert.Equal(t, flowv1.NodeSync_ValueUnion_KIND_INSERT, resp.Items[0].Value.Kind)
-	}
+	require.NotNil(t, resp, "StartNode is still filtered out!")
+	t.Log("StartNode is correctly synced")
+	require.Equal(t, flowv1.NodeSync_ValueUnion_KIND_INSERT, resp.Items[0].Value.Kind)
 }
 
 func TestNodeEventToSyncResponse_OtherNode(t *testing.T) {
@@ -64,6 +61,6 @@ func TestNodeEventToSyncResponse_OtherNode(t *testing.T) {
 	}
 
 	resp := nodeEventToSyncResponse(evt)
-	assert.NotNil(t, resp)
-	assert.Equal(t, flowv1.NodeSync_ValueUnion_KIND_INSERT, resp.Items[0].Value.Kind)
+	require.NotNil(t, resp)
+	require.Equal(t, flowv1.NodeSync_ValueUnion_KIND_INSERT, resp.Items[0].Value.Kind)
 }

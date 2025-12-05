@@ -12,6 +12,7 @@ import (
 	flowlocalrunner "the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateMockFlow_BasicStructure(t *testing.T) {
@@ -100,9 +101,7 @@ func TestCreateMockFlow_LinearFlow(t *testing.T) {
 	}
 
 	expectedNodesWithOneNext := len(result.Nodes) - 1
-	if nodesWithOneNext != expectedNodesWithOneNext {
-		t.Errorf("Expected %d nodes with one next node, got %d", expectedNodesWithOneNext, nodesWithOneNext)
-	}
+	require.Equal(t, expectedNodesWithOneNext, nodesWithOneNext, "Expected %d nodes with one next node, got %d", expectedNodesWithOneNext, nodesWithOneNext)
 
 	// Verify that nodes with delays have the correct delay
 	nodesWithCorrectDelay := 0
@@ -117,9 +116,7 @@ func TestCreateMockFlow_LinearFlow(t *testing.T) {
 	}
 
 	expectedNodesWithDelay := params.RequestCount + params.ForLoopCount
-	if nodesWithCorrectDelay != expectedNodesWithDelay {
-		t.Errorf("Expected %d nodes with delay %v, got %d", expectedNodesWithDelay, params.Delay, nodesWithCorrectDelay)
-	}
+	require.Equal(t, expectedNodesWithDelay, nodesWithCorrectDelay, "Expected %d nodes with delay %v, got %d", expectedNodesWithDelay, params.Delay, nodesWithCorrectDelay)
 }
 
 func TestCreateMockFlow_EdgesConnectivity(t *testing.T) {
@@ -291,9 +288,7 @@ func TestCreateMockFlow_IntegrationWithFlowLocalRunner(t *testing.T) {
 	}
 
 	expectedNodeCount := len(result.Nodes)
-	if successCount != expectedNodeCount {
-		t.Errorf("Expected %d successful node statuses, got %d", expectedNodeCount, successCount)
-	}
+	require.Equal(t, expectedNodeCount, successCount, "Expected %d successful node statuses, got %d", expectedNodeCount, successCount)
 
 	// Verify all nodes completed successfully
 	for nodeID := range result.Nodes {
@@ -379,9 +374,7 @@ func TestCreateMockFlow_Performance_BasicLoad(t *testing.T) {
 		}
 	}
 
-	if successCount != totalNodes {
-		t.Errorf("Expected %d successful nodes, got %d", totalNodes, successCount)
-	}
+	require.Equal(t, totalNodes, successCount, "Expected %d successful nodes, got %d", totalNodes, successCount)
 
 	// Verify flow completed successfully
 	foundSuccess := false

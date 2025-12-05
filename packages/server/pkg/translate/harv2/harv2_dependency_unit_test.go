@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
@@ -95,18 +94,18 @@ func TestHARv2_DependencyChain_Unit(t *testing.T) {
 
 	headerBase := findHeader(baseB.ID, "Authorization")
 	require.NotNil(t, headerBase, "Base header not found")
-	assert.Equal(t, "Bearer abc-123-xyz-token", headerBase.Value, "Base header should have raw value")
-	assert.False(t, headerBase.IsDelta, "Base header should NOT be delta")
+	require.Equal(t, "Bearer abc-123-xyz-token", headerBase.Value, "Base header should have raw value")
+	require.False(t, headerBase.IsDelta, "Base header should NOT be delta")
 
 	headerDelta := findHeader(deltaB.ID, "Authorization")
 	require.NotNil(t, headerDelta, "Delta header not found")
-	assert.True(t, headerDelta.IsDelta, "Delta header should be marked IsDelta")
-	assert.NotNil(t, headerDelta.ParentHttpHeaderID, "Delta header should have ParentID")
-	assert.Equal(t, headerBase.ID, *headerDelta.ParentHttpHeaderID, "Delta header should point to Base header")
-	
+	require.True(t, headerDelta.IsDelta, "Delta header should be marked IsDelta")
+	require.NotNil(t, headerDelta.ParentHttpHeaderID, "Delta header should have ParentID")
+	require.Equal(t, headerBase.ID, *headerDelta.ParentHttpHeaderID, "Delta header should point to Base header")
+
 	// Check Delta Value for template
 	require.NotNil(t, headerDelta.DeltaValue)
-	assert.Contains(t, *headerDelta.DeltaValue, "{{", "Delta header value should contain template start")
-	assert.Contains(t, *headerDelta.DeltaValue, "}}", "Delta header value should contain template end")
-	assert.NotContains(t, *headerDelta.DeltaValue, "abc-123-xyz-token", "Delta header value should NOT contain raw token")
+	require.Contains(t, *headerDelta.DeltaValue, "{{", "Delta header value should contain template start")
+	require.Contains(t, *headerDelta.DeltaValue, "}}", "Delta header value should contain template end")
+	require.NotContains(t, *headerDelta.DeltaValue, "abc-123-xyz-token", "Delta header value should NOT contain raw token")
 }

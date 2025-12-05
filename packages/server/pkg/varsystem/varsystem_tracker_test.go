@@ -6,7 +6,8 @@ import (
 
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestVarMapTracker_Get(t *testing.T) {
 	// Create a base VarMap
@@ -68,9 +69,7 @@ func TestVarMapTracker_ReplaceVars(t *testing.T) {
 	// Test replacing variables in a URL
 	input := "{{baseUrl}}/{{version}}/users?token={{token}}"
 	result, err := tracker.ReplaceVars(input)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	expected := "https://api.example.com/v1/users?token=abc123"
 	if result != expected {
@@ -109,9 +108,7 @@ func TestVarMapTracker_ReplaceVars_SingleVariable(t *testing.T) {
 	// Test replacing a single variable
 	input := "{{message}}"
 	result, err := tracker.ReplaceVars(input)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	if result != "Hello World" {
 		t.Errorf("Expected 'Hello World', got '%s'", result)
@@ -162,9 +159,7 @@ func TestVarMapTracker_ReplaceVars_NoVariables(t *testing.T) {
 	// Test string with no variables
 	input := "https://api.example.com/users"
 	result, err := tracker.ReplaceVars(input)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error")
 
 	if result != input {
 		t.Errorf("Expected '%s', got '%s'", input, result)

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/dbtime"
@@ -20,15 +22,11 @@ import (
 func TestWorkspaceDeletion(t *testing.T) {
 	ctx := context.Background()
 	db, cleanup, err := sqlitemem.NewSQLiteMem(ctx)
-	if err != nil {
-		t.Fatalf("failed to create db: %v", err)
-	}
+	require.NoError(t, err, "failed to create db")
 	defer cleanup()
 
 	queries, err := gen.Prepare(ctx, db)
-	if err != nil {
-		t.Fatalf("failed to prepare queries: %v", err)
-	}
+	require.NoError(t, err, "failed to prepare queries")
 
 	wsService := sworkspace.New(queries)
 	userService := suser.New(queries)
@@ -44,9 +42,8 @@ func TestWorkspaceDeletion(t *testing.T) {
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
 	}
-	if err := userService.CreateUser(ctx, user); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
+	err = userService.CreateUser(ctx, user)
+	require.NoError(t, err, "create user")
 
 	createWS := func(name string, order float64) idwrap.IDWrap {
 		wsID := idwrap.NewNow()
@@ -56,17 +53,15 @@ func TestWorkspaceDeletion(t *testing.T) {
 			Updated:      dbtime.DBNow(),
 			Order:        order,
 		}
-		if err := wsService.Create(ctx, ws); err != nil {
-			t.Fatalf("create workspace: %v", err)
-		}
-		if err := wusService.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+		err := wsService.Create(ctx, ws)
+		require.NoError(t, err, "create workspace")
+		err = wusService.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
 			ID:          idwrap.NewNow(),
 			WorkspaceID: wsID,
 			UserID:      userID,
 			Role:        mworkspaceuser.RoleOwner,
-		}); err != nil {
-			t.Fatalf("create workspace user: %v", err)
-		}
+		})
+		require.NoError(t, err, "create workspace user")
 		return wsID
 	}
 
@@ -76,41 +71,23 @@ func TestWorkspaceDeletion(t *testing.T) {
 
 	// Verify initial state
 	list, _ := wsService.GetWorkspacesByUserIDOrdered(ctx, userID)
-	if len(list) != 3 {
-		t.Fatalf("setup failed, expected 3 workspaces, got %d", len(list))
-	}
+	require.Len(t, list, 3, "setup failed, expected 3 workspaces")
 
 	// Verify order is respected (0, 1, 2)
-	if list[0].ID.Compare(ws1) != 0 {
-		t.Errorf("Expected first workspace to be WS1")
-	}
-	if list[1].ID.Compare(ws2) != 0 {
-		t.Errorf("Expected second workspace to be WS2")
-	}
-	if list[2].ID.Compare(ws3) != 0 {
-		t.Errorf("Expected third workspace to be WS3")
-	}
+	require.Equal(t, 0, list[0].ID.Compare(ws1), "Expected first workspace to be WS1")
+	require.Equal(t, 0, list[1].ID.Compare(ws2), "Expected second workspace to be WS2")
+	require.Equal(t, 0, list[2].ID.Compare(ws3), "Expected third workspace to be WS3")
 
 	// Delete WS2 (Middle)
-	if err := wsService.Delete(ctx, userID, ws2); err != nil {
-		t.Fatalf("delete ws2: %v", err)
-	}
+	err = wsService.Delete(ctx, userID, ws2)
+	require.NoError(t, err, "delete ws2")
 
 	// Check list again
 	listAfter, err := wsService.GetWorkspacesByUserIDOrdered(ctx, userID)
-	if err != nil {
-		t.Fatalf("list after delete: %v", err)
-	}
-	
-	if len(listAfter) != 2 {
-		t.Errorf("Expected 2 workspaces, got %d", len(listAfter))
-	}
-	
+	require.NoError(t, err, "list after delete")
+	require.Len(t, listAfter, 2, "Expected 2 workspaces")
+
 	// Verify remaining order
-	if listAfter[0].ID.Compare(ws1) != 0 {
-		t.Errorf("Expected first workspace to be WS1")
-	}
-	if listAfter[1].ID.Compare(ws3) != 0 {
-		t.Errorf("Expected second workspace to be WS3")
-	}
+	require.Equal(t, 0, listAfter[0].ID.Compare(ws1), "Expected first workspace to be WS1")
+	require.Equal(t, 0, listAfter[1].ID.Compare(ws3), "Expected second workspace to be WS3")
 }

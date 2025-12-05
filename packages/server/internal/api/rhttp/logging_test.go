@@ -179,6 +179,6 @@ func TestHttpRun_Logging(t *testing.T) {
 		assert.Equal(t, "Success", fields["status"].GetStringValue())
 
 	case <-time.After(2 * time.Second):
-		t.Fatal("Timeout waiting for logs")
+		require.FailNow(t, "Timeout waiting for logs")
 	}
 }

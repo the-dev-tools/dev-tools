@@ -14,7 +14,8 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 	tests := []struct {
@@ -140,35 +141,27 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 	// Create temporary files
 	file1, err := os.CreateTemp("", "testfile1-*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file 1: %v", err)
-	}
+	require.NoError(t, err, "failed to create temp file 1")
 	defer func() {
 		if err := os.Remove(file1.Name()); err != nil {
 			t.Errorf("failed to remove temp file 1: %v", err)
 		}
 	}()
 	_, err = file1.WriteString("content of file 1")
-	if err != nil {
-		t.Fatalf("failed to write to file 1: %v", err)
-	}
+	require.NoError(t, err, "failed to write to file 1")
 	if err := file1.Close(); err != nil {
 		t.Errorf("failed to close file 1: %v", err)
 	}
 
 	file2, err := os.CreateTemp("", "testfile2-*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file 2: %v", err)
-	}
+	require.NoError(t, err, "failed to create temp file 2")
 	defer func() {
 		if err := os.Remove(file2.Name()); err != nil {
 			t.Errorf("failed to remove temp file 2: %v", err)
 		}
 	}()
 	_, err = file2.WriteString("content of file 2")
-	if err != nil {
-		t.Fatalf("failed to write to file 2: %v", err)
-	}
+	require.NoError(t, err, "failed to write to file 2")
 	if err := file2.Close(); err != nil {
 		t.Errorf("failed to close file 2: %v", err)
 	}
@@ -193,9 +186,7 @@ func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 
 	// Call PrepareRequest
 	req, err := PrepareRequest(endpoint, example, nil, nil, mhttp.HTTPBodyRaw{}, formBody, nil, varMap)
-	if err != nil {
-		t.Fatalf("PrepareRequest failed: %v", err)
-	}
+	require.NoError(t, err, "PrepareRequest failed")
 
 	// Verify the request body
 	if req.Body == nil {
@@ -215,9 +206,7 @@ func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 	}
 
 	_, params, err := mime.ParseMediaType(contentType)
-	if err != nil {
-		t.Fatalf("failed to parse Content-Type: %v", err)
-	}
+	require.NoError(t, err, "failed to parse Content-Type")
 	boundary := params["boundary"]
 	if boundary == "" {
 		t.Fatal("multipart boundary not found")

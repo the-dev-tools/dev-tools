@@ -3,6 +3,7 @@ package tcurlv2
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
@@ -59,31 +60,18 @@ func TestConvertCurl(t *testing.T) {
 			}
 
 			result, err := ConvertCurl(tt.curl, opts)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ConvertCurl() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
+			require.NotNil(t, result, "ConvertCurl() returned nil result for successful conversion")
 
-			if !tt.wantErr {
-				if result == nil {
-					t.Error("ConvertCurl() returned nil result for successful conversion")
-					return
-				}
-
-				// Basic validation
-				if result.HTTP.ID.Compare(idwrap.IDWrap{}) == 0 {
-					t.Error("ConvertCurl() HTTP ID should not be empty")
-				}
-				if result.HTTP.WorkspaceID.Compare(workspace.ID) != 0 {
-					t.Error("ConvertCurl() workspace ID mismatch")
-				}
-				if result.HTTP.Method == "" {
-					t.Error("ConvertCurl() HTTP method should not be empty")
-				}
-				if result.HTTP.Url == "" {
-					t.Error("ConvertCurl() HTTP URL should not be empty")
-				}
-			}
+			// Basic validation
+			require.NotEqual(t, idwrap.IDWrap{}, result.HTTP.ID, "ConvertCurl() HTTP ID should not be empty")
+			require.Equal(t, workspace.ID, result.HTTP.WorkspaceID, "ConvertCurl() workspace ID mismatch")
+			require.NotEmpty(t, result.HTTP.Method, "ConvertCurl() HTTP method should not be empty")
+			require.NotEmpty(t, result.HTTP.Url, "ConvertCurl() HTTP URL should not be empty")
 		})
 	}
 }
@@ -119,9 +107,7 @@ func TestExtractURLForTesting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractURLForTesting(tt.curl)
-			if got != tt.want {
-				t.Errorf("ExtractURLForTesting() = %v, want %v", got, tt.want)
-			}
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -141,33 +127,18 @@ func TestBuildCurl(t *testing.T) {
 	}
 
 	resolved, err := ConvertCurl(curl, opts)
-	if err != nil {
-		t.Fatalf("ConvertCurl() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Build curl back
 	built, err := BuildCurl(resolved)
-	if err != nil {
-		t.Fatalf("BuildCurl() error = %v", err)
-	}
-
-	if built == "" {
-		t.Error("BuildCurl() returned empty string")
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, built, "BuildCurl() returned empty string")
 
 	// Basic checks
-	if !contains(built, "curl") {
-		t.Error("BuildCurl() should contain 'curl'")
-	}
-	if !contains(built, "https://api.example.com/users") {
-		t.Error("BuildCurl() should contain the URL")
-	}
-	if !contains(built, "POST") {
-		t.Error("BuildCurl() should contain the POST method")
-	}
-	if !contains(built, "Content-Type: application/json") {
-		t.Error("BuildCurl() should contain the Content-Type header")
-	}
+	require.Contains(t, built, "curl", "BuildCurl() should contain 'curl'")
+	require.Contains(t, built, "https://api.example.com/users", "BuildCurl() should contain the URL")
+	require.Contains(t, built, "POST", "BuildCurl() should contain the POST method")
+	require.Contains(t, built, "Content-Type: application/json", "BuildCurl() should contain the Content-Type header")
 }
 
 func contains(s, substr string) bool {

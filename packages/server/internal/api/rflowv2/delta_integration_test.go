@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/db/pkg/dbtest"
@@ -52,14 +51,10 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	// 1. Setup Mock Server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify Method (Delta should override Base GET with POST)
-		if r.Method != "POST" {
-			t.Errorf("Expected method POST, got %s", r.Method)
-		}
+		require.Equal(t, "POST", r.Method, "Expected method POST")
 
 		// Verify Header (Delta should override Base header)
-		if val := r.Header.Get("X-Test"); val != "Delta" {
-			t.Errorf("Expected X-Test header 'Delta', got '%s'", val)
-		}
+		require.Equal(t, "Delta", r.Header.Get("X-Test"), "Expected X-Test header 'Delta'")
 
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -310,5 +305,5 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, exec, "Node execution not found for node %s", requestNodeID.String())
-	assert.Equal(t, mnnode.NODE_STATE_SUCCESS, mnnode.NodeState(exec.State))
+	require.Equal(t, mnnode.NODE_STATE_SUCCESS, mnnode.NodeState(exec.State))
 }

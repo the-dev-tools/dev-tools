@@ -12,7 +12,8 @@ import (
 	"github.com/expr-lang/expr/file"
 	"iter"
 	"the-dev-tools/server/pkg/errmap"
-)
+
+	"github.com/stretchr/testify/require")
 
 type sampleNested struct {
 	ID   int               `json:"id"`
@@ -64,14 +65,10 @@ func TestConvertStructToMapWithJSONTagsMatchesLegacy(t *testing.T) {
 	}
 
 	expected, err := legacyConvert(s)
-	if err != nil {
-		t.Fatalf("legacy convert failed: %v", err)
-	}
+	require.NoError(t, err, "legacy convert failed")
 
 	got, err := convertStructToMapWithJSONTags(s)
-	if err != nil {
-		t.Fatalf("convertStructToMapWithJSONTags returned error: %v", err)
-	}
+	require.NoError(t, err, "convertStructToMapWithJSONTags returned error")
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("conversion mismatch\nexpected: %#v\n     got: %#v", expected, got)
@@ -85,14 +82,10 @@ func TestConvertHandlesMapAndSlice(t *testing.T) {
 	}
 
 	expected, err := legacyConvert(input)
-	if err != nil {
-		t.Fatalf("legacy convert failed: %v", err)
-	}
+	require.NoError(t, err, "legacy convert failed")
 
 	got, err := convertStructToMapWithJSONTags(input)
-	if err != nil {
-		t.Fatalf("convertStructToMapWithJSONTags returned error: %v", err)
-	}
+	require.NoError(t, err, "convertStructToMapWithJSONTags returned error")
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("conversion mismatch\nexpected: %#v\n     got: %#v", expected, got)
@@ -105,9 +98,7 @@ func TestExpressionEvaluteAsBool_SyntaxErrorFriendly(t *testing.T) {
 	})
 
 	_, err := ExpressionEvaluteAsBool(context.Background(), env, "flag &&")
-	if err == nil {
-		t.Fatal("expected syntax error, got nil")
-	}
+	require.Error(t, err, "expected syntax error, got nil")
 
 	var friendly *errmap.Error
 	if !errors.As(err, &friendly) {
@@ -138,9 +129,7 @@ func TestExpressionEvaluteAsBool_RuntimeErrorFriendly(t *testing.T) {
 	})
 
 	_, err := ExpressionEvaluteAsBool(context.Background(), env, "boom()")
-	if err == nil {
-		t.Fatal("expected runtime error, got nil")
-	}
+	require.Error(t, err, "expected runtime error, got nil")
 
 	var friendly *errmap.Error
 	if !errors.As(err, &friendly) {

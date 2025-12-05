@@ -9,7 +9,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 	flowID := idwrap.NewNow()
@@ -28,9 +29,7 @@ func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 	}
 
 	err := bundle.EnsureFlowStructure()
-	if err != nil {
-		t.Fatalf("EnsureFlowStructure failed: %v", err)
-	}
+	require.NoError(t, err, "EnsureFlowStructure failed")
 
 	// Should have 2 nodes now (start + request)
 	if len(bundle.FlowNodes) != 2 {
@@ -78,9 +77,7 @@ func TestEnsureFlowStructure_DoesNotDuplicateStartNode(t *testing.T) {
 	}
 
 	err := bundle.EnsureFlowStructure()
-	if err != nil {
-		t.Fatalf("EnsureFlowStructure failed: %v", err)
-	}
+	require.NoError(t, err, "EnsureFlowStructure failed")
 
 	// Should still have 2 nodes (not create duplicate start)
 	if len(bundle.FlowNodes) != 2 {
@@ -127,9 +124,7 @@ func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
 	}
 
 	err := bundle.EnsureFlowStructure()
-	if err != nil {
-		t.Fatalf("EnsureFlowStructure failed: %v", err)
-	}
+	require.NoError(t, err, "EnsureFlowStructure failed")
 
 	// Find nodes by ID and check positions
 	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
@@ -186,9 +181,7 @@ func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
 	}
 
 	err := bundle.EnsureFlowStructure()
-	if err != nil {
-		t.Fatalf("EnsureFlowStructure failed: %v", err)
-	}
+	require.NoError(t, err, "EnsureFlowStructure failed")
 
 	// Find nodes by ID
 	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)

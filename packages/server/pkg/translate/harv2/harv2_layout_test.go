@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
@@ -72,14 +71,14 @@ func TestReorganizeNodePositions_Sequential(t *testing.T) {
 	require.True(t, ok, "request_2 not found")
 
 	// Verify Y Positions (Depth)
-	assert.Equal(t, 0.0, start.PositionY, "Start should be at Y=0")
-	assert.Equal(t, 300.0, req1.PositionY, "Request 1 should be at Y=300")
-	assert.Equal(t, 600.0, req2.PositionY, "Request 2 should be at Y=600")
+	require.Equal(t, 0.0, start.PositionY, "Start should be at Y=0")
+	require.Equal(t, 300.0, req1.PositionY, "Request 1 should be at Y=300")
+	require.Equal(t, 600.0, req2.PositionY, "Request 2 should be at Y=600")
 
 	// Verify X Positions (should be centered, so 0 if single node per level)
-	assert.Equal(t, 0.0, start.PositionX)
-	assert.Equal(t, 0.0, req1.PositionX)
-	assert.Equal(t, 0.0, req2.PositionX)
+	require.Equal(t, 0.0, start.PositionX)
+	require.Equal(t, 0.0, req1.PositionX)
+	require.Equal(t, 0.0, req2.PositionX)
 }
 
 func TestReorganizeNodePositions_Parallel(t *testing.T) {
@@ -140,22 +139,22 @@ func TestReorganizeNodePositions_Parallel(t *testing.T) {
 	// Expectation:
 	// Level 0: Start
 	// Level 1: Req1, Req2
-	
-	assert.Equal(t, 0.0, start.PositionY)
-	assert.Equal(t, 300.0, req1.PositionY)
-	assert.Equal(t, 300.0, req2.PositionY) // Same level
+
+	require.Equal(t, 0.0, start.PositionY)
+	require.Equal(t, 300.0, req1.PositionY)
+	require.Equal(t, 300.0, req2.PositionY) // Same level
 
 	// X Positions should differ
-	assert.NotEqual(t, req1.PositionX, req2.PositionX)
-	
+	require.NotEqual(t, req1.PositionX, req2.PositionX)
+
 	// Center alignment calculation:
 	// 2 nodes, spacing 400.
 	// Total width = (2-1)*400 = 400.
 	// StartX = 0 - 400/2 = -200.
 	// Node 0 X = -200 + 0 = -200
 	// Node 1 X = -200 + 400 = 200
-	
-	// We don't enforce specific order in the map iteration in layout (it uses slice from map), 
+
+	// We don't enforce specific order in the map iteration in layout (it uses slice from map),
 	// so we just check they are -200 and 200.
-	assert.True(t, (req1.PositionX == -200 && req2.PositionX == 200) || (req1.PositionX == 200 && req2.PositionX == -200))
+	require.True(t, (req1.PositionX == -200 && req2.PositionX == 200) || (req1.PositionX == 200 && req2.PositionX == -200))
 }

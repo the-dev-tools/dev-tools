@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestVariableTracker_TrackReadWrite(t *testing.T) {
@@ -20,24 +22,14 @@ func TestVariableTracker_TrackReadWrite(t *testing.T) {
 
 	// Verify reads
 	readVars := tracker.GetReadVars()
-	if len(readVars) != 3 {
-		t.Errorf("Expected 3 read variables, got %d", len(readVars))
-	}
-	if readVars["key1"] != "value1" {
-		t.Errorf("Expected key1='value1', got %v", readVars["key1"])
-	}
-	if readVars["key2"] != 42 {
-		t.Errorf("Expected key2=42, got %v", readVars["key2"])
-	}
+	require.Len(t, readVars, 3, "Expected 3 read variables")
+	require.Equal(t, "value1", readVars["key1"])
+	require.Equal(t, 42, readVars["key2"])
 
 	// Verify writes
 	writtenVars := tracker.GetWrittenVars()
-	if len(writtenVars) != 2 {
-		t.Errorf("Expected 2 written variables, got %d", len(writtenVars))
-	}
-	if writtenVars["output1"] != "result1" {
-		t.Errorf("Expected output1='result1', got %v", writtenVars["output1"])
-	}
+	require.Len(t, writtenVars, 2, "Expected 2 written variables")
+	require.Equal(t, "result1", writtenVars["output1"])
 }
 
 func TestVariableTracker_NilTracker(t *testing.T) {
@@ -51,12 +43,8 @@ func TestVariableTracker_NilTracker(t *testing.T) {
 	reads := tracker.GetReadVars()
 	writes := tracker.GetWrittenVars()
 
-	if len(reads) != 0 {
-		t.Errorf("Expected empty reads from nil tracker, got %d items", len(reads))
-	}
-	if len(writes) != 0 {
-		t.Errorf("Expected empty writes from nil tracker, got %d items", len(writes))
-	}
+	require.Empty(t, reads, "Expected empty reads from nil tracker")
+	require.Empty(t, writes, "Expected empty writes from nil tracker")
 }
 
 func TestVariableTracker_DeepCopy(t *testing.T) {
@@ -79,15 +67,12 @@ func TestVariableTracker_DeepCopy(t *testing.T) {
 	// Verify tracked value wasn't modified
 	readVars := tracker.GetReadVars()
 	trackedVal := readVars["complex"]
-	if trackedMap, ok := trackedVal.(map[string]interface{}); ok {
-		if nestedMap, ok := trackedMap["nested"].(map[string]interface{}); ok {
-			if _, exists := nestedMap["modified"]; exists {
-				t.Error("Tracked value was modified - deep copy failed")
-			}
-		}
-	} else {
-		t.Error("Tracked value is not a map")
-	}
+	trackedMap, ok := trackedVal.(map[string]interface{})
+	require.True(t, ok, "Tracked value is not a map")
+	nestedMap, ok := trackedMap["nested"].(map[string]interface{})
+	require.True(t, ok, "Nested map not found")
+	_, exists := nestedMap["modified"]
+	require.False(t, exists, "Tracked value was modified - deep copy failed")
 }
 
 func TestVariableTracker_Concurrent(t *testing.T) {
@@ -129,12 +114,8 @@ func TestVariableTracker_Concurrent(t *testing.T) {
 	writtenVars := tracker.GetWrittenVars()
 
 	expectedCount := numGoroutines * readsPerGoroutine
-	if len(readVars) != expectedCount {
-		t.Errorf("Expected %d read variables, got %d", expectedCount, len(readVars))
-	}
-	if len(writtenVars) != expectedCount {
-		t.Errorf("Expected %d written variables, got %d", expectedCount, len(writtenVars))
-	}
+	require.Len(t, readVars, expectedCount, "Expected %d read variables", expectedCount)
+	require.Len(t, writtenVars, expectedCount, "Expected %d written variables", expectedCount)
 }
 
 func TestTrackingEnv_Get(t *testing.T) {
@@ -149,32 +130,21 @@ func TestTrackingEnv_Get(t *testing.T) {
 
 	// Test successful get
 	value, exists := trackingEnv.Get("var1")
-	if !exists {
-		t.Error("Expected var1 to exist")
-	}
-	if value != "value1" {
-		t.Errorf("Expected var1='value1', got %v", value)
-	}
+	require.True(t, exists, "Expected var1 to exist")
+	require.Equal(t, "value1", value)
 
 	// Test non-existent key
 	_, exists = trackingEnv.Get("nonexistent")
-	if exists {
-		t.Error("Expected nonexistent key to not exist")
-	}
+	require.False(t, exists, "Expected nonexistent key to not exist")
 
 	// Verify tracking occurred
 	readVars := tracker.GetReadVars()
-	if len(readVars) != 1 {
-		t.Errorf("Expected 1 tracked read, got %d", len(readVars))
-	}
-	if readVars["var1"] != "value1" {
-		t.Errorf("Expected tracked var1='value1', got %v", readVars["var1"])
-	}
+	require.Len(t, readVars, 1, "Expected 1 tracked read")
+	require.Equal(t, "value1", readVars["var1"])
 
 	// Non-existent key should not be tracked
-	if _, exists := readVars["nonexistent"]; exists {
-		t.Error("Non-existent key should not be tracked")
-	}
+	_, exists = readVars["nonexistent"]
+	require.False(t, exists, "Non-existent key should not be tracked")
 }
 
 func TestTrackingEnv_GetMap(t *testing.T) {
@@ -188,21 +158,13 @@ func TestTrackingEnv_GetMap(t *testing.T) {
 
 	// GetMap should return the original environment
 	envMap := trackingEnv.GetMap()
-	if len(envMap) != 2 {
-		t.Errorf("Expected 2 environment variables, got %d", len(envMap))
-	}
-	if envMap["var1"] != "value1" {
-		t.Errorf("Expected var1='value1', got %v", envMap["var1"])
-	}
-	if envMap["var2"] != 42 {
-		t.Errorf("Expected var2=42, got %v", envMap["var2"])
-	}
+	require.Len(t, envMap, 2, "Expected 2 environment variables")
+	require.Equal(t, "value1", envMap["var1"])
+	require.Equal(t, 42, envMap["var2"])
 
 	// GetMap should not trigger tracking
 	readVars := tracker.GetReadVars()
-	if len(readVars) != 0 {
-		t.Errorf("Expected no tracked reads from GetMap, got %d", len(readVars))
-	}
+	require.Empty(t, readVars, "Expected no tracked reads from GetMap")
 }
 
 func TestTrackingEnv_TrackAllVariables(t *testing.T) {
@@ -220,25 +182,13 @@ func TestTrackingEnv_TrackAllVariables(t *testing.T) {
 
 	readVars := tracker.GetReadVars()
 
-	if len(readVars) != 3 {
-		t.Errorf("Expected 3 tracked reads, got %d", len(readVars))
-	}
+	require.Len(t, readVars, 3, "Expected 3 tracked reads")
+	require.Equal(t, "value1", readVars["var1"])
+	require.Equal(t, 42, readVars["var2"])
 
-	if readVars["var1"] != "value1" {
-		t.Errorf("Expected var1='value1', got %v", readVars["var1"])
-	}
-
-	if readVars["var2"] != 42 {
-		t.Errorf("Expected var2=42, got %v", readVars["var2"])
-	}
-
-	if nestedMap, ok := readVars["var3"].(map[string]interface{}); ok {
-		if nestedMap["nested"] != "data" {
-			t.Errorf("Expected nested data, got %v", nestedMap["nested"])
-		}
-	} else {
-		t.Errorf("Expected var3 to be a map, got %T", readVars["var3"])
-	}
+	nestedMap, ok := readVars["var3"].(map[string]interface{})
+	require.True(t, ok, "Expected var3 to be a map, got %T", readVars["var3"])
+	require.Equal(t, "data", nestedMap["nested"])
 }
 
 func TestTrackingEnv_NilEnvironment(t *testing.T) {
@@ -247,21 +197,15 @@ func TestTrackingEnv_NilEnvironment(t *testing.T) {
 
 	// Get from nil environment
 	_, exists := trackingEnv.Get("key")
-	if exists {
-		t.Error("Expected no key to exist in nil environment")
-	}
+	require.False(t, exists, "Expected no key to exist in nil environment")
 
 	// GetMap from nil environment
 	envMap := trackingEnv.GetMap()
-	if len(envMap) != 0 {
-		t.Errorf("Expected empty map from nil environment, got %d items", len(envMap))
-	}
+	require.Empty(t, envMap, "Expected empty map from nil environment")
 
 	// No tracking should occur
 	readVars := tracker.GetReadVars()
-	if len(readVars) != 0 {
-		t.Errorf("Expected no tracked reads, got %d", len(readVars))
-	}
+	require.Empty(t, readVars, "Expected no tracked reads")
 }
 
 func TestTrackingEnv_NilTracker(t *testing.T) {
@@ -273,15 +217,12 @@ func TestTrackingEnv_NilTracker(t *testing.T) {
 
 	// Should still work without tracker
 	value, exists := trackingEnv.Get("var1")
-	if !exists || value != "value1" {
-		t.Error("Get should work even with nil tracker")
-	}
+	require.True(t, exists, "Get should work even with nil tracker")
+	require.Equal(t, "value1", value, "Get should work even with nil tracker")
 
 	// GetMap should work
 	envMap := trackingEnv.GetMap()
-	if len(envMap) != 1 {
-		t.Error("GetMap should work even with nil tracker")
-	}
+	require.Len(t, envMap, 1, "GetMap should work even with nil tracker")
 }
 
 func BenchmarkVariableTracker_TrackRead(b *testing.B) {

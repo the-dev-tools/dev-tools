@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/stretchr/testify/require"
 )
 
 func legacyBuildNodeRequestOutputMap(output NodeRequestOutput) (map[string]any, error) {
@@ -59,10 +60,7 @@ func TestBuildNodeRequestOutputMapMatchesLegacy(t *testing.T) {
 	output := sampleOutput()
 
 	expected, err := legacyBuildNodeRequestOutputMap(output)
-	if err != nil {
-		t.Errorf("legacy builder returned error: %v", err)
-		t.FailNow()
-	}
+	require.NoError(t, err, "legacy builder returned error")
 
 	got := buildNodeRequestOutputMap(output)
 
@@ -231,10 +229,7 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	}
 
 	result := requestNode.RunSync(context.Background(), req)
-	if result.Err != nil {
-		t.Errorf("expected success, got error: %v", result.Err)
-		t.FailNow()
-	}
+	require.NoError(t, result.Err, "expected success, got error")
 
 	select {
 	case <-consumedChan:
@@ -506,10 +501,7 @@ func TestNodeRequestRunSyncSuccessSendsResponseID(t *testing.T) {
 	fixture := newRequestNodeFixture(nil, respChan)
 
 	result := fixture.node.RunSync(context.Background(), fixture.flowReq)
-	if result.Err != nil {
-		t.Errorf("expected success, got error: %v", result.Err)
-		t.FailNow()
-	}
+	require.NoError(t, result.Err, "expected success, got error")
 
 	select {
 	case resp := <-consumedChan:

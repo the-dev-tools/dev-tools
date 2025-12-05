@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"testing"
 
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-
-	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
@@ -31,9 +31,7 @@ func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 		Enabled: true,
 		IsDelta: false,
 	}
-	if err := f.handler.httpHeaderService.Create(f.ctx, baseHeader); err != nil {
-		t.Fatalf("failed to create base header: %v", err)
-	}
+	require.NoError(t, f.handler.httpHeaderService.Create(f.ctx, baseHeader), "failed to create base header")
 
 	// 2. Create Delta Header (Override)
 	deltaHttpID := idwrap.NewNow()
@@ -44,9 +42,7 @@ func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 		ParentHttpID: &baseHttpID,
 		IsDelta:      true,
 	}
-	if err := f.hs.Create(f.ctx, deltaHttp); err != nil {
-		t.Fatalf("failed to create delta http: %v", err)
-	}
+	require.NoError(t, f.hs.Create(f.ctx, deltaHttp), "failed to create delta http")
 
 	deltaHeaderID := idwrap.NewNow()
 	deltaValue := "false"
@@ -58,15 +54,11 @@ func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 		DeltaValue:         &deltaValue, // Override
 	}
 	// Create the delta header. Assuming Create handles IsDelta correctly (it does based on schema)
-	if err := f.handler.httpHeaderService.Create(f.ctx, deltaHeader); err != nil {
-		t.Fatalf("failed to create delta header: %v", err)
-	}
+	require.NoError(t, f.handler.httpHeaderService.Create(f.ctx, deltaHeader), "failed to create delta header")
 
 	// 3. Call RPC
 	resp, err := f.handler.HttpHeaderDeltaCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		t.Fatalf("HttpHeaderDeltaCollection failed: %v", err)
-	}
+	require.NoError(t, err, "HttpHeaderDeltaCollection failed")
 
 	// 4. Verify logic
 	var foundDelta *httpv1.HttpHeaderDelta
@@ -77,25 +69,17 @@ func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 		}
 	}
 
-	if foundDelta == nil {
-		t.Fatal("Delta header not found in response")
-	}
+	require.NotNil(t, foundDelta, "Delta header not found in response")
 
 	// CHECK 1: HttpHeaderId should be the PARENT ID (Base Header ID)
-	if !bytes.Equal(foundDelta.HttpHeaderId, baseHeaderID.Bytes()) {
-		gotID, _ := idwrap.NewFromBytes(foundDelta.HttpHeaderId)
-		t.Errorf("Expected HttpHeaderId to be %s (Base), got %s", baseHeaderID, gotID)
-	}
+	require.True(t, bytes.Equal(foundDelta.HttpHeaderId, baseHeaderID.Bytes()), "Expected HttpHeaderId to be %s (Base), got %x", baseHeaderID, foundDelta.HttpHeaderId)
 
 	// CHECK 2: Value should be the delta override
-	if foundDelta.Value == nil || *foundDelta.Value != deltaValue {
-		t.Errorf("Expected Value to be %s, got %v", deltaValue, foundDelta.Value)
-	}
+	require.NotNil(t, foundDelta.Value, "Expected Value to be set")
+	require.Equal(t, deltaValue, *foundDelta.Value, "Expected Value to be %s", deltaValue)
 
 	// CHECK 3: Base header should NOT be returned as a delta
 	for _, item := range resp.Msg.Items {
-		if bytes.Equal(item.DeltaHttpHeaderId, baseHeaderID.Bytes()) {
-			t.Error("Base header incorrectly returned in Delta Collection")
-		}
+		require.False(t, bytes.Equal(item.DeltaHttpHeaderId, baseHeaderID.Bytes()), "Base header incorrectly returned in Delta Collection")
 	}
 }

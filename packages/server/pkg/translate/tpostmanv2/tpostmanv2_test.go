@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -57,53 +58,29 @@ func TestConvertPostmanCollection_SimpleRequest(t *testing.T) {
 	}
 
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	if len(resolved.HTTPRequests) != 1 {
-		t.Fatalf("Expected 1 HTTP request, got %d", len(resolved.HTTPRequests))
-	}
+	require.Len(t, resolved.HTTPRequests, 1, "Expected 1 HTTP request")
 
 	httpReq := resolved.HTTPRequests[0]
-	if httpReq.Name != "Get Users" {
-		t.Errorf("Expected name 'Get Users', got '%s'", httpReq.Name)
-	}
-	if httpReq.Method != "GET" {
-		t.Errorf("Expected method 'GET', got '%s'", httpReq.Method)
-	}
-	if httpReq.Url != "https://api.example.com/users" {
-		t.Errorf("Expected URL 'https://api.example.com/users', got '%s'", httpReq.Url)
-	}
+	require.Equal(t, "Get Users", httpReq.Name, "Expected name 'Get Users'")
+	require.Equal(t, "GET", httpReq.Method, "Expected method 'GET'")
+	require.Equal(t, "https://api.example.com/users", httpReq.Url, "Expected URL")
 
 	// Check search parameters
-	if len(resolved.SearchParams) != 2 {
-		t.Fatalf("Expected 2 search parameters, got %d", len(resolved.SearchParams))
-	}
+	require.Len(t, resolved.SearchParams, 2, "Expected 2 search parameters")
 
 	// Check headers
-	if len(resolved.Headers) != 1 {
-		t.Fatalf("Expected 1 header, got %d", len(resolved.Headers))
-	}
+	require.Len(t, resolved.Headers, 1, "Expected 1 header")
 	header := resolved.Headers[0]
-	if header.Key != "Accept" {
-		t.Errorf("Expected header key 'Accept', got '%s'", header.Key)
-	}
-	if header.Value != "application/json" {
-		t.Errorf("Expected header value 'application/json', got '%s'", header.Value)
-	}
+	require.Equal(t, "Accept", header.Key, "Expected header key 'Accept'")
+	require.Equal(t, "application/json", header.Value, "Expected header value 'application/json'")
 
 	// Check files
-	if len(resolved.Files) != 1 {
-		t.Fatalf("Expected 1 file, got %d", len(resolved.Files))
-	}
+	require.Len(t, resolved.Files, 1, "Expected 1 file")
 	file := resolved.Files[0]
-	if file.Name != "Get Users" {
-		t.Errorf("Expected file name 'Get Users', got '%s'", file.Name)
-	}
-	if file.ContentType != mfile.ContentTypeHTTP {
-		t.Errorf("Expected content type %d, got %d", mfile.ContentTypeHTTP, file.ContentType)
-	}
+	require.Equal(t, "Get Users", file.Name, "Expected file name 'Get Users'")
+	require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "Expected content type")
 }
 
 func TestConvertPostmanCollection_RequestBodyModes(t *testing.T) {
@@ -185,37 +162,23 @@ func TestConvertPostmanCollection_RequestBodyModes(t *testing.T) {
 	}
 
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	if len(resolved.HTTPRequests) != 3 {
-		t.Fatalf("Expected 3 HTTP requests, got %d", len(resolved.HTTPRequests))
-	}
+	require.Len(t, resolved.HTTPRequests, 3, "Expected 3 HTTP requests")
 
 	// Test raw body
 	rawBodyReq := resolved.HTTPRequests[0]
-	if rawBodyReq.Method != "POST" {
-		t.Errorf("Expected POST method for raw body request, got %s", rawBodyReq.Method)
-	}
-	if len(resolved.BodyRaw) != 1 {
-		t.Fatalf("Expected 1 raw body, got %d", len(resolved.BodyRaw))
-	}
+	require.Equal(t, "POST", rawBodyReq.Method, "Expected POST method for raw body request")
+	require.Len(t, resolved.BodyRaw, 1, "Expected 1 raw body")
 	rawBody := resolved.BodyRaw[0]
 	expectedRawData := []byte(`{"name": "John", "age": 30}`)
-	if string(rawBody.RawData) != string(expectedRawData) {
-		t.Errorf("Expected raw body data '%s', got '%s'", string(expectedRawData), string(rawBody.RawData))
-	}
+	require.Equal(t, string(expectedRawData), string(rawBody.RawData), "Expected raw body data")
 
 	// Test form data
-	if len(resolved.BodyForms) != 2 {
-		t.Fatalf("Expected 2 form fields, got %d", len(resolved.BodyForms))
-	}
+	require.Len(t, resolved.BodyForms, 2, "Expected 2 form fields")
 
 	// Test URL encoded
-	if len(resolved.BodyUrlencoded) != 2 {
-		t.Fatalf("Expected 2 URL encoded fields, got %d", len(resolved.BodyUrlencoded))
-	}
+	require.Len(t, resolved.BodyUrlencoded, 2, "Expected 2 URL encoded fields")
 }
 
 func TestConvertPostmanCollection_FoldersAndNesting(t *testing.T) {
@@ -276,20 +239,14 @@ func TestConvertPostmanCollection_FoldersAndNesting(t *testing.T) {
 	}
 
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
 	// Should extract all HTTP requests regardless of nesting level
-	if len(resolved.HTTPRequests) != 3 {
-		t.Fatalf("Expected 3 HTTP requests, got %d", len(resolved.HTTPRequests))
-	}
+	require.Len(t, resolved.HTTPRequests, 3, "Expected 3 HTTP requests")
 
 	expectedNames := []string{"Get All Users", "Create User", "Get Posts"}
 	for i, expectedName := range expectedNames {
-		if resolved.HTTPRequests[i].Name != expectedName {
-			t.Errorf("Expected request name '%s' at index %d, got '%s'", expectedName, i, resolved.HTTPRequests[i].Name)
-		}
+		require.Equal(t, expectedName, resolved.HTTPRequests[i].Name, "Expected request name at index %d", i)
 	}
 }
 
@@ -340,25 +297,15 @@ func TestConvertPostmanCollection_DisabledItems(t *testing.T) {
 	}
 
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
 	// Should only have enabled headers
-	if len(resolved.Headers) != 1 {
-		t.Fatalf("Expected 1 enabled header, got %d", len(resolved.Headers))
-	}
-	if resolved.Headers[0].Key != "Enabled Header" {
-		t.Errorf("Expected enabled header key 'Enabled Header', got '%s'", resolved.Headers[0].Key)
-	}
-	if !resolved.Headers[0].Enabled {
-		t.Error("Expected header to be enabled")
-	}
+	require.Len(t, resolved.Headers, 1, "Expected 1 enabled header")
+	require.Equal(t, "Enabled Header", resolved.Headers[0].Key, "Expected enabled header key")
+	require.True(t, resolved.Headers[0].Enabled, "Expected header to be enabled")
 
 	// Should have only enabled search parameters (disabled ones filtered out)
-	if len(resolved.SearchParams) != 1 {
-		t.Errorf("Expected 1 search parameter (disabled filtered out), got %d", len(resolved.SearchParams))
-	}
+	require.Len(t, resolved.SearchParams, 1, "Expected 1 search parameter (disabled filtered out)")
 }
 
 func TestConvertPostmanCollection_EmptyCollection(t *testing.T) {
@@ -394,19 +341,14 @@ func TestConvertPostmanCollection_EmptyCollection(t *testing.T) {
 			resolved, err := ConvertPostmanCollection([]byte(tt.collection), opts)
 
 			if tt.expectError {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
+				require.Error(t, err, "Expected error but got none")
 				return
 			}
 
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err, "Unexpected error")
 
-			if !tt.expectError && len(resolved.HTTPRequests) != 0 {
-				t.Errorf("Expected 0 HTTP requests for empty collection, got %d", len(resolved.HTTPRequests))
+			if !tt.expectError {
+				require.Empty(t, resolved.HTTPRequests, "Expected 0 HTTP requests for empty collection")
 			}
 		})
 	}
@@ -432,21 +374,13 @@ func TestConvertToFiles(t *testing.T) {
 	}
 
 	files, err := ConvertToFiles([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertToFiles() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertToFiles() error")
 
-	if len(files) != 1 {
-		t.Fatalf("Expected 1 file, got %d", len(files))
-	}
+	require.Len(t, files, 1, "Expected 1 file")
 
 	file := files[0]
-	if file.Name != "Test Request" {
-		t.Errorf("Expected file name 'Test Request', got '%s'", file.Name)
-	}
-	if file.ContentType != mfile.ContentTypeHTTP {
-		t.Errorf("Expected content type %d, got %d", mfile.ContentTypeHTTP, file.ContentType)
-	}
+	require.Equal(t, "Test Request", file.Name, "Expected file name 'Test Request'")
+	require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "Expected content type")
 }
 
 func TestConvertToHTTPRequests(t *testing.T) {
@@ -469,21 +403,13 @@ func TestConvertToHTTPRequests(t *testing.T) {
 	}
 
 	httpReqs, err := ConvertToHTTPRequests([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertToHTTPRequests() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertToHTTPRequests() error")
 
-	if len(httpReqs) != 1 {
-		t.Fatalf("Expected 1 HTTP request, got %d", len(httpReqs))
-	}
+	require.Len(t, httpReqs, 1, "Expected 1 HTTP request")
 
 	httpReq := httpReqs[0]
-	if httpReq.Method != "POST" {
-		t.Errorf("Expected method 'POST', got '%s'", httpReq.Method)
-	}
-	if httpReq.Url != "https://example.com/api" {
-		t.Errorf("Expected URL 'https://example.com/api', got '%s'", httpReq.Url)
-	}
+	require.Equal(t, "POST", httpReq.Method, "Expected method 'POST'")
+	require.Equal(t, "https://example.com/api", httpReq.Url, "Expected URL")
 }
 
 func TestBuildPostmanCollection(t *testing.T) {
@@ -558,40 +484,26 @@ func TestBuildPostmanCollection(t *testing.T) {
 
 	// Build Postman collection
 	collectionJSON, err := BuildPostmanCollection(resolved)
-	if err != nil {
-		t.Fatalf("BuildPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "BuildPostmanCollection() error")
 
 	// Parse the result to verify structure
 	var collection PostmanCollection
-	if err := json.Unmarshal(collectionJSON, &collection); err != nil {
-		t.Fatalf("Failed to parse generated collection: %v", err)
-	}
+	err = json.Unmarshal(collectionJSON, &collection)
+	require.NoError(t, err, "Failed to parse generated collection")
 
-	if collection.Info.Name != "Generated Collection" {
-		t.Errorf("Expected collection name 'Generated Collection', got '%s'", collection.Info.Name)
-	}
+	require.Equal(t, "Generated Collection", collection.Info.Name, "Expected collection name 'Generated Collection'")
 
-	if len(collection.Item) != 2 {
-		t.Fatalf("Expected 2 items in collection, got %d", len(collection.Item))
-	}
+	require.Len(t, collection.Item, 2, "Expected 2 items in collection")
 
 	// Verify first request
 	firstItem := collection.Item[0]
-	if firstItem.Name != "Get Users" {
-		t.Errorf("Expected first item name 'Get Users', got '%s'", firstItem.Name)
-	}
-	if firstItem.Request.Method != "GET" {
-		t.Errorf("Expected first item method 'GET', got '%s'", firstItem.Request.Method)
-	}
+	require.Equal(t, "Get Users", firstItem.Name, "Expected first item name 'Get Users'")
+	require.Equal(t, "GET", firstItem.Request.Method, "Expected first item method 'GET'")
 
 	// Verify second request has raw body
 	secondItem := collection.Item[1]
-	if secondItem.Request.Body == nil {
-		t.Error("Expected second item to have body")
-	} else if secondItem.Request.Body.Raw != string(rawData) {
-		t.Errorf("Expected body raw '%s', got '%s'", string(rawData), secondItem.Request.Body.Raw)
-	}
+	require.NotNil(t, secondItem.Request.Body, "Expected second item to have body")
+	require.Equal(t, string(rawData), secondItem.Request.Body.Raw, "Expected body raw")
 }
 
 func TestConvertPostmanCollection_DeltaSystem(t *testing.T) {
@@ -618,26 +530,15 @@ func TestConvertPostmanCollection_DeltaSystem(t *testing.T) {
 	}
 
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
-	if err != nil {
-		t.Fatalf("ConvertPostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	if len(resolved.HTTPRequests) != 1 {
-		t.Fatalf("Expected 1 HTTP request, got %d", len(resolved.HTTPRequests))
-	}
+	require.Len(t, resolved.HTTPRequests, 1, "Expected 1 HTTP request")
 
 	httpReq := resolved.HTTPRequests[0]
-	if !httpReq.IsDelta {
-		t.Error("Expected HTTP request to be marked as delta")
-	}
-	if httpReq.ParentHttpID.Compare(parentID) != 0 {
-		t.Error("Expected ParentHttpID to match parent ID")
-	}
-	if httpReq.DeltaName == nil {
-		t.Error("Expected DeltaName to be set")
-	} else if *httpReq.DeltaName != "Variation A" {
-		t.Errorf("Expected DeltaName 'Variation A', got '%s'", *httpReq.DeltaName)
-	}
+	require.True(t, httpReq.IsDelta, "Expected HTTP request to be marked as delta")
+	require.Equal(t, 0, httpReq.ParentHttpID.Compare(parentID), "Expected ParentHttpID to match parent ID")
+	require.NotNil(t, httpReq.DeltaName, "Expected DeltaName to be set")
+	require.Equal(t, "Variation A", *httpReq.DeltaName, "Expected DeltaName 'Variation A'")
 }
 
 func TestConvertPostmanCollection_Authentication(t *testing.T) {
@@ -734,13 +635,9 @@ func TestConvertPostmanCollection_Authentication(t *testing.T) {
 			}
 
 			resolved, err := ConvertPostmanCollection([]byte(tt.collection), opts)
-			if err != nil {
-				t.Fatalf("ConvertPostmanCollection() error = %v", err)
-			}
+			require.NoError(t, err, "ConvertPostmanCollection() error")
 
-			if len(resolved.Headers) != tt.expectedHeaders {
-				t.Errorf("Expected %d headers, got %d", tt.expectedHeaders, len(resolved.Headers))
-			}
+			require.Len(t, resolved.Headers, tt.expectedHeaders, "Expected %d headers", tt.expectedHeaders)
 
 			// Verify auth headers
 			for expectedKey, expectedValue := range tt.expectedAuthHeaders {
@@ -751,9 +648,7 @@ func TestConvertPostmanCollection_Authentication(t *testing.T) {
 						break
 					}
 				}
-				if !found {
-					t.Errorf("Expected header %s: %s not found", expectedKey, expectedValue)
-				}
+				require.True(t, found, "Expected header %s: %s not found", expectedKey, expectedValue)
 			}
 		})
 	}
@@ -775,22 +670,12 @@ func TestParsePostmanCollection(t *testing.T) {
 	}`
 
 	collection, err := ParsePostmanCollection([]byte(collectionJSON))
-	if err != nil {
-		t.Fatalf("ParsePostmanCollection() error = %v", err)
-	}
+	require.NoError(t, err, "ParsePostmanCollection() error")
 
-	if collection.Info.Name != "Parse Test" {
-		t.Errorf("Expected collection name 'Parse Test', got '%s'", collection.Info.Name)
-	}
-	if collection.Info.Description != "Test parsing functionality" {
-		t.Errorf("Expected description 'Test parsing functionality', got '%s'", collection.Info.Description)
-	}
-	if len(collection.Variable) != 1 {
-		t.Fatalf("Expected 1 variable, got %d", len(collection.Variable))
-	}
-	if collection.Variable[0].Key != "baseUrl" {
-		t.Errorf("Expected variable key 'baseUrl', got '%s'", collection.Variable[0].Key)
-	}
+	require.Equal(t, "Parse Test", collection.Info.Name, "Expected collection name 'Parse Test'")
+	require.Equal(t, "Test parsing functionality", collection.Info.Description, "Expected description")
+	require.Len(t, collection.Variable, 1, "Expected 1 variable")
+	require.Equal(t, "baseUrl", collection.Variable[0].Key, "Expected variable key 'baseUrl'")
 }
 
 // Helper function to create string pointers for tests

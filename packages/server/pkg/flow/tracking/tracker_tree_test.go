@@ -3,6 +3,8 @@ package tracking
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestVariableTracker_GetReadVarsAsTree(t *testing.T) {
@@ -29,9 +31,7 @@ func TestVariableTracker_GetReadVarsAsTree(t *testing.T) {
 
 	result := tracker.GetReadVarsAsTree()
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestVariableTracker_GetWrittenVarsAsTree(t *testing.T) {
@@ -56,9 +56,7 @@ func TestVariableTracker_GetWrittenVarsAsTree(t *testing.T) {
 
 	result := tracker.GetWrittenVarsAsTree()
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestVariableTracker_TreeWithSpaces(t *testing.T) {
@@ -81,9 +79,7 @@ func TestVariableTracker_TreeWithSpaces(t *testing.T) {
 
 	result := tracker.GetReadVarsAsTree()
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
+	require.True(t, reflect.DeepEqual(result, expected), "Expected %+v, got %+v", expected, result)
 }
 
 func TestVariableTracker_EmptyTracker(t *testing.T) {
@@ -92,13 +88,8 @@ func TestVariableTracker_EmptyTracker(t *testing.T) {
 	readTree := tracker.GetReadVarsAsTree()
 	writtenTree := tracker.GetWrittenVarsAsTree()
 
-	if len(readTree) != 0 {
-		t.Errorf("Expected empty read tree, got %+v", readTree)
-	}
-
-	if len(writtenTree) != 0 {
-		t.Errorf("Expected empty written tree, got %+v", writtenTree)
-	}
+	require.Empty(t, readTree, "Expected empty read tree, got %+v", readTree)
+	require.Empty(t, writtenTree, "Expected empty written tree, got %+v", writtenTree)
 }
 
 func TestVariableTracker_NilTrackerTree(t *testing.T) {
@@ -107,11 +98,6 @@ func TestVariableTracker_NilTrackerTree(t *testing.T) {
 	readTree := tracker.GetReadVarsAsTree()
 	writtenTree := tracker.GetWrittenVarsAsTree()
 
-	if len(readTree) != 0 {
-		t.Errorf("Expected empty read tree from nil tracker, got %+v", readTree)
-	}
-
-	if len(writtenTree) != 0 {
-		t.Errorf("Expected empty written tree from nil tracker, got %+v", writtenTree)
-	}
+	require.Empty(t, readTree, "Expected empty read tree from nil tracker, got %+v", readTree)
+	require.Empty(t, writtenTree, "Expected empty written tree from nil tracker, got %+v", writtenTree)
 }

@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"the-dev-tools/server/pkg/eventstream/memory"
-)
+
+	"github.com/stretchr/testify/require")
 
 // TestInMemorySyncStreamer_BulkPublish verifies that the buffer is large enough
 // to handle a burst of events (e.g. 100) which is greater than the old default of 32.
@@ -19,9 +20,7 @@ func TestInMemorySyncStreamer_BulkPublish(t *testing.T) {
 
 	// Subscribe
 	ch, err := streamer.Subscribe(ctx, allowAll)
-	if err != nil {
-		t.Fatalf("subscribe: %v", err)
-	}
+	require.NoError(t, err, "subscribe")
 
 	// Publish 100 events in a tight loop (burst)
 	// If buffer was still 32, many of these would be dropped because

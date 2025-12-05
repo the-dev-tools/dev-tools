@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -21,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -56,16 +56,14 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	if err := services.Us.CreateUser(context.Background(), &muser.User{
+	require.NoError(t, services.Us.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
+	}), "create user")
 
 	// Create additional services needed for HTTP handler
 	// Note: example services not needed for streaming tests
@@ -134,9 +132,7 @@ func (f *httpStreamingFixture) createWorkspace(t *testing.T, name string) idwrap
 		ActiveEnv: envID,
 		GlobalEnv: envID,
 	}
-	if err := f.ws.Create(f.ctx, ws); err != nil {
-		t.Fatalf("create workspace: %v", err)
-	}
+	require.NoError(t, f.ws.Create(f.ctx, ws), "create workspace")
 
 	env := menv.Env{
 		ID:          envID,
@@ -144,9 +140,7 @@ func (f *httpStreamingFixture) createWorkspace(t *testing.T, name string) idwrap
 		Name:        "default",
 		Type:        menv.EnvGlobal,
 	}
-	if err := f.es.CreateEnvironment(f.ctx, &env); err != nil {
-		t.Fatalf("create environment: %v", err)
-	}
+	require.NoError(t, f.es.CreateEnvironment(f.ctx, &env), "create environment")
 
 	member := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
@@ -154,9 +148,7 @@ func (f *httpStreamingFixture) createWorkspace(t *testing.T, name string) idwrap
 		UserID:      f.userID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
-	if err := f.wus.CreateWorkspaceUser(f.ctx, member); err != nil {
-		t.Fatalf("create workspace user: %v", err)
-	}
+	require.NoError(t, f.wus.CreateWorkspaceUser(f.ctx, member), "create workspace user")
 
 	return workspaceID
 }
@@ -174,9 +166,7 @@ func (f *httpStreamingFixture) createHttp(t *testing.T, workspaceID idwrap.IDWra
 		Description: "Test HTTP entry",
 	}
 
-	if err := f.hs.Create(f.ctx, httpModel); err != nil {
-		t.Fatalf("create http: %v", err)
-	}
+	require.NoError(t, f.hs.Create(f.ctx, httpModel), "create http")
 
 	return httpID
 }
@@ -190,9 +180,7 @@ func collectHttpSyncStreamingItems(t *testing.T, ch <-chan *httpv1.HttpSyncRespo
 	for len(items) < count {
 		select {
 		case resp, ok := <-ch:
-			if !ok {
-				t.Fatalf("channel closed before collecting %d items", count)
-			}
+			require.True(t, ok, "channel closed before collecting %d items", count)
 			for _, item := range resp.GetItems() {
 				if item != nil {
 					items = append(items, item)
@@ -202,7 +190,7 @@ func collectHttpSyncStreamingItems(t *testing.T, ch <-chan *httpv1.HttpSyncRespo
 				}
 			}
 		case <-timeout:
-			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+			require.FailNow(t, "timeout waiting for %d items, collected %d", count, len(items))
 		}
 	}
 
@@ -236,7 +224,7 @@ func TestHttpSyncStreamsSnapshotAndUpdatesStreaming(t *testing.T) {
 	// Snapshot removed
 	select {
 	case <-msgCh:
-		t.Fatal("Received unexpected snapshot item")
+		require.FailNow(t, "Received unexpected snapshot item")
 	case <-time.After(100 * time.Millisecond):
 		// Good
 	}
@@ -250,21 +238,14 @@ func TestHttpSyncStreamsSnapshotAndUpdatesStreaming(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpUpdate(f.ctx, updateReq); err != nil {
-		t.Fatalf("HttpUpdate err: %v", err)
-	}
+	_, err := f.handler.HttpUpdate(f.ctx, updateReq)
+	require.NoError(t, err, "HttpUpdate err")
 
 	updateItems := collectHttpSyncStreamingItems(t, msgCh, 1)
 	updateVal := updateItems[0].GetValue()
-	if updateVal == nil {
-		t.Fatal("update response missing value union")
-	}
-	if updateVal.GetKind() != httpv1.HttpSync_ValueUnion_KIND_UPDATE {
-		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
-	}
-	if got := updateVal.GetUpdate().GetName(); got != newName {
-		t.Fatalf("expected updated name %q, got %q", newName, got)
-	}
+	require.NotNil(t, updateVal, "update response missing value union")
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, updateVal.GetKind(), "expected update kind")
+	require.Equal(t, newName, updateVal.GetUpdate().GetName(), "expected updated name")
 
 	deleteReq := connect.NewRequest(&httpv1.HttpDeleteRequest{
 		Items: []*httpv1.HttpDelete{
@@ -273,25 +254,19 @@ func TestHttpSyncStreamsSnapshotAndUpdatesStreaming(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpDelete(f.ctx, deleteReq); err != nil {
-		t.Fatalf("HttpDelete err: %v", err)
-	}
+	_, err = f.handler.HttpDelete(f.ctx, deleteReq)
+	require.NoError(t, err, "HttpDelete err")
 
 	deleteItems := collectHttpSyncStreamingItems(t, msgCh, 1)
 	deleteVal := deleteItems[0].GetValue()
-	if deleteVal == nil {
-		t.Fatal("delete response missing value union")
-	}
-	if deleteVal.GetKind() != httpv1.HttpSync_ValueUnion_KIND_DELETE {
-		t.Fatalf("expected delete kind, got %v", deleteVal.GetKind())
-	}
-	if got := deleteVal.GetDelete().GetHttpId(); string(got) != string(httpB.Bytes()) {
-		t.Fatalf("expected deleted http %s, got %x", httpB.String(), got)
-	}
+	require.NotNil(t, deleteVal, "delete response missing value union")
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_DELETE, deleteVal.GetKind(), "expected delete kind")
+	require.Equal(t, httpB.Bytes(), deleteVal.GetDelete().GetHttpId(), "expected deleted http %s", httpB.String())
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled), "stream returned error: %v", err)
 	}
 }
 
@@ -320,23 +295,21 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 	// Snapshot removed
 	select {
 	case <-msgCh:
-		t.Fatal("Received unexpected snapshot item")
+		require.FailNow(t, "Received unexpected snapshot item")
 	case <-time.After(100 * time.Millisecond):
 		// Good
 	}
 
 	otherUserID := idwrap.NewNow()
 	providerID := fmt.Sprintf("other-%s", otherUserID.String())
-	if err := f.us.CreateUser(context.Background(), &muser.User{
+	require.NoError(t, f.us.CreateUser(context.Background(), &muser.User{
 		ID:           otherUserID,
 		Email:        fmt.Sprintf("%s@example.com", otherUserID.String()),
 		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}); err != nil {
-		t.Fatalf("create other user: %v", err)
-	}
+	}), "create other user")
 
 	otherWorkspaceID := idwrap.NewNow()
 	otherEnvID := idwrap.NewNow()
@@ -348,9 +321,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 		ActiveEnv: otherEnvID,
 		GlobalEnv: otherEnvID,
 	}
-	if err := f.ws.Create(context.Background(), ws); err != nil {
-		t.Fatalf("create other workspace: %v", err)
-	}
+	require.NoError(t, f.ws.Create(context.Background(), ws), "create other workspace")
 
 	env := menv.Env{
 		ID:          otherEnvID,
@@ -358,9 +329,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 		Name:        "default",
 		Type:        menv.EnvGlobal,
 	}
-	if err := f.es.CreateEnvironment(context.Background(), &env); err != nil {
-		t.Fatalf("create other env: %v", err)
-	}
+	require.NoError(t, f.es.CreateEnvironment(context.Background(), &env), "create other env")
 
 	otherMember := &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
@@ -368,9 +337,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 		UserID:      otherUserID,
 		Role:        mworkspaceuser.RoleOwner,
 	}
-	if err := f.wus.CreateWorkspaceUser(context.Background(), otherMember); err != nil {
-		t.Fatalf("create other workspace user: %v", err)
-	}
+	require.NoError(t, f.wus.CreateWorkspaceUser(context.Background(), otherMember), "create other workspace user")
 
 	// Create HTTP entry in hidden workspace
 	hiddenHttpID := idwrap.NewNow()
@@ -381,9 +348,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 		Url:         "https://hidden.com",
 		Method:      "GET",
 	}
-	if err := f.hs.Create(context.Background(), hiddenHttp); err != nil {
-		t.Fatalf("create hidden http: %v", err)
-	}
+	require.NoError(t, f.hs.Create(context.Background(), hiddenHttp), "create hidden http")
 
 	f.handler.stream.Publish(HttpTopic{WorkspaceID: otherWorkspaceID}, HttpEvent{
 		Type: "insert",
@@ -397,13 +362,14 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 
 	select {
 	case resp := <-msgCh:
-		t.Fatalf("unexpected event for unauthorized workspace: %+v", resp)
+		require.FailNow(t, "unexpected event for unauthorized workspace: %+v", resp)
 	case <-time.After(150 * time.Millisecond):
 	}
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err := <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled), "stream returned error: %v", err)
 	}
 }
 
@@ -439,24 +405,18 @@ func TestHttpCreatePublishesEventStreaming(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpInsert(f.ctx, createReq); err != nil {
-		t.Fatalf("HttpInsert err: %v", err)
-	}
+	_, err := f.handler.HttpInsert(f.ctx, createReq)
+	require.NoError(t, err, "HttpInsert err")
 
 	items := collectHttpSyncStreamingItems(t, msgCh, 1)
 	val := items[0].GetValue()
-	if val == nil {
-		t.Fatal("create response missing value union")
-	}
-	if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_INSERT {
-		t.Fatalf("expected insert kind, got %v", val.GetKind())
-	}
-	if got := val.GetInsert().GetName(); got != "api-created" {
-		t.Fatalf("expected created name api-created, got %q", got)
-	}
+	require.NotNil(t, val, "create response missing value union")
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_INSERT, val.GetKind(), "expected insert kind")
+	require.Equal(t, "api-created", val.GetInsert().GetName(), "expected created name api-created")
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled), "stream returned error: %v", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -17,9 +18,7 @@ func TestHttpService(t *testing.T) {
 
 	// Create in-memory database for testing
 	db, err := dbtest.GetTestPreparedQueries(ctx)
-	if err != nil {
-		t.Fatalf("Failed to create in-memory database: %v", err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	// Create service
@@ -51,45 +50,22 @@ func TestHttpService(t *testing.T) {
 
 	// Test Create
 	err = service.Create(ctx, http)
-	if err != nil {
-		t.Fatalf("Failed to create HTTP: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Test Get
 	retrieved, err := service.Get(ctx, httpID)
-	if err != nil {
-		t.Fatalf("Failed to get HTTP: %v", err)
-	}
+	require.NoError(t, err)
 
-	if retrieved.ID != httpID {
-		t.Errorf("Expected ID %s, got %s", httpID, retrieved.ID)
-	}
-
-	if retrieved.Name != "Test HTTP" {
-		t.Errorf("Expected Name Test HTTP, got %s", retrieved.Name)
-	}
-
-	if retrieved.Url != "https://api.example.com/test" {
-		t.Errorf("Expected Url https://api.example.com/test, got %s", retrieved.Url)
-	}
-
-	if retrieved.Method != "GET" {
-		t.Errorf("Expected Method GET, got %s", retrieved.Method)
-	}
-
-	if retrieved.Description != "Test HTTP endpoint" {
-		t.Errorf("Expected Description Test HTTP endpoint, got %s", retrieved.Description)
-	}
+	require.Equal(t, httpID, retrieved.ID)
+	require.Equal(t, "Test HTTP", retrieved.Name)
+	require.Equal(t, "https://api.example.com/test", retrieved.Url)
+	require.Equal(t, "GET", retrieved.Method)
+	require.Equal(t, "Test HTTP endpoint", retrieved.Description)
 
 	// Test GetByWorkspaceID
 	https, err := service.GetByWorkspaceID(ctx, workspaceID)
-	if err != nil {
-		t.Fatalf("Failed to get HTTPs by WorkspaceID: %v", err)
-	}
-
-	if len(https) != 1 {
-		t.Errorf("Expected 1 HTTP, got %d", len(https))
-	}
+	require.NoError(t, err)
+	require.Len(t, https, 1)
 
 	// Test Update
 	http.Name = "Updated HTTP"
@@ -97,47 +73,24 @@ func TestHttpService(t *testing.T) {
 	http.Method = "PUT"
 	http.Description = "Updated description"
 	err = service.Update(ctx, http)
-	if err != nil {
-		t.Fatalf("Failed to update HTTP: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify update
 	updated, err := service.Get(ctx, httpID)
-	if err != nil {
-		t.Fatalf("Failed to get updated HTTP: %v", err)
-	}
-
-	if updated.Name != "Updated HTTP" {
-		t.Errorf("Expected Name Updated HTTP, got %s", updated.Name)
-	}
-
-	if updated.Url != "https://api.example.com/updated" {
-		t.Errorf("Expected Url https://api.example.com/updated, got %s", updated.Url)
-	}
-
-	if updated.Method != "PUT" {
-		t.Errorf("Expected Method PUT, got %s", updated.Method)
-	}
-
-	if updated.Description != "Updated description" {
-		t.Errorf("Expected Description Updated description, got %s", updated.Description)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "Updated HTTP", updated.Name)
+	require.Equal(t, "https://api.example.com/updated", updated.Url)
+	require.Equal(t, "PUT", updated.Method)
+	require.Equal(t, "Updated description", updated.Description)
 
 	// Test Delete
 	err = service.Delete(ctx, httpID)
-	if err != nil {
-		t.Fatalf("Failed to delete HTTP: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify deletion
 	_, err = service.Get(ctx, httpID)
-	if err == nil {
-		t.Errorf("Expected error when getting deleted HTTP, got nil")
-	}
-
-	if err != ErrNoHTTPFound {
-		t.Errorf("Expected ErrNoHTTPFound, got %v", err)
-	}
+	require.Error(t, err, "Expected error when getting deleted HTTP")
+	require.Equal(t, ErrNoHTTPFound, err)
 }
 
 func TestHttpService_TX(t *testing.T) {
@@ -145,9 +98,7 @@ func TestHttpService_TX(t *testing.T) {
 
 	// Create in-memory database for testing
 	db, err := dbtest.GetTestPreparedQueries(ctx)
-	if err != nil {
-		t.Fatalf("Failed to create in-memory database: %v", err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	// Create service
@@ -158,9 +109,7 @@ func TestHttpService_TX(t *testing.T) {
 	txService := service.TX(nil) // nil tx for testing
 
 	// The TX service should have the same type but different queries instance
-	if txService.queries == service.queries {
-		t.Errorf("TX service should have different queries instance")
-	}
+	require.NotEqual(t, service.queries, txService.queries)
 }
 
 func TestHttpService_ConvertToDBHTTP(t *testing.T) {
@@ -186,33 +135,13 @@ func TestHttpService_ConvertToDBHTTP(t *testing.T) {
 
 	dbHttp := ConvertToDBHTTP(http)
 
-	if dbHttp.ID != http.ID {
-		t.Errorf("Expected ID %v, got %v", http.ID, dbHttp.ID)
-	}
-
-	if dbHttp.Name != http.Name {
-		t.Errorf("Expected Name %s, got %s", http.Name, dbHttp.Name)
-	}
-
-	if dbHttp.Url != http.Url {
-		t.Errorf("Expected Url %s, got %s", http.Url, dbHttp.Url)
-	}
-
-	if dbHttp.Method != http.Method {
-		t.Errorf("Expected Method %s, got %s", http.Method, dbHttp.Method)
-	}
-
-	if dbHttp.Description != http.Description {
-		t.Errorf("Expected Description %s, got %s", http.Description, dbHttp.Description)
-	}
-
-	if dbHttp.IsDelta != http.IsDelta {
-		t.Errorf("Expected IsDelta %v, got %v", http.IsDelta, dbHttp.IsDelta)
-	}
-	
-	if dbHttp.LastRunAt != *http.LastRunAt {
-		t.Errorf("Expected LastRunAt %v, got %v", *http.LastRunAt, dbHttp.LastRunAt)
-	}
+	require.Equal(t, http.ID, dbHttp.ID)
+	require.Equal(t, http.Name, dbHttp.Name)
+	require.Equal(t, http.Url, dbHttp.Url)
+	require.Equal(t, http.Method, dbHttp.Method)
+	require.Equal(t, http.Description, dbHttp.Description)
+	require.Equal(t, http.IsDelta, dbHttp.IsDelta)
+	require.Equal(t, *http.LastRunAt, dbHttp.LastRunAt)
 }
 
 func TestHttpService_ConvertToModelHTTP(t *testing.T) {
@@ -238,33 +167,13 @@ func TestHttpService_ConvertToModelHTTP(t *testing.T) {
 
 	http := ConvertToModelHTTP(dbHttp)
 
-	if http.ID != dbHttp.ID {
-		t.Errorf("Expected ID %v, got %v", dbHttp.ID, http.ID)
-	}
-
-	if http.Name != dbHttp.Name {
-		t.Errorf("Expected Name %s, got %s", dbHttp.Name, http.Name)
-	}
-
-	if http.Url != dbHttp.Url {
-		t.Errorf("Expected Url %s, got %s", dbHttp.Url, http.Url)
-	}
-
-	if http.Method != dbHttp.Method {
-		t.Errorf("Expected Method %s, got %s", dbHttp.Method, http.Method)
-	}
-
-	if http.Description != dbHttp.Description {
-		t.Errorf("Expected Description %s, got %s", dbHttp.Description, http.Description)
-	}
-
-	if http.IsDelta != dbHttp.IsDelta {
-		t.Errorf("Expected IsDelta %v, got %v", dbHttp.IsDelta, http.IsDelta)
-	}
-
-	if *http.LastRunAt != dbHttp.LastRunAt.(int64) {
-		t.Errorf("Expected LastRunAt %v, got %v", dbHttp.LastRunAt, *http.LastRunAt)
-	}
+	require.Equal(t, dbHttp.ID, http.ID)
+	require.Equal(t, dbHttp.Name, http.Name)
+	require.Equal(t, dbHttp.Url, http.Url)
+	require.Equal(t, dbHttp.Method, http.Method)
+	require.Equal(t, dbHttp.Description, http.Description)
+	require.Equal(t, dbHttp.IsDelta, http.IsDelta)
+	require.Equal(t, dbHttp.LastRunAt.(int64), *http.LastRunAt)
 }
 
 func TestHttpService_GetWorkspaceID(t *testing.T) {
@@ -272,9 +181,7 @@ func TestHttpService_GetWorkspaceID(t *testing.T) {
 
 	// Create in-memory database for testing
 	db, err := dbtest.GetTestPreparedQueries(ctx)
-	if err != nil {
-		t.Fatalf("Failed to create in-memory database: %v", err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	// Create service
@@ -299,30 +206,18 @@ func TestHttpService_GetWorkspaceID(t *testing.T) {
 	}
 
 	err = service.Create(ctx, http)
-	if err != nil {
-		t.Fatalf("Failed to create HTTP: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Test GetWorkspaceID
 	retrievedWorkspaceID, err := service.GetWorkspaceID(ctx, httpID)
-	if err != nil {
-		t.Fatalf("Failed to get workspace ID: %v", err)
-	}
-
-	if retrievedWorkspaceID != workspaceID {
-		t.Errorf("Expected workspace ID %v, got %v", workspaceID, retrievedWorkspaceID)
-	}
+	require.NoError(t, err)
+	require.Equal(t, workspaceID, retrievedWorkspaceID)
 
 	// Test with non-existent HTTP
 	nonExistentID := idwrap.NewNow()
 	_, err = service.GetWorkspaceID(ctx, nonExistentID)
-	if err == nil {
-		t.Errorf("Expected error when getting workspace ID for non-existent HTTP")
-	}
-
-	if err != ErrNoHTTPFound {
-		t.Errorf("Expected ErrNoHTTPFound, got %v", err)
-	}
+	require.Error(t, err, "Expected error when getting workspace ID for non-existent HTTP")
+	require.Equal(t, ErrNoHTTPFound, err)
 }
 
 func TestHttpService_NewTX(t *testing.T) {
@@ -330,27 +225,18 @@ func TestHttpService_NewTX(t *testing.T) {
 
 	// Create in-memory database for testing
 	testDB, err := dbtest.GetTestDB(ctx)
-	if err != nil {
-		t.Fatalf("Failed to create in-memory database: %v", err)
-	}
+	require.NoError(t, err)
 	defer testDB.Close()
 
 	// Start a transaction
 	tx, err := testDB.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatalf("Failed to begin transaction: %v", err)
-	}
+	require.NoError(t, err)
 	defer tx.Rollback()
 
 	// Test NewTX with real transaction
 	txService, err := NewTX(ctx, tx)
-	if err != nil {
-		t.Fatalf("Failed to create TX service: %v", err)
-	}
-
-	if txService == nil {
-		t.Fatal("Expected non-nil TX service")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, txService)
 }
 
 func TestHttpService_ErrorHandling(t *testing.T) {
@@ -358,9 +244,7 @@ func TestHttpService_ErrorHandling(t *testing.T) {
 
 	// Create in-memory database for testing
 	db, err := dbtest.GetTestPreparedQueries(ctx)
-	if err != nil {
-		t.Fatalf("Failed to create in-memory database: %v", err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	// Create service
@@ -372,23 +256,13 @@ func TestHttpService_ErrorHandling(t *testing.T) {
 
 	// Get non-existent HTTP
 	_, err = service.Get(ctx, nonExistentID)
-	if err == nil {
-		t.Errorf("Expected error when getting non-existent HTTP")
-	}
-
-	if err != ErrNoHTTPFound {
-		t.Errorf("Expected ErrNoHTTPFound, got %v", err)
-	}
+	require.Error(t, err, "Expected error when getting non-existent HTTP")
+	require.Equal(t, ErrNoHTTPFound, err)
 
 	// Get workspace ID for non-existent HTTP
 	_, err = service.GetWorkspaceID(ctx, nonExistentID)
-	if err == nil {
-		t.Errorf("Expected error when getting workspace ID for non-existent HTTP")
-	}
-
-	if err != ErrNoHTTPFound {
-		t.Errorf("Expected ErrNoHTTPFound, got %v", err)
-	}
+	require.Error(t, err, "Expected error when getting workspace ID for non-existent HTTP")
+	require.Equal(t, ErrNoHTTPFound, err)
 }
 
 // Helper function

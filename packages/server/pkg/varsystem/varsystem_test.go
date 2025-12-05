@@ -9,7 +9,8 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
-)
+
+	"github.com/stretchr/testify/require")
 
 func TestMergeVars(t *testing.T) {
 	// TestMergeVars tests the mergeVars function
@@ -187,9 +188,7 @@ func TestFileReferenceReplace(t *testing.T) {
 	// Create a temporary file with test content
 	content := "test file content"
 	tempFile, err := os.CreateTemp("", "varsystem-test-*.txt")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
+	require.NoError(t, err, "Failed to create temp file")
 	defer os.Remove(tempFile.Name()) // nolint
 
 	if _, err := tempFile.WriteString(content); err != nil {
@@ -204,9 +203,7 @@ func TestFileReferenceReplace(t *testing.T) {
 	expected := fmt.Sprintf("Content from file: %s", content)
 
 	result, err := varsystem.VarMap{}.ReplaceVars(testStr)
-	if err != nil {
-		t.Fatalf("Error replacing file reference: %v", err)
-	}
+	require.NoError(t, err, "Error replacing file reference")
 
 	if result != expected {
 		t.Errorf("Expected: %q, got: %q", expected, result)

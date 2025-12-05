@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/pkg/idwrap"
@@ -328,7 +327,7 @@ func TestMemoryEfficiency(t *testing.T) {
 				size, alloced, allocsPerReq)
 
 			// Memory usage per request should be reasonable (less than 256KB per request for local dev tool)
-			assert.Less(t, allocsPerReq, 262144.0,
+			require.Less(t, allocsPerReq, 262144.0,
 				"Memory usage per request should be less than 256KB")
 		})
 	}
@@ -387,9 +386,9 @@ func TestStressTest(t *testing.T) {
 	t.Logf("  Throughput: %.2f iterations/second", float64(numIterations)/totalTestDuration.Seconds())
 
 	// Assert performance characteristics
-	assert.Greater(t, float64(successCount)/float64(numIterations), 0.95,
+	require.Greater(t, float64(successCount)/float64(numIterations), 0.95,
 		"Success rate should be at least 95%")
-	assert.Less(t, avgDuration, time.Second,
+	require.Less(t, avgDuration, time.Second,
 		"Average iteration duration should be less than 1 second")
 }
 
@@ -562,6 +561,6 @@ func checkScalability(t *testing.T, sizes []int, durations []time.Duration, oper
 	}
 
 	// Additional assertion for very poor scalability
-	assert.Less(t, efficiency, 5.0,
+	require.Less(t, efficiency, 5.0,
 		"%s should not show extremely poor scalability", operationName)
 }

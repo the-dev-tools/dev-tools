@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/tracking"
 )
@@ -18,27 +20,17 @@ func TestWriteNodeVar_WithTracking(t *testing.T) {
 
 	// Test writing a node variable with tracking
 	err := node.WriteNodeVarWithTracking(req, "testNode", "key1", "value1", tracker)
-	if err != nil {
-		t.Fatalf("WriteNodeVarWithTracking failed: %v", err)
-	}
+	require.NoError(t, err, "WriteNodeVarWithTracking failed")
 
 	// Verify the value was written correctly
 	value, err := node.ReadNodeVar(req, "testNode", "key1")
-	if err != nil {
-		t.Fatalf("ReadNodeVar failed: %v", err)
-	}
-	if value != "value1" {
-		t.Errorf("Expected 'value1', got %v", value)
-	}
+	require.NoError(t, err, "ReadNodeVar failed")
+	require.Equal(t, "value1", value)
 
 	// Verify the write was tracked
 	writtenVars := tracker.GetWrittenVars()
-	if len(writtenVars) != 1 {
-		t.Errorf("Expected 1 tracked write, got %d", len(writtenVars))
-	}
-	if writtenVars["testNode.key1"] != "value1" {
-		t.Errorf("Expected tracked write 'testNode.key1'='value1', got %v", writtenVars["testNode.key1"])
-	}
+	require.Len(t, writtenVars, 1, "Expected 1 tracked write")
+	require.Equal(t, "value1", writtenVars["testNode.key1"])
 }
 
 func TestWriteNodeVar_WithoutTracking(t *testing.T) {
@@ -49,18 +41,12 @@ func TestWriteNodeVar_WithoutTracking(t *testing.T) {
 
 	// Test writing without tracker (should work normally)
 	err := node.WriteNodeVarWithTracking(req, "testNode", "key1", "value1", nil)
-	if err != nil {
-		t.Fatalf("WriteNodeVarWithTracking with nil tracker failed: %v", err)
-	}
+	require.NoError(t, err, "WriteNodeVarWithTracking with nil tracker failed")
 
 	// Verify the value was written correctly
 	value, err := node.ReadNodeVar(req, "testNode", "key1")
-	if err != nil {
-		t.Fatalf("ReadNodeVar failed: %v", err)
-	}
-	if value != "value1" {
-		t.Errorf("Expected 'value1', got %v", value)
-	}
+	require.NoError(t, err, "ReadNodeVar failed")
+	require.Equal(t, "value1", value)
 }
 
 func TestWriteNodeVarRaw_WithTracking(t *testing.T) {
@@ -78,35 +64,23 @@ func TestWriteNodeVarRaw_WithTracking(t *testing.T) {
 
 	// Test writing raw node variable with tracking
 	err := node.WriteNodeVarRawWithTracking(req, "testNode", testData, tracker)
-	if err != nil {
-		t.Fatalf("WriteNodeVarRawWithTracking failed: %v", err)
-	}
+	require.NoError(t, err, "WriteNodeVarRawWithTracking failed")
 
 	// Verify the value was written correctly
 	value, err := node.ReadVarRaw(req, "testNode")
-	if err != nil {
-		t.Fatalf("ReadVarRaw failed: %v", err)
-	}
+	require.NoError(t, err, "ReadVarRaw failed")
 	dataMap, ok := value.(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected map[string]interface{}, got %T", value)
-	}
-	if dataMap["result"] != "success" {
-		t.Errorf("Expected result='success', got %v", dataMap["result"])
-	}
+	require.True(t, ok, "Expected map[string]interface{}, got %T", value)
+	require.Equal(t, "success", dataMap["result"])
 
 	// Verify the write was tracked
 	writtenVars := tracker.GetWrittenVars()
-	if len(writtenVars) != 1 {
-		t.Errorf("Expected 1 tracked write, got %d", len(writtenVars))
-	}
+	require.Len(t, writtenVars, 1, "Expected 1 tracked write")
 	trackedData, ok := writtenVars["testNode"].(map[string]interface{})
 	if !ok {
 		t.Errorf("Expected tracked data to be map[string]interface{}, got %T", writtenVars["testNode"])
 	}
-	if trackedData["result"] != "success" {
-		t.Errorf("Expected tracked result='success', got %v", trackedData["result"])
-	}
+	require.Equal(t, "success", trackedData["result"])
 }
 
 func TestWriteNodeVarBulk_WithTracking(t *testing.T) {
@@ -125,9 +99,7 @@ func TestWriteNodeVarBulk_WithTracking(t *testing.T) {
 
 	// Test bulk writing with tracking
 	err := node.WriteNodeVarBulkWithTracking(req, "testNode", bulkData, tracker)
-	if err != nil {
-		t.Fatalf("WriteNodeVarBulkWithTracking failed: %v", err)
-	}
+	require.NoError(t, err, "WriteNodeVarBulkWithTracking failed")
 
 	// Verify all values were written correctly
 	for key, expectedValue := range bulkData {
@@ -142,9 +114,7 @@ func TestWriteNodeVarBulk_WithTracking(t *testing.T) {
 
 	// Verify all writes were tracked
 	writtenVars := tracker.GetWrittenVars()
-	if len(writtenVars) != 3 {
-		t.Errorf("Expected 3 tracked writes, got %d", len(writtenVars))
-	}
+	require.Len(t, writtenVars, 3, "Expected 3 tracked writes")
 
 	expectedKeys := []string{"testNode.field1", "testNode.field2", "testNode.field3"}
 	for _, expectedKey := range expectedKeys {
@@ -153,15 +123,9 @@ func TestWriteNodeVarBulk_WithTracking(t *testing.T) {
 		}
 	}
 
-	if writtenVars["testNode.field1"] != "value1" {
-		t.Errorf("Expected field1='value1', got %v", writtenVars["testNode.field1"])
-	}
-	if writtenVars["testNode.field2"] != 42 {
-		t.Errorf("Expected field2=42, got %v", writtenVars["testNode.field2"])
-	}
-	if writtenVars["testNode.field3"] != true {
-		t.Errorf("Expected field3=true, got %v", writtenVars["testNode.field3"])
-	}
+	require.Equal(t, "value1", writtenVars["testNode.field1"])
+	require.Equal(t, 42, writtenVars["testNode.field2"])
+	require.Equal(t, true, writtenVars["testNode.field3"])
 }
 
 func TestReadVarRaw_WithTracking(t *testing.T) {
@@ -180,34 +144,20 @@ func TestReadVarRaw_WithTracking(t *testing.T) {
 
 	// Test reading raw variable with tracking
 	value, err := node.ReadVarRawWithTracking(req, "testKey", tracker)
-	if err != nil {
-		t.Fatalf("ReadVarRawWithTracking failed: %v", err)
-	}
-	if value != "testValue" {
-		t.Errorf("Expected 'testValue', got %v", value)
-	}
+	require.NoError(t, err, "ReadVarRawWithTracking failed")
+	require.Equal(t, "testValue", value)
 
 	// Test reading complex data
 	complexValue, err := node.ReadVarRawWithTracking(req, "complexData", tracker)
-	if err != nil {
-		t.Fatalf("ReadVarRawWithTracking failed for complex data: %v", err)
-	}
+	require.NoError(t, err, "ReadVarRawWithTracking failed for complex data")
 	complexMap, ok := complexValue.(map[string]interface{})
-	if !ok {
-		t.Fatalf("Expected map[string]interface{}, got %T", complexValue)
-	}
-	if complexMap["nested"] != "value" {
-		t.Errorf("Expected nested='value', got %v", complexMap["nested"])
-	}
+	require.True(t, ok, "Expected map[string]interface{}, got %T", complexValue)
+	require.Equal(t, "value", complexMap["nested"])
 
 	// Verify reads were tracked
 	readVars := tracker.GetReadVars()
-	if len(readVars) != 2 {
-		t.Errorf("Expected 2 tracked reads, got %d", len(readVars))
-	}
-	if readVars["testKey"] != "testValue" {
-		t.Errorf("Expected tracked read testKey='testValue', got %v", readVars["testKey"])
-	}
+	require.Len(t, readVars, 2, "Expected 2 tracked reads")
+	require.Equal(t, "testValue", readVars["testKey"])
 }
 
 func TestReadVarRaw_WithoutTracking(t *testing.T) {
@@ -220,12 +170,8 @@ func TestReadVarRaw_WithoutTracking(t *testing.T) {
 
 	// Test reading without tracker (should work normally)
 	value, err := node.ReadVarRawWithTracking(req, "testKey", nil)
-	if err != nil {
-		t.Fatalf("ReadVarRawWithTracking with nil tracker failed: %v", err)
-	}
-	if value != "testValue" {
-		t.Errorf("Expected 'testValue', got %v", value)
-	}
+	require.NoError(t, err, "ReadVarRawWithTracking with nil tracker failed")
+	require.Equal(t, "testValue", value)
 }
 
 func TestReadNodeVar_WithTracking(t *testing.T) {
@@ -246,32 +192,20 @@ func TestReadNodeVar_WithTracking(t *testing.T) {
 
 	// Test reading node variables with tracking
 	result, err := node.ReadNodeVarWithTracking(req, "testNode", "result", tracker)
-	if err != nil {
-		t.Fatalf("ReadNodeVarWithTracking failed: %v", err)
-	}
-	if result != "success" {
-		t.Errorf("Expected 'success', got %v", result)
-	}
+	require.NoError(t, err, "ReadNodeVarWithTracking failed")
+	require.Equal(t, "success", result)
 
 	code, err := node.ReadNodeVarWithTracking(req, "testNode", "code", tracker)
-	if err != nil {
-		t.Fatalf("ReadNodeVarWithTracking failed: %v", err)
-	}
+	require.NoError(t, err, "ReadNodeVarWithTracking failed")
 	if code != 200 {
 		t.Errorf("Expected 200, got %v", code)
 	}
 
 	// Verify reads were tracked
 	readVars := tracker.GetReadVars()
-	if len(readVars) != 2 {
-		t.Errorf("Expected 2 tracked reads, got %d", len(readVars))
-	}
-	if readVars["testNode.result"] != "success" {
-		t.Errorf("Expected tracked read testNode.result='success', got %v", readVars["testNode.result"])
-	}
-	if readVars["testNode.code"] != 200 {
-		t.Errorf("Expected tracked read testNode.code=200, got %v", readVars["testNode.code"])
-	}
+	require.Len(t, readVars, 2, "Expected 2 tracked reads")
+	require.Equal(t, "success", readVars["testNode.result"])
+	require.Equal(t, 200, readVars["testNode.code"])
 }
 
 func TestNode_ReadWrite_Integration(t *testing.T) {
@@ -290,53 +224,33 @@ func TestNode_ReadWrite_Integration(t *testing.T) {
 	}
 
 	inputValue, err := node.ReadNodeVarWithTracking(req, "inputData", "value", tracker)
-	if err != nil {
-		t.Fatalf("Failed to read input value: %v", err)
-	}
+	require.NoError(t, err, "Failed to read input value")
 
 	multiplier, err := node.ReadNodeVarWithTracking(req, "inputData", "multiplier", tracker)
-	if err != nil {
-		t.Fatalf("Failed to read multiplier: %v", err)
-	}
+	require.NoError(t, err, "Failed to read multiplier")
 
 	// 2. Node processes data and writes output
 	result := inputValue.(int) * multiplier.(int)
 
 	err = node.WriteNodeVarWithTracking(req, "outputData", "result", result, tracker)
-	if err != nil {
-		t.Fatalf("Failed to write result: %v", err)
-	}
+	require.NoError(t, err, "Failed to write result")
 
 	err = node.WriteNodeVarWithTracking(req, "outputData", "status", "completed", tracker)
-	if err != nil {
-		t.Fatalf("Failed to write status: %v", err)
-	}
+	require.NoError(t, err, "Failed to write status")
 
 	// 3. Verify complete tracking
 	readVars := tracker.GetReadVars()
 	writtenVars := tracker.GetWrittenVars()
 
 	// Should have 2 reads and 2 writes
-	if len(readVars) != 2 {
-		t.Errorf("Expected 2 tracked reads, got %d", len(readVars))
-	}
-	if len(writtenVars) != 2 {
-		t.Errorf("Expected 2 tracked writes, got %d", len(writtenVars))
-	}
+	require.Len(t, readVars, 2, "Expected 2 tracked reads")
+	require.Len(t, writtenVars, 2, "Expected 2 tracked writes")
 
 	// Verify specific tracking
-	if readVars["inputData.value"] != 10 {
-		t.Errorf("Expected read inputData.value=10, got %v", readVars["inputData.value"])
-	}
-	if readVars["inputData.multiplier"] != 3 {
-		t.Errorf("Expected read inputData.multiplier=3, got %v", readVars["inputData.multiplier"])
-	}
-	if writtenVars["outputData.result"] != 30 {
-		t.Errorf("Expected write outputData.result=30, got %v", writtenVars["outputData.result"])
-	}
-	if writtenVars["outputData.status"] != "completed" {
-		t.Errorf("Expected write outputData.status='completed', got %v", writtenVars["outputData.status"])
-	}
+	require.Equal(t, 10, readVars["inputData.value"])
+	require.Equal(t, 3, readVars["inputData.multiplier"])
+	require.Equal(t, 30, writtenVars["outputData.result"])
+	require.Equal(t, "completed", writtenVars["outputData.status"])
 }
 
 func TestNode_ErrorHandling_WithTracking(t *testing.T) {
@@ -349,15 +263,11 @@ func TestNode_ErrorHandling_WithTracking(t *testing.T) {
 
 	// Test reading non-existent key
 	_, err := node.ReadVarRawWithTracking(req, "nonexistent", tracker)
-	if err != node.ErrVarKeyNotFound {
-		t.Errorf("Expected ErrVarKeyNotFound, got %v", err)
-	}
+	require.Equal(t, node.ErrVarKeyNotFound, err)
 
 	// Test reading non-existent node
 	_, err = node.ReadNodeVarWithTracking(req, "nonexistent", "key", tracker)
-	if err != node.ErrVarNodeNotFound {
-		t.Errorf("Expected ErrVarNodeNotFound, got %v", err)
-	}
+	require.Equal(t, node.ErrVarNodeNotFound, err)
 
 	// No reads should be tracked for failed operations
 	readVars := tracker.GetReadVars()
@@ -392,7 +302,7 @@ func TestNode_ConcurrentTracking(t *testing.T) {
 				// Read with tracking
 				_, err := node.ReadVarRawWithTracking(req, key, tracker)
 				if err != nil {
-					t.Errorf("Goroutine %d: ReadVarRawWithTracking failed: %v", goroutineID, err)
+					require.NoError(t, err, "Goroutine %d: ReadVarRawWithTracking failed", goroutineID)
 				}
 
 				// Write with tracking
@@ -400,7 +310,7 @@ func TestNode_ConcurrentTracking(t *testing.T) {
 				writeValue := fmt.Sprintf("result_%d_%d", goroutineID, j)
 				err = node.WriteNodeVarWithTracking(req, "outputs", writeKey, writeValue, tracker)
 				if err != nil {
-					t.Errorf("Goroutine %d: WriteNodeVarWithTracking failed: %v", goroutineID, err)
+					require.NoError(t, err, "Goroutine %d: WriteNodeVarWithTracking failed", goroutineID)
 				}
 			}
 		}(i)
@@ -413,12 +323,8 @@ func TestNode_ConcurrentTracking(t *testing.T) {
 	writtenVars := tracker.GetWrittenVars()
 
 	// Should have tracked some reads and writes
-	if len(readVars) == 0 {
-		t.Error("Expected some tracked reads from concurrent operations")
-	}
-	if len(writtenVars) == 0 {
-		t.Error("Expected some tracked writes from concurrent operations")
-	}
+	require.NotEmpty(t, readVars, "Expected some tracked reads from concurrent operations")
+	require.NotEmpty(t, writtenVars, "Expected some tracked writes from concurrent operations")
 
 	t.Logf("Concurrent test completed with %d reads and %d writes tracked", len(readVars), len(writtenVars))
 }

@@ -3,6 +3,8 @@ package tracking_test
 import (
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/flow/tracking"
 )
 
@@ -56,13 +58,8 @@ func TestVariableTracker_ConcurrentAccess(t *testing.T) {
 	readVars := tracker.GetReadVars()
 	writtenVars := tracker.GetWrittenVars()
 
-	if len(readVars) == 0 {
-		t.Error("Expected some read variables to be tracked")
-	}
-
-	if len(writtenVars) == 0 {
-		t.Error("Expected some written variables to be tracked")
-	}
+	require.NotEmpty(t, readVars, "Expected some read variables to be tracked")
+	require.NotEmpty(t, writtenVars, "Expected some written variables to be tracked")
 }
 
 func TestVariableTracker_ConcurrentMixedOperations(t *testing.T) {
@@ -109,13 +106,8 @@ func TestVariableTracker_ConcurrentMixedOperations(t *testing.T) {
 	finalReadVars := tracker.GetReadVars()
 	finalWrittenVars := tracker.GetWrittenVars()
 
-	if len(finalReadVars) == 0 {
-		t.Error("Expected read variables after concurrent operations")
-	}
-
-	if len(finalWrittenVars) == 0 {
-		t.Error("Expected written variables after concurrent operations")
-	}
+	require.NotEmpty(t, finalReadVars, "Expected read variables after concurrent operations")
+	require.NotEmpty(t, finalWrittenVars, "Expected written variables after concurrent operations")
 }
 
 func TestVariableTracker_StressTestWithComplexData(t *testing.T) {
@@ -165,9 +157,8 @@ func TestVariableTracker_StressTestWithComplexData(t *testing.T) {
 	readVars := tracker.GetReadVars()
 	writtenVars := tracker.GetWrittenVars()
 
-	if len(readVars) == 0 || len(writtenVars) == 0 {
-		t.Error("Expected tracked variables with complex data")
-	}
+	require.NotEmpty(t, readVars, "Expected tracked variables with complex data")
+	require.NotEmpty(t, writtenVars, "Expected tracked variables with complex data")
 }
 
 func BenchmarkVariableTracker_ConcurrentOperations(b *testing.B) {

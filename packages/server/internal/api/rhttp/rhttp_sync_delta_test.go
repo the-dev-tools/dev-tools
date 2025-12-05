@@ -167,7 +167,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 			return nil
 		})
 		if err != nil && err != context.Canceled {
-			t.Errorf("Base stream error: %v", err)
+			require.FailNow(t, "Base stream error: %v", err)
 		}
 	}()
 
@@ -182,7 +182,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 			return nil
 		})
 		if err != nil && err != context.Canceled {
-			t.Errorf("Delta stream error: %v", err)
+			require.FailNow(t, "Delta stream error: %v", err)
 		}
 	}()
 
@@ -218,13 +218,13 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		require.Equal(t, baseHeaderID.Bytes(), insert.HttpHeaderId)
 		require.Equal(t, "Content-Type", insert.Key)
 	case <-time.After(1 * time.Second):
-		t.Fatal("Timeout waiting for Base Header insert event")
+		require.FailNow(t, "Timeout waiting for Base Header insert event")
 	}
 
 	// Verify Delta Stream did NOT receive it
 	select {
 	case <-deltaStream:
-		t.Fatal("Delta stream received Base Header insert event")
+		require.FailNow(t, "Delta stream received Base Header insert event")
 	case <-time.After(200 * time.Millisecond):
 		// Pass
 	}
@@ -256,7 +256,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	// Verify Base Stream did NOT receive it (because IsDelta=true)
 	select {
 	case <-baseStream:
-		t.Fatal("Base stream received Delta Header insert event")
+		require.FailNow(t, "Base stream received Delta Header insert event")
 	case <-time.After(200 * time.Millisecond):
 		// Pass
 	}
@@ -271,7 +271,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		require.Equal(t, deltaHeaderID.Bytes(), insert.DeltaHttpHeaderId)
 		require.Equal(t, "text/xml", *insert.Value)
 	case <-time.After(1 * time.Second):
-		t.Fatal("Timeout waiting for Delta Header insert event")
+		require.FailNow(t, "Timeout waiting for Delta Header insert event")
 	}
 }
 

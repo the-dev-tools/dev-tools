@@ -9,7 +9,8 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/varsystem"
-)
+
+	"github.com/stretchr/testify/require")
 
 // TestPrepareHTTPRequest_JSONNumberSubstitution ensures that
 // variables containing large integers or numbers are preserved exactly
@@ -37,9 +38,7 @@ func TestPrepareHTTPRequest_JSONNumberSubstitution(t *testing.T) {
 	}
 	
 	largeID, ok := bodyMap["large_id"]
-	if !ok {
-		t.Fatal("large_id missing from response body")
-	}
+	require.True(t, ok, "large_id missing from response body")
 	
 	// Check type and value
 	if _, isNumber := largeID.(json.Number); !isNumber {
@@ -71,9 +70,7 @@ func TestPrepareHTTPRequest_JSONNumberSubstitution(t *testing.T) {
 	resUnquoted, err := request.PrepareHTTPRequestWithTracking(
 		httpReq, nil, nil, &mhttp.HTTPBodyRaw{RawData: []byte(rawBodyUnquoted)}, nil, nil, varMap,
 	)
-	if err != nil {
-		t.Fatalf("Unquoted substitution failed: %v", err)
-	}
+	require.NoError(t, err, "Unquoted substitution failed")
 	
 	expectedBodyUnquoted := `{"id": 1234567890123456789}`
 	if string(resUnquoted.Request.Body) != expectedBodyUnquoted {
@@ -87,9 +84,7 @@ func TestPrepareHTTPRequest_JSONNumberSubstitution(t *testing.T) {
 	resQuoted, err := request.PrepareHTTPRequestWithTracking(
 		httpReq, nil, nil, &mhttp.HTTPBodyRaw{RawData: []byte(rawBodyQuoted)}, nil, nil, varMap,
 	)
-	if err != nil {
-		t.Fatalf("Quoted substitution failed: %v", err)
-	}
+	require.NoError(t, err, "Quoted substitution failed")
 	
 	expectedBodyQuoted := `{"id": "1234567890123456789"}`
 	if string(resQuoted.Request.Body) != expectedBodyQuoted {
@@ -115,9 +110,7 @@ func TestPrepareHTTPRequest_UUIDSubstitution(t *testing.T) {
 	resQuoted, err := request.PrepareHTTPRequestWithTracking(
 		mhttp.HTTP{Url: "http://test.com", BodyKind: mhttp.HttpBodyKindRaw}, nil, nil, &mhttp.HTTPBodyRaw{RawData: []byte(templateQuoted)}, nil, nil, varMap,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	
 	expectedQuoted := fmt.Sprintf(`{"id": "%s"}`, uuidVal)
 	if string(resQuoted.Request.Body) != expectedQuoted {
@@ -130,9 +123,7 @@ func TestPrepareHTTPRequest_UUIDSubstitution(t *testing.T) {
 	resUnquoted, err := request.PrepareHTTPRequestWithTracking(
 		mhttp.HTTP{Url: "http://test.com", BodyKind: mhttp.HttpBodyKindRaw}, nil, nil, &mhttp.HTTPBodyRaw{RawData: []byte(templateUnquoted)}, nil, nil, varMap,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	
 	// The engine simply replaces the text. It does not auto-quote.
 	// Result: {"id": 8d98027f-8570-45cb-90ae-e8fa1d87dbf5} -> Invalid JSON

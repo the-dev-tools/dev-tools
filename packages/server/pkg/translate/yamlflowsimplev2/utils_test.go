@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -65,16 +67,10 @@ func TestValidateURL(t *testing.T) {
 			result, err := ValidateURL(tt.rawURL)
 
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error, but got none")
-				}
+				require.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Expected no error, but got: %v", err)
-				}
-				if result != tt.expectedURL {
-					t.Errorf("Expected URL '%s', got '%s'", tt.expectedURL, result)
-				}
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedURL, result)
 			}
 		})
 	}
@@ -101,9 +97,7 @@ func TestValidateHTTPMethod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ValidateHTTPMethod(tt.method)
-			if result != tt.expected {
-				t.Errorf("Expected method '%s', got '%s'", tt.expected, result)
-			}
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -127,9 +121,7 @@ func TestSanitizeFileName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := SanitizeFileName(tt.input)
-			if result != tt.expected {
-				t.Errorf("Expected filename '%s', got '%s'", tt.expected, result)
-			}
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -180,32 +172,19 @@ func TestExtractQueryParamsFromURL(t *testing.T) {
 			params, baseURL, err := ExtractQueryParamsFromURL(tt.rawURL)
 
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error, but got none")
-				}
+				require.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Expected no error, but got: %v", err)
-				}
+				require.NoError(t, err)
 
-				if len(params) != len(tt.expectedParams) {
-					t.Errorf("Expected %d params, got %d", len(tt.expectedParams), len(params))
-				}
+				require.Len(t, params, len(tt.expectedParams))
 
 				for i, expected := range tt.expectedParams {
-					if i >= len(params) {
-						t.Errorf("Missing param at index %d", i)
-						continue
-					}
-					if params[i].Name != expected.Name || params[i].Value != expected.Value {
-						t.Errorf("Param %d: expected {%s: %s}, got {%s: %s}",
-							i, expected.Name, expected.Value, params[i].Name, params[i].Value)
-					}
+					require.Less(t, i, len(params), "Missing param at index %d", i)
+					require.Equal(t, expected.Name, params[i].Name, "Param %d name mismatch", i)
+					require.Equal(t, expected.Value, params[i].Value, "Param %d value mismatch", i)
 				}
 
-				if baseURL != tt.expectedBase {
-					t.Errorf("Expected base URL '%s', got '%s'", tt.expectedBase, baseURL)
-				}
+				require.Equal(t, tt.expectedBase, baseURL)
 			}
 		})
 	}
@@ -230,9 +209,7 @@ func TestDetectBodyType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := DetectBodyType(tt.content)
-			if result != tt.expected {
-				t.Errorf("Expected body type '%s', got '%s'", tt.expected, result)
-			}
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -254,9 +231,7 @@ func TestGenerateHTTPKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GenerateHTTPKey(tt.method, tt.url)
-			if result != tt.expected {
-				t.Errorf("Expected key '%s', got '%s'", tt.expected, result)
-			}
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -277,9 +252,7 @@ func TestGenerateFileOrder(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GenerateFileOrder(tt.existingFiles)
-			if result != tt.expected {
-				t.Errorf("Expected order %v, got %v", tt.expected, result)
-			}
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -304,30 +277,22 @@ func TestCreateSummary(t *testing.T) {
 	summary := CreateSummary(data)
 
 	// Check basic counts
-	if summary["total_flows"].(int) != 2 {
-		t.Errorf("Expected total_flows 2, got %v", summary["total_flows"])
-	}
+	require.Equal(t, 2, summary["total_flows"].(int))
 
-	if summary["total_requests"].(int) != 3 {
-		t.Errorf("Expected total_requests 3, got %v", summary["total_requests"])
-	}
+	require.Equal(t, 3, summary["total_requests"].(int))
 
-	if summary["total_files"].(int) != 2 {
-		t.Errorf("Expected total_files 2, got %v", summary["total_files"])
-	}
+	require.Equal(t, 2, summary["total_files"].(int))
 
 	// Check flow details
 	flowDetails := summary["flow_details"].([]map[string]interface{})
-	if len(flowDetails) != 2 {
-		t.Errorf("Expected 2 flow details, got %d", len(flowDetails))
-	}
+	require.Len(t, flowDetails, 2)
 
 	// Check request summary
 	requestSummary := summary["request_summary"].(map[string]interface{})
 	methods := requestSummary["methods"].(map[string]int)
-	if methods["GET"] != 1 || methods["POST"] != 1 || methods["PUT"] != 1 {
-		t.Errorf("Expected methods {GET:1, POST:1, PUT:1}, got %v", methods)
-	}
+	require.Equal(t, 1, methods["GET"])
+	require.Equal(t, 1, methods["POST"])
+	require.Equal(t, 1, methods["PUT"])
 }
 
 func TestValidateReferences(t *testing.T) {
@@ -352,12 +317,12 @@ func TestValidateReferences(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateReferences(tt.data)
 
-			if tt.expectErr && err == nil {
-				t.Errorf("Expected error, but got none")
+			if tt.expectErr {
+				require.Error(t, err)
 			}
 
-			if !tt.expectErr && err != nil {
-				t.Errorf("Expected no error, but got: %v", err)
+			if !tt.expectErr {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -382,34 +347,24 @@ func TestGenerateStats(t *testing.T) {
 	stats := GenerateStats(data)
 
 	// Check basic counts
-	if stats["http_requests"].(int) != 3 {
-		t.Errorf("Expected http_requests 3, got %v", stats["http_requests"])
-	}
+	require.Equal(t, 3, stats["http_requests"].(int))
 
-	if stats["flow_nodes"].(int) != 3 {
-		t.Errorf("Expected flow_nodes 3, got %v", stats["flow_nodes"])
-	}
+	require.Equal(t, 3, stats["flow_nodes"].(int))
 
-	if stats["flows"].(int) != 2 {
-		t.Errorf("Expected flows 2, got %v", stats["flows"])
-	}
+	require.Equal(t, 2, stats["flows"].(int))
 
 	// Check method breakdown
 	methods := stats["http_methods"].(map[string]int)
-	if methods["GET"] != 2 || methods["POST"] != 1 {
-		t.Errorf("Expected methods {GET:2, POST:1}, got %v", methods)
-	}
+	require.Equal(t, 2, methods["GET"])
+	require.Equal(t, 1, methods["POST"])
 
 	// Check node type breakdown
 	nodeTypes := stats["flow_node_types"].(map[string]int)
-	if nodeTypes[string(mnnode.NODE_KIND_REQUEST)] != 2 || nodeTypes[string(mnnode.NODE_KIND_CONDITION)] != 1 {
-		t.Errorf("Expected node types {REQUEST:2, CONDITION:1}, got %v", nodeTypes)
-	}
+	require.Equal(t, 2, nodeTypes[string(mnnode.NODE_KIND_REQUEST)])
+	require.Equal(t, 1, nodeTypes[string(mnnode.NODE_KIND_CONDITION)])
 
 	// Check averages
-	if stats["avg_nodes_per_flow"].(float64) != 1.5 {
-		t.Errorf("Expected avg_nodes_per_flow 1.5, got %v", stats["avg_nodes_per_flow"])
-	}
+	require.Equal(t, 1.5, stats["avg_nodes_per_flow"].(float64))
 }
 
 func TestOptimizeYAMLData(t *testing.T) {
@@ -428,21 +383,15 @@ func TestOptimizeYAMLData(t *testing.T) {
 	OptimizeYAMLData(data)
 
 	// Headers should be sorted and deduplicated
-	if len(data.HTTPHeaders) != 2 {
-		t.Errorf("Expected 2 headers after optimization, got %d", len(data.HTTPHeaders))
-	}
+	require.Len(t, data.HTTPHeaders, 2)
 
 	// Should be sorted by key
-	if data.HTTPHeaders[0].Key != "A" || data.HTTPHeaders[1].Key != "B" {
-		t.Errorf("Headers not sorted correctly: %v", data.HTTPHeaders)
-	}
+	require.Equal(t, "A", data.HTTPHeaders[0].Key)
+	require.Equal(t, "B", data.HTTPHeaders[1].Key)
 
 	// Search params should be sorted
-	if len(data.HTTPSearchParams) != 2 {
-		t.Errorf("Expected 2 search params, got %d", len(data.HTTPSearchParams))
-	}
+	require.Len(t, data.HTTPSearchParams, 2)
 
-	if data.HTTPSearchParams[0].Key != "param1" || data.HTTPSearchParams[1].Key != "param2" {
-		t.Errorf("Search params not sorted correctly: %v", data.HTTPSearchParams)
-	}
+	require.Equal(t, "param1", data.HTTPSearchParams[0].Key)
+	require.Equal(t, "param2", data.HTTPSearchParams[1].Key)
 }

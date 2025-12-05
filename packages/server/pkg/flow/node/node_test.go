@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/flow/node"
 )
 
@@ -18,18 +20,12 @@ func TestAddNodeVar(t *testing.T) {
 	nodeName := "test-node"
 
 	err := node.WriteNodeVar(req, nodeName, key, value)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
 	storedValue, err := node.ReadNodeVar(req, nodeName, key)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
-	if storedValue != value {
-		t.Fatalf("expected %v, got %v", value, storedValue)
-	}
+	require.Equal(t, value, storedValue)
 }
 
 func TestReadVarRaw(t *testing.T) {
@@ -43,13 +39,9 @@ func TestReadVarRaw(t *testing.T) {
 	req.VarMap[key] = value
 
 	storedValue, err := node.ReadVarRaw(req, key)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
-	if storedValue != value {
-		t.Fatalf("expected %v, got %v", value, storedValue)
-	}
+	require.Equal(t, value, storedValue)
 }
 
 func TestReadNodeVar(t *testing.T) {
@@ -64,13 +56,9 @@ func TestReadNodeVar(t *testing.T) {
 	req.VarMap[nodeName] = map[string]interface{}{key: value}
 
 	storedValue, err := node.ReadNodeVar(req, nodeName, key)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
-	if storedValue != value {
-		t.Fatalf("expected %v, got %v", value, storedValue)
-	}
+	require.Equal(t, value, storedValue)
 }
 
 func TestReadNodeVar_NodeNotFound(t *testing.T) {
@@ -83,13 +71,8 @@ func TestReadNodeVar_NodeNotFound(t *testing.T) {
 	nodeName := "test-node"
 
 	_, err := node.ReadNodeVar(req, nodeName, key)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-
-	if err != node.ErrVarNodeNotFound {
-		t.Fatalf("expected %v, got %v", node.ErrNodeNotFound, err)
-	}
+	require.Error(t, err, "expected error")
+	require.Equal(t, node.ErrVarNodeNotFound, err)
 }
 
 func TestReadNodeVar_KeyNotFound(t *testing.T) {
@@ -104,12 +87,8 @@ func TestReadNodeVar_KeyNotFound(t *testing.T) {
 	key := "testKey"
 
 	_, err := node.ReadNodeVar(req, nodeName, key)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
+	require.Error(t, err, "expected error")
 
 	expectedErr := errors.New("key not found")
-	if err.Error() != expectedErr.Error() {
-		t.Fatalf("expected %v, got %v", expectedErr, err)
-	}
+	require.Equal(t, expectedErr.Error(), err.Error())
 }

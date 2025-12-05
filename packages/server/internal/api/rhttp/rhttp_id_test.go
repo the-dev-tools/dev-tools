@@ -56,29 +56,22 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.HttpHeaderInsert(f.ctx, insertReq); err != nil {
-		t.Fatalf("HttpHeaderInsert err: %v", err)
-	}
+	_, err := f.handler.HttpHeaderInsert(f.ctx, insertReq)
+	require.NoError(t, err)
 
 	// Verify ID in DB
 	headers, err := f.handler.httpHeaderService.GetByHttpID(f.ctx, httpID)
-	if err != nil {
-		t.Fatalf("GetByHttpID err: %v", err)
-	}
+	require.NoError(t, err)
 
 	foundInDB := false
 	for _, h := range headers {
 		if h.ID == clientGeneratedID {
 			foundInDB = true
-			if h.Key != headerKey {
-				t.Errorf("Header key mismatch in DB. Expected %s, got %s", headerKey, h.Key)
-			}
+			require.Equal(t, headerKey, h.Key, "Header key mismatch in DB")
 			break
 		}
 	}
-	if !foundInDB {
-		t.Fatalf("Header with client ID %s not found in DB", clientGeneratedID.String())
-	}
+	require.True(t, foundInDB, "Header with client ID %s not found in DB", clientGeneratedID.String())
 
 	// Verify ID in Sync Event
 	timeout := time.After(2 * time.Second)
@@ -88,9 +81,7 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 	for {
 		select {
 		case resp, ok := <-msgCh:
-			if !ok {
-				t.Fatal("Stream closed before event received")
-			}
+			require.True(t, ok, "Stream closed before event received")
 			for _, item := range resp.GetItems() {
 				val := item.GetValue()
 				if val == nil {
@@ -104,25 +95,19 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 
 					if eventID == clientGeneratedID {
 						foundInStream = true
-						if insert.GetKey() != headerKey {
-							t.Errorf("Header key mismatch in stream. Expected %s, got %s", headerKey, insert.GetKey())
-						}
+						require.Equal(t, headerKey, insert.GetKey(), "Header key mismatch in stream")
 						// Verify HttpId is populated
-						if len(insert.GetHttpId()) == 0 {
-							t.Error("HttpId missing in sync event")
-						}
+						require.NotEmpty(t, insert.GetHttpId(), "HttpId missing in sync event")
 						goto Done
 					}
 				}
 			}
 		case <-timeout:
-			t.Fatal("Timeout waiting for sync event")
+			require.FailNow(t, "Timeout waiting for sync event")
 		}
 	}
 Done:
-	if !foundInStream {
-		t.Fatal("Header inserted event not received in stream")
-	}
+	require.True(t, foundInStream, "Header inserted event not received in stream")
 }
 
 func TestHttpHeaderUpdatePersistsOrder(t *testing.T) {
@@ -366,9 +351,7 @@ func TestHttpHeaderOrderRoundTrip(t *testing.T) {
 	for !foundInSync {
 		select {
 		case resp, ok := <-msgCh:
-			if !ok {
-				t.Fatal("Stream closed before event received")
-			}
+			require.True(t, ok, "Stream closed before event received")
 			for _, item := range resp.GetItems() {
 				val := item.GetValue()
 				if val == nil {
@@ -385,7 +368,7 @@ func TestHttpHeaderOrderRoundTrip(t *testing.T) {
 				}
 			}
 		case <-timeout:
-			t.Fatal("Timeout waiting for sync event")
+			require.FailNow(t, "Timeout waiting for sync event")
 		}
 	}
 }
@@ -469,9 +452,7 @@ func TestHttpBodyFormDataOrderRoundTrip(t *testing.T) {
 	for !foundInSync {
 		select {
 		case resp, ok := <-msgCh:
-			if !ok {
-				t.Fatal("Stream closed before event received")
-			}
+			require.True(t, ok, "Stream closed before event received")
 			for _, item := range resp.GetItems() {
 				val := item.GetValue()
 				if val == nil {
@@ -488,7 +469,7 @@ func TestHttpBodyFormDataOrderRoundTrip(t *testing.T) {
 				}
 			}
 		case <-timeout:
-			t.Fatal("Timeout waiting for sync event")
+			require.FailNow(t, "Timeout waiting for sync event")
 		}
 	}
 }
@@ -572,9 +553,7 @@ func TestHttpBodyUrlEncodedOrderRoundTrip(t *testing.T) {
 	for !foundInSync {
 		select {
 		case resp, ok := <-msgCh:
-			if !ok {
-				t.Fatal("Stream closed before event received")
-			}
+			require.True(t, ok, "Stream closed before event received")
 			for _, item := range resp.GetItems() {
 				val := item.GetValue()
 				if val == nil {
@@ -591,7 +570,7 @@ func TestHttpBodyUrlEncodedOrderRoundTrip(t *testing.T) {
 				}
 			}
 		case <-timeout:
-			t.Fatal("Timeout waiting for sync event")
+			require.FailNow(t, "Timeout waiting for sync event")
 		}
 	}
 }

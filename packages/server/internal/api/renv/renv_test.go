@@ -2,13 +2,13 @@ package renv
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
@@ -52,33 +52,30 @@ func newEnvFixture(t *testing.T) *envFixture {
 	now := time.Now()
 
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	if err := services.Us.CreateUser(context.Background(), &muser.User{
+	err := services.Us.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
+	})
+	require.NoError(t, err, "create user")
 
-	if err := services.Ws.Create(context.Background(), &mworkspace.Workspace{
+	err = services.Ws.Create(context.Background(), &mworkspace.Workspace{
 		ID:      workspaceID,
 		Name:    "Test Workspace",
 		Updated: now,
-	}); err != nil {
-		t.Fatalf("create workspace: %v", err)
-	}
+	})
+	require.NoError(t, err, "create workspace")
 
-	if err := services.Wus.CreateWorkspaceUser(context.Background(), &mworkspaceuser.WorkspaceUser{
+	err = services.Wus.CreateWorkspaceUser(context.Background(), &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
 		Role:        mworkspaceuser.RoleOwner,
-	}); err != nil {
-		t.Fatalf("create workspace user: %v", err)
-	}
+	})
+	require.NoError(t, err, "create workspace user")
 
 	authCtx := mwauth.CreateAuthedContext(context.Background(), userID)
 	handler := New(base.DB, envService, varService, services.Us, services.Ws, envStream, varStream)
@@ -110,16 +107,15 @@ func (f *envFixture) createEnv(t *testing.T, order float64) menv.Env {
 		Description: "seeded env",
 		Order:       order,
 	}
-	if err := f.envService.CreateEnvironment(f.ctx, &env); err != nil {
-		t.Fatalf("create env: %v", err)
-	}
+	err := f.envService.CreateEnvironment(f.ctx, &env)
+	require.NoError(t, err, "create env")
 	return env
 }
 
 func (f *envFixture) createVar(t *testing.T, envID idwrap.IDWrap, order float64) idwrap.IDWrap {
 	t.Helper()
 	varID := idwrap.NewNow()
-	if err := f.varService.Create(f.ctx, mvar.Var{
+	err := f.varService.Create(f.ctx, mvar.Var{
 		ID:          varID,
 		EnvID:       envID,
 		VarKey:      fmt.Sprintf("key-%f", order),
@@ -127,9 +123,8 @@ func (f *envFixture) createVar(t *testing.T, envID idwrap.IDWrap, order float64)
 		Enabled:     true,
 		Description: "seeded var",
 		Order:       order,
-	}); err != nil {
-		t.Fatalf("create var: %v", err)
-	}
+	})
+	require.NoError(t, err, "create var")
 	return varID
 }
 
@@ -141,22 +136,13 @@ func TestEnvironmentCollectionOrdersResults(t *testing.T) {
 	envSecond := f.createEnv(t, 2)
 
 	resp, err := f.handler.EnvironmentCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		t.Fatalf("EnvironmentCollection err: %v", err)
-	}
+	require.NoError(t, err, "EnvironmentCollection")
 
-	if len(resp.Msg.Items) != 2 {
-		t.Fatalf("expected 2 items, got %d", len(resp.Msg.Items))
-	}
-	if resp.Msg.Items[0].GetEnvironmentId() == nil || resp.Msg.Items[1].GetEnvironmentId() == nil {
-		t.Fatal("environment ids should be populated")
-	}
-	if resp.Msg.Items[0].GetName() != envFirst.Name {
-		t.Fatalf("expected first environment %q, got %q", envFirst.Name, resp.Msg.Items[0].GetName())
-	}
-	if resp.Msg.Items[1].GetName() != envSecond.Name {
-		t.Fatalf("expected second environment %q, got %q", envSecond.Name, resp.Msg.Items[1].GetName())
-	}
+	require.Len(t, resp.Msg.Items, 2)
+	require.NotNil(t, resp.Msg.Items[0].GetEnvironmentId(), "environment ids should be populated")
+	require.NotNil(t, resp.Msg.Items[1].GetEnvironmentId(), "environment ids should be populated")
+	require.Equal(t, envFirst.Name, resp.Msg.Items[0].GetName())
+	require.Equal(t, envSecond.Name, resp.Msg.Items[1].GetName())
 }
 
 func TestEnvironmentCreate(t *testing.T) {
@@ -176,20 +162,14 @@ func TestEnvironmentCreate(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.EnvironmentInsert(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentInsert err: %v", err)
-	}
+	_, err := f.handler.EnvironmentInsert(f.ctx, req)
+	require.NoError(t, err, "EnvironmentInsert")
 
 	stored, err := f.envService.GetEnvironment(f.ctx, envID)
-	if err != nil {
-		t.Fatalf("GetEnvironment err: %v", err)
-	}
-	if stored.Name != "created env" || stored.Description != "created via rpc" {
-		t.Fatalf("unexpected environment fields: %+v", stored)
-	}
-	if !floatAlmostEqual(stored.Order, 3) {
-		t.Fatalf("expected order 3, got %f", stored.Order)
-	}
+	require.NoError(t, err, "GetEnvironment")
+	require.Equal(t, "created env", stored.Name)
+	require.Equal(t, "created via rpc", stored.Description)
+	require.True(t, floatAlmostEqual(stored.Order, 3), "expected order 3, got %f", stored.Order)
 }
 
 func TestEnvironmentUpdate(t *testing.T) {
@@ -212,20 +192,14 @@ func TestEnvironmentUpdate(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.EnvironmentUpdate(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentUpdate err: %v", err)
-	}
+	_, err := f.handler.EnvironmentUpdate(f.ctx, req)
+	require.NoError(t, err, "EnvironmentUpdate")
 
 	stored, err := f.envService.GetEnvironment(f.ctx, env.ID)
-	if err != nil {
-		t.Fatalf("GetEnvironment err: %v", err)
-	}
-	if stored.Name != newName || stored.Description != newDesc {
-		t.Fatalf("unexpected fields: %+v", stored)
-	}
-	if !floatAlmostEqual(stored.Order, float64(newOrder)) {
-		t.Fatalf("expected order %.1f, got %f", newOrder, stored.Order)
-	}
+	require.NoError(t, err, "GetEnvironment")
+	require.Equal(t, newName, stored.Name)
+	require.Equal(t, newDesc, stored.Description)
+	require.True(t, floatAlmostEqual(stored.Order, float64(newOrder)), "expected order %.1f, got %f", newOrder, stored.Order)
 }
 
 func TestEnvironmentDelete(t *testing.T) {
@@ -238,13 +212,11 @@ func TestEnvironmentDelete(t *testing.T) {
 		Items: []*apiv1.EnvironmentDelete{{EnvironmentId: env.ID.Bytes()}},
 	})
 
-	if _, err := f.handler.EnvironmentDelete(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentDelete err: %v", err)
-	}
+	_, err := f.handler.EnvironmentDelete(f.ctx, req)
+	require.NoError(t, err, "EnvironmentDelete")
 
-	if _, err := f.envService.GetEnvironment(f.ctx, env.ID); !errors.Is(err, senv.ErrNoEnvironmentFound) {
-		t.Fatalf("expected ErrNoEnvironmentFound, got %v", err)
-	}
+	_, err = f.envService.GetEnvironment(f.ctx, env.ID)
+	require.ErrorIs(t, err, senv.ErrNoEnvironmentFound)
 }
 
 func TestEnvironmentVariableCollection(t *testing.T) {
@@ -256,12 +228,8 @@ func TestEnvironmentVariableCollection(t *testing.T) {
 	f.createVar(t, env.ID, 2)
 
 	resp, err := f.handler.EnvironmentVariableCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		t.Fatalf("EnvironmentVariableCollection err: %v", err)
-	}
-	if len(resp.Msg.Items) != 2 {
-		t.Fatalf("expected 2 variables, got %d", len(resp.Msg.Items))
-	}
+	require.NoError(t, err, "EnvironmentVariableCollection")
+	require.Len(t, resp.Msg.Items, 2)
 }
 
 func TestEnvironmentVariableCreate(t *testing.T) {
@@ -284,20 +252,15 @@ func TestEnvironmentVariableCreate(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.EnvironmentVariableInsert(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentVariableInsert err: %v", err)
-	}
+	_, err := f.handler.EnvironmentVariableInsert(f.ctx, req)
+	require.NoError(t, err, "EnvironmentVariableInsert")
 
 	stored, err := f.varService.Get(f.ctx, varID)
-	if err != nil {
-		t.Fatalf("Get variable err: %v", err)
-	}
-	if stored.VarKey != "API_KEY" || stored.Value != "secret" || stored.Description != "primary key" {
-		t.Fatalf("unexpected stored variable: %+v", stored)
-	}
-	if !floatAlmostEqual(stored.Order, 2) {
-		t.Fatalf("expected order 2, got %f", stored.Order)
-	}
+	require.NoError(t, err, "Get variable")
+	require.Equal(t, "API_KEY", stored.VarKey)
+	require.Equal(t, "secret", stored.Value)
+	require.Equal(t, "primary key", stored.Description)
+	require.True(t, floatAlmostEqual(stored.Order, 2), "expected order 2, got %f", stored.Order)
 }
 
 func TestEnvironmentVariableUpdate(t *testing.T) {
@@ -326,20 +289,16 @@ func TestEnvironmentVariableUpdate(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.EnvironmentVariableUpdate(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentVariableUpdate err: %v", err)
-	}
+	_, err := f.handler.EnvironmentVariableUpdate(f.ctx, req)
+	require.NoError(t, err, "EnvironmentVariableUpdate")
 
 	stored, err := f.varService.Get(f.ctx, varID)
-	if err != nil {
-		t.Fatalf("Get variable err: %v", err)
-	}
-	if stored.VarKey != newKey || stored.Value != newValue || stored.Description != newDesc || stored.Enabled != newEnabled {
-		t.Fatalf("unexpected stored variable: %+v", stored)
-	}
-	if !floatAlmostEqual(stored.Order, float64(newOrder)) {
-		t.Fatalf("expected order %.1f, got %f", newOrder, stored.Order)
-	}
+	require.NoError(t, err, "Get variable")
+	require.Equal(t, newKey, stored.VarKey)
+	require.Equal(t, newValue, stored.Value)
+	require.Equal(t, newDesc, stored.Description)
+	require.Equal(t, newEnabled, stored.Enabled)
+	require.True(t, floatAlmostEqual(stored.Order, float64(newOrder)), "expected order %.1f, got %f", newOrder, stored.Order)
 }
 
 func TestEnvironmentVariableDelete(t *testing.T) {
@@ -353,13 +312,11 @@ func TestEnvironmentVariableDelete(t *testing.T) {
 		Items: []*apiv1.EnvironmentVariableDelete{{EnvironmentVariableId: varID.Bytes()}},
 	})
 
-	if _, err := f.handler.EnvironmentVariableDelete(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentVariableDelete err: %v", err)
-	}
+	_, err := f.handler.EnvironmentVariableDelete(f.ctx, req)
+	require.NoError(t, err, "EnvironmentVariableDelete")
 
-	if _, err := f.varService.Get(f.ctx, varID); !errors.Is(err, svar.ErrNoVarFound) {
-		t.Fatalf("expected ErrNoVarFound, got %v", err)
-	}
+	_, err = f.varService.Get(f.ctx, varID)
+	require.ErrorIs(t, err, svar.ErrNoVarFound)
 }
 
 func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
@@ -388,18 +345,13 @@ func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
 	seen := map[string]bool{}
 	for _, item := range snapshot {
 		val := item.GetValue()
-		if val == nil {
-			t.Fatal("snapshot item missing value union")
-		}
-		if val.GetKind() != apiv1.EnvironmentSync_ValueUnion_KIND_INSERT {
-			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
-		}
+		require.NotNil(t, val, "snapshot item missing value union")
+		require.Equal(t, apiv1.EnvironmentSync_ValueUnion_KIND_INSERT, val.GetKind())
 		envID := string(val.GetInsert().GetEnvironmentId())
 		seen[envID] = true
 	}
-	if !seen[string(envA.ID.Bytes())] || !seen[string(envB.ID.Bytes())] {
-		t.Fatalf("snapshot missing expected environments, seen=%v", seen)
-	}
+	require.True(t, seen[string(envA.ID.Bytes())], "snapshot missing envA")
+	require.True(t, seen[string(envB.ID.Bytes())], "snapshot missing envB")
 
 	newName := "updated env"
 	req := connect.NewRequest(&apiv1.EnvironmentUpdateRequest{
@@ -410,25 +362,19 @@ func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.EnvironmentUpdate(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentUpdate err: %v", err)
-	}
+	_, err := f.handler.EnvironmentUpdate(f.ctx, req)
+	require.NoError(t, err, "EnvironmentUpdate")
 
 	updateItems := collectEnvironmentSyncItems(t, msgCh, 1)
 	updateVal := updateItems[0].GetValue()
-	if updateVal == nil {
-		t.Fatal("update response missing value union")
-	}
-	if updateVal.GetKind() != apiv1.EnvironmentSync_ValueUnion_KIND_UPDATE {
-		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
-	}
-	if got := updateVal.GetUpdate().GetName(); got != newName {
-		t.Fatalf("expected updated name %q, got %q", newName, got)
-	}
+	require.NotNil(t, updateVal, "update response missing value union")
+	require.Equal(t, apiv1.EnvironmentSync_ValueUnion_KIND_UPDATE, updateVal.GetKind())
+	require.Equal(t, newName, updateVal.GetUpdate().GetName())
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled)
 	}
 }
 
@@ -459,17 +405,11 @@ func TestEnvironmentVariableSyncStreamsSnapshotAndUpdates(t *testing.T) {
 	varSeen := map[string]bool{}
 	for _, item := range snapshot {
 		val := item.GetValue()
-		if val == nil {
-			t.Fatal("snapshot variable missing value union")
-		}
-		if val.GetKind() != apiv1.EnvironmentVariableSync_ValueUnion_KIND_INSERT {
-			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
-		}
+		require.NotNil(t, val, "snapshot variable missing value union")
+		require.Equal(t, apiv1.EnvironmentVariableSync_ValueUnion_KIND_INSERT, val.GetKind())
 		varSeen[string(val.GetInsert().GetEnvironmentVariableId())] = true
 	}
-	if len(varSeen) != 2 {
-		t.Fatalf("expected snapshot to contain 2 variables, got %d", len(varSeen))
-	}
+	require.Len(t, varSeen, 2)
 
 	newValue := "changed"
 	req := connect.NewRequest(&apiv1.EnvironmentVariableUpdateRequest{
@@ -480,25 +420,19 @@ func TestEnvironmentVariableSyncStreamsSnapshotAndUpdates(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.EnvironmentVariableUpdate(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentVariableUpdate err: %v", err)
-	}
+	_, err := f.handler.EnvironmentVariableUpdate(f.ctx, req)
+	require.NoError(t, err, "EnvironmentVariableUpdate")
 
 	updateItems := collectEnvironmentVariableSyncItems(t, msgCh, 1)
 	updateVal := updateItems[0].GetValue()
-	if updateVal == nil {
-		t.Fatal("update response missing value union")
-	}
-	if updateVal.GetKind() != apiv1.EnvironmentVariableSync_ValueUnion_KIND_UPDATE {
-		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
-	}
-	if got := updateVal.GetUpdate().GetValue(); got != newValue {
-		t.Fatalf("expected updated value %q, got %q", newValue, got)
-	}
+	require.NotNil(t, updateVal, "update response missing value union")
+	require.Equal(t, apiv1.EnvironmentVariableSync_ValueUnion_KIND_UPDATE, updateVal.GetKind())
+	require.Equal(t, newValue, updateVal.GetUpdate().GetValue())
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled)
 	}
 }
 
@@ -527,13 +461,12 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 
 	otherWorkspaceID := idwrap.NewNow()
 	services := f.base.GetBaseServices()
-	if err := services.Ws.Create(context.Background(), &mworkspace.Workspace{
+	err := services.Ws.Create(context.Background(), &mworkspace.Workspace{
 		ID:      otherWorkspaceID,
 		Name:    "other",
 		Updated: time.Now(),
-	}); err != nil {
-		t.Fatalf("create workspace: %v", err)
-	}
+	})
+	require.NoError(t, err, "create workspace")
 
 	otherEnv := menv.Env{
 		ID:          idwrap.NewNow(),
@@ -550,14 +483,15 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 
 	select {
 	case resp := <-msgCh:
-		t.Fatalf("unexpected event for unauthorized workspace: %+v", resp)
+		require.FailNow(t, "unexpected event for unauthorized workspace", "%+v", resp)
 	case <-time.After(150 * time.Millisecond):
 		// success: no events delivered
 	}
 
 	cancel()
-	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream returned error: %v", err)
+	err = <-errCh
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled)
 	}
 
 }
@@ -571,9 +505,7 @@ func collectEnvironmentSyncItems(t *testing.T, ch <-chan *apiv1.EnvironmentSyncR
 	for len(items) < count {
 		select {
 		case resp, ok := <-ch:
-			if !ok {
-				t.Fatalf("channel closed before collecting %d items", count)
-			}
+			require.True(t, ok, "channel closed before collecting %d items", count)
 			for _, item := range resp.GetItems() {
 				if item != nil {
 					items = append(items, item)
@@ -583,7 +515,7 @@ func collectEnvironmentSyncItems(t *testing.T, ch <-chan *apiv1.EnvironmentSyncR
 				}
 			}
 		case <-timeout:
-			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+			require.FailNow(t, "timeout waiting for items", "timeout waiting for %d items, collected %d", count, len(items))
 		}
 	}
 
@@ -599,9 +531,7 @@ func collectEnvironmentVariableSyncItems(t *testing.T, ch <-chan *apiv1.Environm
 	for len(items) < count {
 		select {
 		case resp, ok := <-ch:
-			if !ok {
-				t.Fatalf("channel closed before collecting %d items", count)
-			}
+			require.True(t, ok, "channel closed before collecting %d items", count)
 			for _, item := range resp.GetItems() {
 				if item != nil {
 					items = append(items, item)
@@ -611,7 +541,7 @@ func collectEnvironmentVariableSyncItems(t *testing.T, ch <-chan *apiv1.Environm
 				}
 			}
 		case <-timeout:
-			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+			require.FailNow(t, "timeout waiting for items", "timeout waiting for %d items, collected %d", count, len(items))
 		}
 	}
 

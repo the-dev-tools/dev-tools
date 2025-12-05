@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
@@ -37,7 +36,7 @@ func TestConvertHAR_DeltaLinkage(t *testing.T) {
 	// Verify IDs
 	require.NotNil(t, reqNode.HttpID, "HttpID should be set")
 	require.NotNil(t, reqNode.DeltaHttpID, "DeltaHttpID should be set")
-	assert.NotEqual(t, *reqNode.HttpID, *reqNode.DeltaHttpID, "Base and Delta IDs should differ")
+	require.NotEqual(t, *reqNode.HttpID, *reqNode.DeltaHttpID, "Base and Delta IDs should differ")
 
 	// Find the actual HTTP objects
 	var baseReq, deltaReq *mhttp.HTTP
@@ -55,8 +54,8 @@ func TestConvertHAR_DeltaLinkage(t *testing.T) {
 
 	require.NotNil(t, baseReq, "Base Request not found")
 	require.NotNil(t, deltaReq, "Delta Request not found")
-	assert.True(t, deltaReq.IsDelta)
-	assert.Equal(t, baseReq.ID, *deltaReq.ParentHttpID)
+	require.True(t, deltaReq.IsDelta)
+	require.Equal(t, baseReq.ID, *deltaReq.ParentHttpID)
 
 	// Verify Files
 	var baseFile, deltaFile *mfile.File
@@ -75,13 +74,13 @@ func TestConvertHAR_DeltaLinkage(t *testing.T) {
 	require.NotNil(t, baseFile, "Base File not found")
 	require.NotNil(t, deltaFile, "Delta File not found")
 
-	assert.Equal(t, mfile.ContentTypeHTTP, baseFile.ContentType)
-	assert.Equal(t, mfile.ContentTypeHTTPDelta, deltaFile.ContentType)
+	require.Equal(t, mfile.ContentTypeHTTP, baseFile.ContentType)
+	require.Equal(t, mfile.ContentTypeHTTPDelta, deltaFile.ContentType)
 
 	// Verify Colocation
 	require.NotNil(t, baseFile.ParentID)
 	require.NotNil(t, deltaFile.ParentID)
-	assert.Equal(t, baseFile.ID, *deltaFile.ParentID, "Delta file should be a child of the Base file")
+	require.Equal(t, baseFile.ID, *deltaFile.ParentID, "Delta file should be a child of the Base file")
 }
 
 func TestConvertHAR_DeltaDependencies(t *testing.T) {
@@ -154,10 +153,10 @@ func TestConvertHAR_DeltaDependencies(t *testing.T) {
 	}
 
 	// Verify dependencies in the Delta Header
-	assert.Contains(t, deltaHeader, "{{ request_1.response.body.token }}", "Delta header should contain template")
-	
+	require.Contains(t, deltaHeader, "{{ request_1.response.body.token }}", "Delta header should contain template")
+
 	// Base header should contain the raw secret
-	assert.Contains(t, baseHeader, "SECRET_TOKEN_123", "Base header should contain raw secret")
+	require.Contains(t, baseHeader, "SECRET_TOKEN_123", "Base header should contain raw secret")
 	
 	// And if the URL had a dependency, checking Delta Request URL would be valid.
 	// Let's check if URL dependency is propagated.

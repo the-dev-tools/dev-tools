@@ -22,6 +22,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"github.com/stretchr/testify/require"
 )
 
 func legacyGetPredecessorNodes(nodeID idwrap.IDWrap, edgesMap edge.EdgesMap) []idwrap.IDWrap {
@@ -286,9 +287,7 @@ func TestFlowLocalRunnerEmitsLogEvents(t *testing.T) {
 		NodeLogs:   logChan,
 		FlowStatus: flowStatusChan,
 	}, nil)
-	if err != nil {
-		t.Fatalf("RunWithEvents returned error: %v", err)
-	}
+	require.NoError(t, err, "RunWithEvents returned error")
 
 	states := drainStates(stateChan)
 	if len(states) == 0 {
@@ -895,9 +894,7 @@ func TestLoopCoordinatorPerNodeTimeout(t *testing.T) {
 	statuses := drainStates(stateChan)
 	_ = drainFlowStatus(flowStatusChan)
 
-	if err != nil {
-		t.Fatalf("flow runner returned error: %v statuses=%+v", err, statuses)
-	}
+	require.Nil(t, err, "flow runner returned error: %v statuses=%+v", err, statuses)
 
 	if duration < perNodeTimeout*time.Duration(iterations-1) {
 		t.Fatalf("expected total duration to exceed per-node timeout, got %v", duration)

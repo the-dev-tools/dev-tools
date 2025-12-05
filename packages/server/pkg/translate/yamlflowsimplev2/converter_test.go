@@ -1,8 +1,9 @@
 package yamlflowsimplev2
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
@@ -45,23 +46,14 @@ flows:
 	opts := GetDefaultOptions(workspaceID)
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify basic structure
-	if len(result.Flows) != 1 {
-		t.Errorf("Expected 1 flow, got %d", len(result.Flows))
-	}
-
-	if len(result.HTTPRequests) != 1 {
-		t.Errorf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
-	}
+	require.Len(t, result.Flows, 1)
+	require.Len(t, result.HTTPRequests, 1)
 
 	// Expect 3 files: 1 flow file + 1 folder for HTTP requests + 1 HTTP file
-	if len(result.Files) != 3 {
-		t.Errorf("Expected 3 files (1 flow + 1 folder + 1 HTTP), got %d", len(result.Files))
-	}
+	require.Len(t, result.Files, 3)
 
 	// Verify we have a flow file
 	var hasFlowFile bool
@@ -71,74 +63,44 @@ flows:
 			break
 		}
 	}
-	if !hasFlowFile {
-		t.Errorf("Expected a flow file (ContentTypeFlow) but none found")
-	}
+	require.True(t, hasFlowFile, "Expected a flow file (ContentTypeFlow) but none found")
 
 	// Verify flow
 	flow := result.Flows[0]
-	if flow.Name != "Test Flow" {
-		t.Errorf("Expected flow name 'Test Flow', got '%s'", flow.Name)
-	}
-	if flow.WorkspaceID.Compare(workspaceID) != 0 {
-		t.Errorf("Expected flow workspace ID to match, got different ID")
-	}
+	require.Equal(t, "Test Flow", flow.Name)
+	require.Equal(t, 0, flow.WorkspaceID.Compare(workspaceID))
 
 	// Verify HTTP request
 	httpReq := result.HTTPRequests[0]
-	if httpReq.Name != "API Test" {
-		t.Errorf("Expected HTTP request name 'API Test', got '%s'", httpReq.Name)
-	}
-	if httpReq.Method != "GET" {
-		t.Errorf("Expected method GET, got '%s'", httpReq.Method)
-	}
-	if httpReq.Url != "https://api.example.com/test" {
-		t.Errorf("Expected URL 'https://api.example.com/test', got '%s'", httpReq.Url)
-	}
-	if httpReq.WorkspaceID.Compare(workspaceID) != 0 {
-		t.Errorf("Expected HTTP request workspace ID to match, got different ID")
-	}
+	require.Equal(t, "API Test", httpReq.Name)
+	require.Equal(t, "GET", httpReq.Method)
+	require.Equal(t, "https://api.example.com/test", httpReq.Url)
+	require.Equal(t, 0, httpReq.WorkspaceID.Compare(workspaceID))
 
 	// Verify headers
-	if len(result.HTTPHeaders) != 2 {
-		t.Errorf("Expected 2 headers, got %d", len(result.HTTPHeaders))
-	}
+	require.Len(t, result.HTTPHeaders, 2)
 
 	headerMap := make(map[string]string)
 	for _, header := range result.HTTPHeaders {
 		headerMap[header.Key] = header.Value
 	}
 
-	if headerMap["Authorization"] != "Bearer token" {
-		t.Errorf("Expected Authorization header 'Bearer token', got '%s'", headerMap["Authorization"])
-	}
-
-	if headerMap["Content-Type"] != "application/json" {
-		t.Errorf("Expected Content-Type header 'application/json', got '%s'", headerMap["Content-Type"])
-	}
+	require.Equal(t, "Bearer token", headerMap["Authorization"])
+	require.Equal(t, "application/json", headerMap["Content-Type"])
 
 	// Verify query params
-	if len(result.HTTPSearchParams) != 2 {
-		t.Errorf("Expected 2 search params, got %d", len(result.HTTPSearchParams))
-	}
+	require.Len(t, result.HTTPSearchParams, 2)
 
 	paramMap := make(map[string]string)
 	for _, param := range result.HTTPSearchParams {
 		paramMap[param.Key] = param.Value
 	}
 
-	if paramMap["param1"] != "value1" {
-		t.Errorf("Expected param1 'value1', got '%s'", paramMap["param1"])
-	}
-
-	if paramMap["param2"] != "value2" {
-		t.Errorf("Expected param2 'value2', got '%s'", paramMap["param2"])
-	}
+	require.Equal(t, "value1", paramMap["param1"])
+	require.Equal(t, "value2", paramMap["param2"])
 
 	// Verify body
-	if len(result.HTTPBodyRaw) != 1 {
-		t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
-	}
+	require.Len(t, result.HTTPBodyRaw, 1)
 
 	// Verify files - find folder and HTTP file
 	var folderFile, httpFile *mfile.File
@@ -150,51 +112,31 @@ flows:
 		}
 	}
 
-	if folderFile == nil {
-		t.Errorf("Expected folder file to be created")
-	} else if folderFile.Name != "Test Flow" {
-		t.Errorf("Expected folder name 'Test Flow', got '%s'", folderFile.Name)
-	}
+	require.NotNil(t, folderFile, "Expected folder file to be created")
+	require.Equal(t, "Test Flow", folderFile.Name)
 
-	if httpFile == nil {
-		t.Errorf("Expected HTTP file to be created")
-	} else {
-		if httpFile.ContentID == nil || httpFile.ContentID.Compare(httpReq.ID) != 0 {
-			t.Errorf("HTTP file should reference HTTP request")
-		}
-		// HTTP file should be inside the folder
-		if httpFile.ParentID == nil || httpFile.ParentID.Compare(folderFile.ID) != 0 {
-			t.Errorf("HTTP file should be inside the flow folder")
-		}
-	}
+	require.NotNil(t, httpFile, "Expected HTTP file to be created")
+	require.NotNil(t, httpFile.ContentID)
+	require.Equal(t, 0, httpFile.ContentID.Compare(httpReq.ID), "HTTP file should reference HTTP request")
+	require.NotNil(t, httpFile.ParentID)
+	require.Equal(t, 0, httpFile.ParentID.Compare(folderFile.ID), "HTTP file should be inside the flow folder")
 
 	// Verify flow variables
-	if len(result.FlowVariables) != 1 {
-		t.Errorf("Expected 1 flow variable, got %d", len(result.FlowVariables))
-	}
+	require.Len(t, result.FlowVariables, 1)
 
 	variable := result.FlowVariables[0]
-	if variable.Name != "timeout" {
-		t.Errorf("Expected variable name 'timeout', got '%s'", variable.Name)
-	}
-	if variable.Value != "60" {
-		t.Errorf("Expected variable value '60', got '%s'", variable.Value)
-	}
+	require.Equal(t, "timeout", variable.Name)
+	require.Equal(t, "60", variable.Value)
 
 	// Verify flow nodes (should have start node + request node)
-	if len(result.FlowNodes) != 2 {
-		t.Errorf("Expected 2 flow nodes (start + request), got %d", len(result.FlowNodes))
-	}
+	require.Len(t, result.FlowNodes, 2)
 
 	// Verify request node
-	if len(result.FlowRequestNodes) != 1 {
-		t.Errorf("Expected 1 request node, got %d", len(result.FlowRequestNodes))
-	}
+	require.Len(t, result.FlowRequestNodes, 1)
 
 	requestNode := result.FlowRequestNodes[0]
-	if requestNode.HttpID == nil || requestNode.HttpID.Compare(httpReq.ID) != 0 {
-		t.Errorf("Request node should reference HTTP request")
-	}
+	require.NotNil(t, requestNode.HttpID)
+	require.Equal(t, 0, requestNode.HttpID.Compare(httpReq.ID), "Request node should reference HTTP request")
 }
 
 func TestConvertSimplifiedYAMLWithTemplates(t *testing.T) {
@@ -233,33 +175,23 @@ flows:
 	opts := GetDefaultOptions(workspaceID)
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 2 HTTP requests (one for each step)
-	if len(result.HTTPRequests) != 2 {
-		t.Errorf("Expected 2 HTTP requests, got %d", len(result.HTTPRequests))
-	}
+	require.Len(t, result.HTTPRequests, 2)
 
 	// Both should have inherited method from template
 	for i, httpReq := range result.HTTPRequests {
-		if httpReq.Method != "POST" {
-			t.Errorf("HTTP request %d: Expected method POST, got '%s'", i, httpReq.Method)
-		}
+		require.Equal(t, "POST", httpReq.Method)
 		if httpReq.Name != "" {
 			// Name should be overridden by step
 			expectedName := []string{"Step 1", "Step 2"}[i]
-			if httpReq.Name != expectedName {
-				t.Errorf("HTTP request %d: Expected name '%s', got '%s'", i, expectedName, httpReq.Name)
-			}
+			require.Equal(t, expectedName, httpReq.Name)
 		}
 	}
 
 	// Second request should have overridden URL
-	if result.HTTPRequests[1].Url != "https://api.example.com/users" {
-		t.Errorf("Expected second request URL 'https://api.example.com/users', got '%s'", result.HTTPRequests[1].Url)
-	}
+	require.Equal(t, "https://api.example.com/users", result.HTTPRequests[1].Url)
 }
 
 func TestConvertSimplifiedYAMLWithControlFlow(t *testing.T) {
@@ -296,29 +228,19 @@ flows:
 	opts := GetDefaultOptions(workspaceID)
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 3 HTTP requests
-	if len(result.HTTPRequests) != 3 {
-		t.Errorf("Expected 3 HTTP requests, got %d", len(result.HTTPRequests))
-	}
+	require.Len(t, result.HTTPRequests, 3)
 
 	// Should have 4 flow nodes (start + 3 requests + 1 condition)
-	if len(result.FlowNodes) != 5 {
-		t.Errorf("Expected 5 flow nodes, got %d", len(result.FlowNodes))
-	}
+	require.Len(t, result.FlowNodes, 5)
 
 	// Should have 1 condition node
-	if len(result.FlowConditionNodes) != 1 {
-		t.Errorf("Expected 1 condition node, got %d", len(result.FlowConditionNodes))
-	}
+	require.Len(t, result.FlowConditionNodes, 1)
 
 	// Should have edges for control flow
-	if len(result.FlowEdges) < 4 {
-		t.Errorf("Expected at least 4 edges, got %d", len(result.FlowEdges))
-	}
+	require.GreaterOrEqual(t, len(result.FlowEdges), 4)
 }
 
 func TestConvertSimplifiedYAMLWithLoop(t *testing.T) {
@@ -352,24 +274,16 @@ flows:
 	opts := GetDefaultOptions(workspaceID)
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 3 HTTP requests
-	if len(result.HTTPRequests) != 3 {
-		t.Errorf("Expected 3 HTTP requests, got %d", len(result.HTTPRequests))
-	}
+	require.Len(t, result.HTTPRequests, 3)
 
 	// Should have 1 for node
-	if len(result.FlowForNodes) != 1 {
-		t.Errorf("Expected 1 for node, got %d", len(result.FlowForNodes))
-	}
+	require.Len(t, result.FlowForNodes, 1)
 
 	forNode := result.FlowForNodes[0]
-	if forNode.IterCount != 3 {
-		t.Errorf("Expected iter count 3, got %d", forNode.IterCount)
-	}
+	require.Equal(t, int64(3), forNode.IterCount)
 }
 
 func TestConvertSimplifiedYAMLWithForEach(t *testing.T) {
@@ -397,24 +311,16 @@ flows:
 	opts := GetDefaultOptions(workspaceID)
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 2 HTTP requests
-	if len(result.HTTPRequests) != 2 {
-		t.Errorf("Expected 2 HTTP requests, got %d", len(result.HTTPRequests))
-	}
+	require.Len(t, result.HTTPRequests, 2)
 
 	// Should have 1 for_each node
-	if len(result.FlowForEachNodes) != 1 {
-		t.Errorf("Expected 1 for_each node, got %d", len(result.FlowForEachNodes))
-	}
+	require.Len(t, result.FlowForEachNodes, 1)
 
 	forEachNode := result.FlowForEachNodes[0]
-	if forEachNode.IterExpression != "response.data.items" {
-		t.Errorf("Expected iter expression 'response.data.items', got '%s'", forEachNode.IterExpression)
-	}
+	require.Equal(t, "response.data.items", forEachNode.IterExpression)
 }
 
 func TestConvertSimplifiedYAMLWithJS(t *testing.T) {
@@ -448,19 +354,13 @@ flows:
 	opts := GetDefaultOptions(workspaceID)
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 1 HTTP request
-	if len(result.HTTPRequests) != 1 {
-		t.Errorf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
-	}
+	require.Len(t, result.HTTPRequests, 1)
 
 	// Should have 1 JS node
-	if len(result.FlowJSNodes) != 1 {
-		t.Errorf("Expected 1 JS node, got %d", len(result.FlowJSNodes))
-	}
+	require.Len(t, result.FlowJSNodes, 1)
 
 	jsNode := result.FlowJSNodes[0]
 	expectedCode := `const data = JSON.parse(response.body);
@@ -468,9 +368,7 @@ return data.items.map(item => ({
   id: item.id,
   name: item.name.toUpperCase()
 }));`
-	if string(jsNode.Code) != expectedCode {
-		t.Errorf("JS code doesn't match expected")
-	}
+	require.Equal(t, expectedCode, string(jsNode.Code))
 }
 
 func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
@@ -492,20 +390,12 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
               nested:
                 field: "data"`,
 			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
-				if len(result.HTTPBodyRaw) != 1 {
-					t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
-				}
+				require.Len(t, result.HTTPBodyRaw, 1)
 				body := result.HTTPBodyRaw[0]
-				if body.ContentType != "application/json" {
-					t.Errorf("Expected content type 'application/json', got '%s'", body.ContentType)
-				}
+				require.Equal(t, "application/json", body.ContentType)
 				// Verify BodyKind is set correctly on HTTP request
-				if len(result.HTTPRequests) != 1 {
-					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
-				}
-				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindRaw {
-					t.Errorf("Expected BodyKind to be HttpBodyKindRaw (%d), got %d", mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)
-				}
+				require.Len(t, result.HTTPRequests, 1)
+				require.Equal(t, mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)
 			},
 		},
 		{
@@ -515,20 +405,12 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
             type: "raw"
             raw: "plain text content"`,
 			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
-				if len(result.HTTPBodyRaw) != 1 {
-					t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
-				}
+				require.Len(t, result.HTTPBodyRaw, 1)
 				body := result.HTTPBodyRaw[0]
-				if string(body.RawData) != "plain text content" {
-					t.Errorf("Expected raw body content 'plain text content', got '%s'", string(body.RawData))
-				}
+				require.Equal(t, "plain text content", string(body.RawData))
 				// Verify BodyKind is set correctly on HTTP request
-				if len(result.HTTPRequests) != 1 {
-					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
-				}
-				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindRaw {
-					t.Errorf("Expected BodyKind to be HttpBodyKindRaw (%d), got %d", mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)
-				}
+				require.Len(t, result.HTTPRequests, 1)
+				require.Equal(t, mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)
 			},
 		},
 		{
@@ -542,16 +424,10 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
               - name: "password"
                 value: "secret123"`,
 			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
-				if len(result.HTTPBodyForms) != 2 {
-					t.Errorf("Expected 2 form fields, got %d", len(result.HTTPBodyForms))
-				}
+				require.Len(t, result.HTTPBodyForms, 2)
 				// Verify BodyKind is set correctly on HTTP request
-				if len(result.HTTPRequests) != 1 {
-					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
-				}
-				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindFormData {
-					t.Errorf("Expected BodyKind to be HttpBodyKindFormData (%d), got %d", mhttp.HttpBodyKindFormData, result.HTTPRequests[0].BodyKind)
-				}
+				require.Len(t, result.HTTPRequests, 1)
+				require.Equal(t, mhttp.HttpBodyKindFormData, result.HTTPRequests[0].BodyKind)
 			},
 		},
 		{
@@ -565,16 +441,10 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
               - name: "param2"
                 value: "value2"`,
 			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
-				if len(result.HTTPBodyUrlencoded) != 2 {
-					t.Errorf("Expected 2 urlencoded fields, got %d", len(result.HTTPBodyUrlencoded))
-				}
+				require.Len(t, result.HTTPBodyUrlencoded, 2)
 				// Verify BodyKind is set correctly on HTTP request
-				if len(result.HTTPRequests) != 1 {
-					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
-				}
-				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindUrlEncoded {
-					t.Errorf("Expected BodyKind to be HttpBodyKindUrlEncoded (%d), got %d", mhttp.HttpBodyKindUrlEncoded, result.HTTPRequests[0].BodyKind)
-				}
+				require.Len(t, result.HTTPRequests, 1)
+				require.Equal(t, mhttp.HttpBodyKindUrlEncoded, result.HTTPRequests[0].BodyKind)
 			},
 		},
 	}
@@ -594,9 +464,7 @@ flows:
 			opts := GetDefaultOptions(workspaceID)
 			result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-			if err != nil {
-				t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			tt.validate(t, result)
 		})
@@ -635,19 +503,13 @@ flows:
 
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
-	if err != nil {
-		t.Fatalf("ConvertSimplifiedYAML failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Should have 1 raw body with compression
-	if len(result.HTTPBodyRaw) != 1 {
-		t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
-	}
+	require.Len(t, result.HTTPBodyRaw, 1)
 
 	body := result.HTTPBodyRaw[0]
-	if body.CompressionType != compress.CompressTypeGzip {
-		t.Errorf("Expected compression type %v, got %v", compress.CompressTypeGzip, body.CompressionType)
-	}
+	require.Equal(t, compress.CompressTypeGzip, body.CompressionType)
 }
 
 func TestConvertSimplifiedYAMLErrorCases(t *testing.T) {
@@ -743,15 +605,10 @@ flows:
 			result, err := ConvertSimplifiedYAML([]byte(tt.yamlData), opts)
 
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error containing '%s', but got no error", tt.errMsg)
-				} else if !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("Expected error containing '%s', got '%s'", tt.errMsg, err.Error())
-				}
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errMsg)
 			} else {
-				if err != nil {
-					t.Errorf("Expected no error, but got: %v", err)
-				}
+				require.NoError(t, err)
 			}
 
 			// For error cases, result should be nil or partial
@@ -811,15 +668,10 @@ func TestConvertOptionsValidation(t *testing.T) {
 			err := tt.opts.Validate()
 
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error containing '%s', but got no error", tt.errMsg)
-				} else if !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("Expected error containing '%s', got '%s'", tt.errMsg, err.Error())
-				}
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errMsg)
 			} else {
-				if err != nil {
-					t.Errorf("Expected no error, but got: %v", err)
-				}
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -829,31 +681,11 @@ func TestGetDefaultOptions(t *testing.T) {
 	workspaceID := idwrap.NewNow()
 	opts := GetDefaultOptions(workspaceID)
 
-	if opts.WorkspaceID.Compare(workspaceID) != 0 {
-		t.Errorf("Expected workspace ID to match")
-	}
-
-	if opts.FolderID != nil {
-		t.Errorf("Expected folder ID to be nil")
-	}
-
-	if opts.IsDelta {
-		t.Errorf("Expected IsDelta to be false")
-	}
-
-	if !opts.EnableCompression {
-		t.Errorf("Expected EnableCompression to be true")
-	}
-
-	if opts.CompressionType != compress.CompressTypeGzip {
-		t.Errorf("Expected compression type Gzip, got %v", opts.CompressionType)
-	}
-
-	if !opts.GenerateFiles {
-		t.Errorf("Expected GenerateFiles to be true")
-	}
-
-	if opts.FileOrder != 0 {
-		t.Errorf("Expected FileOrder to be 0, got %d", opts.FileOrder)
-	}
+	require.Equal(t, 0, opts.WorkspaceID.Compare(workspaceID))
+	require.Nil(t, opts.FolderID)
+	require.False(t, opts.IsDelta)
+	require.True(t, opts.EnableCompression)
+	require.Equal(t, compress.CompressTypeGzip, opts.CompressionType)
+	require.True(t, opts.GenerateFiles)
+	require.Equal(t, 0, opts.FileOrder)
 }

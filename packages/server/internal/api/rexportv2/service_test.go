@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/pkg/idwrap"
@@ -147,12 +146,12 @@ func TestNewService(t *testing.T) {
 			service := NewService(tt.exporter, tt.validator, tt.storage)
 
 			require.NotNil(t, service)
-			assert.Equal(t, tt.exporter, service.exporter)
-			assert.Equal(t, tt.validator, service.validator)
-			assert.Equal(t, tt.storage, service.storage)
+			require.Equal(t, tt.exporter, service.exporter)
+			require.Equal(t, tt.validator, service.validator)
+			require.Equal(t, tt.storage, service.storage)
 
 			// Check default logger
-			assert.NotNil(t, service.logger)
+			require.NotNil(t, service.logger)
 		})
 	}
 }
@@ -214,8 +213,8 @@ func TestService_Export_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "Test Workspace.yaml", resp.Name)
-	assert.NotEmpty(t, resp.Data)
+	require.Equal(t, "Test Workspace.yaml", resp.Name)
+	require.NotEmpty(t, resp.Data)
 }
 
 // TestService_Export_Simplified tests simplified export
@@ -259,7 +258,7 @@ func TestService_Export_Simplified(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "Test Workspace_simplified.yaml", resp.Name)
+	require.Equal(t, "Test Workspace_simplified.yaml", resp.Name)
 }
 
 // TestService_Export_CurlFormat tests export in cURL format
@@ -310,8 +309,8 @@ func TestService_Export_CurlFormat(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "Test Workspace_curl.sh", resp.Name)
-	assert.Contains(t, string(resp.Data), "curl '")
+	require.Equal(t, "Test Workspace_curl.sh", resp.Name)
+	require.Contains(t, string(resp.Data), "curl '")
 }
 
 // TestService_Export_ValidationError tests export with validation errors
@@ -336,7 +335,7 @@ func TestService_Export_ValidationError(t *testing.T) {
 	resp, err := service.Export(ctx, req)
 
 	require.Error(t, err)
-	assert.True(t, IsValidationError(err))
+	require.True(t, IsValidationError(err))
 	require.Nil(t, resp)
 }
 
@@ -363,7 +362,7 @@ func TestService_Export_WorkspaceAccessError(t *testing.T) {
 	resp, err := service.Export(ctx, req)
 
 	require.Error(t, err)
-	assert.Equal(t, ErrPermissionDenied, err)
+	require.Equal(t, ErrPermissionDenied, err)
 	require.Nil(t, resp)
 }
 
@@ -394,7 +393,7 @@ func TestService_Export_ExporterError(t *testing.T) {
 	resp, err := service.Export(ctx, req)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace data export failed: exporter failed")
+	require.Contains(t, err.Error(), "workspace data export failed: exporter failed")
 	require.Nil(t, resp)
 }
 
@@ -425,8 +424,8 @@ func TestService_Export_UnsupportedFormat(t *testing.T) {
 	resp, err := service.Export(ctx, req)
 
 	require.Error(t, err)
-	assert.True(t, IsValidationError(err))
-	assert.Contains(t, err.Error(), "unsupported export format")
+	require.True(t, IsValidationError(err))
+	require.Contains(t, err.Error(), "unsupported export format")
 	require.Nil(t, resp)
 }
 
@@ -457,8 +456,8 @@ func TestService_Export_ContextCancellation(t *testing.T) {
 
 	// Verify error
 	require.Error(t, err)
-	assert.Nil(t, resp)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Nil(t, resp)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 // TestService_ExportCurl_Success tests successful cURL export
@@ -507,7 +506,7 @@ func TestService_ExportCurl_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, resp.Data, "curl '")
+	require.Contains(t, resp.Data, "curl '")
 }
 
 // TestService_ExportCurl_ValidationError tests cURL export with validation errors
@@ -532,7 +531,7 @@ func TestService_ExportCurl_ValidationError(t *testing.T) {
 	resp, err := service.ExportCurl(ctx, req)
 
 	require.Error(t, err)
-	assert.True(t, IsValidationError(err))
+	require.True(t, IsValidationError(err))
 	require.Nil(t, resp)
 }
 
@@ -563,6 +562,6 @@ func TestService_ExportCurl_ExporterError(t *testing.T) {
 
 	// Verify error
 	require.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "workspace data export failed: exporter failed")
+	require.Nil(t, resp)
+	require.Contains(t, err.Error(), "workspace data export failed: exporter failed")
 }

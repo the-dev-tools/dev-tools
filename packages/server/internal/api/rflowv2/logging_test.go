@@ -154,7 +154,7 @@ Loop:
 				}
 			}
 		case <-timeout:
-			t.Fatal("Timeout waiting for logs")
+			require.FailNow(t, "Timeout waiting for logs")
 		}
 	}
 

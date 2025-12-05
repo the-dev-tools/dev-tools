@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
@@ -44,11 +43,11 @@ func TestNewExporter(t *testing.T) {
 	exporter.SetStorage(storage)
 
 	require.NotNil(t, exporter)
-	assert.NotNil(t, exporter.httpService)
-	assert.NotNil(t, exporter.flowService)
-	assert.NotNil(t, exporter.fileService)
-	assert.NotNil(t, exporter.ioWorkspaceService)
-	assert.NotNil(t, exporter.storage)
+	require.NotNil(t, exporter.httpService)
+	require.NotNil(t, exporter.flowService)
+	require.NotNil(t, exporter.fileService)
+	require.NotNil(t, exporter.ioWorkspaceService)
+	require.NotNil(t, exporter.storage)
 }
 
 // TestDefaultExporter_ExportWorkspaceData_Success tests successful workspace data export
@@ -68,7 +67,7 @@ func TestDefaultExporter_ExportWorkspaceData_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, data)
 	require.NotNil(t, data.Workspace)
-	assert.Equal(t, workspaceID, data.Workspace.ID)
+	require.Equal(t, workspaceID, data.Workspace.ID)
 	// Note: flows, HTTP requests, and files may be empty since we only created a workspace
 	// The important thing is that the workspace is retrieved successfully
 }
@@ -105,8 +104,8 @@ func TestDefaultExporter_ExportWorkspaceData_WorkspaceNotFound(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, data)
 	// Check that the error is properly wrapped and contains the expected message
-	assert.Contains(t, err.Error(), "failed to get workspace")
-	assert.Contains(t, err.Error(), "sql: no rows in result set")
+	require.Contains(t, err.Error(), "failed to get workspace")
+	require.Contains(t, err.Error(), "sql: no rows in result set")
 }
 
 // TestDefaultExporter_ExportToYAML_WithEnvironments tests YAML export with environments
@@ -183,18 +182,18 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check environments
-	assert.Contains(t, parsed, "environments")
+	require.Contains(t, parsed, "environments")
 	envsRaw, ok := parsed["environments"].([]interface{})
 	require.True(t, ok)
 	require.NotEmpty(t, envsRaw)
 	
 	envMap, ok := envsRaw[0].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, "default", envMap["name"])
+	require.Equal(t, "default", envMap["name"])
 	
 	varsMap, ok := envMap["variables"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, "exported_value", varsMap["exported_var"])
+	require.Equal(t, "exported_value", varsMap["exported_var"])
 }
 
 // TestDefaultExporter_ExportToYAML_Success tests successful YAML export
@@ -236,8 +235,8 @@ func TestDefaultExporter_ExportToYAML_Success(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check that we have workspace_name (from yamlflowsimplev2 format)
-			assert.Contains(t, parsed, "workspace_name")
-			assert.Equal(t, "Test Workspace", parsed["workspace_name"])
+			require.Contains(t, parsed, "workspace_name")
+			require.Equal(t, "Test Workspace", parsed["workspace_name"])
 		})
 	}
 }
@@ -267,7 +266,7 @@ func TestDefaultExporter_ExportToYAML_EmptyData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check workspace name from yamlflowsimplev2 format
-	assert.Equal(t, "Test Workspace", parsed["workspace_name"])
+	require.Equal(t, "Test Workspace", parsed["workspace_name"])
 }
 
 // TestDefaultExporter_ExportToYAML_NilWorkspace tests YAML export with nil workspace returns error
@@ -285,7 +284,7 @@ func TestDefaultExporter_ExportToYAML_NilWorkspace(t *testing.T) {
 	_, err := exporter.ExportToYAML(ctx, data, false, nil)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace data is required")
+	require.Contains(t, err.Error(), "workspace data is required")
 }
 
 // TestDefaultExporter_ExportToCurl_Success tests successful cURL export
@@ -317,12 +316,12 @@ func TestDefaultExporter_ExportToCurl_Success(t *testing.T) {
 	require.NotEmpty(t, curlData)
 
 	// Verify cURL command structure
-	assert.Contains(t, curlData, "curl")
-	assert.Contains(t, curlData, "https://api.example.com/test")
-	assert.Contains(t, curlData, "POST")
-	assert.Contains(t, curlData, "Content-Type: application/json")
-	assert.Contains(t, curlData, "Authorization: Bearer token123")
-	assert.Contains(t, curlData, `{"test": "data"}`)
+	require.Contains(t, curlData, "curl")
+	require.Contains(t, curlData, "https://api.example.com/test")
+	require.Contains(t, curlData, "POST")
+	require.Contains(t, curlData, "Content-Type: application/json")
+	require.Contains(t, curlData, "Authorization: Bearer token123")
+	require.Contains(t, curlData, `{"test": "data"}`)
 }
 
 // TestDefaultExporter_ExportToCurl_MultipleRequests tests cURL export with multiple requests
@@ -357,10 +356,10 @@ func TestDefaultExporter_ExportToCurl_MultipleRequests(t *testing.T) {
 	require.NotEmpty(t, curlData)
 
 	// Should contain both requests
-	assert.Contains(t, curlData, "https://api.example.com/test1")
-	assert.Contains(t, curlData, "https://api.example.com/test2")
-	assert.Contains(t, curlData, "GET")
-	assert.Contains(t, curlData, "POST")
+	require.Contains(t, curlData, "https://api.example.com/test1")
+	require.Contains(t, curlData, "https://api.example.com/test2")
+	require.Contains(t, curlData, "GET")
+	require.Contains(t, curlData, "POST")
 }
 
 // TestDefaultExporter_ExportToCurl_FilteredRequests tests cURL export with filtered requests
@@ -402,12 +401,12 @@ func TestDefaultExporter_ExportToCurl_FilteredRequests(t *testing.T) {
 	require.NotEmpty(t, curlData)
 
 	// Should contain only the requested requests
-	assert.Contains(t, curlData, "https://api.example.com/test1")
-	assert.Contains(t, curlData, "https://api.example.com/test3")
-	assert.NotContains(t, curlData, "https://api.example.com/test2")
-	assert.Contains(t, curlData, "GET")
-	assert.Contains(t, curlData, "PUT")
-	assert.NotContains(t, curlData, "POST")
+	require.Contains(t, curlData, "https://api.example.com/test1")
+	require.Contains(t, curlData, "https://api.example.com/test3")
+	require.NotContains(t, curlData, "https://api.example.com/test2")
+	require.Contains(t, curlData, "GET")
+	require.Contains(t, curlData, "PUT")
+	require.NotContains(t, curlData, "POST")
 }
 
 // TestDefaultExporter_ExportToCurl_EmptyData tests cURL export with no requests
@@ -423,7 +422,7 @@ func TestDefaultExporter_ExportToCurl_EmptyData(t *testing.T) {
 	curlData, err := exporter.ExportToCurl(ctx, data, exampleIDs)
 
 	require.NoError(t, err)
-	assert.Equal(t, "", curlData) // Empty string when no requests
+	require.Equal(t, "", curlData) // Empty string when no requests
 }
 
 // TestDefaultExporter_ExportToCurl_NoMatchingRequests tests cURL export with no matching requests
@@ -449,7 +448,7 @@ func TestDefaultExporter_ExportToCurl_NoMatchingRequests(t *testing.T) {
 	curlData, err := exporter.ExportToCurl(ctx, data, exampleIDs)
 
 	require.NoError(t, err)
-	assert.Equal(t, "", curlData) // Empty string when no matching requests
+	require.Equal(t, "", curlData) // Empty string when no matching requests
 }
 
 // TestDefaultExporter_ContextCancellation tests exporter with context cancellation
@@ -467,7 +466,7 @@ func TestDefaultExporter_ContextCancellation(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, data)
-	assert.Contains(t, err.Error(), "context")
+	require.Contains(t, err.Error(), "context")
 }
 
 // TestDefaultExporter_CurlCommandGeneration tests cURL command generation details
@@ -500,13 +499,13 @@ func TestDefaultExporter_CurlCommandGeneration(t *testing.T) {
 	require.NotEmpty(t, curlData)
 
 	// Verify all components are present
-	assert.Contains(t, curlData, "curl")
-	assert.Contains(t, curlData, "-X POST")
-	assert.Contains(t, curlData, "https://api.example.com/test?param=value&other=123")
-	assert.Contains(t, curlData, `-H "Content-Type: application/json"`)
-	assert.Contains(t, curlData, `-H "X-Custom-Header: custom-value"`)
-	assert.Contains(t, curlData, `-H "User-Agent: TestAgent/1.0"`)
-	assert.Contains(t, curlData, `--data-raw '{"name": "test", "data": [1, 2, 3]}'`)
+	require.Contains(t, curlData, "curl")
+	require.Contains(t, curlData, "-X POST")
+	require.Contains(t, curlData, "https://api.example.com/test?param=value&other=123")
+	require.Contains(t, curlData, `-H "Content-Type: application/json"`)
+	require.Contains(t, curlData, `-H "X-Custom-Header: custom-value"`)
+	require.Contains(t, curlData, `-H "User-Agent: TestAgent/1.0"`)
+	require.Contains(t, curlData, `--data-raw '{"name": "test", "data": [1, 2, 3]}'`)
 }
 
 // setupExporterWithoutData creates an exporter without test data

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -23,45 +23,31 @@ import (
 // TestNewValidator tests the validator constructor
 func TestNewValidator(t *testing.T) {
 	validator := NewValidator(nil)
-	if validator == nil {
-		t.Fatal("NewValidator() returned nil")
-	}
+	require.NotNil(t, validator)
 }
 
 // TestNewHARTranslator tests the HAR translator constructor
 func TestNewHARTranslator(t *testing.T) {
 	translator := NewHARTranslatorForTesting()
-	if translator == nil {
-		t.Fatal("NewHARTranslatorForTesting() returned nil")
-	}
+	require.NotNil(t, translator)
 }
 
 // TestErrorConstructors tests custom error constructors
 func TestErrorConstructors(t *testing.T) {
 	// Test ValidationError
 	validationErr := NewValidationError("test", "message")
-	if validationErr == nil {
-		t.Fatal("NewValidationError() returned nil")
-	}
+	require.NotNil(t, validationErr)
 	expected := "validation failed for field 'test': message"
-	if validationErr.Error() != expected {
-		t.Errorf("ValidationError.Error() = %q, want %q", validationErr.Error(), expected)
-	}
+	require.Equal(t, expected, validationErr.Error())
 
 	// Test ValidationError with cause
 	originalErr := errors.New("original error")
 	validationErrWithCause := NewValidationErrorWithCause("test", originalErr)
-	if validationErrWithCause == nil {
-		t.Fatal("NewValidationErrorWithCause() returned nil")
-	}
+	require.NotNil(t, validationErrWithCause)
 
 	// Test error type checking
-	if !IsValidationError(validationErr) {
-		t.Error("IsValidationError() should return true for ValidationError")
-	}
-	if !IsValidationError(validationErrWithCause) {
-		t.Error("IsValidationError() should return true for ValidationErrorWithCause")
-	}
+	require.True(t, IsValidationError(validationErr))
+	require.True(t, IsValidationError(validationErrWithCause))
 }
 
 // TestService_Import tests the main import functionality
@@ -223,30 +209,30 @@ func TestService_Import(t *testing.T) {
 			resp, err := service.Import(ctx, tt.input)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorType != nil {
 					// Special handling for ValidationError type checking
 					if IsValidationError(err) && IsValidationError(tt.errorType) {
 						// Both are ValidationErrors, which is what we want to test
-						assert.True(t, true)
+						require.True(t, true)
 					} else {
-						assert.ErrorIs(t, err, tt.errorType)
+						require.ErrorIs(t, err, tt.errorType)
 					}
 				}
-				assert.Nil(t, resp)
+				require.Nil(t, resp)
 			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, resp)
+				require.NoError(t, err)
+				require.NotNil(t, resp)
 				if tt.expectResp != nil {
-					assert.Equal(t, tt.expectResp.MissingData, resp.MissingData)
-					assert.Equal(t, tt.expectResp.Domains, resp.Domains)
+					require.Equal(t, tt.expectResp.MissingData, resp.MissingData)
+					require.Equal(t, tt.expectResp.Domains, resp.Domains)
 				}
 			}
 
 			// Verify mock calls
-			assert.GreaterOrEqual(t, deps.validator.ValidateImportRequestCallCount, 0)
+			require.GreaterOrEqual(t, deps.validator.ValidateImportRequestCallCount, 0)
 			if err == nil || !IsValidationError(err) {
-				assert.GreaterOrEqual(t, deps.validator.ValidateWorkspaceAccessCallCount, 0)
+				require.GreaterOrEqual(t, deps.validator.ValidateWorkspaceAccessCallCount, 0)
 			}
 		})
 	}
@@ -306,7 +292,7 @@ func TestService_ImportWithTextData(t *testing.T) {
 			}
 			deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
 				// Verify the data was converted correctly
-				assert.Equal(t, tt.expectedData, data)
+				require.Equal(t, tt.expectedData, data)
 				if len(data) == 0 {
 					return nil, ErrInvalidHARFormat
 				}
@@ -330,9 +316,9 @@ func TestService_ImportWithTextData(t *testing.T) {
 			_, err := service.ImportWithTextData(ctx, tt.request)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -354,7 +340,7 @@ func TestErrorTypeCheckingFunctions(t *testing.T) {
 		},
 		{
 			name:     "generic error not detected as ValidationError",
-			err:      assert.AnError,
+			err:      errors.New("generic error"),
 			checker:  IsValidationError,
 			expected: false,
 		},
@@ -369,7 +355,7 @@ func TestErrorTypeCheckingFunctions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.checker(tt.err)
-			assert.Equal(t, tt.expected, result)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -432,12 +418,12 @@ func TestImportRequestValidation(t *testing.T) {
 			err := validator.ValidateImportRequest(ctx, tt.request)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if validationErr, ok := err.(*ValidationError); ok {
-					assert.Equal(t, tt.errorField, validationErr.Field)
+					require.Equal(t, tt.errorField, validationErr.Field)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -449,7 +435,7 @@ func TestErrorUnwrapping(t *testing.T) {
 
 	// Test ValidationError unwrapping
 	validationErr := NewValidationErrorWithCause("test", originalErr)
-	assert.ErrorIs(t, validationErr, originalErr)
+	require.ErrorIs(t, validationErr, originalErr)
 }
 
 // Helper functions and mock types

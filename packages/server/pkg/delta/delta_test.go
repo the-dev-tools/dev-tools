@@ -3,6 +3,7 @@ package delta
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 )
@@ -43,18 +44,10 @@ func TestResolveHTTPScalar(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.Resolved
 
-		if resolved.ID != baseID {
-			t.Errorf("Expected ID %v, got %v", baseID, resolved.ID)
-		}
-		if resolved.Name != "Base Request" {
-			t.Errorf("Expected Name 'Base Request', got '%s'", resolved.Name)
-		}
-		if resolved.Method != "GET" {
-			t.Errorf("Expected Method 'GET', got '%s'", resolved.Method)
-		}
-		if resolved.IsDelta {
-			t.Error("Expected IsDelta to be false")
-		}
+		require.Equal(t, baseID, resolved.ID, "Expected ID to match")
+		require.Equal(t, "Base Request", resolved.Name, "Expected Name 'Base Request'")
+		require.Equal(t, "GET", resolved.Method, "Expected Method 'GET'")
+		require.False(t, resolved.IsDelta, "Expected IsDelta to be false")
 	})
 
 	t.Run("PartialOverrides", func(t *testing.T) {
@@ -72,12 +65,8 @@ func TestResolveHTTPScalar(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.Resolved
 
-		if resolved.Method != "POST" {
-			t.Errorf("Expected Method 'POST', got '%s'", resolved.Method)
-		}
-		if resolved.Name != "Base Request" {
-			t.Errorf("Expected Name 'Base Request', got '%s'", resolved.Name)
-		}
+		require.Equal(t, "POST", resolved.Method, "Expected Method 'POST'")
+		require.Equal(t, "Base Request", resolved.Name, "Expected Name 'Base Request'")
 	})
 
 	t.Run("FullOverrides", func(t *testing.T) {
@@ -99,25 +88,13 @@ func TestResolveHTTPScalar(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.Resolved
 
-		if resolved.Name != "Updated Name" {
-			t.Errorf("Expected Name 'Updated Name', got '%s'", resolved.Name)
-		}
-		if resolved.Method != "PUT" {
-			t.Errorf("Expected Method 'PUT', got '%s'", resolved.Method)
-		}
-		if resolved.Url != "http://updated.com" {
-			t.Errorf("Expected Url 'http://updated.com', got '%s'", resolved.Url)
-		}
-		if resolved.Description != "Updated Desc" {
-			t.Errorf("Expected Description 'Updated Desc', got '%s'", resolved.Description)
-		}
-		if resolved.BodyKind != mhttp.HttpBodyKindFormData {
-			t.Errorf("Expected BodyKind %v, got %v", mhttp.HttpBodyKindFormData, resolved.BodyKind)
-		}
+		require.Equal(t, "Updated Name", resolved.Name, "Expected Name 'Updated Name'")
+		require.Equal(t, "PUT", resolved.Method, "Expected Method 'PUT'")
+		require.Equal(t, "http://updated.com", resolved.Url, "Expected Url 'http://updated.com'")
+		require.Equal(t, "Updated Desc", resolved.Description, "Expected Description 'Updated Desc'")
+		require.Equal(t, mhttp.HttpBodyKindFormData, resolved.BodyKind, "Expected BodyKind")
 		// Verify cleanup
-		if resolved.DeltaName != nil {
-			t.Error("Expected DeltaName to be nil in resolved object")
-		}
+		require.Nil(t, resolved.DeltaName, "Expected DeltaName to be nil in resolved object")
 	})
 }
 
@@ -159,28 +136,16 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.ResolvedHeaders
 
-		if len(resolved) != 2 {
-			t.Fatalf("Expected 2 headers, got %d", len(resolved))
-		}
+		require.Len(t, resolved, 2, "Expected 2 headers")
 
 		// First item should be modified
-		if resolved[0].ID != baseID1 {
-			t.Errorf("Expected first item ID %v, got %v", baseID1, resolved[0].ID)
-		}
-		if resolved[0].Value != "application/xml" {
-			t.Errorf("Expected updated value 'application/xml', got '%s'", resolved[0].Value)
-		}
-		if resolved[0].Key != "Content-Type" {
-			t.Errorf("Expected key 'Content-Type', got '%s'", resolved[0].Key)
-		}
+		require.Equal(t, baseID1, resolved[0].ID, "Expected first item ID")
+		require.Equal(t, "application/xml", resolved[0].Value, "Expected updated value 'application/xml'")
+		require.Equal(t, "Content-Type", resolved[0].Key, "Expected key 'Content-Type'")
 
 		// Second item should be untouched
-		if resolved[1].ID != baseID2 {
-			t.Errorf("Expected second item ID %v, got %v", baseID2, resolved[1].ID)
-		}
-		if resolved[1].Value != "Bearer token" {
-			t.Errorf("Expected original value 'Bearer token', got '%s'", resolved[1].Value)
-		}
+		require.Equal(t, baseID2, resolved[1].ID, "Expected second item ID")
+		require.Equal(t, "Bearer token", resolved[1].Value, "Expected original value 'Bearer token'")
 	})
 
 	t.Run("NoMatch_Ignored", func(t *testing.T) {
@@ -202,16 +167,10 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.ResolvedHeaders
 
-		if len(resolved) != 2 {
-			t.Fatalf("Expected 2 headers, got %d", len(resolved))
-		}
+		require.Len(t, resolved, 2, "Expected 2 headers")
 		// Base items should remain unchanged
-		if resolved[0].Value != "application/json" {
-			t.Error("Base item 1 modified unexpectedly")
-		}
-		if resolved[1].Value != "Bearer token" {
-			t.Error("Base item 2 modified unexpectedly")
-		}
+		require.Equal(t, "application/json", resolved[0].Value, "Base item 1 modified unexpectedly")
+		require.Equal(t, "Bearer token", resolved[1].Value, "Base item 2 modified unexpectedly")
 	})
 }
 
@@ -243,21 +202,13 @@ func TestCollectionResolution_Additions(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.ResolvedHeaders
 
-		if len(resolved) != 2 {
-			t.Fatalf("Expected 2 headers, got %d", len(resolved))
-		}
+		require.Len(t, resolved, 2, "Expected 2 headers")
 
 		// Check the added item (it should be appended)
 		added := resolved[1]
-		if added.ID != newID {
-			t.Errorf("Expected added item ID %v, got %v", newID, added.ID)
-		}
-		if added.Key != "New-Header" {
-			t.Errorf("Expected added key 'New-Header', got '%s'", added.Key)
-		}
-		if added.IsDelta {
-			t.Error("Expected IsDelta to be cleared on added item")
-		}
+		require.Equal(t, newID, added.ID, "Expected added item ID")
+		require.Equal(t, "New-Header", added.Key, "Expected added key 'New-Header'")
+		require.False(t, added.IsDelta, "Expected IsDelta to be cleared on added item")
 	})
 }
 
@@ -280,18 +231,10 @@ func TestAssertOrdering(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.ResolvedAsserts
 
-		if len(resolved) != 3 {
-			t.Fatalf("Expected 3 asserts, got %d", len(resolved))
-		}
-		if resolved[0].ID != idA {
-			t.Errorf("Expected first item A, got %s", resolved[0].Value)
-		}
-		if resolved[1].ID != idB {
-			t.Errorf("Expected second item B, got %s", resolved[1].Value)
-		}
-		if resolved[2].ID != idC {
-			t.Errorf("Expected third item C, got %s", resolved[2].Value)
-		}
+		require.Len(t, resolved, 3, "Expected 3 asserts")
+		require.Equal(t, idA, resolved[0].ID, "Expected first item A")
+		require.Equal(t, idB, resolved[1].ID, "Expected second item B")
+		require.Equal(t, idC, resolved[2].ID, "Expected third item C")
 	})
 
 	t.Run("OverrideMaintainsOrder", func(t *testing.T) {
@@ -311,16 +254,10 @@ func TestAssertOrdering(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.ResolvedAsserts
 
-		if len(resolved) != 3 {
-			t.Fatalf("Expected 3 asserts, got %d", len(resolved))
-		}
+		require.Len(t, resolved, 3, "Expected 3 asserts")
 		// Order should still be A -> B -> C
-		if resolved[1].ID != idB {
-			t.Errorf("Expected second item B, got %s", resolved[1].Value)
-		}
-		if resolved[1].Value != "Updated B" {
-			t.Errorf("Expected updated value 'Updated B', got '%s'", resolved[1].Value)
-		}
+		require.Equal(t, idB, resolved[1].ID, "Expected second item B")
+		require.Equal(t, "Updated B", resolved[1].Value, "Expected updated value 'Updated B'")
 	})
 
 	t.Run("AdditionsAppended", func(t *testing.T) {
@@ -340,12 +277,8 @@ func TestAssertOrdering(t *testing.T) {
 		output := ResolveHTTP(input)
 		resolved := output.ResolvedAsserts
 
-		if len(resolved) != 4 {
-			t.Fatalf("Expected 4 asserts, got %d", len(resolved))
-		}
+		require.Len(t, resolved, 4, "Expected 4 asserts")
 		// A -> B -> C -> D
-		if resolved[3].ID != idD {
-			t.Errorf("Expected fourth item D, got %s", resolved[3].Value)
-		}
+		require.Equal(t, idD, resolved[3].ID, "Expected fourth item D")
 	})
 }
