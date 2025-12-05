@@ -6,4 +6,5 @@ use (
 	./packages/server
 	./packages/spec
 	./tools/go-tool
+	./tools/norawsql
 )

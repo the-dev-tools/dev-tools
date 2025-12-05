@@ -59,7 +59,11 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "command": "golangci-lint run --allow-parallel-runners"
+        "parallel": false,
+        "commands": [
+          "golangci-lint run --allow-parallel-runners",
+          "go tool norawsql the-dev-tools/server/..."
+        ]
       }
     },
     "tidy": {
