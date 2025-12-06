@@ -452,6 +452,11 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	bodyRaw, err := h.bodyService.GetByHttpID(ctx, httpID)
+	if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Start transaction for consistent duplication
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -466,6 +471,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	httpAssertService := h.httpAssertService.TX(tx)
+	bodyService := h.bodyService.TX(tx)
 
 	// Create new HTTP entry with duplicated name
 	newHttpID := idwrap.NewNow()
@@ -534,7 +540,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Value:                bodyForm.Value,
 			Enabled:              bodyForm.Enabled,
 			Description:          bodyForm.Description,
-			Order:                float32(bodyForm.Order),
+			Order:                bodyForm.Order,
 			ParentHttpBodyFormID: bodyForm.ParentHttpBodyFormID, // Assuming direct copy is fine or handle recursive logic if needed
 		}
 		if err := httpBodyFormService.Create(ctx, bodyFormModel); err != nil {
@@ -552,7 +558,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Value:                      bodyUrlEnc.Value,
 			Enabled:                    bodyUrlEnc.Enabled,
 			Description:                bodyUrlEnc.Description,
-			Order:                      float32(bodyUrlEnc.Order),
+			Order:                      bodyUrlEnc.Order,
 			ParentHttpBodyUrlEncodedID: bodyUrlEnc.ParentHttpBodyUrlEncodedID, // Assuming direct copy is fine
 		}
 		if err := httpBodyUrlEncodedService.Create(ctx, bodyUrlEncodedModel); err != nil {
@@ -576,9 +582,28 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		}
 	}
 
-	// Handle raw body if needed (check if source has raw body)
-	// Note: This would depend on the raw body structure and service availability
-	// The raw body might need to be handled separately based on your schema
+	// Handle raw body
+	if bodyRaw != nil {
+		var rawData []byte
+		var contentType string
+
+		// If the source was a delta, we use the delta data for the new base copy
+		if bodyRaw.IsDelta {
+			rawData = bodyRaw.DeltaRawData
+			if bodyRaw.DeltaContentType != nil {
+				if s, ok := bodyRaw.DeltaContentType.(string); ok {
+					contentType = s
+				}
+			}
+		} else {
+			rawData = bodyRaw.RawData
+			contentType = bodyRaw.ContentType
+		}
+
+		if _, err := bodyService.Create(ctx, newHttpID, rawData, contentType); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
