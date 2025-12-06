@@ -201,12 +201,6 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 			"error", err)
 	}
 
-	// Extract variables from HTTP response for downstream usage
-	if err := h.extractResponseVariables(ctx, httpEntry.WorkspaceID, httpEntry.Name, &httpResp); err != nil {
-		// Log error but don't fail the request
-		slog.WarnContext(ctx, "Failed to extract response variables", "error", err)
-	}
-
 	return nil
 }
 
@@ -321,28 +315,8 @@ func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntr
 	return httpEntry, headers, queries, body, nil
 }
 
-// extractResponseVariables extracts variables from HTTP response for downstream usage
-func (h *HttpServiceRPC) extractResponseVariables(ctx context.Context, workspaceID idwrap.IDWrap, httpName string, httpResp *httpclient.Response) error {
-	// Convert HTTP response to variable format similar to nrequest pattern
-	respVar := httpclient.ConvertResponseToVar(*httpResp)
-
-	// Create response map following the nrequest pattern
-	// TODO: Use responseMap when variable storage is implemented
-	_ = map[string]any{
-		"status":  float64(respVar.StatusCode),
-		"body":    respVar.Body,
-		"headers": cloneStringMapToAny(respVar.Headers),
-	}
-
-	// Store the response variables for future HTTP requests
-	// TODO: Implement variable storage mechanism
-	// This could store variables in:
-	// 1. A dedicated HTTP response variable table
-	// 2. Workspace-scoped variable storage
-	// 3. In-memory cache for the session
-
-	return nil
-}
+// extractResponseVariables logic was removed as variable storage is handled by rflow
+// and rhttp is stateless regarding variable persistence from responses.
 
 func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1.HttpRunRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.HttpId) == 0 {

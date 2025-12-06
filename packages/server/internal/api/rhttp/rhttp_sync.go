@@ -33,18 +33,10 @@ func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP) {
 }
 
 // publishDeleteEvent publishes a delete event for real-time sync
-func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
-	// Delete event doesn't carry IsDelta info usually, but if we deleted a delta, we should know.
-	// However, consumers might not need IsDelta for delete if they just delete by ID.
-	// But to filter the stream correctly, we should ideally know.
-	// For now, let's default IsDelta to false or try to fetch? Fetching on delete is impossible if already deleted.
-	// We can pass IsDelta to this function.
-	// TODO: Refactor to pass IsDelta. For now, standard delete assumes base or doesn't matter if ID is unique.
-	// Actually, if we filter by IsDelta == false for HttpSync, and we delete a Delta, we might want to suppress it?
-	// If HttpSync receives a delete for a Delta ID, it's harmless if the client doesn't have that ID.
-	// So skipping IsDelta for delete is "okay" but imperfect.
+func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap, isDelta bool) {
 	h.stream.Publish(HttpTopic{WorkspaceID: workspaceID}, HttpEvent{
-		Type: eventTypeDelete,
+		Type:    eventTypeDelete,
+		IsDelta: isDelta,
 		Http: &apiv1.Http{
 			HttpId: httpID.Bytes(),
 		},

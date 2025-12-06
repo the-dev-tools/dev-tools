@@ -366,6 +366,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 
 	var deletedIDs []idwrap.IDWrap
 	var deletedWorkspaceIDs []idwrap.IDWrap
+	var deletedIsDeltas []bool
 
 	// Fast deletes inside minimal transaction
 	for _, data := range deleteData {
@@ -383,6 +384,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 
 		deletedIDs = append(deletedIDs, data.httpID)
 		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
+		deletedIsDeltas = append(deletedIsDeltas, data.existingHttp.IsDelta)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -391,7 +393,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 
 	// Publish delete events for real-time sync after successful commit
 	for i, httpID := range deletedIDs {
-		h.publishDeleteEvent(httpID, deletedWorkspaceIDs[i])
+		h.publishDeleteEvent(httpID, deletedWorkspaceIDs[i], deletedIsDeltas[i])
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
