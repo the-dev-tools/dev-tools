@@ -245,7 +245,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 		orderedNodes := linearizeNodes(startNodeID, flowNodes, edgesBySource)
 
-		for i, node := range orderedNodes {
+		for _, node := range orderedNodes {
 			var stepWrapper YamlStepWrapper
 
 			// Implicit deps
@@ -257,13 +257,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					if !ok {
 						continue
 					}
-					isPredecessor := false
-					if i > 0 && orderedNodes[i-1].ID == sourceNode.ID {
-						isPredecessor = true
-					}
-					if !isPredecessor {
-						explicitDeps = append(explicitDeps, sourceNode.Name)
-					}
+					explicitDeps = append(explicitDeps, sourceNode.Name)
 				}
 			}
 			sort.Strings(explicitDeps)

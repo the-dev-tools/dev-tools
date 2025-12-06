@@ -175,11 +175,8 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 			}
 		}
 
-		if len(node.dependsOn) == 0 && node.index > 0 {
-			prevNode := nodeList[node.index-1]
-			result.FlowEdges = append(result.FlowEdges, createEdge(prevNode.id, node.id, flowID, edge.HandleUnspecified))
-		} else if node.index == 0 && !startNodeFound {
-			if node.id != startNodeID {
+		if len(node.dependsOn) == 0 {
+			if node.id != startNodeID && !startNodeFound {
 				result.FlowEdges = append(result.FlowEdges, createEdge(startNodeID, node.id, flowID, edge.HandleUnspecified))
 			}
 		}
