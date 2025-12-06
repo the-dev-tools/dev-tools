@@ -736,7 +736,9 @@ func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssocia
 	}
 	result.HTTPHeaders = append(result.HTTPHeaders, assoc.Headers...)
 	result.HTTPSearchParams = append(result.HTTPSearchParams, assoc.SearchParams...)
-	result.HTTPBodyRaw = append(result.HTTPBodyRaw, assoc.BodyRaw)
+	if assoc.BodyRaw.ID != (idwrap.IDWrap{}) {
+		result.HTTPBodyRaw = append(result.HTTPBodyRaw, assoc.BodyRaw)
+	}
 	result.HTTPBodyForms = append(result.HTTPBodyForms, assoc.BodyForms...)
 	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, assoc.BodyUrlencoded...)
 
