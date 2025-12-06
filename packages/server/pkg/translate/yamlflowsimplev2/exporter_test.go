@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -549,4 +550,99 @@ func TestMarshalSimplifiedYAML_WithNewDeltaHeader(t *testing.T) {
 	// The new header should be in the output
 	require.Contains(t, yamlStr, "X-Request-ID")
 	require.Contains(t, yamlStr, "{{ uuid() }}")
+}
+
+func TestParallelStartDependency(t *testing.T) {
+	// Verify that multiple nodes can depend on Start, and it is preserved in export.
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	nodeAID := idwrap.NewNow()
+	nodeBID := idwrap.NewNow()
+
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "Parallel Start",
+		},
+		Flows: []mflow.Flow{
+			{ID: flowID, WorkspaceID: workspaceID, Name: "Flow"},
+		},
+		FlowNodes: []mnnode.MNode{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
+			{ID: nodeAID, FlowID: flowID, Name: "A", NodeKind: mnnode.NODE_KIND_JS},
+			{ID: nodeBID, FlowID: flowID, Name: "B", NodeKind: mnnode.NODE_KIND_JS},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		},
+		FlowJSNodes: []mnjs.MNJS{
+			{FlowNodeID: nodeAID, Code: []byte("console.log('A')")},
+			{FlowNodeID: nodeBID, Code: []byte("console.log('B')")},
+		},
+		FlowEdges: []edge.Edge{
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: nodeAID},
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: nodeBID},
+		},
+	}
+
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	require.NoError(t, err)
+
+	yamlStr := string(yamlBytes)
+	t.Logf("YAML:\n%s", yamlStr)
+
+	// One of them will be first, so implicit.
+	// The other MUST have explicit depends_on: [Start]
+	// BUT because of the bug, the second one might miss it.
+
+	// Check if Start is mentioned in depends_on
+	// "depends_on:\n        - Start"
+	// Note: depends_on might be inline or block.
+
+	// Actually, better to Re-Import and check edges.
+	opts := GetDefaultOptions(workspaceID)
+	reImported, err := ConvertSimplifiedYAML(yamlBytes, opts)
+	require.NoError(t, err)
+
+	// Check Edges in ReImported
+	// We expect:
+	// Start -> A
+	// Start -> B
+	// Total 2 edges.
+
+	// If bug exists, likely:
+	// Start -> A (implicit)
+	// A -> B (implicit because explicit dep on Start was lost)
+
+	// Find nodes by name
+	var rStart, rA, rB idwrap.IDWrap
+	for _, n := range reImported.FlowNodes {
+		switch n.Name {
+		case "Start":
+			rStart = n.ID
+		case "A":
+			rA = n.ID
+		case "B":
+			rB = n.ID
+		}
+	}
+
+	edgeCount := 0
+	aSource := idwrap.IDWrap{}
+	bSource := idwrap.IDWrap{}
+
+	for _, e := range reImported.FlowEdges {
+		if e.TargetID == rA {
+			aSource = e.SourceID
+			edgeCount++
+		}
+		if e.TargetID == rB {
+			bSource = e.SourceID
+			edgeCount++
+		}
+	}
+
+	require.Equal(t, rStart, aSource, "A should depend on Start")
+	require.Equal(t, rStart, bSource, "B should depend on Start")
 }

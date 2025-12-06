@@ -254,7 +254,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			for _, e := range incoming {
 				if e.SourceHandler == edge.HandleUnspecified {
 					sourceNode, ok := nodeMap[e.SourceID]
-					if !ok || sourceNode.ID == startNodeID {
+					if !ok {
 						continue
 					}
 					isPredecessor := false
