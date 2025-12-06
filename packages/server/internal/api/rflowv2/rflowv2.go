@@ -32,6 +32,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/api/flow/v1/flowv1connect"
+	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
 
 var errUnimplemented = errors.New("rflowv2: method not implemented")
@@ -251,6 +252,9 @@ type FlowServiceV2RPC struct {
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
 	logStream                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
 
+	// JS executor client for running JS nodes (connects to worker-js)
+	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient
+
 	// Running flows map for cancellation
 	runningFlowsMu sync.Mutex
 	runningFlows   map[string]context.CancelFunc
@@ -292,6 +296,7 @@ func New(
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent],
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent],
 	logStream eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent],
+	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient,
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:                       ws,
@@ -329,6 +334,7 @@ func New(
 		httpResponseHeaderStream: httpResponseHeaderStream,
 		httpResponseAssertStream: httpResponseAssertStream,
 		logStream:                logStream,
+		jsClient:                 jsClient,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}
 }

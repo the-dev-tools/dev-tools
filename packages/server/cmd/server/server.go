@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -54,6 +55,7 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
 
 // workspaceImporterAdapter implements rflowv2.WorkspaceImporter using rimportv2 service
@@ -329,6 +331,12 @@ func main() {
 		importService: importV2Srv,
 	}
 
+	// Create JS executor client (connects to worker-js started by desktop app on port 9090)
+	jsClient := node_js_executorv1connect.NewNodeJsExecutorServiceClient(
+		http.DefaultClient,
+		"http://localhost:9090",
+	)
+
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
 		&flowService,
@@ -365,6 +373,7 @@ func main() {
 		httpResponseHeaderStreamer,
 		httpResponseAssertStreamer,
 		logStreamer,
+		jsClient,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
 

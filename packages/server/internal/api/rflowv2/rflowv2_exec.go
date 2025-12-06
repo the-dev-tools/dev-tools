@@ -261,7 +261,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 					return fmt.Errorf("decompress js code: %w", err)
 				}
 			}
-			flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), nil)
+			flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), s.jsClient)
 		default:
 			return fmt.Errorf("node kind %d not supported in FlowRun", nodeModel.NodeKind)
 		}

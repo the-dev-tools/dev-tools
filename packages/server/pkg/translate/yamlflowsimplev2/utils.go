@@ -112,8 +112,22 @@ func ExtractQueryParamsFromURL(rawURL string) ([]NameValuePair, string, error) {
 		return nil, "", fmt.Errorf("invalid URL: missing scheme or host")
 	}
 
+	// Get all keys and sort them for deterministic ordering
+	query := parsedURL.Query()
+	keys := make([]string, 0, len(query))
+	for key := range query {
+		keys = append(keys, key)
+	}
+	// Sort keys alphabetically
+	for i := 1; i < len(keys); i++ {
+		for j := i; j > 0 && keys[j] < keys[j-1]; j-- {
+			keys[j], keys[j-1] = keys[j-1], keys[j]
+		}
+	}
+
 	var params []NameValuePair
-	for key, values := range parsedURL.Query() {
+	for _, key := range keys {
+		values := query[key]
 		if len(values) > 0 {
 			params = append(params, NameValuePair{
 				Name:  key,
@@ -257,13 +271,13 @@ func OptimizeYAMLData(data *ioworkspace.WorkspaceBundle) {
 // CreateSummary creates a human-readable summary of the imported data
 func CreateSummary(data *ioworkspace.WorkspaceBundle) map[string]interface{} {
 	return map[string]interface{}{
-		"workspace_id":      data.Flows[0].WorkspaceID, // Assuming all flows share the same workspace
-		"total_flows":       len(data.Flows),
-		"total_requests":    len(data.HTTPRequests),
-		"total_files":       len(data.Files),
-		"flow_details":      createFlowSummary(data),
-		"request_summary":   createRequestSummary(data),
-		"created_at":        time.Now().UnixMilli(),
+		"workspace_id":    data.Flows[0].WorkspaceID, // Assuming all flows share the same workspace
+		"total_flows":     len(data.Flows),
+		"total_requests":  len(data.HTTPRequests),
+		"total_files":     len(data.Files),
+		"flow_details":    createFlowSummary(data),
+		"request_summary": createRequestSummary(data),
+		"created_at":      time.Now().UnixMilli(),
 	}
 }
 
@@ -273,10 +287,10 @@ func createFlowSummary(data *ioworkspace.WorkspaceBundle) []map[string]interface
 
 	for _, flow := range data.Flows {
 		flowSummary := map[string]interface{}{
-			"id":       flow.ID,
-			"name":     flow.Name,
-			"nodes":    countFlowNodes(flow.ID, data.FlowNodes),
-			"edges":    countFlowEdges(flow.ID, data.FlowEdges),
+			"id":        flow.ID,
+			"name":      flow.Name,
+			"nodes":     countFlowNodes(flow.ID, data.FlowNodes),
+			"edges":     countFlowEdges(flow.ID, data.FlowEdges),
 			"variables": countFlowVariables(flow.ID, data.FlowVariables),
 		}
 		summary = append(summary, flowSummary)
@@ -315,11 +329,11 @@ func createRequestSummary(data *ioworkspace.WorkspaceBundle) map[string]interfac
 	}
 
 	return map[string]interface{}{
-		"methods":        methods,
-		"with_headers":   hasHeaders,
-		"with_body":      hasBody,
-		"total_headers":  len(data.HTTPHeaders),
-		"total_params":   len(data.HTTPSearchParams),
+		"methods":       methods,
+		"with_headers":  hasHeaders,
+		"with_body":     hasBody,
+		"total_headers": len(data.HTTPHeaders),
+		"total_params":  len(data.HTTPSearchParams),
 	}
 }
 

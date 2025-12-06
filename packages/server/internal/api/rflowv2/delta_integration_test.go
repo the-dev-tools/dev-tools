@@ -138,6 +138,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		nil, // workspaceImportService
 		httpResponseService,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // streams
+		nil, // jsClient
 	)
 
 	// 4. Setup Data
