@@ -2,10 +2,14 @@ package yamlflowsimplev2
 
 import (
 	"fmt"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 
+	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
@@ -60,6 +64,59 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 
 		// Merge flow data into result
 		mergeFlowData(result, flowData, opts)
+	}
+
+	// Process Environments
+	// Map to track env ID by name for workspace linking
+	envNameMap := make(map[string]idwrap.IDWrap)
+
+	for _, yamlEnv := range yamlFormat.Environments {
+		envID := idwrap.NewNow()
+		env := menv.Env{
+			ID:          envID,
+			WorkspaceID: opts.WorkspaceID,
+			Name:        yamlEnv.Name,
+			Description: yamlEnv.Description,
+		}
+		result.Environments = append(result.Environments, env)
+		envNameMap[env.Name] = envID
+
+		// Variables
+		// Since map iteration order is random, we sort keys to ensure deterministic order
+		var keys []string
+		for k := range yamlEnv.Variables {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for i, k := range keys {
+			val := yamlEnv.Variables[k]
+			variable := mvar.Var{
+				ID:      idwrap.NewNow(),
+				EnvID:   envID,
+				VarKey:  k,
+				Value:   val,
+				Enabled: true,
+				Order:   float64(i + 1),
+			}
+			result.EnvironmentVars = append(result.EnvironmentVars, variable)
+		}
+	}
+
+	// Link Workspace Environments
+	if yamlFormat.ActiveEnvironment != "" {
+		if id, ok := envNameMap[yamlFormat.ActiveEnvironment]; ok {
+			result.Workspace.ActiveEnv = id
+		}
+	} else if len(result.Environments) > 0 {
+		// Default to first if not specified? Or leave empty.
+		// CLI logic might auto-select.
+	}
+
+	if yamlFormat.GlobalEnvironment != "" {
+		if id, ok := envNameMap[yamlFormat.GlobalEnvironment]; ok {
+			result.Workspace.GlobalEnv = id
+		}
 	}
 
 	// Ensure all flows have proper structure (start nodes, edges, positioning)

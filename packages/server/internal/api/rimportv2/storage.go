@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -115,8 +117,20 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	}
 
 	if len(environments) == 0 {
-		// No environments exist, nothing to add variables to
-		return nil, nil
+		// No environments exist, create a default one
+		defaultEnv := menv.Env{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			Name:        "Default Environment",
+			Description: "Created automatically during import",
+			Type:        menv.EnvNormal,
+		}
+
+		if err := imp.envService.CreateEnvironment(ctx, &defaultEnv); err != nil {
+			return nil, fmt.Errorf("failed to create default environment: %w", err)
+		}
+
+		environments = append(environments, defaultEnv)
 	}
 
 	// Start transaction
@@ -132,8 +146,14 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	var allVariables []mvar.Var
 	for _, env := range environments {
 		for i, dd := range enabledDomains {
-			// Build the full URL value (include https:// prefix for the domain)
-			urlValue := "https://" + dd.Domain
+			// Determine scheme (default to https, but use http for localhost/IPs without TLDs usually implies local/dev)
+			scheme := "https://"
+			if strings.HasPrefix(dd.Domain, "localhost") || strings.HasPrefix(dd.Domain, "127.") || strings.HasPrefix(dd.Domain, "::1") {
+				scheme = "http://"
+			}
+
+			// Build the full URL value
+			urlValue := scheme + dd.Domain
 
 			// Create variable object (Upsert will handle update vs create)
 			// We provide a new ID for the creation case. If it exists, this ID is ignored

@@ -163,12 +163,12 @@ type ImportResults struct {
 
 // ImportRequest represents the incoming import request with domain data
 type ImportRequest struct {
-	WorkspaceID            idwrap.IDWrap
-	Name                   string
-	Data                   []byte
-	TextData               string
-	DomainData             []ImportDomainData
-	DomainDataWasProvided  bool // True if domainData was explicitly provided (even if empty array)
+	WorkspaceID           idwrap.IDWrap
+	Name                  string
+	Data                  []byte
+	TextData              string
+	DomainData            []ImportDomainData
+	DomainDataWasProvided bool // True if domainData was explicitly provided (even if empty array)
 }
 
 // ImportResponse represents the response to an import request
@@ -691,6 +691,11 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResult
 		// Process provided domain data for future templating support
 		if err := processDomainData(ctx, req.DomainData, req.WorkspaceID, s.logger); err != nil {
 			return nil, fmt.Errorf("domain data processing failed: %w", err)
+		}
+
+		// Store domain variables (creates default environment if needed)
+		if _, err := s.importer.StoreDomainVariables(ctx, req.WorkspaceID, req.DomainData); err != nil {
+			return nil, fmt.Errorf("domain variable storage failed: %w", err)
 		}
 
 		// Apply domain templates to HTTP requests if domain data is provided
