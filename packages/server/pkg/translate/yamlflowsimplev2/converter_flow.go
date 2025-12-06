@@ -2,6 +2,7 @@ package yamlflowsimplev2
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"the-dev-tools/server/pkg/flow/edge"
@@ -129,11 +130,30 @@ type HTTPAssociatedData struct {
 func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, steps []YamlStepWrapper, startNodeFound bool, result *ioworkspace.WorkspaceBundle) error {
 	for _, node := range nodeList {
 		for _, depName := range node.dependsOn {
-			targetInfo, ok := nodeInfoMap[depName]
-			if !ok {
-				return NewYamlFlowErrorV2(fmt.Sprintf("step '%s' depends on unknown step '%s'", node.name, depName), "depends_on", depName)
+			sourceName := depName
+			handler := edge.HandleUnspecified
+
+			// Check for dot notation (e.g., "Check.then")
+			if strings.Contains(depName, ".") {
+				parts := strings.Split(depName, ".")
+				if len(parts) == 2 {
+					sourceName = parts[0]
+					switch parts[1] {
+					case "then":
+						handler = edge.HandleThen
+					case "else":
+						handler = edge.HandleElse
+					case "loop":
+						handler = edge.HandleLoop
+					}
+				}
 			}
-			result.FlowEdges = append(result.FlowEdges, createEdge(targetInfo.id, node.id, flowID, edge.HandleUnspecified))
+
+			targetInfo, ok := nodeInfoMap[sourceName]
+			if !ok {
+				return NewYamlFlowErrorV2(fmt.Sprintf("step '%s' depends on unknown step '%s'", node.name, sourceName), "depends_on", sourceName)
+			}
+			result.FlowEdges = append(result.FlowEdges, createEdge(targetInfo.id, node.id, flowID, handler))
 		}
 
 		step := steps[node.index]

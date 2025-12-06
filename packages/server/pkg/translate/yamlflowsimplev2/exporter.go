@@ -252,13 +252,26 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			var explicitDeps []string
 			incoming := edgesByTarget[node.ID]
 			for _, e := range incoming {
-				if e.SourceHandler == edge.HandleUnspecified {
-					sourceNode, ok := nodeMap[e.SourceID]
-					if !ok {
-						continue
-					}
-					explicitDeps = append(explicitDeps, sourceNode.Name)
+				sourceNode, ok := nodeMap[e.SourceID]
+				if !ok {
+					continue
 				}
+
+				depStr := sourceNode.Name
+				switch e.SourceHandler {
+				case edge.HandleThen:
+					depStr += ".then"
+				case edge.HandleElse:
+					depStr += ".else"
+				case edge.HandleLoop:
+					depStr += ".loop"
+				case edge.HandleUnspecified:
+					// Do nothing, just the name
+				default:
+					// Unknown handler, default to name
+				}
+
+				explicitDeps = append(explicitDeps, depStr)
 			}
 			sort.Strings(explicitDeps)
 
@@ -300,18 +313,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					YamlStepCommon: common,
 					Condition:      ifNode.Condition.Comparisons.Expression,
 				}
-				outgoing := edgesBySource[node.ID]
-				for _, e := range outgoing {
-					targetNode, found := nodeMap[e.TargetID]
-					if !found {
-						continue
-					}
-					if e.SourceHandler == edge.HandleThen {
-						ifStep.Then = targetNode.Name
-					} else if e.SourceHandler == edge.HandleElse {
-						ifStep.Else = targetNode.Name
-					}
-				}
+				// Removed legacy then/else fields
 				stepWrapper.If = ifStep
 
 			case mnnode.NODE_KIND_FOR:
@@ -323,16 +325,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					YamlStepCommon: common,
 					IterCount:      fmt.Sprintf("%d", forNode.IterCount),
 				}
-				outgoing := edgesBySource[node.ID]
-				for _, e := range outgoing {
-					targetNode, found := nodeMap[e.TargetID]
-					if !found {
-						continue
-					}
-					if e.SourceHandler == edge.HandleLoop {
-						forStep.Loop = targetNode.Name
-					}
-				}
+				// Removed legacy loop field
 				stepWrapper.For = forStep
 
 			case mnnode.NODE_KIND_FOR_EACH:
@@ -344,16 +337,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					YamlStepCommon: common,
 					Items:          forEachNode.IterExpression,
 				}
-				outgoing := edgesBySource[node.ID]
-				for _, e := range outgoing {
-					targetNode, found := nodeMap[e.TargetID]
-					if !found {
-						continue
-					}
-					if e.SourceHandler == edge.HandleLoop {
-						forEachStep.Loop = targetNode.Name
-					}
-				}
+				// Removed legacy loop field
 				stepWrapper.ForEach = forEachStep
 
 			case mnnode.NODE_KIND_JS:
