@@ -258,10 +258,14 @@ func TestFlowRun_SimpleYAML(t *testing.T) {
 flows:
   - name: SimpleFlow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Request1
           method: GET
           url: %s/test
+          depends_on: Start
 `, fixture.mockServer.URL)
 
 	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML([]byte(yamlContent), yamlflowsimplev2.ConvertOptionsV2{
@@ -326,16 +330,24 @@ run:
 flows:
   - name: FlowA
     steps:
+      - noop:
+          name: StartA
+          type: start
       - request:
           name: RequestA
           method: GET
           url: %s/users/1
+          depends_on: StartA
   - name: FlowB
     steps:
+      - noop:
+          name: StartB
+          type: start
       - request:
           name: RequestB
           method: GET
           url: %s/posts/1
+          depends_on: StartB
 `, fixture.mockServer.URL, fixture.mockServer.URL)
 
 	fileData := []byte(yamlContent)
@@ -397,10 +409,14 @@ func TestFlowRun_RequestNode(t *testing.T) {
 flows:
   - name: RequestFlow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Req1
           method: GET
           url: %s/api/test
+          depends_on: Start
 `, fixture.mockServer.URL)
 
 	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML([]byte(yamlContent), yamlflowsimplev2.ConvertOptionsV2{
@@ -444,10 +460,14 @@ func TestFlowRun_FlowNotFound(t *testing.T) {
 flows:
   - name: ExistingFlow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Req1
           method: GET
           url: %s/test
+          depends_on: Start
 `, fixture.mockServer.URL)
 
 	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML([]byte(yamlContent), yamlflowsimplev2.ConvertOptionsV2{
@@ -503,10 +523,14 @@ func TestFlowRun_HTTPMethods(t *testing.T) {
 flows:
   - name: HTTPMethodsFlow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: GetRequest
           method: GET
           url: %s/test
+          depends_on: Start
       - request:
           name: PostRequest
           method: POST
@@ -581,12 +605,16 @@ flows:
       - name: inputValue
         value: 10
     steps:
+      - noop:
+          name: Start
+          type: start
       - js:
           name: ComputeResult
           code: |
             export default function(context) {
               return { result: "ok" };
             }
+          depends_on: Start
 `
 
 	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML([]byte(yamlContent), yamlflowsimplev2.ConvertOptionsV2{

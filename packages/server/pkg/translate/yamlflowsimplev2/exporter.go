@@ -214,7 +214,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		if flowName == "" {
 			flowName = "Flow"
 		}
-		
+
 		baseName := flowName
 		counter := 1
 		for flowNameUsed[flowName] {
@@ -264,9 +264,6 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 		// Process ordered nodes into steps
 		for i, node := range orderedNodes {
-			if node.ID == startNodeID {
-				continue // Skip start node in output
-			}
 
 			stepMap := make(map[string]any)
 			baseStep := map[string]any{
@@ -410,8 +407,12 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				stepMap["js"] = baseStep
 
 			case mnnode.NODE_KIND_NO_OP:
-				// Skip other no-ops
-				continue
+				if node.ID == startNodeID {
+					baseStep["type"] = "start"
+					stepMap["noop"] = baseStep
+				} else {
+					continue
+				}
 			}
 
 			if len(stepMap) > 0 {
@@ -425,7 +426,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// 4. Export Environments
 	if len(data.Environments) > 0 {
 		envMap := make(map[idwrap.IDWrap]*YamlEnvironmentV2)
-		
+
 		// Initialize environments
 		for _, env := range data.Environments {
 			envMap[env.ID] = &YamlEnvironmentV2{

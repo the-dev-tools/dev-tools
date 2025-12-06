@@ -23,6 +23,9 @@ flows:
       - name: timeout
         value: "60"
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: API Test
           method: GET
@@ -69,6 +72,10 @@ flows:
 	flow := result.Flows[0]
 	require.Equal(t, "Test Flow", flow.Name)
 	require.Equal(t, 0, flow.WorkspaceID.Compare(workspaceID))
+
+	// Verify Start Node exists
+	require.Len(t, result.FlowNoopNodes, 1)
+	require.Equal(t, "Start", result.FlowNodes[0].Name)
 
 	// Verify HTTP request
 	httpReq := result.HTTPRequests[0]
@@ -155,6 +162,9 @@ request_templates:
 flows:
   - name: Template Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Step 1
           use_request: "base_api"
@@ -162,6 +172,8 @@ flows:
             type: "json"
             json:
               action: "login"
+          depends_on:
+            - Start
       - request:
           name: Step 2
           use_request: "base_api"
@@ -202,10 +214,15 @@ workspace_name: Control Flow Test
 flows:
   - name: Control Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Initial Request
           method: GET
           url: https://api.example.com/check
+          depends_on:
+            - Start
       - if:
           name: Check Response
           condition: "response.status == 200"
@@ -233,7 +250,7 @@ flows:
 	// Should have 3 HTTP requests
 	require.Len(t, result.HTTPRequests, 3)
 
-	// Should have 4 flow nodes (start + 3 requests + 1 condition)
+	// Should have 5 flow nodes (start + 3 requests + 1 condition)
 	require.Len(t, result.FlowNodes, 5)
 
 	// Should have 1 condition node
@@ -251,10 +268,15 @@ workspace_name: Loop Test
 flows:
   - name: Loop Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Setup Request
           method: POST
           url: https://api.example.com/setup
+          depends_on:
+            - Start
       - for:
           name: Process Items
           iter_count: 3
@@ -294,10 +316,15 @@ workspace_name: ForEach Test
 flows:
   - name: ForEach Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Get Items
           method: GET
           url: https://api.example.com/items
+          depends_on:
+            - Start
       - for_each:
           name: Process Each Item
           items: "response.data.items"
@@ -331,6 +358,9 @@ workspace_name: JS Test
 flows:
   - name: JS Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - js:
           name: Transform Data
           code: |
@@ -339,6 +369,8 @@ flows:
               id: item.id,
               name: item.name.toUpperCase()
             }));
+          depends_on:
+            - Start
       - request:
           name: Send Transformed Data
           method: POST
@@ -456,10 +488,15 @@ workspace_name: Body Test
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Test Request
           method: POST
-          url: https://api.example.com/test` + tt.bodyYAML
+          url: https://api.example.com/test
+          depends_on:
+            - Start` + tt.bodyYAML
 
 			opts := GetDefaultOptions(workspaceID)
 			result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
@@ -479,10 +516,15 @@ workspace_name: Compression Test
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Large Request
           method: POST
           url: https://api.example.com/large
+          depends_on:
+            - Start
           body:
             type: "raw"
             raw: |-
@@ -544,6 +586,9 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - invalid_step:
           name: Invalid Step`,
 			expectErr: true,
@@ -556,6 +601,9 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Test Request
           method: GET`,
@@ -569,6 +617,9 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - if:
           name: Test Condition`,
 			expectErr: true,
@@ -581,6 +632,9 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - for:
           name: Test Loop`,
 			expectErr: false, // Should default to 1
@@ -592,6 +646,9 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
+      - noop:
+          name: Start
+          type: start
       - js:
           name: Test Script`,
 			expectErr: true,
@@ -655,8 +712,8 @@ func TestConvertOptionsValidation(t *testing.T) {
 		{
 			name: "Invalid compression type",
 			opts: ConvertOptionsV2{
-				WorkspaceID:      idwrap.NewNow(),
-				CompressionType:  compress.CompressType(127), // Invalid type (out of valid range)
+				WorkspaceID:     idwrap.NewNow(),
+				CompressionType: compress.CompressType(127), // Invalid type (out of valid range)
 			},
 			expectErr: true,
 			errMsg:    "invalid compression type",

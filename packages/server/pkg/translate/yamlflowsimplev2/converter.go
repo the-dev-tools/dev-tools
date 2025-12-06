@@ -17,7 +17,6 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -25,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
@@ -58,6 +58,7 @@ const (
 	stepTypeFor     = "for"
 	stepTypeForEach = "for_each"
 	stepTypeJS      = "js"
+	stepTypeNoop    = "noop"
 )
 
 // ConvertSimplifiedYAML converts simplified YAML to modern HTTP and flow models
@@ -495,21 +496,28 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[
 		return nil, fmt.Errorf("failed to get raw steps: %w", err)
 	}
 
-	// Create start node
-	startNodeID := createStartNode(flowID, result)
+	// Generate start node ID but don't create it yet
+	startNodeID := idwrap.NewNow()
 
 	// Process steps
-	nodeInfoMap, nodeList, err := processSteps(flowEntry, rawSteps, templates, varMap, flowID, startNodeID, opts, result)
+	processRes, err := processSteps(flowEntry, rawSteps, templates, varMap, flowID, startNodeID, opts, result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process steps: %w", err)
 	}
 
 	// Create edges
-	if err := createEdges(flowID, startNodeID, nodeInfoMap, nodeList, rawSteps, result); err != nil {
+	if err := createEdges(flowID, startNodeID, processRes.NodeInfoMap, processRes.NodeList, rawSteps, result); err != nil {
 		return nil, fmt.Errorf("failed to create edges: %w", err)
 	}
 
 	return result, nil
+}
+
+// StepProcessingResult contains the result of processing flow steps
+type StepProcessingResult struct {
+	NodeInfoMap    map[string]*nodeInfo
+	NodeList       []*nodeInfo
+	StartNodeFound bool
 }
 
 // processFlowVariables processes flow variables and returns a variable map
@@ -568,12 +576,10 @@ type nodeInfo struct {
 	associated *HTTPAssociatedData
 }
 
-// createStartNode creates the start node for a flow
-func createStartNode(flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) idwrap.IDWrap {
-	startNodeID := idwrap.NewNow()
-
+// createStartNodeWithID creates a default start node with a specific ID
+func createStartNodeWithID(nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) {
 	startNode := mnnode.MNode{
-		ID:       startNodeID,
+		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "Start",
 		NodeKind: mnnode.NODE_KIND_NO_OP,
@@ -581,29 +587,28 @@ func createStartNode(flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) 
 	result.FlowNodes = append(result.FlowNodes, startNode)
 
 	noopNode := mnnoop.NoopNode{
-		FlowNodeID: startNodeID,
+		FlowNodeID: nodeID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
 	}
 	result.FlowNoopNodes = append(result.FlowNoopNodes, noopNode)
-
-	return startNodeID
 }
 
 // processSteps processes all steps in a flow
-func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates map[string]*YamlHTTPRequestV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (map[string]*nodeInfo, []*nodeInfo, error) {
+func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates map[string]*YamlHTTPRequestV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (*StepProcessingResult, error) {
 	nodeInfoMap := make(map[string]*nodeInfo)
 	nodeList := make([]*nodeInfo, 0)
+	startNodeFound := false
 
 	for i, rawStep := range rawSteps {
 		for stepType, stepData := range rawStep {
 			dataMap, ok := stepData.(map[string]any)
 			if !ok {
-				return nil, nil, fmt.Errorf("invalid step data format")
+				return nil, fmt.Errorf("invalid step data format")
 			}
 
 			nodeName, ok := dataMap[fieldName].(string)
 			if !ok || nodeName == "" {
-				return nil, nil, NewYamlFlowErrorV2(fmt.Sprintf("missing required '%s' field", fieldName), "", nil)
+				return nil, NewYamlFlowErrorV2(fmt.Sprintf("missing required '%s' field", fieldName), "", nil)
 			}
 
 			nodeID := idwrap.NewNow()
@@ -627,7 +632,7 @@ func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates
 			case stepTypeRequest:
 				httpReq, associated, err := processRequestStep(nodeName, nodeID, flowID, dataMap, templates, varMap, opts)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				info.httpReq = httpReq
 				info.associated = associated
@@ -644,22 +649,46 @@ func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates
 
 			case stepTypeIf:
 				if err := processIfStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 			case stepTypeFor:
 				if err := processForStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 			case stepTypeForEach:
 				if err := processForEachStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 			case stepTypeJS:
 				if err := processJSStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
+			case stepTypeNoop:
+				// specialized handling for start node
+				if typeVal, ok := dataMap["type"].(string); ok && typeVal == "start" {
+					// Use the pre-generated startNodeID
+					info.id = startNodeID
+
+					// Create the actual start node here
+					createStartNodeWithID(startNodeID, flowID, result)
+
+					// Update name to match YAML
+					// Last added node is our start node
+					lastIdx := len(result.FlowNodes) - 1
+					result.FlowNodes[lastIdx].Name = nodeName
+
+					// Mark as found
+					startNodeFound = true
+
+					// Register in tracking maps
+					nodeInfoMap[nodeName] = info
+					nodeList = append(nodeList, info)
+					continue
+				}
+				// Handle other noop nodes if necessary (future proofing)
+				fallthrough
 			default:
-				return nil, nil, NewYamlFlowErrorV2("unknown step type", "stepType", stepType)
+				return nil, NewYamlFlowErrorV2("unknown step type", "stepType", stepType)
 			}
 
 			nodeInfoMap[nodeName] = info
@@ -667,7 +696,11 @@ func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates
 		}
 	}
 
-	return nodeInfoMap, nodeList, nil
+	return &StepProcessingResult{
+		NodeInfoMap:    nodeInfoMap,
+		NodeList:       nodeList,
+		StartNodeFound: startNodeFound,
+	}, nil
 }
 
 // processRequestStep processes a request step
@@ -1196,6 +1229,9 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 
 	// Connect nodes without incoming edges to start node
 	for _, info := range nodeList {
+		if info.id == startNodeID {
+			continue
+		}
 		if !hasIncoming[info.id] {
 			edge := edge.Edge{
 				ID:            idwrap.NewNow(),

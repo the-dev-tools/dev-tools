@@ -26,6 +26,9 @@ flows:
       - name: baseURL
         value: https://api.example.com
     steps:
+      - noop:
+          name: Start
+          type: start
       - request:
           name: Get Users
           method: GET
@@ -33,6 +36,8 @@ flows:
           headers:
             - name: Authorization
               value: Bearer token
+          depends_on:
+            - Start
       - if:
           name: Check Users
           condition: response.status == 200
@@ -63,7 +68,7 @@ flows:
 	// 2. Import (Convert YAML -> Resolved Data)
 	workspaceID := idwrap.NewNow()
 	opts := GetDefaultOptions(workspaceID)
-	
+
 	importedData, err := ConvertSimplifiedYAML([]byte(sourceYAML), opts)
 	require.NoError(t, err)
 
@@ -103,7 +108,9 @@ flows:
 				break
 			}
 		}
-		if !found { return nil }
+		if !found {
+			return nil
+		}
 		for _, rn := range data.FlowRequestNodes {
 			if rn.FlowNodeID == nodeID {
 				return &rn
@@ -140,6 +147,69 @@ flows:
 		}
 	}
 	require.True(t, foundBody, "Missing body for 'Create User'")
+}
+
+func TestMarshalSimplifiedYAML_WithStartNode(t *testing.T) {
+	// This test verifies that the start node is exported correctly and
+	// that a renamed start node is preserved in the export.
+
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "Start Node Test",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:          flowID,
+				WorkspaceID: workspaceID,
+				Name:        "Renamed Start Flow",
+			},
+		},
+		FlowNodes: []mnnode.MNode{
+			{
+				ID:       startNodeID,
+				FlowID:   flowID,
+				Name:     "Custom Start", // Renamed from "Start"
+				NodeKind: mnnode.NODE_KIND_NO_OP,
+			},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{
+				FlowNodeID: startNodeID,
+				Type:       mnnoop.NODE_NO_OP_KIND_START,
+			},
+		},
+	}
+
+	// Export to YAML
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	require.NoError(t, err)
+
+	yamlStr := string(yamlBytes)
+	t.Logf("Exported YAML:\n%s", yamlStr)
+
+	// Check that the custom name appears
+	require.Contains(t, yamlStr, "name: Custom Start")
+	// Check that it is exported as a noop with type start
+	require.Contains(t, yamlStr, "type: start")
+	require.Contains(t, yamlStr, "noop:")
+
+	// Re-import to check round-trip compatibility
+	opts := GetDefaultOptions(workspaceID)
+	reImportedData, err := ConvertSimplifiedYAML(yamlBytes, opts)
+	require.NoError(t, err)
+
+	// Verify we only have ONE node (the start node)
+	require.Equal(t, 1, len(reImportedData.FlowNodes))
+	// Verify the name is preserved
+	require.Equal(t, "Custom Start", reImportedData.FlowNodes[0].Name)
+	// Verify it is a start node
+	require.Equal(t, 1, len(reImportedData.FlowNoopNodes))
+	require.Equal(t, mnnoop.NODE_NO_OP_KIND_START, reImportedData.FlowNoopNodes[0].Type)
 }
 
 func TestMarshalSimplifiedYAML_WithDeltaOverrides(t *testing.T) {

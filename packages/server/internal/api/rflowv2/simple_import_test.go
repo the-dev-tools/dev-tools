@@ -77,6 +77,9 @@ workspace_name: "Test Workspace"
 flows:
   - name: "Test Flow"
     steps:
+      - noop:
+          name: "Start"
+          type: "start"
       - name: "Request Step"
         method: "GET"
         url: "https://api.example.com/test"
@@ -123,6 +126,9 @@ flows:
       - name: "test_var"
         value: "test_value"
     steps:
+      - noop:
+          name: "Start"
+          type: "start"
       - name: "Request Step"
         method: "GET"
         url: "https://api.example.com/test"
@@ -159,6 +165,9 @@ workspace_name: "Test Workspace"
 flows:
   - name: "Test Flow"
     steps:
+      - noop:
+          name: "Start"
+          type: "start"
       - name: "Request Step"
         method: "GET"
         url: "https://api.example.com/test"
@@ -339,13 +348,13 @@ func TestFlowServiceV2_ParseFlowData_Mock(t *testing.T) {
 	}{
 		{
 			name:        "Parse YAML flow",
-			data:        []byte("flows:\n  - name: test\n    steps:\n      - type: request\n        request: test-request"),
+			data:        []byte("flows:\n  - name: test\n    steps:\n      - type: noop\n        type_spec: start\n        noop: Start\n      - type: request\n        request: test-request"),
 			expectError: false,
 			description: "Should parse YAML flow correctly",
 		},
 		{
 			name:        "Parse JSON flow",
-			data:        []byte(`{"flows": [{"name": "test", "steps": [{"type": "request", "request": "test-request"}]}`),
+			data:        []byte(`{"flows": [{"name": "test", "steps": [{"type": "noop", "name": "Start", "type": "start"}, {"type": "request", "request": "test-request"}]}`),
 			expectError: false,
 			description: "Should parse JSON flow correctly",
 		},
