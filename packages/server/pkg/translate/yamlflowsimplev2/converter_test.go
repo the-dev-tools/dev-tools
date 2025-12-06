@@ -592,7 +592,7 @@ flows:
       - invalid_step:
           name: Invalid Step`,
 			expectErr: true,
-			errMsg:    "unknown step type",
+			errMsg:    "empty step definition",
 		},
 		{
 			name: "Request missing URL",

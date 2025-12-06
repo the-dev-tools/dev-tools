@@ -3,6 +3,7 @@ package yamlflowsimplev2
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,39 +29,6 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 )
 
-// Constants for field names and step types
-const (
-	fieldName        = "name"
-	fieldValue       = "value"
-	fieldMethod      = "method"
-	fieldURL         = "url"
-	fieldHeaders     = "headers"
-	fieldQueryParams = "query_params"
-	fieldBody        = "body"
-	fieldAssertions  = "assertions"
-	fieldCondition   = "condition"
-	fieldIterCount   = "iter_count"
-	fieldItems       = "items"
-	fieldCode        = "code"
-	fieldDependsOn   = "depends_on"
-	fieldUseRequest  = "use_request"
-	fieldThen        = "then"
-	fieldElse        = "else"
-	fieldLoop        = "loop"
-	fieldSteps       = "steps"
-	fieldFlows       = "flows"
-	fieldRun         = "run"
-	fieldFlow        = "flow"
-	fieldDescription = "description"
-
-	stepTypeRequest = "request"
-	stepTypeIf      = "if"
-	stepTypeFor     = "for"
-	stepTypeForEach = "for_each"
-	stepTypeJS      = "js"
-	stepTypeNoop    = "noop"
-)
-
 // ConvertSimplifiedYAML converts simplified YAML to modern HTTP and flow models
 func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
 	// Validate options
@@ -68,8 +36,8 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
-	// Parse YAML to get structured data and raw data
-	yamlFormat, rawData, err := parseYAMLData(data)
+	// Parse YAML to get structured data
+	yamlFormat, err := parseYAMLData(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
@@ -79,16 +47,9 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		return nil, fmt.Errorf("invalid YAML structure: %w", err)
 	}
 
-	// Parse run field if present
-	runEntries, err := parseRunField(yamlFormat.Run)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse run field: %w", err)
-	}
-
-	// Parse request templates
-	templates, err := parseRequestTemplates(yamlFormat.RequestTemplates, yamlFormat.Requests)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse request templates: %w", err)
+	// Validate references via utility
+	if err := ValidateYAMLStructure(yamlFormat); err != nil {
+		return nil, fmt.Errorf("invalid YAML semantics: %w", err)
 	}
 
 	// Initialize resolved data structure with workspace metadata
@@ -99,9 +60,20 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		},
 	}
 
+	// Prepare request templates map from both Sources
+	requestTemplates := make(map[string]YamlRequestDefV2)
+	for k, v := range yamlFormat.RequestTemplates {
+		requestTemplates[k] = v
+	}
+	for _, req := range yamlFormat.Requests {
+		if req.Name != "" {
+			requestTemplates[req.Name] = req
+		}
+	}
+
 	// Process flows and generate HTTP requests
 	for _, flowEntry := range yamlFormat.Flows {
-		flowData, err := processFlow(flowEntry, runEntries, templates, rawData, opts)
+		flowData, err := processFlow(flowEntry, yamlFormat.Run, requestTemplates, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process flow '%s': %w", flowEntry.Name, err)
 		}
@@ -118,343 +90,31 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 	return result, nil
 }
 
-// parseYAMLData parses YAML data into both structured and raw formats
-func parseYAMLData(data []byte) (*YamlFlowFormatV2, map[string]any, error) {
+// parseYAMLData parses YAML data into structured format
+func parseYAMLData(data []byte) (*YamlFlowFormatV2, error) {
 	var yamlFormat YamlFlowFormatV2
-	var rawData map[string]any
-
-	// First unmarshal to raw map for proper step type handling
-	if err := yaml.Unmarshal(data, &rawData); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal raw YAML: %w", err)
-	}
-
-	// Then unmarshal to structured format
 	if err := yaml.Unmarshal(data, &yamlFormat); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal structured YAML: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
 	}
-
-	return &yamlFormat, rawData, nil
-}
-
-// parseRunField parses the run field into RunEntry structs
-func parseRunField(runArray []map[string]any) ([]RunEntry, error) {
-	var entries []RunEntry
-
-	for _, itemMap := range runArray {
-		flowName, ok := itemMap[fieldFlow].(string)
-		if !ok || flowName == "" {
-			return nil, fmt.Errorf("each run entry must have a 'flow' field")
-		}
-
-		entry := RunEntry{
-			Flow: flowName,
-		}
-
-		// Parse depends_on field
-		if deps, ok := itemMap[fieldDependsOn]; ok {
-			switch v := deps.(type) {
-			case string:
-				entry.DependsOn = []string{v}
-			case []any:
-				for _, dep := range v {
-					if depStr, ok := dep.(string); ok {
-						entry.DependsOn = append(entry.DependsOn, depStr)
-					}
-				}
-			default:
-				return nil, fmt.Errorf("depends_on must be a string or array of strings")
-			}
-		}
-
-		entries = append(entries, entry)
-	}
-
-	return entries, nil
-}
-
-// RunEntry represents an entry in the run field
-type RunEntry struct {
-	Flow      string
-	DependsOn []string
-}
-
-// parseRequestTemplates parses request templates into a map
-func parseRequestTemplates(templates map[string]map[string]any, requests []YamlRequestDefV2) (map[string]*YamlHTTPRequestV2, error) {
-	result := make(map[string]*YamlHTTPRequestV2)
-
-	// Parse templates
-	for name, tmpl := range templates {
-		httpReq, err := parseHTTPRequestData(tmpl)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse template '%s': %w", name, err)
-		}
-		result[name] = httpReq
-	}
-
-	// Parse direct requests from YamlRequestDefV2 structs
-	for _, req := range requests {
-		if req.Name == "" {
-			continue
-		}
-
-		if _, exists := result[req.Name]; exists {
-			return nil, fmt.Errorf("duplicate request name: %s", req.Name)
-		}
-
-		httpReq := &YamlHTTPRequestV2{
-			Name:   req.Name,
-			Method: req.Method,
-			URL:    req.URL,
-		}
-
-		// Convert headers
-		if len(req.Headers) > 0 {
-			for k, v := range req.Headers {
-				httpReq.Headers = append(httpReq.Headers, YamlNameValuePairV2{
-					Name:    k,
-					Value:   v,
-					Enabled: true,
-				})
-			}
-		}
-
-		// Convert query params
-		if len(req.QueryParams) > 0 {
-			for k, v := range req.QueryParams {
-				httpReq.QueryParams = append(httpReq.QueryParams, YamlNameValuePairV2{
-					Name:    k,
-					Value:   v,
-					Enabled: true,
-				})
-			}
-		}
-
-		// Convert body - handle the map[string]any format
-		if req.Body != nil {
-			bodyMap, ok := req.Body.(map[string]any)
-			if ok {
-				body, err := parseBodyData(bodyMap)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse body for request '%s': %w", req.Name, err)
-				}
-				httpReq.Body = body
-			}
-		}
-
-		result[req.Name] = httpReq
-	}
-
-	return result, nil
-}
-
-// parseHTTPRequestData parses HTTP request data from a map
-func parseHTTPRequestData(data map[string]any) (*YamlHTTPRequestV2, error) {
-	httpReq := &YamlHTTPRequestV2{}
-
-	if name, ok := data[fieldName].(string); ok {
-		httpReq.Name = name
-	}
-	if method, ok := data[fieldMethod].(string); ok {
-		httpReq.Method = method
-	}
-	if url, ok := data[fieldURL].(string); ok {
-		httpReq.URL = url
-	}
-	if description, ok := data[fieldDescription].(string); ok {
-		httpReq.Description = description
-	}
-
-	// Parse headers (handle both array and map formats)
-	if headers, ok := data[fieldHeaders].([]any); ok {
-		// Array format: [{"name": "key", "value": "value"}]
-		for _, h := range headers {
-			if headerMap, ok := h.(map[string]any); ok {
-				header := parseNameValuePair(headerMap)
-				httpReq.Headers = append(httpReq.Headers, header)
-			}
-		}
-	} else if headers, ok := data[fieldHeaders].(map[string]any); ok {
-		// Map format: {"key": "value"}
-		for key, value := range headers {
-			if valueStr, ok := value.(string); ok {
-				header := YamlNameValuePairV2{
-					Name:    key,
-					Value:   valueStr,
-					Enabled: true,
-				}
-				httpReq.Headers = append(httpReq.Headers, header)
-			}
-		}
-	}
-
-	// Parse query parameters (handle both array and map formats)
-	if queryParams, ok := data[fieldQueryParams].([]any); ok {
-		// Array format: [{"name": "key", "value": "value"}]
-		for _, q := range queryParams {
-			if queryMap, ok := q.(map[string]any); ok {
-				param := parseNameValuePair(queryMap)
-				httpReq.QueryParams = append(httpReq.QueryParams, param)
-			}
-		}
-	} else if queryParams, ok := data[fieldQueryParams].(map[string]any); ok {
-		// Map format: {"key": "value"}
-		for key, value := range queryParams {
-			if valueStr, ok := value.(string); ok {
-				param := YamlNameValuePairV2{
-					Name:    key,
-					Value:   valueStr,
-					Enabled: true,
-				}
-				httpReq.QueryParams = append(httpReq.QueryParams, param)
-			}
-		}
-	}
-
-	// Parse body
-	if bodyData, ok := data[fieldBody].(map[string]any); ok {
-		body, err := parseBodyData(bodyData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse body: %w", err)
-		}
-		httpReq.Body = body
-	}
-
-	// Parse assertions
-	if assertions, ok := data[fieldAssertions]; ok {
-		asserts, err := parseAssertions(assertions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse assertions: %w", err)
-		}
-		httpReq.Assertions = asserts
-	}
-
-	return httpReq, nil
-}
-
-// parseNameValuePair parses a name-value pair from a map
-func parseNameValuePair(data map[string]any) YamlNameValuePairV2 {
-	pair := YamlNameValuePairV2{
-		Enabled: true,
-	}
-
-	if name, ok := data[fieldName].(string); ok {
-		pair.Name = name
-	}
-	if value, ok := data[fieldValue].(string); ok {
-		pair.Value = value
-	}
-	if description, ok := data[fieldDescription].(string); ok {
-		pair.Description = description
-	}
-	if enabled, ok := data["enabled"].(bool); ok {
-		pair.Enabled = enabled
-	}
-
-	return pair
-}
-
-// parseBodyData parses body data from a map
-func parseBodyData(data map[string]any) (*YamlBodyV2, error) {
-	body := &YamlBodyV2{}
-
-	if bodyType, ok := data["type"].(string); ok {
-		body.Type = strings.ToLower(bodyType)
-	} else {
-		body.Type = "raw" // Default to raw
-	}
-
-	if raw, ok := data["raw"].(string); ok {
-		body.Raw = raw
-	}
-
-	if jsonData, ok := data["json"].(map[string]any); ok {
-		body.JSON = jsonData
-		body.Type = "json"
-	}
-
-	if formData, ok := data["form_data"].([]any); ok {
-		for _, f := range formData {
-			if formMap, ok := f.(map[string]any); ok {
-				formPair := parseNameValuePair(formMap)
-				body.Form = append(body.Form, formPair)
-			}
-		}
-		if len(body.Form) > 0 {
-			body.Type = "form-data"
-		}
-	}
-
-	if urlData, ok := data["urlencoded"].([]any); ok {
-		for _, u := range urlData {
-			if urlMap, ok := u.(map[string]any); ok {
-				urlPair := parseNameValuePair(urlMap)
-				body.UrlEncoded = append(body.UrlEncoded, urlPair)
-			}
-		}
-		if len(body.UrlEncoded) > 0 {
-			body.Type = "urlencoded"
-		}
-	}
-
-	return body, nil
-}
-
-// parseAssertions parses assertions from any format
-func parseAssertions(data any) ([]YamlAssertionV2, error) {
-	var assertions []YamlAssertionV2
-
-	switch v := data.(type) {
-	case []any:
-		for _, item := range v {
-			if assertMap, ok := item.(map[string]any); ok {
-				assertion := parseAssertion(assertMap)
-				assertions = append(assertions, assertion)
-			}
-		}
-	case map[string]any:
-		assertion := parseAssertion(v)
-		assertions = append(assertions, assertion)
-	}
-
-	return assertions, nil
-}
-
-// parseAssertion parses a single assertion from a map
-func parseAssertion(data map[string]any) YamlAssertionV2 {
-	assertion := YamlAssertionV2{
-		Enabled: true,
-	}
-
-	if expression, ok := data["expression"].(string); ok {
-		assertion.Expression = expression
-	}
-	if enabled, ok := data["enabled"].(bool); ok {
-		assertion.Enabled = enabled
-	}
-
-	return assertion
+	return &yamlFormat, nil
 }
 
 // processFlow processes a single flow and returns the generated data
-func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[string]*YamlHTTPRequestV2, rawData map[string]any, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
+func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, templates map[string]YamlRequestDefV2, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
 	result := &ioworkspace.WorkspaceBundle{}
 
-	// Create flow entity
 	flowID := idwrap.NewNow()
+
 	flow := mflow.Flow{
 		ID:          flowID,
 		Name:        flowEntry.Name,
 		WorkspaceID: opts.WorkspaceID,
 	}
-	if flowEntry.Timeout != nil {
-		// Note: Store timeout as a flow variable for now, as the mflow.Flow model doesn't have a timeout field
-		// This can be used by the flow execution engine
-	}
 	result.Flows = append(result.Flows, flow)
 
 	// Create file entries if generating files
 	if opts.GenerateFiles {
-		// Create file for the flow (so it shows up in the file tree)
+		// Create file for the flow
 		flowFile := mfile.File{
 			ID:          flowID,
 			WorkspaceID: opts.WorkspaceID,
@@ -476,7 +136,7 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[
 			ContentID:   &folderID,
 			ContentType: mfile.ContentTypeFolder,
 			Name:        flowEntry.Name,
-			Order:       float64(opts.FileOrder) + 1, // Place folder after flow file
+			Order:       float64(opts.FileOrder) + 1,
 			UpdatedAt:   time.Now(),
 		}
 		result.Files = append(result.Files, folderFile)
@@ -490,23 +150,16 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[
 		return nil, fmt.Errorf("failed to process flow variables: %w", err)
 	}
 
-	// Get raw steps for this flow
-	rawSteps, err := getRawStepsForFlow(flowEntry.Name, rawData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get raw steps: %w", err)
-	}
-
-	// Generate start node ID but don't create it yet
 	startNodeID := idwrap.NewNow()
 
 	// Process steps
-	processRes, err := processSteps(flowEntry, rawSteps, templates, varMap, flowID, startNodeID, opts, result)
+	processRes, err := processSteps(flowEntry, templates, varMap, flowID, startNodeID, opts, result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process steps: %w", err)
 	}
 
 	// Create edges
-	if err := createEdges(flowID, startNodeID, processRes.NodeInfoMap, processRes.NodeList, rawSteps, result); err != nil {
+	if err := createEdges(flowID, startNodeID, processRes.NodeInfoMap, processRes.NodeList, flowEntry.Steps, processRes.StartNodeFound, result); err != nil {
 		return nil, fmt.Errorf("failed to create edges: %w", err)
 	}
 
@@ -522,8 +175,6 @@ type StepProcessingResult struct {
 
 // processFlowVariables processes flow variables and returns a variable map
 func processFlowVariables(flowEntry YamlFlowFlowV2, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) (varsystem.VarMap, error) {
-
-	// Create flow variable entities
 	for _, variable := range flowEntry.Variables {
 		flowVar := mflowvariable.FlowVariable{
 			ID:      idwrap.NewNow(),
@@ -534,36 +185,7 @@ func processFlowVariables(flowEntry YamlFlowFlowV2, flowID idwrap.IDWrap, result
 		}
 		result.FlowVariables = append(result.FlowVariables, flowVar)
 	}
-
 	return varsystem.NewVarMap(nil), nil
-}
-
-// getRawStepsForFlow extracts raw steps for a specific flow
-func getRawStepsForFlow(flowName string, rawData map[string]any) ([]map[string]any, error) {
-	rawFlows, ok := rawData[fieldFlows].([]any)
-	if !ok {
-		return nil, fmt.Errorf("flows field not found or invalid")
-	}
-
-	for _, rf := range rawFlows {
-		rfMap, ok := rf.(map[string]any)
-		if !ok {
-			continue
-		}
-		if name, ok := rfMap[fieldName].(string); ok && name == flowName {
-			if steps, ok := rfMap[fieldSteps].([]any); ok {
-				var rawSteps []map[string]any
-				for _, step := range steps {
-					if stepMap, ok := step.(map[string]any); ok && len(stepMap) == 1 {
-						rawSteps = append(rawSteps, stepMap)
-					}
-				}
-				return rawSteps, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("flow '%s' not found", flowName)
 }
 
 // nodeInfo tracks information about a flow node
@@ -574,6 +196,17 @@ type nodeInfo struct {
 	dependsOn  []string
 	httpReq    *mhttp.HTTP
 	associated *HTTPAssociatedData
+}
+
+// HTTPAssociatedData holds HTTP-related data
+type HTTPAssociatedData struct {
+	Headers        []mhttp.HTTPHeader
+	SearchParams   []mhttp.HTTPSearchParam
+	BodyRaw        mhttp.HTTPBodyRaw
+	BodyForms      []mhttp.HTTPBodyForm
+	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
+	FlowNode       *mnnode.MNode
+	RequestNode    *mnrequest.MNRequest
 }
 
 // createStartNodeWithID creates a default start node with a specific ID
@@ -594,106 +227,103 @@ func createStartNodeWithID(nodeID, flowID idwrap.IDWrap, result *ioworkspace.Wor
 }
 
 // processSteps processes all steps in a flow
-func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates map[string]*YamlHTTPRequestV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (*StepProcessingResult, error) {
+func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (*StepProcessingResult, error) {
 	nodeInfoMap := make(map[string]*nodeInfo)
 	nodeList := make([]*nodeInfo, 0)
 	startNodeFound := false
+	steps := flowEntry.Steps
 
-	for i, rawStep := range rawSteps {
-		for stepType, stepData := range rawStep {
-			dataMap, ok := stepData.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("invalid step data format")
-			}
+	for i, stepWrapper := range steps {
+		var nodeName string
+		var dependsOn []string
+		var nodeID idwrap.IDWrap = idwrap.NewNow()
+		var info *nodeInfo
 
-			nodeName, ok := dataMap[fieldName].(string)
-			if !ok || nodeName == "" {
-				return nil, NewYamlFlowErrorV2(fmt.Sprintf("missing required '%s' field", fieldName), "", nil)
-			}
-
-			nodeID := idwrap.NewNow()
-			info := &nodeInfo{
-				id:    nodeID,
-				name:  nodeName,
-				index: i,
-			}
-
-			// Extract dependencies
-			if deps, ok := dataMap[fieldDependsOn].([]any); ok {
-				for _, dep := range deps {
-					if depStr, ok := dep.(string); ok && depStr != "" {
-						info.dependsOn = append(info.dependsOn, depStr)
-					}
-				}
-			}
-
-			// Process step based on type
-			switch stepType {
-			case stepTypeRequest:
-				httpReq, associated, err := processRequestStep(nodeName, nodeID, flowID, dataMap, templates, varMap, opts)
-				if err != nil {
-					return nil, err
-				}
-				info.httpReq = httpReq
-				info.associated = associated
-				result.HTTPRequests = append(result.HTTPRequests, *httpReq)
-				if associated != nil {
-					mergeAssociatedData(result, associated)
-				}
-
-				// Create file if requested
-				if opts.GenerateFiles {
-					file := createFileForHTTP(*httpReq, opts)
-					result.Files = append(result.Files, file)
-				}
-
-			case stepTypeIf:
-				if err := processIfStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, err
-				}
-			case stepTypeFor:
-				if err := processForStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, err
-				}
-			case stepTypeForEach:
-				if err := processForEachStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, err
-				}
-			case stepTypeJS:
-				if err := processJSStep(nodeName, nodeID, flowID, dataMap, result); err != nil {
-					return nil, err
-				}
-			case stepTypeNoop:
-				// specialized handling for start node
-				if typeVal, ok := dataMap["type"].(string); ok && typeVal == "start" {
-					// Use the pre-generated startNodeID
-					info.id = startNodeID
-
-					// Create the actual start node here
-					createStartNodeWithID(startNodeID, flowID, result)
-
-					// Update name to match YAML
-					// Last added node is our start node
-					lastIdx := len(result.FlowNodes) - 1
-					result.FlowNodes[lastIdx].Name = nodeName
-
-					// Mark as found
-					startNodeFound = true
-
-					// Register in tracking maps
-					nodeInfoMap[nodeName] = info
-					nodeList = append(nodeList, info)
-					continue
-				}
-				// Handle other noop nodes if necessary (future proofing)
-				fallthrough
-			default:
-				return nil, NewYamlFlowErrorV2("unknown step type", "stepType", stepType)
-			}
-
-			nodeInfoMap[nodeName] = info
-			nodeList = append(nodeList, info)
+		if stepWrapper.Request != nil {
+			nodeName = stepWrapper.Request.Name
+			dependsOn = stepWrapper.Request.DependsOn
+		} else if stepWrapper.If != nil {
+			nodeName = stepWrapper.If.Name
+			dependsOn = stepWrapper.If.DependsOn
+		} else if stepWrapper.For != nil {
+			nodeName = stepWrapper.For.Name
+			dependsOn = stepWrapper.For.DependsOn
+		} else if stepWrapper.ForEach != nil {
+			nodeName = stepWrapper.ForEach.Name
+			dependsOn = stepWrapper.ForEach.DependsOn
+		} else if stepWrapper.JS != nil {
+			nodeName = stepWrapper.JS.Name
+			dependsOn = stepWrapper.JS.DependsOn
+		} else if stepWrapper.Noop != nil {
+			nodeName = stepWrapper.Noop.Name
+			dependsOn = stepWrapper.Noop.DependsOn
+		} else {
+			return nil, NewYamlFlowErrorV2("empty step definition", "step", i)
 		}
+
+		if nodeName == "" {
+			return nil, NewYamlFlowErrorV2("missing step name", "step", i)
+		}
+
+		info = &nodeInfo{
+			id:        nodeID,
+			name:      nodeName,
+			index:     i,
+			dependsOn: dependsOn,
+		}
+
+		if stepWrapper.Request != nil {
+			httpReq, associated, err := processRequestStep(nodeName, nodeID, flowID, stepWrapper.Request, templates, varMap, opts)
+			if err != nil {
+				return nil, err
+			}
+			info.httpReq = httpReq
+			info.associated = associated
+			result.HTTPRequests = append(result.HTTPRequests, *httpReq)
+			if associated != nil {
+				mergeAssociatedData(result, associated)
+			}
+			if opts.GenerateFiles {
+				file := createFileForHTTP(*httpReq, opts)
+				result.Files = append(result.Files, file)
+			}
+		} else if stepWrapper.If != nil {
+			if stepWrapper.If.Condition == "" {
+				return nil, NewYamlFlowErrorV2("missing required condition", "if", i)
+			}
+			if err := processIfStructStep(stepWrapper.If, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		} else if stepWrapper.For != nil {
+			if err := processForStructStep(stepWrapper.For, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		} else if stepWrapper.ForEach != nil {
+			if err := processForEachStructStep(stepWrapper.ForEach, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		} else if stepWrapper.JS != nil {
+			if strings.TrimSpace(stepWrapper.JS.Code) == "" {
+				return nil, NewYamlFlowErrorV2("missing required code", "js", i)
+			}
+			if err := processJSStructStep(stepWrapper.JS, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		} else if stepWrapper.Noop != nil {
+			if stepWrapper.Noop.Type == "start" {
+				info.id = startNodeID
+				createStartNodeWithID(startNodeID, flowID, result)
+				lastIdx := len(result.FlowNodes) - 1
+				result.FlowNodes[lastIdx].Name = nodeName
+				startNodeFound = true
+				nodeInfoMap[nodeName] = info
+				nodeList = append(nodeList, info)
+				continue
+			}
+		}
+
+		nodeInfoMap[nodeName] = info
+		nodeList = append(nodeList, info)
 	}
 
 	return &StepProcessingResult{
@@ -703,50 +333,51 @@ func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates
 	}, nil
 }
 
-// processRequestStep processes a request step
-func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, templates map[string]*YamlHTTPRequestV2, varMap varsystem.VarMap, opts ConvertOptionsV2) (*mhttp.HTTP, *HTTPAssociatedData, error) {
-	// Initialize with defaults
-	method, url := "GET", ""
-	var templateData *YamlHTTPRequestV2
-	var stepOverrides *YamlHTTPRequestV2
-	var usingTemplate bool
+// processRequestStep processes a request step using struct
+func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, step *YamlStepRequest, templates map[string]YamlRequestDefV2, varMap varsystem.VarMap, opts ConvertOptionsV2) (*mhttp.HTTP, *HTTPAssociatedData, error) {
+	method := "GET"
+	url := ""
 
-	// Check if using template
-	if useRequest, ok := stepData[fieldUseRequest].(string); ok && useRequest != "" {
-		if tmpl, exists := templates[useRequest]; exists {
+	var templateDef YamlRequestDefV2
+	usingTemplate := false
+
+	if step.UseRequest != "" {
+		if tmpl, ok := templates[step.UseRequest]; ok {
+			templateDef = tmpl
 			usingTemplate = true
-			templateData = tmpl
-			method = tmpl.Method
-			url = tmpl.URL
+			if tmpl.Method != "" {
+				method = tmpl.Method
+			}
+			if tmpl.URL != "" {
+				url = tmpl.URL
+			}
 		} else {
-			return nil, nil, NewYamlFlowErrorV2(fmt.Sprintf("request step '%s' references unknown template '%s'", nodeName, useRequest), fieldUseRequest, useRequest)
+			return nil, nil, NewYamlFlowErrorV2(fmt.Sprintf("request step '%s' references unknown template '%s'", nodeName, step.UseRequest), "use_request", step.UseRequest)
 		}
 	}
 
-	// Override with step-specific data
-	if m, ok := stepData[fieldMethod].(string); ok && m != "" {
-		method = m
+	if step.Method != "" {
+		method = step.Method
 	}
-	if u, ok := stepData[fieldURL].(string); ok && u != "" {
-		url = u
+	if step.URL != "" {
+		url = step.URL
 	}
 
-	// URL is required
 	if url == "" {
-		return nil, nil, NewYamlFlowErrorV2(fmt.Sprintf("request step '%s' missing required url", nodeName), fieldURL, nil)
+		return nil, nil, NewYamlFlowErrorV2(fmt.Sprintf("request step '%s' missing required url", nodeName), "url", nil)
 	}
 
-	// Parse step overrides
-	stepReq, err := parseHTTPRequestData(stepData)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse step data: %w", err)
+	stepOverrides := YamlRequestDefV2{
+		Method:      step.Method,
+		URL:         step.URL,
+		Headers:     step.Headers,
+		QueryParams: step.QueryParams,
+		Body:        step.Body,
+		Assertions:  step.Assertions,
 	}
-	stepOverrides = stepReq
 
-	// Merge template and step data
-	finalReq := mergeHTTPRequestData(templateData, stepOverrides, usingTemplate)
+	finalReq := mergeHTTPRequestDataStruct(templateDef, stepOverrides, usingTemplate)
 
-	// Create HTTP entity
 	httpID := idwrap.NewNow()
 	now := time.Now().UnixMilli()
 
@@ -765,14 +396,12 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 		UpdatedAt:    now,
 	}
 
-	// Create request node
 	requestNode := mnrequest.MNRequest{
 		FlowNodeID:       nodeID,
-		HttpID:           &httpID, // Direct reference to HTTP ID
+		HttpID:           &httpID,
 		HasRequestConfig: true,
 	}
 
-	// Create flow node
 	flowNode := mnnode.MNode{
 		ID:       nodeID,
 		FlowID:   flowID,
@@ -780,7 +409,6 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 		NodeKind: mnnode.NODE_KIND_REQUEST,
 	}
 
-	// Generate associated data (headers, query params, body)
 	associated := &HTTPAssociatedData{
 		Headers:      convertToHTTPHeaders(finalReq.Headers, httpID),
 		SearchParams: convertToHTTPSearchParams(finalReq.QueryParams, httpID),
@@ -788,9 +416,8 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 		RequestNode:  &requestNode,
 	}
 
-	// Process body
 	if finalReq.Body != nil {
-		bodyRaw, bodyForms, bodyUrlencoded, bodyKind := convertBodyData(finalReq.Body, httpID, opts)
+		bodyRaw, bodyForms, bodyUrlencoded, bodyKind := convertBodyStruct(finalReq.Body, httpID, opts)
 		associated.BodyRaw = bodyRaw
 		associated.BodyForms = bodyForms
 		associated.BodyUrlencoded = bodyUrlencoded
@@ -800,506 +427,336 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 	return httpReq, associated, nil
 }
 
-// HTTPAssociatedData contains data associated with an HTTP request
-type HTTPAssociatedData struct {
-	Headers        []mhttp.HTTPHeader
-	SearchParams   []mhttp.HTTPSearchParam
-	BodyForms      []mhttp.HTTPBodyForm
-	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
-	BodyRaw        *mhttp.HTTPBodyRaw
-	FlowNode       *mnnode.MNode
-	RequestNode    *mnrequest.MNRequest
+func processIfStructStep(step *YamlStepIf, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mnnode.MNode{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mnnode.NODE_KIND_CONDITION,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	cond := mnif.MNIF{
+		FlowNodeID: nodeID,
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{
+				Expression: step.Condition,
+			},
+		},
+	}
+	result.FlowConditionNodes = append(result.FlowConditionNodes, cond)
+	return nil
 }
 
-// mergeHTTPRequestData merges template and step HTTP request data
-func mergeHTTPRequestData(template, step *YamlHTTPRequestV2, usingTemplate bool) *YamlHTTPRequestV2 {
-	result := &YamlHTTPRequestV2{
-		Name:        step.Name,
-		Method:      step.Method,
-		URL:         step.URL,
-		Description: step.Description,
-		Headers:     step.Headers,
-		QueryParams: step.QueryParams,
-		Body:        step.Body,
-		Assertions:  step.Assertions,
+func processForStructStep(step *YamlStepFor, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mnnode.MNode{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mnnode.NODE_KIND_FOR,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Parse iter count
+	var iterCount int64
+	if step.IterCount != "" {
+		count, err := strconv.ParseInt(step.IterCount, 10, 64)
+		if err != nil {
+			return NewYamlFlowErrorV2(fmt.Sprintf("invalid iter_count value '%s': %v", step.IterCount, err), "iter_count", step.IterCount)
+		}
+		iterCount = count
 	}
 
-	if template != nil {
-		if result.Name == "" {
-			result.Name = template.Name
-		}
-		if result.Method == "" {
-			result.Method = template.Method
-		}
-		if result.URL == "" {
-			result.URL = template.URL
-		}
-		if result.Description == "" {
-			result.Description = template.Description
-		}
-		if len(result.Headers) == 0 {
-			result.Headers = template.Headers
-		}
-		if len(result.QueryParams) == 0 {
-			result.QueryParams = template.QueryParams
-		}
-		if result.Body == nil {
-			result.Body = template.Body
-		}
-		if len(result.Assertions) == 0 {
-			result.Assertions = template.Assertions
-		}
+	forNode := mnfor.MNFor{
+		FlowNodeID: nodeID,
+		IterCount:  iterCount,
 	}
-
-	return result
+	result.FlowForNodes = append(result.FlowForNodes, forNode)
+	return nil
 }
 
-// convertToHTTPHeaders converts YAML headers to HTTP header models
-func convertToHTTPHeaders(headers []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
-	var httpHeaders []mhttp.HTTPHeader
-
-	for _, header := range headers {
-		if !header.Enabled {
-			continue
-		}
-
-		httpHeader := mhttp.HTTPHeader{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Key:         header.Name,
-			Value:       header.Value,
-			Description: header.Description,
-			Enabled:     true,
-			CreatedAt:   time.Now().UnixMilli(),
-			UpdatedAt:   time.Now().UnixMilli(),
-		}
-		httpHeaders = append(httpHeaders, httpHeader)
+func processForEachStructStep(step *YamlStepForEach, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mnnode.MNode{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mnnode.NODE_KIND_FOR_EACH,
 	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
 
-	return httpHeaders
+	forEachNode := mnforeach.MNForEach{
+		FlowNodeID:     nodeID,
+		IterExpression: step.Items,
+	}
+	result.FlowForEachNodes = append(result.FlowForEachNodes, forEachNode)
+	return nil
 }
 
-// convertToHTTPSearchParams converts YAML query params to HTTP search param models
-func convertToHTTPSearchParams(params []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPSearchParam {
-	var searchParams []mhttp.HTTPSearchParam
-
-	for _, param := range params {
-		if !param.Enabled {
-			continue
-		}
-
-		searchParam := mhttp.HTTPSearchParam{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Key:         param.Name,
-			Value:       param.Value,
-			Description: param.Description,
-			Enabled:     true,
-			CreatedAt:   time.Now().UnixMilli(),
-			UpdatedAt:   time.Now().UnixMilli(),
-		}
-		searchParams = append(searchParams, searchParam)
+func processJSStructStep(step *YamlStepJS, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mnnode.MNode{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mnnode.NODE_KIND_JS,
 	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
 
-	return searchParams
+	jsNode := mnjs.MNJS{
+		FlowNodeID: nodeID,
+		Code:       []byte(strings.TrimSpace(step.Code)),
+	}
+	result.FlowJSNodes = append(result.FlowJSNodes, jsNode)
+	return nil
 }
 
-// convertBodyData converts YAML body data to HTTP body models
-func convertBodyData(body *YamlBodyV2, httpID idwrap.IDWrap, opts ConvertOptionsV2) (*mhttp.HTTPBodyRaw, []mhttp.HTTPBodyForm, []mhttp.HTTPBodyUrlencoded, mhttp.HttpBodyKind) {
-	switch body.Type {
-	case "form-data":
-		return nil, convertToBodyForms(body.Form, httpID), nil, mhttp.HttpBodyKindFormData
-	case "urlencoded":
-		return nil, nil, convertToBodyUrlencoded(body.UrlEncoded, httpID), mhttp.HttpBodyKindUrlEncoded
-	default:
-		// Default to raw body (handles JSON and raw text)
-		return convertToBodyRaw(body, httpID, opts), nil, nil, mhttp.HttpBodyKindRaw
+func mergeHTTPRequestDataStruct(base, override YamlRequestDefV2, usingTemplate bool) YamlRequestDefV2 {
+	if !usingTemplate {
+		return override
 	}
+	merged := base
+	if override.Method != "" {
+		merged.Method = override.Method
+	}
+	if override.URL != "" {
+		merged.URL = override.URL
+	}
+	if override.Description != "" {
+		merged.Description = override.Description
+	}
+	if override.Body != nil {
+		merged.Body = override.Body
+	}
+
+	if len(override.Headers) > 0 {
+		merged.Headers = append(merged.Headers, override.Headers...)
+	}
+	if len(override.QueryParams) > 0 {
+		merged.QueryParams = append(merged.QueryParams, override.QueryParams...)
+	}
+	if len(override.Assertions) > 0 {
+		merged.Assertions = append(merged.Assertions, override.Assertions...)
+	}
+	return merged
 }
 
-// convertToBodyRaw converts YAML body to HTTP raw body model
-func convertToBodyRaw(body *YamlBodyV2, httpID idwrap.IDWrap, opts ConvertOptionsV2) *mhttp.HTTPBodyRaw {
-	var rawData []byte
-	var contentType string
-
-	if body.Type == "json" && body.JSON != nil {
-		jsonData, err := json.Marshal(body.JSON)
-		if err == nil {
-			rawData = jsonData
-			contentType = "application/json"
-		}
+func convertToHTTPHeaders(yamlHeaders []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
+	var headers []mhttp.HTTPHeader
+	for _, h := range yamlHeaders {
+		headers = append(headers, mhttp.HTTPHeader{
+			ID:      idwrap.NewNow(),
+			HttpID:  httpID,
+			Key:     h.Name,
+			Value:   h.Value,
+			Enabled: h.Enabled,
+		})
 	}
-
-	if len(rawData) == 0 {
-		// Use raw text
-		rawData = []byte(body.Raw)
-		contentType = "text/plain"
-	}
-
-	// Apply compression if enabled
-	var compressionType compress.CompressType
-	if opts.EnableCompression && len(rawData) > 1024 { // Only compress if larger than 1KB
-		compressed, err := compress.Compress(rawData, opts.CompressionType)
-		if err == nil {
-			rawData = compressed
-			compressionType = opts.CompressionType
-		}
-	} else {
-		compressionType = compress.CompressTypeNone
-	}
-
-	return &mhttp.HTTPBodyRaw{
-		ID:              idwrap.NewNow(),
-		HttpID:          httpID,
-		RawData:         rawData,
-		ContentType:     contentType,
-		CompressionType: int8(compressionType),
-		CreatedAt:       time.Now().UnixMilli(),
-		UpdatedAt:       time.Now().UnixMilli(),
-	}
+	return headers
 }
 
-// convertToBodyForms converts YAML form data to HTTP body form models
-func convertToBodyForms(formData []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPBodyForm {
+func convertToHTTPSearchParams(yamlParams []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPSearchParam {
+	var params []mhttp.HTTPSearchParam
+	for _, p := range yamlParams {
+		params = append(params, mhttp.HTTPSearchParam{
+			ID:      idwrap.NewNow(),
+			HttpID:  httpID,
+			Key:     p.Name,
+			Value:   p.Value,
+			Enabled: p.Enabled,
+		})
+	}
+	return params
+}
+
+func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOptionsV2) (mhttp.HTTPBodyRaw, []mhttp.HTTPBodyForm, []mhttp.HTTPBodyUrlencoded, mhttp.HttpBodyKind) {
+	bodyRaw := mhttp.HTTPBodyRaw{
+		ID:     idwrap.NewNow(),
+		HttpID: httpID,
+	}
 	var bodyForms []mhttp.HTTPBodyForm
-
-	for _, form := range formData {
-		if !form.Enabled {
-			continue
-		}
-
-		bodyForm := mhttp.HTTPBodyForm{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Key:         form.Name,
-			Value:       form.Value,
-			Description: form.Description,
-			Enabled:     true,
-			CreatedAt:   time.Now().UnixMilli(),
-			UpdatedAt:   time.Now().UnixMilli(),
-		}
-		bodyForms = append(bodyForms, bodyForm)
-	}
-
-	return bodyForms
-}
-
-// convertToBodyUrlencoded converts YAML URL encoded data to HTTP body URL encoded models
-func convertToBodyUrlencoded(urlData []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPBodyUrlencoded {
 	var bodyUrlencoded []mhttp.HTTPBodyUrlencoded
+	bodyKind := mhttp.HttpBodyKindRaw
 
-	for _, url := range urlData {
-		if !url.Enabled {
-			continue
-		}
-
-		bodyUrl := mhttp.HTTPBodyUrlencoded{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Key:         url.Name,
-			Value:       url.Value,
-			Description: url.Description,
-			Enabled:     true,
-			CreatedAt:   time.Now().UnixMilli(),
-			UpdatedAt:   time.Now().UnixMilli(),
-		}
-		bodyUrlencoded = append(bodyUrlencoded, bodyUrl)
+	if body == nil {
+		return bodyRaw, nil, nil, bodyKind
 	}
 
-	return bodyUrlencoded
+	switch strings.ToLower(body.Type) {
+	case "form-data":
+		bodyKind = mhttp.HttpBodyKindFormData
+		for _, form := range body.Form {
+			bodyForms = append(bodyForms, mhttp.HTTPBodyForm{
+				ID:      idwrap.NewNow(),
+				HttpID:  httpID,
+				Key:     form.Name,
+				Value:   form.Value,
+				Enabled: form.Enabled,
+			})
+		}
+	case "urlencoded":
+		bodyKind = mhttp.HttpBodyKindUrlEncoded
+		for _, urlEncoded := range body.UrlEncoded {
+			bodyUrlencoded = append(bodyUrlencoded, mhttp.HTTPBodyUrlencoded{
+				ID:      idwrap.NewNow(),
+				HttpID:  httpID,
+				Key:     urlEncoded.Name,
+				Value:   urlEncoded.Value,
+				Enabled: urlEncoded.Enabled,
+			})
+		}
+	case "json":
+		bodyKind = mhttp.HttpBodyKindRaw
+		if body.JSON != nil {
+			jb, _ := json.Marshal(body.JSON)
+			bodyRaw.RawData = jb
+			bodyRaw.ContentType = "application/json"
+		}
+	case "raw":
+		bodyKind = mhttp.HttpBodyKindRaw
+		bodyRaw.RawData = []byte(body.Raw)
+	default:
+		bodyKind = mhttp.HttpBodyKindRaw
+		bodyRaw.RawData = []byte(body.Raw)
+	}
+
+	if body.Compression != "" {
+		if ct, ok := compress.CompressLockupMap[body.Compression]; ok {
+			bodyRaw.CompressionType = ct
+		}
+	} else if opts.EnableCompression && len(bodyRaw.RawData) > 1024 {
+		// Auto-compress only if larger than threshold
+		compressed, err := compress.Compress(bodyRaw.RawData, opts.CompressionType)
+		if err == nil {
+			bodyRaw.RawData = compressed
+			bodyRaw.CompressionType = opts.CompressionType
+		}
+	}
+
+	return bodyRaw, bodyForms, bodyUrlencoded, bodyKind
 }
 
-// createFileForHTTP creates a file record for an HTTP request
-func createFileForHTTP(httpReq mhttp.HTTP, opts ConvertOptionsV2) mfile.File {
-	filename := httpReq.Name
-	if filename == "" {
-		filename = "untitled_request"
-	}
+func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, steps []YamlStepWrapper, startNodeFound bool, result *ioworkspace.WorkspaceBundle) error {
+	for _, node := range nodeList {
+		for _, depName := range node.dependsOn {
+			targetInfo, ok := nodeInfoMap[depName]
+			if !ok {
+				return NewYamlFlowErrorV2(fmt.Sprintf("step '%s' depends on unknown step '%s'", node.name, depName), "depends_on", depName)
+			}
+			result.FlowEdges = append(result.FlowEdges, createEdge(targetInfo.id, node.id, flowID, edge.HandleUnspecified))
+		}
 
-	// Use httpReq.ID as the file ID so frontend can look up HTTP by fileId
-	// This matches the pattern used in HAR import
+		step := steps[node.index]
+
+		if step.If != nil {
+			if step.If.Then != "" {
+				target, ok := nodeInfoMap[step.If.Then]
+				if !ok {
+					return NewYamlFlowErrorV2("if 'then' target not found", "then", step.If.Then)
+				}
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleThen))
+			}
+			if step.If.Else != "" {
+				target, ok := nodeInfoMap[step.If.Else]
+				if !ok {
+					return NewYamlFlowErrorV2("if 'else' target not found", "else", step.If.Else)
+				}
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleElse))
+			}
+		}
+
+		if step.For != nil {
+			if step.For.Loop != "" {
+				target, ok := nodeInfoMap[step.For.Loop]
+				if !ok {
+					return NewYamlFlowErrorV2("for 'loop' target not found", "loop", step.For.Loop)
+				}
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleLoop))
+			}
+		}
+
+		if step.ForEach != nil {
+			if step.ForEach.Loop != "" {
+				target, ok := nodeInfoMap[step.ForEach.Loop]
+				if !ok {
+					return NewYamlFlowErrorV2("for_each 'loop' target not found", "loop", step.ForEach.Loop)
+				}
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleLoop))
+			}
+		}
+
+		if len(node.dependsOn) == 0 && node.index > 0 {
+			prevNode := nodeList[node.index-1]
+			result.FlowEdges = append(result.FlowEdges, createEdge(prevNode.id, node.id, flowID, edge.HandleUnspecified))
+		} else if node.index == 0 && !startNodeFound {
+			if node.id != startNodeID {
+				result.FlowEdges = append(result.FlowEdges, createEdge(startNodeID, node.id, flowID, edge.HandleUnspecified))
+			}
+		}
+	}
+	return nil
+}
+
+func createEdge(source, target, flowID idwrap.IDWrap, handler edge.EdgeHandle) edge.Edge {
+	return edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      source,
+		TargetID:      target,
+		SourceHandler: handler,
+	}
+}
+
+// Helpers for data merging (restored)
+
+func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.WorkspaceBundle, opts ConvertOptionsV2) {
+	result.Flows = append(result.Flows, flowData.Flows...)
+	result.FlowNodes = append(result.FlowNodes, flowData.FlowNodes...)
+	result.FlowEdges = append(result.FlowEdges, flowData.FlowEdges...)
+	result.FlowVariables = append(result.FlowVariables, flowData.FlowVariables...)
+	result.Files = append(result.Files, flowData.Files...)
+
+	result.HTTPRequests = append(result.HTTPRequests, flowData.HTTPRequests...)
+	result.HTTPHeaders = append(result.HTTPHeaders, flowData.HTTPHeaders...)
+	result.HTTPSearchParams = append(result.HTTPSearchParams, flowData.HTTPSearchParams...)
+	result.HTTPBodyRaw = append(result.HTTPBodyRaw, flowData.HTTPBodyRaw...)
+	result.HTTPBodyForms = append(result.HTTPBodyForms, flowData.HTTPBodyForms...)
+	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, flowData.HTTPBodyUrlencoded...)
+	result.HTTPAsserts = append(result.HTTPAsserts, flowData.HTTPAsserts...)
+
+	result.FlowConditionNodes = append(result.FlowConditionNodes, flowData.FlowConditionNodes...)
+	result.FlowForNodes = append(result.FlowForNodes, flowData.FlowForNodes...)
+	result.FlowForEachNodes = append(result.FlowForEachNodes, flowData.FlowForEachNodes...)
+	result.FlowJSNodes = append(result.FlowJSNodes, flowData.FlowJSNodes...)
+	result.FlowNoopNodes = append(result.FlowNoopNodes, flowData.FlowNoopNodes...)
+	result.FlowRequestNodes = append(result.FlowRequestNodes, flowData.FlowRequestNodes...)
+}
+
+func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssociatedData) {
+	if assoc == nil {
+		return
+	}
+	result.HTTPHeaders = append(result.HTTPHeaders, assoc.Headers...)
+	result.HTTPSearchParams = append(result.HTTPSearchParams, assoc.SearchParams...)
+	result.HTTPBodyRaw = append(result.HTTPBodyRaw, assoc.BodyRaw)
+	result.HTTPBodyForms = append(result.HTTPBodyForms, assoc.BodyForms...)
+	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, assoc.BodyUrlencoded...)
+
+	if assoc.FlowNode != nil {
+		result.FlowNodes = append(result.FlowNodes, *assoc.FlowNode)
+	}
+	if assoc.RequestNode != nil {
+		result.FlowRequestNodes = append(result.FlowRequestNodes, *assoc.RequestNode)
+	}
+}
+
+func createFileForHTTP(httpReq mhttp.HTTP, opts ConvertOptionsV2) mfile.File {
 	return mfile.File{
 		ID:          httpReq.ID,
 		WorkspaceID: opts.WorkspaceID,
 		ParentID:    opts.FolderID,
 		ContentID:   &httpReq.ID,
 		ContentType: mfile.ContentTypeHTTP,
-		Name:        filename,
-		Order:       float64(opts.FileOrder),
+		Name:        httpReq.Name,
+		Order:       GenerateFileOrder(nil), // Should track order properly if strict
 		UpdatedAt:   time.Now(),
 	}
-}
-
-// processIfStep processes an if step
-func processIfStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
-	condition, ok := stepData[fieldCondition].(string)
-	if !ok || condition == "" {
-		return NewYamlFlowErrorV2(fmt.Sprintf("if step '%s' missing required condition", nodeName), fieldCondition, nil)
-	}
-
-	// Create flow node
-	flowNode := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_CONDITION,
-	}
-	result.FlowNodes = append(result.FlowNodes, flowNode)
-
-	// Create condition node
-	conditionNode := mnif.MNIF{
-		FlowNodeID: nodeID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{Expression: condition},
-		},
-	}
-	result.FlowConditionNodes = append(result.FlowConditionNodes, conditionNode)
-
-	return nil
-}
-
-// processForStep processes a for step
-func processForStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
-	iterCount := 1 // Default to 1 if not specified
-	if val, ok := stepData[fieldIterCount]; ok {
-		switch v := val.(type) {
-		case int:
-			iterCount = v
-		case float64:
-			iterCount = int(v)
-		}
-	}
-
-	// Create flow node
-	flowNode := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_FOR,
-	}
-	result.FlowNodes = append(result.FlowNodes, flowNode)
-
-	// Create for node
-	forNode := mnfor.MNFor{
-		FlowNodeID: nodeID,
-		IterCount:  int64(iterCount),
-	}
-	result.FlowForNodes = append(result.FlowForNodes, forNode)
-
-	return nil
-}
-
-// processForEachStep processes a for_each step
-func processForEachStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
-	items, ok := stepData[fieldItems].(string)
-	if !ok || items == "" {
-		return NewYamlFlowErrorV2(fmt.Sprintf("for_each step '%s' missing required items", nodeName), fieldItems, nil)
-	}
-
-	// Create flow node
-	flowNode := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_FOR_EACH,
-	}
-	result.FlowNodes = append(result.FlowNodes, flowNode)
-
-	// Create for each node
-	forEachNode := mnforeach.MNForEach{
-		FlowNodeID:     nodeID,
-		IterExpression: items,
-	}
-	result.FlowForEachNodes = append(result.FlowForEachNodes, forEachNode)
-
-	return nil
-}
-
-// processJSStep processes a JavaScript step
-func processJSStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
-	code, ok := stepData[fieldCode].(string)
-	if !ok || code == "" {
-		return NewYamlFlowErrorV2(fmt.Sprintf("js step '%s' missing required code", nodeName), fieldCode, nil)
-	}
-
-	// Trim trailing whitespace and newlines from code
-	code = strings.TrimRight(code, " \t\r\n")
-
-	// Create flow node
-	flowNode := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_JS,
-	}
-	result.FlowNodes = append(result.FlowNodes, flowNode)
-
-	// Create JS node
-	jsNode := mnjs.MNJS{
-		FlowNodeID: nodeID,
-		Code:       []byte(code),
-	}
-	result.FlowJSNodes = append(result.FlowJSNodes, jsNode)
-
-	return nil
-}
-
-// mergeFlowData merges flow data into the main result
-func mergeFlowData(result, flowData *ioworkspace.WorkspaceBundle, opts ConvertOptionsV2) {
-	result.Flows = append(result.Flows, flowData.Flows...)
-	result.FlowNodes = append(result.FlowNodes, flowData.FlowNodes...)
-	result.FlowEdges = append(result.FlowEdges, flowData.FlowEdges...)
-	result.FlowVariables = append(result.FlowVariables, flowData.FlowVariables...)
-	result.FlowRequestNodes = append(result.FlowRequestNodes, flowData.FlowRequestNodes...)
-	result.FlowConditionNodes = append(result.FlowConditionNodes, flowData.FlowConditionNodes...)
-	result.FlowNoopNodes = append(result.FlowNoopNodes, flowData.FlowNoopNodes...)
-	result.FlowForNodes = append(result.FlowForNodes, flowData.FlowForNodes...)
-	result.FlowForEachNodes = append(result.FlowForEachNodes, flowData.FlowForEachNodes...)
-	result.FlowJSNodes = append(result.FlowJSNodes, flowData.FlowJSNodes...)
-
-	// Merge HTTP-related data
-	result.HTTPRequests = append(result.HTTPRequests, flowData.HTTPRequests...)
-	result.HTTPHeaders = append(result.HTTPHeaders, flowData.HTTPHeaders...)
-	result.HTTPSearchParams = append(result.HTTPSearchParams, flowData.HTTPSearchParams...)
-	result.HTTPBodyForms = append(result.HTTPBodyForms, flowData.HTTPBodyForms...)
-	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, flowData.HTTPBodyUrlencoded...)
-	result.HTTPBodyRaw = append(result.HTTPBodyRaw, flowData.HTTPBodyRaw...)
-	result.Files = append(result.Files, flowData.Files...)
-}
-
-// mergeAssociatedData merges associated HTTP data into the result
-func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, associated *HTTPAssociatedData) {
-	if associated != nil {
-		result.HTTPHeaders = append(result.HTTPHeaders, associated.Headers...)
-		result.HTTPSearchParams = append(result.HTTPSearchParams, associated.SearchParams...)
-		result.HTTPBodyForms = append(result.HTTPBodyForms, associated.BodyForms...)
-		result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, associated.BodyUrlencoded...)
-		if associated.BodyRaw != nil {
-			result.HTTPBodyRaw = append(result.HTTPBodyRaw, *associated.BodyRaw)
-		}
-		if associated.FlowNode != nil {
-			result.FlowNodes = append(result.FlowNodes, *associated.FlowNode)
-		}
-		if associated.RequestNode != nil {
-			result.FlowRequestNodes = append(result.FlowRequestNodes, *associated.RequestNode)
-		}
-	}
-}
-
-// createEdges creates flow edges based on dependencies and control flow
-func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any, result *ioworkspace.WorkspaceBundle) error {
-	// Track which nodes have incoming edges
-	hasIncoming := make(map[idwrap.IDWrap]bool)
-
-	// Create edges for explicit dependencies
-	for _, info := range nodeList {
-		for _, depName := range info.dependsOn {
-			if depInfo, exists := nodeInfoMap[depName]; exists {
-				edge := edge.Edge{
-					ID:            idwrap.NewNow(),
-					FlowID:        flowID,
-					SourceID:      depInfo.id,
-					TargetID:      info.id,
-					SourceHandler: edge.HandleUnspecified,
-				}
-				result.FlowEdges = append(result.FlowEdges, edge)
-				hasIncoming[info.id] = true
-			}
-		}
-	}
-
-	// Create edges for sequential steps (implicit dependencies)
-	for i := 0; i < len(nodeList)-1; i++ {
-		current := nodeList[i]
-		next := nodeList[i+1]
-
-		// Only create sequential edge if next node doesn't have explicit dependencies
-		if len(next.dependsOn) == 0 && !hasIncoming[next.id] {
-			edge := edge.Edge{
-				ID:            idwrap.NewNow(),
-				FlowID:        flowID,
-				SourceID:      current.id,
-				TargetID:      next.id,
-				SourceHandler: edge.HandleUnspecified,
-			}
-			result.FlowEdges = append(result.FlowEdges, edge)
-			hasIncoming[next.id] = true
-		}
-	}
-
-	// Connect nodes without incoming edges to start node
-	for _, info := range nodeList {
-		if info.id == startNodeID {
-			continue
-		}
-		if !hasIncoming[info.id] {
-			edge := edge.Edge{
-				ID:            idwrap.NewNow(),
-				FlowID:        flowID,
-				SourceID:      startNodeID,
-				TargetID:      info.id,
-				SourceHandler: edge.HandleUnspecified,
-			}
-			result.FlowEdges = append(result.FlowEdges, edge)
-		}
-	}
-
-	// Create edges for control flow nodes
-	for _, rawStep := range rawSteps {
-		for stepType, stepData := range rawStep {
-			dataMap, _ := stepData.(map[string]any)
-			nodeName, _ := dataMap[fieldName].(string)
-			nodeID := nodeInfoMap[nodeName].id
-
-			switch stepType {
-			case stepTypeIf:
-				// Create edges for then/else branches
-				if thenTarget, ok := dataMap[fieldThen].(string); ok && thenTarget != "" {
-					if targetID, exists := nodeInfoMap[thenTarget]; exists {
-						edge := edge.Edge{
-							ID:            idwrap.NewNow(),
-							FlowID:        flowID,
-							SourceID:      nodeID,
-							TargetID:      targetID.id,
-							SourceHandler: edge.HandleThen,
-						}
-						result.FlowEdges = append(result.FlowEdges, edge)
-						hasIncoming[targetID.id] = true
-					}
-				}
-
-				if elseTarget, ok := dataMap[fieldElse].(string); ok && elseTarget != "" {
-					if targetID, exists := nodeInfoMap[elseTarget]; exists {
-						edge := edge.Edge{
-							ID:            idwrap.NewNow(),
-							FlowID:        flowID,
-							SourceID:      nodeID,
-							TargetID:      targetID.id,
-							SourceHandler: edge.HandleElse,
-						}
-						result.FlowEdges = append(result.FlowEdges, edge)
-						hasIncoming[targetID.id] = true
-					}
-				}
-
-			case stepTypeFor, stepTypeForEach:
-				// Create edge for loop body
-				if loopTarget, ok := dataMap[fieldLoop].(string); ok && loopTarget != "" {
-					if targetID, exists := nodeInfoMap[loopTarget]; exists {
-						edge := edge.Edge{
-							ID:            idwrap.NewNow(),
-							FlowID:        flowID,
-							SourceID:      nodeID,
-							TargetID:      targetID.id,
-							SourceHandler: edge.HandleLoop,
-						}
-						result.FlowEdges = append(result.FlowEdges, edge)
-						hasIncoming[targetID.id] = true
-					}
-				}
-			}
-		}
-	}
-
-	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -127,10 +126,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// 2. Build top-level requests section from HTTP requests
-	// Track which HTTP IDs we've already added to avoid duplicates
 	httpIDToRequestName := make(map[idwrap.IDWrap]string)
 	requestNameUsed := make(map[string]bool)
-	// Track which base HTTP IDs have delta overrides (base HTTP ID -> delta HTTP ID)
 	httpIDToDeltaID := make(map[idwrap.IDWrap]idwrap.IDWrap)
 
 	// First pass: collect all HTTP requests used in flows and create unique names
@@ -148,18 +145,15 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				continue
 			}
 
-			// Skip if already added
 			if _, exists := httpIDToRequestName[httpReq.ID]; exists {
 				continue
 			}
 
-			// Use HTTP request name as the request template name
 			reqName := httpReq.Name
 			if reqName == "" {
 				reqName = "Request"
 			}
 
-			// Ensure unique name
 			baseName := reqName
 			counter := 1
 			for requestNameUsed[reqName] {
@@ -169,7 +163,6 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			requestNameUsed[reqName] = true
 			httpIDToRequestName[httpReq.ID] = reqName
 
-			// Track delta HTTP ID if present
 			if reqNode.DeltaHttpID != nil {
 				httpIDToDeltaID[httpReq.ID] = *reqNode.DeltaHttpID
 			}
@@ -178,7 +171,6 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 	// Second pass: build the requests section
 	var requests []YamlRequestDefV2
-	// Sort HTTP IDs for deterministic output
 	var httpIDs []idwrap.IDWrap
 	for httpID := range httpIDToRequestName {
 		httpIDs = append(httpIDs, httpID)
@@ -191,13 +183,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		reqName := httpIDToRequestName[httpID]
 		httpReq := httpMap[httpID]
 
-		// Check if this request has a delta override
 		var deltaHttpID *idwrap.IDWrap
 		if did, hasDelta := httpIDToDeltaID[httpID]; hasDelta {
 			deltaHttpID = &did
 		}
 
-		// Build the request definition with delta merging
 		reqDef := buildRequestDefWithDelta(reqName, httpReq, deltaHttpID, deltaCtx)
 		requests = append(requests, reqDef)
 	}
@@ -209,7 +199,6 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// 3. Process each Flow
 	flowNameUsed := make(map[string]bool)
 	for _, flow := range data.Flows {
-		// Ensure unique flow name
 		flowName := flow.Name
 		if flowName == "" {
 			flowName = "Flow"
@@ -226,10 +215,9 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		flowYaml := YamlFlowFlowV2{
 			Name:      flowName,
 			Variables: make([]YamlFlowVariableV2, 0),
-			Steps:     make([]map[string]any, 0),
+			Steps:     make([]YamlStepWrapper, 0),
 		}
 
-		// Flow Variables
 		for _, fv := range data.FlowVariables {
 			if fv.FlowID == flow.ID {
 				flowYaml.Variables = append(flowYaml.Variables, YamlFlowVariableV2{
@@ -239,15 +227,12 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			}
 		}
 
-		// Get all nodes for this flow
 		var flowNodes []mnnode.MNode
 		var startNodeID idwrap.IDWrap
 		for _, n := range data.FlowNodes {
 			if n.FlowID == flow.ID {
 				flowNodes = append(flowNodes, n)
-				// Check if it's a start node
 				if n.NodeKind == mnnode.NODE_KIND_NO_OP {
-					// Verify if it's actually the start node
 					for _, noop := range data.FlowNoopNodes {
 						if noop.FlowNodeID == n.ID && noop.Type == mnnoop.NODE_NO_OP_KIND_START {
 							startNodeID = n.ID
@@ -258,55 +243,37 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			}
 		}
 
-		// Sort nodes topologically-ish to form a linear sequence for "steps"
-		// We start BFS from StartNode
 		orderedNodes := linearizeNodes(startNodeID, flowNodes, edgesBySource)
 
-		// Process ordered nodes into steps
 		for i, node := range orderedNodes {
+			var stepWrapper YamlStepWrapper
 
-			stepMap := make(map[string]any)
-			baseStep := map[string]any{
-				"name": node.Name,
-			}
-
-			// Determine Dependencies
-			// Find incoming edges that are NOT control flow (loop/then/else)
+			// Implicit deps
 			var explicitDeps []string
 			incoming := edgesByTarget[node.ID]
 			for _, e := range incoming {
-				// Filter out control flow edges from parents (handled by parent's 'then'/'loop' fields)
-				// We only care about standard dependencies here.
-				// But wait, we can't easily know if an incoming edge was a 'then' edge just by looking at the edge itself
-				// if we didn't store that info. Fortunately Edge struct has SourceHandler.
-
 				if e.SourceHandler == edge.HandleUnspecified {
-					// This is a potential dependency
 					sourceNode, ok := nodeMap[e.SourceID]
 					if !ok || sourceNode.ID == startNodeID {
 						continue
 					}
-
-					// Check if this is an implicit sequential dependency
-					// i.e., is sourceNode the immediate predecessor in our ordered list?
 					isPredecessor := false
 					if i > 0 && orderedNodes[i-1].ID == sourceNode.ID {
 						isPredecessor = true
 					}
-
 					if !isPredecessor {
 						explicitDeps = append(explicitDeps, sourceNode.Name)
 					}
 				}
 			}
+			sort.Strings(explicitDeps)
 
-			if len(explicitDeps) > 0 {
-				// Sort for deterministic output
-				sort.Strings(explicitDeps)
-				baseStep["depends_on"] = explicitDeps
+			// Common struct logic
+			common := YamlStepCommon{
+				Name:      node.Name,
+				DependsOn: StringOrSlice(explicitDeps),
 			}
 
-			// Node Specific Logic
 			switch node.NodeKind {
 			case mnnode.NODE_KIND_REQUEST:
 				reqNode, ok := reqNodeMap[node.ID]
@@ -318,105 +285,112 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					continue
 				}
 
-				// Use use_request to reference the top-level request
-				if reqName, exists := httpIDToRequestName[httpReq.ID]; exists {
-					baseStep["use_request"] = reqName
-				} else {
-					// Fallback to inline (shouldn't happen)
-					baseStep["method"] = httpReq.Method
-					baseStep["url"] = httpReq.Url
+				reqStep := &YamlStepRequest{
+					YamlStepCommon: common,
 				}
 
-				stepMap["request"] = baseStep
+				if reqName, exists := httpIDToRequestName[httpReq.ID]; exists {
+					reqStep.UseRequest = reqName
+				} else {
+					reqStep.Method = httpReq.Method
+					reqStep.URL = httpReq.Url
+				}
+				stepWrapper.Request = reqStep
 
 			case mnnode.NODE_KIND_CONDITION:
 				ifNode, ok := ifNodeMap[node.ID]
 				if !ok {
 					continue
 				}
-
-				baseStep["condition"] = ifNode.Condition.Comparisons.Expression
-
-				// Find targets
+				ifStep := &YamlStepIf{
+					YamlStepCommon: common,
+					Condition:      ifNode.Condition.Comparisons.Expression,
+				}
 				outgoing := edgesBySource[node.ID]
 				for _, e := range outgoing {
 					targetNode, found := nodeMap[e.TargetID]
 					if !found {
 						continue
 					}
-
 					if e.SourceHandler == edge.HandleThen {
-						baseStep["then"] = targetNode.Name
+						ifStep.Then = targetNode.Name
 					} else if e.SourceHandler == edge.HandleElse {
-						baseStep["else"] = targetNode.Name
+						ifStep.Else = targetNode.Name
 					}
 				}
-				stepMap["if"] = baseStep
+				stepWrapper.If = ifStep
 
 			case mnnode.NODE_KIND_FOR:
 				forNode, ok := forNodeMap[node.ID]
 				if !ok {
 					continue
 				}
-
-				baseStep["iter_count"] = forNode.IterCount
-
-				// Find loop target
+				forStep := &YamlStepFor{
+					YamlStepCommon: common,
+					IterCount:      fmt.Sprintf("%d", forNode.IterCount),
+				}
 				outgoing := edgesBySource[node.ID]
 				for _, e := range outgoing {
 					targetNode, found := nodeMap[e.TargetID]
 					if !found {
 						continue
 					}
-
 					if e.SourceHandler == edge.HandleLoop {
-						baseStep["loop"] = targetNode.Name
+						forStep.Loop = targetNode.Name
 					}
 				}
-				stepMap["for"] = baseStep
+				stepWrapper.For = forStep
 
 			case mnnode.NODE_KIND_FOR_EACH:
 				forEachNode, ok := forEachNodeMap[node.ID]
 				if !ok {
 					continue
 				}
-
-				baseStep["items"] = forEachNode.IterExpression
-
-				// Find loop target
+				forEachStep := &YamlStepForEach{
+					YamlStepCommon: common,
+					Items:          forEachNode.IterExpression,
+				}
 				outgoing := edgesBySource[node.ID]
 				for _, e := range outgoing {
 					targetNode, found := nodeMap[e.TargetID]
 					if !found {
 						continue
 					}
-
 					if e.SourceHandler == edge.HandleLoop {
-						baseStep["loop"] = targetNode.Name
+						forEachStep.Loop = targetNode.Name
 					}
 				}
-				stepMap["for_each"] = baseStep
+				stepWrapper.ForEach = forEachStep
 
 			case mnnode.NODE_KIND_JS:
 				jsNode, ok := jsNodeMap[node.ID]
 				if !ok {
 					continue
 				}
-
-				baseStep["code"] = string(jsNode.Code)
-				stepMap["js"] = baseStep
+				jsStep := &YamlStepJS{
+					YamlStepCommon: common,
+					Code:           string(jsNode.Code),
+				}
+				stepWrapper.JS = jsStep
 
 			case mnnode.NODE_KIND_NO_OP:
 				if node.ID == startNodeID {
-					baseStep["type"] = "start"
-					stepMap["noop"] = baseStep
+					noopStep := &YamlStepNoop{
+						YamlStepCommon: common,
+						Type:           "start",
+					}
+					stepWrapper.Noop = noopStep
 				} else {
 					continue
 				}
 			}
 
-			if len(stepMap) > 0 {
-				flowYaml.Steps = append(flowYaml.Steps, stepMap)
+			// Add to flow
+			// Because stepWrapper has pointer fields, "empty" fields are nil
+			// Checking if any field is set (simplified check, assume one set if we got here)
+			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil || stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.Noop != nil
+			if isValid {
+				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}
 		}
 
@@ -426,23 +400,17 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// 4. Export Environments
 	if len(data.Environments) > 0 {
 		envMap := make(map[idwrap.IDWrap]*YamlEnvironmentV2)
-
-		// Initialize environments
 		for _, env := range data.Environments {
 			envMap[env.ID] = &YamlEnvironmentV2{
 				Name:      env.Name,
 				Variables: make(map[string]string),
 			}
 		}
-
-		// Add variables
 		for _, v := range data.EnvironmentVars {
 			if env, ok := envMap[v.EnvID]; ok {
 				env.Variables[v.VarKey] = v.Value
 			}
 		}
-
-		// Convert map to slice
 		for _, env := range data.Environments {
 			if yamlEnv, ok := envMap[env.ID]; ok {
 				yamlFormat.Environments = append(yamlFormat.Environments, *yamlEnv)
@@ -451,14 +419,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// 5. Generate default Run configuration
-	// Since the database doesn't store the 'run' configuration explicitly,
-	// we generate a default linear run sequence based on the exported flows.
-	// This ensures the exported YAML is valid and runnable.
 	if len(yamlFormat.Flows) > 0 {
-		yamlFormat.Run = make([]map[string]any, 0, len(yamlFormat.Flows))
+		yamlFormat.Run = make([]YamlRunEntryV2, 0, len(yamlFormat.Flows))
 		for _, flow := range yamlFormat.Flows {
-			yamlFormat.Run = append(yamlFormat.Run, map[string]any{
-				"flow": flow.Name,
+			yamlFormat.Run = append(yamlFormat.Run, YamlRunEntryV2{
+				Flow: flow.Name,
 			})
 		}
 	}
@@ -466,8 +431,6 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	return yaml.Marshal(yamlFormat)
 }
 
-// linearizeNodes attempts to create a linear sequence of nodes starting from startNode.
-// It basically performs a BFS/topological traversal to order nodes in a way that makes sense for a YAML list.
 func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesBySource map[idwrap.IDWrap][]edge.Edge) []mnnode.MNode {
 	nodeMap := make(map[idwrap.IDWrap]mnnode.MNode)
 	for _, n := range allNodes {
@@ -479,11 +442,6 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 	queue := []idwrap.IDWrap{startNodeID}
 	visited[startNodeID] = true
 
-	// NOTE: This is a simplified BFS. For a perfect reproduction of the original "steps" list order,
-	// we would need to preserve the index order if available.
-	// Since we don't have the original index, BFS is a reasonable approximation for execution order.
-	// A pure dependency topological sort might be better, but BFS handles the "flow" visualization better.
-
 	for len(queue) > 0 {
 		currentID := queue[0]
 		queue = queue[1:]
@@ -492,13 +450,7 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 			result = append(result, n)
 		}
 
-		// Find neighbors
 		edges := edgesBySource[currentID]
-
-		// Sort edges to be deterministic?
-		// In graph theory, the order of edges doesn't matter, but for stability it's nice.
-		// We can't easily sort edges without looking up target names.
-
 		var neighbors []mnnode.MNode
 		for _, e := range edges {
 			if target, ok := nodeMap[e.TargetID]; ok {
@@ -506,7 +458,6 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 			}
 		}
 
-		// Sort neighbors by name to ensure deterministic output
 		sort.Slice(neighbors, func(i, j int) bool {
 			return neighbors[i].Name < neighbors[j].Name
 		})
@@ -519,14 +470,12 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 		}
 	}
 
-	// Add any disconnected nodes (shouldn't happen in valid flows, but good for robustness)
 	var disconnected []mnnode.MNode
 	for _, n := range allNodes {
 		if !visited[n.ID] {
 			disconnected = append(disconnected, n)
 		}
 	}
-	// Sort disconnected nodes
 	sort.Slice(disconnected, func(i, j int) bool {
 		return disconnected[i].Name < disconnected[j].Name
 	})
@@ -535,7 +484,6 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 	return result
 }
 
-// deltaLookupContext holds all the maps needed to look up delta values
 type deltaLookupContext struct {
 	httpMap     map[idwrap.IDWrap]mhttp.HTTP
 	headersMap  map[idwrap.IDWrap][]mhttp.HTTPHeader
@@ -546,16 +494,12 @@ type deltaLookupContext struct {
 	assertsMap  map[idwrap.IDWrap][]mhttp.HTTPAssert
 }
 
-// buildRequestDefWithDelta builds a YamlRequestDefV2 by merging base HTTP with delta overrides
 func buildRequestDefWithDelta(reqName string, baseHttp mhttp.HTTP, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) YamlRequestDefV2 {
-	// Start with base values
 	method := baseHttp.Method
 	url := baseHttp.Url
 
-	// If there's a delta HTTP, check for overrides on the delta HTTP itself
 	if deltaHttpID != nil {
 		if deltaHttp, ok := ctx.httpMap[*deltaHttpID]; ok {
-			// Delta HTTP can override URL and Method via Delta* fields
 			if deltaHttp.DeltaUrl != nil && *deltaHttp.DeltaUrl != "" {
 				url = *deltaHttp.DeltaUrl
 			}
@@ -571,29 +515,18 @@ func buildRequestDefWithDelta(reqName string, baseHttp mhttp.HTTP, deltaHttpID *
 		URL:    url,
 	}
 
-	// Merge headers
 	reqDef.Headers = mergeHeaders(baseHttp.ID, deltaHttpID, ctx)
-
-	// Merge query params
 	reqDef.QueryParams = mergeQueryParams(baseHttp.ID, deltaHttpID, ctx)
-
-	// Merge body
 	reqDef.Body = mergeBody(baseHttp.ID, deltaHttpID, ctx)
-
-	// Merge assertions
 	reqDef.Assertions = mergeAssertions(baseHttp.ID, deltaHttpID, ctx)
 
 	return reqDef
 }
 
-// mergeHeaders merges base headers with delta header overrides
-func mergeHeaders(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) map[string]string {
-	result := make(map[string]string)
-
-	// Get base headers
+func mergeHeaders(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) HeaderMapOrSlice {
+	var result []YamlNameValuePairV2
 	baseHeaders := ctx.headersMap[baseHttpID]
 
-	// Build a map of base header ID -> delta header for quick lookup
 	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPHeader)
 	if deltaHttpID != nil {
 		for _, dh := range ctx.headersMap[*deltaHttpID] {
@@ -603,15 +536,13 @@ func mergeHeaders(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *del
 		}
 	}
 
-	// Process each base header
 	for _, h := range baseHeaders {
 		key := h.Key
 		value := h.Value
 		enabled := h.Enabled
+		description := h.Description
 
-		// Check if there's a delta override for this header
 		if delta, hasDelta := deltaByParentID[h.ID]; hasDelta {
-			// Apply delta overrides
 			if delta.DeltaKey != nil {
 				key = *delta.DeltaKey
 			}
@@ -621,19 +552,22 @@ func mergeHeaders(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *del
 			if delta.DeltaEnabled != nil {
 				enabled = *delta.DeltaEnabled
 			}
+			if delta.DeltaDescription != nil {
+				description = *delta.DeltaDescription
+			}
 		}
 
-		if enabled {
-			result[key] = value
-		}
+		result = append(result, YamlNameValuePairV2{
+			Name: key, Value: value, Enabled: enabled, Description: description,
+		})
 	}
 
-	// Also add any new headers from delta that don't have a parent (new headers added in delta)
 	if deltaHttpID != nil {
 		for _, dh := range ctx.headersMap[*deltaHttpID] {
-			if dh.ParentHttpHeaderID == nil && dh.Enabled {
-				// This is a new header added in the delta
-				result[dh.Key] = dh.Value
+			if dh.ParentHttpHeaderID == nil {
+				result = append(result, YamlNameValuePairV2{
+					Name: dh.Key, Value: dh.Value, Enabled: dh.Enabled, Description: dh.Description,
+				})
 			}
 		}
 	}
@@ -641,17 +575,13 @@ func mergeHeaders(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *del
 	if len(result) == 0 {
 		return nil
 	}
-	return result
+	return HeaderMapOrSlice(result)
 }
 
-// mergeQueryParams merges base query params with delta overrides
-func mergeQueryParams(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) map[string]string {
-	result := make(map[string]string)
-
-	// Get base params
+func mergeQueryParams(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) HeaderMapOrSlice {
+	var result []YamlNameValuePairV2
 	baseParams := ctx.paramsMap[baseHttpID]
 
-	// Build a map of base param ID -> delta param for quick lookup
 	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPSearchParam)
 	if deltaHttpID != nil {
 		for _, dp := range ctx.paramsMap[*deltaHttpID] {
@@ -661,13 +591,12 @@ func mergeQueryParams(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx 
 		}
 	}
 
-	// Process each base param
 	for _, p := range baseParams {
 		key := p.Key
 		value := p.Value
 		enabled := p.Enabled
+		description := p.Description
 
-		// Check if there's a delta override
 		if delta, hasDelta := deltaByParentID[p.ID]; hasDelta {
 			if delta.DeltaKey != nil {
 				key = *delta.DeltaKey
@@ -678,18 +607,22 @@ func mergeQueryParams(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx 
 			if delta.DeltaEnabled != nil {
 				enabled = *delta.DeltaEnabled
 			}
+			if delta.DeltaDescription != nil {
+				description = *delta.DeltaDescription
+			}
 		}
 
-		if enabled {
-			result[key] = value
-		}
+		result = append(result, YamlNameValuePairV2{
+			Name: key, Value: value, Enabled: enabled, Description: description,
+		})
 	}
 
-	// Add new params from delta
 	if deltaHttpID != nil {
 		for _, dp := range ctx.paramsMap[*deltaHttpID] {
-			if dp.ParentHttpSearchParamID == nil && dp.Enabled {
-				result[dp.Key] = dp.Value
+			if dp.ParentHttpSearchParamID == nil {
+				result = append(result, YamlNameValuePairV2{
+					Name: dp.Key, Value: dp.Value, Enabled: dp.Enabled, Description: dp.Description,
+				})
 			}
 		}
 	}
@@ -697,50 +630,45 @@ func mergeQueryParams(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx 
 	if len(result) == 0 {
 		return nil
 	}
-	return result
+	return HeaderMapOrSlice(result)
 }
 
-// mergeBody merges base body with delta overrides
-func mergeBody(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
-	// Check for form data
-	if forms := mergeBodyForms(baseHttpID, deltaHttpID, ctx); forms != nil {
-		return forms
+func mergeBody(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) *YamlBodyUnion {
+	// Forms
+	if forms := mergeBodyForms(baseHttpID, deltaHttpID, ctx); len(forms) > 0 {
+		return &YamlBodyUnion{
+			Type: "form-data",
+			Form: HeaderMapOrSlice(forms),
+		}
 	}
 
-	// Check for urlencoded
-	if urlencoded := mergeBodyUrlencoded(baseHttpID, deltaHttpID, ctx); urlencoded != nil {
-		return urlencoded
+	// UrlEncoded
+	if urlencoded := mergeBodyUrlencoded(baseHttpID, deltaHttpID, ctx); len(urlencoded) > 0 {
+		return &YamlBodyUnion{
+			Type:       "urlencoded",
+			UrlEncoded: HeaderMapOrSlice(urlencoded),
+		}
 	}
 
-	// Check for raw body
+	// Raw
 	return mergeBodyRaw(baseHttpID, deltaHttpID, ctx)
 }
 
-// mergeBodyForms merges base form data with delta overrides
-func mergeBodyForms(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
+func mergeBodyForms(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) []YamlNameValuePairV2 {
 	baseForms := ctx.bodyFormMap[baseHttpID]
+	var result []YamlNameValuePairV2
+
+	// if base empty, check delta new
 	if len(baseForms) == 0 {
-		// Check if delta has forms
 		if deltaHttpID != nil {
 			deltaForms := ctx.bodyFormMap[*deltaHttpID]
-			if len(deltaForms) > 0 {
-				bodyData := map[string]any{"type": "form-data"}
-				fList := make([]map[string]any, 0)
-				for _, f := range deltaForms {
-					if f.Enabled {
-						fList = append(fList, map[string]any{"name": f.Key, "value": f.Value})
-					}
-				}
-				if len(fList) > 0 {
-					bodyData["form_data"] = fList
-					return bodyData
-				}
+			for _, f := range deltaForms {
+				result = append(result, YamlNameValuePairV2{Name: f.Key, Value: f.Value, Enabled: f.Enabled, Description: f.Description})
 			}
 		}
-		return nil
+		return result
 	}
 
-	// Build delta lookup
 	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPBodyForm)
 	if deltaHttpID != nil {
 		for _, df := range ctx.bodyFormMap[*deltaHttpID] {
@@ -750,13 +678,11 @@ func mergeBodyForms(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *d
 		}
 	}
 
-	bodyData := map[string]any{"type": "form-data"}
-	fList := make([]map[string]any, 0)
-
 	for _, f := range baseForms {
 		key := f.Key
 		value := f.Value
 		enabled := f.Enabled
+		description := f.Description
 
 		if delta, hasDelta := deltaByParentID[f.ID]; hasDelta {
 			if delta.DeltaKey != nil {
@@ -768,54 +694,39 @@ func mergeBodyForms(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *d
 			if delta.DeltaEnabled != nil {
 				enabled = *delta.DeltaEnabled
 			}
+			if delta.DeltaDescription != nil {
+				description = *delta.DeltaDescription
+			}
 		}
 
-		if enabled {
-			fList = append(fList, map[string]any{"name": key, "value": value})
-		}
+		result = append(result, YamlNameValuePairV2{Name: key, Value: value, Enabled: enabled, Description: description})
 	}
 
-	// Add new form fields from delta
 	if deltaHttpID != nil {
 		for _, df := range ctx.bodyFormMap[*deltaHttpID] {
-			if df.ParentHttpBodyFormID == nil && df.Enabled {
-				fList = append(fList, map[string]any{"name": df.Key, "value": df.Value})
+			if df.ParentHttpBodyFormID == nil {
+				result = append(result, YamlNameValuePairV2{Name: df.Key, Value: df.Value, Enabled: df.Enabled, Description: df.Description})
 			}
 		}
 	}
 
-	if len(fList) > 0 {
-		bodyData["form_data"] = fList
-		return bodyData
-	}
-	return nil
+	return result
 }
 
-// mergeBodyUrlencoded merges base urlencoded data with delta overrides
-func mergeBodyUrlencoded(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
+func mergeBodyUrlencoded(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) []YamlNameValuePairV2 {
 	baseUrls := ctx.bodyUrlMap[baseHttpID]
+	var result []YamlNameValuePairV2
+
 	if len(baseUrls) == 0 {
-		// Check if delta has urlencoded
 		if deltaHttpID != nil {
 			deltaUrls := ctx.bodyUrlMap[*deltaHttpID]
-			if len(deltaUrls) > 0 {
-				bodyData := map[string]any{"type": "urlencoded"}
-				uList := make([]map[string]any, 0)
-				for _, u := range deltaUrls {
-					if u.Enabled {
-						uList = append(uList, map[string]any{"name": u.Key, "value": u.Value})
-					}
-				}
-				if len(uList) > 0 {
-					bodyData["urlencoded"] = uList
-					return bodyData
-				}
+			for _, u := range deltaUrls {
+				result = append(result, YamlNameValuePairV2{Name: u.Key, Value: u.Value, Enabled: u.Enabled, Description: u.Description})
 			}
 		}
-		return nil
+		return result
 	}
 
-	// Build delta lookup
 	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPBodyUrlencoded)
 	if deltaHttpID != nil {
 		for _, du := range ctx.bodyUrlMap[*deltaHttpID] {
@@ -825,13 +736,11 @@ func mergeBodyUrlencoded(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, c
 		}
 	}
 
-	bodyData := map[string]any{"type": "urlencoded"}
-	uList := make([]map[string]any, 0)
-
 	for _, u := range baseUrls {
 		key := u.Key
 		value := u.Value
 		enabled := u.Enabled
+		description := u.Description
 
 		if delta, hasDelta := deltaByParentID[u.ID]; hasDelta {
 			if delta.DeltaKey != nil {
@@ -843,96 +752,69 @@ func mergeBodyUrlencoded(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, c
 			if delta.DeltaEnabled != nil {
 				enabled = *delta.DeltaEnabled
 			}
+			if delta.DeltaDescription != nil {
+				description = *delta.DeltaDescription
+			}
 		}
-
-		if enabled {
-			uList = append(uList, map[string]any{"name": key, "value": value})
-		}
+		result = append(result, YamlNameValuePairV2{Name: key, Value: value, Enabled: enabled, Description: description})
 	}
 
-	// Add new urlencoded fields from delta
 	if deltaHttpID != nil {
 		for _, du := range ctx.bodyUrlMap[*deltaHttpID] {
-			if du.ParentHttpBodyUrlEncodedID == nil && du.Enabled {
-				uList = append(uList, map[string]any{"name": du.Key, "value": du.Value})
+			if du.ParentHttpBodyUrlEncodedID == nil {
+				result = append(result, YamlNameValuePairV2{Name: du.Key, Value: du.Value, Enabled: du.Enabled, Description: du.Description})
 			}
 		}
 	}
+	return result
+}
 
-	if len(uList) > 0 {
-		bodyData["urlencoded"] = uList
-		return bodyData
+func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) *YamlBodyUnion {
+	// Implement merged raw data
+	// Note: Delta raw isn't fully supported in complex ways in old code, usually just overwrite
+
+	baseRaw, ok := ctx.bodyRawMap[baseHttpID]
+	var rawData []byte
+	if ok {
+		rawData = baseRaw.RawData
 	}
+
+	if deltaHttpID != nil {
+		deltaRaw, ok := ctx.bodyRawMap[*deltaHttpID]
+		if ok && len(deltaRaw.DeltaRawData) > 0 {
+			rawData = deltaRaw.DeltaRawData
+		} else if ok && len(deltaRaw.RawData) > 0 {
+			// Fallback if DeltaRawData not set but RawData is?
+			// Usually DeltaRawData is the override.
+			// Let's assume rawData is base.
+		}
+	}
+
+	if len(rawData) > 0 {
+		// check if JSON
+		if json.Valid(rawData) {
+			var js map[string]interface{}
+			if err := json.Unmarshal(rawData, &js); err == nil {
+				return &YamlBodyUnion{
+					Type: "json",
+					JSON: js,
+				}
+			}
+		}
+
+		return &YamlBodyUnion{
+			Type: "raw",
+			Raw:  string(rawData),
+		}
+	}
+
 	return nil
 }
 
-// mergeBodyRaw merges base raw body with delta override
-func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
-	baseRaw, hasBase := ctx.bodyRawMap[baseHttpID]
-
-	// Check for delta raw body
-	var deltaRaw *mhttp.HTTPBodyRaw
-	if deltaHttpID != nil {
-		if dr, ok := ctx.bodyRawMap[*deltaHttpID]; ok {
-			deltaRaw = &dr
-		}
-	}
-
-	// Determine which raw data to use
-	var dataBytes []byte
-	var compressionType int8
-
-	if deltaRaw != nil && (len(deltaRaw.DeltaRawData) > 0 || len(deltaRaw.RawData) > 0) {
-		if len(deltaRaw.DeltaRawData) > 0 {
-			// Use delta raw data
-			dataBytes = deltaRaw.DeltaRawData
-			// Delta compression type handling
-			if ct, ok := deltaRaw.DeltaCompressionType.(int8); ok {
-				compressionType = ct
-			} else {
-				compressionType = deltaRaw.CompressionType
-			}
-		} else {
-			// Use raw data from delta request
-			dataBytes = deltaRaw.RawData
-			compressionType = deltaRaw.CompressionType
-		}
-	} else if hasBase {
-		// Use base raw data
-		dataBytes = baseRaw.RawData
-		compressionType = baseRaw.CompressionType
-	} else {
-		return nil
-	}
-
-	// Decompress if needed
-	if compressionType != int8(compress.CompressTypeNone) {
-		decompressed, err := compress.Decompress(dataBytes, compress.CompressType(compressionType))
-		if err == nil {
-			dataBytes = decompressed
-		}
-	}
-
-	if len(dataBytes) == 0 {
-		return nil
-	}
-
-	// Try to parse as JSON
-	var jsonObj any
-	if json.Unmarshal(dataBytes, &jsonObj) == nil {
-		return map[string]any{"type": "json", "json": jsonObj}
-	}
-	return map[string]any{"type": "raw", "raw": string(dataBytes)}
-}
-
-// mergeAssertions merges base assertions with delta overrides
-func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) []string {
-	var result []string
-
-	// Get base assertions
+func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) AssertionsOrSlice {
+	var result []YamlAssertionV2
 	baseAsserts := ctx.assertsMap[baseHttpID]
 
-	// Build delta lookup
 	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPAssert)
 	if deltaHttpID != nil {
 		for _, da := range ctx.assertsMap[*deltaHttpID] {
@@ -942,30 +824,26 @@ func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *
 		}
 	}
 
-	// Process base assertions
 	for _, a := range baseAsserts {
-		value := a.Value
+		val := a.Value
 		enabled := a.Enabled
 
 		if delta, hasDelta := deltaByParentID[a.ID]; hasDelta {
 			if delta.DeltaValue != nil {
-				value = *delta.DeltaValue
+				val = *delta.DeltaValue
 			}
 			if delta.DeltaEnabled != nil {
 				enabled = *delta.DeltaEnabled
 			}
 		}
 
-		if enabled && value != "" {
-			result = append(result, value)
-		}
+		result = append(result, YamlAssertionV2{Expression: val, Enabled: enabled})
 	}
 
-	// Add new assertions from delta
 	if deltaHttpID != nil {
 		for _, da := range ctx.assertsMap[*deltaHttpID] {
-			if da.ParentHttpAssertID == nil && da.Enabled && da.Value != "" {
-				result = append(result, da.Value)
+			if da.ParentHttpAssertID == nil {
+				result = append(result, YamlAssertionV2{Expression: da.Value, Enabled: da.Enabled})
 			}
 		}
 	}
@@ -973,5 +851,5 @@ func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *
 	if len(result) == 0 {
 		return nil
 	}
-	return result
+	return AssertionsOrSlice(result)
 }

@@ -445,8 +445,9 @@ func TestMarshalSimplifiedYAML_WithDeltaDisabledHeader(t *testing.T) {
 	yamlStr := string(yamlBytes)
 	t.Logf("Exported YAML:\n%s", yamlStr)
 
-	// The X-Debug header should NOT be in the output because delta disabled it
-	require.NotContains(t, yamlStr, "X-Debug")
+	// The X-Debug header should be in the output but disabled
+	require.Contains(t, yamlStr, "X-Debug")
+	require.Contains(t, yamlStr, "enabled: false")
 }
 
 func TestMarshalSimplifiedYAML_WithNewDeltaHeader(t *testing.T) {

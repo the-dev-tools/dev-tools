@@ -206,7 +206,7 @@ func ValidateYAMLStructure(yamlFormat *YamlFlowFormatV2) error {
 
 	// Check for flow dependencies that reference non-existent flows
 	for _, runEntry := range yamlFormat.Run {
-		flowName := runEntry["flow"].(string)
+		flowName := runEntry.Flow
 		found := false
 		for _, flow := range yamlFormat.Flows {
 			if flow.Name == flowName {
