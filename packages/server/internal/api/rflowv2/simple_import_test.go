@@ -80,9 +80,10 @@ flows:
       - noop:
           name: "Start"
           type: "start"
-      - name: "Request Step"
-        method: "GET"
-        url: "https://api.example.com/test"
+      - request:
+          name: "Request Step"
+          method: "GET"
+          url: "https://api.example.com/test"
 `),
 			expectErr: false,
 		},
@@ -129,9 +130,10 @@ flows:
       - noop:
           name: "Start"
           type: "start"
-      - name: "Request Step"
-        method: "GET"
-        url: "https://api.example.com/test"
+      - request:
+          name: "Request Step"
+          method: "GET"
+          url: "https://api.example.com/test"
 `)
 
 	// Test successful parsing using the v2 translate package directly
@@ -168,9 +170,10 @@ flows:
       - noop:
           name: "Start"
           type: "start"
-      - name: "Request Step"
-        method: "GET"
-        url: "https://api.example.com/test"
+      - request:
+          name: "Request Step"
+          method: "GET"
+          url: "https://api.example.com/test"
 `)
 
 	// Test successful import - this will fail at workspace access check,
