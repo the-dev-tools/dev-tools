@@ -10,6 +10,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	the-dev-tools/db v0.0.0
 	the-dev-tools/server v0.0.0
+	the-dev-tools/spec v0.0.0-00010101000000-000000000000
 )
 
 replace (
@@ -19,6 +20,7 @@ replace (
 )
 
 require (
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/expr-lang/expr v1.17.2 // indirect

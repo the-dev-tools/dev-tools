@@ -17,6 +17,8 @@ import (
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/flow/flowbuilder"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -27,7 +29,13 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
+	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -42,6 +50,8 @@ func TestFlowRun_Logging(t *testing.T) {
 	queries := gen.New(db)
 
 	// Setup Services
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	wsService := sworkspace.New(queries)
 	flowService := sflow.New(queries)
 	nodeService := snode.New(queries)
@@ -49,11 +59,39 @@ func TestFlowRun_Logging(t *testing.T) {
 	edgeService := sedge.New(queries)
 	noopService := snodenoop.New(queries)
 	flowVarService := sflowvariable.New(queries)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	// Missing services for builder
+	reqService := snoderequest.New(queries)
+	forService := snodefor.New(queries)
+	forEachService := snodeforeach.New(queries)
+	ifService := snodeif.New(queries)
+	jsService := snodejs.New(queries)
+	varService := svar.New(queries, logger)
+
+	// Mock resolver (or use standard with nil services if not used in test)
+	// Since we only use NoOp node in this test, resolver won't be called for requests
+	// But builder needs it.
+	// We can pass nil for resolver dependencies as they are not used for NoOp
+	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 
 	// Setup Log Streamer
 	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
 	defer logStreamer.Shutdown()
+
+	builder := flowbuilder.New(
+		&nodeService,
+		&reqService,
+		&forService,
+		&forEachService,
+		ifService,
+		&noopService,
+		&jsService,
+		&wsService,
+		&varService,
+		&flowVarService,
+		res,
+		logger,
+	)
 
 	svc := &FlowServiceV2RPC{
 		ws:           &wsService,
@@ -65,6 +103,7 @@ func TestFlowRun_Logging(t *testing.T) {
 		fvs:          &flowVarService,
 		logger:       logger,
 		logStream:    logStreamer,
+		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 

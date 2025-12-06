@@ -17,6 +17,8 @@ import (
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/flow/flowbuilder"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -27,7 +29,13 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
+	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -51,6 +59,32 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	flowVarService := sflowvariable.New(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Missing services for builder
+	reqService := snoderequest.New(queries)
+	forService := snodefor.New(queries)
+	forEachService := snodeforeach.New(queries)
+	ifService := snodeif.New(queries)
+	jsService := snodejs.New(queries)
+	varService := svar.New(queries, logger)
+
+	// Mock resolver
+	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+
+	builder := flowbuilder.New(
+		&nodeService,
+		&reqService,
+		&forService,
+		&forEachService,
+		ifService,
+		&noopService,
+		&jsService,
+		&wsService,
+		&varService,
+		&flowVarService,
+		res,
+		logger,
+	)
+
 	svc := &FlowServiceV2RPC{
 		ws:           &wsService,
 		fs:           &flowService,
@@ -60,6 +94,7 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 		nnos:         &noopService,
 		fvs:          &flowVarService,
 		logger:       logger,
+		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 
@@ -312,6 +347,32 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	flowVarService := sflowvariable.New(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Missing services for builder
+	reqService := snoderequest.New(queries)
+	forService := snodefor.New(queries)
+	forEachService := snodeforeach.New(queries)
+	ifService := snodeif.New(queries)
+	jsService := snodejs.New(queries)
+	varService := svar.New(queries, logger)
+
+	// Mock resolver
+	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+
+	builder := flowbuilder.New(
+		&nodeService,
+		&reqService,
+		&forService,
+		&forEachService,
+		ifService,
+		&noopService,
+		&jsService,
+		&wsService,
+		&varService,
+		&flowVarService,
+		res,
+		logger,
+	)
+
 	svc := &FlowServiceV2RPC{
 		ws:           &wsService,
 		fs:           &flowService,
@@ -321,6 +382,7 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		nnos:         &noopService,
 		fvs:          &flowVarService,
 		logger:       logger,
+		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 
@@ -416,6 +478,32 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	flowVarService := sflowvariable.New(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Missing services for builder
+	reqService := snoderequest.New(queries)
+	forService := snodefor.New(queries)
+	forEachService := snodeforeach.New(queries)
+	ifService := snodeif.New(queries)
+	jsService := snodejs.New(queries)
+	varService := svar.New(queries, logger)
+
+	// Mock resolver
+	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+
+	builder := flowbuilder.New(
+		&nodeService,
+		&reqService,
+		&forService,
+		&forEachService,
+		ifService,
+		&noopService,
+		&jsService,
+		&wsService,
+		&varService,
+		&flowVarService,
+		res,
+		logger,
+	)
+
 	svc := &FlowServiceV2RPC{
 		ws:           &wsService,
 		fs:           &flowService,
@@ -425,6 +513,7 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 		nnos:         &noopService,
 		fvs:          &flowVarService,
 		logger:       logger,
+		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 
@@ -533,6 +622,32 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	flowVarService := sflowvariable.New(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	// Missing services for builder
+	reqService := snoderequest.New(queries)
+	forService := snodefor.New(queries)
+	forEachService := snodeforeach.New(queries)
+	ifService := snodeif.New(queries)
+	jsService := snodejs.New(queries)
+	varService := svar.New(queries, logger)
+
+	// Mock resolver
+	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+
+	builder := flowbuilder.New(
+		&nodeService,
+		&reqService,
+		&forService,
+		&forEachService,
+		ifService,
+		&noopService,
+		&jsService,
+		&wsService,
+		&varService,
+		&flowVarService,
+		res,
+		logger,
+	)
+
 	svc := &FlowServiceV2RPC{
 		ws:           &wsService,
 		fs:           &flowService,
@@ -542,6 +657,7 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 		nnos:         &noopService,
 		fvs:          &flowVarService,
 		logger:       logger,
+		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 

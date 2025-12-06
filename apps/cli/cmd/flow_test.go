@@ -15,6 +15,8 @@ import (
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
+	"the-dev-tools/server/pkg/flow/flowbuilder"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/logconsole"
@@ -30,6 +32,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 )
@@ -91,30 +94,61 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 	httpAssertService := shttp.NewHttpAssertService(queries)
 
+	// Additional services for builder
+	varService := svar.New(queries, logger)
+
+	// Initialize resolver
+	res := resolver.NewStandardResolver(
+		&httpService,
+		&httpHeaderService,
+		httpSearchParamService,
+		httpBodyRawService,
+		httpBodyFormService,
+		httpBodyUrlEncodedService,
+		httpAssertService,
+	)
+
+	// Initialize builder
+	builder := flowbuilder.New(
+		&nodeService,
+		&nodeRequestService,
+		&nodeForService,
+		&nodeForEachService,
+		nodeIfService,
+		&nodeNoopService,
+		&nodeJSService,
+		&workspaceService,
+		&varService,
+		&flowVariableService,
+		res,
+		logger,
+	)
+
 	logMap := logconsole.NewLogChanMap()
 
 	services := FlowServiceLocal{
-		DB:      db,
-		ws:      workspaceService,
-		fs:      flowService,
-		fes:     edgeService,
-		fvs:     flowVariableService,
-		ns:      nodeService,
-		rns:     nodeRequestService,
-		fns:     nodeForService,
-		fens:    nodeForEachService,
-		sns:     nodeNoopService,
-		ins:     *nodeIfService,
-		jsns:    nodeJSService,
-		hs:      httpService,
-		hh:      httpHeaderService,
-		hsp:     httpSearchParamService,
-		hbf:     httpBodyFormService,
-		hbu:     httpBodyUrlEncodedService,
-		hbr:     httpBodyRawService,
-		has:     httpAssertService,
-		logger:  logger,
+		DB:         db,
+		ws:         workspaceService,
+		fs:         flowService,
+		fes:        edgeService,
+		fvs:        flowVariableService,
+		ns:         nodeService,
+		rns:        nodeRequestService,
+		fns:        nodeForService,
+		fens:       nodeForEachService,
+		sns:        nodeNoopService,
+		ins:        *nodeIfService,
+		jsns:       nodeJSService,
+		hs:         httpService,
+		hh:         httpHeaderService,
+		hsp:        httpSearchParamService,
+		hbf:        httpBodyFormService,
+		hbu:        httpBodyUrlEncodedService,
+		hbr:        httpBodyRawService,
+		has:        httpAssertService,
+		logger:     logger,
 		logChanMap: logMap,
+		builder:    builder,
 	}
 
 	// Create mock HTTP server

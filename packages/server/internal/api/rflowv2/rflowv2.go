@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream"
+	"the-dev-tools/server/pkg/flow/flowbuilder"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflowvariable"
@@ -255,6 +256,9 @@ type FlowServiceV2RPC struct {
 	// JS executor client for running JS nodes (connects to worker-js)
 	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient
 
+	// Shared builder for flow execution
+	builder *flowbuilder.Builder
+
 	// Running flows map for cancellation
 	runningFlowsMu sync.Mutex
 	runningFlows   map[string]context.CancelFunc
@@ -298,6 +302,11 @@ func New(
 	logStream eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent],
 	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient,
 ) *FlowServiceV2RPC {
+	builder := flowbuilder.New(
+		ns, nrs, nfs, nfes, nifs, nnos, njss,
+		ws, vs, fvs, resolver, logger,
+	)
+
 	return &FlowServiceV2RPC{
 		ws:                       ws,
 		fs:                       fs,
@@ -335,6 +344,7 @@ func New(
 		httpResponseAssertStream: httpResponseAssertStream,
 		logStream:                logStream,
 		jsClient:                 jsClient,
+		builder:                  builder,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}
 }

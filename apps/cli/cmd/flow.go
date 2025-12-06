@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"the-dev-tools/db/pkg/sqlitemem"
+	"the-dev-tools/server/pkg/flow/flowbuilder"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/logconsole"
@@ -63,6 +65,8 @@ type FlowServiceLocal struct {
 	logger *slog.Logger
 
 	logChanMap logconsole.LogChanMap
+
+	builder *flowbuilder.Builder
 }
 
 var (
@@ -179,6 +183,31 @@ var yamlflowRunCmd = &cobra.Command{
 
 		logMap := logconsole.NewLogChanMap()
 
+		resolver := resolver.NewStandardResolver(
+			&services.HTTP,
+			&services.HTTPHeader,
+			services.HTTPSearchParam,
+			services.HTTPBodyRaw,
+			services.HTTPBodyForm,
+			services.HTTPBodyUrlEncoded,
+			services.HTTPAssert,
+		)
+
+		builder := flowbuilder.New(
+			&services.Node,
+			&services.NodeRequest,
+			&services.NodeFor,
+			&services.NodeForEach,
+			&services.NodeIf,
+			&services.NodeNoop,
+			&services.NodeJS,
+			&services.Workspace,
+			&services.Variable,
+			&services.FlowVariable,
+			resolver,
+			services.Logger,
+		)
+
 		flowServiceLocal := FlowServiceLocal{
 			DB:   services.DB,
 			ws:   services.Workspace,
@@ -203,6 +232,7 @@ var yamlflowRunCmd = &cobra.Command{
 			logger: services.Logger,
 
 			logChanMap: logMap,
+			builder:    builder,
 		}
 
 		// Import all entities from the resolved bundle

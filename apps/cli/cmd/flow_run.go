@@ -11,8 +11,10 @@ import (
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
+	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -199,11 +201,10 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get edges")))
 	}
 
-	flowVarsMap := make(map[string]any, len(flowVars))
-	for _, flowVar := range flowVars {
-		if flowVar.Enabled {
-			flowVarsMap[flowVar.Name] = flowVar.Value
-		}
+	// Build flow variables using flowbuilder
+	flowVarsMap, err := c.builder.BuildVariables(ctx, latestFlowID, flowVars)
+	if err != nil {
+		return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("build variables: %w", err)))
 	}
 
 	// Create temporary request to safely read timeout variable
@@ -222,8 +223,32 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 		}
 	}
 
-	// Build flow node map using helper
-	flowNodeMap, startNodeID, bufferSize, err := buildFlowNodeMap(ctx, c, nodes, nodeTimeout, jsClient)
+	// Initialize resources for request nodes
+	httpClient := httpclient.New()
+	// Estimate buffer size: nodes * 100 is a safe upper bound for most CLI runs
+	requestBufferSize := len(nodes) * 100
+	requestRespChan := make(chan nrequest.NodeRequestSideResp, requestBufferSize)
+
+	// Start a goroutine to consume request responses
+	go func() {
+		for resp := range requestRespChan {
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+	defer close(requestRespChan)
+
+	// Build flow node map using flowbuilder
+	flowNodeMap, startNodeID, err := c.builder.BuildNodes(
+		ctx,
+		*flowPtr,
+		nodes,
+		nodeTimeout,
+		httpClient,
+		requestRespChan,
+		jsClient,
+	)
 	if err != nil {
 		return markFailure(err)
 	}
@@ -231,7 +256,8 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	// Use the same timeout for the flow runner
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout, nil)
 
-	flowNodeStatusChan := make(chan runner.FlowNodeStatus, bufferSize)
+	// Use a large buffer for CLI to avoid blocking
+	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 10000)
 	flowStatusChan := make(chan runner.FlowStatus, 100)
 
 	subCtx, cancel := context.WithCancel(ctx)

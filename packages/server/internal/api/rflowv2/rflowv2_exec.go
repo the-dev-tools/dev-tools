@@ -16,14 +16,7 @@ import (
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rlog"
-	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/flow/node/nfor"
-	"the-dev-tools/server/pkg/flow/node/nforeach"
-	"the-dev-tools/server/pkg/flow/node/nif"
-	"the-dev-tools/server/pkg/flow/node/njs"
-	"the-dev-tools/server/pkg/flow/node/nnoop"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
@@ -40,7 +33,6 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/svar"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
 )
@@ -149,7 +141,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 	// Build base variables by merging: GlobalEnv -> ActiveEnv -> FlowVars
 	// Later values override earlier ones
-	baseVars, err := s.buildExecutionVars(ctx, flow.WorkspaceID, flowVars)
+	baseVars, err := s.builder.BuildVariables(ctx, flow.WorkspaceID, flowVars)
 	if err != nil {
 		return fmt.Errorf("failed to build execution variables: %w", err)
 	}
@@ -197,78 +189,21 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 	sharedHTTPClient := httpclient.New()
 	edgeMap := edge.NewEdgesMap(edges)
-	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(nodes))
 
-	var startNodeID idwrap.IDWrap
 	const defaultNodeTimeout = 60 // seconds
 	timeoutDuration := time.Duration(defaultNodeTimeout) * time.Second
 
-	for _, nodeModel := range nodes {
-		switch nodeModel.NodeKind {
-		case mnnode.NODE_KIND_NO_OP:
-			noopModel, err := s.nnos.GetNodeNoop(ctx, nodeModel.ID)
-			if err != nil {
-				return err
-			}
-			flowNodeMap[nodeModel.ID] = nnoop.New(nodeModel.ID, nodeModel.Name)
-			if noopModel.Type == mnnoop.NODE_NO_OP_KIND_START {
-				startNodeID = nodeModel.ID
-			}
-		case mnnode.NODE_KIND_REQUEST:
-			requestCfg, err := s.nrs.GetNodeRequest(ctx, nodeModel.ID)
-			if err != nil {
-				return err
-			}
-			if requestCfg == nil || requestCfg.HttpID == nil || isZeroID(*requestCfg.HttpID) {
-				return fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String())
-			}
-			requestNode, err := s.buildRequestFlowNode(ctx, flow, nodeModel, *requestCfg, sharedHTTPClient, requestRespChan)
-			if err != nil {
-				return err
-			}
-			flowNodeMap[nodeModel.ID] = requestNode
-		case mnnode.NODE_KIND_FOR:
-			forCfg, err := s.nfs.GetNodeFor(ctx, nodeModel.ID)
-			if err != nil {
-				return err
-			}
-			if forCfg.Condition.Comparisons.Expression != "" {
-				flowNodeMap[nodeModel.ID] = nfor.NewWithCondition(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeoutDuration, forCfg.ErrorHandling, forCfg.Condition)
-			} else {
-				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeoutDuration, forCfg.ErrorHandling)
-			}
-		case mnnode.NODE_KIND_FOR_EACH:
-			forEachCfg, err := s.nfes.GetNodeForEach(ctx, nodeModel.ID)
-			if err != nil {
-				return err
-			}
-			flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, forEachCfg.IterExpression, timeoutDuration, forEachCfg.Condition, forEachCfg.ErrorHandling)
-		case mnnode.NODE_KIND_CONDITION:
-			condCfg, err := s.nifs.GetNodeIf(ctx, nodeModel.ID)
-			if err != nil {
-				return err
-			}
-			flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, condCfg.Condition)
-		case mnnode.NODE_KIND_JS:
-			jsCfg, err := s.njss.GetNodeJS(ctx, nodeModel.ID)
-			if err != nil {
-				return err
-			}
-			codeBytes := jsCfg.Code
-			if jsCfg.CodeCompressType != compress.CompressTypeNone {
-				codeBytes, err = compress.Decompress(jsCfg.Code, jsCfg.CodeCompressType)
-				if err != nil {
-					return fmt.Errorf("decompress js code: %w", err)
-				}
-			}
-			flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), s.jsClient)
-		default:
-			return fmt.Errorf("node kind %d not supported in FlowRun", nodeModel.NodeKind)
-		}
-	}
-
-	if startNodeID == (idwrap.IDWrap{}) {
-		return errors.New("flow missing start node")
+	flowNodeMap, startNodeID, err := s.builder.BuildNodes(
+		ctx,
+		flow,
+		nodes,
+		timeoutDuration,
+		sharedHTTPClient,
+		requestRespChan,
+		s.jsClient,
+	)
+	if err != nil {
+		return err
 	}
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
@@ -531,40 +466,6 @@ func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[fl
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) buildRequestFlowNode(
-	ctx context.Context,
-	flow mflow.Flow,
-	nodeModel mnnode.MNode,
-	cfg mnrequest.MNRequest,
-	client httpclient.HttpClient,
-	respChan chan nrequest.NodeRequestSideResp,
-) (*nrequest.NodeRequest, error) {
-	if cfg.HttpID == nil {
-		return nil, fmt.Errorf("request node %s missing http_id", nodeModel.Name)
-	}
-
-	resolved, err := s.resolver.Resolve(ctx, *cfg.HttpID, cfg.DeltaHttpID)
-	if err != nil {
-		return nil, fmt.Errorf("resolve http %s: %w", cfg.HttpID.String(), err)
-	}
-
-	requestNode := nrequest.New(
-		nodeModel.ID,
-		nodeModel.Name,
-		resolved.Resolved,
-		resolved.ResolvedHeaders,
-		resolved.ResolvedQueries,
-		&resolved.ResolvedRawBody,
-		resolved.ResolvedFormBody,
-		resolved.ResolvedUrlEncodedBody,
-		resolved.ResolvedAsserts,
-		client,
-		respChan,
-		s.logger,
-	)
-	return requestNode, nil
-}
-
 // createFlowVersionSnapshot creates a complete snapshot of the flow including all nodes, edges, sub-nodes, and variables.
 // It also publishes sync events for all created entities so clients receive the full flow data.
 // Returns the created version flow and a mapping from original node IDs to version node IDs.
@@ -743,61 +644,4 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	}
 
 	return version, nodeIDMapping, nil
-}
-
-// buildExecutionVars builds the variable map for flow execution by merging:
-// 1. Global environment variables (workspace.GlobalEnv)
-// 2. Active environment variables (workspace.ActiveEnv) - overrides global
-// 3. Flow-level variables - overrides environment variables
-func (s *FlowServiceV2RPC) buildExecutionVars(
-	ctx context.Context,
-	workspaceID idwrap.IDWrap,
-	flowVars []mflowvariable.FlowVariable,
-) (map[string]any, error) {
-	baseVars := make(map[string]any)
-
-	// Get workspace to find GlobalEnv and ActiveEnv
-	workspace, err := s.ws.Get(ctx, workspaceID)
-	if err != nil {
-		// If workspace not found, just use flow vars
-		s.logger.Warn("failed to get workspace for environment variables", "workspace_id", workspaceID.String(), "error", err)
-	} else {
-		// 1. Add global environment variables
-		if workspace.GlobalEnv != (idwrap.IDWrap{}) {
-			globalVars, err := s.vs.GetVariableByEnvID(ctx, workspace.GlobalEnv)
-			if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
-				s.logger.Warn("failed to get global environment variables", "env_id", workspace.GlobalEnv.String(), "error", err)
-			} else {
-				for _, v := range globalVars {
-					if v.Enabled {
-						baseVars[v.VarKey] = v.Value
-					}
-				}
-			}
-		}
-
-		// 2. Add active environment variables (override global)
-		// Only if ActiveEnv is different from GlobalEnv
-		if workspace.ActiveEnv != (idwrap.IDWrap{}) && workspace.ActiveEnv != workspace.GlobalEnv {
-			activeVars, err := s.vs.GetVariableByEnvID(ctx, workspace.ActiveEnv)
-			if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
-				s.logger.Warn("failed to get active environment variables", "env_id", workspace.ActiveEnv.String(), "error", err)
-			} else {
-				for _, v := range activeVars {
-					if v.Enabled {
-						baseVars[v.VarKey] = v.Value
-					}
-				}
-			}
-		}
-	}
-
-	// 3. Add flow-level variables (override environment variables)
-	for _, variable := range flowVars {
-		if variable.Enabled {
-			baseVars[variable.Name] = variable.Value
-		}
-	}
-
-	return baseVars, nil
 }

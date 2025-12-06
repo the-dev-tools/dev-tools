@@ -8,6 +8,7 @@ import (
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -18,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
@@ -28,7 +30,9 @@ type Services struct {
 	Queries *gen.Queries
 
 	// Workspace
-	Workspace sworkspace.WorkspaceService
+	Workspace   sworkspace.WorkspaceService
+	Environment senv.EnvironmentService
+	Variable    svar.VarService
 
 	// Flow
 	Flow         sflow.FlowService
@@ -68,7 +72,9 @@ func createServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		Queries: queries,
 
 		// Workspace
-		Workspace: sworkspace.New(queries),
+		Workspace:   sworkspace.New(queries),
+		Environment: senv.New(queries, logger),
+		Variable:    svar.New(queries, logger),
 
 		// Flow
 		Flow:         sflow.New(queries),
