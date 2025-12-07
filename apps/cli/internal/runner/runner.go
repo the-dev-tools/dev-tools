@@ -1,4 +1,4 @@
-package cmd
+package runner
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"the-dev-tools/cli/internal/model"
+	"the-dev-tools/cli/internal/reporter"
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -20,12 +23,26 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
+	// Service interfaces
+	"the-dev-tools/server/pkg/flow/flowbuilder"
+	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/snode"
+
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
 )
 
-// runMultipleFlows executes multiple flows based on the run field configuration
-func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, c FlowServiceLocal, logger *slog.Logger, reporters *ReporterGroup, jsClient node_js_executorv1connect.NodeJsExecutorServiceClient) error {
+type RunnerServices struct {
+	NodeService         snode.NodeService
+	EdgeService         sedge.EdgeService
+	FlowVariableService sflowvariable.FlowVariableService
+	Builder             *flowbuilder.Builder
+	JSClient            node_js_executorv1connect.NodeJsExecutorServiceClient
+}
+
+// RunMultipleFlows executes multiple flows based on the run field configuration
+func RunMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, services RunnerServices, logger *slog.Logger, reporters *reporter.ReporterGroup) error {
 	// Parse the run field to get flow order and dependencies
 	var rawYAML map[string]interface{}
 	if err := yaml.Unmarshal(fileData, &rawYAML); err != nil {
@@ -81,7 +98,7 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 	}
 
 	// Track execution results
-	executionResults := make(map[string]FlowRunResult)
+	executionResults := make(map[string]model.FlowRunResult)
 	consoleEnabled := reporters != nil && reporters.HasConsole()
 	sharedVariables := make(map[string]interface{})
 	_ = sharedVariables // TODO: Implement variable sharing between flows
@@ -118,7 +135,7 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 			}
 		}
 
-		result, err := flowRun(ctx, flow, c, reporters, jsClient)
+		result, err := RunFlow(ctx, flow, services, reporters)
 		executionResults[entry.flowName] = result
 
 		if err != nil {
@@ -127,14 +144,14 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 			}
 			logger.Error("flow execution failed", "flow", entry.flowName, "error", err)
 		} else if consoleEnabled {
-			fmt.Printf("   ✅ Flow completed successfully (Duration: %s)\n", formatDuration(result.Duration))
+			fmt.Printf("   ✅ Flow completed successfully (Duration: %s)\n", reporter.FormatDuration(result.Duration))
 		}
 	}
 
 	if consoleEnabled {
 		overallDuration := time.Since(overallStartTime)
 		fmt.Println("\n=== Multi-Flow Execution Summary ===")
-		fmt.Printf("Total duration: %s\n", formatDuration(overallDuration))
+		fmt.Printf("Total duration: %s\n", reporter.FormatDuration(overallDuration))
 		fmt.Println("\nFlow Results:")
 
 		successCount := 0
@@ -146,7 +163,7 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 			} else {
 				successCount++
 			}
-			fmt.Printf("  %-20s %s (Duration: %s)\n", result.FlowName, status, formatDuration(result.Duration))
+			fmt.Printf("  %-20s %s (Duration: %s)\n", result.FlowName, status, reporter.FormatDuration(result.Duration))
 		}
 
 		fmt.Printf("\nFlows completed: %d/%d\n", successCount, len(runEntries))
@@ -164,14 +181,14 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 	return nil
 }
 
-func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, reporters *ReporterGroup, jsClient node_js_executorv1connect.NodeJsExecutorServiceClient) (FlowRunResult, error) {
-	result := FlowRunResult{
+func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, reporters *reporter.ReporterGroup) (model.FlowRunResult, error) {
+	result := model.FlowRunResult{
 		FlowID:   flowPtr.ID.String(),
 		FlowName: flowPtr.Name,
 		Started:  time.Now(),
 	}
 
-	markFailure := func(err error) (FlowRunResult, error) {
+	markFailure := func(err error) (model.FlowRunResult, error) {
 		if err != nil {
 			result.Error = err.Error()
 		}
@@ -185,25 +202,25 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 
 	latestFlowID := flowPtr.ID
 
-	nodes, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
+	nodes, err := services.NodeService.GetNodesByFlowID(ctx, latestFlowID)
 	if err != nil {
 		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get nodes")))
 	}
 
-	edges, err := c.fes.GetEdgesByFlowID(ctx, latestFlowID)
+	edges, err := services.EdgeService.GetEdgesByFlowID(ctx, latestFlowID)
 	if err != nil {
 		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get edges")))
 	}
 	edgeMap := edge.NewEdgesMap(edges)
 
-	flowVars, err := c.fvs.GetFlowVariablesByFlowID(ctx, latestFlowID)
+	flowVars, err := services.FlowVariableService.GetFlowVariablesByFlowID(ctx, latestFlowID)
 	if err != nil {
 		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get edges")))
 	}
 
 	// Build flow variables using flowbuilder
 	// Note: BuildVariables takes workspaceID, not flowID, to fetch environment variables
-	flowVarsMap, err := c.builder.BuildVariables(ctx, flowPtr.WorkspaceID, flowVars)
+	flowVarsMap, err := services.Builder.BuildVariables(ctx, flowPtr.WorkspaceID, flowVars)
 	if err != nil {
 		return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("build variables: %w", err)))
 	}
@@ -241,14 +258,14 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	defer close(requestRespChan)
 
 	// Build flow node map using flowbuilder
-	flowNodeMap, startNodeID, err := c.builder.BuildNodes(
+	flowNodeMap, startNodeID, err := services.Builder.BuildNodes(
 		ctx,
 		*flowPtr,
 		nodes,
 		nodeTimeout,
 		httpClient,
 		requestRespChan,
-		jsClient,
+		services.JSClient,
 	)
 	if err != nil {
 		return markFailure(err)
@@ -270,7 +287,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	}
 
 	if reporters != nil {
-		reporters.HandleFlowStart(FlowStartInfo{
+		reporters.HandleFlowStart(reporter.FlowStartInfo{
 			FlowID:     result.FlowID,
 			FlowName:   flowPtr.Name,
 			TotalNodes: len(flowNodeMap),
@@ -286,7 +303,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	}()
 
 	// Collect results
-	nodeResults := make([]NodeRunResult, 0)
+	nodeResults := make([]model.NodeRunResult, 0)
 	var finalStatus runner.FlowStatus
 
 	// Wait for completion
@@ -298,7 +315,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 				continue
 			}
 			if reporters != nil {
-				reporters.HandleNodeStatus(NodeStatusEvent{
+				reporters.HandleNodeStatus(reporter.NodeStatusEvent{
 					FlowID:   result.FlowID,
 					FlowName: flowPtr.Name,
 					Status:   nodeStatus,
@@ -357,4 +374,35 @@ Done:
 	}
 
 	return result, nil
+}
+
+func buildNodeRunResult(status runner.FlowNodeStatus) model.NodeRunResult {
+	nodeResult := model.NodeRunResult{
+		NodeID:      status.NodeID.String(),
+		ExecutionID: status.ExecutionID.String(),
+		Name:        status.Name,
+		State:       mnnode.StringNodeState(status.State),
+		Duration:    status.RunDuration,
+	}
+
+	if status.Error != nil {
+		nodeResult.Error = status.Error.Error()
+	}
+
+	if status.IterationContext != nil {
+		ctx := &model.IterationContextResult{
+			IterationPath:  append([]int(nil), status.IterationContext.IterationPath...),
+			ExecutionIndex: status.IterationContext.ExecutionIndex,
+		}
+		if len(status.IterationContext.ParentNodes) > 0 {
+			parents := make([]string, 0, len(status.IterationContext.ParentNodes))
+			for _, parent := range status.IterationContext.ParentNodes {
+				parents = append(parents, parent.String())
+			}
+			ctx.ParentNodes = parents
+		}
+		nodeResult.IterationContext = ctx
+	}
+
+	return nodeResult
 }

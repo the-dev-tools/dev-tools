@@ -1,4 +1,4 @@
-package cmd
+package reporter
 
 import (
 	"encoding/json"
@@ -8,28 +8,29 @@ import (
 	"testing"
 	"time"
 
+	"the-dev-tools/cli/internal/model"
 	"the-dev-tools/server/pkg/model/mnnode"
 )
 
 func TestParseReportSpecsDefault(t *testing.T) {
-	specs, err := parseReportSpecs(nil)
+	specs, err := ParseReportSpecs(nil)
 	if err != nil {
-		t.Fatalf("parseReportSpecs returned error: %v", err)
+		t.Fatalf("ParseReportSpecs returned error: %v", err)
 	}
 	if len(specs) != 1 {
 		t.Fatalf("expected 1 spec, got %d", len(specs))
 	}
-	if specs[0].format != reportFormatConsole {
-		t.Fatalf("expected console format, got %s", specs[0].format)
+	if specs[0].Format != ReportFormatConsole {
+		t.Fatalf("expected console format, got %s", specs[0].Format)
 	}
 }
 
 func TestParseReportSpecsRequiresPath(t *testing.T) {
-	if _, err := parseReportSpecs([]string{"json"}); err == nil {
+	if _, err := ParseReportSpecs([]string{"json"}); err == nil {
 		t.Fatalf("expected error when path missing for json reporter")
 	}
 
-	if _, err := parseReportSpecs([]string{"console:/tmp/out"}); err == nil {
+	if _, err := ParseReportSpecs([]string{"console:/tmp/out"}); err == nil {
 		t.Fatalf("expected error when console reporter includes path")
 	}
 }
@@ -38,19 +39,19 @@ func TestJSONReporterFlush(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "report.json")
 
-	specs := []reportSpec{{format: reportFormatJSON, path: outputPath}}
-	group, err := newReporterGroup(specs)
+	specs := []ReportSpec{{Format: ReportFormatJSON, Path: outputPath}}
+	group, err := NewReporterGroup(specs)
 	if err != nil {
 		t.Fatalf("failed to create reporter group: %v", err)
 	}
 
-	sample := FlowRunResult{
+	sample := model.FlowRunResult{
 		FlowID:   "01HZXPM0Q8",
 		FlowName: "Sample",
 		Started:  time.Unix(0, 0).UTC(),
 		Duration: time.Second,
 		Status:   "success",
-		Nodes: []NodeRunResult{
+		Nodes: []model.NodeRunResult{
 			{
 				NodeID:      "Node1",
 				ExecutionID: "Exec1",
@@ -79,7 +80,7 @@ func TestJSONReporterFlush(t *testing.T) {
 		t.Fatalf("failed to read report: %v", err)
 	}
 
-	var results []FlowRunResult
+	var results []model.FlowRunResult
 	if err := json.Unmarshal(data, &results); err != nil {
 		t.Fatalf("failed to unmarshal report: %v", err)
 	}
@@ -110,19 +111,19 @@ func TestJUnitReporterFlush(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "report.xml")
 
-	specs := []reportSpec{{format: reportFormatJUnit, path: outputPath}}
-	group, err := newReporterGroup(specs)
+	specs := []ReportSpec{{Format: ReportFormatJUnit, Path: outputPath}}
+	group, err := NewReporterGroup(specs)
 	if err != nil {
 		t.Fatalf("failed to create reporter group: %v", err)
 	}
 
-	sample := FlowRunResult{
+	sample := model.FlowRunResult{
 		FlowID:   "01HZXPM0Q8",
 		FlowName: "Sample",
 		Started:  time.Unix(0, 0).UTC(),
 		Duration: 1500 * time.Millisecond,
 		Status:   "failed",
-		Nodes: []NodeRunResult{
+		Nodes: []model.NodeRunResult{
 			{
 				NodeID:      "Node1",
 				ExecutionID: "Exec1",

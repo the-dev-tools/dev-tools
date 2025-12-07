@@ -1,4 +1,4 @@
-package cmd
+package common
 
 import (
 	"context"
@@ -60,8 +60,8 @@ type Services struct {
 	Logger *slog.Logger
 }
 
-// createServices initializes all services with the given database connection
-func createServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Services, error) {
+// CreateServices initializes all services with the given database connection
+func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Services, error) {
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare queries: %w", err)

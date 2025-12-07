@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"the-dev-tools/db/pkg/sqlitemem"
+	"the-dev-tools/cli/internal/common"
+	"the-dev-tools/cli/internal/importer"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/translate/harv2"
 	tcurlv2 "the-dev-tools/server/pkg/translate/tcurlv2"
@@ -54,99 +56,62 @@ var importCurlCmd = &cobra.Command{
 The command will be parsed and converted to a unified HTTP request model.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		curlCommand := args[0]
-
-		// Parse workspace and folder IDs
-		wsID, err := idwrap.NewText(workspaceID)
-		if err != nil {
-			return fmt.Errorf("invalid workspace ID: %w", err)
-		}
-
-		var folderIDPtr *idwrap.IDWrap
-		if folderID != "" {
-			fid, err := idwrap.NewText(folderID)
+		return importer.RunImport(cmd.Context(), slog.Default(), workspaceID, folderID, func(ctx context.Context, services *common.Services, wsID idwrap.IDWrap, folderIDPtr *idwrap.IDWrap) error {
+			curlCommand := args[0]
+			resolved, err := tcurlv2.ConvertCurl(curlCommand, tcurlv2.ConvertCurlOptions{
+				WorkspaceID: wsID,
+				FolderID:    folderIDPtr,
+			})
 			if err != nil {
-				return fmt.Errorf("invalid folder ID: %w", err)
+				return fmt.Errorf("failed to convert curl command: %w", err)
 			}
-			folderIDPtr = &fid
-		}
 
-		// Create in-memory database and services
-		db, _, err := sqlitemem.NewSQLiteMem(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create database: %w", err)
-		}
-		defer func() { _ = db.Close() }()
+			err = services.HTTP.Create(ctx, &resolved.HTTP)
+			if err != nil {
+				return fmt.Errorf("failed to save HTTP request: %w", err)
+			}
 
-		services, err := createServices(ctx, db, slog.Default())
-		if err != nil {
-			return err
-		}
+			for _, header := range resolved.Headers {
+				err := services.HTTPHeader.Create(ctx, &header)
+				if err != nil {
+					return fmt.Errorf("failed to save header: %w", err)
+				}
+			}
 
-		// Verify workspace exists
-		_, err = services.Workspace.Get(ctx, wsID)
-		if err != nil {
-			return fmt.Errorf("workspace not found: %w", err)
-		}
+			for _, searchParam := range resolved.SearchParams {
+				if err := services.HTTPSearchParam.Create(ctx, &searchParam); err != nil {
+					return fmt.Errorf("failed to save search param: %w", err)
+				}
+			}
 
-		// Convert curl command using v2 service
-		resolved, err := tcurlv2.ConvertCurl(curlCommand, tcurlv2.ConvertCurlOptions{
-			WorkspaceID: wsID,
-			FolderID:    folderIDPtr,
+			for _, form := range resolved.BodyForms {
+				if err := services.HTTPBodyForm.Create(ctx, &form); err != nil {
+					return fmt.Errorf("failed to save body form: %w", err)
+				}
+			}
+
+			for _, urlencoded := range resolved.BodyUrlencoded {
+				err := services.HTTPBodyUrlEncoded.Create(ctx, &urlencoded)
+				if err != nil {
+					return fmt.Errorf("failed to save body urlencoded: %w", err)
+				}
+			}
+
+			if resolved.BodyRaw != nil {
+				_, err = services.HTTPBodyRaw.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
+				if err != nil {
+					return fmt.Errorf("failed to save body raw: %w", err)
+				}
+			}
+
+			fmt.Printf("✅ Successfully imported curl command as '%s' (ID: %s)\n", resolved.HTTP.Name, resolved.HTTP.ID.String())
+			fmt.Printf("   Method: %s\n", resolved.HTTP.Method)
+			fmt.Printf("   URL: %s\n", resolved.HTTP.Url)
+			if folderIDPtr != nil {
+				fmt.Printf("   Folder: %s\n", folderIDPtr.String())
+			}
+			return nil
 		})
-		if err != nil {
-			return fmt.Errorf("failed to convert curl command: %w", err)
-		}
-
-		// Save to database using v2 services
-		err = services.HTTP.Create(ctx, &resolved.HTTP)
-		if err != nil {
-			return fmt.Errorf("failed to save HTTP request: %w", err)
-		}
-
-		// Save associated data
-		for _, header := range resolved.Headers {
-			err := services.HTTPHeader.Create(ctx, &header)
-			if err != nil {
-				return fmt.Errorf("failed to save header: %w", err)
-			}
-		}
-
-		for _, searchParam := range resolved.SearchParams {
-			if err := services.HTTPSearchParam.Create(ctx, &searchParam); err != nil {
-				return fmt.Errorf("failed to save search param: %w", err)
-			}
-		}
-
-		for _, form := range resolved.BodyForms {
-			if err := services.HTTPBodyForm.Create(ctx, &form); err != nil {
-				return fmt.Errorf("failed to save body form: %w", err)
-			}
-		}
-
-		for _, urlencoded := range resolved.BodyUrlencoded {
-			err := services.HTTPBodyUrlEncoded.Create(ctx, &urlencoded)
-			if err != nil {
-				return fmt.Errorf("failed to save body urlencoded: %w", err)
-			}
-		}
-
-		if resolved.BodyRaw != nil {
-			_, err = services.HTTPBodyRaw.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
-			if err != nil {
-				return fmt.Errorf("failed to save body raw: %w", err)
-			}
-		}
-
-		fmt.Printf("✅ Successfully imported curl command as '%s' (ID: %s)\n", resolved.HTTP.Name, resolved.HTTP.ID.String())
-		fmt.Printf("   Method: %s\n", resolved.HTTP.Method)
-		fmt.Printf("   URL: %s\n", resolved.HTTP.Url)
-		if folderIDPtr != nil {
-			fmt.Printf("   Folder: %s\n", folderIDPtr.String())
-		}
-
-		return nil
 	},
 }
 
@@ -157,113 +122,75 @@ var importPostmanCmd = &cobra.Command{
 translation service. All requests in the collection will be converted to unified HTTP models.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		postmanFile := args[0]
-
-		// Parse workspace and folder IDs
-		wsID, err := idwrap.NewText(workspaceID)
-		if err != nil {
-			return fmt.Errorf("invalid workspace ID: %w", err)
-		}
-
-		var folderIDPtr *idwrap.IDWrap
-		if folderID != "" {
-			fid, err := idwrap.NewText(folderID)
+		return importer.RunImport(cmd.Context(), slog.Default(), workspaceID, folderID, func(ctx context.Context, services *common.Services, wsID idwrap.IDWrap, folderIDPtr *idwrap.IDWrap) error {
+			postmanFile := args[0]
+			fileData, err := os.ReadFile(postmanFile)
 			if err != nil {
-				return fmt.Errorf("invalid folder ID: %w", err)
+				return fmt.Errorf("failed to read Postman collection file: %w", err)
 			}
-			folderIDPtr = &fid
-		}
 
-		// Read Postman collection file
-		fileData, err := os.ReadFile(postmanFile)
-		if err != nil {
-			return fmt.Errorf("failed to read Postman collection file: %w", err)
-		}
+			collectionName := filepath.Base(postmanFile)
+			collectionName = strings.TrimSuffix(collectionName, filepath.Ext(collectionName))
 
-		// Create in-memory database and services
-		db, _, err := sqlitemem.NewSQLiteMem(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create database: %w", err)
-		}
-		defer func() { _ = db.Close() }()
-
-		services, err := createServices(ctx, db, slog.Default())
-		if err != nil {
-			return err
-		}
-
-		// Verify workspace exists
-		_, err = services.Workspace.Get(ctx, wsID)
-		if err != nil {
-			return fmt.Errorf("workspace not found: %w", err)
-		}
-
-		// Convert Postman collection using v2 service
-		collectionName := filepath.Base(postmanFile)
-		collectionName = strings.TrimSuffix(collectionName, filepath.Ext(collectionName))
-
-		resolved, err := tpostmanv2.ConvertPostmanCollection(fileData, tpostmanv2.ConvertOptions{
-			WorkspaceID:    wsID,
-			FolderID:       folderIDPtr,
-			CollectionName: collectionName,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to convert Postman collection: %w", err)
-		}
-
-		// Save all HTTP requests and associated data
-		for i, httpRequest := range resolved.HTTPRequests {
-			err = services.HTTP.Create(ctx, &httpRequest)
+			resolved, err := tpostmanv2.ConvertPostmanCollection(fileData, tpostmanv2.ConvertOptions{
+				WorkspaceID:    wsID,
+				FolderID:       folderIDPtr,
+				CollectionName: collectionName,
+			})
 			if err != nil {
-				return fmt.Errorf("failed to save HTTP request %d: %w", i+1, err)
+				return fmt.Errorf("failed to convert Postman collection: %w", err)
 			}
-		}
 
-		// Save headers, search params, and body data for each request
-		for _, header := range resolved.Headers {
-			err := services.HTTPHeader.Create(ctx, &header)
-			if err != nil {
-				return fmt.Errorf("failed to save header: %w", err)
-			}
-		}
-
-		for _, searchParam := range resolved.SearchParams {
-			if err := services.HTTPSearchParam.Create(ctx, &searchParam); err != nil {
-				return fmt.Errorf("failed to save search param: %w", err)
-			}
-		}
-
-		for _, form := range resolved.BodyForms {
-			if err := services.HTTPBodyForm.Create(ctx, &form); err != nil {
-				return fmt.Errorf("failed to save body form: %w", err)
-			}
-		}
-
-		for _, urlencoded := range resolved.BodyUrlencoded {
-			err := services.HTTPBodyUrlEncoded.Create(ctx, &urlencoded)
-			if err != nil {
-				return fmt.Errorf("failed to save body urlencoded: %w", err)
-			}
-		}
-
-		for _, rawBody := range resolved.BodyRaw {
-			if rawBody != nil {
-				_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData, rawBody.ContentType)
+			for i, httpRequest := range resolved.HTTPRequests {
+				err = services.HTTP.Create(ctx, &httpRequest)
 				if err != nil {
-					return fmt.Errorf("failed to save body raw: %w", err)
+					return fmt.Errorf("failed to save HTTP request %d: %w", i+1, err)
 				}
 			}
-		}
 
-		fmt.Printf("✅ Successfully imported Postman collection '%s'\n", collectionName)
-		fmt.Printf("   Imported %d HTTP requests\n", len(resolved.HTTPRequests))
-		fmt.Printf("   Workspace: %s\n", wsID.String())
-		if folderIDPtr != nil {
-			fmt.Printf("   Folder: %s\n", folderIDPtr.String())
-		}
+			for _, header := range resolved.Headers {
+				err := services.HTTPHeader.Create(ctx, &header)
+				if err != nil {
+					return fmt.Errorf("failed to save header: %w", err)
+				}
+			}
 
-		return nil
+			for _, searchParam := range resolved.SearchParams {
+				if err := services.HTTPSearchParam.Create(ctx, &searchParam); err != nil {
+					return fmt.Errorf("failed to save search param: %w", err)
+				}
+			}
+
+			for _, form := range resolved.BodyForms {
+				if err := services.HTTPBodyForm.Create(ctx, &form); err != nil {
+					return fmt.Errorf("failed to save body form: %w", err)
+				}
+			}
+
+			for _, urlencoded := range resolved.BodyUrlencoded {
+				err := services.HTTPBodyUrlEncoded.Create(ctx, &urlencoded)
+				if err != nil {
+					return fmt.Errorf("failed to save body urlencoded: %w", err)
+				}
+			}
+
+			for _, rawBody := range resolved.BodyRaw {
+				if rawBody != nil {
+					_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData, rawBody.ContentType)
+					if err != nil {
+						return fmt.Errorf("failed to save body raw: %w", err)
+					}
+				}
+			}
+
+			fmt.Printf("✅ Successfully imported Postman collection '%s'\n", collectionName)
+			fmt.Printf("   Imported %d HTTP requests\n", len(resolved.HTTPRequests))
+			fmt.Printf("   Workspace: %s\n", wsID.String())
+			if folderIDPtr != nil {
+				fmt.Printf("   Folder: %s\n", folderIDPtr.String())
+			}
+			return nil
+		})
 	},
 }
 
@@ -275,76 +202,37 @@ All HTTP requests in the HAR file will be converted to unified HTTP models and o
 into flows based on request dependencies.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		harFile := args[0]
-
-		// Parse workspace and folder IDs
-		wsID, err := idwrap.NewText(workspaceID)
-		if err != nil {
-			return fmt.Errorf("invalid workspace ID: %w", err)
-		}
-
-		var folderIDPtr *idwrap.IDWrap
-		if folderID != "" {
-			fid, err := idwrap.NewText(folderID)
+		return importer.RunImport(cmd.Context(), slog.Default(), workspaceID, folderID, func(ctx context.Context, services *common.Services, wsID idwrap.IDWrap, folderIDPtr *idwrap.IDWrap) error {
+			harFile := args[0]
+			fileData, err := os.ReadFile(harFile)
 			if err != nil {
-				return fmt.Errorf("invalid folder ID: %w", err)
+				return fmt.Errorf("failed to read HAR file: %w", err)
 			}
-			folderIDPtr = &fid
-		}
 
-		// Read HAR file
-		fileData, err := os.ReadFile(harFile)
-		if err != nil {
-			return fmt.Errorf("failed to read HAR file: %w", err)
-		}
-
-		// Create in-memory database and services
-		db, _, err := sqlitemem.NewSQLiteMem(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create database: %w", err)
-		}
-		defer func() { _ = db.Close() }()
-
-		services, err := createServices(ctx, db, slog.Default())
-		if err != nil {
-			return err
-		}
-
-		// Verify workspace exists
-		_, err = services.Workspace.Get(ctx, wsID)
-		if err != nil {
-			return fmt.Errorf("workspace not found: %w", err)
-		}
-
-		// Parse HAR file using the v2 service's raw converter
-		harData, err := harv2.ConvertRaw(fileData)
-		if err != nil {
-			return fmt.Errorf("failed to parse HAR file: %w", err)
-		}
-
-		// Convert HAR using v2 service
-		resolved, err := harv2.ConvertHAR(harData, wsID)
-		if err != nil {
-			return fmt.Errorf("failed to convert HAR file: %w", err)
-		}
-
-		// Save all HTTP requests
-		// Note: HAR v2 service already includes all associated data in the HTTP requests
-		for i, httpRequest := range resolved.HTTPRequests {
-			err = services.HTTP.Create(ctx, &httpRequest)
+			harData, err := harv2.ConvertRaw(fileData)
 			if err != nil {
-				return fmt.Errorf("failed to save HTTP request %d: %w", i+1, err)
+				return fmt.Errorf("failed to parse HAR file: %w", err)
 			}
-		}
 
-		fmt.Printf("✅ Successfully imported HAR file\n")
-		fmt.Printf("   Imported %d HTTP requests\n", len(resolved.HTTPRequests))
-		fmt.Printf("   Workspace: %s\n", wsID.String())
-		if folderIDPtr != nil {
-			fmt.Printf("   Folder: %s\n", folderIDPtr.String())
-		}
+			resolved, err := harv2.ConvertHAR(harData, wsID)
+			if err != nil {
+				return fmt.Errorf("failed to convert HAR file: %w", err)
+			}
 
-		return nil
+			for i, httpRequest := range resolved.HTTPRequests {
+				err = services.HTTP.Create(ctx, &httpRequest)
+				if err != nil {
+					return fmt.Errorf("failed to save HTTP request %d: %w", i+1, err)
+				}
+			}
+
+			fmt.Printf("✅ Successfully imported HAR file\n")
+			fmt.Printf("   Imported %d HTTP requests\n", len(resolved.HTTPRequests))
+			fmt.Printf("   Workspace: %s\n", wsID.String())
+			if folderIDPtr != nil {
+				fmt.Printf("   Folder: %s\n", folderIDPtr.String())
+			}
+			return nil
+		})
 	},
 }

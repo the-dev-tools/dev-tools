@@ -1,4 +1,4 @@
-package cmd
+package runner_test
 
 import (
 	"context"
@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"the-dev-tools/cli/internal/common"
+	"the-dev-tools/cli/internal/runner"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/flow/flowbuilder"
@@ -22,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -35,6 +38,7 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
 
 // flowTestFixture provides a common test environment for flow execution tests
@@ -43,7 +47,8 @@ type flowTestFixture struct {
 	ctx         context.Context
 	db          *sql.DB
 	queries     *gen.Queries
-	services    FlowServiceLocal
+	services    *common.Services
+	builder     *flowbuilder.Builder
 	mockServer  *httptest.Server
 	workspaceID idwrap.IDWrap
 	cleanup     func()
@@ -124,31 +129,32 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		logger,
 	)
 
-	logMap := logconsole.NewLogChanMap()
+	_ = logconsole.NewLogChanMap() // unused but kept for parity if needed
 
-	services := FlowServiceLocal{
-		DB:         db,
-		ws:         workspaceService,
-		fs:         flowService,
-		fes:        edgeService,
-		fvs:        flowVariableService,
-		ns:         nodeService,
-		rns:        nodeRequestService,
-		fns:        nodeForService,
-		fens:       nodeForEachService,
-		sns:        nodeNoopService,
-		ins:        *nodeIfService,
-		jsns:       nodeJSService,
-		hs:         httpService,
-		hh:         httpHeaderService,
-		hsp:        httpSearchParamService,
-		hbf:        httpBodyFormService,
-		hbu:        httpBodyUrlEncodedService,
-		hbr:        httpBodyRawService,
-		has:        httpAssertService,
-		logger:     logger,
-		logChanMap: logMap,
-		builder:    builder,
+	services := &common.Services{
+		DB:                 db,
+		Queries:            queries,
+		Workspace:          workspaceService,
+		Environment:        senv.New(queries, logger),
+		Variable:           varService,
+		Flow:               flowService,
+		FlowEdge:           edgeService,
+		FlowVariable:       flowVariableService,
+		Node:               nodeService,
+		NodeRequest:        nodeRequestService,
+		NodeFor:            nodeForService,
+		NodeForEach:        nodeForEachService,
+		NodeNoop:           nodeNoopService,
+		NodeIf:             *nodeIfService,
+		NodeJS:             nodeJSService,
+		HTTP:               httpService,
+		HTTPHeader:         httpHeaderService,
+		HTTPSearchParam:    httpSearchParamService,
+		HTTPBodyForm:       httpBodyFormService,
+		HTTPBodyUrlEncoded: httpBodyUrlEncodedService,
+		HTTPBodyRaw:        httpBodyRawService,
+		HTTPAssert:         httpAssertService,
+		Logger:             logger,
 	}
 
 	// Create mock HTTP server
@@ -191,6 +197,7 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		db:          db,
 		queries:     queries,
 		services:    services,
+		builder:     builder,
 		mockServer:  mockServer,
 		workspaceID: workspaceID,
 		cleanup: func() {
@@ -204,11 +211,21 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 	return fixture
 }
 
+func (f *flowTestFixture) getRunnerServices(jsClient node_js_executorv1connect.NodeJsExecutorServiceClient) runner.RunnerServices {
+	return runner.RunnerServices{
+		NodeService:         f.services.Node,
+		EdgeService:         f.services.FlowEdge,
+		FlowVariableService: f.services.FlowVariable,
+		Builder:             f.builder,
+		JSClient:            jsClient,
+	}
+}
+
 // importWorkspaceBundle imports a workspace bundle into the database
 func (f *flowTestFixture) importWorkspaceBundle(bundle *ioworkspace.WorkspaceBundle) {
 	f.t.Helper()
 
-	ios := ioworkspace.New(f.queries, f.services.logger)
+	ios := ioworkspace.New(f.queries, f.services.Logger)
 	opts := ioworkspace.GetDefaultImportOptions(f.workspaceID)
 	opts.PreserveIDs = true
 
@@ -231,7 +248,7 @@ func (f *flowTestFixture) importWorkspaceBundle(bundle *ioworkspace.WorkspaceBun
 func (f *flowTestFixture) getFlowByName(name string) *mflow.Flow {
 	f.t.Helper()
 
-	flows, err := f.services.fs.GetFlowsByWorkspaceID(f.ctx, f.workspaceID)
+	flows, err := f.services.Flow.GetFlowsByWorkspaceID(f.ctx, f.workspaceID)
 	if err != nil {
 		f.t.Fatalf("failed to get flows: %v", err)
 	}
@@ -288,7 +305,7 @@ flows:
 	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
 	defer cancel()
 
-	result, err := flowRun(ctx, flow, fixture.services, nil, nil)
+	result, err := runner.RunFlow(ctx, flow, fixture.getRunnerServices(nil), nil)
 
 	// Verify execution
 	if err != nil {
@@ -362,7 +379,7 @@ flows:
 	fixture.importWorkspaceBundle(resolved)
 
 	// Get all flows
-	flows, err := fixture.services.fs.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows, err := fixture.services.Flow.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	if err != nil {
 		t.Fatalf("failed to get flows: %v", err)
 	}
@@ -371,8 +388,8 @@ flows:
 		t.Fatalf("expected 2 flows, got %d", len(flows))
 	}
 
-	// Run multiple flows using the runMultipleFlows function
-	err = runMultipleFlows(fixture.ctx, fileData, flows, fixture.services, fixture.services.logger, nil, nil)
+	// Run multiple flows
+	err = runner.RunMultipleFlows(fixture.ctx, fileData, flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
 
 	if err != nil {
 		t.Errorf("multi-flow execution failed: %v", err)
@@ -434,7 +451,7 @@ flows:
 	}
 
 	// Run flow
-	result, err := flowRun(fixture.ctx, flow, fixture.services, nil, nil)
+	result, err := runner.RunFlow(fixture.ctx, flow, fixture.getRunnerServices(nil), nil)
 
 	// Verify execution
 	if err != nil {
@@ -487,7 +504,7 @@ flows:
 	}
 
 	// Verify the workspace has flows (sanity check)
-	flows, err := fixture.services.fs.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows, err := fixture.services.Flow.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	if err != nil {
 		t.Fatalf("failed to get flows: %v", err)
 	}
@@ -558,7 +575,7 @@ flows:
 		t.Fatal("HTTPMethodsFlow not found")
 	}
 
-	result, err := flowRun(fixture.ctx, flow, fixture.services, nil, nil)
+	result, err := runner.RunFlow(fixture.ctx, flow, fixture.getRunnerServices(nil), nil)
 
 	if err != nil {
 		t.Errorf("flow execution failed: %v", err)
@@ -581,15 +598,13 @@ flows:
 }
 
 // TestFlowRun_JSNode tests that the JS node infrastructure is properly wired up.
-// Note: This test verifies the CLI can start the JS worker and attempt to execute
-// JS nodes. The actual JS execution depends on the worker-js package working correctly.
 func TestFlowRun_JSNode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
 
 	// Check if Node.js is available
-	jsRunner, err := NewJSRunner()
+	jsRunner, err := runner.NewJSRunner()
 	if err != nil {
 		t.Skipf("skipping JS node test: %v", err)
 	}
@@ -646,9 +661,7 @@ flows:
 	}
 
 	// Run the flow with JS client
-	// Note: The actual JS execution may fail due to worker-js issues,
-	// but this test verifies the infrastructure is correctly wired up.
-	result, _ := flowRun(ctx, flow, fixture.services, nil, jsRunner.Client())
+	result, _ := runner.RunFlow(ctx, flow, fixture.getRunnerServices(jsRunner.Client()), nil)
 
 	// Verify flow was attempted
 	if result.FlowName != "JSFlow" {
@@ -660,8 +673,6 @@ flows:
 	for _, node := range result.Nodes {
 		if node.Name == "ComputeResult" {
 			foundJSNode = true
-			// Log the state for debugging, but don't fail the test
-			// as the worker-js may have issues independent of CLI
 			t.Logf("JS node state: %s, error: %s", node.State, node.Error)
 			break
 		}

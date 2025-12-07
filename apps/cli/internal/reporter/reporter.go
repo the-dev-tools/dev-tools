@@ -1,4 +1,4 @@
-package cmd
+package reporter
 
 import (
 	"encoding/json"
@@ -10,35 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"the-dev-tools/cli/internal/model"
+
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/model/mnnode"
 )
-
-type IterationContextResult struct {
-	IterationPath  []int    `json:"iteration_path,omitempty"`
-	ExecutionIndex int      `json:"execution_index,omitempty"`
-	ParentNodes    []string `json:"parent_nodes,omitempty"`
-}
-
-type NodeRunResult struct {
-	NodeID           string                  `json:"node_id"`
-	ExecutionID      string                  `json:"execution_id"`
-	Name             string                  `json:"name"`
-	State            string                  `json:"state"`
-	Duration         time.Duration           `json:"duration"`
-	Error            string                  `json:"error,omitempty"`
-	IterationContext *IterationContextResult `json:"iteration_context,omitempty"`
-}
-
-type FlowRunResult struct {
-	FlowID   string          `json:"flow_id"`
-	FlowName string          `json:"flow_name"`
-	Started  time.Time       `json:"started_at"`
-	Duration time.Duration   `json:"duration"`
-	Status   string          `json:"status"`
-	Error    string          `json:"error,omitempty"`
-	Nodes    []NodeRunResult `json:"nodes"`
-}
 
 type FlowStartInfo struct {
 	FlowID     string
@@ -56,7 +32,7 @@ type NodeStatusEvent struct {
 type Reporter interface {
 	HandleFlowStart(info FlowStartInfo)
 	HandleNodeStatus(event NodeStatusEvent)
-	HandleFlowResult(result FlowRunResult)
+	HandleFlowResult(result model.FlowRunResult)
 	Flush() error
 }
 
@@ -77,7 +53,7 @@ func (g *ReporterGroup) HandleNodeStatus(event NodeStatusEvent) {
 	}
 }
 
-func (g *ReporterGroup) HandleFlowResult(result FlowRunResult) {
+func (g *ReporterGroup) HandleFlowResult(result model.FlowRunResult) {
 	for _, reporter := range g.reporters {
 		reporter.HandleFlowResult(result)
 	}
@@ -97,23 +73,23 @@ func (g *ReporterGroup) HasConsole() bool {
 	return g.consoleEnabled
 }
 
-type reportSpec struct {
-	format string
-	path   string
+type ReportSpec struct {
+	Format string
+	Path   string
 }
 
 const (
-	reportFormatConsole = "console"
-	reportFormatJSON    = "json"
-	reportFormatJUnit   = "junit"
+	ReportFormatConsole = "console"
+	ReportFormatJSON    = "json"
+	ReportFormatJUnit   = "junit"
 )
 
-func parseReportSpecs(values []string) ([]reportSpec, error) {
+func ParseReportSpecs(values []string) ([]ReportSpec, error) {
 	if len(values) == 0 {
-		return []reportSpec{{format: reportFormatConsole}}, nil
+		return []ReportSpec{{Format: ReportFormatConsole}}, nil
 	}
 
-	specs := make([]reportSpec, 0, len(values))
+	specs := make([]ReportSpec, 0, len(values))
 	for _, raw := range values {
 		trimmed := strings.TrimSpace(raw)
 		if trimmed == "" {
@@ -130,11 +106,11 @@ func parseReportSpecs(values []string) ([]reportSpec, error) {
 		format = strings.ToLower(format)
 
 		switch format {
-		case reportFormatConsole:
+		case ReportFormatConsole:
 			if path != "" {
 				return nil, fmt.Errorf("console reporter does not accept a path")
 			}
-		case reportFormatJSON, reportFormatJUnit:
+		case ReportFormatJSON, ReportFormatJUnit:
 			if path == "" {
 				return nil, fmt.Errorf("%s reporter requires a file path", format)
 			}
@@ -142,32 +118,32 @@ func parseReportSpecs(values []string) ([]reportSpec, error) {
 			return nil, fmt.Errorf("unsupported report format %q", format)
 		}
 
-		specs = append(specs, reportSpec{format: format, path: path})
+		specs = append(specs, ReportSpec{Format: format, Path: path})
 	}
 
 	if len(specs) == 0 {
-		specs = append(specs, reportSpec{format: reportFormatConsole})
+		specs = append(specs, ReportSpec{Format: ReportFormatConsole})
 	}
 
 	return specs, nil
 }
 
-func newReporterGroup(specs []reportSpec) (*ReporterGroup, error) {
+func NewReporterGroup(specs []ReportSpec) (*ReporterGroup, error) {
 	reporters := make([]Reporter, 0, len(specs))
 	hasConsole := false
 
 	for _, spec := range specs {
 		var reporter Reporter
-		switch spec.format {
-		case reportFormatConsole:
+		switch spec.Format {
+		case ReportFormatConsole:
 			reporter = newConsoleReporter()
 			hasConsole = true
-		case reportFormatJSON:
-			reporter = newJSONReporter(spec.path)
-		case reportFormatJUnit:
-			reporter = newJUnitReporter(spec.path)
+		case ReportFormatJSON:
+			reporter = newJSONReporter(spec.Path)
+		case ReportFormatJUnit:
+			reporter = newJUnitReporter(spec.Path)
 		default:
-			return nil, fmt.Errorf("unsupported reporter format %q", spec.format)
+			return nil, fmt.Errorf("unsupported reporter format %q", spec.Format)
 		}
 
 		reporters = append(reporters, reporter)
@@ -179,21 +155,23 @@ func newReporterGroup(specs []reportSpec) (*ReporterGroup, error) {
 	}, nil
 }
 
+// Internal implementations below...
+
 type jsonReporter struct {
 	path    string
 	mu      sync.Mutex
-	results []FlowRunResult
+	results []model.FlowRunResult
 }
 
 func newJSONReporter(path string) Reporter {
-	return &jsonReporter{path: path, results: make([]FlowRunResult, 0)}
+	return &jsonReporter{path: path, results: make([]model.FlowRunResult, 0)}
 }
 
 func (j *jsonReporter) HandleFlowStart(info FlowStartInfo) {}
 
 func (j *jsonReporter) HandleNodeStatus(event NodeStatusEvent) {}
 
-func (j *jsonReporter) HandleFlowResult(result FlowRunResult) {
+func (j *jsonReporter) HandleFlowResult(result model.FlowRunResult) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.results = append(j.results, result)
@@ -226,18 +204,18 @@ func (j *jsonReporter) Flush() error {
 type junitReporter struct {
 	path    string
 	mu      sync.Mutex
-	results []FlowRunResult
+	results []model.FlowRunResult
 }
 
 func newJUnitReporter(path string) Reporter {
-	return &junitReporter{path: path, results: make([]FlowRunResult, 0)}
+	return &junitReporter{path: path, results: make([]model.FlowRunResult, 0)}
 }
 
 func (j *junitReporter) HandleFlowStart(info FlowStartInfo) {}
 
 func (j *junitReporter) HandleNodeStatus(event NodeStatusEvent) {}
 
-func (j *junitReporter) HandleFlowResult(result FlowRunResult) {
+func (j *junitReporter) HandleFlowResult(result model.FlowRunResult) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.results = append(j.results, result)
@@ -424,7 +402,7 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	statusStr := mnnode.StringNodeStateWithIcons(event.Status.State)
-	fmt.Printf(state.rowFormat, timestamp, event.Status.Name, formatDuration(event.Status.RunDuration), statusStr)
+	fmt.Printf(state.rowFormat, timestamp, event.Status.Name, FormatDuration(event.Status.RunDuration), statusStr)
 
 	if event.Status.State == mnnode.NODE_STATE_SUCCESS {
 		c.mu.Lock()
@@ -433,7 +411,7 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 	}
 }
 
-func (c *consoleReporter) HandleFlowResult(result FlowRunResult) {
+func (c *consoleReporter) HandleFlowResult(result model.FlowRunResult) {
 	key := c.flowKey(FlowStartInfo{FlowID: result.FlowID, FlowName: result.FlowName})
 
 	c.mu.Lock()
@@ -455,33 +433,16 @@ func (c *consoleReporter) Flush() error {
 	return nil
 }
 
-func buildNodeRunResult(status runner.FlowNodeStatus) NodeRunResult {
-	nodeResult := NodeRunResult{
-		NodeID:      status.NodeID.String(),
-		ExecutionID: status.ExecutionID.String(),
-		Name:        status.Name,
-		State:       mnnode.StringNodeState(status.State),
-		Duration:    status.RunDuration,
+// FormatDuration formats a duration for display
+func FormatDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%.2fµs", float64(d.Nanoseconds())/1000)
+	} else if d < time.Second {
+		return fmt.Sprintf("%.2fms", float64(d.Nanoseconds())/1000000)
+	} else if d < time.Minute {
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	} else if d < time.Hour {
+		return fmt.Sprintf("%.2fm", d.Minutes())
 	}
-
-	if status.Error != nil {
-		nodeResult.Error = status.Error.Error()
-	}
-
-	if status.IterationContext != nil {
-		ctx := &IterationContextResult{
-			IterationPath:  append([]int(nil), status.IterationContext.IterationPath...),
-			ExecutionIndex: status.IterationContext.ExecutionIndex,
-		}
-		if len(status.IterationContext.ParentNodes) > 0 {
-			parents := make([]string, 0, len(status.IterationContext.ParentNodes))
-			for _, parent := range status.IterationContext.ParentNodes {
-				parents = append(parents, parent.String())
-			}
-			ctx.ParentNodes = parents
-		}
-		nodeResult.IterationContext = ctx
-	}
-
-	return nodeResult
+	return fmt.Sprintf("%.2fh", d.Hours())
 }

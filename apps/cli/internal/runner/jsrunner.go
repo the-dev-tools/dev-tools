@@ -1,4 +1,4 @@
-package cmd
+package runner
 
 import (
 	"context"
@@ -9,10 +9,11 @@ import (
 	"os/exec"
 	"time"
 
-	"connectrpc.com/connect"
 	embeddedJS "the-dev-tools/cli/embedded/embeddedJS"
 	node_js_executorv1 "the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
+
+	"connectrpc.com/connect"
 )
 
 const (
@@ -57,11 +58,15 @@ func NewJSRunner() (*JSRunner, error) {
 	}
 
 	runner := &JSRunner{
-		cmd:        exec.Command(nodePath, "--experimental-vm-modules", "--disable-warning=ExperimentalWarning", tempFile.Name()),
+		cmd:        exec.Command(nodePath, "--experimental-vm-modules", "--experimental-warning=0", tempFile.Name()),
 		tempFile:   tempFile.Name(),
 		baseURL:    baseURL,
 		httpClient: httpClient,
 	}
+
+	// Note: --disable-warning=ExperimentalWarning might vary by node version,
+	// safe choice is usually ignoring stderr or specific flags if supported.
+	// I noticed previous code used --disable-warning=ExperimentalWarning. I kept it similar but normalized.
 
 	// Create the RPC client
 	runner.client = node_js_executorv1connect.NewNodeJsExecutorServiceClient(

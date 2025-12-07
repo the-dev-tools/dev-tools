@@ -2,72 +2,27 @@ package cmd
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
 	"os"
-	"time"
 
+	"the-dev-tools/cli/internal/common"
+	"the-dev-tools/cli/internal/reporter"
+	"the-dev-tools/cli/internal/runner"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/flow/flowbuilder"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/sworkspace"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
-
-type FlowServiceLocal struct {
-	DB *sql.DB
-	ws sworkspace.WorkspaceService
-
-	// flow
-	fs  sflow.FlowService
-	fes sedge.EdgeService
-	fvs sflowvariable.FlowVariableService
-
-	// sub nodes
-	ns   snode.NodeService
-	rns  snoderequest.NodeRequestService
-	fns  snodefor.NodeForService
-	fens snodeforeach.NodeForEachService
-	sns  snodenoop.NodeNoopService
-	ins  snodeif.NodeIfService
-	jsns snodejs.NodeJSService
-
-	// V2 services
-	hs     shttp.HTTPService
-	hh     shttp.HttpHeaderService
-	hsp    *shttp.HttpSearchParamService
-	hbf    *shttp.HttpBodyFormService
-	hbu    *shttp.HttpBodyUrlEncodedService
-	hbr    *shttp.HttpBodyRawService
-	has    *shttp.HttpAssertService
-	logger *slog.Logger
-
-	logChanMap logconsole.LogChanMap
-
-	builder *flowbuilder.Builder
-}
 
 var (
 	quietMode bool
@@ -176,12 +131,10 @@ var yamlflowRunCmd = &cobra.Command{
 			return err
 		}
 
-		services, err := createServices(ctx, db, logger)
+		services, err := common.CreateServices(ctx, db, logger)
 		if err != nil {
 			return err
 		}
-
-		logMap := logconsole.NewLogChanMap()
 
 		resolver := resolver.NewStandardResolver(
 			&services.HTTP,
@@ -208,34 +161,6 @@ var yamlflowRunCmd = &cobra.Command{
 			services.Logger,
 		)
 
-		flowServiceLocal := FlowServiceLocal{
-			DB:   services.DB,
-			ws:   services.Workspace,
-			fs:   services.Flow,
-			fes:  services.FlowEdge,
-			fvs:  services.FlowVariable,
-			ns:   services.Node,
-			rns:  services.NodeRequest,
-			fns:  services.NodeFor,
-			fens: services.NodeForEach,
-			sns:  services.NodeNoop,
-			ins:  services.NodeIf,
-			jsns: services.NodeJS,
-			// V2 services
-			hs:     services.HTTP,
-			hh:     services.HTTPHeader,
-			hsp:    services.HTTPSearchParam,
-			hbf:    services.HTTPBodyForm,
-			hbu:    services.HTTPBodyUrlEncoded,
-			hbr:    services.HTTPBodyRaw,
-			has:    services.HTTPAssert,
-			logger: services.Logger,
-
-			logChanMap: logMap,
-			builder:    builder,
-		}
-
-		// Import all entities from the resolved bundle
 		if !quietMode {
 			log.Printf("Importing workspace bundle: %d flows, %d nodes", len(resolved.Flows), len(resolved.FlowNodes))
 		}
@@ -272,18 +197,18 @@ var yamlflowRunCmd = &cobra.Command{
 		}
 
 		// Find the flow by name - use the workspaceID we created earlier
-		c := flowServiceLocal
+		c := services
 
-		flows, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
+		flows, err := c.Flow.GetFlowsByWorkspaceID(ctx, workspaceID)
 		if err != nil {
 			return err
 		}
 
-		specs, err := parseReportSpecs(reportFormats)
+		specs, err := reporter.ParseReportSpecs(reportFormats)
 		if err != nil {
 			return err
 		}
-		reporters, err := newReporterGroup(specs)
+		reporters, err := reporter.NewReporterGroup(specs)
 		if err != nil {
 			return err
 		}
@@ -300,7 +225,7 @@ var yamlflowRunCmd = &cobra.Command{
 				log.Println("JS nodes detected, starting Node.js worker...")
 			}
 
-			jsRunner, err := NewJSRunner()
+			jsRunner, err := runner.NewJSRunner()
 			if err != nil {
 				return fmt.Errorf("failed to initialize JS runner: %w", err)
 			}
@@ -317,10 +242,18 @@ var yamlflowRunCmd = &cobra.Command{
 			jsClient = jsRunner.Client()
 		}
 
+		runnerServices := runner.RunnerServices{
+			NodeService:         c.Node,
+			EdgeService:         c.FlowEdge,
+			FlowVariableService: c.FlowVariable,
+			Builder:             builder,
+			JSClient:            jsClient,
+		}
+
 		var runErr error
 		if runMultiple {
 			// Execute multiple flows based on run field
-			runErr = runMultipleFlows(ctx, fileData, flows, c, logger, reporters, jsClient)
+			runErr = runner.RunMultipleFlows(ctx, fileData, flows, runnerServices, logger, reporters)
 		} else {
 			// Execute single flow (existing behavior)
 			var flowPtr *mflow.Flow
@@ -338,7 +271,7 @@ var yamlflowRunCmd = &cobra.Command{
 			if !quietMode {
 				log.Println("found flow", flowPtr.Name)
 			}
-			_, runErr = flowRun(ctx, flowPtr, c, reporters, jsClient)
+			_, runErr = runner.RunFlow(ctx, flowPtr, runnerServices, reporters)
 
 			if runErr != nil {
 				logger.Error(runErr.Error())
@@ -355,23 +288,9 @@ var yamlflowRunCmd = &cobra.Command{
 
 var reportFormats []string
 
-func formatDuration(d time.Duration) string {
-	if d < time.Millisecond {
-		return fmt.Sprintf("%.2fµs", float64(d.Nanoseconds())/1000)
-	} else if d < time.Second {
-		return fmt.Sprintf("%.2fms", float64(d.Nanoseconds())/1000000)
-	} else if d < time.Minute {
-		return fmt.Sprintf("%.2fs", d.Seconds())
-	} else if d < time.Hour {
-		return fmt.Sprintf("%.2fm", d.Minutes())
-	}
-	return fmt.Sprintf("%.2fh", d.Hours())
-}
-
-// checkFlowsHaveJSNodes checks if any of the given flows contain JS nodes
-func checkFlowsHaveJSNodes(ctx context.Context, flows []mflow.Flow, c FlowServiceLocal) (bool, error) {
+func checkFlowsHaveJSNodes(ctx context.Context, flows []mflow.Flow, c *common.Services) (bool, error) {
 	for _, flow := range flows {
-		nodes, err := c.ns.GetNodesByFlowID(ctx, flow.ID)
+		nodes, err := c.Node.GetNodesByFlowID(ctx, flow.ID)
 		if err != nil {
 			return false, err
 		}
