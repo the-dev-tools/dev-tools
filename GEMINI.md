@@ -17,7 +17,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Monorepo Tooling:** Nx, pnpm, Nix (for reproducible environments).
 - **Key Directories:**
   - `apps/desktop`: Electron desktop application (TypeScript/React).
-  - `apps/cli`: Go CLI.
+  - `apps/cli`: Go CLI. Key internals: `internal/runner` (execution engine), `internal/importer`.
   - `apps/api-recorder-extension`: Chrome extension.
   - `packages/server`: Go backend (Connect RPC, SQLite/LibSQL).
   - `packages/client`: React frontend services/hooks.
@@ -86,7 +86,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 
 4.  **Data Access Layer (`packages/db/pkg/sqlc`)**
     *   **Tooling:** `sqlc` generates type-safe Go code from SQL queries.
-    *   **Location:** Generated code resides in `packages/db/pkg/sqlc/gen`.
+    *   **Location:** Generated code resides in `packages/db/pkg/sqlc/gen`. Source SQL is split into `packages/db/pkg/sqlc/schema/` (DDL) and `packages/db/pkg/sqlc/queries/` (DML).
     *   **Pattern:** Services wrap these generated queries, handling conversion between DB models (`gen.Http`) and Internal Models (`mhttp.HTTP`).
 
 5.  **Translation Layer**
@@ -119,6 +119,7 @@ The backend implements a specific pattern to support **TanStack DB** (and simila
 -   **Functional/Procedural:** Preference for simple struct-based services and pure functions over complex OOP hierarchies.
 -   **Rich Error Handling:** Map internal errors to specific Connect RPC error codes (e.g., `connect.CodeNotFound`, `connect.CodePermissionDenied`).
 -   **Model Separation:** Strict separation between API types (Proto), Domain types (Internal), and Storage types (DB) prevents tight coupling and leakage of implementation details.
+-   **Service Structure:** For large services (e.g., `rhttp`, `rflowv2`), split files by domain/functionality (e.g., `rhttp_exec.go`, `rhttp_sync.go`) rather than keeping everything in one huge file.
 -   **Generated Code:** Leverage `sqlc` and `buf` to reduce boilerplate and ensure type safety, but keep generated code isolated.
 -   **Code Location:**
     -   `internal`: Code private to the server package (RPC handlers, specific logic).
