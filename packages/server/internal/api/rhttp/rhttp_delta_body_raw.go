@@ -42,7 +42,15 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaCollection(ctx context.Context, req *co
 			}
 
 			if body != nil {
-				data := string(body.RawData)
+				// For delta bodies, the override content is stored in DeltaRawData
+				// Only use RawData as a fallback if DeltaRawData is empty
+				var data string
+				if len(body.DeltaRawData) > 0 {
+					data = string(body.DeltaRawData)
+				} else {
+					data = string(body.RawData)
+				}
+
 				httpId := body.HttpID.Bytes()
 				if http.ParentHttpID != nil {
 					httpId = http.ParentHttpID.Bytes()

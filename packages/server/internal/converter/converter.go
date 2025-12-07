@@ -216,9 +216,17 @@ func ToAPIHttpBodyRaw(httpID []byte, data string) *httpv1.HttpBodyRaw {
 
 // ToAPIHttpBodyRawFromMHttp converts mhttp.HTTPBodyRaw to API HttpBodyRaw
 func ToAPIHttpBodyRawFromMHttp(raw mhttp.HTTPBodyRaw) *httpv1.HttpBodyRaw {
+	// For delta bodies, the override content is stored in DeltaRawData, not RawData
+	var data string
+	if raw.IsDelta && len(raw.DeltaRawData) > 0 {
+		data = string(raw.DeltaRawData)
+	} else {
+		data = string(raw.RawData)
+	}
+
 	return &httpv1.HttpBodyRaw{
 		HttpId: raw.HttpID.Bytes(),
-		Data:   string(raw.RawData),
+		Data:   data,
 	}
 }
 

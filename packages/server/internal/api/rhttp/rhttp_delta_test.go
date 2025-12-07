@@ -5,6 +5,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -55,6 +56,25 @@ func TestHttpDelta_BodyRaw(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte(data), bodyRaw.DeltaRawData)
 	require.True(t, bodyRaw.IsDelta)
+
+	// 1.1. REGRESSION TEST: Verify HttpBodyRawDeltaCollection returns DeltaRawData, not RawData
+	// This was a bug where collection returned the base body content instead of delta override
+	collectionResp, err := f.handler.HttpBodyRawDeltaCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	// Find our delta in the collection
+	var foundDelta *apiv1.HttpBodyRawDelta
+	for _, d := range collectionResp.Msg.Items {
+		foundHttpId, _ := idwrap.NewFromBytes(d.HttpId)
+		// The collection returns deltas with the parent HTTP ID as HttpId
+		if foundHttpId == httpID {
+			foundDelta = d
+			break
+		}
+	}
+	require.NotNil(t, foundDelta, "Expected to find delta in collection")
+	require.NotNil(t, foundDelta.Data, "Expected delta data to be set")
+	require.Equal(t, data, *foundDelta.Data, "HttpBodyRawDeltaCollection should return DeltaRawData, not base RawData")
 
 	// 2. Update Body Raw Delta
 	updatedData := "updated-data"
