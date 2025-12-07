@@ -292,7 +292,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	// Wait for completion
 	for {
 		select {
-		case nodeStatus := <-flowNodeStatusChan:
+		case nodeStatus, ok := <-flowNodeStatusChan:
+			if !ok {
+				flowNodeStatusChan = nil
+				continue
+			}
 			if reporters != nil {
 				reporters.HandleNodeStatus(NodeStatusEvent{
 					FlowID:   result.FlowID,
@@ -309,7 +313,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 				nodeResults = append(nodeResults, buildNodeRunResult(nodeStatus))
 			}
 
-		case flowStatus := <-flowStatusChan:
+		case flowStatus, ok := <-flowStatusChan:
+			if !ok {
+				flowStatusChan = nil
+				continue
+			}
 			finalStatus = flowStatus
 			if runner.IsFlowStatusDone(flowStatus) {
 				goto Done
