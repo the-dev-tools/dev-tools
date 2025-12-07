@@ -1,3 +1,17 @@
+## 0.1.3 (2025-12-07)
+
+### 🚀 Features
+
+- Bump minor version ([faeb29ba](https://github.com/the-dev-tools/dev-tools/commit/faeb29ba))
+
+### 🧱 Updated Dependencies
+
+- Updated cli to 0.5.1
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.1.2 (2025-12-07)
 
 ### 🚀 Features

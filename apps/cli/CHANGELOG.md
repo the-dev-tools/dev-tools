@@ -1,3 +1,13 @@
+## 0.5.1 (2025-12-07)
+
+### 🩹 Fixes
+
+- fix close channel bug ([1f2e8b3e](https://github.com/the-dev-tools/dev-tools/commit/1f2e8b3e))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.5.0 (2025-12-07)
 
 ### 🚀 Features
