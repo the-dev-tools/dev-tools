@@ -1,3 +1,13 @@
+## 0.5.0 (2025-12-07)
+
+### 🚀 Features
+
+- fix: ignore .git folder in flow run results ([2252d9d3](https://github.com/the-dev-tools/dev-tools/commit/2252d9d3))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.4.0 (2025-12-07)
 
 ### 🚀 Features
