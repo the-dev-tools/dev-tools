@@ -1,3 +1,13 @@
+## 0.4.0 (2025-12-07)
+
+### 🚀 Features
+
+- Bump minor version ([65f1723d](https://github.com/the-dev-tools/dev-tools/commit/65f1723d))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.3.0 (2025-12-04)
 
 ### 🚀 Features
