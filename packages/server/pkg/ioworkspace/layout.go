@@ -3,7 +3,6 @@ package ioworkspace
 import (
 	"fmt"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -33,7 +32,8 @@ func (wb *WorkspaceBundle) EnsureFlowStructure() error {
 }
 
 // ensureStartNodeForFlow checks if a flow has a start node and creates one if missing.
-// It also creates an edge from the start node to any orphan nodes (nodes with no incoming edges).
+// Note: Orphan nodes (nodes with no incoming edges) are intentionally NOT connected to start.
+// Disconnected nodes should remain disconnected and will not execute.
 func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 	// Check if start node already exists for this flow
 	var startNodeID *idwrap.IDWrap
@@ -71,48 +71,11 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		}
 		wb.FlowNoopNodes = append(wb.FlowNoopNodes, noopNode)
-
-		startNodeID = &newStartNodeID
 	}
 
-	// Find orphan nodes (nodes with no incoming edges) and connect them to start node
-	// Build set of nodes that have incoming edges
-	nodesWithIncoming := make(map[idwrap.IDWrap]bool)
-	for _, e := range wb.FlowEdges {
-		nodesWithIncoming[e.TargetID] = true
-	}
-
-	// Find nodes in this flow that are orphans (except start node itself)
-	for _, node := range wb.FlowNodes {
-		if node.FlowID.Compare(flowID) != 0 {
-			continue
-		}
-		if node.ID.Compare(*startNodeID) == 0 {
-			continue // Skip start node itself
-		}
-		if nodesWithIncoming[node.ID] {
-			continue // Has incoming edges, not orphan
-		}
-
-		// This is an orphan node - check if edge already exists
-		edgeExists := false
-		for _, e := range wb.FlowEdges {
-			if e.SourceID.Compare(*startNodeID) == 0 && e.TargetID.Compare(node.ID) == 0 {
-				edgeExists = true
-				break
-			}
-		}
-
-		if !edgeExists {
-			newEdge := edge.Edge{
-				ID:       idwrap.NewNow(),
-				FlowID:   flowID,
-				SourceID: *startNodeID,
-				TargetID: node.ID,
-			}
-			wb.FlowEdges = append(wb.FlowEdges, newEdge)
-		}
-	}
+	// Note: We intentionally do NOT auto-connect orphan nodes to start.
+	// Disconnected nodes should remain disconnected and will not execute.
+	// This allows users to have disabled/draft nodes in their flows.
 
 	return nil
 }

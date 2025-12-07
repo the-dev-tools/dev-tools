@@ -195,6 +195,8 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 			}
 		}
 
+		// Only auto-connect nodes to start if there's no explicit start node in the YAML
+		// When an explicit start node exists, disconnected nodes should remain disconnected (won't run)
 		if len(node.dependsOn) == 0 {
 			if node.id != startNodeID && !startNodeFound {
 				result.FlowEdges = append(result.FlowEdges, createEdge(startNodeID, node.id, flowID, edge.HandleUnspecified))

@@ -202,7 +202,8 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	}
 
 	// Build flow variables using flowbuilder
-	flowVarsMap, err := c.builder.BuildVariables(ctx, latestFlowID, flowVars)
+	// Note: BuildVariables takes workspaceID, not flowID, to fetch environment variables
+	flowVarsMap, err := c.builder.BuildVariables(ctx, flowPtr.WorkspaceID, flowVars)
 	if err != nil {
 		return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("build variables: %w", err)))
 	}

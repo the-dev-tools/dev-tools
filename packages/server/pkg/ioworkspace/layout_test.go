@@ -10,7 +10,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 	flowID := idwrap.NewNow()
@@ -46,9 +47,10 @@ func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 		t.Errorf("Expected start node type, got %d", bundle.FlowNoopNodes[0].Type)
 	}
 
-	// Should have edge from start to request
-	if len(bundle.FlowEdges) != 1 {
-		t.Errorf("Expected 1 edge, got %d", len(bundle.FlowEdges))
+	// Should NOT have any edges - orphan nodes are intentionally left disconnected
+	// They will not execute, which is the expected behavior for disconnected nodes
+	if len(bundle.FlowEdges) != 0 {
+		t.Errorf("Expected 0 edges (orphan nodes should not be auto-connected), got %d", len(bundle.FlowEdges))
 	}
 }
 

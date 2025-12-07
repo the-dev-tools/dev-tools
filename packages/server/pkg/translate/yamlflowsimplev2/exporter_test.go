@@ -650,7 +650,9 @@ func TestParallelStartDependency(t *testing.T) {
 
 func TestParallelByDefault_Import(t *testing.T) {
 	// Import YAML with 3 steps, no depends_on.
-	// Expected: Start -> A, Start -> B, Start -> C
+	// With an explicit Start node, disconnected nodes should remain disconnected.
+	// Expected: No edges from Start to A, B, or C (they have no depends_on)
+	// Only the Start node should exist in the connected graph.
 
 	yamlStr := `
 workspace_name: Parallel Import
@@ -678,37 +680,27 @@ flows:
 	require.NoError(t, err)
 
 	// Find nodes
-	var rStart, rA, rB, rC idwrap.IDWrap
+	var rStart idwrap.IDWrap
 	for _, n := range bundle.FlowNodes {
-		switch n.Name {
-		case "Start":
+		if n.Name == "Start" {
 			rStart = n.ID
-		case "A":
-			rA = n.ID
-		case "B":
-			rB = n.ID
-		case "C":
-			rC = n.ID
 		}
 	}
 
 	require.NotEqual(t, idwrap.IDWrap{}, rStart, "Start node not found")
 
 	// Check Edges
-	// We expect 3 edges: Start->A, Start->B, Start->C
-	// No A->B or B->C edges.
+	// With the new behavior, nodes without depends_on should NOT be connected to Start.
+	// They remain disconnected and will not execute.
+	// This is intentional to allow "draft" or "disabled" nodes in a flow.
 
 	edgeMap := make(map[idwrap.IDWrap][]idwrap.IDWrap) // Source -> [Target]
 	for _, e := range bundle.FlowEdges {
 		edgeMap[e.SourceID] = append(edgeMap[e.SourceID], e.TargetID)
 	}
 
-	require.Contains(t, edgeMap[rStart], rA, "Start should link to A")
-	require.Contains(t, edgeMap[rStart], rB, "Start should link to B")
-	require.Contains(t, edgeMap[rStart], rC, "Start should link to C")
-
-	require.NotContains(t, edgeMap[rA], rB, "A should NOT link to B (implicit serial was implied before)")
-	require.NotContains(t, edgeMap[rB], rC, "B should NOT link to C")
+	// Start should have no outgoing edges (A, B, C have no depends_on and are disconnected)
+	require.Empty(t, edgeMap[rStart], "Start should have no outgoing edges - nodes without depends_on should remain disconnected")
 }
 
 func TestExplicitSerial_Export(t *testing.T) {
