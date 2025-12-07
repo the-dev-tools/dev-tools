@@ -689,7 +689,6 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 		var wg sync.WaitGroup
 		resultChan := make(chan processResult, processCount)
 
-		// TODO: can be done better
 		nodeStateMap := make(map[idwrap.IDWrap]FlowNodeStatusLocal, processCount)
 
 		subqueue := queue[:processCount]

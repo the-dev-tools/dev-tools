@@ -4,7 +4,6 @@ package massert
 import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
-	// deltav1 "the-dev-tools/spec/dist/buf/go/api/delta/v1" // TODO: Re-enable when delta v1 is available
 )
 
 type AssertType int8
@@ -21,37 +20,6 @@ const (
 	AssertSourceMixed  AssertSource = 2 // SOURCE_KIND_MIXED
 	AssertSourceDelta  AssertSource = 3 // SOURCE_KIND_DELTA
 )
-
-// ToSourceKind converts AssertSource to deltav1.SourceKind
-// TODO: Re-enable when delta v1 is available
-/*
-func (s AssertSource) ToSourceKind() deltav1.SourceKind {
-	switch s {
-	case AssertSourceOrigin:
-		return deltav1.SourceKind_SOURCE_KIND_ORIGIN
-	case AssertSourceMixed:
-		return deltav1.SourceKind_SOURCE_KIND_MIXED
-	case AssertSourceDelta:
-		return deltav1.SourceKind_SOURCE_KIND_DELTA
-	default:
-		return deltav1.SourceKind_SOURCE_KIND_UNSPECIFIED
-	}
-}
-
-// FromSourceKind converts deltav1.SourceKind to AssertSource
-func FromSourceKind(kind deltav1.SourceKind) AssertSource {
-	switch kind {
-	case deltav1.SourceKind_SOURCE_KIND_ORIGIN:
-		return AssertSourceOrigin
-	case deltav1.SourceKind_SOURCE_KIND_MIXED:
-		return AssertSourceMixed
-	case deltav1.SourceKind_SOURCE_KIND_DELTA:
-		return AssertSourceDelta
-	default:
-		return AssertSourceOrigin // default to origin
-	}
-}
-*/
 
 const (
 	AssertTypeUndefined      AssertType = 0
