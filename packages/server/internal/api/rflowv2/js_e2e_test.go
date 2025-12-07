@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -63,11 +64,15 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		t.Skip("worker-js bundle not found - run 'pnpm nx run worker-js:build' first")
 	}
 
+	// Get a free port
+	port := getFreePort(t)
+	t.Logf("Using port %d for worker-js", port)
+
 	// Start worker-js
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	workerCmd := startWorkerJS(t, ctx, workerJSPath)
+	workerCmd := startWorkerJS(t, ctx, workerJSPath, port)
 	defer func() {
 		if workerCmd.Process != nil {
 			_ = workerCmd.Process.Kill()
@@ -75,12 +80,12 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	}()
 
 	// Wait for worker-js to be ready
-	waitForWorkerJS(t)
+	waitForWorkerJS(t, port)
 
 	// Create JS client
 	jsClient := node_js_executorv1connect.NewNodeJsExecutorServiceClient(
 		http.DefaultClient,
-		"http://localhost:9090",
+		fmt.Sprintf("http://localhost:%d", port),
 	)
 
 	// Logger
@@ -271,8 +276,12 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, exec, "JS node execution not found")
+	errMsg := ""
+	if exec.Error != nil {
+		errMsg = *exec.Error
+	}
 	require.Equal(t, mnnode.NODE_STATE_SUCCESS, mnnode.NodeState(exec.State),
-		"JS node should have SUCCESS state, got: %v, error: %s", exec.State, exec.Error)
+		"JS node should have SUCCESS state, got: %v, error: %s", exec.State, errMsg)
 
 	t.Log("✅ JS node executed successfully via worker-js!")
 }
@@ -314,7 +323,7 @@ func findWorkerJSPath(t *testing.T) string {
 }
 
 // startWorkerJS starts the worker-js process
-func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string) *exec.Cmd {
+func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string, port int) *exec.Cmd {
 	t.Helper()
 
 	cmd := exec.CommandContext(ctx, "node",
@@ -322,6 +331,7 @@ func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string) *exec.C
 		"--disable-warning=ExperimentalWarning",
 		bundlePath,
 	)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("JS_WORKER_PORT=%d", port))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -333,11 +343,12 @@ func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string) *exec.C
 }
 
 // waitForWorkerJS waits for the worker-js HTTP server to be ready
-func waitForWorkerJS(t *testing.T) {
+func waitForWorkerJS(t *testing.T, port int) {
 	t.Helper()
 
+	url := fmt.Sprintf("http://localhost:%d", port)
 	for i := 0; i < 50; i++ {
-		resp, err := http.Get("http://localhost:9090")
+		resp, err := http.Get(url)
 		if err == nil {
 			resp.Body.Close()
 			t.Log("worker-js is ready")
@@ -347,4 +358,12 @@ func waitForWorkerJS(t *testing.T) {
 	}
 
 	t.Fatal("worker-js did not start in time")
+}
+
+func getFreePort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
 }
