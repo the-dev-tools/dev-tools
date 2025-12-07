@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rimportv2"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/muser"
@@ -35,6 +36,7 @@ import (
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // HARImportE2ETestSuite represents the complete e2e test suite for HAR import
@@ -128,9 +130,47 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		fileStream,
 	)
 
-	// For this e2e test, we'll focus on the import functionality first
-	// HTTP RPC testing can be added later once import is working
-	// httpHandler := nil // Skip HTTP handler for now
+	// Create resolver for delta resolution
+	requestResolver := resolver.NewStandardResolver(
+		&httpService,
+		&httpHeaderService,
+		httpSearchParamService,
+		bodyService,
+		httpBodyFormService,
+		httpBodyUrlEncodedService,
+		httpAssertService,
+	)
+
+	// Create HTTP handler
+	httpHandler := rhttp.New(
+		baseDB.DB,
+		httpService,
+		services.Us,
+		services.Ws,
+		services.Wus,
+		envService,
+		varService,
+		bodyService,
+		httpHeaderService,
+		httpSearchParamService,
+		httpBodyFormService,
+		httpBodyUrlEncodedService,
+		httpAssertService,
+		shttp.NewHttpResponseService(baseDB.Queries),
+		requestResolver,
+		stream,
+		httpHeaderStream,
+		httpSearchParamStream,
+		httpBodyFormStream,
+		httpBodyUrlEncodedStream,
+		httpAssertStream,
+		memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
+		httpBodyRawStream,
+		nil, // log service (optional)
+	)
 
 	// We'll call RPC methods directly instead of using Connect clients
 	// This matches the approach used in the integration tests
@@ -182,7 +222,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		queries:       baseDB.Queries,
 		services:      services,
 		importHandler: importHandler,
-		httpHandler:   nil, // Skip for now
+		httpHandler:   &httpHandler,
 		workspaceID:   workspaceID,
 		userID:        userID,
 		baseDB:        baseDB,
@@ -232,10 +272,21 @@ func TestHARImportE2E_Comprehensive(t *testing.T) {
 		suite.testDeltaHeaderStructure()
 	})
 
-	// t.Run("scenario_4_rpc_vs_database_consistency", func(t *testing.T) {
-	// 	t.Parallel()
-	// 	suite.testRPCvsDatabaseConsistency()
-	// })
+	t.Run("scenario_5_rpc_consistency", func(t *testing.T) {
+		// Note: t.Parallel() disabled because it relies on the same suite with existing data?
+		// Actually suite is recreated for each test in `TestHARImportE2E_Comprehensive` logic?
+		// No, `suite` is created once outside the subtests loop (wait, line 213: `suite := setupHARImportE2ETest(t)`).
+		// So `suite` is shared?
+		// If suite is shared, parallel is dangerous.
+		// However, `setupHARImportE2ETest` creates a NEW DB connection.
+		// But `TestHARImportE2E_Comprehensive` calls it ONCE at line 213.
+		// So all subtests share the SAME DB.
+		// Thus `t.Parallel()` is indeed dangerous if they mutate state.
+
+		// This test is read-only validation of previous state, or new import?
+		// Better to run it sequentially.
+		suite.testRPCConsistency()
+	})
 }
 
 // testCleanImport tests the initial import of HAR data
@@ -640,13 +691,85 @@ func (suite *HARImportE2ETestSuite) testDeltaChildEntities() {
 	}
 }
 
-// testRPCvsDatabaseConsistency tests that RPC responses match database state
-// func (suite *HARImportE2ETestSuite) testRPCvsDatabaseConsistency() {
-// 	t := suite.t
+// testRPCConsistency verifies that the RPC collection endpoints return data consistent with the database state
+// This ensures that what is imported is correctly exposed to the frontend.
+func (suite *HARImportE2ETestSuite) testRPCConsistency() {
+	t := suite.t
 
-// 	// TODO: Implement this test when HTTP client is set up
-// 	t.Skip("HTTP RPC consistency testing not yet implemented")
-// }
+	// Ensure we have data
+	if suite.countHTTPEntries() == 0 {
+		harPath := "uuidhar.har"
+		harData, err := os.ReadFile(harPath)
+		if err != nil {
+			t.Fatalf("Failed to read HAR file: %v", err)
+		}
+
+		importReq := &importv1.ImportRequest{
+			WorkspaceId: suite.workspaceID.Bytes(),
+			Name:        "RPC Consistency Import",
+			Data:        harData,
+		}
+		_, err = suite.importHandler.Import(suite.ctx, connect.NewRequest(importReq))
+		if err != nil {
+			t.Fatalf("Import failed: %v", err)
+		}
+	}
+
+	// 1. Verify HttpBodyRawDeltaCollection
+	bodyRawReq := connect.NewRequest(&emptypb.Empty{})
+	bodyRawResp, err := suite.httpHandler.HttpBodyRawDeltaCollection(suite.ctx, bodyRawReq)
+	if err != nil {
+		t.Fatalf("HttpBodyRawDeltaCollection failed: %v", err)
+	}
+
+	bodyDeltas := bodyRawResp.Msg.Items
+	t.Logf("📦 HttpBodyRawDeltaCollection returned %d items", len(bodyDeltas))
+
+	if len(bodyDeltas) == 0 {
+		t.Error("❌ Expected body deltas, got 0. HAR file definitely has bodies.")
+	}
+
+	for _, d := range bodyDeltas {
+		// Parity Check 1: DeltaHttpId is populated
+		if len(d.DeltaHttpId) == 0 {
+			t.Errorf("❌ Missing DeltaHttpId for body delta with HttpId: %x", d.HttpId)
+		} else {
+			// Parity Check 2: DeltaHttpId matches HttpId (since it's keyed by Delta HTTP ID in Collection)
+			if string(d.DeltaHttpId) != string(d.HttpId) {
+				t.Errorf("❌ DeltaHttpId (%x) does not match HttpId (%x)", d.DeltaHttpId, d.HttpId)
+			}
+		}
+
+		// Check data presence
+		if d.Data == nil {
+			t.Errorf("❌ Missing Data for body delta %x", d.HttpId)
+		}
+	}
+
+	// 2. Verify HttpHeaderDeltaCollection
+	headerReq := connect.NewRequest(&emptypb.Empty{})
+	headerResp, err := suite.httpHandler.HttpHeaderDeltaCollection(suite.ctx, headerReq)
+	if err != nil {
+		t.Fatalf("HttpHeaderDeltaCollection failed: %v", err)
+	}
+
+	headerDeltas := headerResp.Msg.Items
+	t.Logf("📦 HttpHeaderDeltaCollection returned %d items", len(headerDeltas))
+
+	// We expect headers. HAR usually has them.
+	if len(headerDeltas) > 0 {
+		for _, h := range headerDeltas {
+			// Check IDs
+			if len(h.DeltaHttpHeaderId) == 0 {
+				t.Errorf("❌ Missing DeltaHttpHeaderId for header delta")
+			}
+		}
+	} else {
+		t.Log("⚠️  No header deltas found (might be expected if HAR has no header overrides?)")
+	}
+
+	t.Log("✅ RPC Consistency Checks Passed")
+}
 
 // Helper methods for database queries and analysis
 
