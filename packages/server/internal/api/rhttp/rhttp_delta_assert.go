@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -8,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
@@ -211,7 +213,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpAssertService := h.httpAssertService.TX(tx)
 	var updatedAsserts []mhttp.HTTPAssert
@@ -313,7 +315,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpAssertService := h.httpAssertService.TX(tx)
 	var deletedAsserts []mhttp.HTTPAssert

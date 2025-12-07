@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package nrequest
 
 import (
@@ -103,7 +104,7 @@ func New(id idwrap.IDWrap, name string,
 	formBody []mhttp.HTTPBodyForm,
 	urlBody []mhttp.HTTPBodyUrlencoded,
 	asserts []mhttp.HTTPAssert,
-	Httpclient httpclient.HttpClient, NodeRequestSideRespChan chan NodeRequestSideResp, logger *slog.Logger,
+	httpClient httpclient.HttpClient, nodeRequestSideRespChan chan NodeRequestSideResp, logger *slog.Logger,
 ) *NodeRequest {
 	return &NodeRequest{
 		FlownNodeID: id,
@@ -118,8 +119,8 @@ func New(id idwrap.IDWrap, name string,
 		UrlBody:  urlBody,
 		Asserts:  asserts,
 
-		HttpClient:              Httpclient,
-		NodeRequestSideRespChan: NodeRequestSideRespChan,
+		HttpClient:              httpClient,
+		NodeRequestSideRespChan: nodeRequestSideRespChan,
 		logger:                  logger,
 	}
 }

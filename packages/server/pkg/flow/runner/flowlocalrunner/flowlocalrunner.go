@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package flowlocalrunner
 
 import (
@@ -43,12 +44,12 @@ type FlowLocalRunner struct {
 
 var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
 
-func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
+func CreateFlowRunner(id, flowID, startNodeID idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
 	return &FlowLocalRunner{
 		ID:                 id,
 		FlowID:             flowID,
-		StartNodeID:        StartNodeID,
-		FlowNodeMap:        FlowNodeMap,
+		StartNodeID:        startNodeID,
+		FlowNodeMap:        flowNodeMap,
 		PendingAtmoicMap:   make(map[idwrap.IDWrap]uint32),
 		EdgesMap:           edgesMap,
 		Timeout:            timeout,

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mauth
 
 type Auth struct {

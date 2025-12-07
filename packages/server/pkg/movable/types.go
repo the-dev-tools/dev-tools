@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package movable
 
 // CollectionListType represents different list types within collections

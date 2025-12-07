@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -8,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
@@ -268,7 +270,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
 	var updatedParams []mhttp.HTTPSearchParam
@@ -369,7 +371,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
 	var deletedParams []mhttp.HTTPSearchParam

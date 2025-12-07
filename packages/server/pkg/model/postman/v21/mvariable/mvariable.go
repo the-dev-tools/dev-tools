@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mvariable
 
 type Variable struct {

@@ -12,16 +12,15 @@ linters:
     - importas
     - misspell
     - gosec
-    - errcheck
     - errorlint
     - bodyclose
     - noctx
+    - gocritic
     - revive
+    - errcheck
   disable:
     - staticcheck
     - unused
-    - errcheck
-    - revive
 
 linters-settings:
   importas:
@@ -34,7 +33,15 @@ linters-settings:
         alias: gen
   testifylint:
     enable-all: true
+  revive:
+    rules:
+      - name: exported
+        disabled: true
 
 issues:
   # Avoid noise from suggestions and test-only checks in this target
   exclude-use-default: false
+  exclude-rules:
+    - linters:
+        - revive
+      text: "exported:"

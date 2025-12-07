@@ -1,3 +1,4 @@
+//nolint:revive // exported
 // Package rimportv2 provides a modern unified import service with TypeSpec compliance.
 // It implements automatic format detection and supports multiple import formats.
 package rimportv2

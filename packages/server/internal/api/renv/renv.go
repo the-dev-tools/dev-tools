@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package renv
 
 import (
@@ -9,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -309,7 +311,7 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	envService := e.es.TX(tx)
 	var createdEnvs []menv.Env
@@ -346,7 +348,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	envService := e.es.TX(tx)
 	var updatedEnvs []*menv.Env
@@ -430,7 +432,7 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	envService := e.es.TX(tx)
 	var deletedEnvs []menv.Env
@@ -642,7 +644,7 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	varService := e.vs.TX(tx)
 	createdVars := []struct {
@@ -695,7 +697,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	varService := e.vs.TX(tx)
 	var updatedVars []struct {
@@ -795,7 +797,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	varService := e.vs.TX(tx)
 	deletedVars := []struct {

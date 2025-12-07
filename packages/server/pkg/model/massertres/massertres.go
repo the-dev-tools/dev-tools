@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package massertres
 
 import "the-dev-tools/server/pkg/idwrap"

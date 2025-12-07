@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package migrate
 
 import (
@@ -102,18 +103,18 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(filepath.Clean(dst))
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}
-	return out.Close()
+	return nil
 }
 
 func walPath(databasePath string) string {

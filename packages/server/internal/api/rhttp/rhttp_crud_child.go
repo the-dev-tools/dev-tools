@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -8,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
@@ -123,7 +125,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
 	var createdParams []mhttp.HTTPSearchParam
@@ -237,7 +239,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
 	var updatedParams []mhttp.HTTPSearchParam
@@ -328,7 +330,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
 	var deletedParams []mhttp.HTTPSearchParam
@@ -462,7 +464,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpAssertService := h.httpAssertService.TX(tx)
 	var createdAsserts []mhttp.HTTPAssert
@@ -564,7 +566,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpAssertService := h.httpAssertService.TX(tx)
 	var updatedAsserts []mhttp.HTTPAssert
@@ -659,7 +661,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpAssertService := h.httpAssertService.TX(tx)
 	var deletedAsserts []mhttp.HTTPAssert
@@ -717,7 +719,9 @@ func (h *HttpServiceRPC) HttpResponseCollection(ctx context.Context, req *connec
 		}
 
 		// Combine base and delta entries
-		allHTTPs := append(httpList, deltaList...)
+		allHTTPs := make([]mhttp.HTTP, len(httpList), len(httpList)+len(deltaList))
+		copy(allHTTPs, httpList)
+		allHTTPs = append(allHTTPs, deltaList...)
 
 		// Get responses for each HTTP entry
 		for _, http := range allHTTPs {
@@ -763,7 +767,9 @@ func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *
 		}
 
 		// Combine base and delta entries
-		allHTTPs := append(httpList, deltaList...)
+		allHTTPs := make([]mhttp.HTTP, 0, len(httpList)+len(deltaList))
+		allHTTPs = append(allHTTPs, httpList...)
+		allHTTPs = append(allHTTPs, deltaList...)
 
 		// Get response headers for each HTTP entry
 		for _, http := range allHTTPs {
@@ -809,7 +815,9 @@ func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *
 		}
 
 		// Combine base and delta entries
-		allHTTPs := append(httpList, deltaList...)
+		allHTTPs := make([]mhttp.HTTP, len(httpList), len(httpList)+len(deltaList))
+		copy(allHTTPs, httpList)
+		allHTTPs = append(allHTTPs, deltaList...)
 
 		// Get response asserts for each HTTP entry
 		for _, http := range allHTTPs {
@@ -941,7 +949,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 
@@ -1052,7 +1060,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 
@@ -1159,7 +1167,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 
@@ -1294,7 +1302,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 
@@ -1410,7 +1418,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 	var updatedBodyForms []mhttp.HTTPBodyForm
@@ -1504,7 +1512,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 	var deletedBodyForms []mhttp.HTTPBodyForm
@@ -1638,7 +1646,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	var createdBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
@@ -1752,7 +1760,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
@@ -1846,7 +1854,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
@@ -1973,7 +1981,7 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	bodyRawService := h.bodyService.TX(tx)
 
@@ -2062,7 +2070,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	bodyRawService := h.bodyService.TX(tx)
 

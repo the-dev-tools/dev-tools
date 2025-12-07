@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rworkspace
 
 import (
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -198,7 +200,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	wsService := c.ws.TX(tx)
 	wusService := c.wus.TX(tx)
@@ -296,7 +298,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	wsService := c.ws.TX(tx)
 	wusService := c.wus.TX(tx)
@@ -343,9 +345,9 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 		if item.Name != nil {
 			ws.Name = *item.Name
 		}
-		
+
 		if item.Order != nil {
-		    ws.Order = float64(*item.Order)
+			ws.Order = float64(*item.Order)
 		}
 
 		ws.Updated = dbtime.DBNow()
@@ -392,7 +394,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	wsService := c.ws.TX(tx)
 	wusService := c.wus.TX(tx)

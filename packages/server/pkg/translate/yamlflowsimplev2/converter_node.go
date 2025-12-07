@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package yamlflowsimplev2
 
 import (
@@ -50,25 +51,26 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		var nodeID idwrap.IDWrap = idwrap.NewNow()
 		var info *nodeInfo
 
-		if stepWrapper.Request != nil {
+		switch {
+		case stepWrapper.Request != nil:
 			nodeName = stepWrapper.Request.Name
 			dependsOn = stepWrapper.Request.DependsOn
-		} else if stepWrapper.If != nil {
+		case stepWrapper.If != nil:
 			nodeName = stepWrapper.If.Name
 			dependsOn = stepWrapper.If.DependsOn
-		} else if stepWrapper.For != nil {
+		case stepWrapper.For != nil:
 			nodeName = stepWrapper.For.Name
 			dependsOn = stepWrapper.For.DependsOn
-		} else if stepWrapper.ForEach != nil {
+		case stepWrapper.ForEach != nil:
 			nodeName = stepWrapper.ForEach.Name
 			dependsOn = stepWrapper.ForEach.DependsOn
-		} else if stepWrapper.JS != nil {
+		case stepWrapper.JS != nil:
 			nodeName = stepWrapper.JS.Name
 			dependsOn = stepWrapper.JS.DependsOn
-		} else if stepWrapper.Noop != nil {
+		case stepWrapper.Noop != nil:
 			nodeName = stepWrapper.Noop.Name
 			dependsOn = stepWrapper.Noop.DependsOn
-		} else {
+		default:
 			return nil, NewYamlFlowErrorV2("empty step definition", "step", i)
 		}
 
@@ -83,7 +85,8 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			dependsOn: dependsOn,
 		}
 
-		if stepWrapper.Request != nil {
+		switch {
+		case stepWrapper.Request != nil:
 			httpReq, associated, err := processRequestStep(nodeName, nodeID, flowID, stepWrapper.Request, templates, varMap, opts)
 			if err != nil {
 				return nil, err
@@ -98,29 +101,29 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 				file := createFileForHTTP(*httpReq, opts)
 				result.Files = append(result.Files, file)
 			}
-		} else if stepWrapper.If != nil {
+		case stepWrapper.If != nil:
 			if stepWrapper.If.Condition == "" {
 				return nil, NewYamlFlowErrorV2("missing required condition", "if", i)
 			}
 			if err := processIfStructStep(stepWrapper.If, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
-		} else if stepWrapper.For != nil {
+		case stepWrapper.For != nil:
 			if err := processForStructStep(stepWrapper.For, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
-		} else if stepWrapper.ForEach != nil {
+		case stepWrapper.ForEach != nil:
 			if err := processForEachStructStep(stepWrapper.ForEach, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
-		} else if stepWrapper.JS != nil {
+		case stepWrapper.JS != nil:
 			if strings.TrimSpace(stepWrapper.JS.Code) == "" {
 				return nil, NewYamlFlowErrorV2("missing required code", "js", i)
 			}
 			if err := processJSStructStep(stepWrapper.JS, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
-		} else if stepWrapper.Noop != nil {
+		case stepWrapper.Noop != nil:
 			if stepWrapper.Noop.Type == "start" {
 				info.id = startNodeID
 				createStartNodeWithID(startNodeID, flowID, result)

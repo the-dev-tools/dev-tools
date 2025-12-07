@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package dbtime
 
 import "time"

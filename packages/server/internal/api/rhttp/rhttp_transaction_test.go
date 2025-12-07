@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
@@ -144,7 +145,7 @@ func TestHttpInsertOptimizedPerformance(t *testing.T) {
 		// Test write inside minimal transaction
 		tx, err := setup.db.BeginTx(setup.ctx, nil)
 		require.NoError(t, err)
-		defer tx.Rollback()
+		defer devtoolsdb.TxnRollback(tx)
 
 		hsTx := setup.hs.TX(tx)
 
@@ -205,7 +206,7 @@ func TestHttpInsertConcurrentOptimized(t *testing.T) {
 					errors <- err
 					return
 				}
-				defer tx.Rollback()
+				defer devtoolsdb.TxnRollback(tx)
 
 				hsTx := setup.hs.TX(tx)
 
@@ -302,7 +303,7 @@ func TestTransactionPatternCompliance(t *testing.T) {
 	// Test that transaction contains only writes
 	tx, err := setup.db.BeginTx(setup.ctx, nil)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	hsTx := setup.hs.TX(tx)
 
@@ -363,7 +364,7 @@ func TestHttpInsertPatternValidation(t *testing.T) {
 	start = time.Now()
 	tx, err := setup.db.BeginTx(setup.ctx, nil)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	hsTx := setup.hs.TX(tx)
 

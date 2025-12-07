@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package tracking
 
 // TrackingEnv wraps an environment map to track variable access

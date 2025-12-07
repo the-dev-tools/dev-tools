@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package fuzzyfinder
 
 import "github.com/lithammer/fuzzysearch/fuzzy"

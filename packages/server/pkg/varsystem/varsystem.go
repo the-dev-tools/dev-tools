@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package varsystem
 
 import (
@@ -225,7 +226,8 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 		key := strings.TrimSpace(GetVarKeyFromRaw(rawVar))
 
 		// Check if this is a file reference
-		if IsFileReference(key) {
+		switch {
+		case IsFileReference(key):
 			fileContent, err := ReadFileContentAsString(key)
 			if err != nil {
 				return "", err
@@ -233,14 +235,14 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 			// Track file reference read
 			vmt.ReadVars[key] = fileContent
 			result += raw[:startIndex] + fileContent
-		} else if IsEnvReference(key) {
+		case IsEnvReference(key):
 			envValue, err := ReadEnvValueAsString(key)
 			if err != nil {
 				return "", err
 			}
 			vmt.ReadVars[key] = envValue
 			result += raw[:startIndex] + envValue
-		} else {
+		default:
 			val, ok := vmt.VarMap.Get(key)
 			if !ok {
 				return "", fmt.Errorf("%s %w", key, ErrKeyNotFound)
@@ -322,19 +324,20 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 		key := GetVarKeyFromRaw(rawVar)
 
 		// Check if this is a file reference
-		if IsFileReference(key) {
+		switch {
+		case IsFileReference(key):
 			fileContent, err := ReadFileContentAsString(key)
 			if err != nil {
 				return "", err
 			}
 			result += raw[:startIndex] + fileContent
-		} else if IsEnvReference(key) {
+		case IsEnvReference(key):
 			envValue, err := ReadEnvValueAsString(key)
 			if err != nil {
 				return "", err
 			}
 			result += raw[:startIndex] + envValue
-		} else {
+		default:
 			val, ok := vm.Get(key)
 			if !ok {
 				return "", fmt.Errorf("%s %w", key, ErrKeyNotFound)

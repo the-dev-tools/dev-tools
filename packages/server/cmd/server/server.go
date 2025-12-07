@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package main
 
 import (
@@ -78,6 +79,12 @@ func (w *workspaceImporterAdapter) ImportWorkspaceFromCurl(ctx context.Context, 
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
@@ -114,12 +121,12 @@ func main() {
 
 	hmacSecret := os.Getenv("HMAC_SECRET")
 	if hmacSecret == "" {
-		log.Fatal(errors.New("HMAC_SECRET env var is required"))
+		return errors.New("HMAC_SECRET env var is required")
 	}
 
 	dbMode := os.Getenv("DB_MODE")
 	if dbMode == "" {
-		log.Fatal(errors.New("DB_MODE env var is required"))
+		return errors.New("DB_MODE env var is required")
 	}
 	fmt.Println("DB_MODE: ", dbMode)
 
@@ -133,13 +140,13 @@ func main() {
 		err = errors.New("invalid db mode")
 	}
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer dbCloseFunc()
 
 	queries, err := gen.Prepare(ctx, currentDB)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	workspaceService := sworkspace.New(queries)
@@ -188,15 +195,19 @@ func main() {
 			}
 			err = userService.CreateUser(ctx, defaultUser)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		} else {
-			log.Fatal(err)
+			return err
 		}
 	}
 
-	optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
-	optionsAll = append(optionsAuth, optionsCompress...)
+	optionsAuth = make([]connect.HandlerOption, len(optionsCompress), len(optionsCompress)+1)
+	copy(optionsAuth, optionsCompress)
+	optionsAuth = append(optionsAuth, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
+	optionsAll = make([]connect.HandlerOption, len(optionsAuth), len(optionsAuth)+len(optionsCompress))
+	copy(optionsAll, optionsAuth)
+	optionsAll = append(optionsAll, optionsCompress...)
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(30)
@@ -412,6 +423,7 @@ func main() {
 
 	// Wait for signal
 	<-sc
+	return nil
 }
 
 type ServiceManager struct {

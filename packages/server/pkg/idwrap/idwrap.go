@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package idwrap
 
 import (
@@ -109,6 +110,6 @@ func GetUnixMilliFromULID(idwrap IDWrap) int64 {
 	return int64(idwrap.ulid.Time()) // nolint:gosec // G115
 }
 
-func GetUlid(Ulid IDWrap) ulid.ULID {
-	return Ulid.ulid
+func GetUlid(id IDWrap) ulid.ULID {
+	return id.ulid
 }

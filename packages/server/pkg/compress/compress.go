@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package compress
 
 import (
@@ -71,7 +72,7 @@ func Decompress(data []byte, compressType CompressType) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer z.Close()
+		defer func() { _ = z.Close() }()
 		return io.ReadAll(z)
 
 	case CompressTypeZstd:

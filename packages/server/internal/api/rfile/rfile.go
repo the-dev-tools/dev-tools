@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rfile
 
 import (
@@ -9,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -479,7 +481,7 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fileService := f.fs.TX(tx)
 	var createdFiles []mfile.File
@@ -559,7 +561,7 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fileService := f.fs.TX(tx)
 	var successFiles []mfile.File
@@ -626,7 +628,7 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fileService := f.fs.TX(tx)
 	var deletedFiles []mfile.File
@@ -771,7 +773,7 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fileService := f.fs.TX(tx)
 	var createdFolders []mfile.File
@@ -856,7 +858,7 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fileService := f.fs.TX(tx)
 	var successFolders []mfile.File
@@ -929,7 +931,7 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	fileService := f.fs.TX(tx)
 	var deletedFolders []mfile.File

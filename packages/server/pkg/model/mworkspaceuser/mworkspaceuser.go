@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mworkspaceuser
 
 import "the-dev-tools/server/pkg/idwrap"

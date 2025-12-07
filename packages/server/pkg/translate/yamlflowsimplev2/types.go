@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package yamlflowsimplev2
 
 import (
@@ -227,13 +228,14 @@ func (b *YamlBodyUnion) UnmarshalYAML(value *yaml.Node) error {
 		*b = YamlBodyUnion(obj)
 		// infer type if missing
 		if b.Type == "" {
-			if b.JSON != nil {
+			switch {
+			case b.JSON != nil:
 				b.Type = "json"
-			} else if len(b.Form) > 0 {
+			case len(b.Form) > 0:
 				b.Type = "form-data"
-			} else if len(b.UrlEncoded) > 0 {
+			case len(b.UrlEncoded) > 0:
 				b.Type = "urlencoded"
-			} else {
+			default:
 				b.Type = "raw"
 			}
 		}

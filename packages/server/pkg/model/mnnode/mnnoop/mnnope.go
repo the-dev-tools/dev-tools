@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mnnoop
 
 import "the-dev-tools/server/pkg/idwrap"

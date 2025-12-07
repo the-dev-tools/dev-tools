@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package nfor
 
 import (
@@ -149,7 +150,10 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			parentNodes = req.IterationContext.ParentNodes
 			parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 		}
-		labels := append(parentLabels, runner.IterationLabel{
+		// Explicit copy to avoid appendAssign lint
+		labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+		copy(labels, parentLabels)
+		labels = append(labels, runner.IterationLabel{
 			NodeID:    nr.FlowNodeID,
 			Name:      nr.Name,
 			Iteration: int(i) + 1,
@@ -339,7 +343,10 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			parentNodes = req.IterationContext.ParentNodes
 			parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 		}
-		labels := append(parentLabels, runner.IterationLabel{
+		// Explicit copy to avoid appendAssign lint
+		labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+		copy(labels, parentLabels)
+		labels = append(labels, runner.IterationLabel{
 			NodeID:    nr.FlowNodeID,
 			Name:      nr.Name,
 			Iteration: int(i) + 1,

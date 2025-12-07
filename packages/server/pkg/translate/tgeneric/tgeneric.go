@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package tgeneric
 
 func MassConvert[T any, O any](item []T, convFunc func(T) O) []O {

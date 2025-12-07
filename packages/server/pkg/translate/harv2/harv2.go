@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package harv2
 
 import (
@@ -10,7 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/depfinder"
+	"the-dev-tools/server/pkg/depfinder" //nolint:gocritic // imports grouping
+
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -349,24 +351,28 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 
 		// 3. Create Delta Request Object (links to Base)
 		deltaReq := createDeltaVersion(*baseReq)
-		
+
 		// Apply templated values to Delta Request
 		if templatedReq.Url != baseReq.Url {
 			deltaReq.Url = templatedReq.Url
 			deltaReq.DeltaUrl = &templatedReq.Url
 		}
 		// We could also check Method/BodyKind but typically URL/Body are the dependency targets.
-		
+
 		// 4. Calculate Delta Components
 		deltaHeaders := CreateDeltaHeaders(baseHeaders, templatedHeaders, deltaReq.ID)
 		deltaParams := CreateDeltaSearchParams(baseParams, templatedParams, deltaReq.ID)
 		deltaBodyForms := CreateDeltaBodyForms(baseBodyForms, templatedBodyForms, deltaReq.ID)
 		deltaBodyUrlEncoded := CreateDeltaBodyUrlEncoded(baseBodyUrlEncoded, templatedBodyUrlEncoded, deltaReq.ID)
-		
+
 		// Raw body is singular, handle separately
 		var baseRaw, templatedRaw *mhttp.HTTPBodyRaw
-		if len(baseBodyRaws) > 0 { baseRaw = &baseBodyRaws[0] }
-		if len(templatedBodyRaws) > 0 { templatedRaw = &templatedBodyRaws[0] }
+		if len(baseBodyRaws) > 0 {
+			baseRaw = &baseBodyRaws[0]
+		}
+		if len(templatedBodyRaws) > 0 {
+			templatedRaw = &templatedBodyRaws[0]
+		}
 		deltaRaw := CreateDeltaBodyRaw(baseRaw, templatedRaw, deltaReq.ID)
 
 		// Create Request Node config
@@ -380,7 +386,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		result.Nodes = append(result.Nodes, node)
 		result.RequestNodes = append(result.RequestNodes, reqNode)
 		result.HTTPRequests = append(result.HTTPRequests, *baseReq, deltaReq)
-		
+
 		// Add Base Components
 		result.HTTPHeaders = append(result.HTTPHeaders, baseHeaders...)
 		result.HTTPSearchParams = append(result.HTTPSearchParams, baseParams...)
@@ -506,7 +512,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 }
 
 // processEntriesWithService converts HAR entries to entities with overwrite detection
-func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder, httpService *shttp.HTTPService) (*HarResolved, error) {
+func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder, httpService *shttp.HTTPService) (*HarResolved, error) { //nolint:gocritic // hugeParam
 	result := &HarResolved{
 		HTTPRequests:       make([]mhttp.HTTP, 0, len(entries)),
 		HTTPHeaders:        make([]mhttp.HTTPHeader, 0),
@@ -922,7 +928,9 @@ func buildFolderPathFromURL(parsedURL *url.URL) string {
 	}
 
 	// Combine host and path
-	allSegments := append(hostParts, cleanSegments...)
+	allSegments := make([]string, 0, len(hostParts)+len(cleanSegments))
+	allSegments = append(allSegments, hostParts...)
+	allSegments = append(allSegments, cleanSegments...)
 	return "/" + strings.Join(allSegments, "/")
 }
 

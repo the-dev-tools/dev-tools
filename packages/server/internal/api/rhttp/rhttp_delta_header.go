@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -8,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
@@ -259,7 +261,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 	var updatedHeaders []mhttp.HTTPHeader
@@ -360,7 +362,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 	var deletedHeaders []mhttp.HTTPHeader

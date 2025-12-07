@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mevent
 
 import "the-dev-tools/server/pkg/model/postman/v21/murl"

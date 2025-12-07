@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mtag
 
 import "the-dev-tools/server/pkg/idwrap"

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/internal/converter"
@@ -374,7 +376,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to begin transaction: %w", err))
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	hsService := h.hs.TX(tx)
 

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package tcurlv2
 
 import (
@@ -331,11 +332,12 @@ func extractHeaders(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 	for _, match := range matches {
 		// Check single quotes pattern (groups 1,2), double quotes pattern (groups 3,4), or no quotes pattern (groups 5,6)
 		var key, value string
-		if match[1] != "" {
+		switch {
+		case match[1] != "":
 			key, value = match[1], match[2] // Single quotes
-		} else if match[3] != "" {
+		case match[3] != "":
 			key, value = match[3], match[4] // Double quotes
-		} else {
+		default:
 			key, value = match[5], match[6] // No quotes
 		}
 
@@ -362,11 +364,12 @@ func extractCookies(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 	for _, match := range matches {
 		// Check each capture group (single quotes, double quotes, or no quotes)
 		var cookieContent string
-		if match[1] != "" {
+		switch {
+		case match[1] != "":
 			cookieContent = match[1] // Single quotes
-		} else if match[2] != "" {
+		case match[2] != "":
 			cookieContent = match[2] // Double quotes
-		} else {
+		default:
 			cookieContent = match[3] // No quotes
 		}
 
@@ -396,11 +399,12 @@ func extractRawBody(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bool) *mh
 
 	// Use the first match for raw body
 	var content string
-	if matches[0][1] != "" {
+	switch {
+	case matches[0][1] != "":
 		content = matches[0][1] // Single quotes
-	} else if matches[0][2] != "" {
+	case matches[0][2] != "":
 		content = matches[0][2] // Double quotes
-	} else {
+	default:
 		content = matches[0][3] // No quotes
 	}
 
@@ -426,11 +430,12 @@ func extractBodyUrlencoded(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bo
 
 		// Check each capture group (single quotes, double quotes, or no quotes)
 		var key, value string
-		if match[1] != "" {
+		switch {
+		case match[1] != "":
 			key, value = match[1], match[2] // Single quotes
-		} else if match[3] != "" {
+		case match[3] != "":
 			key, value = match[3], match[4] // Double quotes
-		} else {
+		default:
 			key, value = match[5], match[6] // No quotes
 		}
 
@@ -459,11 +464,12 @@ func extractBodyForms(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bool) [
 
 		// Check each capture group (single quotes, double quotes, or no quotes)
 		var key, value string
-		if match[1] != "" {
+		switch {
+		case match[1] != "":
 			key, value = match[1], match[2] // Single quotes
-		} else if match[3] != "" {
+		case match[3] != "":
 			key, value = match[3], match[4] // Double quotes
-		} else {
+		default:
 			key, value = match[5], match[6] // No quotes
 		}
 

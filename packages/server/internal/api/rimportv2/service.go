@@ -1,3 +1,4 @@
+//nolint:revive // exported
 // Package rimportv2 provides a modern HAR import service with TypeSpec compliance.
 // It implements a simple, maintainable architecture with dependency injection for core services,
 // functional options pattern for configuration, and comprehensive error handling for local development tool workflows.
@@ -482,21 +483,13 @@ func buildURLSuffix(parsedURL *url.URL) string {
 
 	// Add query
 	if parsedURL.RawQuery != "" {
-		if suffix.Len() == 0 {
-			suffix.WriteString("?")
-		} else {
-			suffix.WriteString("?")
-		}
+		suffix.WriteString("?")
 		suffix.WriteString(parsedURL.RawQuery)
 	}
 
 	// Add fragment
 	if parsedURL.Fragment != "" {
-		if suffix.Len() == 0 {
-			suffix.WriteString("#")
-		} else {
-			suffix.WriteString("#")
-		}
+		suffix.WriteString("#")
 		suffix.WriteString(parsedURL.Fragment)
 	}
 

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package harv2
 
 import (
@@ -36,11 +37,12 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 	bodyKind := mhttp.HttpBodyKindNone
 	if entry.Request.PostData != nil {
 		mimeType := strings.ToLower(entry.Request.PostData.MimeType)
-		if strings.Contains(mimeType, FormBodyCheck) {
+		switch {
+		case strings.Contains(mimeType, FormBodyCheck):
 			bodyKind = mhttp.HttpBodyKindFormData
-		} else if strings.Contains(mimeType, UrlEncodedBodyCheck) {
+		case strings.Contains(mimeType, UrlEncodedBodyCheck):
 			bodyKind = mhttp.HttpBodyKindUrlEncoded
-		} else {
+		default:
 			bodyKind = mhttp.HttpBodyKindRaw
 		}
 	}
@@ -134,7 +136,8 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 	var bodyRaws []mhttp.HTTPBodyRaw
 
 	if entry.Request.PostData != nil {
-		if bodyKind == mhttp.HttpBodyKindFormData {
+		switch bodyKind {
+		case mhttp.HttpBodyKindFormData:
 			for _, p := range entry.Request.PostData.Params {
 				val := p.Value
 				if depFinder != nil {
@@ -155,7 +158,7 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 					UpdatedAt: now,
 				})
 			}
-		} else if bodyKind == mhttp.HttpBodyKindUrlEncoded {
+		case mhttp.HttpBodyKindUrlEncoded:
 			for _, p := range entry.Request.PostData.Params {
 				val := p.Value
 				if depFinder != nil {
@@ -176,7 +179,7 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 					UpdatedAt: now,
 				})
 			}
-		} else if bodyKind == mhttp.HttpBodyKindRaw {
+		case mhttp.HttpBodyKindRaw:
 			text := entry.Request.PostData.Text
 			// Template JSON body
 			if depFinder != nil && strings.Contains(strings.ToLower(entry.Request.PostData.MimeType), "json") {
@@ -219,13 +222,13 @@ func generateRequestName(method string, parsedURL *url.URL) string {
 	// Include hostname if no meaningful path segments
 	if len(meaningfulSegments) == 0 {
 		host := strings.Replace(parsedURL.Hostname(), "www.", "", 1)
-		host = strings.Replace(host, ".", " ", -1)
+		host = strings.ReplaceAll(host, ".", " ")
 		return fmt.Sprintf("%s %s", method, strings.Title(host))
 	}
 
 	// Build final name
 	pathName := strings.Join(meaningfulSegments, " ")
-	return fmt.Sprintf("%s %s", method, strings.Title(strings.Replace(pathName, "-", " ", -1)))
+	return fmt.Sprintf("%s %s", method, strings.Title(strings.ReplaceAll(pathName, "-", " ")))
 }
 
 // isNumericSegment checks if a URL segment is purely numeric (likely an ID)

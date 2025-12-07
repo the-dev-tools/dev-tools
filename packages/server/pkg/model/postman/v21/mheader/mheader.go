@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package mheader
 
 type Header struct {

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -8,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
@@ -273,7 +275,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 	var updatedBodyForms []mhttp.HTTPBodyForm
@@ -374,7 +376,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 	var deletedBodyForms []mhttp.HTTPBodyForm
@@ -724,7 +726,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
@@ -825,7 +827,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package rhttp
 
 import (
@@ -9,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
@@ -123,7 +125,7 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	hsService := h.hs.TX(tx)
 
@@ -245,7 +247,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	hsService := h.hs.TX(tx)
 
@@ -360,7 +362,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	hsService := h.hs.TX(tx)
 
@@ -464,7 +466,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
 	// Create transaction-scoped services
 	hsService := h.hs.TX(tx)
@@ -642,7 +644,9 @@ func (h *HttpServiceRPC) HttpVersionCollection(ctx context.Context, req *connect
 		}
 
 		// Combine base and delta entries
-		allHTTPs := append(httpList, deltaList...)
+		allHTTPs := make([]mhttp.HTTP, 0, len(httpList)+len(deltaList))
+		allHTTPs = append(allHTTPs, httpList...)
+		allHTTPs = append(allHTTPs, deltaList...)
 
 		// Get versions for each HTTP entry
 		for _, http := range allHTTPs {

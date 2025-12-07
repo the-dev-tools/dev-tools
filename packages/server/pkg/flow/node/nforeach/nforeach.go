@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package nforeach
 
 import (
@@ -29,15 +30,15 @@ type NodeForEach struct {
 }
 
 func New(id idwrap.IDWrap, name string, iterPath string, timeout time.Duration,
-	Condition mcondition.Condition, ErrorHandling mnfor.ErrorHandling,
+	condition mcondition.Condition, errorHandling mnfor.ErrorHandling,
 ) *NodeForEach {
 	return &NodeForEach{
 		FlowNodeID:    id,
 		Name:          name,
 		IterPath:      iterPath,
 		Timeout:       timeout,
-		Condition:     Condition,
-		ErrorHandling: ErrorHandling,
+		Condition:     condition,
+		ErrorHandling: errorHandling,
 	}
 }
 
@@ -129,7 +130,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				parentNodes = req.IterationContext.ParentNodes
 				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
-			labels := append(parentLabels, runner.IterationLabel{
+			labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+			copy(labels, parentLabels)
+			labels = append(labels, runner.IterationLabel{
 				NodeID:    nr.FlowNodeID,
 				Name:      nr.Name,
 				Iteration: iterationIndex + 1,
@@ -207,7 +210,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				parentNodes = req.IterationContext.ParentNodes
 				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
-			labels := append(parentLabels, runner.IterationLabel{
+			labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+			copy(labels, parentLabels)
+			labels = append(labels, runner.IterationLabel{
 				NodeID:    nr.FlowNodeID,
 				Name:      nr.Name,
 				Iteration: currentIndex + 1,
@@ -355,7 +360,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				parentNodes = req.IterationContext.ParentNodes
 				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
-			labels := append(parentLabels, runner.IterationLabel{
+			labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+			copy(labels, parentLabels)
+			labels = append(labels, runner.IterationLabel{
 				NodeID:    nr.FlowNodeID,
 				Name:      nr.Name,
 				Iteration: currentIndex + 1,
@@ -588,7 +595,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				parentNodes = req.IterationContext.ParentNodes
 				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
-			labels := append(parentLabels, runner.IterationLabel{
+			labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+			copy(labels, parentLabels)
+			labels = append(labels, runner.IterationLabel{
 				NodeID:    nr.FlowNodeID,
 				Name:      nr.Name,
 				Iteration: iterationIndex + 1,
@@ -679,7 +688,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					parentNodes = req.IterationContext.ParentNodes
 					parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 				}
-				labels := append(parentLabels, runner.IterationLabel{
+				labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+				copy(labels, parentLabels)
+				labels = append(labels, runner.IterationLabel{
 					NodeID:    nr.FlowNodeID,
 					Name:      nr.Name,
 					Iteration: currentIndex + 1,
@@ -820,7 +831,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					parentNodes = req.IterationContext.ParentNodes
 					parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 				}
-				labels := append(parentLabels, runner.IterationLabel{
+				labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+				copy(labels, parentLabels)
+				labels = append(labels, runner.IterationLabel{
 					NodeID:    nr.FlowNodeID,
 					Name:      nr.Name,
 					Iteration: currentIndex + 1,

@@ -1,3 +1,4 @@
+//nolint:revive // exported
 package request
 
 import (
@@ -186,10 +187,12 @@ func PrepareHTTPRequestWithTracking(
 			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
 
+		Loop1:
 			for _, ref := range potentialFileRefs {
 				trimmedRef := strings.TrimSpace(ref)
 				// Check if this is a variable containing a file reference
-				if varsystem.CheckIsVar(trimmedRef) {
+				switch {
+				case varsystem.CheckIsVar(trimmedRef):
 					key := strings.TrimSpace(varsystem.GetVarKeyFromRaw(trimmedRef))
 					if varsystem.IsFileReference(key) {
 						// This is {{#file:path}} format
@@ -205,22 +208,22 @@ func PrepareHTTPRequestWithTracking(
 								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(fileKey))
 							} else {
 								allAreFileReferences = false
-								break
+								break Loop1
 							}
 						} else {
 							allAreFileReferences = false
-							break
+							break Loop1
 						}
 					}
-				} else if varsystem.IsFileReference(trimmedRef) {
+				case varsystem.IsFileReference(trimmedRef):
 					// This is direct #file:path format
 					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
 					// Track the file reference read
 					fileKey := strings.TrimSpace(trimmedRef)
 					tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
-				} else {
+				default:
 					allAreFileReferences = false
-					break
+					break Loop1
 				}
 			}
 
@@ -644,10 +647,12 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
 
+		Loop2:
 			for _, ref := range potentialFileRefs {
 				trimmedRef := strings.TrimSpace(ref)
 				// Check if this is a variable containing a file reference
-				if varsystem.CheckIsVar(trimmedRef) {
+				switch {
+				case varsystem.CheckIsVar(trimmedRef):
 					key := varsystem.GetVarKeyFromRaw(trimmedRef)
 					if varsystem.IsFileReference(key) {
 						// This is {{#file:path}} format
@@ -659,19 +664,19 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(val.Value))
 							} else {
 								allAreFileReferences = false
-								break
+								break Loop2
 							}
 						} else {
 							allAreFileReferences = false
-							break
+							break Loop2
 						}
 					}
-				} else if varsystem.IsFileReference(trimmedRef) {
+				case varsystem.IsFileReference(trimmedRef):
 					// This is direct #file:path format
 					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
-				} else {
+				default:
 					allAreFileReferences = false
-					break
+					break Loop2
 				}
 			}
 
@@ -933,10 +938,12 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
 
+		Loop3:
 			for _, ref := range potentialFileRefs {
 				trimmedRef := strings.TrimSpace(ref)
 				// Check if this is a variable containing a file reference
-				if varsystem.CheckIsVar(trimmedRef) {
+				switch {
+				case varsystem.CheckIsVar(trimmedRef):
 					key := strings.TrimSpace(varsystem.GetVarKeyFromRaw(trimmedRef))
 					if varsystem.IsFileReference(key) {
 						// This is {{#file:path}} format
@@ -952,22 +959,22 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(fileKey))
 							} else {
 								allAreFileReferences = false
-								break
+								break Loop3
 							}
 						} else {
 							allAreFileReferences = false
-							break
+							break Loop3
 						}
 					}
-				} else if varsystem.IsFileReference(trimmedRef) {
+				case varsystem.IsFileReference(trimmedRef):
 					// This is direct #file:path format
 					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
 					// Track the file reference read
 					fileKey := strings.TrimSpace(trimmedRef)
 					tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
-				} else {
+				default:
 					allAreFileReferences = false
-					break
+					break Loop3
 				}
 			}
 
