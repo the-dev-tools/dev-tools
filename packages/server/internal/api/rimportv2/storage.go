@@ -353,9 +353,9 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	}
 
 	if len(results.HTTPBodyRaws) > 0 {
-		for _, r := range results.HTTPBodyRaws {
-			// Note: bodyService.Create generates a new ID
-			if _, err := imp.bodyService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
+		for _, body := range results.HTTPBodyRaws {
+			// Use CreateFull to preserve all fields including delta-specific ones
+			if _, err := imp.bodyService.CreateFull(ctx, body); err != nil {
 				return fmt.Errorf("failed to store body raw: %w", err)
 			}
 		}
@@ -618,8 +618,11 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	}
 
 	if len(results.BodyRaw) > 0 {
-		for _, r := range results.BodyRaw {
-			if _, err := txBodyRawService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
+		for i := range results.BodyRaw {
+			// Use CreateFull to preserve all fields including delta-specific ones
+			// (IsDelta, DeltaRawData, ParentBodyRawID)
+			body := &results.BodyRaw[i]
+			if _, err := txBodyRawService.CreateFull(ctx, body); err != nil {
 				return fmt.Errorf("failed to store body raw: %w", err)
 			}
 		}

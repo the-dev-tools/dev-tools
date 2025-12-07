@@ -170,17 +170,51 @@ func (s *IOWorkspaceService) importHTTPBodyUrlencoded(ctx context.Context, bodyU
 
 // importHTTPBodyRaw imports HTTP body raw from the bundle.
 func (s *IOWorkspaceService) importHTTPBodyRaw(ctx context.Context, bodyRawService *shttp.HttpBodyRawService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	// First pass: Import base bodies
 	for _, bodyRaw := range bundle.HTTPBodyRaw {
+		if bodyRaw.IsDelta {
+			continue
+		}
+
 		// Remap HTTP ID
 		newHTTPID := bodyRaw.HttpID
 		if mappedID, ok := result.HTTPIDMap[bodyRaw.HttpID]; ok {
 			newHTTPID = mappedID
 		}
 
-		// Create body raw using the service's Create method signature
+		// Create base body
 		_, err := bodyRawService.Create(ctx, newHTTPID, bodyRaw.RawData, bodyRaw.ContentType)
 		if err != nil {
 			return fmt.Errorf("failed to create HTTP body raw: %w", err)
+		}
+
+		result.HTTPBodyRawCreated++
+	}
+
+	// Second pass: Import delta bodies
+	for _, bodyRaw := range bundle.HTTPBodyRaw {
+		if !bodyRaw.IsDelta {
+			continue
+		}
+
+		// Remap HTTP ID
+		newHTTPID := bodyRaw.HttpID
+		if mappedID, ok := result.HTTPIDMap[bodyRaw.HttpID]; ok {
+			newHTTPID = mappedID
+		}
+
+		// Get delta content type
+		var deltaContentType string
+		if ct, ok := bodyRaw.DeltaContentType.(string); ok {
+			deltaContentType = ct
+		} else if ctPtr, ok := bodyRaw.DeltaContentType.(*string); ok && ctPtr != nil {
+			deltaContentType = *ctPtr
+		}
+
+		// Create delta body
+		_, err := bodyRawService.CreateDelta(ctx, newHTTPID, bodyRaw.DeltaRawData, deltaContentType)
+		if err != nil {
+			return fmt.Errorf("failed to create HTTP delta body raw: %w", err)
 		}
 
 		result.HTTPBodyRawCreated++

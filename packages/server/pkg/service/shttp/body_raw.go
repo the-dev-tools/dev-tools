@@ -94,6 +94,60 @@ func (s *HttpBodyRawService) Create(ctx context.Context, httpID idwrap.IDWrap, r
 	return &result, nil
 }
 
+// CreateFull creates a body raw record with all fields from the model.
+// This is used by import operations where delta-specific fields are pre-populated.
+// Unlike Create() which always creates non-delta bodies, this method preserves:
+// - IsDelta flag
+// - DeltaRawData (templated content)
+// - ParentBodyRawID (link to parent body)
+func (s *HttpBodyRawService) CreateFull(ctx context.Context, body *mhttp.HTTPBodyRaw) (*mhttp.HTTPBodyRaw, error) {
+	now := dbtime.DBNow().Unix()
+
+	// Use provided ID or generate new one
+	id := body.ID
+	if id == (idwrap.IDWrap{}) {
+		id = idwrap.NewNow()
+	}
+
+	// Convert DeltaContentType to sql.NullString
+	var deltaContentType sql.NullString
+	if ct, ok := body.DeltaContentType.(string); ok && ct != "" {
+		deltaContentType = sql.NullString{String: ct, Valid: true}
+	} else if body.DeltaContentType != nil {
+		// Try pointer type
+		if ctPtr, ok := body.DeltaContentType.(*string); ok && ctPtr != nil {
+			deltaContentType = sql.NullString{String: *ctPtr, Valid: true}
+		}
+	}
+
+	err := s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
+		ID:                   id,
+		HttpID:               body.HttpID,
+		RawData:              body.RawData,
+		ContentType:          body.ContentType,
+		CompressionType:      body.CompressionType,
+		ParentBodyRawID:      body.ParentBodyRawID,
+		IsDelta:              body.IsDelta,
+		DeltaRawData:         body.DeltaRawData,
+		DeltaContentType:     deltaContentType,
+		DeltaCompressionType: nil, // TODO: handle if needed
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the created record
+	createdBody, err := s.queries.GetHTTPBodyRawByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	result := ConvertToModelHttpBodyRaw(createdBody)
+	return &result, nil
+}
+
 func (s *HttpBodyRawService) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyRaw, error) {
 	bodyRaw, err := s.queries.GetHTTPBodyRawByID(ctx, id)
 	if err != nil {
@@ -161,13 +215,13 @@ func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWr
 	if httpEntry.ParentHttpID != nil {
 		parentHttpID = httpEntry.ParentHttpID
 	}
-	
+
 	if parentHttpID == nil {
 		return nil, errors.New("parent HTTP ID is invalid or missing")
 	}
 
 	parentBody, err := s.queries.GetHTTPBodyRaw(ctx, *parentHttpID)
-	
+
 	var parentBodyID *idwrap.IDWrap
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -230,17 +284,17 @@ func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWr
 func (s *HttpBodyRawService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, rawData []byte, contentType *string) (*mhttp.HTTPBodyRaw, error) {
 	// Update the delta body raw
 	now := dbtime.DBNow().Unix()
-	
+
 	// We need a specific UpdateHTTPBodyRawDelta query, or we use the general update if it supports delta fields.
 	// Checking `UpdateHTTPBodyRaw` in sqlc - it usually only updates standard fields.
 	// Let's check if `UpdateHTTPBodyRawDelta` exists in `gen`.
 	// Since I can't see `gen` package, I assume I need to check if I can use `UpdateHTTPBodyRaw` or if I need to add a new query.
 	// The existing `Update` method uses `UpdateHTTPBodyRawParams` which has `RawData`.
-	
+
 	// Assuming `UpdateHTTPBodyRawDelta` exists based on other services having it.
 	// If not, I might need to add it or use a workaround.
 	// Let's try to use `UpdateHTTPBodyRawDelta` if it exists.
-	
+
 	err := s.queries.UpdateHTTPBodyRawDelta(ctx, gen.UpdateHTTPBodyRawDeltaParams{
 		DeltaRawData:     rawData,
 		DeltaContentType: stringToNullPtr(contentType),
@@ -262,7 +316,6 @@ func stringToNullPtr(s *string) sql.NullString {
 	return sql.NullString{String: *s, Valid: true}
 }
 
-
 func (s *HttpBodyRawService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	// Delete the body raw
 	return s.queries.DeleteHTTPBodyRaw(ctx, id)
@@ -274,7 +327,7 @@ func (s *HttpBodyRawService) DeleteByHttpID(ctx context.Context, httpID idwrap.I
 	// and the caller (e.g. import) should have verified access.
 	// But GetByHttpID does verify access implicitly by checking HTTP existence?
 	// Actually GetByHttpID calls GetHTTP to check if it exists.
-	
+
 	bodyRaw, err := s.queries.GetHTTPBodyRaw(ctx, httpID)
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -51,14 +51,14 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaCollection(ctx context.Context, req *co
 					data = string(body.RawData)
 				}
 
-				httpId := body.HttpID.Bytes()
-				if http.ParentHttpID != nil {
-					httpId = http.ParentHttpID.Bytes()
-				}
+				// Use the delta HTTP's own ID - this matches what frontend queries by (deltaHttpId)
+				// NOT the ParentHttpID, which would cause a key mismatch
+				httpId := http.ID.Bytes()
 
 				allDeltas = append(allDeltas, &apiv1.HttpBodyRawDelta{
-					HttpId: httpId,
-					Data:   &data,
+					HttpId:      httpId,
+					DeltaHttpId: httpId,
+					Data:        &data,
 				})
 			}
 		}

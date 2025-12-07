@@ -66,8 +66,9 @@ func TestHttpDelta_BodyRaw(t *testing.T) {
 	var foundDelta *apiv1.HttpBodyRawDelta
 	for _, d := range collectionResp.Msg.Items {
 		foundHttpId, _ := idwrap.NewFromBytes(d.HttpId)
-		// The collection returns deltas with the parent HTTP ID as HttpId
-		if foundHttpId == httpID {
+		// The collection returns deltas with the delta HTTP's own ID as HttpId
+		// (matches what frontend queries by: deltaHttpId)
+		if foundHttpId == deltaID {
 			foundDelta = d
 			break
 		}
