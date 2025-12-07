@@ -1,7 +1,6 @@
 package yamlflowsimplev2
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -748,45 +747,31 @@ func mergeBodyUrlencoded(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, c
 }
 
 func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) *YamlBodyUnion {
-	// Implement merged raw data
-	// Note: Delta raw isn't fully supported in complex ways in old code, usually just overwrite
-
-	baseRaw, ok := ctx.bodyRawMap[baseHttpID]
-	var rawData []byte
-	if ok {
-		rawData = baseRaw.RawData
-	}
+	// Delta raw body fully overwrites the base body
+	// When delta exists with DeltaRawData, use ONLY the delta (no merging with base)
+	// Always output as raw type to preserve template variables like {{ request_5.response.body.id }}
 
 	if deltaHttpID != nil {
 		deltaRaw, ok := ctx.bodyRawMap[*deltaHttpID]
 		if ok && len(deltaRaw.DeltaRawData) > 0 {
-			rawData = deltaRaw.DeltaRawData
-		} else if ok && len(deltaRaw.RawData) > 0 {
-			// Fallback if DeltaRawData not set but RawData is?
-			// Usually DeltaRawData is the override.
-			// Let's assume rawData is base.
-		}
-	}
-
-	if len(rawData) > 0 {
-		// check if JSON
-		if json.Valid(rawData) {
-			var js map[string]interface{}
-			if err := json.Unmarshal(rawData, &js); err == nil {
-				return &YamlBodyUnion{
-					Type: "json",
-					JSON: js,
-				}
+			// Delta fully overwrites - use only delta data as raw
+			return &YamlBodyUnion{
+				Type: "raw",
+				Raw:  string(deltaRaw.DeltaRawData),
 			}
 		}
-
-		return &YamlBodyUnion{
-			Type: "raw",
-			Raw:  string(rawData),
-		}
 	}
 
-	return nil
+	// No delta override - use base body
+	baseRaw, ok := ctx.bodyRawMap[baseHttpID]
+	if !ok || len(baseRaw.RawData) == 0 {
+		return nil
+	}
+
+	return &YamlBodyUnion{
+		Type: "raw",
+		Raw:  string(baseRaw.RawData),
+	}
 }
 
 func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) AssertionsOrSlice {

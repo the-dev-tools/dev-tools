@@ -142,8 +142,7 @@ flows:
 	for _, b := range reImportedData.HTTPBodyRaw {
 		if b.HttpID == httpReq.ID {
 			foundBody = true
-			require.Equal(t, "application/json", b.ContentType)
-			// Verify JSON content
+			// Verify JSON content is preserved
 			expectedFragment := "John Doe"
 			require.Contains(t, string(b.RawData), expectedFragment)
 		}
@@ -337,6 +336,126 @@ func TestMarshalSimplifiedYAML_WithDeltaOverrides(t *testing.T) {
 
 	// Verify the static values are NOT in the output (they should be replaced by delta)
 	require.NotContains(t, yamlStr, "static-token")
+}
+
+func TestMarshalSimplifiedYAML_WithDeltaRawBody(t *testing.T) {
+	// This test verifies that when a request node has a DeltaHttpID with DeltaRawData,
+	// the exporter uses ONLY the delta body (full overwrite) and preserves template variables.
+
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	// Base HTTP request with original body
+	baseHttpID := idwrap.NewNow()
+	baseHttp := mhttp.HTTP{
+		ID:          baseHttpID,
+		WorkspaceID: workspaceID,
+		Name:        "Create Product",
+		Method:      "POST",
+		Url:         "https://api.example.com/products",
+	}
+
+	// Base body - original static content
+	baseBodyRaw := mhttp.HTTPBodyRaw{
+		ID:          idwrap.NewNow(),
+		HttpID:      baseHttpID,
+		RawData:     []byte(`{"name":"original","description":"static"}`),
+		ContentType: "application/json",
+	}
+
+	// Delta HTTP request (with template syntax in body)
+	deltaHttpID := idwrap.NewNow()
+	deltaHttp := mhttp.HTTP{
+		ID:           deltaHttpID,
+		WorkspaceID:  workspaceID,
+		Name:         "Create Product Delta",
+		Method:       "POST",
+		Url:          "https://api.example.com/products",
+		IsDelta:      true,
+		ParentHttpID: &baseHttpID,
+	}
+
+	// Delta body with template variables - this should fully overwrite base body
+	deltaBodyContent := `{"category_id":"{{ request_5.response.body.id }}","description":"a","name":"macbook pro","options":[{"key":"b","value":"1"},{"key":"d","value":"2"}],"price":123,"tags":["{{ request_7.response.body.id }}"]}`
+	deltaBodyRaw := mhttp.HTTPBodyRaw{
+		ID:              idwrap.NewNow(),
+		HttpID:          deltaHttpID,
+		RawData:         nil, // Not used - delta uses DeltaRawData
+		DeltaRawData:    []byte(deltaBodyContent),
+		ContentType:     "application/json",
+		ParentBodyRawID: &baseBodyRaw.ID,
+		IsDelta:         true,
+	}
+
+	// Build the workspace bundle
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "Delta Body Test Workspace",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:          flowID,
+				WorkspaceID: workspaceID,
+				Name:        "Test Flow",
+			},
+		},
+		FlowNodes: []mnnode.MNode{
+			{
+				ID:       startNodeID,
+				FlowID:   flowID,
+				Name:     "Start",
+				NodeKind: mnnode.NODE_KIND_NO_OP,
+			},
+			{
+				ID:       requestNodeID,
+				FlowID:   flowID,
+				Name:     "Create Product",
+				NodeKind: mnnode.NODE_KIND_REQUEST,
+			},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{
+				FlowNodeID: startNodeID,
+				Type:       mnnoop.NODE_NO_OP_KIND_START,
+			},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{
+				FlowNodeID:  requestNodeID,
+				HttpID:      &baseHttpID,
+				DeltaHttpID: &deltaHttpID, // Points to delta
+			},
+		},
+		FlowEdges: []edge.Edge{
+			{
+				ID:       idwrap.NewNow(),
+				FlowID:   flowID,
+				SourceID: startNodeID,
+				TargetID: requestNodeID,
+			},
+		},
+		HTTPRequests: []mhttp.HTTP{baseHttp, deltaHttp},
+		HTTPBodyRaw:  []mhttp.HTTPBodyRaw{baseBodyRaw, deltaBodyRaw},
+	}
+
+	// Export to YAML
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	require.NoError(t, err)
+
+	yamlStr := string(yamlBytes)
+	t.Logf("Exported YAML:\n%s", yamlStr)
+
+	// Verify the delta body content is in the output (full overwrite)
+	require.Contains(t, yamlStr, "{{ request_5.response.body.id }}", "Delta template variable should be preserved")
+	require.Contains(t, yamlStr, "{{ request_7.response.body.id }}", "Delta template variable should be preserved")
+	require.Contains(t, yamlStr, "macbook pro", "Delta body content should be in output")
+
+	// Verify the original base body content is NOT in the output (it's fully overwritten)
+	require.NotContains(t, yamlStr, `"name":"original"`, "Base body should NOT be in output - delta fully overwrites")
+	require.NotContains(t, yamlStr, `"description":"static"`, "Base body should NOT be in output - delta fully overwrites")
 }
 
 func TestMarshalSimplifiedYAML_WithDeltaDisabledHeader(t *testing.T) {
