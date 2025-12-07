@@ -301,6 +301,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 				})
 			}
 			if nodeStatus.State != mnnode.NODE_STATE_RUNNING {
+				// Hack: Fix for unintended file system artifacts (like .git folder) being picked up as nodes
+				// This usually happens when implicit file scanning interacts with the flow execution
+				if nodeStatus.Name == ".git" || strings.HasPrefix(nodeStatus.Name, ".git/") || strings.HasPrefix(nodeStatus.Name, ".git\\") {
+					continue
+				}
 				nodeResults = append(nodeResults, buildNodeRunResult(nodeStatus))
 			}
 
