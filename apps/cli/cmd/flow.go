@@ -53,7 +53,6 @@ var yamlflowRunCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
-		// TODO: move into context
 		var logLevel slog.Level
 		logLevelStr := os.Getenv("LOG_LEVEL")
 		switch logLevelStr {

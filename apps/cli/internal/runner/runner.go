@@ -100,8 +100,6 @@ func RunMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 	// Track execution results
 	executionResults := make(map[string]model.FlowRunResult)
 	consoleEnabled := reporters != nil && reporters.HasConsole()
-	sharedVariables := make(map[string]interface{})
-	_ = sharedVariables // TODO: Implement variable sharing between flows
 
 	// Execute flows in order
 	if consoleEnabled {
