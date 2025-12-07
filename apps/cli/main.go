@@ -5,5 +5,6 @@ import (
 )
 
 func main() {
+	// Trigger release
 	cmd.Execute()
 }
