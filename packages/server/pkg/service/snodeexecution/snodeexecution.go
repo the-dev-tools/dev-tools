@@ -3,6 +3,7 @@ package snodeexecution
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
@@ -136,7 +137,7 @@ func (s NodeExecutionService) GetNodeExecution(ctx context.Context, executionID 
 func (s NodeExecutionService) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {
 	executions, err := s.queries.GetNodeExecutionsByNodeID(ctx, nodeID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mnodeexecution.NodeExecution{}, nil
 		}
 		return nil, err
@@ -152,7 +153,7 @@ func (s NodeExecutionService) ListNodeExecutionsByNodeID(ctx context.Context, no
 func (s NodeExecutionService) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
 	execution, err := s.queries.GetLatestNodeExecutionByNodeID(ctx, nodeID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

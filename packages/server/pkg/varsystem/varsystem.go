@@ -243,7 +243,7 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 		} else {
 			val, ok := vmt.VarMap.Get(key)
 			if !ok {
-				return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
+				return "", fmt.Errorf("%s %w", key, ErrKeyNotFound)
 			}
 			// Track variable read
 			value, err := resolveIndirectValue(val.Value)
@@ -337,7 +337,7 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 		} else {
 			val, ok := vm.Get(key)
 			if !ok {
-				return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
+				return "", fmt.Errorf("%s %w", key, ErrKeyNotFound)
 			}
 			value, err := resolveIndirectValue(val.Value)
 			if err != nil {

@@ -98,7 +98,7 @@ func (nfs NodeForEachService) UpdateNodeForEach(ctx context.Context, nf mnforeac
 
 func (nfs NodeForEachService) DeleteNodeForEach(ctx context.Context, id idwrap.IDWrap) error {
 	err := nfs.queries.DeleteFlowNodeForEach(ctx, id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoNodeForEachFound
 	}
 	return err

@@ -87,15 +87,7 @@ func ConvertResponseToVar(r Response) ResponseVar {
 }
 
 func SendRequest(client HttpClient, req *Request) (*http.Response, error) {
-	reqRaw, err := http.NewRequest(req.Method, req.URL, bytes.NewReader(req.Body))
-	if err != nil {
-		return nil, err
-	}
-
-	qNew := ConvertQueriesToUrl(req.Queries, reqRaw.URL.Query())
-	reqRaw.URL.RawQuery = qNew.Encode()
-	reqRaw.Header = ConvertHeadersToHttp(req.Headers)
-	return client.Do(reqRaw)
+	return SendRequestWithContext(context.Background(), client, req)
 }
 
 func SendRequestWithContext(ctx context.Context, client HttpClient, req *Request) (*http.Response, error) {

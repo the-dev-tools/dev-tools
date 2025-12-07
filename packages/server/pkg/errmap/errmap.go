@@ -74,7 +74,8 @@ func humanize(code Code, cause error) string {
 	case CodeTimeout:
 		return "request timed out"
 	case CodeDNSError:
-		if dn, ok := cause.(*net.DNSError); ok {
+		var dn *net.DNSError
+		if errors.As(cause, &dn) {
 			if dn.Name != "" {
 				return fmt.Sprintf("DNS lookup failed for %q: %s", dn.Name, dn.Err)
 			}
@@ -123,7 +124,8 @@ func Map(err error) error {
 	if err == nil {
 		return nil
 	}
-	if _, ok := err.(*Error); ok {
+	var e *Error
+	if errors.As(err, &e) {
 		return err // already mapped
 	}
 	// Context cancellation / timeout
@@ -138,7 +140,8 @@ func Map(err error) error {
 	var uerr *url.Error
 	if errors.As(err, &uerr) {
 		// Timeout via url.Error implements Timeout through net.Error
-		if t, ok := uerr.Err.(net.Error); ok && t.Timeout() {
+		var t net.Error
+		if errors.As(uerr.Err, &t) && t.Timeout() {
 			return &Error{Code: CodeTimeout, Temporary: t.Temporary(), Retryable: true, cause: err}
 		}
 		// Invalid URL
@@ -243,7 +246,8 @@ func MapRequestError(method, urlStr string, err error) error {
 		return nil
 	}
 	m := Map(err)
-	if me, ok := m.(*Error); ok {
+	var me *Error
+	if errors.As(m, &me) {
 		me.Method = method
 		me.URL = urlStr
 		return me

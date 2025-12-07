@@ -156,7 +156,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	httpResp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, httpReq, httpEntry.ID)
 	if err != nil {
 		// Handle different types of HTTP errors with proper Connect error codes
-		if netErr, ok := err.(net.Error); ok {
+		var netErr net.Error
+		if errors.As(err, &netErr) {
 			if netErr.Timeout() {
 				return connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("request timeout: %w", err))
 			}

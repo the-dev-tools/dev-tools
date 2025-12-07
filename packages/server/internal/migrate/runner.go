@@ -98,7 +98,7 @@ func (r *Runner) apply(ctx context.Context, targetID string) error {
 				}
 				continue
 			}
-		} else if err != sql.ErrNoRows {
+		} else if !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 

@@ -116,6 +116,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 	// Wait for nodes
 	timeoutNode := time.After(2 * time.Second)
 	nodesFound := 0
+Loop:
 	for nodesFound < 2 {
 		select {
 		case evt := <-nodeSub:
@@ -129,7 +130,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 		case <-timeoutNode:
 			// Fallback if names don't match exactly (harv2 name generation logic)
 			// We can just grab the first two request nodes we see if specific names fail
-			break
+			break Loop
 		}
 	}
 

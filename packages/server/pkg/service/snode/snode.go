@@ -3,6 +3,7 @@ package snode
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -66,7 +67,7 @@ func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnnode.MN
 func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnode.MNode, error) {
 	nodes, err := ns.queries.GetFlowNodesByFlowID(ctx, flowID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mnnode.MNode{}, nil
 		}
 		return nil, err

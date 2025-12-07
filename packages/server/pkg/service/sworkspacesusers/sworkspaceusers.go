@@ -64,7 +64,7 @@ func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *m
 func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
 	wsuser, err := wsu.queries.GetWorkspaceUser(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrWorkspaceUserNotFound
 		}
 		return nil, err
@@ -112,7 +112,7 @@ func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx con
 		UserID:      userID,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrWorkspaceUserNotFound
 		}
 		return nil, err

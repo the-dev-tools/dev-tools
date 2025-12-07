@@ -3,6 +3,7 @@ package snodenoop
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -85,7 +86,7 @@ func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.N
 
 func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
 	// Since there's no UpdateFlowNodeNoop query, we'll use delete + create pattern
-	if err := nfs.DeleteNodeNoop(ctx, nf.FlowNodeID); err != nil && err != ErrNoNodeForFound {
+	if err := nfs.DeleteNodeNoop(ctx, nf.FlowNodeID); err != nil && !errors.Is(err, ErrNoNodeForFound) {
 		return err
 	}
 	return nfs.CreateNodeNoop(ctx, nf)
@@ -93,7 +94,7 @@ func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNod
 
 func (nfs NodeNoopService) DeleteNodeNoop(ctx context.Context, id idwrap.IDWrap) error {
 	err := nfs.queries.DeleteFlowNodeNoop(ctx, id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoNodeForFound
 	}
 	return err

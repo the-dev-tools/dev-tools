@@ -86,7 +86,7 @@ func (s *HttpBodyUrlEncodedService) createRaw(ctx context.Context, bue gen.HttpB
 func (s *HttpBodyUrlEncodedService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyUrlencoded, error) {
 	body, err := s.queries.GetHTTPBodyUrlEncoded(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoHttpBodyUrlEncodedFound
 		}
 		return nil, err
@@ -99,7 +99,7 @@ func (s *HttpBodyUrlEncodedService) GetByID(ctx context.Context, id idwrap.IDWra
 func (s *HttpBodyUrlEncodedService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyUrlencoded, error) {
 	bodies, err := s.queries.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPBodyUrlencoded{}, nil
 		}
 		return nil, err
@@ -115,7 +115,7 @@ func (s *HttpBodyUrlEncodedService) GetByHttpID(ctx context.Context, httpID idwr
 func (s *HttpBodyUrlEncodedService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyUrlencoded, error) {
 	rows, err := s.queries.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPBodyUrlencoded{}, nil
 		}
 		return nil, err
@@ -146,7 +146,7 @@ func (s *HttpBodyUrlEncodedService) GetByIDs(ctx context.Context, ids []idwrap.I
 
 	bodies, err := s.queries.GetHTTPBodyUrlEncodedsByIDs(ctx, ids)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPBodyUrlencoded{}, nil
 		}
 		return nil, err
@@ -167,7 +167,7 @@ func (s *HttpBodyUrlEncodedService) GetByHttpIDs(ctx context.Context, httpIDs []
 
 	bodies, err := s.queries.GetHTTPBodyUrlEncodedsByIDs(ctx, httpIDs)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return result, nil
 		}
 		return nil, err

@@ -141,7 +141,7 @@ func (s *HttpSearchParamService) GetByHttpIDs(ctx context.Context, httpIDs []idw
 	for _, httpID := range httpIDs {
 		rows, err := s.queries.GetHTTPSearchParams(ctx, httpID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				result[httpID] = []mhttp.HTTPSearchParam{}
 				continue
 			}

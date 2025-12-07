@@ -52,7 +52,7 @@ func (s *FlowServiceV2RPC) NodeNoOpCollection(
 			// Get the NoOp configuration for this node
 			noopNode, err := s.nnos.GetNodeNoop(ctx, node.ID)
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if errors.Is(err, sql.ErrNoRows) {
 					continue
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -224,7 +224,7 @@ func (s *FlowServiceV2RPC) streamNoOpSync(
 				// Get the NoOp configuration for this node
 				noopNode, err := s.nnos.GetNodeNoop(ctx, node.ID)
 				if err != nil {
-					if err == sql.ErrNoRows {
+					if errors.Is(err, sql.ErrNoRows) {
 						continue
 					}
 					return nil, err
@@ -539,7 +539,7 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 				// Get the For configuration for this node
 				forNode, err := s.nfs.GetNodeFor(ctx, node.ID)
 				if err != nil {
-					if err == sql.ErrNoRows {
+					if errors.Is(err, sql.ErrNoRows) {
 						continue
 					}
 					return nil, err

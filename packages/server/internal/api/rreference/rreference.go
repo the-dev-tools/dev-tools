@@ -32,8 +32,9 @@ import (
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 	"the-dev-tools/spec/dist/buf/go/api/reference/v1/referencev1connect"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/pkg/service/shttp"
+
+	"connectrpc.com/connect"
 )
 
 type ReferenceServiceRPC struct {
@@ -377,23 +378,20 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			// This includes iteration executions which now contain the actual values
 			latestExecution := &executions[0]
 
-			// Always use the latest execution
-			if latestExecution != nil {
-				// Decompress data if needed
-				data := latestExecution.OutputData
-				if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
-					decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
-					if err == nil {
-						data = decompressed
-					}
+			// Decompress data if needed
+			data := latestExecution.OutputData
+			if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+				decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+				if err == nil {
+					data = decompressed
 				}
+			}
 
-				// Try to unmarshal as generic JSON
-				var genericOutput interface{}
-				if err := json.Unmarshal(data, &genericOutput); err == nil {
-					nodeData = genericOutput
-					hasExecutionData = true
-				}
+			// Try to unmarshal as generic JSON
+			var genericOutput interface{}
+			if err := json.Unmarshal(data, &genericOutput); err == nil {
+				nodeData = genericOutput
+				hasExecutionData = true
 			}
 		}
 
@@ -475,7 +473,6 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 	return nodeRefs, nil
 }
-
 
 // ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
 func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
@@ -572,7 +569,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
 		if err != nil {
-			if err != sflowvariable.ErrNoFlowVariableFound {
+			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			flowVars = []mflowvariable.FlowVariable{}
@@ -948,7 +945,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
 		if err != nil {
-			if err != sflowvariable.ErrNoFlowVariableFound {
+			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			flowVars = []mflowvariable.FlowVariable{}

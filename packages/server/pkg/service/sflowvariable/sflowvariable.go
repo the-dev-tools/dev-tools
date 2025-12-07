@@ -238,7 +238,7 @@ func (s *FlowVariableService) DeleteFlowVariable(ctx context.Context, id idwrap.
 func (s *FlowVariableService) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID idwrap.IDWrap) ([]mflowvariable.FlowVariable, error) {
 	items, err := s.queries.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mflowvariable.FlowVariable{}, nil
 		}
 		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)

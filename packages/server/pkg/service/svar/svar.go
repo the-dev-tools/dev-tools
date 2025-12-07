@@ -3,6 +3,7 @@ package svar
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -81,7 +82,7 @@ func ConvertToModelVar(v gen.Variable) *mvar.Var {
 func (s VarService) Get(ctx context.Context, id idwrap.IDWrap) (*mvar.Var, error) {
 	variable, err := s.queries.GetVariable(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoVarFound
 		}
 		return nil, err
@@ -92,7 +93,7 @@ func (s VarService) Get(ctx context.Context, id idwrap.IDWrap) (*mvar.Var, error
 func (s VarService) GetVariableByEnvID(ctx context.Context, envID idwrap.IDWrap) ([]mvar.Var, error) {
 	rows, err := s.queries.GetVariablesByEnvironmentIDOrdered(ctx, envID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mvar.Var{}, nil
 		}
 		return nil, err
@@ -130,7 +131,7 @@ func (s VarService) Update(ctx context.Context, variable *mvar.Var) error {
 	if variable.Order == 0 {
 		current, err := s.queries.GetVariable(ctx, variable.ID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return ErrNoVarFound
 			}
 			return err
@@ -172,7 +173,7 @@ func (s VarService) Upsert(ctx context.Context, variable mvar.Var) error {
 
 func (s VarService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	if err := s.queries.DeleteVariable(ctx, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoVarFound
 		}
 		return err
@@ -183,7 +184,7 @@ func (s VarService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 func (s VarService) GetEnvID(ctx context.Context, varID idwrap.IDWrap) (idwrap.IDWrap, error) {
 	variable, err := s.queries.GetVariable(ctx, varID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return idwrap.IDWrap{}, ErrNoVarFound
 		}
 		return idwrap.IDWrap{}, err
@@ -206,7 +207,7 @@ func (s VarService) GetVariablesByEnvIDOrdered(ctx context.Context, envID idwrap
 func (s VarService) nextDisplayOrder(ctx context.Context, envID idwrap.IDWrap) (float64, error) {
 	vars, err := s.queries.GetVariablesByEnvironmentID(ctx, envID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 1, nil
 		}
 		return 0, err
@@ -313,7 +314,7 @@ func (s VarService) moveVariable(ctx context.Context, varID, targetVarID idwrap.
 
 	current, err := s.queries.GetVariable(ctx, varID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoVarFound
 		}
 		return err

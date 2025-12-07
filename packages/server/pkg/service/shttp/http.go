@@ -188,7 +188,7 @@ func (hs HTTPService) Create(ctx context.Context, http *mhttp.HTTP) error {
 func (hs HTTPService) Upsert(ctx context.Context, http *mhttp.HTTP) error {
 	existing, err := hs.Get(ctx, http.ID)
 	if err != nil {
-		if err == ErrNoHTTPFound {
+		if errors.Is(err, ErrNoHTTPFound) {
 			return hs.Create(ctx, http)
 		}
 		return err
@@ -198,7 +198,7 @@ func (hs HTTPService) Upsert(ctx context.Context, http *mhttp.HTTP) error {
 	if http.CreatedAt == 0 {
 		http.CreatedAt = existing.CreatedAt
 	}
-	
+
 	// Update fields
 	return hs.Update(ctx, http)
 }
@@ -206,7 +206,7 @@ func (hs HTTPService) Upsert(ctx context.Context, http *mhttp.HTTP) error {
 func (hs HTTPService) GetByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
 	https, err := hs.queries.GetHTTPsByWorkspaceID(ctx, workspaceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			hs.logger.InfoContext(ctx, fmt.Sprintf("workspaceID: %s has no HTTP entries", workspaceID.String()))
 			return []mhttp.HTTP{}, nil
 		}
@@ -223,7 +223,7 @@ func (hs HTTPService) GetByWorkspaceID(ctx context.Context, workspaceID idwrap.I
 func (hs HTTPService) GetDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
 	https, err := hs.queries.GetHTTPDeltasByWorkspaceID(ctx, workspaceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTP{}, nil
 		}
 		return nil, err
@@ -239,7 +239,7 @@ func (hs HTTPService) GetDeltasByWorkspaceID(ctx context.Context, workspaceID id
 func (hs HTTPService) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mhttp.HTTP, error) {
 	https, err := hs.queries.GetHTTPDeltasByParentID(ctx, &parentID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTP{}, nil
 		}
 		return nil, err
@@ -266,8 +266,8 @@ func (hs HTTPService) GetDeltasByParentID(ctx context.Context, parentID idwrap.I
 			DeltaBodyKind:    interfaceToInt8Ptr(h.DeltaBodyKind),
 			DeltaDescription: h.DeltaDescription,
 			// LastRunAt not available in this query view?
-			CreatedAt:        h.CreatedAt,
-			UpdatedAt:        h.UpdatedAt,
+			CreatedAt: h.CreatedAt,
+			UpdatedAt: h.UpdatedAt,
 		}
 	}
 	return result, nil
@@ -276,7 +276,7 @@ func (hs HTTPService) GetDeltasByParentID(ctx context.Context, parentID idwrap.I
 func (hs HTTPService) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTP, error) {
 	http, err := hs.queries.GetHTTP(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			hs.logger.DebugContext(ctx, fmt.Sprintf("HTTP ID: %s not found", id.String()))
 			return nil, ErrNoHTTPFound
 		}
@@ -308,7 +308,7 @@ func (hs HTTPService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 func (hs HTTPService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	workspaceID, err := hs.queries.GetHTTPWorkspaceID(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return idwrap.IDWrap{}, ErrNoHTTPFound
 		}
 		return idwrap.IDWrap{}, err
@@ -319,7 +319,7 @@ func (hs HTTPService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idw
 func (hs HTTPService) CheckUserBelongsToHttp(ctx context.Context, httpID, userID idwrap.IDWrap) (bool, error) {
 	workspaceID, err := hs.GetWorkspaceID(ctx, httpID)
 	if err != nil {
-		if err == ErrNoHTTPFound {
+		if errors.Is(err, ErrNoHTTPFound) {
 			return false, nil
 		}
 		return false, err
@@ -350,7 +350,7 @@ func (hs HTTPService) FindByURLAndMethod(ctx context.Context, workspaceID idwrap
 		Method:      method,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoHTTPFound
 		}
 		return nil, err

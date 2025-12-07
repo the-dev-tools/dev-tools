@@ -3,6 +3,7 @@ package sworkspace
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
@@ -61,7 +62,7 @@ func (ws WorkspaceService) TX(tx *sql.Tx) WorkspaceService {
 func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoWorkspaceFound
 		}
 		return nil, err
@@ -94,7 +95,7 @@ func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) 
 func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
 	workspaceRaw, err := ws.queries.GetWorkspace(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoWorkspaceFound
 		}
 		return nil, err
@@ -114,7 +115,7 @@ func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace
 		ActiveEnv:       org.ActiveEnv,
 		DisplayOrder:    org.Order,
 	})
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoWorkspaceFound
 	}
 	return err
@@ -125,7 +126,7 @@ func (ws WorkspaceService) UpdateUpdatedTime(ctx context.Context, org *mworkspac
 		ID:      org.ID,
 		Updated: org.Updated.Unix(),
 	})
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoWorkspaceFound
 	}
 	return err
@@ -134,7 +135,7 @@ func (ws WorkspaceService) UpdateUpdatedTime(ctx context.Context, org *mworkspac
 func (ws WorkspaceService) Delete(ctx context.Context, userID, id idwrap.IDWrap) error {
 	// Deletion is now simple; no list to repair
 	err := ws.queries.DeleteWorkspace(ctx, id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoWorkspaceFound
 	}
 	return err
@@ -143,7 +144,7 @@ func (ws WorkspaceService) Delete(ctx context.Context, userID, id idwrap.IDWrap)
 func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	rawWorkspaces, err := ws.queries.GetWorkspacesByUserID(ctx, userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoWorkspaceFound
 		}
 		return nil, err
@@ -157,7 +158,7 @@ func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID i
 		WorkspaceID: orgID,
 	})
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoWorkspaceFound
 		}
 		return nil, err
@@ -170,7 +171,7 @@ func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID i
 func (ws WorkspaceService) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	rawWorkspaces, err := ws.queries.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoWorkspaceFound
 		}
 		return nil, err

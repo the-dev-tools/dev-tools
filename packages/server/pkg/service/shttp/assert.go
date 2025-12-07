@@ -85,7 +85,7 @@ func (s *HttpAssertService) createRaw(ctx context.Context, af gen.HttpAssert) er
 func (s *HttpAssertService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPAssert, error) {
 	assert, err := s.queries.GetHTTPAssert(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoHttpAssertFound
 		}
 		return nil, err
@@ -98,7 +98,7 @@ func (s *HttpAssertService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mht
 func (s *HttpAssertService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
 	rows, err := s.queries.GetHTTPAssertsByHttpID(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPAssert{}, nil
 		}
 		return nil, err
@@ -114,7 +114,7 @@ func (s *HttpAssertService) GetByHttpID(ctx context.Context, httpID idwrap.IDWra
 func (s *HttpAssertService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
 	rows, err := s.queries.GetHTTPAssertsByHttpID(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPAssert{}, nil
 		}
 		return nil, err
@@ -145,7 +145,7 @@ func (s *HttpAssertService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) (
 
 	rows, err := s.queries.GetHTTPAssertsByIDs(ctx, ids)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPAssert{}, nil
 		}
 		return nil, err

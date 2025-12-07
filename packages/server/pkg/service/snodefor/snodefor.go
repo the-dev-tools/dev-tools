@@ -3,6 +3,7 @@ package snodefor
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
@@ -64,14 +65,14 @@ func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mn
 }
 
 func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
-    // Preserve UNSPECIFIED to allow default "throw" semantics in flow runner.
-    nodeFor := ConvertToDBNodeFor(nf)
-    return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
-        FlowNodeID:    nodeFor.FlowNodeID,
-        IterCount:     nodeFor.IterCount,
-        ErrorHandling: nodeFor.ErrorHandling,
-        Expression:    nodeFor.Expression,
-    })
+	// Preserve UNSPECIFIED to allow default "throw" semantics in flow runner.
+	nodeFor := ConvertToDBNodeFor(nf)
+	return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
+		FlowNodeID:    nodeFor.FlowNodeID,
+		IterCount:     nodeFor.IterCount,
+		ErrorHandling: nodeFor.ErrorHandling,
+		Expression:    nodeFor.Expression,
+	})
 }
 
 func (nfs NodeForService) CreateNodeForBulk(ctx context.Context, nf []mnfor.MNFor) error {
@@ -97,7 +98,7 @@ func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) err
 
 func (nfs NodeForService) DeleteNodeFor(ctx context.Context, id idwrap.IDWrap) error {
 	err := nfs.queries.DeleteFlowNodeFor(ctx, id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoNodeForFound
 	}
 	return err

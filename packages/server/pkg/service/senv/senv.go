@@ -3,6 +3,7 @@ package senv
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -81,7 +82,7 @@ func ConvertToModelEnv(env gen.Environment) *menv.Env {
 func (s EnvironmentService) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (*menv.Env, error) {
 	env, err := s.queries.GetEnvironment(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			s.logger.DebugContext(ctx, "environment not found", "environment_id", id.String())
 			return nil, ErrNoEnvironmentFound
 		}
@@ -93,7 +94,7 @@ func (s EnvironmentService) GetEnvironment(ctx context.Context, id idwrap.IDWrap
 func (s EnvironmentService) ListEnvironments(ctx context.Context, workspaceID idwrap.IDWrap) ([]menv.Env, error) {
 	envs, err := s.queries.GetEnvironmentsByWorkspaceIDOrdered(ctx, workspaceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []menv.Env{}, nil
 		}
 		return nil, err
@@ -130,7 +131,7 @@ func (s EnvironmentService) UpdateEnvironment(ctx context.Context, env *menv.Env
 	if env.Order == 0 {
 		current, err := s.queries.GetEnvironment(ctx, env.ID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return ErrNoEnvironmentFound
 			}
 			return err
@@ -150,7 +151,7 @@ func (s EnvironmentService) UpdateEnvironment(ctx context.Context, env *menv.Env
 
 func (s EnvironmentService) DeleteEnvironment(ctx context.Context, id idwrap.IDWrap) error {
 	if err := s.queries.DeleteEnvironment(ctx, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoEnvironmentFound
 		}
 		return err
@@ -185,7 +186,7 @@ func (s EnvironmentService) Delete(ctx context.Context, id idwrap.IDWrap) error 
 func (s EnvironmentService) GetWorkspaceID(ctx context.Context, envID idwrap.IDWrap) (idwrap.IDWrap, error) {
 	workspaceID, err := s.queries.GetEnvironmentWorkspaceID(ctx, envID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return idwrap.IDWrap{}, ErrNoEnvironmentFound
 		}
 		return idwrap.IDWrap{}, err
@@ -204,7 +205,7 @@ func (s EnvironmentService) CheckWorkspaceID(ctx context.Context, envID, ownerID
 func (s EnvironmentService) nextDisplayOrder(ctx context.Context, workspaceID idwrap.IDWrap) (float64, error) {
 	envs, err := s.queries.GetEnvironmentsByWorkspaceID(ctx, workspaceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 1, nil
 		}
 		return 0, err

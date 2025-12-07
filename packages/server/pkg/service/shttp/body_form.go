@@ -99,7 +99,7 @@ func (s *HttpBodyFormService) GetByID(ctx context.Context, id idwrap.IDWrap) (*m
 func (s *HttpBodyFormService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyForm, error) {
 	rows, err := s.queries.GetHTTPBodyForms(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPBodyForm{}, nil
 		}
 		return nil, err
@@ -115,7 +115,7 @@ func (s *HttpBodyFormService) GetByHttpID(ctx context.Context, httpID idwrap.IDW
 func (s *HttpBodyFormService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyForm, error) {
 	rows, err := s.queries.GetHTTPBodyForms(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPBodyForm{}, nil
 		}
 		return nil, err
@@ -146,7 +146,7 @@ func (s *HttpBodyFormService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap)
 
 	rows, err := s.queries.GetHTTPBodyFormsByIDs(ctx, ids)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mhttp.HTTPBodyForm{}, nil
 		}
 		return nil, err
@@ -163,7 +163,7 @@ func (s *HttpBodyFormService) GetByHttpIDs(ctx context.Context, httpIDs []idwrap
 
 	rows, err := s.queries.GetHTTPBodyFormsByIDs(ctx, httpIDs)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return result, nil
 		}
 		return nil, err

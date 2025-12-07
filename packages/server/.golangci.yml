@@ -12,6 +12,11 @@ linters:
     - importas
     - misspell
     - gosec
+    - errcheck
+    - errorlint
+    - bodyclose
+    - noctx
+    - revive
   disable:
     - staticcheck
     - unused

@@ -143,8 +143,8 @@ func NewValidationErrorWithCause(field string, cause error) *ValidationError {
 
 // IsValidationError checks if an error is a validation error
 func IsValidationError(err error) bool {
-	_, ok := err.(*ValidationError)
-	return ok
+	var valErr *ValidationError
+	return errors.As(err, &valErr)
 }
 
 // ExportV2RPC implements the Connect RPC interface for export v2

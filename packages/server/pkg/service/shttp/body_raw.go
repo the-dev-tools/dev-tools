@@ -151,7 +151,7 @@ func (s *HttpBodyRawService) CreateFull(ctx context.Context, body *mhttp.HTTPBod
 func (s *HttpBodyRawService) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyRaw, error) {
 	bodyRaw, err := s.queries.GetHTTPBodyRawByID(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoHttpBodyRawFound
 		}
 		return nil, err
@@ -171,7 +171,7 @@ func (s *HttpBodyRawService) GetByHttpID(ctx context.Context, httpID idwrap.IDWr
 	// Get the body raw for this HTTP
 	bodyRaw, err := s.queries.GetHTTPBodyRaw(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoHttpBodyRawFound
 		}
 		return nil, err
@@ -224,7 +224,7 @@ func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWr
 
 	var parentBodyID *idwrap.IDWrap
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			// If parent has no body, we must create a placeholder one to satisfy the constraint
 			// Or we could fail. For now, let's create an empty base body for the parent.
 			now := dbtime.DBNow().Unix()
@@ -330,7 +330,7 @@ func (s *HttpBodyRawService) DeleteByHttpID(ctx context.Context, httpID idwrap.I
 
 	bodyRaw, err := s.queries.GetHTTPBodyRaw(ctx, httpID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil // Already deleted or never existed
 		}
 		return err

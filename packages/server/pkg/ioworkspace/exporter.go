@@ -3,6 +3,7 @@ package ioworkspace
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"the-dev-tools/server/pkg/idwrap"
@@ -156,35 +157,35 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 	for _, httpID := range httpRequests {
 		// Export headers
 		headers, err := httpHeaderService.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get headers for HTTP %s: %w", httpID.String(), err)
 		}
 		bundle.HTTPHeaders = append(bundle.HTTPHeaders, headers...)
 
 		// Export search params
 		searchParams, err := httpSearchParamSvc.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get search params for HTTP %s: %w", httpID.String(), err)
 		}
 		bundle.HTTPSearchParams = append(bundle.HTTPSearchParams, searchParams...)
 
 		// Export body forms
 		bodyForms, err := httpBodyFormSvc.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get body forms for HTTP %s: %w", httpID.String(), err)
 		}
 		bundle.HTTPBodyForms = append(bundle.HTTPBodyForms, bodyForms...)
 
 		// Export body urlencoded
 		bodyUrlencoded, err := httpBodyUrlencodedSvc.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get body urlencoded for HTTP %s: %w", httpID.String(), err)
 		}
 		bundle.HTTPBodyUrlencoded = append(bundle.HTTPBodyUrlencoded, bodyUrlencoded...)
 
 		// Export body raw (may not exist for all HTTP requests)
 		bodyRaw, err := httpBodyRawSvc.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows && err != shttp.ErrNoHttpBodyRawFound {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
 			return fmt.Errorf("failed to get body raw for HTTP %s: %w", httpID.String(), err)
 		}
 		if bodyRaw != nil {
@@ -193,7 +194,7 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 
 		// Export asserts
 		asserts, err := httpAssertSvc.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get asserts for HTTP %s: %w", httpID.String(), err)
 		}
 		bundle.HTTPAsserts = append(bundle.HTTPAsserts, asserts...)
@@ -254,21 +255,21 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	for _, flowID := range flowIDs {
 		// Export flow variables
 		flowVars, err := flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get flow variables for flow %s: %w", flowID.String(), err)
 		}
 		bundle.FlowVariables = append(bundle.FlowVariables, flowVars...)
 
 		// Export nodes
 		nodes, err := nodeService.GetNodesByFlowID(ctx, flowID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get nodes for flow %s: %w", flowID.String(), err)
 		}
 		bundle.FlowNodes = append(bundle.FlowNodes, nodes...)
 
 		// Export edges
 		edges, err := edgeService.GetEdgesByFlowID(ctx, flowID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get edges for flow %s: %w", flowID.String(), err)
 		}
 		bundle.FlowEdges = append(bundle.FlowEdges, edges...)
@@ -310,7 +311,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	switch node.NodeKind {
 	case mnnode.NODE_KIND_REQUEST:
 		nodeRequest, err := nodeRequestService.GetNodeRequest(ctx, node.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get request node: %w", err)
 		}
 		if nodeRequest != nil {
@@ -319,7 +320,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 
 	case mnnode.NODE_KIND_CONDITION:
 		nodeIf, err := nodeIfService.GetNodeIf(ctx, node.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get if node: %w", err)
 		}
 		if nodeIf != nil {
@@ -328,7 +329,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 
 	case mnnode.NODE_KIND_NO_OP:
 		nodeNoop, err := nodeNoopService.GetNodeNoop(ctx, node.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get noop node: %w", err)
 		}
 		if nodeNoop != nil {
@@ -337,7 +338,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 
 	case mnnode.NODE_KIND_FOR:
 		nodeFor, err := nodeForService.GetNodeFor(ctx, node.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get for node: %w", err)
 		}
 		if nodeFor != nil {
@@ -346,7 +347,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 
 	case mnnode.NODE_KIND_FOR_EACH:
 		nodeForEach, err := nodeForEachService.GetNodeForEach(ctx, node.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get foreach node: %w", err)
 		}
 		if nodeForEach != nil {
@@ -355,7 +356,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 
 	case mnnode.NODE_KIND_JS:
 		nodeJS, err := nodeJSService.GetNodeJS(ctx, node.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get js node: %w", err)
 		}
 		bundle.FlowJSNodes = append(bundle.FlowJSNodes, nodeJS)
@@ -381,7 +382,7 @@ func (s *IOWorkspaceService) exportEnvironments(ctx context.Context, opts Export
 	// Export variables for each environment
 	for _, env := range envs {
 		vars, err := varService.GetVariableByEnvID(ctx, env.ID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get variables for env %s: %w", env.ID.String(), err)
 		}
 		bundle.EnvironmentVars = append(bundle.EnvironmentVars, vars...)

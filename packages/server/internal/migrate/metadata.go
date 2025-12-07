@@ -102,11 +102,11 @@ type StartParams struct {
 // returns ErrChecksumMismatch.
 func (s *Store) MarkStarted(ctx context.Context, tx *sql.Tx, params StartParams) (Record, error) {
 	existing, err := getRecord(ctx, tx, params.ID)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Record{}, err
 	}
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		if err := insertStarted(ctx, tx, params); err != nil {
 			return Record{}, err
 		}

@@ -3,6 +3,7 @@ package sfile
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -98,7 +99,7 @@ func (s *FileService) GetFile(ctx context.Context, id idwrap.IDWrap) (*mfile.Fil
 
 	file, err := s.queries.GetFile(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			s.logger.Debug("File not found", "file_id", id.String())
 			return nil, ErrFileNotFound
 		}
@@ -130,7 +131,7 @@ func (s *FileService) ListFilesByWorkspace(ctx context.Context, workspaceID idwr
 
 	files, err := s.queries.GetFilesByWorkspaceIDOrdered(ctx, workspaceID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mfile.File{}, nil
 		}
 		return nil, fmt.Errorf("failed to list files by workspace: %w", err)
@@ -169,7 +170,7 @@ func (s *FileService) ListFilesByParent(ctx context.Context, workspaceID idwrap.
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return []mfile.File{}, nil
 		}
 		return nil, fmt.Errorf("failed to list files by parent: %w", err)
@@ -238,7 +239,6 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 	return nil
 }
 
-
 // UpsertFile creates or updates a file
 func (s *FileService) UpsertFile(ctx context.Context, file *mfile.File) error {
 	s.logger.Debug("Upserting file",
@@ -248,7 +248,7 @@ func (s *FileService) UpsertFile(ctx context.Context, file *mfile.File) error {
 	// Check if file exists
 	_, err := s.GetFile(ctx, file.ID)
 	if err != nil {
-		if err == ErrFileNotFound {
+		if errors.Is(err, ErrFileNotFound) {
 			// File doesn't exist, create it
 			return s.CreateFile(ctx, file)
 		}
@@ -276,7 +276,7 @@ func (s *FileService) UpdateFile(ctx context.Context, file *mfile.File) error {
 	if file.Order == 0 {
 		current, err := s.queries.GetFile(ctx, file.ID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return ErrFileNotFound
 			}
 			return fmt.Errorf("failed to get current file: %w", err)
@@ -314,7 +314,7 @@ func (s *FileService) DeleteFile(ctx context.Context, id idwrap.IDWrap) error {
 	s.logger.Debug("Deleting file", "file_id", id.String())
 
 	if err := s.queries.DeleteFile(ctx, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ErrFileNotFound
 		}
 		return fmt.Errorf("failed to delete file: %w", err)
@@ -330,7 +330,7 @@ func (s *FileService) GetWorkspaceID(ctx context.Context, fileID idwrap.IDWrap) 
 
 	workspaceID, err := s.queries.GetFileWorkspaceID(ctx, fileID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return idwrap.IDWrap{}, ErrFileNotFound
 		}
 		return idwrap.IDWrap{}, fmt.Errorf("failed to get file workspace ID: %w", err)
@@ -360,7 +360,7 @@ func (s *FileService) NextDisplayOrder(ctx context.Context, workspaceID idwrap.I
 	}
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 1, nil
 		}
 		return 0, fmt.Errorf("failed to get files for order calculation: %w", err)

@@ -280,13 +280,13 @@ func handleServiceError(err error) (*connect.Response[apiv1.ImportResponse], err
 	switch {
 	case IsValidationError(err):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case err == ErrWorkspaceNotFound:
+	case errors.Is(err, ErrWorkspaceNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err == ErrPermissionDenied:
+	case errors.Is(err, ErrPermissionDenied):
 		return nil, connect.NewError(connect.CodePermissionDenied, err)
-	case err == ErrStorageFailed:
+	case errors.Is(err, ErrStorageFailed):
 		return nil, connect.NewError(connect.CodeInternal, err)
-	case err == ErrInvalidHARFormat:
+	case errors.Is(err, ErrInvalidHARFormat):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	default:
 		return nil, connect.NewError(connect.CodeInternal, err)
