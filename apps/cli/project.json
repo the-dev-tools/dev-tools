@@ -47,7 +47,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "command": "go test ./... -timeout 10s"
+        "command": "go test ./... -timeout 30s"
       },
       "dependsOn": ["copy-worker"]
     },

@@ -18,7 +18,7 @@ import (
 
 const (
 	jsWorkerPort           = 9090
-	jsWorkerStartupTimeout = 10 * time.Second
+	jsWorkerStartupTimeout = 30 * time.Second
 	jsWorkerHealthInterval = 1 * time.Second
 	jsWorkerInitialWait    = 2 * time.Second
 )
@@ -58,11 +58,12 @@ func NewJSRunner() (*JSRunner, error) {
 	}
 
 	runner := &JSRunner{
-		cmd:        exec.Command(nodePath, "--experimental-vm-modules", "--experimental-warning=0", tempFile.Name()),
+		cmd:        exec.Command(nodePath, "--experimental-vm-modules", tempFile.Name()),
 		tempFile:   tempFile.Name(),
 		baseURL:    baseURL,
 		httpClient: httpClient,
 	}
+	runner.cmd.Env = append(os.Environ(), "NODE_NO_WARNINGS=1")
 
 	// Note: --disable-warning=ExperimentalWarning might vary by node version,
 	// safe choice is usually ignoring stderr or specific flags if supported.
