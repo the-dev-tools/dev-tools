@@ -746,3 +746,121 @@ func TestGetDefaultOptions(t *testing.T) {
 	require.True(t, opts.GenerateFiles)
 	require.Equal(t, 0, opts.FileOrder)
 }
+
+func TestConvertSimplifiedYAML_AutoSelectDefaultEnvironment(t *testing.T) {
+	workspaceID := idwrap.NewNow()
+
+	// Test case: "default" environment is auto-selected when active_environment is not specified
+	yamlData := `
+workspace_name: Auto Select Default Env Test
+environments:
+  - name: production
+    variables:
+      api_url: https://api.production.com
+  - name: default
+    variables:
+      api_url: https://api.default.com
+  - name: staging
+    variables:
+      api_url: https://api.staging.com
+flows:
+  - name: Test Flow
+    steps:
+      - noop:
+          name: Start
+          type: start
+`
+
+	opts := GetDefaultOptions(workspaceID)
+	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
+
+	require.NoError(t, err)
+	require.Len(t, result.Environments, 3)
+
+	// Find the "default" environment ID
+	var defaultEnvID idwrap.IDWrap
+	for _, env := range result.Environments {
+		if env.Name == "default" {
+			defaultEnvID = env.ID
+			break
+		}
+	}
+
+	// ActiveEnv should be set to the "default" environment
+	require.NotEqual(t, idwrap.IDWrap{}, result.Workspace.ActiveEnv, "ActiveEnv should be set")
+	require.Equal(t, 0, result.Workspace.ActiveEnv.Compare(defaultEnvID), "ActiveEnv should be set to 'default' environment")
+}
+
+func TestConvertSimplifiedYAML_FallbackToFirstEnvironment(t *testing.T) {
+	workspaceID := idwrap.NewNow()
+
+	// Test case: First environment is auto-selected when no "default" exists and active_environment is not specified
+	yamlData := `
+workspace_name: Fallback Env Test
+environments:
+  - name: production
+    variables:
+      api_url: https://api.production.com
+  - name: staging
+    variables:
+      api_url: https://api.staging.com
+flows:
+  - name: Test Flow
+    steps:
+      - noop:
+          name: Start
+          type: start
+`
+
+	opts := GetDefaultOptions(workspaceID)
+	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
+
+	require.NoError(t, err)
+	require.Len(t, result.Environments, 2)
+
+	// ActiveEnv should be set to the first environment (production)
+	require.NotEqual(t, idwrap.IDWrap{}, result.Workspace.ActiveEnv, "ActiveEnv should be set")
+	require.Equal(t, 0, result.Workspace.ActiveEnv.Compare(result.Environments[0].ID), "ActiveEnv should be set to first environment")
+}
+
+func TestConvertSimplifiedYAML_ExplicitActiveEnvironment(t *testing.T) {
+	workspaceID := idwrap.NewNow()
+
+	// Test case: Explicit active_environment takes precedence over auto-selection
+	yamlData := `
+workspace_name: Explicit Active Env Test
+active_environment: staging
+environments:
+  - name: default
+    variables:
+      api_url: https://api.default.com
+  - name: staging
+    variables:
+      api_url: https://api.staging.com
+flows:
+  - name: Test Flow
+    steps:
+      - noop:
+          name: Start
+          type: start
+`
+
+	opts := GetDefaultOptions(workspaceID)
+	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
+
+	require.NoError(t, err)
+	require.Len(t, result.Environments, 2)
+
+	// Find the "staging" environment ID
+	var stagingEnvID idwrap.IDWrap
+	for _, env := range result.Environments {
+		if env.Name == "staging" {
+			stagingEnvID = env.ID
+			break
+		}
+	}
+
+	// ActiveEnv should be set to the explicitly specified "staging" environment
+	require.NotEqual(t, idwrap.IDWrap{}, result.Workspace.ActiveEnv, "ActiveEnv should be set")
+	require.Equal(t, 0, result.Workspace.ActiveEnv.Compare(stagingEnvID), "ActiveEnv should be set to explicitly specified 'staging' environment")
+}

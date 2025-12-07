@@ -109,8 +109,15 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 			result.Workspace.ActiveEnv = id
 		}
 	} else if len(result.Environments) > 0 {
-		// Default to first if not specified? Or leave empty.
-		// CLI logic might auto-select.
+		// Auto-select environment when active_environment is not specified:
+		// 1. First, look for an environment named "default"
+		// 2. If not found, use the first environment in the list
+		if defaultID, ok := envNameMap["default"]; ok {
+			result.Workspace.ActiveEnv = defaultID
+		} else {
+			// Use the first environment
+			result.Workspace.ActiveEnv = result.Environments[0].ID
+		}
 	}
 
 	if yamlFormat.GlobalEnvironment != "" {
