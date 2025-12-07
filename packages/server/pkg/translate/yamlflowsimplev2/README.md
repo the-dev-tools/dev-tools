@@ -11,7 +11,9 @@ This directory implements the V2 Simplified YAML Flow format, designed for human
 ## Execution Model
 
 ### Parallel Execution (Default)
+
 Steps A and B run simultaneously.
+
 ```yaml
 steps:
   - noop: Start
@@ -24,7 +26,9 @@ steps:
 ```
 
 ### Serial Execution
+
 Step B waits for Step A.
+
 ```yaml
 steps:
   - noop: Start
@@ -41,6 +45,7 @@ steps:
 Control flow nodes (`if`, `for`) emit signals (handles) that other nodes listen to.
 
 ### Conditional (If/Else)
+
 ```yaml
 steps:
   - if:
@@ -49,14 +54,15 @@ steps:
 
   - js:
       name: OnSuccess
-      depends_on: [Check.then]  # Runs if condition is true
+      depends_on: [Check.then] # Runs if condition is true
 
   - js:
       name: OnFailure
-      depends_on: [Check.else]  # Runs if condition is false
+      depends_on: [Check.else] # Runs if condition is false
 ```
 
 ### Loops (For/ForEach)
+
 ```yaml
 steps:
   - for_each:
@@ -65,7 +71,7 @@ steps:
 
   - js:
       name: ProcessItem
-      depends_on: [Loop.loop]   # Runs for each iteration
+      depends_on: [Loop.loop] # Runs for each iteration
 ```
 
 ## Supported Steps

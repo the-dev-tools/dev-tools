@@ -279,7 +279,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	}
 
 	// Start the runner
-	go runnerInst.Run(subCtx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
+	go func() {
+		if err := runnerInst.Run(subCtx, flowNodeStatusChan, flowStatusChan, flowVarsMap); err != nil {
+			slog.Error("flow runner failed", "error", err)
+		}
+	}()
 
 	// Collect results
 	nodeResults := make([]NodeRunResult, 0)
