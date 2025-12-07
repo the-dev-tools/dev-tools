@@ -143,10 +143,16 @@ func TestImport_DeltaBodyRaw(t *testing.T) {
 	// Let's forcefully create a workspace using raw SQL if possible or just assume test DB has FKs disabled?
 	// `sqlitemem` usually enables FKs.
 	// I'll try to insert a dummy workspace if I can.
-	_, err = db.ExecContext(ctx, "INSERT INTO workspace (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)", wsID, "Test WS", 0, 0)
+	// Insert dummy workspace to satisfy potential FK constraints
+	err = queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams{
+		ID:      wsID,
+		Name:    "Test WS",
+		Updated: 0,
+	})
+	// Ignore duplicate key errors if any, though likely not needed with fresh DB
 	if err != nil {
-		// If table doesn't exist (unlikely), ignore. If it does and fails, we'll see.
-		// Ignoring error for now, hoping FKs are satisfied or ignored.
+		// Just log it, don't fail, similar to original intent but cleaner
+		t.Logf("Failed to create workspace (might already exist?): %v", err)
 	}
 
 	// 3. Import
