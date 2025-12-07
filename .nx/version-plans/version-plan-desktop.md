@@ -1,5 +1,5 @@
 ---
-cli: minor
+desktop: minor
 ---
 
 Bump minor version
