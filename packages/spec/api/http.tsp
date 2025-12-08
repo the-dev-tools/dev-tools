@@ -94,6 +94,8 @@ model HttpAssert {
   @primaryKey httpAssertId: Id;
   @foreignKey httpId: Id;
   value: string;
+  enabled: boolean;
+  order: float32;
 }
 
 @TanStackDB.collection(#{ isReadOnly: true })

@@ -16,7 +16,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { useDeltaState } from '~/utils/delta';
-import { AssertPanel } from './assert';
+import { AssertTable } from './assert';
 import { BodyPanel } from './body/panel';
 import { HeaderTable } from './header';
 import { SearchParamTable } from './search-param';
@@ -186,7 +186,7 @@ export const HttpRequestPanel = ({ className, deltaHttpId, httpId, isReadOnly = 
         </TabPanel>
 
         <TabPanel id='assertions'>
-          <AssertPanel deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+          <AssertTable deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
         </TabPanel>
       </Suspense>
     </Tabs>
