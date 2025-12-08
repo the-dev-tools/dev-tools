@@ -117,15 +117,7 @@ func (s VarService) Create(ctx context.Context, variable mvar.Var) error {
 	}
 
 	dbVar := ConvertToDBVar(variable)
-	return s.queries.CreateVariable(ctx, gen.CreateVariableParams{
-		ID:           dbVar.ID,
-		EnvID:        dbVar.EnvID,
-		VarKey:       dbVar.VarKey,
-		Value:        dbVar.Value,
-		Enabled:      dbVar.Enabled,
-		Description:  dbVar.Description,
-		DisplayOrder: dbVar.DisplayOrder,
-	})
+	return s.queries.CreateVariable(ctx, gen.CreateVariableParams(dbVar))
 }
 
 func (s VarService) Update(ctx context.Context, variable *mvar.Var) error {
@@ -161,15 +153,7 @@ func (s VarService) Upsert(ctx context.Context, variable mvar.Var) error {
 	}
 
 	dbVar := ConvertToDBVar(variable)
-	return s.queries.UpsertVariable(ctx, gen.UpsertVariableParams{
-		ID:           dbVar.ID,
-		EnvID:        dbVar.EnvID,
-		VarKey:       dbVar.VarKey,
-		Value:        dbVar.Value,
-		Enabled:      dbVar.Enabled,
-		Description:  dbVar.Description,
-		DisplayOrder: dbVar.DisplayOrder,
-	})
+	return s.queries.UpsertVariable(ctx, gen.UpsertVariableParams(dbVar))
 }
 
 func (s VarService) Delete(ctx context.Context, id idwrap.IDWrap) error {

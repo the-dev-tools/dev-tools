@@ -89,11 +89,7 @@ func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnreques
 	if !ok {
 		return nil
 	}
-	return nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams{
-		FlowNodeID:  nodeHTTP.FlowNodeID,
-		HttpID:      nodeHTTP.HttpID,
-		DeltaHttpID: nodeHTTP.DeltaHttpID,
-	})
+	return nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams(nodeHTTP))
 }
 
 func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nodes []mnrequest.MNRequest) error {
@@ -103,11 +99,7 @@ func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nodes [
 			continue
 		}
 
-		if err := nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams{
-			FlowNodeID:  nodeHTTP.FlowNodeID,
-			HttpID:      nodeHTTP.HttpID,
-			DeltaHttpID: nodeHTTP.DeltaHttpID,
-		}); err != nil {
+		if err := nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams(nodeHTTP)); err != nil {
 			return err
 		}
 	}
@@ -123,11 +115,7 @@ func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnreques
 		}
 		return nil
 	}
-	return nrs.queries.UpdateFlowNodeHTTP(ctx, gen.UpdateFlowNodeHTTPParams{
-		HttpID:      nodeHTTP.HttpID,
-		DeltaHttpID: nodeHTTP.DeltaHttpID,
-		FlowNodeID:  nodeHTTP.FlowNodeID,
-	})
+	return nrs.queries.UpdateFlowNodeHTTP(ctx, gen.UpdateFlowNodeHTTPParams(nodeHTTP))
 }
 
 func (nrs NodeRequestService) DeleteNodeRequest(ctx context.Context, id idwrap.IDWrap) error {

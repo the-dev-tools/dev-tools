@@ -118,14 +118,7 @@ func (s EnvironmentService) CreateEnvironment(ctx context.Context, env *menv.Env
 	}
 
 	dbEnv := ConvertToDBEnv(*env)
-	return s.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams{
-		ID:           dbEnv.ID,
-		WorkspaceID:  dbEnv.WorkspaceID,
-		Type:         dbEnv.Type,
-		Name:         dbEnv.Name,
-		Description:  dbEnv.Description,
-		DisplayOrder: dbEnv.DisplayOrder,
-	})
+	return s.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams(dbEnv))
 }
 
 func (s EnvironmentService) UpdateEnvironment(ctx context.Context, env *menv.Env) error {

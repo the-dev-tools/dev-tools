@@ -75,16 +75,7 @@ func (hrs HttpResponseService) TX(tx *sql.Tx) HttpResponseService {
 
 func (hrs HttpResponseService) Create(ctx context.Context, response mhttp.HTTPResponse) error {
 	dbResponse := ConvertToDBHttpResponse(response)
-	return hrs.queries.CreateHTTPResponse(ctx, gen.CreateHTTPResponseParams{
-		ID:        dbResponse.ID,
-		HttpID:    dbResponse.HttpID,
-		Status:    dbResponse.Status,
-		Body:      dbResponse.Body,
-		Time:      dbResponse.Time,
-		Duration:  dbResponse.Duration,
-		Size:      dbResponse.Size,
-		CreatedAt: dbResponse.CreatedAt,
-	})
+	return hrs.queries.CreateHTTPResponse(ctx, gen.CreateHTTPResponseParams(dbResponse))
 }
 
 func (hrs HttpResponseService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponse, error) {

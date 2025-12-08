@@ -71,12 +71,7 @@ func (s *TagService) GetTagByWorkspace(ctx context.Context, id idwrap.IDWrap) ([
 
 func (s *TagService) CreateTag(ctx context.Context, ftag mtag.Tag) error {
 	arg := ConvertModelToDB(ftag)
-	err := s.queries.CreateTag(ctx, gen.CreateTagParams{
-		ID:          arg.ID,
-		WorkspaceID: arg.WorkspaceID,
-		Name:        arg.Name,
-		Color:       arg.Color,
-	})
+	err := s.queries.CreateTag(ctx, gen.CreateTagParams(arg))
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
 }
 

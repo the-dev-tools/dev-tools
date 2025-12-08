@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	neturl "net/url"
 	"strings"
 	"syscall"
 )
@@ -143,7 +142,7 @@ func Map(err error) error {
 		// Timeout via url.Error implements Timeout through net.Error
 		var t net.Error
 		if errors.As(uerr.Err, &t) && t.Timeout() {
-			return &Error{Code: CodeTimeout, Temporary: t.Temporary(), Retryable: true, cause: err}
+			return &Error{Code: CodeTimeout, Temporary: false, Retryable: true, cause: err}
 		}
 		// Invalid URL
 		lower := strings.ToLower(uerr.Error())
@@ -167,7 +166,7 @@ func Map(err error) error {
 	var nerr net.Error
 	if errors.As(err, &nerr) {
 		if nerr.Timeout() {
-			return &Error{Code: CodeTimeout, Temporary: nerr.Temporary(), Retryable: true, cause: nerr}
+			return &Error{Code: CodeTimeout, Temporary: false, Retryable: true, cause: nerr}
 		}
 	}
 
@@ -225,7 +224,7 @@ func isInvalidURLMessage(message string, cause error) bool {
 		return true
 	}
 
-	var parseErr *neturl.Error
+	var parseErr *url.Error
 	if errors.As(cause, &parseErr) {
 		inner := strings.ToLower(parseErr.Error())
 		if strings.Contains(inner, "invalid url") || strings.Contains(inner, "invalid uri") || strings.Contains(inner, "malformed url") {
@@ -305,7 +304,7 @@ func Friendly(err error) string {
 	switch me.Code {
 	case CodeUnsupportedScheme:
 		scheme := ""
-		if u, perr := neturl.Parse(urlStr); perr == nil {
+		if u, perr := url.Parse(urlStr); perr == nil {
 			scheme = u.Scheme
 		} else if i := strings.Index(urlStr, "://"); i > 0 {
 			scheme = urlStr[:i]
@@ -336,7 +335,7 @@ func Friendly(err error) string {
 	case CodeDNSError:
 		// Try to extract hostname for a clearer message
 		host := ""
-		if u, perr := neturl.Parse(urlStr); perr == nil {
+		if u, perr := url.Parse(urlStr); perr == nil {
 			host = u.Hostname()
 		}
 		if host != "" {

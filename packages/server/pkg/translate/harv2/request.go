@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -223,12 +226,12 @@ func generateRequestName(method string, parsedURL *url.URL) string {
 	if len(meaningfulSegments) == 0 {
 		host := strings.Replace(parsedURL.Hostname(), "www.", "", 1)
 		host = strings.ReplaceAll(host, ".", " ")
-		return fmt.Sprintf("%s %s", method, strings.Title(host))
+		return fmt.Sprintf("%s %s", method, cases.Title(language.English).String(host))
 	}
 
 	// Build final name
 	pathName := strings.Join(meaningfulSegments, " ")
-	return fmt.Sprintf("%s %s", method, strings.Title(strings.ReplaceAll(pathName, "-", " ")))
+	return fmt.Sprintf("%s %s", method, cases.Title(language.English).String(strings.ReplaceAll(pathName, "-", " ")))
 }
 
 // isNumericSegment checks if a URL segment is purely numeric (likely an ID)

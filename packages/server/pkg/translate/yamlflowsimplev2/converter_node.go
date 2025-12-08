@@ -48,7 +48,7 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 	for i, stepWrapper := range steps {
 		var nodeName string
 		var dependsOn []string
-		var nodeID idwrap.IDWrap = idwrap.NewNow()
+		var nodeID = idwrap.NewNow()
 		var info *nodeInfo
 
 		switch {

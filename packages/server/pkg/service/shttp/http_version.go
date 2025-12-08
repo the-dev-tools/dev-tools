@@ -38,15 +38,7 @@ func (hs HTTPService) CreateHttpVersion(ctx context.Context, httpID, createdBy i
 		CreatedBy:          &createdBy,
 	}
 
-	err := hs.queries.CreateHttpVersion(ctx, gen.CreateHttpVersionParams{
-		ID:                 version.ID,
-		HttpID:             version.HttpID,
-		VersionName:        version.VersionName,
-		VersionDescription: version.VersionDescription,
-		IsActive:           version.IsActive,
-		CreatedAt:          version.CreatedAt,
-		CreatedBy:          version.CreatedBy,
-	})
+	err := hs.queries.CreateHttpVersion(ctx, gen.CreateHttpVersionParams(version))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http version: %w", err)
 	}

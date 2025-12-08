@@ -231,10 +231,6 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 				existingDelta.DeltaUrl = &urlStr
 			}
 		}
-		if item.BodyKind != nil {
-			// Note: BodyKind is not currently in the mhttp.HTTP model delta fields
-			// This would need to be added to the model and database schema if needed
-		}
 	}
 
 	// Step 3: Execute updates in transaction

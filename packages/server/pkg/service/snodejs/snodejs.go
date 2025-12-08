@@ -61,11 +61,7 @@ func (nfs NodeJSService) GetNodeJS(ctx context.Context, id idwrap.IDWrap) (mnjs.
 
 func (nfs NodeJSService) CreateNodeJS(ctx context.Context, mn mnjs.MNJS) error {
 	nodeJS := ConvertModelToDB(mn)
-	return nfs.queries.CreateFlowNodeJs(ctx, gen.CreateFlowNodeJsParams{
-		FlowNodeID:       nodeJS.FlowNodeID,
-		Code:             nodeJS.Code,
-		CodeCompressType: nodeJS.CodeCompressType,
-	})
+	return nfs.queries.CreateFlowNodeJs(ctx, gen.CreateFlowNodeJsParams(nodeJS))
 }
 
 func (nfs NodeJSService) CreateNodeJSBulk(ctx context.Context, jsNodes []mnjs.MNJS) error {

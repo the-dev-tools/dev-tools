@@ -65,19 +65,13 @@ func (nfs NodeNoopService) GetNodesByFlowID(ctx context.Context, flowID idwrap.I
 
 func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
 	convertedNode := ConvertToDBNodeStart(nf)
-	return nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams{
-		FlowNodeID: convertedNode.FlowNodeID,
-		NodeType:   convertedNode.NodeType,
-	})
+	return nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams(convertedNode))
 }
 
 func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.NoopNode) error {
 	for _, n := range nf {
 		convertedNode := ConvertToDBNodeStart(n)
-		err := nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams{
-			FlowNodeID: convertedNode.FlowNodeID,
-			NodeType:   convertedNode.NodeType,
-		})
+		err := nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams(convertedNode))
 		if err != nil {
 			return err
 		}

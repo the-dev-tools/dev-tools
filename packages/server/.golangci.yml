@@ -18,8 +18,8 @@ linters:
     - gocritic
     - revive
     - errcheck
-  disable:
     - staticcheck
+  disable:
     - unused
 
 linters-settings:

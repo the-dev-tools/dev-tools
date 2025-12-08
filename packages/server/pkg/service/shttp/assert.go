@@ -30,22 +30,7 @@ func (s *HttpAssertService) TX(tx *sql.Tx) *HttpAssertService {
 
 func (s *HttpAssertService) Create(ctx context.Context, assert *mhttp.HTTPAssert) error {
 	af := SerializeAssertModelToGen(*assert)
-	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
-		ID:                 af.ID,
-		HttpID:             af.HttpID,
-		Value:              af.Value,
-		Description:        af.Description,
-		Enabled:            af.Enabled,
-		Order:              af.Order,
-		ParentHttpAssertID: af.ParentHttpAssertID,
-		IsDelta:            af.IsDelta,
-		DeltaValue:         af.DeltaValue,
-		DeltaEnabled:       af.DeltaEnabled,
-		DeltaDescription:   af.DeltaDescription,
-		DeltaOrder:         af.DeltaOrder,
-		CreatedAt:          af.CreatedAt,
-		UpdatedAt:          af.UpdatedAt,
-	})
+	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams(af))
 }
 
 func (s *HttpAssertService) CreateBulk(ctx context.Context, asserts []mhttp.HTTPAssert) error {
@@ -65,22 +50,7 @@ func (s *HttpAssertService) CreateBulk(ctx context.Context, asserts []mhttp.HTTP
 }
 
 func (s *HttpAssertService) createRaw(ctx context.Context, af gen.HttpAssert) error {
-	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
-		ID:                 af.ID,
-		HttpID:             af.HttpID,
-		Value:              af.Value,
-		Description:        af.Description,
-		Enabled:            af.Enabled,
-		Order:              af.Order,
-		ParentHttpAssertID: af.ParentHttpAssertID,
-		IsDelta:            af.IsDelta,
-		DeltaValue:         af.DeltaValue,
-		DeltaEnabled:       af.DeltaEnabled,
-		DeltaDescription:   af.DeltaDescription,
-		DeltaOrder:         af.DeltaOrder,
-		CreatedAt:          af.CreatedAt,
-		UpdatedAt:          af.UpdatedAt,
-	})
+	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams(af))
 }
 
 func (s *HttpAssertService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPAssert, error) {

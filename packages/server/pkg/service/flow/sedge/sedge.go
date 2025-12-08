@@ -72,14 +72,7 @@ func (es EdgeService) GetEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 
 func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) error {
 	edge := ConvertToDBEdge(e)
-	return es.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
-		ID:           edge.ID,
-		FlowID:       edge.FlowID,
-		SourceID:     edge.SourceID,
-		TargetID:     edge.TargetID,
-		SourceHandle: edge.SourceHandle,
-		EdgeKind:     edge.EdgeKind,
-	})
+	return es.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams(edge))
 }
 
 func (es EdgeService) CreateEdgeBulk(ctx context.Context, edges []edge.Edge) error {

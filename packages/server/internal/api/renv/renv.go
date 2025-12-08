@@ -372,7 +372,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if envUpdate.WorkspaceId != nil && len(envUpdate.WorkspaceId) > 0 {
+		if len(envUpdate.WorkspaceId) > 0 {
 			newWorkspaceID, err := idwrap.NewFromBytes(envUpdate.WorkspaceId)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -725,7 +725,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if item.EnvironmentId != nil && len(item.EnvironmentId) > 0 {
+		if len(item.EnvironmentId) > 0 {
 			newEnvID, err := idwrap.NewFromBytes(item.EnvironmentId)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)

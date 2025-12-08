@@ -64,11 +64,7 @@ func (s *FlowTagService) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.ID
 
 func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mflowtag.FlowTag) error {
 	arg := ConvertModelToDB(ftag)
-	err := s.queries.CreateFlowTag(ctx, gen.CreateFlowTagParams{
-		ID:     arg.ID,
-		FlowID: arg.FlowID,
-		TagID:  arg.TagID,
-	})
+	err := s.queries.CreateFlowTag(ctx, gen.CreateFlowTagParams(arg))
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowTag, err)
 }
 

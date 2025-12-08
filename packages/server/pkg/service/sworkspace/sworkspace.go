@@ -77,16 +77,7 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) error {
 	dbWorkspace := ConvertToDBWorkspace(*w)
 
-	err := ws.queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams{
-		ID:              dbWorkspace.ID,
-		Name:            dbWorkspace.Name,
-		Updated:         dbWorkspace.Updated,
-		CollectionCount: dbWorkspace.CollectionCount,
-		FlowCount:       dbWorkspace.FlowCount,
-		ActiveEnv:       dbWorkspace.ActiveEnv,
-		GlobalEnv:       dbWorkspace.GlobalEnv,
-		DisplayOrder:    dbWorkspace.DisplayOrder,
-	})
+	err := ws.queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams(dbWorkspace))
 	if err != nil {
 		return err
 	}

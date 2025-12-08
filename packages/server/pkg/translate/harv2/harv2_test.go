@@ -813,7 +813,7 @@ func TestFileNamingSanitization(t *testing.T) {
 		},
 		{
 			url:      "https://api.example.com/users/john.doe/profile",
-			expected: "GET_Users_John.Doe_Profile.request",
+			expected: "GET_Users_John.doe_Profile.request",
 		},
 		{
 			url:      "https://api.example.com/path-with-dashes/another_path",

@@ -103,24 +103,7 @@ func (h HttpHeaderService) Create(ctx context.Context, header *mhttp.HTTPHeader)
 	header.UpdatedAt = now
 
 	dbHeader := SerializeHeaderModelToGen(*header)
-	return h.queries.CreateHTTPHeader(ctx, gen.CreateHTTPHeaderParams{
-		ID:                dbHeader.ID,
-		HttpID:            dbHeader.HttpID,
-		HeaderKey:         dbHeader.HeaderKey,
-		HeaderValue:       dbHeader.HeaderValue,
-		Description:       dbHeader.Description,
-		Enabled:           dbHeader.Enabled,
-		ParentHeaderID:    dbHeader.ParentHeaderID,
-		IsDelta:           dbHeader.IsDelta,
-		DeltaHeaderKey:    dbHeader.DeltaHeaderKey,
-		DeltaHeaderValue:  dbHeader.DeltaHeaderValue,
-		DeltaDescription:  dbHeader.DeltaDescription,
-		DeltaEnabled:      dbHeader.DeltaEnabled,
-		DeltaDisplayOrder: dbHeader.DeltaDisplayOrder,
-		DisplayOrder:      dbHeader.DisplayOrder,
-		CreatedAt:         dbHeader.CreatedAt,
-		UpdatedAt:         dbHeader.UpdatedAt,
-	})
+	return h.queries.CreateHTTPHeader(ctx, gen.CreateHTTPHeaderParams(dbHeader))
 }
 
 func (h HttpHeaderService) CreateBulk(ctx context.Context, httpID idwrap.IDWrap, headers []mhttp.HTTPHeader) error {

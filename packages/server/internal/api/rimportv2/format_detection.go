@@ -1,6 +1,7 @@
-//nolint:revive // exported
 // Package rimportv2 provides a modern unified import service with TypeSpec compliance.
 // It implements automatic format detection and supports multiple import formats.
+//
+//nolint:revive // exported
 package rimportv2
 
 import (
@@ -522,7 +523,7 @@ func (fd *FormatDetector) validatePostman(data []byte) error {
 	}
 
 	if postman.Info.Name == "" {
-		return fmt.Errorf("Postman collection missing name")
+		return fmt.Errorf("postman collection missing name")
 	}
 
 	if !strings.Contains(postman.Info.Schema, "postman.com") {

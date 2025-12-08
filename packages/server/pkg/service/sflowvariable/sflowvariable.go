@@ -84,15 +84,7 @@ func (s *FlowVariableService) GetFlowVariablesByFlowID(ctx context.Context, flow
 
 func (s *FlowVariableService) CreateFlowVariable(ctx context.Context, item mflowvariable.FlowVariable) error {
 	arg := ConvertModelToDB(item)
-	err := s.queries.CreateFlowVariable(ctx, gen.CreateFlowVariableParams{
-		ID:           arg.ID,
-		FlowID:       arg.FlowID,
-		Key:          arg.Key,
-		Value:        arg.Value,
-		Enabled:      arg.Enabled,
-		Description:  arg.Description,
-		DisplayOrder: arg.DisplayOrder,
-	})
+	err := s.queries.CreateFlowVariable(ctx, gen.CreateFlowVariableParams(arg))
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
 }
 
@@ -320,7 +312,7 @@ func (s *FlowVariableService) MoveFlowVariableAfterTX(ctx context.Context, tx *s
 	}
 
 	// Find positions of source and target variables
-	var sourcePos, targetPos int = -1, -1
+	var sourcePos, targetPos = -1, -1
 	for i, v := range variables {
 		if v.ID.Compare(variableID) == 0 {
 			sourcePos = i
@@ -393,7 +385,7 @@ func (s *FlowVariableService) MoveFlowVariableBeforeTX(ctx context.Context, tx *
 	}
 
 	// Find positions of source and target variables
-	var sourcePos, targetPos int = -1, -1
+	var sourcePos, targetPos = -1, -1
 	for i, v := range variables {
 		if v.ID.Compare(variableID) == 0 {
 			sourcePos = i

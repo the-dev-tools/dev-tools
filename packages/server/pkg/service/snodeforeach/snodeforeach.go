@@ -68,12 +68,7 @@ func (nfs NodeForEachService) GetNodeForEach(ctx context.Context, id idwrap.IDWr
 
 func (nfs NodeForEachService) CreateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
 	nodeForEach := ConvertToDBNodeFor(nf)
-	return nfs.queries.CreateFlowNodeForEach(ctx, gen.CreateFlowNodeForEachParams{
-		FlowNodeID:     nodeForEach.FlowNodeID,
-		IterExpression: nodeForEach.IterExpression,
-		ErrorHandling:  nodeForEach.ErrorHandling,
-		Expression:     nodeForEach.Expression,
-	})
+	return nfs.queries.CreateFlowNodeForEach(ctx, gen.CreateFlowNodeForEachParams(nodeForEach))
 }
 
 func (nfs NodeForEachService) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mnforeach.MNForEach) error {

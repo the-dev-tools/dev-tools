@@ -163,9 +163,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 			if netErr.Timeout() {
 				return connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("request timeout: %w", err))
 			}
-			if netErr.Temporary() {
-				return connect.NewError(connect.CodeUnavailable, fmt.Errorf("temporary network error: %w", err))
-			}
+			// Note: Temporary() is deprecated since Go 1.18 - treating temporary network errors as unavailable without checking
+			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("network error: %w", err))
 		}
 
 		// Handle DNS resolution errors

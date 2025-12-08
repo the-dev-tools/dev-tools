@@ -56,7 +56,7 @@ func containsSubstring(s, substr string) bool {
 
 // bytesToIDWrap converts []byte to *idwrap.IDWrap safely
 func bytesToIDWrap(b []byte) *idwrap.IDWrap {
-	if b == nil || len(b) == 0 {
+	if len(b) == 0 {
 		return nil
 	}
 	id, err := idwrap.NewFromBytes(b)

@@ -164,26 +164,7 @@ func (hs HTTPService) Create(ctx context.Context, http *mhttp.HTTP) error {
 	http.UpdatedAt = now.Unix()
 
 	dbHttp := ConvertToDBHTTP(*http)
-	return hs.queries.CreateHTTP(ctx, gen.CreateHTTPParams{
-		ID:               dbHttp.ID,
-		WorkspaceID:      dbHttp.WorkspaceID,
-		FolderID:         dbHttp.FolderID,
-		Name:             dbHttp.Name,
-		Url:              dbHttp.Url,
-		Method:           dbHttp.Method,
-		BodyKind:         dbHttp.BodyKind,
-		Description:      dbHttp.Description,
-		ParentHttpID:     dbHttp.ParentHttpID,
-		IsDelta:          dbHttp.IsDelta,
-		DeltaName:        dbHttp.DeltaName,
-		DeltaUrl:         dbHttp.DeltaUrl,
-		DeltaMethod:      dbHttp.DeltaMethod,
-		DeltaBodyKind:    dbHttp.DeltaBodyKind,
-		DeltaDescription: dbHttp.DeltaDescription,
-		LastRunAt:        dbHttp.LastRunAt,
-		CreatedAt:        dbHttp.CreatedAt,
-		UpdatedAt:        dbHttp.UpdatedAt,
-	})
+	return hs.queries.CreateHTTP(ctx, gen.CreateHTTPParams(dbHttp))
 }
 
 func (hs HTTPService) Upsert(ctx context.Context, http *mhttp.HTTP) error {

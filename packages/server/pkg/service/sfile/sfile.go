@@ -219,16 +219,7 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 	file.UpdatedAt = time.Now()
 
 	dbFile := ConvertToDBFile(*file)
-	err := s.queries.CreateFile(ctx, gen.CreateFileParams{
-		ID:           dbFile.ID,
-		WorkspaceID:  dbFile.WorkspaceID,
-		ParentID:     dbFile.ParentID,
-		ContentID:    dbFile.ContentID,
-		ContentKind:  dbFile.ContentKind,
-		Name:         dbFile.Name,
-		DisplayOrder: dbFile.DisplayOrder,
-		UpdatedAt:    dbFile.UpdatedAt,
-	})
+	err := s.queries.CreateFile(ctx, gen.CreateFileParams(dbFile))
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}

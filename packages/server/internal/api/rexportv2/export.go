@@ -36,19 +36,19 @@ type Validator interface {
 
 // SimpleExporter implements the Exporter interface using modern services
 type SimpleExporter struct {
-	httpService       *shttp.HTTPService
-	flowService       *sflow.FlowService
-	fileService       *sfile.FileService
+	httpService        *shttp.HTTPService
+	flowService        *sflow.FlowService
+	fileService        *sfile.FileService
 	ioWorkspaceService *ioworkspace.IOWorkspaceService
-	storage           Storage
+	storage            Storage
 }
 
 // NewExporter creates a new SimpleExporter
 func NewExporter(httpService *shttp.HTTPService, flowService *sflow.FlowService, fileService *sfile.FileService, ioWorkspaceService *ioworkspace.IOWorkspaceService) *SimpleExporter {
 	return &SimpleExporter{
-		httpService:       httpService,
-		flowService:       flowService,
-		fileService:       fileService,
+		httpService:        httpService,
+		flowService:        flowService,
+		fileService:        fileService,
 		ioWorkspaceService: ioWorkspaceService,
 	}
 }
@@ -146,7 +146,7 @@ func (e *SimpleExporter) ExportToCurl(ctx context.Context, data *WorkspaceExport
 		cmd.WriteString(fmt.Sprintf("curl -X %s '%s'", httpReq.Method, httpReq.Url))
 
 		// Add headers if present
-		if httpReq.Headers != nil && len(httpReq.Headers) > 0 {
+		if len(httpReq.Headers) > 0 {
 			for key, values := range httpReq.Headers {
 				for _, value := range values {
 					cmd.WriteString(fmt.Sprintf(" -H \"%s: %s\"", key, value))

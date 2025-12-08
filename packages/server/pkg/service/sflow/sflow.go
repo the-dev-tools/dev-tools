@@ -91,14 +91,7 @@ func (s *FlowService) GetFlowsByVersionParentID(ctx context.Context, versionPare
 
 func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 	arg := ConvertModelToDB(item)
-	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{
-		ID:              arg.ID,
-		WorkspaceID:     arg.WorkspaceID,
-		VersionParentID: arg.VersionParentID,
-		Name:            arg.Name,
-		Duration:        arg.Duration,
-		Running:         arg.Running,
-	})
+	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams(arg))
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 }
 
