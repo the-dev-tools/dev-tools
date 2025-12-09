@@ -27,6 +27,7 @@ linters:
     - rowserrcheck
     - nilerr
     - makezero
+    - wastedassign
   disable: []
   settings:
     importas:
