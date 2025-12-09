@@ -1,16 +1,21 @@
 //nolint:revive // exported
 package movable
 
+const (
+	TypeUnspecified = "unspecified"
+	TypeVariables   = "variables"
+)
+
 // CollectionListType represents different list types within collections
 type CollectionListType int
 
 const (
 	CollectionListTypeUnspecified CollectionListType = iota
-	CollectionListTypeFolders         // Folders within a collection
-	CollectionListTypeEndpoints       // Endpoints within a folder
-	CollectionListTypeExamples        // Examples within an endpoint
-	CollectionListTypeCollections     // Collections within a workspace
-	CollectionListTypeItems           // Mixed folders and endpoints within a collection/folder
+	CollectionListTypeFolders                        // Folders within a collection
+	CollectionListTypeEndpoints                      // Endpoints within a folder
+	CollectionListTypeExamples                       // Examples within an endpoint
+	CollectionListTypeCollections                    // Collections within a workspace
+	CollectionListTypeItems                          // Mixed folders and endpoints within a collection/folder
 )
 
 func (c CollectionListType) String() string {
@@ -26,7 +31,7 @@ func (c CollectionListType) String() string {
 	case CollectionListTypeItems:
 		return "items"
 	default:
-		return "unspecified"
+		return TypeUnspecified
 	}
 }
 
@@ -38,15 +43,15 @@ func (c CollectionListType) Value() int {
 type RequestListType int
 
 const (
-	RequestListTypeUnspecified RequestListType = iota
-	RequestListTypeHeaders          // HTTP headers
-	RequestListTypeHeadersDeltas    // Header deltas
-	RequestListTypeQueries          // Query parameters
-	RequestListTypeQueriesDeltas    // Query parameter deltas
-	RequestListTypeBodyForm         // Form body fields
-	RequestListTypeBodyFormDeltas   // Form body field deltas
-	RequestListTypeBodyUrlEncoded   // URL-encoded body fields
-	RequestListTypeBodyUrlEncodedDeltas // URL-encoded body field deltas
+	RequestListTypeUnspecified          RequestListType = iota
+	RequestListTypeHeaders                              // HTTP headers
+	RequestListTypeHeadersDeltas                        // Header deltas
+	RequestListTypeQueries                              // Query parameters
+	RequestListTypeQueriesDeltas                        // Query parameter deltas
+	RequestListTypeBodyForm                             // Form body fields
+	RequestListTypeBodyFormDeltas                       // Form body field deltas
+	RequestListTypeBodyUrlEncoded                       // URL-encoded body fields
+	RequestListTypeBodyUrlEncodedDeltas                 // URL-encoded body field deltas
 )
 
 func (r RequestListType) String() string {
@@ -68,7 +73,7 @@ func (r RequestListType) String() string {
 	case RequestListTypeBodyUrlEncodedDeltas:
 		return "body_url_encoded_deltas"
 	default:
-		return "unspecified"
+		return TypeUnspecified
 	}
 }
 
@@ -81,9 +86,9 @@ type FlowListType int
 
 const (
 	FlowListTypeUnspecified FlowListType = iota
-	FlowListTypeNodes       // Flow nodes within a flow
-	FlowListTypeEdges       // Flow edges within a flow
-	FlowListTypeVariables   // Flow variables within a flow
+	FlowListTypeNodes                    // Flow nodes within a flow
+	FlowListTypeEdges                    // Flow edges within a flow
+	FlowListTypeVariables                // Flow variables within a flow
 )
 
 func (f FlowListType) String() string {
@@ -93,9 +98,9 @@ func (f FlowListType) String() string {
 	case FlowListTypeEdges:
 		return "edges"
 	case FlowListTypeVariables:
-		return "variables"
+		return TypeVariables
 	default:
-		return "unspecified"
+		return TypeUnspecified
 	}
 }
 
@@ -107,11 +112,11 @@ func (f FlowListType) Value() int {
 type WorkspaceListType int
 
 const (
-	WorkspaceListTypeUnspecified WorkspaceListType = iota
-	WorkspaceListTypeWorkspaces    // Workspaces (if hierarchical)
-	WorkspaceListTypeEnvironments  // Environments within a workspace
-	WorkspaceListTypeVariables     // Global variables within a workspace
-	WorkspaceListTypeTags          // Tags within a workspace
+	WorkspaceListTypeUnspecified  WorkspaceListType = iota
+	WorkspaceListTypeWorkspaces                     // Workspaces (if hierarchical)
+	WorkspaceListTypeEnvironments                   // Environments within a workspace
+	WorkspaceListTypeVariables                      // Global variables within a workspace
+	WorkspaceListTypeTags                           // Tags within a workspace
 )
 
 func (w WorkspaceListType) String() string {
@@ -121,11 +126,11 @@ func (w WorkspaceListType) String() string {
 	case WorkspaceListTypeEnvironments:
 		return "environments"
 	case WorkspaceListTypeVariables:
-		return "variables"
+		return TypeVariables
 	case WorkspaceListTypeTags:
 		return "tags"
 	default:
-		return "unspecified"
+		return TypeUnspecified
 	}
 }
 
@@ -148,7 +153,7 @@ func GetListTypeFromString(listTypeStr string) ListType {
 	case "items":
 		return CollectionListTypeItems
 	}
-	
+
 	// Request list types
 	switch listTypeStr {
 	case "headers":
@@ -168,28 +173,28 @@ func GetListTypeFromString(listTypeStr string) ListType {
 	case "body_url_encoded_deltas":
 		return RequestListTypeBodyUrlEncodedDeltas
 	}
-	
+
 	// Flow list types
 	switch listTypeStr {
 	case "nodes":
 		return FlowListTypeNodes
 	case "edges":
 		return FlowListTypeEdges
-	case "variables":
+	case TypeVariables:
 		return FlowListTypeVariables
 	}
-	
+
 	// Workspace list types
 	switch listTypeStr {
 	case "workspaces":
 		return WorkspaceListTypeWorkspaces
 	case "environments":
 		return WorkspaceListTypeEnvironments
-	case "variables":
+	case TypeVariables:
 		return WorkspaceListTypeVariables
 	case "tags":
 		return WorkspaceListTypeTags
 	}
-	
+
 	return nil
 }

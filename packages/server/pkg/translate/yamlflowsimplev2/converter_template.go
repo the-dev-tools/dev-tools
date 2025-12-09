@@ -81,7 +81,7 @@ func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOp
 	}
 
 	switch strings.ToLower(body.Type) {
-	case "form-data":
+	case BodyTypeFormData:
 		bodyKind = mhttp.HttpBodyKindFormData
 		for _, form := range body.Form {
 			bodyForms = append(bodyForms, mhttp.HTTPBodyForm{
@@ -92,7 +92,7 @@ func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOp
 				Enabled: form.Enabled,
 			})
 		}
-	case "urlencoded":
+	case BodyTypeUrlEncoded:
 		bodyKind = mhttp.HttpBodyKindUrlEncoded
 		for _, urlEncoded := range body.UrlEncoded {
 			bodyUrlencoded = append(bodyUrlencoded, mhttp.HTTPBodyUrlencoded{
@@ -103,14 +103,14 @@ func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOp
 				Enabled: urlEncoded.Enabled,
 			})
 		}
-	case "json":
+	case BodyTypeJSON:
 		bodyKind = mhttp.HttpBodyKindRaw
 		if body.JSON != nil {
 			jb, _ := json.Marshal(body.JSON)
 			bodyRaw.RawData = jb
 
 		}
-	case "raw":
+	case BodyTypeRaw:
 		bodyKind = mhttp.HttpBodyKindRaw
 		bodyRaw.RawData = []byte(body.Raw)
 	default:

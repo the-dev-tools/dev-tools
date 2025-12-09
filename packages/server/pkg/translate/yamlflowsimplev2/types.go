@@ -217,7 +217,7 @@ func (b *YamlBodyUnion) UnmarshalYAML(value *yaml.Node) error {
 	// check if simple string (raw)
 	var raw string
 	if err := value.Decode(&raw); err == nil {
-		b.Type = "raw"
+		b.Type = BodyTypeRaw
 		b.Raw = raw
 		return nil
 	}
@@ -230,13 +230,13 @@ func (b *YamlBodyUnion) UnmarshalYAML(value *yaml.Node) error {
 		if b.Type == "" {
 			switch {
 			case b.JSON != nil:
-				b.Type = "json"
+				b.Type = BodyTypeJSON
 			case len(b.Form) > 0:
-				b.Type = "form-data"
+				b.Type = BodyTypeFormData
 			case len(b.UrlEncoded) > 0:
-				b.Type = "urlencoded"
+				b.Type = BodyTypeUrlEncoded
 			default:
-				b.Type = "raw"
+				b.Type = BodyTypeRaw
 			}
 		}
 		return nil
@@ -245,7 +245,7 @@ func (b *YamlBodyUnion) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (b YamlBodyUnion) MarshalYAML() (interface{}, error) {
-	if b.Type == "raw" && b.JSON == nil && len(b.Form) == 0 && len(b.UrlEncoded) == 0 {
+	if b.Type == BodyTypeRaw && b.JSON == nil && len(b.Form) == 0 && len(b.UrlEncoded) == 0 {
 		return b.Raw, nil
 	}
 	type alias YamlBodyUnion

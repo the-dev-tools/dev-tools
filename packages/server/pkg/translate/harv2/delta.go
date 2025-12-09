@@ -6,6 +6,8 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 )
 
+const DescriptionImportedFromHAR = "Imported from HAR"
+
 // createDeltaVersion creates a delta version of an HTTP request.
 // Note: DeltaUrl, DeltaMethod, DeltaName, DeltaDescription are left nil by default.
 // They should only be set when there's an actual difference from the base request.
@@ -48,7 +50,7 @@ func CreateDeltaHeaders(originalHeaders []mhttp.HTTPHeader, newHeaders []mhttp.H
 		if !exists || original.Value != newHeader.Value {
 			deltaKey := newHeader.Key
 			deltaValue := newHeader.Value
-			deltaDesc := "Imported from HAR"
+			deltaDesc := DescriptionImportedFromHAR
 			deltaEnabled := true
 
 			// Prepare parent header ID - use zero value if no original
@@ -98,7 +100,7 @@ func CreateDeltaSearchParams(originalParams []mhttp.HTTPSearchParam, newParams [
 		if !exists || original.Value != newParam.Value {
 			deltaKey := newParam.Key
 			deltaValue := newParam.Value
-			deltaDesc := "Imported from HAR"
+			deltaDesc := DescriptionImportedFromHAR
 			deltaEnabled := true
 
 			// Prepare parent param ID - use zero value if no original
@@ -148,7 +150,7 @@ func CreateDeltaBodyForms(originalForms []mhttp.HTTPBodyForm, newForms []mhttp.H
 		if !exists || original.Value != newForm.Value {
 			deltaKey := newForm.Key
 			deltaValue := newForm.Value
-			deltaDesc := "Imported from HAR"
+			deltaDesc := DescriptionImportedFromHAR
 			deltaEnabled := true
 
 			// Prepare parent form ID - use zero value if no original
@@ -198,7 +200,7 @@ func CreateDeltaBodyUrlEncoded(originalEncoded []mhttp.HTTPBodyUrlencoded, newEn
 		if !exists || original.Value != newEncoded.Value {
 			deltaKey := newEncoded.Key
 			deltaValue := newEncoded.Value
-			deltaDesc := "Imported from HAR"
+			deltaDesc := DescriptionImportedFromHAR
 			deltaEnabled := true
 
 			// Prepare parent encoded param ID - use zero value if no original

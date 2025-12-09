@@ -16,6 +16,8 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 )
 
+const MethodGET = "GET"
+
 // CurlResolvedV2 contains the resolved HTTP request data using the new models
 type CurlResolvedV2 struct {
 	// Primary HTTP request
@@ -104,7 +106,7 @@ func ConvertCurl(curlStr string, opts ConvertCurlOptions) (*CurlResolvedV2, erro
 	bodyUrlencoded := extractBodyUrlencoded(normalizedCurl, httpID, &hasDataFlag)
 
 	// If no explicit method was provided but we have data flags, assume POST
-	if method == "GET" && hasDataFlag {
+	if method == MethodGET && hasDataFlag {
 		method = "POST"
 	}
 
@@ -170,7 +172,7 @@ func BuildCurl(resolved *CurlResolvedV2) (string, error) {
 
 	method := strings.ToUpper(strings.TrimSpace(resolved.HTTP.Method))
 	fullURL := buildURLWithSearchQueries(resolved.HTTP.Url, resolved.SearchParams)
-	methodRequiresFlag := method != "" && method != "GET"
+	methodRequiresFlag := method != "" && method != MethodGET
 
 	// Sort headers for consistent output
 	headers := make([]mhttp.HTTPHeader, len(resolved.Headers))
@@ -322,7 +324,7 @@ func extractMethod(curlStr string) string {
 			}
 		}
 	}
-	return "GET" // Default to GET if no method specified
+	return MethodGET // Default to GET if no method specified
 }
 
 func extractHeaders(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {

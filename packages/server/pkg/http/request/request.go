@@ -28,6 +28,22 @@ import (
 	"connectrpc.com/connect"
 )
 
+const (
+	HeaderContentEncoding = "Content-Encoding"
+	HeaderContentType     = "Content-Type"
+	EncodingGzip          = "gzip"
+	EncodingZstd          = "zstd"
+	EncodingDeflate       = "deflate"
+	EncodingIdentity      = "identity"
+	EncodingBr            = "br"
+	MimeOctetStream       = "application/octet-stream"
+	MimeJSON              = "application/json"
+	MimeXML               = "application/xml"
+	MimeTextPlain         = "text/plain"
+	MimeTextHTML          = "text/html"
+	MimeFormUrlEncoded    = "application/x-www-form-urlencoded"
+)
+
 // PrepareHTTPRequestResult holds the result of preparing a request with tracked variable usage
 type PrepareHTTPRequestResult struct {
 	Request  *httpclient.Request
@@ -109,15 +125,15 @@ func PrepareHTTPRequestWithTracking(
 	compressType := compress.CompressTypeNone
 	clientHeaders := make([]httpclient.Header, len(activeHeaders))
 	for i, header := range activeHeaders {
-		if header.Key == "Content-Encoding" {
+		if header.Key == HeaderContentEncoding {
 			switch strings.ToLower(header.Value) {
-			case "gzip":
+			case EncodingGzip:
 				compressType = compress.CompressTypeGzip
-			case "zstd":
+			case EncodingZstd:
 				compressType = compress.CompressTypeZstd
-			case "br":
+			case EncodingBr:
 				compressType = compress.CompressTypeBr
-			case "deflate", "identity":
+			case EncodingDeflate, EncodingIdentity:
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
 			default:
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
@@ -168,7 +184,7 @@ func PrepareHTTPRequestWithTracking(
 			if !hasContentTypeHeader(clientHeaders) {
 				if detectedType := detectContentType([]byte(bodyStr)); detectedType != "" {
 					clientHeaders = append(clientHeaders, httpclient.Header{
-						HeaderKey: "Content-Type",
+						HeaderKey: HeaderContentType,
 						Value:     detectedType,
 					})
 				}
@@ -264,7 +280,7 @@ func PrepareHTTPRequestWithTracking(
 
 					mimeType := mime.TypeByExtension(filepath.Ext(fileName))
 					if mimeType == "" {
-						mimeType = "application/octet-stream"
+						mimeType = MimeOctetStream
 					}
 					h.Set("Content-Type", mimeType)
 
@@ -323,8 +339,8 @@ func PrepareHTTPRequestWithTracking(
 		}
 		if !hasContentType {
 			clientHeaders = append(clientHeaders, httpclient.Header{
-				HeaderKey: "Content-Type",
-				Value:     "application/x-www-form-urlencoded",
+				HeaderKey: HeaderContentType,
+				Value:     MimeFormUrlEncoded,
 			})
 		}
 	}
@@ -503,7 +519,7 @@ func detectContentType(data []byte) string {
 	// Trim leading whitespace to find the first meaningful character
 	trimmed := bytes.TrimLeft(data, " \t\n\r")
 	if len(trimmed) == 0 {
-		return "text/plain"
+		return MimeTextPlain
 	}
 
 	firstChar := trimmed[0]
@@ -513,7 +529,7 @@ func detectContentType(data []byte) string {
 		// Validate it's actually JSON by attempting a partial parse
 		var js any
 		if json.Unmarshal(data, &js) == nil {
-			return "application/json"
+			return MimeJSON
 		}
 	}
 
@@ -521,30 +537,30 @@ func detectContentType(data []byte) string {
 	if firstChar == '<' {
 		lower := strings.ToLower(string(trimmed))
 		if strings.HasPrefix(lower, "<?xml") {
-			return "application/xml"
+			return MimeXML
 		}
 		if strings.HasPrefix(lower, "<!doctype html") || strings.HasPrefix(lower, "<html") {
-			return "text/html"
+			return MimeTextHTML
 		}
 		// Generic XML detection: starts with < followed by valid tag characters
 		if len(trimmed) > 1 && ((trimmed[1] >= 'a' && trimmed[1] <= 'z') || (trimmed[1] >= 'A' && trimmed[1] <= 'Z') || trimmed[1] == '!' || trimmed[1] == '?') {
-			return "application/xml"
+			return MimeXML
 		}
 	}
 
 	// Check if it's valid UTF-8 text
 	if utf8.Valid(data) {
-		return "text/plain"
+		return MimeTextPlain
 	}
 
 	// Binary data
-	return "application/octet-stream"
+	return MimeOctetStream
 }
 
 // hasContentTypeHeader checks if a Content-Type header is already present
 func hasContentTypeHeader(headers []httpclient.Header) bool {
 	for _, h := range headers {
-		if strings.EqualFold(h.HeaderKey, "Content-Type") {
+		if strings.EqualFold(h.HeaderKey, HeaderContentType) {
 			return true
 		}
 	}

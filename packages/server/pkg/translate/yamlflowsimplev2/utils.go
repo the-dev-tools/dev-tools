@@ -16,6 +16,14 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 )
 
+const (
+	BodyTypeJSON       = "json"
+	BodyTypeUrlEncoded = "urlencoded"
+	BodyTypeFormData   = "form-data"
+	BodyTypeRaw        = "raw"
+	DefaultFileName    = "untitled"
+)
+
 // Helper functions for additional utilities and transformations
 
 // ValidateURL validates and normalizes a URL
@@ -67,7 +75,7 @@ func ValidateHTTPMethod(method string) string {
 // SanitizeFileName sanitizes a string to be used as a filename
 func SanitizeFileName(name string) string {
 	if name == "" {
-		return "untitled"
+		return DefaultFileName
 	}
 
 	// Remove or replace problematic characters
@@ -79,7 +87,7 @@ func SanitizeFileName(name string) string {
 
 	// Handle special cases based on the test expectations
 	if name == "" {
-		return "untitled"
+		return DefaultFileName
 	}
 
 	// If the result consists only of underscores and the original had significant invalid chars
@@ -89,7 +97,7 @@ func SanitizeFileName(name string) string {
 			return "_"
 		}
 		// Otherwise return untitled
-		return "untitled"
+		return DefaultFileName
 	}
 
 	// Limit length
@@ -152,18 +160,18 @@ type NameValuePair struct {
 func DetectBodyType(content string) string {
 	if strings.HasPrefix(strings.TrimSpace(content), "{") ||
 		strings.HasPrefix(strings.TrimSpace(content), "[") {
-		return "json"
+		return BodyTypeJSON
 	}
 
 	if strings.Contains(content, "=") && !strings.Contains(content, "{") {
-		return "urlencoded"
+		return BodyTypeUrlEncoded
 	}
 
 	if strings.Contains(content, "multipart/form-data") {
-		return "form-data"
+		return BodyTypeFormData
 	}
 
-	return "raw"
+	return BodyTypeRaw
 }
 
 // GenerateHTTPKey generates a unique key for HTTP request identification

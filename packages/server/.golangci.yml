@@ -19,6 +19,7 @@ linters:
     - revive
     - errcheck
     - staticcheck
+    - goconst
   disable:
     - unused
   settings:

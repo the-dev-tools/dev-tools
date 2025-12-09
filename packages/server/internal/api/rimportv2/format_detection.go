@@ -27,6 +27,8 @@ const (
 	FormatPostman
 )
 
+const ReasonValidJSON = "Valid JSON; "
+
 // String returns the string representation of the format
 func (f Format) String() string {
 	switch f {
@@ -161,7 +163,7 @@ func (fd *FormatDetector) detectHAR(content string) *DetectionResult {
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &jsonData); err == nil {
 		confidence += 0.2
-		reason += "Valid JSON; "
+		reason += ReasonValidJSON
 
 		// Deep check for HAR structure
 		if log, ok := jsonData["log"].(map[string]interface{}); ok {
@@ -223,7 +225,7 @@ func (fd *FormatDetector) detectPostman(content string) *DetectionResult {
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &jsonData); err == nil {
 		confidence += 0.2
-		reason += "Valid JSON; "
+		reason += ReasonValidJSON
 
 		// Deep check for Postman structure
 		if info, ok := jsonData["info"].(map[string]interface{}); ok {
