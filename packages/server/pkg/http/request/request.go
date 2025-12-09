@@ -123,8 +123,8 @@ func PrepareHTTPRequestWithTracking(
 
 	// Process Headers
 	compressType := compress.CompressTypeNone
-	clientHeaders := make([]httpclient.Header, len(activeHeaders))
-	for i, header := range activeHeaders {
+	clientHeaders := make([]httpclient.Header, 0, len(activeHeaders)+1)
+	for _, header := range activeHeaders {
 		if header.Key == HeaderContentEncoding {
 			switch strings.ToLower(header.Value) {
 			case EncodingGzip:
@@ -155,7 +155,7 @@ func PrepareHTTPRequestWithTracking(
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: key, Value: val}
+		clientHeaders = append(clientHeaders, httpclient.Header{HeaderKey: key, Value: val})
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -647,8 +647,8 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 	}
 
 	compressType := compress.CompressTypeNone
-	clientHeaders := make([]httpclient.Header, len(headers))
-	for i, header := range headers {
+	clientHeaders := make([]httpclient.Header, 0, len(headers)+1)
+	for _, header := range headers {
 		if header.Key == "Content-Encoding" {
 			switch strings.ToLower(header.Value) {
 			case "gzip":
@@ -683,7 +683,7 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 				header.Value = replacedValue
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: header.Key, Value: header.Value}
+		clientHeaders = append(clientHeaders, httpclient.Header{HeaderKey: header.Key, Value: header.Value})
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -950,8 +950,8 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 	}
 
 	compressType := compress.CompressTypeNone
-	clientHeaders := make([]httpclient.Header, len(headers))
-	for i, header := range headers {
+	clientHeaders := make([]httpclient.Header, 0, len(headers)+1)
+	for _, header := range headers {
 		if header.Key == "Content-Encoding" {
 			switch strings.ToLower(header.Value) {
 			case "gzip":
@@ -985,7 +985,7 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 				header.Value = replacedValue
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: header.Key, Value: header.Value}
+		clientHeaders = append(clientHeaders, httpclient.Header{HeaderKey: header.Key, Value: header.Value})
 	}
 
 	bodyBytes := &bytes.Buffer{}
