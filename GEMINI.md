@@ -46,7 +46,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 ### Go (Server)
 - **Pattern:** Functional design, lean packages. Avoid complex OOP hierarchies.
 - **RPC:** Defined in `packages/spec` (TypeSpec). Implemented in `packages/server/internal/api`.
-- **Database:** Use `sqlc` generated structs in `packages/server/pkg/gen`.
+- **Database:** Use `sqlc` generated structs in `packages/db/pkg/sqlc/gen`.
 - **Transactions:** Short-lived. Use `devtoolsdb.TxnRollback` in defer.
 - **Concurrency:** Channel-based coordination or `sync.WaitGroup`.
 
