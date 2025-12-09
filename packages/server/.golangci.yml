@@ -30,6 +30,7 @@ linters:
     - wastedassign
     - ineffassign
     - durationcheck
+    - nosprintfhostport
   disable: []
   settings:
     importas:
