@@ -28,6 +28,7 @@ linters:
     - nilerr
     - makezero
     - wastedassign
+    - ineffassign
   disable: []
   settings:
     importas:
