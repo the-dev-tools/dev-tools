@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestConvertPostmanCollection_SimpleRequest(t *testing.T) {
@@ -443,36 +444,35 @@ func TestBuildPostmanCollection(t *testing.T) {
 
 	headers := []mhttp.HTTPHeader{
 		{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID1,
-			Key:   "Accept",
-			Value: "application/json",
-			Enabled:     true,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:        idwrap.NewNow(),
+			HttpID:    httpID1,
+			Key:       "Accept",
+			Value:     "application/json",
+			Enabled:   true,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}
 
 	searchParams := []mhttp.HTTPSearchParam{
 		{
-			ID:         idwrap.NewNow(),
-			HttpID:     httpID1,
-			Key:   "page",
-			Value: "1",
-			Enabled:    true,
-			CreatedAt:  now,
-			UpdatedAt:  now,
+			ID:        idwrap.NewNow(),
+			HttpID:    httpID1,
+			Key:       "page",
+			Value:     "1",
+			Enabled:   true,
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}
 
 	rawData := []byte(`{"name": "John Doe"}`)
 	bodyRaw := &mhttp.HTTPBodyRaw{
-		ID:          idwrap.NewNow(),
-		HttpID:      httpID2,
-		RawData:     rawData,
-		ContentType: "application/json",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:        idwrap.NewNow(),
+		HttpID:    httpID2,
+		RawData:   rawData,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	resolved := &PostmanResolved{

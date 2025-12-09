@@ -110,8 +110,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connec
 		}
 
 		// Use CreateDelta from body service
-		// We assume default content type or empty for now, as API doesn't seem to pass it in Insert
-		bodyRaw, err := h.bodyService.CreateDelta(ctx, httpID, []byte(data), "")
+		bodyRaw, err := h.bodyService.CreateDelta(ctx, httpID, []byte(data))
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -165,7 +164,6 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 
 		// Prepare update
 		var deltaData []byte
-		var deltaContentType *string
 
 		if item.Data != nil {
 			switch item.Data.GetKind() {
@@ -177,7 +175,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 		}
 
 		// Update using UpdateDelta
-		updatedBody, err := h.bodyService.UpdateDelta(ctx, bodyRaw.ID, deltaData, deltaContentType)
+		updatedBody, err := h.bodyService.UpdateDelta(ctx, bodyRaw.ID, deltaData)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

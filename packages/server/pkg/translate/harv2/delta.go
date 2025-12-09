@@ -243,39 +243,33 @@ func CreateDeltaBodyRaw(originalRaw *mhttp.HTTPBodyRaw, newRaw *mhttp.HTTPBodyRa
 			ID:                   idwrap.NewNow(),
 			HttpID:               deltaHttpID,
 			RawData:              newRaw.RawData,
-			ContentType:          newRaw.ContentType,
 			CompressionType:      newRaw.CompressionType,
 			ParentBodyRawID:      nil,
 			IsDelta:              false,
 			DeltaRawData:         nil,
-			DeltaContentType:     nil,
 			DeltaCompressionType: nil,
 			CreatedAt:            newRaw.CreatedAt,
 			UpdatedAt:            newRaw.UpdatedAt,
 		}
 	}
 
-	// Compare raw data and content type
+	// Compare raw data
 	if string(originalRaw.RawData) == string(newRaw.RawData) &&
-		originalRaw.ContentType == newRaw.ContentType &&
 		originalRaw.CompressionType == newRaw.CompressionType {
 		return nil
 	}
 
 	deltaRawData := newRaw.RawData
-	deltaContentType := newRaw.ContentType
 	deltaCompressionType := newRaw.CompressionType
 
 	deltaRaw := &mhttp.HTTPBodyRaw{
 		ID:                   idwrap.NewNow(),
 		HttpID:               deltaHttpID,
 		RawData:              newRaw.RawData,
-		ContentType:          newRaw.ContentType,
 		CompressionType:      newRaw.CompressionType,
 		ParentBodyRawID:      &originalRaw.ID,
 		IsDelta:              true,
 		DeltaRawData:         deltaRawData,
-		DeltaContentType:     &deltaContentType,
 		DeltaCompressionType: &deltaCompressionType,
 		CreatedAt:            newRaw.CreatedAt + 1,
 		UpdatedAt:            newRaw.UpdatedAt + 1,

@@ -589,22 +589,15 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Handle raw body
 	if bodyRaw != nil {
 		var rawData []byte
-		var contentType string
 
 		// If the source was a delta, we use the delta data for the new base copy
 		if bodyRaw.IsDelta {
 			rawData = bodyRaw.DeltaRawData
-			if bodyRaw.DeltaContentType != nil {
-				if s, ok := bodyRaw.DeltaContentType.(string); ok {
-					contentType = s
-				}
-			}
 		} else {
 			rawData = bodyRaw.RawData
-			contentType = bodyRaw.ContentType
 		}
 
-		if _, err := bodyService.Create(ctx, newHttpID, rawData, contentType); err != nil {
+		if _, err := bodyService.Create(ctx, newHttpID, rawData); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}

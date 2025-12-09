@@ -54,7 +54,7 @@ flows:
             json:
               name: John Doe
               role: admin
-          depends_on: 
+          depends_on:
             - Check Users
       - request:
           name: Log Error
@@ -359,10 +359,9 @@ func TestMarshalSimplifiedYAML_WithDeltaRawBody(t *testing.T) {
 
 	// Base body - original static content
 	baseBodyRaw := mhttp.HTTPBodyRaw{
-		ID:          idwrap.NewNow(),
-		HttpID:      baseHttpID,
-		RawData:     []byte(`{"name":"original","description":"static"}`),
-		ContentType: "application/json",
+		ID:      idwrap.NewNow(),
+		HttpID:  baseHttpID,
+		RawData: []byte(`{"name":"original","description":"static"}`),
 	}
 
 	// Delta HTTP request (with template syntax in body)
@@ -384,7 +383,6 @@ func TestMarshalSimplifiedYAML_WithDeltaRawBody(t *testing.T) {
 		HttpID:          deltaHttpID,
 		RawData:         nil, // Not used - delta uses DeltaRawData
 		DeltaRawData:    []byte(deltaBodyContent),
-		ContentType:     "application/json",
 		ParentBodyRawID: &baseBodyRaw.ID,
 		IsDelta:         true,
 	}

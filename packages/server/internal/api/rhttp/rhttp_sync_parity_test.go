@@ -28,10 +28,9 @@ func TestHttpBodyRawDelta_SyncParity(t *testing.T) {
 			// 1. Setup Base Request
 			baseHttpID := f.createHttp(t, ws, "Base Request")
 			baseBody := &mhttp.HTTPBodyRaw{
-				ID:          idwrap.NewNow(),
-				HttpID:      baseHttpID,
-				RawData:     []byte("base"),
-				ContentType: "text/plain",
+				ID:      idwrap.NewNow(),
+				HttpID:  baseHttpID,
+				RawData: []byte("base"),
 			}
 			_, err := f.handler.bodyService.CreateFull(f.ctx, baseBody)
 			require.NoError(t, err)

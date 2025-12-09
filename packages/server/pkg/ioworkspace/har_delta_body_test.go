@@ -65,22 +65,19 @@ func TestImport_DeltaBodyRaw(t *testing.T) {
 	nodeID := idwrap.NewNow()
 
 	baseBodyRaw := mhttp.HTTPBodyRaw{
-		ID:          idwrap.NewNow(),
-		HttpID:      baseID,
-		RawData:     []byte("base-content"),
-		ContentType: "application/json",
-		IsDelta:     false,
+		ID:      idwrap.NewNow(),
+		HttpID:  baseID,
+		RawData: []byte("base-content"),
+		IsDelta: false,
 	}
 
-	deltaCT := "application/json"
 	deltaBodyRaw := mhttp.HTTPBodyRaw{
-		ID:               idwrap.NewNow(),
-		HttpID:           deltaID,
-		ParentBodyRawID:  &baseBodyRaw.ID,
-		IsDelta:          true,
-		DeltaRawData:     []byte("delta-override-content"),
-		DeltaContentType: &deltaCT, // Simulating harv2 which uses *string
-		RawData:          nil,
+		ID:              idwrap.NewNow(),
+		HttpID:          deltaID,
+		ParentBodyRawID: &baseBodyRaw.ID,
+		IsDelta:         true,
+		DeltaRawData:    []byte("delta-override-content"),
+		RawData:         nil,
 	}
 
 	bundle := &WorkspaceBundle{
@@ -209,15 +206,4 @@ func TestImport_DeltaBodyRaw(t *testing.T) {
 
 	assert.True(t, fetchedDelta.IsDelta, "Body should be marked as delta")
 	assert.Equal(t, "delta-override-content", string(fetchedDelta.DeltaRawData), "Delta content should be preserved")
-
-	// Verify Delta Content Type
-	assert.NotNil(t, fetchedDelta.DeltaContentType, "DeltaContentType should not be nil")
-	if fetchedDelta.DeltaContentType != nil {
-		ct, ok := fetchedDelta.DeltaContentType.(string)
-		if ok {
-			assert.Equal(t, "application/json", ct, "DeltaContentType should match original")
-		} else {
-			t.Logf("DeltaContentType is not a string, it is %T: %v", fetchedDelta.DeltaContentType, fetchedDelta.DeltaContentType)
-		}
-	}
 }

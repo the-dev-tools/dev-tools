@@ -182,7 +182,7 @@ func TestDeltaExecution_Override(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = f.bodyService.Create(f.ctx, baseID, []byte("base-body"), "text/plain")
+	_, err = f.bodyService.Create(f.ctx, baseID, []byte("base-body"))
 	require.NoError(t, err)
 
 	// 2. Create Delta Request with OVERRIDE body
@@ -200,7 +200,7 @@ func TestDeltaExecution_Override(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a body for the delta
-	_, err = f.bodyService.CreateDelta(f.ctx, deltaID, []byte("delta-body"), "text/plain")
+	_, err = f.bodyService.CreateDelta(f.ctx, deltaID, []byte("delta-body"))
 	require.NoError(t, err)
 
 	// 3. Run Delta
@@ -230,7 +230,7 @@ func TestDeltaExecution_Inheritance(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = f.bodyService.Create(f.ctx, baseID, []byte("base-body"), "text/plain")
+	_, err = f.bodyService.Create(f.ctx, baseID, []byte("base-body"))
 	require.NoError(t, err)
 
 	// 2. Create Delta Request with NO body (should inherit?)

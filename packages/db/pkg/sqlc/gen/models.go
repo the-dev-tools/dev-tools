@@ -171,12 +171,10 @@ type HttpBodyRaw struct {
 	ID                   idwrap.IDWrap
 	HttpID               idwrap.IDWrap
 	RawData              []byte
-	ContentType          string
 	CompressionType      int8
 	ParentBodyRawID      *idwrap.IDWrap
 	IsDelta              bool
 	DeltaRawData         interface{}
-	DeltaContentType     interface{}
 	DeltaCompressionType interface{}
 	CreatedAt            int64
 	UpdatedAt            int64

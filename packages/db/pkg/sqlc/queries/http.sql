@@ -958,12 +958,10 @@ SELECT
   id,
   http_id,
   raw_data,
-  content_type,
   compression_type,
   parent_body_raw_id,
   is_delta,
   delta_raw_data,
-  delta_content_type,
   delta_compression_type,
   created_at,
   updated_at
@@ -978,12 +976,10 @@ SELECT
   id,
   http_id,
   raw_data,
-  content_type,
   compression_type,
   parent_body_raw_id,
   is_delta,
   delta_raw_data,
-  delta_content_type,
   delta_compression_type,
   created_at,
   updated_at
@@ -999,24 +995,21 @@ INSERT INTO
     id,
     http_id,
     raw_data,
-    content_type,
     compression_type,
     parent_body_raw_id,
     is_delta,
     delta_raw_data,
-    delta_content_type,
     delta_compression_type,
     created_at,
     updated_at
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHTTPBodyRaw :exec
 UPDATE http_body_raw
 SET
   raw_data = ?,
-  content_type = ?,
   compression_type = ?,
   updated_at = ?
 WHERE
@@ -1026,7 +1019,6 @@ WHERE
 UPDATE http_body_raw
 SET
   delta_raw_data = ?,
-  delta_content_type = ?,
   delta_compression_type = ?,
   updated_at = ?
 WHERE
@@ -1072,7 +1064,7 @@ ORDER BY hra.created_at DESC;
 -- name: GetHTTPSnapshotPage :many
 -- High-performance paginated snapshot query for initial data load
 -- Uses optimized streaming indexes for fast workspace-scoped access
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -1091,7 +1083,7 @@ SELECT
   h.created_at,
   h.updated_at
 FROM http h
-WHERE h.workspace_id = ? 
+WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
   AND h.updated_at <= ?
 ORDER BY h.updated_at DESC, h.id
@@ -1101,7 +1093,7 @@ LIMIT ?;
 -- Count query for pagination progress tracking
 SELECT COUNT(*) as total_count
 FROM http h
-WHERE h.workspace_id = ? 
+WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
   AND h.updated_at <= ?;
 
@@ -1109,7 +1101,7 @@ WHERE h.workspace_id = ?
 -- name: GetHTTPIncrementalUpdates :many
 -- Real-time streaming query for changes since last update
 -- Optimized with streaming indexes for minimal latency
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -1128,7 +1120,7 @@ SELECT
   h.created_at,
   h.updated_at
 FROM http h
-WHERE h.workspace_id = ? 
+WHERE h.workspace_id = ?
   AND h.updated_at > ?
   AND h.updated_at <= ?
 ORDER BY h.updated_at ASC, h.id;
@@ -1136,7 +1128,7 @@ ORDER BY h.updated_at ASC, h.id;
 -- name: GetHTTPDeltasSince :many
 -- Delta-specific streaming query for conflict resolution
 -- Uses delta resolution index for optimal performance
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -1167,7 +1159,7 @@ ORDER BY h.parent_http_id, h.updated_at ASC;
 -- Single query for complete delta resolution with minimal joins
 WITH RECURSIVE delta_chain AS (
   -- Base case: Start with the parent HTTP record
-  SELECT 
+  SELECT
     h.id,
     h.workspace_id,
     h.folder_id,
@@ -1188,11 +1180,11 @@ WITH RECURSIVE delta_chain AS (
     0 as delta_level
   FROM http h
   WHERE h.id = ? AND h.is_delta = FALSE
-  
+
   UNION ALL
-  
+
   -- Recursive case: Apply deltas in chronological order
-  SELECT 
+  SELECT
     h.id,
     h.workspace_id,
     h.folder_id,
@@ -1216,7 +1208,7 @@ WITH RECURSIVE delta_chain AS (
   WHERE h.is_delta = TRUE
     AND h.updated_at <= ?
 )
-SELECT 
+SELECT
   id,
   workspace_id,
   folder_id,
@@ -1241,7 +1233,7 @@ LIMIT 1;
 -- HTTP Child Record Streaming Queries
 -- name: GetHTTPHeadersStreaming :many
 -- Optimized headers query for streaming with enabled filter
-SELECT 
+SELECT
   hh.id,
   hh.http_id,
   hh.header_key,
@@ -1264,7 +1256,7 @@ ORDER BY hh.http_id, hh.updated_at DESC;
 
 -- name: GetHTTPSearchParamsStreaming :many
 -- Optimized search parameters query for streaming
-SELECT 
+SELECT
   hsp.id,
   hsp.http_id,
   hsp.key,
@@ -1287,7 +1279,7 @@ ORDER BY hsp.http_id, hsp.updated_at DESC;
 
 -- name: GetHTTPBodyFormStreaming :many
 -- Optimized form body query for streaming
-SELECT 
+SELECT
   hbf.id,
   hbf.http_id,
   hbf.key,
@@ -1312,7 +1304,7 @@ ORDER BY hbf.http_id, hbf.updated_at DESC;
 -- name: GetHTTPBatchForStreaming :many
 -- Batch query for processing multiple HTTP records efficiently
 -- Optimized for high-throughput streaming operations
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -1338,19 +1330,19 @@ ORDER BY h.updated_at DESC;
 -- HTTP Performance Monitoring Queries
 -- name: GetHTTPStreamingMetrics :one
 -- Performance metrics query for monitoring streaming operations
-SELECT 
+SELECT
   COUNT(*) as total_http_records,
   COUNT(CASE WHEN is_delta = FALSE THEN 1 END) as base_records,
   COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_records,
   MAX(updated_at) as latest_update,
   MIN(updated_at) as earliest_update,
   COUNT(CASE WHEN updated_at > ? THEN 1 END) as recent_changes
-FROM http 
+FROM http
 WHERE workspace_id = ?;
 
 -- name: GetHTTPWorkspaceActivity :many
 -- Activity monitoring query for workspace streaming health
-SELECT 
+SELECT
   DATE(updated_at, 'unixepoch') as activity_date,
   COUNT(*) as changes_count,
   COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_count,

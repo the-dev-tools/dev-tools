@@ -1116,21 +1116,19 @@ func TestDeltaBodyFormComparison(t *testing.T) {
 func TestDeltaBodyRawComparison(t *testing.T) {
 	// Test delta raw body creation
 	originalRaw := &mhttp.HTTPBodyRaw{
-		ID:          idwrap.NewNow(),
-		RawData:     []byte(`{"old": "data"}`),
-		ContentType: "application/json",
-		HttpID:      idwrap.NewNow(),
-		CreatedAt:   time.Now().Unix(),
-		UpdatedAt:   time.Now().Unix(),
+		ID:        idwrap.NewNow(),
+		RawData:   []byte(`{"old": "data"}`),
+		HttpID:    idwrap.NewNow(),
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
 	}
 
 	newRaw := &mhttp.HTTPBodyRaw{
-		ID:          idwrap.NewNow(),
-		RawData:     []byte(`{"new": "data"}`),
-		ContentType: "application/json",
-		HttpID:      idwrap.NewNow(),
-		CreatedAt:   time.Now().Unix(),
-		UpdatedAt:   time.Now().Unix(),
+		ID:        idwrap.NewNow(),
+		RawData:   []byte(`{"new": "data"}`),
+		HttpID:    idwrap.NewNow(),
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
 	}
 
 	deltaHttpID := idwrap.NewNow()
@@ -1145,12 +1143,11 @@ func TestDeltaBodyRawComparison(t *testing.T) {
 
 	// Test with identical data (should not create delta)
 	sameRaw := &mhttp.HTTPBodyRaw{
-		ID:          idwrap.NewNow(),
-		RawData:     []byte(`{"old": "data"}`), // Same as original
-		ContentType: "application/json",
-		HttpID:      idwrap.NewNow(),
-		CreatedAt:   time.Now().Unix(),
-		UpdatedAt:   time.Now().Unix(),
+		ID:        idwrap.NewNow(),
+		RawData:   []byte(`{"old": "data"}`), // Same as original
+		HttpID:    idwrap.NewNow(),
+		CreatedAt: time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
 	}
 
 	noDeltaRaw := harv2.CreateDeltaBodyRaw(originalRaw, sameRaw, deltaHttpID)

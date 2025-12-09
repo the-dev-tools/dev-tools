@@ -412,7 +412,6 @@ func extractRawBody(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bool) *mh
 		ID:              idwrap.NewNow(),
 		HttpID:          httpID,
 		RawData:         []byte(content),
-		ContentType:     "application/octet-stream", // Default content type
 		CompressionType: compress.CompressTypeNone,
 		CreatedAt:       time.Now().UnixMilli(),
 		UpdatedAt:       time.Now().UnixMilli(),

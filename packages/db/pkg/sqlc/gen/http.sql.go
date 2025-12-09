@@ -476,30 +476,26 @@ INSERT INTO
     id,
     http_id,
     raw_data,
-    content_type,
     compression_type,
     parent_body_raw_id,
     is_delta,
     delta_raw_data,
-    delta_content_type,
     delta_compression_type,
     created_at,
     updated_at
   )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPBodyRawParams struct {
 	ID                   idwrap.IDWrap
 	HttpID               idwrap.IDWrap
 	RawData              []byte
-	ContentType          string
 	CompressionType      int8
 	ParentBodyRawID      *idwrap.IDWrap
 	IsDelta              bool
 	DeltaRawData         interface{}
-	DeltaContentType     interface{}
 	DeltaCompressionType interface{}
 	CreatedAt            int64
 	UpdatedAt            int64
@@ -510,12 +506,10 @@ func (q *Queries) CreateHTTPBodyRaw(ctx context.Context, arg CreateHTTPBodyRawPa
 		arg.ID,
 		arg.HttpID,
 		arg.RawData,
-		arg.ContentType,
 		arg.CompressionType,
 		arg.ParentBodyRawID,
 		arg.IsDelta,
 		arg.DeltaRawData,
-		arg.DeltaContentType,
 		arg.DeltaCompressionType,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -1973,7 +1967,7 @@ func (q *Queries) GetHTTPAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 }
 
 const getHTTPBatchForStreaming = `-- name: GetHTTPBatchForStreaming :many
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -2078,7 +2072,7 @@ func (q *Queries) GetHTTPBatchForStreaming(ctx context.Context, arg GetHTTPBatch
 }
 
 const getHTTPBodyFormStreaming = `-- name: GetHTTPBodyFormStreaming :many
-SELECT 
+SELECT
   hbf.id,
   hbf.http_id,
   hbf.key,
@@ -2346,12 +2340,10 @@ SELECT
   id,
   http_id,
   raw_data,
-  content_type,
   compression_type,
   parent_body_raw_id,
   is_delta,
   delta_raw_data,
-  delta_content_type,
   delta_compression_type,
   created_at,
   updated_at
@@ -2369,12 +2361,10 @@ func (q *Queries) GetHTTPBodyRaw(ctx context.Context, httpID idwrap.IDWrap) (Htt
 		&i.ID,
 		&i.HttpID,
 		&i.RawData,
-		&i.ContentType,
 		&i.CompressionType,
 		&i.ParentBodyRawID,
 		&i.IsDelta,
 		&i.DeltaRawData,
-		&i.DeltaContentType,
 		&i.DeltaCompressionType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -2387,12 +2377,10 @@ SELECT
   id,
   http_id,
   raw_data,
-  content_type,
   compression_type,
   parent_body_raw_id,
   is_delta,
   delta_raw_data,
-  delta_content_type,
   delta_compression_type,
   created_at,
   updated_at
@@ -2411,12 +2399,10 @@ func (q *Queries) GetHTTPBodyRawByID(ctx context.Context, id idwrap.IDWrap) (Htt
 		&i.ID,
 		&i.HttpID,
 		&i.RawData,
-		&i.ContentType,
 		&i.CompressionType,
 		&i.ParentBodyRawID,
 		&i.IsDelta,
 		&i.DeltaRawData,
-		&i.DeltaContentType,
 		&i.DeltaCompressionType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -2761,7 +2747,7 @@ func (q *Queries) GetHTTPDeltasByWorkspaceID(ctx context.Context, workspaceID id
 }
 
 const getHTTPDeltasSince = `-- name: GetHTTPDeltasSince :many
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -3006,7 +2992,7 @@ func (q *Queries) GetHTTPHeadersByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 }
 
 const getHTTPHeadersStreaming = `-- name: GetHTTPHeadersStreaming :many
-SELECT 
+SELECT
   hh.id,
   hh.http_id,
   hh.header_key,
@@ -3102,7 +3088,7 @@ func (q *Queries) GetHTTPHeadersStreaming(ctx context.Context, arg GetHTTPHeader
 }
 
 const getHTTPIncrementalUpdates = `-- name: GetHTTPIncrementalUpdates :many
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -3121,7 +3107,7 @@ SELECT
   h.created_at,
   h.updated_at
 FROM http h
-WHERE h.workspace_id = ? 
+WHERE h.workspace_id = ?
   AND h.updated_at > ?
   AND h.updated_at <= ?
 ORDER BY h.updated_at ASC, h.id
@@ -3818,7 +3804,7 @@ func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDW
 }
 
 const getHTTPSearchParamsStreaming = `-- name: GetHTTPSearchParamsStreaming :many
-SELECT 
+SELECT
   hsp.id,
   hsp.http_id,
   hsp.key,
@@ -3915,7 +3901,7 @@ func (q *Queries) GetHTTPSearchParamsStreaming(ctx context.Context, arg GetHTTPS
 const getHTTPSnapshotCount = `-- name: GetHTTPSnapshotCount :one
 SELECT COUNT(*) as total_count
 FROM http h
-WHERE h.workspace_id = ? 
+WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
   AND h.updated_at <= ?
 `
@@ -3941,7 +3927,7 @@ const getHTTPSnapshotPage = `-- name: GetHTTPSnapshotPage :many
  *
  */
 
-SELECT 
+SELECT
   h.id,
   h.workspace_id,
   h.folder_id,
@@ -3960,7 +3946,7 @@ SELECT
   h.created_at,
   h.updated_at
 FROM http h
-WHERE h.workspace_id = ? 
+WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
   AND h.updated_at <= ?
 ORDER BY h.updated_at DESC, h.id
@@ -4038,14 +4024,14 @@ func (q *Queries) GetHTTPSnapshotPage(ctx context.Context, arg GetHTTPSnapshotPa
 }
 
 const getHTTPStreamingMetrics = `-- name: GetHTTPStreamingMetrics :one
-SELECT 
+SELECT
   COUNT(*) as total_http_records,
   COUNT(CASE WHEN is_delta = FALSE THEN 1 END) as base_records,
   COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_records,
   MAX(updated_at) as latest_update,
   MIN(updated_at) as earliest_update,
   COUNT(CASE WHEN updated_at > ? THEN 1 END) as recent_changes
-FROM http 
+FROM http
 WHERE workspace_id = ?
 `
 
@@ -4080,7 +4066,7 @@ func (q *Queries) GetHTTPStreamingMetrics(ctx context.Context, arg GetHTTPStream
 }
 
 const getHTTPWorkspaceActivity = `-- name: GetHTTPWorkspaceActivity :many
-SELECT 
+SELECT
   DATE(updated_at, 'unixepoch') as activity_date,
   COUNT(*) as changes_count,
   COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_count,
@@ -4454,7 +4440,7 @@ func (q *Queries) ResetHTTPBodyFormDelta(ctx context.Context, id idwrap.IDWrap) 
 const resolveHTTPWithDeltas = `-- name: ResolveHTTPWithDeltas :one
 WITH RECURSIVE delta_chain AS (
   -- Base case: Start with the parent HTTP record
-  SELECT 
+  SELECT
     h.id,
     h.workspace_id,
     h.folder_id,
@@ -4475,11 +4461,11 @@ WITH RECURSIVE delta_chain AS (
     0 as delta_level
   FROM http h
   WHERE h.id = ? AND h.is_delta = FALSE
-  
+
   UNION ALL
-  
+
   -- Recursive case: Apply deltas in chronological order
-  SELECT 
+  SELECT
     h.id,
     h.workspace_id,
     h.folder_id,
@@ -4503,7 +4489,7 @@ WITH RECURSIVE delta_chain AS (
   WHERE h.is_delta = TRUE
     AND h.updated_at <= ?
 )
-SELECT 
+SELECT
   id,
   workspace_id,
   folder_id,
@@ -4776,7 +4762,6 @@ const updateHTTPBodyRaw = `-- name: UpdateHTTPBodyRaw :exec
 UPDATE http_body_raw
 SET
   raw_data = ?,
-  content_type = ?,
   compression_type = ?,
   updated_at = ?
 WHERE
@@ -4785,7 +4770,6 @@ WHERE
 
 type UpdateHTTPBodyRawParams struct {
 	RawData         []byte
-	ContentType     string
 	CompressionType int8
 	UpdatedAt       int64
 	ID              idwrap.IDWrap
@@ -4794,7 +4778,6 @@ type UpdateHTTPBodyRawParams struct {
 func (q *Queries) UpdateHTTPBodyRaw(ctx context.Context, arg UpdateHTTPBodyRawParams) error {
 	_, err := q.exec(ctx, q.updateHTTPBodyRawStmt, updateHTTPBodyRaw,
 		arg.RawData,
-		arg.ContentType,
 		arg.CompressionType,
 		arg.UpdatedAt,
 		arg.ID,
@@ -4806,7 +4789,6 @@ const updateHTTPBodyRawDelta = `-- name: UpdateHTTPBodyRawDelta :exec
 UPDATE http_body_raw
 SET
   delta_raw_data = ?,
-  delta_content_type = ?,
   delta_compression_type = ?,
   updated_at = ?
 WHERE
@@ -4815,7 +4797,6 @@ WHERE
 
 type UpdateHTTPBodyRawDeltaParams struct {
 	DeltaRawData         interface{}
-	DeltaContentType     interface{}
 	DeltaCompressionType interface{}
 	UpdatedAt            int64
 	ID                   idwrap.IDWrap
@@ -4824,7 +4805,6 @@ type UpdateHTTPBodyRawDeltaParams struct {
 func (q *Queries) UpdateHTTPBodyRawDelta(ctx context.Context, arg UpdateHTTPBodyRawDeltaParams) error {
 	_, err := q.exec(ctx, q.updateHTTPBodyRawDeltaStmt, updateHTTPBodyRawDelta,
 		arg.DeltaRawData,
-		arg.DeltaContentType,
 		arg.DeltaCompressionType,
 		arg.UpdatedAt,
 		arg.ID,

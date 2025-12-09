@@ -25,7 +25,7 @@ func TestHttpDelta_BodyRaw(t *testing.T) {
 	// This is required because a delta body raw MUST point to a base body raw in the schema
 	// (constraint: CHECK (is_delta = FALSE OR parent_body_raw_id IS NOT NULL))
 	baseBodyData := "base-data"
-	_, err := f.handler.bodyService.Create(ctx, httpID, []byte(baseBodyData), "text/plain")
+	_, err := f.handler.bodyService.Create(ctx, httpID, []byte(baseBodyData))
 	require.NoError(t, err)
 
 	// Create delta request linked to base

@@ -23,12 +23,10 @@ func ConvertToDBHttpBodyRaw(body mhttp.HTTPBodyRaw) gen.HttpBodyRaw {
 		ID:                   body.ID,
 		HttpID:               body.HttpID,
 		RawData:              body.RawData,
-		ContentType:          body.ContentType,
 		CompressionType:      body.CompressionType,
 		ParentBodyRawID:      body.ParentBodyRawID,
 		IsDelta:              body.IsDelta,
 		DeltaRawData:         body.DeltaRawData,
-		DeltaContentType:     body.DeltaContentType,
 		DeltaCompressionType: body.DeltaCompressionType,
 		CreatedAt:            body.CreatedAt,
 		UpdatedAt:            body.UpdatedAt,
@@ -45,12 +43,10 @@ func ConvertToModelHttpBodyRaw(dbBody gen.HttpBodyRaw) mhttp.HTTPBodyRaw {
 		ID:                   dbBody.ID,
 		HttpID:               dbBody.HttpID,
 		RawData:              dbBody.RawData,
-		ContentType:          dbBody.ContentType,
 		CompressionType:      dbBody.CompressionType,
 		ParentBodyRawID:      dbBody.ParentBodyRawID,
 		IsDelta:              dbBody.IsDelta,
 		DeltaRawData:         deltaRawData,
-		DeltaContentType:     dbBody.DeltaContentType,
 		DeltaCompressionType: dbBody.DeltaCompressionType,
 		CreatedAt:            dbBody.CreatedAt,
 		UpdatedAt:            dbBody.UpdatedAt,
@@ -63,7 +59,7 @@ func NewHttpBodyRawService(queries *gen.Queries) *HttpBodyRawService {
 	}
 }
 
-func (s *HttpBodyRawService) Create(ctx context.Context, httpID idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
+func (s *HttpBodyRawService) Create(ctx context.Context, httpID idwrap.IDWrap, rawData []byte) (*mhttp.HTTPBodyRaw, error) {
 	// Create the body raw
 	now := dbtime.DBNow().Unix()
 	id := idwrap.NewNow()
@@ -71,12 +67,10 @@ func (s *HttpBodyRawService) Create(ctx context.Context, httpID idwrap.IDWrap, r
 		ID:                   id,
 		HttpID:               httpID,
 		RawData:              rawData,
-		ContentType:          contentType,
 		CompressionType:      0, // No compression
 		ParentBodyRawID:      nil,
 		IsDelta:              false,
 		DeltaRawData:         nil,
-		DeltaContentType:     nil,
 		DeltaCompressionType: nil,
 		CreatedAt:            now,
 		UpdatedAt:            now,
@@ -110,27 +104,15 @@ func (s *HttpBodyRawService) CreateFull(ctx context.Context, body *mhttp.HTTPBod
 		id = idwrap.NewNow()
 	}
 
-	// Convert DeltaContentType to sql.NullString
-	var deltaContentType sql.NullString
-	if ct, ok := body.DeltaContentType.(string); ok && ct != "" {
-		deltaContentType = sql.NullString{String: ct, Valid: true}
-	} else if body.DeltaContentType != nil {
-		// Try pointer type
-		if ctPtr, ok := body.DeltaContentType.(*string); ok && ctPtr != nil {
-			deltaContentType = sql.NullString{String: *ctPtr, Valid: true}
-		}
-	}
-
 	err := s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
-		ID:                   id,
-		HttpID:               body.HttpID,
-		RawData:              body.RawData,
-		ContentType:          body.ContentType,
-		CompressionType:      body.CompressionType,
-		ParentBodyRawID:      body.ParentBodyRawID,
-		IsDelta:              body.IsDelta,
-		DeltaRawData:         body.DeltaRawData,
-		DeltaContentType:     deltaContentType,
+		ID:              id,
+		HttpID:          body.HttpID,
+		RawData:         body.RawData,
+		CompressionType: body.CompressionType,
+		ParentBodyRawID: body.ParentBodyRawID,
+		IsDelta:         body.IsDelta,
+		DeltaRawData:    body.DeltaRawData,
+
 		DeltaCompressionType: nil, // TODO: handle if needed
 		CreatedAt:            now,
 		UpdatedAt:            now,
@@ -182,12 +164,11 @@ func (s *HttpBodyRawService) GetByHttpID(ctx context.Context, httpID idwrap.IDWr
 	return &result, nil
 }
 
-func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
+func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawData []byte) (*mhttp.HTTPBodyRaw, error) {
 	// Update the body raw
 	now := dbtime.DBNow().Unix()
 	err := s.queries.UpdateHTTPBodyRaw(ctx, gen.UpdateHTTPBodyRawParams{
 		RawData:         rawData,
-		ContentType:     contentType,
 		CompressionType: 0, // No compression
 		UpdatedAt:       now,
 		ID:              id,
@@ -200,7 +181,7 @@ func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawDa
 	return s.Get(ctx, id)
 }
 
-func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
+func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWrap, rawData []byte) (*mhttp.HTTPBodyRaw, error) {
 	// 1. Get the HTTP entry to find its parent
 	httpEntry, err := s.queries.GetHTTP(ctx, httpID)
 	if err != nil {
@@ -234,7 +215,6 @@ func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWr
 				ID:              newParentID,
 				HttpID:          *parentHttpID,
 				RawData:         []byte{},
-				ContentType:     "",
 				CompressionType: 0,
 				CreatedAt:       now,
 				UpdatedAt:       now,
@@ -258,12 +238,10 @@ func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWr
 		ID:                   id,
 		HttpID:               httpID,
 		RawData:              nil, // Base data is nil for delta record
-		ContentType:          "",  // Base content type is empty
 		CompressionType:      0,
 		ParentBodyRawID:      parentBodyID, // Linked to parent body
 		IsDelta:              true,
 		DeltaRawData:         rawData,
-		DeltaContentType:     stringToNullPtr(&contentType),
 		DeltaCompressionType: nil,
 		CreatedAt:            now,
 		UpdatedAt:            now,
@@ -282,7 +260,7 @@ func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWr
 	return &result, nil
 }
 
-func (s *HttpBodyRawService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, rawData []byte, contentType *string) (*mhttp.HTTPBodyRaw, error) {
+func (s *HttpBodyRawService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, rawData []byte) (*mhttp.HTTPBodyRaw, error) {
 	// Update the delta body raw
 	now := dbtime.DBNow().Unix()
 
@@ -297,10 +275,9 @@ func (s *HttpBodyRawService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, 
 	// Let's try to use `UpdateHTTPBodyRawDelta` if it exists.
 
 	err := s.queries.UpdateHTTPBodyRawDelta(ctx, gen.UpdateHTTPBodyRawDeltaParams{
-		DeltaRawData:     rawData,
-		DeltaContentType: stringToNullPtr(contentType),
-		UpdatedAt:        now,
-		ID:               id,
+		DeltaRawData: rawData,
+		UpdatedAt:    now,
+		ID:           id,
 	})
 	if err != nil {
 		return nil, err

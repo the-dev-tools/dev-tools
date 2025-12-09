@@ -22,7 +22,8 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 // TestCountEntities_Empty tests CountEntities on an empty bundle
 func TestCountEntities_Empty(t *testing.T) {
@@ -405,7 +406,7 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 			{ID: idwrap.NewNow(), HttpID: httpID, Key: "param", Value: "value", Enabled: true, CreatedAt: now, UpdatedAt: now},
 		},
 		HTTPBodyRaw: []mhttp.HTTPBodyRaw{
-			{ID: idwrap.NewNow(), HttpID: httpID, RawData: []byte(`{"test": true}`), ContentType: "application/json", CreatedAt: now, UpdatedAt: now},
+			{ID: idwrap.NewNow(), HttpID: httpID, RawData: []byte(`{"test": true}`), CreatedAt: now, UpdatedAt: now},
 		},
 		HTTPAsserts: []mhttp.HTTPAssert{
 			{ID: idwrap.NewNow(), HttpID: httpID, Value: "response.status == 200", Enabled: true, CreatedAt: now, UpdatedAt: now},

@@ -15,11 +15,11 @@ CREATE TABLE http (
   method TEXT NOT NULL,
   body_kind INT8 NOT NULL DEFAULT 2,
   description TEXT NOT NULL DEFAULT '',
-  
+
   -- Delta system fields
   parent_http_id BLOB DEFAULT NULL,        -- Parent HTTP for delta records
   is_delta BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE for delta records
-  
+
   -- Delta override fields (NULL means "no change" for delta records)
   delta_name TEXT NULL,
   delta_url TEXT NULL,
@@ -30,12 +30,12 @@ CREATE TABLE http (
   last_run_at BIGINT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   -- Foreign keys
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES files (id) ON DELETE SET NULL,
   FOREIGN KEY (parent_http_id) REFERENCES http (id) ON DELETE CASCADE,
-  
+
   -- Constraints
   CHECK (is_delta = FALSE OR parent_http_id IS NOT NULL) -- Delta records must have a parent
 );
@@ -56,21 +56,21 @@ CREATE TABLE http_search_param (
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
   "order" REAL NOT NULL DEFAULT 0,
-  
+
   -- Delta relationship fields
   parent_http_search_param_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Delta fields (NULL means "no change" for delta records)
   delta_key TEXT,
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
   delta_order REAL,
-  
+
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_http_search_param_id) REFERENCES http_search_param (id) ON DELETE CASCADE
 );
@@ -89,29 +89,29 @@ CREATE TABLE http_header (
   header_value TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  
+
   -- Delta system fields
   parent_header_id BLOB DEFAULT NULL,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Delta override fields
   delta_header_key TEXT NULL,
   delta_header_value TEXT NULL,
   delta_description TEXT NULL,
   delta_enabled BOOLEAN NULL,
   delta_display_order REAL,
-  
+
   -- Ordering
   display_order REAL NOT NULL DEFAULT 0,
-  
+
   -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_header_id) REFERENCES http_header (id) ON DELETE CASCADE,
-  
+
   -- Constraints
   CHECK (is_delta = FALSE OR parent_header_id IS NOT NULL)
 );
@@ -135,21 +135,21 @@ CREATE TABLE http_body_form (
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
   "order" REAL NOT NULL DEFAULT 0,
-  
+
   -- Delta relationship fields
   parent_http_body_form_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Delta fields (NULL means "no change" for delta records)
   delta_key TEXT,
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
   delta_order REAL,
-  
+
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_http_body_form_id) REFERENCES http_body_form (id) ON DELETE CASCADE
 );
@@ -167,26 +167,24 @@ CREATE TABLE http_body_raw (
   id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
   raw_data BLOB,
-  content_type TEXT NOT NULL DEFAULT '',
   compression_type INT8 NOT NULL DEFAULT 0, -- 0 = none, 1 = gzip, etc.
-  
+
   -- Delta system fields
   parent_body_raw_id BLOB DEFAULT NULL,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Delta override fields
   delta_raw_data BLOB NULL,
-  delta_content_type TEXT NULL,
   delta_compression_type INT8 NULL,
-  
+
   -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_body_raw_id) REFERENCES http_body_raw (id) ON DELETE CASCADE,
-  
+
   -- Constraints
   CHECK (is_delta = FALSE OR parent_body_raw_id IS NOT NULL),
   UNIQUE (http_id) -- One raw body per HTTP request
@@ -207,15 +205,15 @@ CREATE TABLE http_version (
   version_name TEXT NOT NULL,
   version_description TEXT NOT NULL DEFAULT '',
   is_active BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   created_by BLOB, -- User ID who created this version
-  
+
   -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-  
+
   -- Constraints
   UNIQUE (http_id, version_name)
 );
@@ -294,24 +292,24 @@ CREATE TABLE http_body_urlencoded (
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
   "order" REAL NOT NULL DEFAULT 0,
-  
+
   -- Delta relationship fields
   parent_http_body_urlencoded_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Delta fields (NULL means "no change" for delta records)
   delta_key TEXT,
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
   delta_order REAL,
-  
+
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_http_body_urlencoded_id) REFERENCES http_body_urlencoded (id) ON DELETE CASCADE,
-  
+
   -- Constraints
   CHECK (is_delta = FALSE OR parent_http_body_urlencoded_id IS NOT NULL) -- Delta records must have a parent
 );
@@ -339,7 +337,7 @@ CREATE TABLE http_response (
   duration INT32 NOT NULL,
   size INT32 NOT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
 );
 
@@ -350,7 +348,7 @@ CREATE TABLE http_response_header (
   key TEXT NOT NULL,
   value TEXT NOT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (response_id) REFERENCES http_response (id) ON DELETE CASCADE
 );
 
@@ -369,7 +367,7 @@ CREATE TABLE http_response_assert (
   value TEXT NOT NULL,
   success BOOLEAN NOT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (response_id) REFERENCES http_response (id) ON DELETE CASCADE
 );
 

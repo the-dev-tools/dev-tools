@@ -197,11 +197,32 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 				ID:              idwrap.NewNow(),
 				HttpID:          httpID,
 				RawData:         []byte(text),
-				ContentType:     entry.Request.PostData.MimeType,
 				CompressionType: 0, // Default to no compression
 				CreatedAt:       now,
 				UpdatedAt:       now,
 			})
+
+			// Ensure Content-Type header is present if MimeType is specified
+			if entry.Request.PostData.MimeType != "" {
+				hasContentType := false
+				for _, h := range headers {
+					if strings.EqualFold(h.Key, "Content-Type") {
+						hasContentType = true
+						break
+					}
+				}
+				if !hasContentType {
+					headers = append(headers, mhttp.HTTPHeader{
+						ID:        idwrap.NewNow(),
+						HttpID:    httpID,
+						Key:       "Content-Type",
+						Value:     entry.Request.PostData.MimeType,
+						Enabled:   true,
+						CreatedAt: now,
+						UpdatedAt: now,
+					})
+				}
+			}
 		}
 	}
 

@@ -98,7 +98,7 @@ The command will be parsed and converted to a unified HTTP request model.`,
 			}
 
 			if resolved.BodyRaw != nil {
-				_, err = services.HTTPBodyRaw.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
+				_, err = services.HTTPBodyRaw.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData)
 				if err != nil {
 					return fmt.Errorf("failed to save body raw: %w", err)
 				}
@@ -176,7 +176,7 @@ translation service. All requests in the collection will be converted to unified
 
 			for _, rawBody := range resolved.BodyRaw {
 				if rawBody != nil {
-					_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData, rawBody.ContentType)
+					_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData)
 					if err != nil {
 						return fmt.Errorf("failed to save body raw: %w", err)
 					}

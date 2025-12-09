@@ -78,7 +78,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	require.NoError(t, err)
 
 	// Base Raw Body
-	baseBodyRaw, err := rawBodyService.Create(ctx, baseID, []byte(`{"base": "data"}`), "application/json")
+	baseBodyRaw, err := rawBodyService.Create(ctx, baseID, []byte(`{"base": "data"}`))
 	require.NoError(t, err)
 
 	// Delta Request
@@ -144,18 +144,14 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	// Delta Raw Body
 	// Using direct query injection for Delta Body Raw
 	deltaRawData := []byte(`{"delta": "data"}`)
-	deltaContentType := "text/plain"
-
 	err = queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
 		ID:                   idwrap.NewNow(),
 		HttpID:               deltaID,
 		RawData:              nil,
-		ContentType:          "",
 		CompressionType:      0,
 		ParentBodyRawID:      &baseBodyRaw.ID, // Linked to Base Body Raw
 		IsDelta:              true,
 		DeltaRawData:         deltaRawData,
-		DeltaContentType:     &deltaContentType,
 		DeltaCompressionType: nil,
 		CreatedAt:            now,
 		UpdatedAt:            now,
@@ -176,7 +172,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 
 	// Body
 	assert.Equal(t, mhttp.HttpBodyKindRaw, resolved.Resolved.BodyKind)
-	assert.Equal(t, "text/plain", resolved.ResolvedRawBody.ContentType)
+
 	assert.Equal(t, []byte(`{"delta": "data"}`), resolved.ResolvedRawBody.RawData)
 
 	// Headers

@@ -323,12 +323,6 @@ func resolveRawBody(base, delta mhttp.HTTPBodyRaw) mhttp.HTTPBodyRaw {
 		resolved.RawData = delta.RawData
 	}
 
-	if delta.DeltaContentType != nil {
-		if v, ok := delta.DeltaContentType.(string); ok {
-			resolved.ContentType = v
-		}
-	}
-
 	if delta.DeltaCompressionType != nil {
 		// Handle numeric types safely
 		switch v := delta.DeltaCompressionType.(type) {
@@ -347,7 +341,6 @@ func resolveRawBody(base, delta mhttp.HTTPBodyRaw) mhttp.HTTPBodyRaw {
 
 	// Cleanup
 	resolved.DeltaRawData = nil
-	resolved.DeltaContentType = nil
 	resolved.DeltaCompressionType = nil
 
 	return resolved

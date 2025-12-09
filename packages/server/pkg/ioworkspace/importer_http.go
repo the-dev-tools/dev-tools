@@ -184,7 +184,7 @@ func (s *IOWorkspaceService) importHTTPBodyRaw(ctx context.Context, bodyRawServi
 		}
 
 		// Create base body
-		_, err := bodyRawService.Create(ctx, newHTTPID, bodyRaw.RawData, bodyRaw.ContentType)
+		_, err := bodyRawService.Create(ctx, newHTTPID, bodyRaw.RawData)
 		if err != nil {
 			return fmt.Errorf("failed to create HTTP body raw: %w", err)
 		}
@@ -204,16 +204,8 @@ func (s *IOWorkspaceService) importHTTPBodyRaw(ctx context.Context, bodyRawServi
 			newHTTPID = mappedID
 		}
 
-		// Get delta content type
-		var deltaContentType string
-		if ct, ok := bodyRaw.DeltaContentType.(string); ok {
-			deltaContentType = ct
-		} else if ctPtr, ok := bodyRaw.DeltaContentType.(*string); ok && ctPtr != nil {
-			deltaContentType = *ctPtr
-		}
-
 		// Create delta body
-		_, err := bodyRawService.CreateDelta(ctx, newHTTPID, bodyRaw.DeltaRawData, deltaContentType)
+		_, err := bodyRawService.CreateDelta(ctx, newHTTPID, bodyRaw.DeltaRawData)
 		if err != nil {
 			return fmt.Errorf("failed to create HTTP delta body raw: %w", err)
 		}

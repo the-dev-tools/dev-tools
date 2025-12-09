@@ -423,8 +423,6 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
                 field: "data"`,
 			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
 				require.Len(t, result.HTTPBodyRaw, 1)
-				body := result.HTTPBodyRaw[0]
-				require.Equal(t, "application/json", body.ContentType)
 				// Verify BodyKind is set correctly on HTTP request
 				require.Len(t, result.HTTPRequests, 1)
 				require.Equal(t, mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)

@@ -3,7 +3,6 @@ package rhttp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"connectrpc.com/connect"
@@ -1930,9 +1929,8 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		httpID      idwrap.IDWrap
-		data        []byte
-		contentType string
+		httpID idwrap.IDWrap
+		data   []byte
 	}
 
 	for _, item := range req.Msg.Items {
@@ -1959,20 +1957,12 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 			return nil, err
 		}
 
-		// Determine content type based on content
-		contentType := "text/plain"
-		if json.Valid([]byte(item.Data)) {
-			contentType = "application/json"
-		}
-
 		insertData = append(insertData, struct {
-			httpID      idwrap.IDWrap
-			data        []byte
-			contentType string
+			httpID idwrap.IDWrap
+			data   []byte
 		}{
-			httpID:      httpID,
-			data:        []byte(item.Data),
-			contentType: contentType,
+			httpID: httpID,
+			data:   []byte(item.Data),
 		})
 	}
 
@@ -1987,7 +1977,7 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 
 	for _, data := range insertData {
 		// Create the body raw using the new service
-		_, err = bodyRawService.Create(ctx, data.httpID, data.data, data.contentType)
+		_, err = bodyRawService.Create(ctx, data.httpID, data.data)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -2009,7 +1999,6 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 	var updateData []struct {
 		existingBodyID idwrap.IDWrap
 		data           []byte
-		contentType    string
 	}
 
 	for _, item := range req.Msg.Items {
@@ -2047,20 +2036,12 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 
 		// Prepare update data if provided
 		if item.Data != nil {
-			// Determine content type based on new content
-			contentType := "text/plain"
-			if json.Valid([]byte(*item.Data)) {
-				contentType = "application/json"
-			}
-
 			updateData = append(updateData, struct {
 				existingBodyID idwrap.IDWrap
 				data           []byte
-				contentType    string
 			}{
 				existingBodyID: existingBodyRaw.ID,
 				data:           []byte(*item.Data),
-				contentType:    contentType,
 			})
 		}
 	}
@@ -2076,7 +2057,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 
 	for _, data := range updateData {
 		// Update using the new service
-		_, err := bodyRawService.Update(ctx, data.existingBodyID, data.data, data.contentType)
+		_, err := bodyRawService.Update(ctx, data.existingBodyID, data.data)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
