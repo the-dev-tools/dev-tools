@@ -29,6 +29,7 @@ linters:
     - makezero
     - wastedassign
     - ineffassign
+    - durationcheck
   disable: []
   settings:
     importas:
