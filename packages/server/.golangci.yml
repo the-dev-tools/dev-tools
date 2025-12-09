@@ -1,11 +1,11 @@
-version: 2
+version: "2"
 
 run:
   # Keep lint fast and focused for server package
   tests: false
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - govet
     - testifylint
@@ -21,26 +21,24 @@ linters:
     - staticcheck
   disable:
     - unused
-
-linters-settings:
-  importas:
-    alias:
-      - pkg: the-dev-tools/server/pkg/model/mhttp
-        alias: mhttp
-      - pkg: the-dev-tools/server/pkg/service/shttp
-        alias: shttp
-      - pkg: the-dev-tools/db/pkg/sqlc/gen
-        alias: gen
-  testifylint:
-    enable-all: true
-  revive:
-    rules:
-      - name: exported
-        disabled: true
+  settings:
+    importas:
+      alias:
+        - pkg: the-dev-tools/server/pkg/model/mhttp
+          alias: mhttp
+        - pkg: the-dev-tools/server/pkg/service/shttp
+          alias: shttp
+        - pkg: the-dev-tools/db/pkg/sqlc/gen
+          alias: gen
+    testifylint:
+      enable-all: true
+    revive:
+      rules:
+        - name: exported
+          disabled: true
 
 issues:
   # Avoid noise from suggestions and test-only checks in this target
-  exclude-use-default: false
   exclude-rules:
     - linters:
         - revive
