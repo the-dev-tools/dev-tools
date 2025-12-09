@@ -56,7 +56,7 @@ CREATE TABLE flow_edge (
 CREATE INDEX flow_edge_idx1 ON flow_edge (flow_id, source_id, target_id);
 
 
--- TODO: move conditions to new condition table
+
 CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_count BIGINT NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE flow_node_for (
   expression TEXT NOT NULL
 );
 
--- TODO: move conditions to new condition table
+
 CREATE TABLE flow_node_for_each (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_expression TEXT NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE flow_node_http (
   FOREIGN KEY (delta_http_id) REFERENCES http (id) ON DELETE SET NULL
 );
 
--- TODO: move conditions to new condition table
+
 CREATE TABLE flow_node_condition (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   expression TEXT NOT NULL
