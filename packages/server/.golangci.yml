@@ -25,6 +25,7 @@ linters:
     - whitespace
     - sqlclosecheck
     - rowserrcheck
+    - nilerr
   disable: []
   settings:
     importas:
