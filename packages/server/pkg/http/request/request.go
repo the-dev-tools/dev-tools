@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"mime"
@@ -161,6 +162,16 @@ func PrepareHTTPRequestWithTracking(
 			_, err = bodyBytes.WriteString(bodyStr)
 			if err != nil {
 				return nil, err
+			}
+
+			// Auto-detect Content-Type if not already set in headers
+			if !hasContentTypeHeader(clientHeaders) {
+				if detectedType := detectContentType([]byte(bodyStr)); detectedType != "" {
+					clientHeaders = append(clientHeaders, httpclient.Header{
+						HeaderKey: "Content-Type",
+						Value:     detectedType,
+					})
+				}
 			}
 		}
 	case mhttp.HttpBodyKindFormData:
@@ -481,6 +492,65 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
+// detectContentType attempts to automatically detect the content type of raw body data.
+// Returns the detected content type string (e.g., "application/json", "text/xml").
+// If detection fails or data is empty, returns empty string to indicate no auto-detection.
+func detectContentType(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+
+	// Trim leading whitespace to find the first meaningful character
+	trimmed := bytes.TrimLeft(data, " \t\n\r")
+	if len(trimmed) == 0 {
+		return "text/plain"
+	}
+
+	firstChar := trimmed[0]
+
+	// Check for JSON: starts with { or [
+	if firstChar == '{' || firstChar == '[' {
+		// Validate it's actually JSON by attempting a partial parse
+		var js any
+		if json.Unmarshal(data, &js) == nil {
+			return "application/json"
+		}
+	}
+
+	// Check for XML: starts with <?xml or <! or just <tag>
+	if firstChar == '<' {
+		lower := strings.ToLower(string(trimmed))
+		if strings.HasPrefix(lower, "<?xml") {
+			return "application/xml"
+		}
+		if strings.HasPrefix(lower, "<!doctype html") || strings.HasPrefix(lower, "<html") {
+			return "text/html"
+		}
+		// Generic XML detection: starts with < followed by valid tag characters
+		if len(trimmed) > 1 && ((trimmed[1] >= 'a' && trimmed[1] <= 'z') || (trimmed[1] >= 'A' && trimmed[1] <= 'Z') || trimmed[1] == '!' || trimmed[1] == '?') {
+			return "application/xml"
+		}
+	}
+
+	// Check if it's valid UTF-8 text
+	if utf8.Valid(data) {
+		return "text/plain"
+	}
+
+	// Binary data
+	return "application/octet-stream"
+}
+
+// hasContentTypeHeader checks if a Content-Type header is already present
+func hasContentTypeHeader(headers []httpclient.Header) bool {
+	for _, h := range headers {
+		if strings.EqualFold(h.HeaderKey, "Content-Type") {
+			return true
+		}
+	}
+	return false
+}
+
 // PrepareRequestResult holds the result of preparing a request with tracked variable usage
 type PrepareRequestResult struct {
 	Request  *httpclient.Request
@@ -616,6 +686,16 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			rawBody.RawData = []byte(bodyStr)
+
+			// Auto-detect Content-Type if not already set in headers
+			if !hasContentTypeHeader(clientHeaders) {
+				if detectedType := detectContentType(rawBody.RawData); detectedType != "" {
+					clientHeaders = append(clientHeaders, httpclient.Header{
+						HeaderKey: "Content-Type",
+						Value:     detectedType,
+					})
+				}
+			}
 		}
 		_, err = bodyBytes.Write(rawBody.RawData)
 		if err != nil {
@@ -908,6 +988,16 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			rawBody.RawData = []byte(bodyStr)
+
+			// Auto-detect Content-Type if not already set in headers
+			if !hasContentTypeHeader(clientHeaders) {
+				if detectedType := detectContentType(rawBody.RawData); detectedType != "" {
+					clientHeaders = append(clientHeaders, httpclient.Header{
+						HeaderKey: "Content-Type",
+						Value:     detectedType,
+					})
+				}
+			}
 		}
 		_, err = bodyBytes.Write(rawBody.RawData)
 		if err != nil {
