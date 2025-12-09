@@ -273,7 +273,6 @@ func (c ReferenceCompletionLookUp) AddWithKey(key string, value any) {
 
 // addPathsWithValues is similar to addPaths but stores the actual values
 func addPathsWithValues(currentPath string, value any, lookupMap map[string]string) {
-
 	var strValue string
 	// Store the current value at its path
 

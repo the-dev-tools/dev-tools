@@ -55,16 +55,6 @@ func containsSubstring(s, substr string) bool {
 }
 
 // bytesToIDWrap converts []byte to *idwrap.IDWrap safely
-func bytesToIDWrap(b []byte) *idwrap.IDWrap {
-	if len(b) == 0 {
-		return nil
-	}
-	id, err := idwrap.NewFromBytes(b)
-	if err != nil {
-		return nil
-	}
-	return &id
-}
 
 func CheckOwnerHttp(ctx context.Context, hs shttp.HTTPService, us suser.UserService, httpID idwrap.IDWrap) (bool, error) {
 	workspaceID, err := hs.GetWorkspaceID(ctx, httpID)
@@ -146,16 +136,6 @@ func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspa
 // executeHTTPRequest performs the actual HTTP request execution
 // cloneStringMapToAny converts a map[string]string to map[string]any
 // This follows the pattern from nrequest.go
-func cloneStringMapToAny(src map[string]string) map[string]any {
-	if len(src) == 0 {
-		return map[string]any{}
-	}
-	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
 
 // isNetworkError checks if the error is a network-related error
 func isNetworkError(err error) bool {

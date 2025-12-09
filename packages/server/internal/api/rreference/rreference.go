@@ -121,23 +121,6 @@ func referenceKindToProto(kind reference.ReferenceKind) (referencev1.ReferenceKi
 	}
 }
 
-func referenceKindFromProto(kind referencev1.ReferenceKind) (reference.ReferenceKind, error) {
-	switch kind {
-	case referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED:
-		return reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, nil
-	case referencev1.ReferenceKind_REFERENCE_KIND_MAP:
-		return reference.ReferenceKind_REFERENCE_KIND_MAP, nil
-	case referencev1.ReferenceKind_REFERENCE_KIND_ARRAY:
-		return reference.ReferenceKind_REFERENCE_KIND_ARRAY, nil
-	case referencev1.ReferenceKind_REFERENCE_KIND_VALUE:
-		return reference.ReferenceKind_REFERENCE_KIND_VALUE, nil
-	case referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE:
-		return reference.ReferenceKind_REFERENCE_KIND_VARIABLE, nil
-	default:
-		return reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, fmt.Errorf("unknown proto reference kind: %d", kind)
-	}
-}
-
 var convertReferenceCompletionItemsFn = convertReferenceCompletionItems
 
 func convertReferenceCompletionItems(items []referencecompletion.ReferenceCompletionItem) ([]*referencev1.ReferenceCompletion, error) {
@@ -200,7 +183,6 @@ func (c *ReferenceServiceRPC) getLatestResponse(ctx context.Context, httpID idwr
 }
 
 func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Request[referencev1.ReferenceTreeRequest]) (*connect.Response[referencev1.ReferenceTreeResponse], error) {
-
 	var Items []*referencev1.ReferenceTreeItem
 
 	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
@@ -477,7 +459,6 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 // ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
 func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
-
 	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
@@ -683,7 +664,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		// Add self-reference for FOR, FOREACH, and REQUEST nodes so they can reference their own variables
 		// This enables break conditions like "if foreach_8.index > 8" and request nodes to use "response.status"
-		if flowNodeID != nil {
+		if true {
 			currentNode, err := c.fns.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
@@ -698,7 +679,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := &executions[0]
 
-						if latestExecution != nil {
+						if true {
 							// Decompress data if needed
 							data := latestExecution.OutputData
 							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
@@ -739,7 +720,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := &executions[0]
 
-						if latestExecution != nil {
+						if true {
 							// Decompress data if needed
 							data := latestExecution.OutputData
 							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
@@ -781,7 +762,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := &executions[0]
 
-						if latestExecution != nil {
+						if true {
 							// Decompress data if needed
 							data := latestExecution.OutputData
 							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
@@ -903,7 +884,6 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				lookup.AddWithKey(v.VarKey, v.Value)
 			}
 		}
-
 	}
 
 	if httpID != nil {
@@ -1059,7 +1039,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		// Add self-reference for REQUEST, FOR, and FOREACH nodes so they can reference their own variables
 		// This allows these nodes to use their own variables directly
-		if flowNodeID != nil {
+		if true {
 			currentNode, err := c.fns.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {

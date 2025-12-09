@@ -286,14 +286,6 @@ func (s *HttpBodyRawService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, 
 	return s.Get(ctx, id)
 }
 
-// Helper for null string ptr
-func stringToNullPtr(s *string) sql.NullString {
-	if s == nil {
-		return sql.NullString{Valid: false}
-	}
-	return sql.NullString{String: *s, Valid: true}
-}
-
 func (s *HttpBodyRawService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	// Delete the body raw
 	return s.queries.DeleteHTTPBodyRaw(ctx, id)

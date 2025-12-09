@@ -40,7 +40,7 @@ func ConvertNodeToDB(n mnnode.MNode) *gen.FlowNode {
 		ID:        n.ID,
 		FlowID:    n.FlowID,
 		Name:      n.Name,
-		NodeKind:  int32(n.NodeKind),
+		NodeKind:  n.NodeKind,
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
 	}
@@ -51,7 +51,7 @@ func ConvertNodeToModel(n gen.FlowNode) *mnnode.MNode {
 		ID:        n.ID,
 		FlowID:    n.FlowID,
 		Name:      n.Name,
-		NodeKind:  mnnode.NodeKind(n.NodeKind),
+		NodeKind:  n.NodeKind,
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
 	}

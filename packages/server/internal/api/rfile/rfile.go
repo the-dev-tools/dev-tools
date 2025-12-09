@@ -73,7 +73,6 @@ func CreateService(srv FileServiceRPC, options []connect.HandlerOption) (*api.Se
 }
 
 // Helper functions for pointer conversion
-func stringPtr(s string) *string    { return &s }
 func float32Ptr(f float32) *float32 { return &f }
 
 // Convert model File to API File

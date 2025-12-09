@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 )
@@ -39,7 +38,7 @@ func ConvertDBToModel(nf gen.FlowNodeJ) mnjs.MNJS {
 	return mnjs.MNJS{
 		FlowNodeID:       nf.FlowNodeID,
 		Code:             nf.Code,
-		CodeCompressType: compress.CompressType(nf.CodeCompressType),
+		CodeCompressType: nf.CodeCompressType,
 	}
 }
 
@@ -47,7 +46,7 @@ func ConvertModelToDB(mn mnjs.MNJS) gen.FlowNodeJ {
 	return gen.FlowNodeJ{
 		FlowNodeID:       mn.FlowNodeID,
 		Code:             mn.Code,
-		CodeCompressType: int8(mn.CodeCompressType),
+		CodeCompressType: mn.CodeCompressType,
 	}
 }
 

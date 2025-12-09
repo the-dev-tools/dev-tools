@@ -3,7 +3,6 @@ package rimportv2
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -125,25 +124,6 @@ func (v *DefaultValidator) validateData(data []byte, textData string) error {
 	return nil
 }
 
-// validateHARFormat validates that the data is valid JSON/HAR format
-func (v *DefaultValidator) validateHARFormat(data []byte) error {
-	var har map[string]interface{}
-	if err := json.Unmarshal(data, &har); err != nil {
-		return NewValidationErrorWithCause("data", fmt.Errorf("invalid JSON format: %w", err))
-	}
-
-	// Basic HAR structure validation
-	if log, ok := har["log"]; !ok {
-		return NewValidationError("data", "invalid HAR format: missing 'log' field")
-	} else if logMap, ok := log.(map[string]interface{}); !ok {
-		return NewValidationError("data", "invalid HAR format: 'log' must be an object")
-	} else if _, ok := logMap["entries"]; !ok {
-		return NewValidationError("data", "invalid HAR format: missing 'entries' field in log")
-	}
-
-	return nil
-}
-
 // validateDomainData validates the domain data configuration
 func (v *DefaultValidator) validateDomainData(domainData []ImportDomainData) error {
 	seenDomains := make(map[string]bool)
@@ -192,12 +172,4 @@ func (v *DefaultValidator) validateSingleDomainData(dd ImportDomainData, index i
 	}
 
 	return nil
-}
-
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

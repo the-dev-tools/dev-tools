@@ -20,8 +20,10 @@ linters:
     - errcheck
     - staticcheck
     - goconst
-  disable:
     - unused
+    - unconvert
+    - whitespace
+  disable: []
   settings:
     importas:
       alias:

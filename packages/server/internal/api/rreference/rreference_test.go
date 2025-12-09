@@ -2,13 +2,15 @@ package rreference
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
-	"connectrpc.com/connect"
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/referencecompletion"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReferenceKindToProto(t *testing.T) {
@@ -85,4 +87,21 @@ func TestReferenceCompletionInvalidKind(t *testing.T) {
 	_, err := svc.ReferenceCompletion(context.Background(), req)
 	require.Error(t, err, "expected ReferenceCompletion to return an error for invalid kind")
 	require.Equal(t, connect.CodeInternal, connect.CodeOf(err))
+}
+
+func referenceKindFromProto(kind referencev1.ReferenceKind) (reference.ReferenceKind, error) {
+	switch kind {
+	case referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED:
+		return reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_MAP:
+		return reference.ReferenceKind_REFERENCE_KIND_MAP, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_ARRAY:
+		return reference.ReferenceKind_REFERENCE_KIND_ARRAY, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_VALUE:
+		return reference.ReferenceKind_REFERENCE_KIND_VALUE, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE:
+		return reference.ReferenceKind_REFERENCE_KIND_VARIABLE, nil
+	default:
+		return reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, fmt.Errorf("unknown proto reference kind: %d", kind)
+	}
 }

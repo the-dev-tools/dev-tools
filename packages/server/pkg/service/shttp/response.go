@@ -105,84 +105,49 @@ func (hrs HttpResponseService) CreateHeader(ctx context.Context, header mhttp.HT
 }
 
 func (hrs HttpResponseService) GetHeadersByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
-
 	headers, err := hrs.queries.GetHTTPResponseHeadersByHttpID(ctx, httpID)
-
 	if err != nil {
-
 		return nil, err
-
 	}
 
 	result := make([]mhttp.HTTPResponseHeader, len(headers))
-
 	for i, header := range headers {
-
 		result[i] = mhttp.HTTPResponseHeader{
-
-			ID: header.ID,
-
-			ResponseID: header.ResponseID,
-
-			HeaderKey: header.Key,
-
+			ID:          header.ID,
+			ResponseID:  header.ResponseID,
+			HeaderKey:   header.Key,
 			HeaderValue: header.Value,
-
-			CreatedAt: header.CreatedAt,
+			CreatedAt:   header.CreatedAt,
 		}
-
 	}
-
 	return result, nil
-
 }
 
 func (hrs HttpResponseService) GetAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {
-
 	asserts, err := hrs.queries.GetHTTPResponseAssertsByHttpID(ctx, httpID)
-
 	if err != nil {
-
 		return nil, err
-
 	}
 
 	result := make([]mhttp.HTTPResponseAssert, len(asserts))
-
 	for i, assert := range asserts {
-
 		result[i] = mhttp.HTTPResponseAssert{
-
-			ID: assert.ID,
-
+			ID:         assert.ID,
 			ResponseID: assert.ResponseID,
-
-			Value: assert.Value,
-
-			Success: assert.Success,
-
-			CreatedAt: assert.CreatedAt,
+			Value:      assert.Value,
+			Success:    assert.Success,
+			CreatedAt:  assert.CreatedAt,
 		}
-
 	}
-
 	return result, nil
-
 }
 
 func (hrs HttpResponseService) CreateAssert(ctx context.Context, assert mhttp.HTTPResponseAssert) error {
-
 	return hrs.queries.CreateHTTPResponseAssert(ctx, gen.CreateHTTPResponseAssertParams{
-
-		ID: assert.ID,
-
+		ID:         assert.ID,
 		ResponseID: assert.ResponseID,
-
-		Value: assert.Value,
-
-		Success: assert.Success,
-
-		CreatedAt: assert.CreatedAt,
+		Value:      assert.Value,
+		Success:    assert.Success,
+		CreatedAt:  assert.CreatedAt,
 	})
-
 }

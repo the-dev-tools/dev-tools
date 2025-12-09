@@ -225,7 +225,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 				ID:         execID,
 				NodeID:     status.NodeID,
 				Name:       status.Name,
-				State:      int8(status.State),
+				State:      status.State,
 				ResponseID: status.AuxiliaryID,
 			}
 

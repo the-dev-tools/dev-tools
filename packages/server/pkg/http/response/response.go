@@ -20,7 +20,7 @@ import (
 )
 
 type ResponseCreateOutput struct {
-	BodyRaw     []byte
+	BodyRaw      []byte
 	HTTPResponse mhttp.HTTPResponse
 
 	AssertCouples []AssertCouple
@@ -266,7 +266,6 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 				Assert:    assertion,
 				AssertRes: res,
 			})
-
 		}
 	}
 

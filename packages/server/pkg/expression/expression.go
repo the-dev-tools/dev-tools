@@ -44,7 +44,6 @@ func NormalizeExpression(ctx context.Context, expressionString string, varsystem
 		return expressionString, err
 	}
 	return normalizedString, nil
-
 }
 
 // convertStructToMapWithJSONTags recursively converts a struct to a map using JSON tags

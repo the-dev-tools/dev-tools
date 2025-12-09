@@ -108,7 +108,6 @@ func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOp
 		if body.JSON != nil {
 			jb, _ := json.Marshal(body.JSON)
 			bodyRaw.RawData = jb
-
 		}
 	case BodyTypeRaw:
 		bodyKind = mhttp.HttpBodyKindRaw

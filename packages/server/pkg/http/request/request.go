@@ -164,8 +164,8 @@ func PrepareHTTPRequestWithTracking(
 	case mhttp.HttpBodyKindRaw:
 		if rawBody != nil && len(rawBody.RawData) > 0 {
 			data := rawBody.RawData
-			if rawBody.CompressionType != int8(compress.CompressTypeNone) {
-				data, err = compress.Decompress(data, compress.CompressType(rawBody.CompressionType))
+			if rawBody.CompressionType != compress.CompressTypeNone {
+				data, err = compress.Decompress(data, rawBody.CompressionType)
 				if err != nil {
 					return nil, err
 				}
@@ -690,8 +690,8 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 	switch example.BodyKind {
 	case mhttp.HttpBodyKindRaw:
 		if len(rawBody.RawData) > 0 {
-			if rawBody.CompressionType != int8(compress.CompressTypeNone) {
-				rawBody.RawData, err = compress.Decompress(rawBody.RawData, compress.CompressType(rawBody.CompressionType))
+			if rawBody.CompressionType != compress.CompressTypeNone {
+				rawBody.RawData, err = compress.Decompress(rawBody.RawData, rawBody.CompressionType)
 				if err != nil {
 					return nil, err
 				}
@@ -992,8 +992,8 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 	switch example.BodyKind {
 	case mhttp.HttpBodyKindRaw:
 		if len(rawBody.RawData) > 0 {
-			if rawBody.CompressionType != int8(compress.CompressTypeNone) {
-				rawBody.RawData, err = compress.Decompress(rawBody.RawData, compress.CompressType(rawBody.CompressionType))
+			if rawBody.CompressionType != compress.CompressTypeNone {
+				rawBody.RawData, err = compress.Decompress(rawBody.RawData, rawBody.CompressionType)
 				if err != nil {
 					return nil, err
 				}

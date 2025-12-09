@@ -1,13 +1,10 @@
 package rflowv2
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -210,29 +207,6 @@ func convertHandle(h flowv1.HandleKind) edge.EdgeHandle {
 	return edge.EdgeHandle(h)
 }
 
-
-func workspaceIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
-	value := header.Get("workspace-id")
-	if value == "" {
-		value = header.Get("x-workspace-id")
-	}
-	if value == "" {
-		return idwrap.IDWrap{}, errors.New("workspace id header is required")
-	}
-	return idwrap.NewText(value)
-}
-
-func flowIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
-	value := header.Get("flow-id")
-	if value == "" {
-		value = header.Get("x-flow-id")
-	}
-	if value == "" {
-		return idwrap.IDWrap{}, errors.New("flow id header is required")
-	}
-	return idwrap.NewText(value)
-}
-
 func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mnnode.MNode, error) {
 	if item == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node insert item is required"))
@@ -367,35 +341,4 @@ func (s *FlowServiceV2RPC) listUserWorkspaces(ctx context.Context) ([]mworkspace
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return workspaces, nil
-}
-
-func buildFlowSyncInserts(flows []mflow.Flow) []*flowv1.FlowSync {
-	if len(flows) == 0 {
-		return nil
-	}
-
-	sort.Slice(flows, func(i, j int) bool {
-		return bytes.Compare(flows[i].ID.Bytes(), flows[j].ID.Bytes()) < 0
-	})
-
-	items := make([]*flowv1.FlowSync, 0, len(flows))
-	for _, flow := range flows {
-		insert := &flowv1.FlowSyncInsert{
-			FlowId: flow.ID.Bytes(),
-			Name:   flow.Name,
-		}
-		if flow.Duration != 0 {
-			duration := flow.Duration
-			insert.Duration = &duration
-		}
-
-		items = append(items, &flowv1.FlowSync{
-			Value: &flowv1.FlowSync_ValueUnion{
-				Kind:   flowv1.FlowSync_ValueUnion_KIND_INSERT,
-				Insert: insert,
-			},
-		})
-	}
-
-	return items
 }

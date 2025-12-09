@@ -3,7 +3,6 @@ package rflowv2
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"sync"
 
@@ -36,8 +35,6 @@ import (
 	"the-dev-tools/spec/dist/buf/go/api/flow/v1/flowv1connect"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
-
-var errUnimplemented = errors.New("rflowv2: method not implemented")
 
 // FlowTopic identifies the workspace whose flows are being published.
 type FlowTopic struct {
@@ -198,14 +195,6 @@ const (
 	forEventInsert = "insert"
 	forEventUpdate = "update"
 	forEventDelete = "delete"
-
-	conditionEventInsert = "insert"
-	conditionEventUpdate = "update"
-	conditionEventDelete = "delete"
-
-	forEachEventInsert = "insert"
-	forEachEventUpdate = "update"
-	forEachEventDelete = "delete"
 
 	jsEventInsert = "insert"
 	jsEventUpdate = "update"

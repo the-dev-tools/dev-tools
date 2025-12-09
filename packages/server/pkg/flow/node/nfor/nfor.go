@@ -188,7 +188,6 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		// Execute child nodes
 		var iterationError error
 		for _, nextNodeID := range loopTargets {
-
 			// Create iteration context for child nodes
 			childIterationContext := &runner.IterationContext{
 				IterationPath:  append([]int(nil), iterContext.IterationPath...),
@@ -381,7 +380,6 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		// Execute child nodes
 		var iterationError error
 		for _, nextNodeID := range loopTargets {
-
 			// Create iteration context for child nodes
 			childIterationContext := &runner.IterationContext{
 				IterationPath:  append([]int(nil), iterContext.IterationPath...),

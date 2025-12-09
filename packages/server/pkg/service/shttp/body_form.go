@@ -246,14 +246,6 @@ func float32ToNullFloat64(f *float32) sql.NullFloat64 {
 	return sql.NullFloat64{Float64: float64(*f), Valid: true}
 }
 
-func nullFloat64ToFloat32(nf sql.NullFloat64) *float32 {
-	if !nf.Valid {
-		return nil
-	}
-	f := float32(nf.Float64)
-	return &f
-}
-
 func SerializeBodyFormModelToGen(body mhttp.HTTPBodyForm) gen.HttpBodyForm {
 	return gen.HttpBodyForm{
 		ID:                   body.ID,

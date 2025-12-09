@@ -45,7 +45,6 @@ func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
 // MergeVarMap merges two var maps
 // it creates a new var map and does not modify the original var maps
 func MergeVarMap(varMap1, varMap2 VarMap) VarMap {
-
 	varMap := make(VarMap)
 	maps.Copy(varMap, varMap1)
 	maps.Copy(varMap, varMap2)
@@ -301,7 +300,6 @@ func ReadEnvValueAsString(ref string) (string, error) {
 // Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
 // returns google.com/api/v1/path
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
-
 	var result string
 	for {
 		startIndex := strings.Index(raw, mvar.Prefix)
