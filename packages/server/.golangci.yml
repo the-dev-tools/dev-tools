@@ -34,6 +34,7 @@ linters:
     - copyloopvar
     - exhaustive
     - intrange
+    - usestdlibvars
   disable: []
   settings:
     importas:
