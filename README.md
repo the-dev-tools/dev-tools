@@ -7,7 +7,7 @@
 <h1 align="center">DevTools</h1>
 
 <p align="center">
-A free, open‑source Postman‑style API tester you run locally. Record browser requests, auto‑generate chained tests, and ship them straight to your CI—no sign‑ups, no cloud, just code.
+A free, source-available Postman-style API tester you run locally. Record browser requests, auto-generate chained tests, and ship them straight to your CI—no sign-ups, no cloud, just code.
 </p>
 
 <details>
