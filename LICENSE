@@ -1,51 +1,150 @@
-MIT License
+DevTools Sustainable Use License
+Version 1.0
+
 Copyright (c) DevTools Contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the “Software”), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Acceptance
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+By using the Software, you agree to all of the terms and conditions of
+this license. If you do not agree, you are not permitted to use the
+Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+2. Definitions
 
-====================================================================
-“Commons Clause” License Condition v1.0
-====================================================================
+"The Software" means the DevTools codebase and associated
+documentation that is distributed under this license, including any
+portion of it.
 
-The Software is provided to you by the Licensor under the License defined
-above, subject to the following condition.
+"The Licensor" means the DevTools Contributors who hold copyright in
+the Software.
 
-Without limiting other conditions in the License, the grant of rights under
-the License will not include, and the License does not grant to you, the
-right to **Sell** the Software.
+"You" means the individual or entity accepting this license.
 
-For purposes of the foregoing, “Sell” means practicing any or all of the
-rights granted to you under the License **to provide to third parties, for a
-fee or other consideration, a product or service whose value derives,
-entirely or substantially, from the functionality of the Software**.  For
-the avoidance of doubt, the following are considered “Sell” activities under
-this Commons Clause:
+"Your Company" means any legal entity, sole proprietorship, or other
+organization that you work for, plus any entity that controls, is
+controlled by, or is under common control with that organization.
 
-  * Hosting or offering the Software as a paid or monetized
-    Software‑as‑a‑Service, Platform‑as‑a‑Service, or managed/hosted service;
-  * Charging for access to, or use of, the Software over a network;
-  * Providing paid support, consulting, or development services whose
-    primary value derives from the Software’s functionality.
+"Internal Business Use" means use of the Software by you or Your
+Company solely for your own workflows and operations, without offering
+the Software itself, or any service whose primary value is the
+Software, to third parties.
 
-Any license notice or attribution required by the License must also include
-this Commons Clause License Condition notice.
+"Non-Commercial / Personal Use" means use of the Software by an
+individual for private purposes where no one is paying for access to
+the Software or to a service whose primary value is the Software.
 
-====================================================================
-END OF LICENSE
-====================================================================
+"Commercial Redistribution" means distributing the Software, or a
+derivative of the Software, or providing access to it, as a product or
+service for which you or Your Company receive a fee or other monetary
+compensation, where the primary value of what is being sold is the
+Software's functionality.
+
+3. Copyright License
+
+Subject to the limitations in this license, the Licensor grants you a
+non-exclusive, worldwide, royalty-free, non-transferable,
+non-sublicensable license to:
+
+- use the Software for Internal Business Use or Non-Commercial /
+  Personal Use;
+- copy the Software;
+- modify the Software and prepare derivative works;
+- distribute the Software or derivative works to others free of charge
+  for Non-Commercial / Personal Use, provided all such distribution
+  complies with Section 5 (Notices) and Section 4 (Limitations).
+
+4. Limitations (No SaaS, No Resale)
+
+You may NOT engage in Commercial Redistribution of the Software unless
+you have a separate written commercial license from the Licensor.
+
+In particular, without such a commercial license, you may NOT:
+
+- sell the Software or any modified version of it as a product;
+- license, rent, lease, or otherwise charge a fee specifically for
+  access to the Software;
+- offer the Software, or any modified version of it, as a hosted,
+  managed, or "software as a service" product where the Software (or a
+  derivative of it) is a primary component of the paid offering;
+- distribute binaries or hosted instances of the Software to third
+  parties for a fee where the core value arises substantially from the
+  Software's functionality.
+
+Using the Software as a tool in your own business, including for
+paid consulting, development, or operational services, is allowed as
+long as:
+
+- you are not providing the Software itself (or a rebranded version)
+  to your customers; and
+- your customers are paying you for your services, not for access to
+  DevTools as a product.
+
+5. Notices and Redistribution
+
+If you distribute any copy of the Software, or a derivative work, you
+must:
+
+- include this license text and the above copyright notice; and
+- not remove or obscure any licensing, copyright, or attribution
+  notices contained in the Software; and
+- clearly indicate any changes you have made to the Software.
+
+You may only distribute the Software or derivative works free of
+charge and for Non-Commercial / Personal Use, unless you have a
+separate commercial license from the Licensor.
+
+6. Third-Party Components
+
+Any third-party components included in the Software are licensed under
+their own applicable licenses. Nothing in this license overrides or
+replaces the terms of those third-party licenses.
+
+7. Patents
+
+The Licensor grants you a license, under any patent claims the
+Licensor can license and that are necessarily infringed by the
+unmodified Software, to make, have made, use, and distribute the
+Software as permitted by this license.
+
+This patent license:
+
+- is subject to the limitations and conditions of this license; and
+- does not apply to any modifications or derivative works that you
+create.
+
+If you or Your Company make any written claim in any forum that the
+Software infringes or contributes to the infringement of a patent,
+your patent license under this Section 7 terminates immediately.
+
+8. No Other Rights
+
+Except for the rights expressly granted in this license, no other
+rights are granted. All rights not expressly granted are reserved by
+the Licensor.
+
+Nothing in this license grants you any rights to use the names, logos,
+or trademarks of the Licensor, except as required for reasonable and
+customary use in describing the origin of the Software.
+
+9. Termination
+
+If you use the Software in violation of this license, your rights
+under this license automatically terminate.
+
+If the Licensor notifies you in writing of a violation and you cease
+all violations within 30 days of receipt of that notice, your license
+may be reinstated retroactively at the Licensor's discretion. If you
+violate this license again after reinstatement, your rights terminate
+permanently.
+
+10. No Warranty; Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT ANY WARRANTY OR CONDITION OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NON-INFRINGEMENT.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT WILL THE LICENSOR
+BE LIABLE TO YOU FOR ANY DAMAGES OF ANY KIND ARISING OUT OF OR RELATED
+TO THIS LICENSE OR YOUR USE OF THE SOFTWARE, WHETHER IN CONTRACT, TORT,
+OR OTHERWISE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
