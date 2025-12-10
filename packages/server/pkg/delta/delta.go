@@ -51,8 +51,7 @@ func ResolveHTTP(input ResolveHTTPInput) ResolveHTTPOutput {
 	output.ResolvedFormBody = resolveFormBody(input.BaseFormBody, input.DeltaFormBody)
 	output.ResolvedUrlEncodedBody = resolveUrlEncodedBody(input.BaseUrlEncodedBody, input.DeltaUrlEncodedBody)
 
-	// 4. Resolve Asserts
-	// Asserts have specific ordering logic (Linked List)
+	// 4. Resolve Asserts (using specific Linked List ordering logic)
 	output.ResolvedAsserts = resolveAsserts(input.BaseAsserts, input.DeltaAsserts)
 
 	return output

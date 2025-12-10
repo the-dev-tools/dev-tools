@@ -36,6 +36,7 @@ linters:
     - intrange
     - usestdlibvars
     - sloglint
+    - dupword
   disable: []
   settings:
     importas:

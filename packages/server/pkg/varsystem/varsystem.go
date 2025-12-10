@@ -53,7 +53,7 @@ func MergeVarMap(varMap1, varMap2 VarMap) VarMap {
 }
 
 // should convert
-// map[string]any{"something": map[string]any{"something": 1}} -> key: "something.something", value: 1
+// map[string]any{"foo": map[string]any{"bar": 1}} -> key: "foo.bar", value: 1
 // []int{1} -> key: "1", value: 1
 
 func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
