@@ -183,7 +183,7 @@ func convertSlice(val reflect.Value) (any, error) {
 		return base64.StdEncoding.EncodeToString(bytes), nil
 	}
 	result := make([]any, val.Len())
-	for i := 0; i < val.Len(); i++ {
+	for i := range val.Len() {
 		converted, err := convertValue(val.Index(i))
 		if err != nil {
 			return nil, err
@@ -237,7 +237,7 @@ func getStructFields(t reflect.Type) []structFieldInfo {
 	}
 
 	fields := make([]structFieldInfo, 0, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		if field.PkgPath != "" { // unexported
 			continue

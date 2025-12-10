@@ -50,7 +50,7 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 
 	// Create request nodes
 	currentIndex := 1
-	for i := 0; i < params.RequestCount; i++ {
+	for i := range params.RequestCount {
 		nodeID := nodeIDs[currentIndex]
 
 		// Determine next node ID (empty for last node)
@@ -77,7 +77,7 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 	}
 
 	// Create for loop nodes
-	for i := 0; i < params.ForLoopCount; i++ {
+	for range params.ForLoopCount {
 		nodeID := nodeIDs[currentIndex]
 
 		// Determine next node ID (empty for last node)

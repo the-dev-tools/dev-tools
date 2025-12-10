@@ -33,6 +33,7 @@ linters:
     - nosprintfhostport
     - copyloopvar
     - exhaustive
+    - intrange
   disable: []
   settings:
     importas:

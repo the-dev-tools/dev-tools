@@ -120,7 +120,7 @@ func addPaths(currentPath string, value any, pathMap map[string]ReferenceComplet
 		count = uint(v.Len()) // nolint:gosec // G115
 
 		// Iterate through the elements of the slice or array.
-		for i := 0; i < v.Len(); i++ {
+		for i := range v.Len() {
 			elem := v.Index(i) // The element at index i.
 
 			// Construct the path for the array/slice element using bracket notation.

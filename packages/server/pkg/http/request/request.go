@@ -467,7 +467,7 @@ func validateHeadersForHTTP(headers []mhttp.HTTPHeader) error {
 }
 
 func hasInvalidHeaderCharacters(input string, allowTab bool) bool {
-	for i := 0; i < len(input); i++ {
+	for i := range len(input) {
 		b := input[i]
 		switch b {
 		case '\r', '\n':

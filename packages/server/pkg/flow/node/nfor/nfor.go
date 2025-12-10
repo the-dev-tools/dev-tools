@@ -112,7 +112,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 	var loopError error
 
-	for i := int64(0); i < nr.IterCount; i++ {
+	for i := range nr.IterCount {
 		// Write the iteration index to the node variables
 		var err error
 		if req.VariableTracker != nil {
@@ -302,7 +302,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 	var loopError error
 
-	for i := int64(0); i < nr.IterCount; i++ {
+	for i := range nr.IterCount {
 		// Write the iteration index to the node variables
 		var err error
 		if req.VariableTracker != nil {

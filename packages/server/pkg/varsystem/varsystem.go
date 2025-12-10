@@ -76,7 +76,7 @@ func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
 	case reflect.Slice:
 		val := reflect.ValueOf(target)
 		if val.Kind() == reflect.Slice {
-			for i := 0; i < val.Len(); i++ {
+			for i := range val.Len() {
 				HelperNewAny(vars, val.Index(i).Interface(), fmt.Sprintf("%s[%d]", prefix, i))
 			}
 		}
