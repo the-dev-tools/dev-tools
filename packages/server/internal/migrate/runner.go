@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"sync"
 	"time"
@@ -42,7 +41,7 @@ func NewRunner(db *sql.DB, cfg Config, logger *slog.Logger) (*Runner, error) {
 		cfg.RetainBackups = 3
 	}
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}))
+		logger = slog.New(slog.DiscardHandler)
 	}
 
 	store := NewStore(db)

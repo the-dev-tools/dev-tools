@@ -35,6 +35,7 @@ linters:
     - exhaustive
     - intrange
     - usestdlibvars
+    - sloglint
   disable: []
   settings:
     importas:
