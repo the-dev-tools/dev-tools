@@ -31,6 +31,8 @@ linters:
     - ineffassign
     - durationcheck
     - nosprintfhostport
+    - copyloopvar
+    - exhaustive
   disable: []
   settings:
     importas:
@@ -47,6 +49,13 @@ linters:
       rules:
         - name: exported
           disabled: true
+    exhaustive:
+      # Treat 'default' case as covering all remaining cases
+      default-signifies-exhaustive: true
+      # Ignore protobuf UNSPECIFIED values and common Unknown patterns
+      ignore-enum-members: ".*_UNSPECIFIED|.*Unknown|.*None"
+      # Ignore stdlib types with many cases we don't need to handle exhaustively
+      ignore-enum-types: "reflect.Kind"
 
 issues:
   # Avoid noise from suggestions and test-only checks in this target
