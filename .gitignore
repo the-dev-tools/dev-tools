@@ -25,6 +25,7 @@ out
 storybook-static
 tsconfig.tsbuildinfo
 tsp-output
+.bench/
 
 # Coverage files
 *.out

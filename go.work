@@ -1,10 +1,11 @@
-go 1.25
+go 1.25.0
 
 use (
 	./apps/cli
 	./packages/db
 	./packages/server
 	./packages/spec
+	./tools/benchmark
 	./tools/go-tool
 	./tools/norawsql
 )

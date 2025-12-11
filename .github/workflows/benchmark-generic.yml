@@ -1,0 +1,213 @@
+name: Generic Benchmark CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'Packages to benchmark (e.g. ./packages/server/...)'
+        required: true
+        default: './packages/server/pkg/flow/simulation'
+        type: string
+      count:
+        description: 'Number of benchmark runs'
+        required: false
+        default: '5'
+        type: string
+      force_comparison:
+        description: 'Force comparison even if no previous artifacts'
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    paths:
+      - 'packages/server/**'
+      - 'tools/benchmark/**'
+  push:
+    paths:
+      - 'packages/server/**'
+      - 'tools/benchmark/**'
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    outputs:
+      comparison: ${{ steps.compare-results.outputs.comparison }}
+      has-regressions: ${{ steps.compare-results.outputs.has-regressions }}
+      has-changes: ${{ steps.check-changes.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - name: Check if relevant files changed
+        id: check-changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              BASE="${{ github.event.pull_request.base.sha }}"
+            else
+              BASE="${{ github.event.before }}"
+            fi
+            
+            CHANGED=$(git diff --name-only $BASE...HEAD | grep -E "^packages/server/|^tools/benchmark/" || true)
+            if [ -n "$CHANGED" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Determine Target Packages
+        id: target
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "packages=${{ github.event.inputs.packages }}" >> $GITHUB_OUTPUT
+            echo "count=${{ github.event.inputs.count }}" >> $GITHUB_OUTPUT
+          else
+            # Default for PR/Push: simulation package which is most critical
+            echo "packages=./packages/server/pkg/flow/simulation" >> $GITHUB_OUTPUT
+            echo "count=5" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Current Benchmarks
+        id: run-current
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p .bench
+          
+          # Use our new tool
+          go run tools/benchmark/*.go run \
+            --count=${{ steps.target.outputs.count }} \
+            --output=.bench/current.json \
+            ${{ steps.target.outputs.packages }}
+
+      - name: Download Baseline Artifacts
+        if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: benchmark-results-main
+          path: .bench/previous/
+          merge-multiple: true
+
+      - name: Run Baseline (If Artifact Missing)
+        if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
+        run: |
+          if [ ! -f ".bench/previous/results.json" ]; then
+            echo "⚠️ No baseline artifact found. Running baseline on current checkout (approximate)..."
+            # Ideally we would checkout 'main' here, but for simplicity in this V1 we might skip or warn.
+            # A robust implementation would fetch the base commit. 
+            # For now, let's skip comparison if missing, UNLESS forced.
+             if [ "${{ github.event.inputs.force_comparison }}" == "true" ]; then
+                echo "Running baseline benchmarks..."
+                go run tools/benchmark/*.go run \
+                  --count=${{ steps.target.outputs.count }} \
+                  --output=.bench/baseline.json \
+                  ${{ steps.target.outputs.packages }}
+             else
+                echo "Skipping baseline generation."
+             fi
+          else
+            mv .bench/previous/results.json .bench/baseline.json
+          fi
+
+      - name: Compare Results
+        id: compare-results
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          if [ -f ".bench/baseline.json" ] && [ -f ".bench/current.json" ]; then
+            go run tools/benchmark/*.go compare \
+              --baseline=.bench/baseline.json \
+              --current=.bench/current.json \
+              --output-md=.bench/comparison.md \
+              --output-json=.bench/comparison.json || {
+                echo "has-regressions=true" >> $GITHUB_OUTPUT
+              }
+            
+            # Read markdown for PR comment
+            COMPARISON=$(cat .bench/comparison.md | sed 's/`/\`/g' | sed 's/$/\\n/' | tr -d '\n')
+            echo "comparison<<EOF" >> $GITHUB_OUTPUT
+            echo "$COMPARISON" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+             echo "Skipping comparison (missing files)."
+             echo "has-regressions=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Artifacts
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: .bench/
+          retention-days: 14
+
+      - name: Upload Main Baseline (Push Only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-main
+          path: .bench/current.json
+          retention-days: 30
+
+  comment:
+    name: Post Results Comment
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: |
+      always() && 
+      needs.benchmark.result == 'success' && 
+      needs.benchmark.outputs.has-changes == 'true' &&
+      github.com.event_name == 'pull_request'
+    steps:
+      - name: Find and update PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comparison = `${{ needs.benchmark.outputs.comparison }}`;
+            const hasRegressions = `${{ needs.benchmark.outputs.has-regressions }}` === 'true';
+
+            if (!comparison) return;
+
+            // Find existing performance comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              (comment.body.includes('📊 Performance Comparison'))
+            );
+
+            let commentBody = comparison;
+            if (hasRegressions) {
+              commentBody = '\n⚠️ **Performance regressions detected!**\n\n' + commentBody;
+            }
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              });
+            }

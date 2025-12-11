@@ -81,3 +81,20 @@ tasks:
         - name: project
           enum: [api-recorder-extension, desktop, cli]
     cmd: nx release plan --onlyTouched=false --projects={{.project}}
+
+  benchmark:run:
+    desc: Run benchmarks
+    cmds:
+      - mkdir -p .bench
+      - go run tools/benchmark/*.go run --output .bench/current.json {{.CLI_ARGS}}
+
+  benchmark:baseline:
+    desc: Run benchmarks and save as baseline
+    cmds:
+      - mkdir -p .bench
+      - go run tools/benchmark/*.go run --output .bench/baseline.json {{.CLI_ARGS}}
+
+  benchmark:compare:
+    desc: Compare current results with baseline
+    cmds:
+      - go run tools/benchmark/*.go compare --baseline .bench/baseline.json --current .bench/current.json
