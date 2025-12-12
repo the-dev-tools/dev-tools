@@ -22,10 +22,12 @@ on:
     paths:
       - 'packages/server/**'
       - 'tools/benchmark/**'
+      - '.github/workflows/benchmark-generic.yml'
   push:
     paths:
       - 'packages/server/**'
       - 'tools/benchmark/**'
+      - '.github/workflows/benchmark-generic.yml'
     branches: [main]
 
 concurrency:

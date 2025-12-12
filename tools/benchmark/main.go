@@ -1,3 +1,4 @@
+// Benchmark tool
 package main
 
 import (
