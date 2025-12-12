@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
 )
 
@@ -92,9 +93,9 @@ func TestCreateExportV2Service(t *testing.T) {
 // TestExportV2RPC_Export_Success tests successful export operation
 func TestExportV2RPC_Export_Success(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, flowID, _ := setupExportV2RPC(t, ctx)
+	svc, workspaceID, flowID, _, authCtx := setupExportV2RPC(t, ctx)
 
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+	resp, err := svc.Export(authCtx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		FileIds:     [][]byte{flowID.Bytes()}, // Use flowID as fileID for now
 	}))
@@ -108,10 +109,10 @@ func TestExportV2RPC_Export_Success(t *testing.T) {
 // TestExportV2RPC_Export_InvalidWorkspaceID tests export with invalid workspace ID
 func TestExportV2RPC_Export_InvalidWorkspaceID(t *testing.T) {
 	ctx := context.Background()
-	svc, _, _, _ := setupExportV2RPC(t, ctx)
+	svc, _, _, _, authCtx := setupExportV2RPC(t, ctx)
 
 	// Invalid workspace ID (empty bytes)
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+	resp, err := svc.Export(authCtx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: []byte{},
 	}))
 
@@ -126,10 +127,10 @@ func TestExportV2RPC_Export_InvalidWorkspaceID(t *testing.T) {
 // TestExportV2RPC_Export_InvalidFlowIDs tests export with invalid flow IDs
 func TestExportV2RPC_Export_InvalidFlowIDs(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, _, _ := setupExportV2RPC(t, ctx)
+	svc, workspaceID, _, _, authCtx := setupExportV2RPC(t, ctx)
 
 	// Invalid file ID (empty bytes)
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+	resp, err := svc.Export(authCtx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		FileIds:     [][]byte{[]byte{}},
 	}))
@@ -145,10 +146,10 @@ func TestExportV2RPC_Export_InvalidFlowIDs(t *testing.T) {
 // TestExportV2RPC_Export_UnsupportedFormat tests export with unsupported format
 func TestExportV2RPC_Export_UnsupportedFormat(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, _, _ := setupExportV2RPC(t, ctx)
+	svc, workspaceID, _, _, authCtx := setupExportV2RPC(t, ctx)
 
 	// The service defaults to YAML format for standard Export requests
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+	resp, err := svc.Export(authCtx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 	}))
 
@@ -160,9 +161,9 @@ func TestExportV2RPC_Export_UnsupportedFormat(t *testing.T) {
 // TestExportV2RPC_ExportCurl_Success tests successful cURL export
 func TestExportV2RPC_ExportCurl_Success(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, _, exampleID := setupExportV2RPC(t, ctx)
+	svc, workspaceID, _, exampleID, authCtx := setupExportV2RPC(t, ctx)
 
-	resp, err := svc.ExportCurl(ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
+	resp, err := svc.ExportCurl(authCtx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		HttpIds:     [][]byte{exampleID.Bytes()},
 	}))
@@ -175,9 +176,9 @@ func TestExportV2RPC_ExportCurl_Success(t *testing.T) {
 // TestExportV2RPC_ExportCurl_InvalidWorkspaceID tests cURL export with invalid workspace ID
 func TestExportV2RPC_ExportCurl_InvalidWorkspaceID(t *testing.T) {
 	ctx := context.Background()
-	svc, _, _, _ := setupExportV2RPC(t, ctx)
+	svc, _, _, _, authCtx := setupExportV2RPC(t, ctx)
 
-	resp, err := svc.ExportCurl(ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
+	resp, err := svc.ExportCurl(authCtx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: []byte{},
 	}))
 
@@ -192,9 +193,9 @@ func TestExportV2RPC_ExportCurl_InvalidWorkspaceID(t *testing.T) {
 // TestExportV2RPC_ExportCurl_InvalidHttpIDs tests cURL export with invalid HTTP IDs
 func TestExportV2RPC_ExportCurl_InvalidHttpIDs(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, _, _ := setupExportV2RPC(t, ctx)
+	svc, workspaceID, _, _, authCtx := setupExportV2RPC(t, ctx)
 
-	resp, err := svc.ExportCurl(ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
+	resp, err := svc.ExportCurl(authCtx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		HttpIds:     [][]byte{[]byte{}},
 	}))
@@ -210,9 +211,9 @@ func TestExportV2RPC_ExportCurl_InvalidHttpIDs(t *testing.T) {
 // TestExportV2RPC_ExportWithFlowFilter tests export with flow filtering
 func TestExportV2RPC_ExportWithFlowFilter(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, flowID, _ := setupExportV2RPC(t, ctx)
+	svc, workspaceID, flowID, _, authCtx := setupExportV2RPC(t, ctx)
 
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+	resp, err := svc.Export(authCtx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		FileIds:     [][]byte{flowID.Bytes()}, // Use flowID as fileID for now
 	}))
@@ -225,10 +226,10 @@ func TestExportV2RPC_ExportWithFlowFilter(t *testing.T) {
 // TestExportV2RPC_ContextCancellation tests export with context cancellation
 func TestExportV2RPC_ContextCancellation(t *testing.T) {
 	// Use background context for setup to avoid schema execution failure
-	svc, workspaceID, _, _ := setupExportV2RPC(t, context.Background())
+	svc, workspaceID, _, _, authCtx := setupExportV2RPC(t, context.Background())
 
-	// Create a short-lived context for the request
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	// Create a short-lived context for the request, but keep the auth info
+	ctx, cancel := context.WithTimeout(authCtx, 1*time.Nanosecond)
 	defer cancel()
 
 	// Wait for context to be cancelled/timed out
@@ -475,7 +476,7 @@ func TestHandleServiceError(t *testing.T) {
 }
 
 // setupExportV2RPC creates a complete test environment for export v2 RPC tests
-func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.IDWrap, idwrap.IDWrap, idwrap.IDWrap) {
+func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.IDWrap, idwrap.IDWrap, idwrap.IDWrap, context.Context) {
 	t.Helper()
 
 	base := testutil.CreateBaseDB(ctx, t)
@@ -551,5 +552,6 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 		logger,
 	)
 
-	return rpc, workspaceID, flowID, exampleID
+	authCtx := mwauth.CreateAuthedContext(ctx, userID)
+	return rpc, workspaceID, flowID, exampleID, authCtx
 }

@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 )
 
@@ -212,15 +213,21 @@ func (v *SimpleValidator) ValidateExportRequest(ctx context.Context, req *Export
 
 // ValidateWorkspaceAccess validates that the user has access to the workspace
 func (v *SimpleValidator) ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
-	// For now, we'll implement basic validation
-	// In a real implementation, this would check user permissions
-
 	if workspaceID.Compare(idwrap.IDWrap{}) == 0 {
 		return NewValidationError("workspaceId", "workspace ID cannot be empty")
 	}
 
-	// TODO: Implement actual workspace access validation using user service
-	// For now, we'll assume access is granted if we can parse the ID
+	// Check user permissions using rworkspace helper
+	hasAccess, err := rworkspace.CheckOwnerWorkspace(ctx, *v.userService, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to check workspace access: %w", err)
+	}
+
+	if !hasAccess {
+		// Return NotFound to prevent ID enumeration/leaking existence
+		return ErrWorkspaceNotFound
+	}
+
 	return nil
 }
 

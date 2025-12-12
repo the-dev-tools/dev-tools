@@ -114,6 +114,10 @@ The backend implements a specific pattern to support **TanStack DB** (and simila
     *   The client (using `@tanstack/react-db`) subscribes to these `*Sync` endpoints.
     *   Incoming `Insert`/`Update`/`Delete` messages are applied to the client-side in-memory database, keeping the UI reactive without manual refetching.
 
+### Security Best Practices
+-   **ID Enumeration Prevention:** When a user requests a resource (Workspace, Flow, etc.) they do not have access to, the server must return `CodeNotFound` (or `ErrWorkspaceNotFound`), **NOT** `CodePermissionDenied`. This prevents attackers from probing the existence of private resources by distinguishing between "does not exist" and "access denied" responses.
+    -   *Implementation:* In RPC handlers or Validators, after checking ownership/permission, if the check fails, return the specific `NotFound` error for that entity type.
+
 ### Go Best Practices & Philosophy
 -   **SQLite Transaction Best Practice:** Due to SQLite's locking mechanisms, reads should generally be performed *before* initiating a transaction. Transactions should be kept as short-lived as possible and contain only necessary writes to minimize contention and potential deadlocks. If reads are required, they must happen outside the transaction or explicitly as part of it, understanding the implications for concurrency.
 -   **Functional/Procedural:** Preference for simple struct-based services and pure functions over complex OOP hierarchies.
