@@ -62,7 +62,7 @@ jobs:
               BASE="${{ github.event.before }}"
             fi
             
-            CHANGED=$(git diff --name-only $BASE...HEAD | grep -E "^packages/server/|^tools/benchmark/" || true)
+            CHANGED=$(git diff --name-only $BASE...HEAD | grep -E "^packages/server/|^tools/benchmark/|^.github/workflows/benchmark-generic.yml" || true)
             if [ -n "$CHANGED" ]; then
               echo "changed=true" >> $GITHUB_OUTPUT
             else
