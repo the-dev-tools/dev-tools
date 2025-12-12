@@ -87,12 +87,12 @@ jobs:
         id: run-current
         if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          mkdir -p .bench
+          mkdir -p bench_data
 
           # Use our new tool
           go run tools/benchmark/*.go run \
             --count=${{ steps.target.outputs.count }} \
-            --output=.bench/current.json \
+            --output=bench_data/current.json \
             ${{ steps.target.outputs.packages }}
 
       - name: Download Baseline Artifacts
@@ -101,13 +101,13 @@ jobs:
         continue-on-error: true
         with:
           pattern: benchmark-results-main
-          path: .bench/previous/
+          path: bench_data/previous/
           merge-multiple: true
 
       - name: Run Baseline (If Artifact Missing)
         if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
         run: |
-          if [ ! -f ".bench/previous/results.json" ]; then
+          if [ ! -f "bench_data/previous/current.json" ]; then
             echo "⚠️ No baseline artifact found. Running baseline on current checkout (approximate)..."
             # Ideally we would checkout 'main' here, but for simplicity in this V1 we might skip or warn.
             # A robust implementation would fetch the base commit. 
@@ -116,30 +116,33 @@ jobs:
                 echo "Running baseline benchmarks..."
                 go run tools/benchmark/*.go run \
                   --count=${{ steps.target.outputs.count }} \
-                  --output=.bench/baseline.json \
+                  --output=bench_data/baseline.json \
                   ${{ steps.target.outputs.packages }}
              else
                 echo "Skipping baseline generation."
              fi
           else
-            mv .bench/previous/results.json .bench/baseline.json
+            mv bench_data/previous/current.json bench_data/baseline.json
           fi
 
       - name: Compare Results
         id: compare-results
         if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          if [ -f ".bench/baseline.json" ] && [ -f ".bench/current.json" ]; then
+          if [ -f "bench_data/baseline.json" ] && [ -f "bench_data/current.json" ]; then
             go run tools/benchmark/*.go compare \
-              --baseline=.bench/baseline.json \
-              --current=.bench/current.json \
-              --output-md=.bench/comparison.md \
-              --output-json=.bench/comparison.json || {
+              --baseline=bench_data/baseline.json \
+              --current=bench_data/current.json \
+              --output-md=bench_data/comparison.md \
+              --output-json=bench_data/comparison.json || {
                 echo "has-regressions=true" >> $GITHUB_OUTPUT
               }
             
+            # Output to Job Summary
+            cat bench_data/comparison.md >> $GITHUB_STEP_SUMMARY
+
             # Read markdown for PR comment
-            COMPARISON=$(cat .bench/comparison.md | sed 's/`/\`/g' | sed 's/$/\\n/' | tr -d '\n')
+            COMPARISON=$(cat bench_data/comparison.md | sed 's/`/\\`/g' | sed 's/$/\\n/' | tr -d '\n')
             echo "comparison<<EOF" >> $GITHUB_OUTPUT
             echo "$COMPARISON" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
@@ -153,7 +156,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ github.sha }}
-          path: .bench/
+          path: bench_data/
           retention-days: 14
 
       - name: Upload Main Baseline (Push Only)
@@ -161,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-main
-          path: .bench/current.json
+          path: bench_data/current.json
           retention-days: 30
 
   comment:
