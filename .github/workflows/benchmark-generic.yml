@@ -102,7 +102,7 @@ jobs:
         run: |
           echo "Looking for latest successful run on main..."
           LATEST_RUN_ID=$(gh run list --workflow="benchmark-generic.yml" --branch=main --status=success --event=push --limit=1 --json databaseId --jq '.[0].databaseId')
-          
+
           if [ -n "$LATEST_RUN_ID" ]; then
             echo "Found run ID: $LATEST_RUN_ID. Downloading artifact..."
             mkdir -p bench_data/previous
