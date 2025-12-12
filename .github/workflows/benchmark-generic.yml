@@ -97,12 +97,19 @@ jobs:
 
       - name: Download Baseline Artifacts
         if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          pattern: benchmark-results-main
-          path: bench_data/previous/
-          merge-multiple: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Looking for latest successful run on main..."
+          LATEST_RUN_ID=$(gh run list --workflow="benchmark-generic.yml" --branch=main --status=success --limit=1 --json databaseId --jq '.[0].databaseId')
+          
+          if [ -n "$LATEST_RUN_ID" ]; then
+            echo "Found run ID: $LATEST_RUN_ID. Downloading artifact..."
+            mkdir -p bench_data/previous
+            gh run download $LATEST_RUN_ID -n benchmark-results-main -D bench_data/previous || echo "⚠️ Failed to download artifact (it might not exist or expired)."
+          else
+            echo "⚠️ No successful previous runs found on main."
+          fi
 
       - name: Run Baseline (If Artifact Missing)
         if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
