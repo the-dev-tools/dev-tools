@@ -32,6 +32,7 @@ import (
 	"the-dev-tools/server/internal/api/rreference"
 
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
@@ -88,26 +89,7 @@ func run() error {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
-	var logLevel slog.Level
-	logLevelStr := os.Getenv("LOG_LEVEL")
-	switch logLevelStr {
-	case "DEBUG":
-		logLevel = slog.LevelDebug
-	case "INFO":
-		logLevel = slog.LevelInfo
-	case "WARNING":
-		logLevel = slog.LevelWarn
-	case "ERROR":
-		logLevel = slog.LevelError
-	default:
-		logLevel = slog.LevelError
-	}
-
-	loggerHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logLevel,
-	})
-
-	logger := slog.New(loggerHandler)
+	logger := setupLogger()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -124,21 +106,7 @@ func run() error {
 		return errors.New("HMAC_SECRET env var is required")
 	}
 
-	dbMode := os.Getenv("DB_MODE")
-	if dbMode == "" {
-		return errors.New("DB_MODE env var is required")
-	}
-	fmt.Println("DB_MODE: ", dbMode)
-
-	var currentDB *sql.DB
-	var dbCloseFunc func()
-	var err error
-	switch dbMode {
-	case devtoolsdb.LOCAL:
-		currentDB, dbCloseFunc, err = GetDBLocal(ctx)
-	default:
-		err = errors.New("invalid db mode")
-	}
+	currentDB, dbCloseFunc, err := setupDB(ctx)
 	if err != nil {
 		return err
 	}
@@ -149,6 +117,7 @@ func run() error {
 		return err
 	}
 
+	// Initialize Services
 	workspaceService := sworkspace.New(queries)
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)
@@ -184,6 +153,10 @@ func run() error {
 	flowNodeJsService := snodejs.New(queries)
 	nodeExecutionService := snodeexecution.New(queries)
 
+	// Initialize Streamers
+	streamers := NewStreamers()
+	defer streamers.Shutdown()
+
 	var optionsCompress, optionsAuth, optionsAll []connect.HandlerOption
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
@@ -215,50 +188,11 @@ func run() error {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	workspaceStreamer := memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]()
-	defer workspaceStreamer.Shutdown()
-
-	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, workspaceStreamer)
+	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, streamers.Workspace)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
-	// Env Service
-	environmentStreamer := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
-	defer environmentStreamer.Shutdown()
-	environmentVariableStreamer := memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]()
-	defer environmentVariableStreamer.Shutdown()
-
-	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, environmentStreamer, environmentVariableStreamer)
+	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, streamers.Environment, streamers.EnvironmentVariable)
 	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
-
-	// Log Service Streamer (needed for other services)
-	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
-	defer logStreamer.Shutdown()
-
-	// HTTP Service
-	httpStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
-	defer httpStreamer.Shutdown()
-
-	// HTTP child entity streamers
-	httpHeaderStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
-	defer httpHeaderStreamer.Shutdown()
-	httpSearchParamStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
-	defer httpSearchParamStreamer.Shutdown()
-	httpBodyFormStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]()
-	defer httpBodyFormStreamer.Shutdown()
-	httpBodyUrlEncodedStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]()
-	defer httpBodyUrlEncodedStreamer.Shutdown()
-	httpAssertStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]()
-	defer httpAssertStreamer.Shutdown()
-	httpVersionStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent]()
-	defer httpVersionStreamer.Shutdown()
-	httpResponseStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]()
-	defer httpResponseStreamer.Shutdown()
-	httpResponseHeaderStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]()
-	defer httpResponseHeaderStreamer.Shutdown()
-	httpResponseAssertStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
-	defer httpResponseAssertStreamer.Shutdown()
-	httpBodyRawStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
-	defer httpBodyRawStreamer.Shutdown()
 
 	// Create request resolver for HTTP delta resolution (shared with flow service)
 	requestResolver := resolver.NewStandardResolver(
@@ -271,35 +205,15 @@ func run() error {
 		httpAssertService,
 	)
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer, logStreamer)
+	httpSrv := rhttp.New(
+		currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService,
+		httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService,
+		httpAssertService, httpResponseService, requestResolver,
+		streamers.Http, streamers.HttpHeader, streamers.HttpSearchParam, streamers.HttpBodyForm, streamers.HttpBodyUrlEncoded,
+		streamers.HttpAssert, streamers.HttpVersion, streamers.HttpResponse, streamers.HttpResponseHeader, streamers.HttpResponseAssert,
+		streamers.HttpBodyRaw, streamers.Log,
+	)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
-
-	flowStreamer := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()
-	defer flowStreamer.Shutdown()
-	nodeStreamer := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
-	defer nodeStreamer.Shutdown()
-	edgeStreamer := memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]()
-	defer edgeStreamer.Shutdown()
-	flowVariableStreamer := memory.NewInMemorySyncStreamer[rflowv2.FlowVariableTopic, rflowv2.FlowVariableEvent]()
-	defer flowVariableStreamer.Shutdown()
-	flowVersionStreamer := memory.NewInMemorySyncStreamer[rflowv2.FlowVersionTopic, rflowv2.FlowVersionEvent]()
-	defer flowVersionStreamer.Shutdown()
-	noopStreamer := memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]()
-	defer noopStreamer.Shutdown()
-	forStreamer := memory.NewInMemorySyncStreamer[rflowv2.ForTopic, rflowv2.ForEvent]()
-	defer forStreamer.Shutdown()
-	conditionStreamer := memory.NewInMemorySyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent]()
-	defer conditionStreamer.Shutdown()
-	forEachStreamer := memory.NewInMemorySyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent]()
-	defer forEachStreamer.Shutdown()
-	jsStreamer := memory.NewInMemorySyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent]()
-	defer jsStreamer.Shutdown()
-	executionStreamer := memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]()
-	defer executionStreamer.Shutdown()
-
-	// File Service Streamer
-	fileStreamer := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
-	defer fileStreamer.Shutdown()
 
 	// ImportV2 Service
 	importV2Srv := rimportv2.NewImportV2RPC(
@@ -322,18 +236,18 @@ func run() error {
 		environmentService,
 		variableService,
 		logger,
-		flowStreamer,
-		nodeStreamer,
-		edgeStreamer,
-		noopStreamer,
-		httpStreamer,
-		httpHeaderStreamer,
-		httpSearchParamStreamer,
-		httpBodyFormStreamer,
-		httpBodyUrlEncodedStreamer,
-		httpBodyRawStreamer,
-		httpAssertStreamer,
-		fileStreamer,
+		streamers.Flow,
+		streamers.Node,
+		streamers.Edge,
+		streamers.NoOp,
+		streamers.Http,
+		streamers.HttpHeader,
+		streamers.HttpSearchParam,
+		streamers.HttpBodyForm,
+		streamers.HttpBodyUrlEncoded,
+		streamers.HttpBodyRaw,
+		streamers.HttpAssert,
+		streamers.File,
 	)
 	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
 
@@ -369,26 +283,26 @@ func run() error {
 		logger,
 		workspaceImporter,
 		httpResponseService,
-		flowStreamer,
-		nodeStreamer,
-		edgeStreamer,
-		flowVariableStreamer,
-		flowVersionStreamer,
-		noopStreamer,
-		forStreamer,
-		conditionStreamer,
-		forEachStreamer,
-		jsStreamer,
-		executionStreamer,
-		httpResponseStreamer,
-		httpResponseHeaderStreamer,
-		httpResponseAssertStreamer,
-		logStreamer,
+		streamers.Flow,
+		streamers.Node,
+		streamers.Edge,
+		streamers.FlowVariable,
+		streamers.FlowVersion,
+		streamers.NoOp,
+		streamers.For,
+		streamers.Condition,
+		streamers.ForEach,
+		streamers.Js,
+		streamers.Execution,
+		streamers.HttpResponse,
+		streamers.HttpResponseHeader,
+		streamers.HttpResponseAssert,
+		streamers.Log,
 		jsClient,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
-	logSrv := rlog.New(logStreamer)
+	logSrv := rlog.New(streamers.Log)
 	newServiceManager.AddService(rlog.CreateService(logSrv, optionsAll))
 
 	// ExportV2 Service
@@ -404,7 +318,7 @@ func run() error {
 	)
 	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
 
-	fileSrv := rfile.New(currentDB, fileService, userService, workspaceService, fileStreamer)
+	fileSrv := rfile.New(currentDB, fileService, userService, workspaceService, streamers.File)
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
 	// Reference Service
@@ -451,6 +365,44 @@ func (sm *ServiceManager) GetServices() []api.Service {
 	return sm.s
 }
 
+func setupLogger() *slog.Logger {
+	var logLevel slog.Level
+	logLevelStr := os.Getenv("LOG_LEVEL")
+	switch logLevelStr {
+	case "DEBUG":
+		logLevel = slog.LevelDebug
+	case "INFO":
+		logLevel = slog.LevelInfo
+	case "WARNING":
+		logLevel = slog.LevelWarn
+	case "ERROR":
+		logLevel = slog.LevelError
+	default:
+		logLevel = slog.LevelError
+	}
+
+	loggerHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	})
+
+	return slog.New(loggerHandler)
+}
+
+func setupDB(ctx context.Context) (*sql.DB, func(), error) {
+	dbMode := os.Getenv("DB_MODE")
+	if dbMode == "" {
+		return nil, nil, errors.New("DB_MODE env var is required")
+	}
+	fmt.Println("DB_MODE: ", dbMode)
+
+	switch dbMode {
+	case devtoolsdb.LOCAL:
+		return GetDBLocal(ctx)
+	default:
+		return nil, nil, errors.New("invalid db mode")
+	}
+}
+
 func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
@@ -473,4 +425,96 @@ func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 		cleanup = func() {}
 	}
 	return localDB.WriteDB, cleanup, nil
+}
+
+type Streamers struct {
+	Workspace           eventstream.SyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]
+	Environment         eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+	EnvironmentVariable eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
+	Log                 eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	Http                eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	HttpHeader          eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
+	HttpSearchParam     eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
+	HttpBodyForm        eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
+	HttpBodyUrlEncoded  eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
+	HttpAssert          eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
+	HttpVersion         eventstream.SyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent]
+	HttpResponse        eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
+	HttpResponseHeader  eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
+	HttpResponseAssert  eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+	HttpBodyRaw         eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+	Flow                eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	Node                eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	Edge                eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
+	FlowVariable        eventstream.SyncStreamer[rflowv2.FlowVariableTopic, rflowv2.FlowVariableEvent]
+	FlowVersion         eventstream.SyncStreamer[rflowv2.FlowVersionTopic, rflowv2.FlowVersionEvent]
+	NoOp                eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
+	For                 eventstream.SyncStreamer[rflowv2.ForTopic, rflowv2.ForEvent]
+	Condition           eventstream.SyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent]
+	ForEach             eventstream.SyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent]
+	Js                  eventstream.SyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent]
+	Execution           eventstream.SyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]
+	File                eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+}
+
+func NewStreamers() *Streamers {
+	return &Streamers{
+		Workspace:           memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent](),
+		Environment:         memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent](),
+		EnvironmentVariable: memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent](),
+		Log:                 memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent](),
+		Http:                memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
+		HttpHeader:          memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
+		HttpSearchParam:     memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
+		HttpBodyForm:        memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent](),
+		HttpBodyUrlEncoded:  memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
+		HttpAssert:          memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent](),
+		HttpVersion:         memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent](),
+		HttpResponse:        memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent](),
+		HttpResponseHeader:  memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
+		HttpResponseAssert:  memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
+		HttpBodyRaw:         memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
+		Flow:                memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
+		Node:                memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
+		Edge:                memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
+		FlowVariable:        memory.NewInMemorySyncStreamer[rflowv2.FlowVariableTopic, rflowv2.FlowVariableEvent](),
+		FlowVersion:         memory.NewInMemorySyncStreamer[rflowv2.FlowVersionTopic, rflowv2.FlowVersionEvent](),
+		NoOp:                memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent](),
+		For:                 memory.NewInMemorySyncStreamer[rflowv2.ForTopic, rflowv2.ForEvent](),
+		Condition:           memory.NewInMemorySyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent](),
+		ForEach:             memory.NewInMemorySyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent](),
+		Js:                  memory.NewInMemorySyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent](),
+		Execution:           memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent](),
+		File:                memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
+	}
+}
+
+func (s *Streamers) Shutdown() {
+	s.Workspace.Shutdown()
+	s.Environment.Shutdown()
+	s.EnvironmentVariable.Shutdown()
+	s.Log.Shutdown()
+	s.Http.Shutdown()
+	s.HttpHeader.Shutdown()
+	s.HttpSearchParam.Shutdown()
+	s.HttpBodyForm.Shutdown()
+	s.HttpBodyUrlEncoded.Shutdown()
+	s.HttpAssert.Shutdown()
+	s.HttpVersion.Shutdown()
+	s.HttpResponse.Shutdown()
+	s.HttpResponseHeader.Shutdown()
+	s.HttpResponseAssert.Shutdown()
+	s.HttpBodyRaw.Shutdown()
+	s.Flow.Shutdown()
+	s.Node.Shutdown()
+	s.Edge.Shutdown()
+	s.FlowVariable.Shutdown()
+	s.FlowVersion.Shutdown()
+	s.NoOp.Shutdown()
+	s.For.Shutdown()
+	s.Condition.Shutdown()
+	s.ForEach.Shutdown()
+	s.Js.Shutdown()
+	s.Execution.Shutdown()
+	s.File.Shutdown()
 }
