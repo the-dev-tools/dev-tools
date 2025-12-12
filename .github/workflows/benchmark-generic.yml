@@ -84,7 +84,7 @@ jobs:
         if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p .bench
-          
+
           # Use our new tool
           go run tools/benchmark/*.go run \
             --count=${{ steps.target.outputs.count }} \
