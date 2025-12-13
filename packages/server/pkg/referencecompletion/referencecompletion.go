@@ -16,6 +16,8 @@ import (
 const ArrayStringValuePrefix = "Array"
 const MapStringValuePrefix = "Map"
 
+var numericSuffixRegex = regexp.MustCompile(`^(.+?)(\d+)$`)
+
 // smartCompare compares two strings with smart numeric suffix handling
 // First by length (shorter first), then alphabetically, then numerically for suffixes
 func smartCompare(a, b string) bool {
@@ -25,9 +27,8 @@ func smartCompare(a, b string) bool {
 	}
 
 	// If same length, check for numeric suffixes
-	re := regexp.MustCompile(`^(.+?)(\d+)$`)
-	aMatches := re.FindStringSubmatch(a)
-	bMatches := re.FindStringSubmatch(b)
+	aMatches := numericSuffixRegex.FindStringSubmatch(a)
+	bMatches := numericSuffixRegex.FindStringSubmatch(b)
 
 	// If both have numeric suffixes and same prefix, compare numerically
 	if len(aMatches) == 3 && len(bMatches) == 3 && aMatches[1] == bMatches[1] {
