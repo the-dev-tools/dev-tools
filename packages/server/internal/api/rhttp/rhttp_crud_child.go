@@ -148,7 +148,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
-		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
+		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeInsert,
 			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
@@ -261,7 +261,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		if err != nil {
 			continue
 		}
-		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
+		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeUpdate,
 			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
@@ -351,7 +351,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 
 	// Publish delete events for real-time sync
 	for i, param := range deletedParams {
-		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
+		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
 			Type:            eventTypeDelete,
 			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
@@ -487,7 +487,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
-		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
+		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeInsert,
 			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
@@ -589,7 +589,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
-		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
+		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeUpdate,
 			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
@@ -681,7 +681,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 
 	// Publish delete events for real-time sync
 	for i, assert := range deletedAsserts {
-		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
+		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
 			Type:       eventTypeDelete,
 			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
@@ -979,7 +979,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 
 	// Step 3: Publish create events for real-time sync
 	for i, header := range createdHeaders {
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: insertData[i].workspaceID}, HttpHeaderEvent{
+		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: insertData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeInsert,
 			IsDelta:    header.IsDelta,
 			HttpHeader: converter.ToAPIHttpHeader(header),
@@ -1098,7 +1098,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 
 	// Step 3: Publish update events for real-time sync
 	for i, header := range updatedHeaders {
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: updateData[i].workspaceID}, HttpHeaderEvent{
+		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: updateData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeUpdate,
 			IsDelta:    header.IsDelta,
 			HttpHeader: converter.ToAPIHttpHeader(header),
@@ -1185,7 +1185,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 
 	// Step 3: Publish delete events for real-time sync
 	for i, headerID := range deletedHeaders {
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deleteData[i].workspaceID}, HttpHeaderEvent{
+		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: deleteData[i].workspaceID}, HttpHeaderEvent{
 			Type:    eventTypeDelete,
 			IsDelta: deleteData[i].isDelta,
 			HttpHeader: &apiv1.HttpHeader{
@@ -1327,7 +1327,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
-		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
+		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeInsert,
 			IsDelta:      bodyForm.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
@@ -1440,7 +1440,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		if err != nil {
 			continue
 		}
-		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
+		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeUpdate,
 			IsDelta:      bodyForm.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
@@ -1532,7 +1532,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 
 	// Publish delete events for real-time sync
 	for i, bodyForm := range deletedBodyForms {
-		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
+		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
 			Type:         eventTypeDelete,
 			IsDelta:      bodyForm.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
@@ -1669,7 +1669,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
-		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeInsert,
 			IsDelta:            bodyUrlEncoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
@@ -1782,7 +1782,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		if err != nil {
 			continue
 		}
-		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeUpdate,
 			IsDelta:            bodyUrlEncoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
@@ -1874,7 +1874,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 
 	// Publish delete events for real-time sync
 	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
-		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeDelete,
 			IsDelta:            bodyUrlEncoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),

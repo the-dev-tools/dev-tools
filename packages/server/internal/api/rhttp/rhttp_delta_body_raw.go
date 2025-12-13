@@ -115,7 +115,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
+		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
 			Type:        eventTypeInsert,
 			IsDelta:     true,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*bodyRaw),
@@ -180,7 +180,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
+		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
 			Type:        eventTypeUpdate,
 			IsDelta:     true,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*updatedBody),
@@ -230,7 +230,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaDelete(ctx context.Context, req *connec
 			HttpId: item.DeltaHttpId,
 		}
 
-		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
+		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
 			Type:        eventTypeDelete,
 			IsDelta:     true,
 			HttpBodyRaw: deletedBody,
@@ -266,7 +266,7 @@ func (h *HttpServiceRPC) streamHttpBodyRawDeltaSync(ctx context.Context, userID 
 	}
 
 	// Subscribe to events without snapshot
-	events, err := h.httpBodyRawStream.Subscribe(ctx, filter)
+	events, err := h.streamers.HttpBodyRaw.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

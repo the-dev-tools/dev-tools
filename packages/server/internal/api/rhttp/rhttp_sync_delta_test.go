@@ -56,17 +56,19 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
 	// Streamers
-	httpStream := memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent]()
-	httpHeaderStream := memory.NewInMemorySyncStreamer[HttpHeaderTopic, HttpHeaderEvent]()
-	httpSearchParamStream := memory.NewInMemorySyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent]()
-	httpBodyFormStream := memory.NewInMemorySyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]()
-	httpBodyUrlEncodedStream := memory.NewInMemorySyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]()
-	httpAssertStream := memory.NewInMemorySyncStreamer[HttpAssertTopic, HttpAssertEvent]()
-	httpVersionStream := memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent]()
-	httpResponseStream := memory.NewInMemorySyncStreamer[HttpResponseTopic, HttpResponseEvent]()
-	httpResponseHeaderStream := memory.NewInMemorySyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]()
-	httpResponseAssertStream := memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]()
-	httpBodyRawStream := memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]()
+	httpStreamers := &HttpStreamers{
+		Http:               memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent](),
+		HttpHeader:         memory.NewInMemorySyncStreamer[HttpHeaderTopic, HttpHeaderEvent](),
+		HttpSearchParam:    memory.NewInMemorySyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent](),
+		HttpBodyForm:       memory.NewInMemorySyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent](),
+		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent](),
+		HttpAssert:         memory.NewInMemorySyncStreamer[HttpAssertTopic, HttpAssertEvent](),
+		HttpVersion:        memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent](),
+		HttpResponse:       memory.NewInMemorySyncStreamer[HttpResponseTopic, HttpResponseEvent](),
+		HttpResponseHeader: memory.NewInMemorySyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent](),
+		HttpResponseAssert: memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent](),
+		HttpBodyRaw:        memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent](),
+	}
 
 	// Create resolver for delta resolution
 	requestResolver := resolver.NewStandardResolver(
@@ -95,18 +97,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		httpAssertService,
 		httpResponseService,
 		requestResolver,
-		httpStream,
-		httpHeaderStream,
-		httpSearchParamStream,
-		httpBodyFormStream,
-		httpBodyUrlEncodedStream,
-		httpAssertStream,
-		httpVersionStream,
-		httpResponseStream,
-		httpResponseHeaderStream,
-		httpResponseAssertStream,
-		httpBodyRawStream,
-		nil,
+		httpStreamers,
 	)
 
 	// 1. Create Workspace and User
@@ -247,7 +238,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	err = svc.httpHeaderService.Create(ctx, deltaHeader)
 	require.NoError(t, err)
 	// Manually publish event because we bypassed the RPC which usually publishes
-	svc.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: workspaceID}, HttpHeaderEvent{
+	svc.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: workspaceID}, HttpHeaderEvent{
 		Type:       eventTypeInsert,
 		IsDelta:    true, // This is what we are testing!
 		HttpHeader: converter.ToAPIHttpHeader(*deltaHeader),

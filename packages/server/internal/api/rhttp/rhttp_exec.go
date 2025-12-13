@@ -345,14 +345,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	if err != nil {
 		return idwrap.IDWrap{}, err
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			if rbErr := tx.Rollback(); rbErr != nil {
-				slog.ErrorContext(ctx, "Failed to rollback http response transaction", "error", rbErr)
-			}
-		}
-	}()
+	defer devtoolsdb.TxnRollback(tx)
 
 	serviceTx := h.httpResponseService.TX(tx)
 
@@ -386,20 +379,19 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	if err := tx.Commit(); err != nil {
 		return idwrap.IDWrap{}, err
 	}
-	committed = true
 
-	if h.httpResponseStream != nil {
+	if h.streamers.HttpResponse != nil {
 		topic := HttpResponseTopic{WorkspaceID: httpEntry.WorkspaceID}
-		h.httpResponseStream.Publish(topic, HttpResponseEvent{
+		h.streamers.HttpResponse.Publish(topic, HttpResponseEvent{
 			Type:         eventTypeInsert,
 			HttpResponse: converter.ToAPIHttpResponse(httpResponse),
 		})
 	}
 
-	if h.httpResponseHeaderStream != nil {
+	if h.streamers.HttpResponseHeader != nil {
 		headerTopic := HttpResponseHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}
 		for _, evt := range headerEvents {
-			h.httpResponseHeaderStream.Publish(headerTopic, evt)
+			h.streamers.HttpResponseHeader.Publish(headerTopic, evt)
 		}
 	}
 
@@ -599,14 +591,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			// Rollback on error
-			if rbErr := tx.Rollback(); rbErr != nil {
-				slog.ErrorContext(ctx, "Failed to rollback transaction", "error", rbErr)
-			}
-		}
-	}()
+	defer devtoolsdb.TxnRollback(tx)
 
 	serviceTx := h.httpResponseService.TX(tx)
 
@@ -660,10 +645,10 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 	// Publish events
 	workspaceID, err := h.hs.GetWorkspaceID(ctx, httpID)
 	if err == nil {
-		if h.httpResponseAssertStream != nil {
+		if h.streamers.HttpResponseAssert != nil {
 			topic := HttpResponseAssertTopic{WorkspaceID: workspaceID}
 			for _, evt := range events {
-				h.httpResponseAssertStream.Publish(topic, evt)
+				h.streamers.HttpResponseAssert.Publish(topic, evt)
 			}
 		}
 	} else {
@@ -680,18 +665,14 @@ func (h *HttpServiceRPC) createAssertionEvalContext(resp httpclient.Response) ma
 	var bodyMap map[string]any
 	bodyString := string(resp.Body)
 
-	if json.Valid(resp.Body) {
-		if err := json.Unmarshal(resp.Body, &body); err != nil {
-			// If JSON parsing fails, use as string
-			body = bodyString
-		} else {
-			// Also try to parse as map for easier access
-			if mapBody, ok := body.(map[string]any); ok {
-				bodyMap = mapBody
-			}
-		}
-	} else {
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		// If JSON parsing fails, use as string
 		body = bodyString
+	} else {
+		// Also try to parse as map for easier access
+		if mapBody, ok := body.(map[string]any); ok {
+			bodyMap = mapBody
+		}
 	}
 
 	// Convert headers to map with both original and lowercase keys
@@ -832,7 +813,7 @@ func (h *HttpServiceRPC) evaluateAssertion(ctx context.Context, expressionStr st
 }
 
 func (h *HttpServiceRPC) logExecution(userID idwrap.IDWrap, httpEntry *mhttp.HTTP, err error) {
-	if h.logStream == nil {
+	if h.streamers.Log == nil {
 		return
 	}
 
@@ -855,7 +836,7 @@ func (h *HttpServiceRPC) logExecution(userID idwrap.IDWrap, httpEntry *mhttp.HTT
 		"error":   errMsg,
 	})
 
-	h.logStream.Publish(rlog.LogTopic{UserID: userID}, rlog.LogEvent{
+	h.streamers.Log.Publish(rlog.LogTopic{UserID: userID}, rlog.LogEvent{
 		Type: rlog.EventTypeInsert,
 		Log: &logv1.Log{
 			LogId: idwrap.NewNow().Bytes(),

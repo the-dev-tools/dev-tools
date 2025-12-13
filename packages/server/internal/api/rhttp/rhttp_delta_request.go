@@ -256,7 +256,7 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 
 	// Publish update events for real-time sync after successful commit
 	for _, delta := range updatedDeltas {
-		h.stream.Publish(HttpTopic{WorkspaceID: delta.WorkspaceID}, HttpEvent{
+		h.streamers.Http.Publish(HttpTopic{WorkspaceID: delta.WorkspaceID}, HttpEvent{
 			Type:    eventTypeUpdate,
 			IsDelta: true,
 			Http:    converter.ToAPIHttp(delta),
@@ -342,7 +342,7 @@ func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Reque
 
 	// Publish delete events for real-time sync after successful commit
 	for i, delta := range deletedDeltas {
-		h.stream.Publish(HttpTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpEvent{
+		h.streamers.Http.Publish(HttpTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpEvent{
 			Type:    eventTypeDelete,
 			IsDelta: true,
 			Http:    converter.ToAPIHttp(delta),
@@ -411,7 +411,7 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 
 	return eventstream.StreamToClient(
 		ctx,
-		h.stream,
+		h.streamers.Http,
 		nil,
 		filter,
 		converter,

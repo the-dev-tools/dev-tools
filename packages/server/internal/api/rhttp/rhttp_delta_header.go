@@ -290,7 +290,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 		if err != nil {
 			continue
 		}
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
+		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
 			Type:       eventTypeUpdate,
 			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
@@ -384,7 +384,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 
 	// Publish delete events for real-time sync after successful commit
 	for i, header := range deletedHeaders {
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpHeaderEvent{
+		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpHeaderEvent{
 			Type:       eventTypeDelete,
 			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
@@ -419,7 +419,7 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 	}
 
 	// Subscribe to events without snapshot
-	events, err := h.httpHeaderStream.Subscribe(ctx, filter)
+	events, err := h.streamers.HttpHeader.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

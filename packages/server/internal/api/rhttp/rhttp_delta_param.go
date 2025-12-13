@@ -299,7 +299,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		if err != nil {
 			continue
 		}
-		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
+		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeUpdate,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
@@ -393,7 +393,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 
 	// Publish delete events for real-time sync after successful commit
 	for i, param := range deletedParams {
-		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
+		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
 			Type:            eventTypeDelete,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
@@ -428,7 +428,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 	}
 
 	// Subscribe to events without snapshot
-	events, err := h.httpSearchParamStream.Subscribe(ctx, filter)
+	events, err := h.streamers.HttpSearchParam.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

@@ -51,8 +51,6 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	services := base.GetBaseServices()
 	envService := senv.New(base.Queries, base.Logger())
 	varService := svar.New(base.Queries, base.Logger())
-	stream := memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent]()
-	t.Cleanup(stream.Shutdown)
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
@@ -80,16 +78,33 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	httpBodyRawService := shttp.NewHttpBodyRawService(base.Queries)
 
 	// Streamers
-	httpHeaderStream := memory.NewInMemorySyncStreamer[HttpHeaderTopic, HttpHeaderEvent]()
-	httpSearchParamStream := memory.NewInMemorySyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent]()
-	httpBodyFormStream := memory.NewInMemorySyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]()
-	httpBodyUrlEncodedStream := memory.NewInMemorySyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]()
-	httpAssertStream := memory.NewInMemorySyncStreamer[HttpAssertTopic, HttpAssertEvent]()
-	httpVersionStream := memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent]()
-	httpResponseStream := memory.NewInMemorySyncStreamer[HttpResponseTopic, HttpResponseEvent]()
-	httpResponseHeaderStream := memory.NewInMemorySyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]()
-	httpResponseAssertStream := memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]()
-	httpBodyRawStream := memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]()
+	httpStreamers := &HttpStreamers{
+		Http:               memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent](),
+		HttpHeader:         memory.NewInMemorySyncStreamer[HttpHeaderTopic, HttpHeaderEvent](),
+		HttpSearchParam:    memory.NewInMemorySyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent](),
+		HttpBodyForm:       memory.NewInMemorySyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent](),
+		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent](),
+		HttpAssert:         memory.NewInMemorySyncStreamer[HttpAssertTopic, HttpAssertEvent](),
+		HttpVersion:        memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent](),
+		HttpResponse:       memory.NewInMemorySyncStreamer[HttpResponseTopic, HttpResponseEvent](),
+		HttpResponseHeader: memory.NewInMemorySyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent](),
+		HttpResponseAssert: memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent](),
+		HttpBodyRaw:        memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent](),
+	}
+
+	t.Cleanup(func() {
+		httpStreamers.Http.Shutdown()
+		httpStreamers.HttpHeader.Shutdown()
+		httpStreamers.HttpSearchParam.Shutdown()
+		httpStreamers.HttpBodyForm.Shutdown()
+		httpStreamers.HttpBodyUrlEncoded.Shutdown()
+		httpStreamers.HttpAssert.Shutdown()
+		httpStreamers.HttpVersion.Shutdown()
+		httpStreamers.HttpResponse.Shutdown()
+		httpStreamers.HttpResponseHeader.Shutdown()
+		httpStreamers.HttpResponseAssert.Shutdown()
+		httpStreamers.HttpBodyRaw.Shutdown()
+	})
 
 	// Create resolver for delta resolution
 	requestResolver := resolver.NewStandardResolver(
@@ -102,7 +117,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 		httpAssertService,
 	)
 
-	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream, nil)
+	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamers)
 
 	t.Cleanup(base.Close)
 
@@ -350,7 +365,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 	}
 	require.NoError(t, f.hs.Create(context.Background(), hiddenHttp), "create hidden http")
 
-	f.handler.stream.Publish(HttpTopic{WorkspaceID: otherWorkspaceID}, HttpEvent{
+	f.handler.streamers.Http.Publish(HttpTopic{WorkspaceID: otherWorkspaceID}, HttpEvent{
 		Type: "insert",
 		Http: &httpv1.Http{
 			HttpId: hiddenHttpID.Bytes(),

@@ -304,7 +304,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 		if err != nil {
 			continue
 		}
-		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
+		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeUpdate,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
@@ -398,7 +398,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 
 	// Publish delete events for real-time sync after successful commit
 	for i, bodyForm := range deletedBodyForms {
-		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
+		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
 			Type:         eventTypeDelete,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
@@ -433,7 +433,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 	}
 
 	// Subscribe to events without snapshot
-	events, err := h.httpBodyFormStream.Subscribe(ctx, filter)
+	events, err := h.streamers.HttpBodyForm.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -755,7 +755,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 		if err != nil {
 			continue
 		}
-		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeUpdate,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
@@ -849,7 +849,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 
 	// Publish delete events for real-time sync after successful commit
 	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
-		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeDelete,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
@@ -884,7 +884,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 	}
 
 	// Subscribe to events without snapshot
-	events, err := h.httpBodyUrlEncodedStream.Subscribe(ctx, filter)
+	events, err := h.streamers.HttpBodyUrlEncoded.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

@@ -243,7 +243,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 		if err != nil {
 			continue
 		}
-		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
+		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeUpdate,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
@@ -337,7 +337,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 
 	// Publish delete events for real-time sync after successful commit
 	for i, assert := range deletedAsserts {
-		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
+		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
 			Type:       eventTypeDelete,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
@@ -372,7 +372,7 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 	}
 
 	// Subscribe to events without snapshot
-	events, err := h.httpAssertStream.Subscribe(ctx, filter)
+	events, err := h.streamers.HttpAssert.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

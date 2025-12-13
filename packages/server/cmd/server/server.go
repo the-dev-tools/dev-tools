@@ -222,13 +222,26 @@ func run() error {
 		httpAssertService,
 	)
 
+	httpStreamers := &rhttp.HttpStreamers{
+		Http:               streamers.Http,
+		HttpHeader:         streamers.HttpHeader,
+		HttpSearchParam:    streamers.HttpSearchParam,
+		HttpBodyForm:       streamers.HttpBodyForm,
+		HttpBodyUrlEncoded: streamers.HttpBodyUrlEncoded,
+		HttpAssert:         streamers.HttpAssert,
+		HttpVersion:        streamers.HttpVersion,
+		HttpResponse:       streamers.HttpResponse,
+		HttpResponseHeader: streamers.HttpResponseHeader,
+		HttpResponseAssert: streamers.HttpResponseAssert,
+		HttpBodyRaw:        streamers.HttpBodyRaw,
+		Log:                streamers.Log,
+	}
+
 	httpSrv := rhttp.New(
 		currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService,
 		httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService,
 		httpAssertService, httpResponseService, requestResolver,
-		streamers.Http, streamers.HttpHeader, streamers.HttpSearchParam, streamers.HttpBodyForm, streamers.HttpBodyUrlEncoded,
-		streamers.HttpAssert, streamers.HttpVersion, streamers.HttpResponse, streamers.HttpResponseHeader, streamers.HttpResponseAssert,
-		streamers.HttpBodyRaw, streamers.Log,
+		httpStreamers,
 	)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 

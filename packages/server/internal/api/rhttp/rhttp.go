@@ -156,6 +156,22 @@ type HttpBodyRawEvent struct {
 	HttpBodyRaw *apiv1.HttpBodyRaw
 }
 
+// HttpStreamers groups all event streams used by the HTTP service
+type HttpStreamers struct {
+	Http               eventstream.SyncStreamer[HttpTopic, HttpEvent]
+	HttpHeader         eventstream.SyncStreamer[HttpHeaderTopic, HttpHeaderEvent]
+	HttpSearchParam    eventstream.SyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent]
+	HttpBodyForm       eventstream.SyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]
+	HttpBodyUrlEncoded eventstream.SyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]
+	HttpAssert         eventstream.SyncStreamer[HttpAssertTopic, HttpAssertEvent]
+	HttpVersion        eventstream.SyncStreamer[HttpVersionTopic, HttpVersionEvent]
+	HttpResponse       eventstream.SyncStreamer[HttpResponseTopic, HttpResponseEvent]
+	HttpResponseHeader eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]
+	HttpResponseAssert eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]
+	HttpBodyRaw        eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]
+	Log                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+}
+
 // HttpServiceRPC handles HTTP RPC operations with streaming support
 type HttpServiceRPC struct {
 	DB *sql.DB
@@ -183,21 +199,8 @@ type HttpServiceRPC struct {
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	httpAssertService         *shttp.HttpAssertService
 
-	// Streamers for child entities
-	stream                   eventstream.SyncStreamer[HttpTopic, HttpEvent]
-	httpHeaderStream         eventstream.SyncStreamer[HttpHeaderTopic, HttpHeaderEvent]
-	httpSearchParamStream    eventstream.SyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent]
-	httpBodyFormStream       eventstream.SyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]
-	httpBodyUrlEncodedStream eventstream.SyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]
-	httpAssertStream         eventstream.SyncStreamer[HttpAssertTopic, HttpAssertEvent]
-	httpVersionStream        eventstream.SyncStreamer[HttpVersionTopic, HttpVersionEvent]
-
-	// Streamers for response entities
-	httpResponseStream       eventstream.SyncStreamer[HttpResponseTopic, HttpResponseEvent]
-	httpResponseHeaderStream eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]
-	httpResponseAssertStream eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]
-	httpBodyRawStream        eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]
-	logStream                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	// Streamers
+	streamers *HttpStreamers
 }
 
 // New creates a new HttpServiceRPC instance
@@ -217,18 +220,7 @@ func New(
 	httpAssertService *shttp.HttpAssertService,
 	httpResponseService shttp.HttpResponseService,
 	requestResolver resolver.RequestResolver,
-	stream eventstream.SyncStreamer[HttpTopic, HttpEvent],
-	httpHeaderStream eventstream.SyncStreamer[HttpHeaderTopic, HttpHeaderEvent],
-	httpSearchParamStream eventstream.SyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent],
-	httpBodyFormStream eventstream.SyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent],
-	httpBodyUrlEncodedStream eventstream.SyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent],
-	httpAssertStream eventstream.SyncStreamer[HttpAssertTopic, HttpAssertEvent],
-	httpVersionStream eventstream.SyncStreamer[HttpVersionTopic, HttpVersionEvent],
-	httpResponseStream eventstream.SyncStreamer[HttpResponseTopic, HttpResponseEvent],
-	httpResponseHeaderStream eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent],
-	httpResponseAssertStream eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent],
-	httpBodyRawStream eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent],
-	logStream eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent],
+	streamers *HttpStreamers,
 ) HttpServiceRPC {
 	return HttpServiceRPC{
 		DB:                        db,
@@ -246,18 +238,7 @@ func New(
 		httpAssertService:         httpAssertService,
 		httpResponseService:       httpResponseService,
 		resolver:                  requestResolver,
-		stream:                    stream,
-		httpHeaderStream:          httpHeaderStream,
-		httpSearchParamStream:     httpSearchParamStream,
-		httpBodyFormStream:        httpBodyFormStream,
-		httpBodyUrlEncodedStream:  httpBodyUrlEncodedStream,
-		httpAssertStream:          httpAssertStream,
-		httpVersionStream:         httpVersionStream,
-		httpResponseStream:        httpResponseStream,
-		httpResponseHeaderStream:  httpResponseHeaderStream,
-		httpResponseAssertStream:  httpResponseAssertStream,
-		httpBodyRawStream:         httpBodyRawStream,
-		logStream:                 logStream,
+		streamers:                 streamers,
 	}
 }
 

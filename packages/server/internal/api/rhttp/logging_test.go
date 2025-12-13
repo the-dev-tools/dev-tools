@@ -40,17 +40,23 @@ func TestHttpRun_Logging(t *testing.T) {
 	envService := senv.New(base.Queries, base.Logger())
 	varService := svar.New(base.Queries, base.Logger())
 
-	// Setup Log Streamer
-	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
-	defer logStreamer.Shutdown()
-
-	// Setup Http Streamer (needed to prevent panic on update)
-	httpStreamer := memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent]()
-	defer httpStreamer.Shutdown()
-
-	// Setup Http Version Streamer (needed to prevent panic on version creation)
-	httpVersionStreamer := memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent]()
-	defer httpVersionStreamer.Shutdown()
+	// Setup Streamers
+	httpStreamers := &HttpStreamers{
+		Log:         memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent](),
+		Http:        memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent](),
+		HttpVersion: memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent](),
+	}
+	defer func() {
+		if httpStreamers.Log != nil {
+			httpStreamers.Log.Shutdown()
+		}
+		if httpStreamers.Http != nil {
+			httpStreamers.Http.Shutdown()
+		}
+		if httpStreamers.HttpVersion != nil {
+			httpStreamers.HttpVersion.Shutdown()
+		}
+	}()
 
 	// Other services
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
@@ -87,8 +93,7 @@ func TestHttpRun_Logging(t *testing.T) {
 		httpAssertService,
 		httpResponseService,
 		requestResolver,
-		httpStreamer, nil, nil, nil, nil, nil, httpVersionStreamer, nil, nil, nil, nil, // other streams nil
-		logStreamer,
+		httpStreamers,
 	)
 
 	// Setup Data
@@ -149,7 +154,7 @@ func TestHttpRun_Logging(t *testing.T) {
 	require.NoError(t, err)
 
 	// Subscribe to logs
-	logCh, err := logStreamer.Subscribe(ctx, func(topic rlog.LogTopic) bool {
+	logCh, err := httpStreamers.Log.Subscribe(ctx, func(topic rlog.LogTopic) bool {
 		return topic.UserID == userID
 	})
 	require.NoError(t, err)
