@@ -473,19 +473,15 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	// Store flows
 	if len(results.Flows) > 0 {
-		for _, flow := range results.Flows {
-			if err := txFlowService.CreateFlow(ctx, flow); err != nil {
-				return fmt.Errorf("failed to store flow: %w", err)
-			}
+		if err := txFlowService.CreateFlowBulk(ctx, results.Flows); err != nil {
+			return fmt.Errorf("failed to store flows: %w", err)
 		}
 	}
 
 	// Store nodes
 	if len(results.Nodes) > 0 {
-		for _, node := range results.Nodes {
-			if err := txNodeService.CreateNode(ctx, node); err != nil {
-				return fmt.Errorf("failed to store node: %w", err)
-			}
+		if err := txNodeService.CreateNodeBulk(ctx, results.Nodes); err != nil {
+			return fmt.Errorf("failed to store nodes: %w", err)
 		}
 	}
 

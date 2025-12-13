@@ -294,6 +294,151 @@ func (q *Queries) CreateFlowNodeNoop(ctx context.Context, arg CreateFlowNodeNoop
 	return err
 }
 
+const createFlowNodesBulk = `-- name: CreateFlowNodesBulk :exec
+INSERT INTO
+  flow_node (id, flow_id, name, node_kind, position_x, position_y)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateFlowNodesBulkParams struct {
+	ID           idwrap.IDWrap
+	FlowID       idwrap.IDWrap
+	Name         string
+	NodeKind     int32
+	PositionX    float64
+	PositionY    float64
+	ID_2         idwrap.IDWrap
+	FlowID_2     idwrap.IDWrap
+	Name_2       string
+	NodeKind_2   int32
+	PositionX_2  float64
+	PositionY_2  float64
+	ID_3         idwrap.IDWrap
+	FlowID_3     idwrap.IDWrap
+	Name_3       string
+	NodeKind_3   int32
+	PositionX_3  float64
+	PositionY_3  float64
+	ID_4         idwrap.IDWrap
+	FlowID_4     idwrap.IDWrap
+	Name_4       string
+	NodeKind_4   int32
+	PositionX_4  float64
+	PositionY_4  float64
+	ID_5         idwrap.IDWrap
+	FlowID_5     idwrap.IDWrap
+	Name_5       string
+	NodeKind_5   int32
+	PositionX_5  float64
+	PositionY_5  float64
+	ID_6         idwrap.IDWrap
+	FlowID_6     idwrap.IDWrap
+	Name_6       string
+	NodeKind_6   int32
+	PositionX_6  float64
+	PositionY_6  float64
+	ID_7         idwrap.IDWrap
+	FlowID_7     idwrap.IDWrap
+	Name_7       string
+	NodeKind_7   int32
+	PositionX_7  float64
+	PositionY_7  float64
+	ID_8         idwrap.IDWrap
+	FlowID_8     idwrap.IDWrap
+	Name_8       string
+	NodeKind_8   int32
+	PositionX_8  float64
+	PositionY_8  float64
+	ID_9         idwrap.IDWrap
+	FlowID_9     idwrap.IDWrap
+	Name_9       string
+	NodeKind_9   int32
+	PositionX_9  float64
+	PositionY_9  float64
+	ID_10        idwrap.IDWrap
+	FlowID_10    idwrap.IDWrap
+	Name_10      string
+	NodeKind_10  int32
+	PositionX_10 float64
+	PositionY_10 float64
+}
+
+func (q *Queries) CreateFlowNodesBulk(ctx context.Context, arg CreateFlowNodesBulkParams) error {
+	_, err := q.exec(ctx, q.createFlowNodesBulkStmt, createFlowNodesBulk,
+		arg.ID,
+		arg.FlowID,
+		arg.Name,
+		arg.NodeKind,
+		arg.PositionX,
+		arg.PositionY,
+		arg.ID_2,
+		arg.FlowID_2,
+		arg.Name_2,
+		arg.NodeKind_2,
+		arg.PositionX_2,
+		arg.PositionY_2,
+		arg.ID_3,
+		arg.FlowID_3,
+		arg.Name_3,
+		arg.NodeKind_3,
+		arg.PositionX_3,
+		arg.PositionY_3,
+		arg.ID_4,
+		arg.FlowID_4,
+		arg.Name_4,
+		arg.NodeKind_4,
+		arg.PositionX_4,
+		arg.PositionY_4,
+		arg.ID_5,
+		arg.FlowID_5,
+		arg.Name_5,
+		arg.NodeKind_5,
+		arg.PositionX_5,
+		arg.PositionY_5,
+		arg.ID_6,
+		arg.FlowID_6,
+		arg.Name_6,
+		arg.NodeKind_6,
+		arg.PositionX_6,
+		arg.PositionY_6,
+		arg.ID_7,
+		arg.FlowID_7,
+		arg.Name_7,
+		arg.NodeKind_7,
+		arg.PositionX_7,
+		arg.PositionY_7,
+		arg.ID_8,
+		arg.FlowID_8,
+		arg.Name_8,
+		arg.NodeKind_8,
+		arg.PositionX_8,
+		arg.PositionY_8,
+		arg.ID_9,
+		arg.FlowID_9,
+		arg.Name_9,
+		arg.NodeKind_9,
+		arg.PositionX_9,
+		arg.PositionY_9,
+		arg.ID_10,
+		arg.FlowID_10,
+		arg.Name_10,
+		arg.NodeKind_10,
+		arg.PositionX_10,
+		arg.PositionY_10,
+	)
+	return err
+}
+
 const createFlowTag = `-- name: CreateFlowTag :exec
 INSERT INTO
   flow_tag (id, flow_id, tag_id)
@@ -503,6 +648,151 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 		arg.Enabled_10,
 		arg.Description_10,
 		arg.DisplayOrder_10,
+	)
+	return err
+}
+
+const createFlowsBulk = `-- name: CreateFlowsBulk :exec
+INSERT INTO
+  flow (id, workspace_id, version_parent_id, name, duration, running)
+VALUES
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?)
+`
+
+type CreateFlowsBulkParams struct {
+	ID                 idwrap.IDWrap
+	WorkspaceID        idwrap.IDWrap
+	VersionParentID    *idwrap.IDWrap
+	Name               string
+	Duration           int32
+	Running            bool
+	ID_2               idwrap.IDWrap
+	WorkspaceID_2      idwrap.IDWrap
+	VersionParentID_2  *idwrap.IDWrap
+	Name_2             string
+	Duration_2         int32
+	Running_2          bool
+	ID_3               idwrap.IDWrap
+	WorkspaceID_3      idwrap.IDWrap
+	VersionParentID_3  *idwrap.IDWrap
+	Name_3             string
+	Duration_3         int32
+	Running_3          bool
+	ID_4               idwrap.IDWrap
+	WorkspaceID_4      idwrap.IDWrap
+	VersionParentID_4  *idwrap.IDWrap
+	Name_4             string
+	Duration_4         int32
+	Running_4          bool
+	ID_5               idwrap.IDWrap
+	WorkspaceID_5      idwrap.IDWrap
+	VersionParentID_5  *idwrap.IDWrap
+	Name_5             string
+	Duration_5         int32
+	Running_5          bool
+	ID_6               idwrap.IDWrap
+	WorkspaceID_6      idwrap.IDWrap
+	VersionParentID_6  *idwrap.IDWrap
+	Name_6             string
+	Duration_6         int32
+	Running_6          bool
+	ID_7               idwrap.IDWrap
+	WorkspaceID_7      idwrap.IDWrap
+	VersionParentID_7  *idwrap.IDWrap
+	Name_7             string
+	Duration_7         int32
+	Running_7          bool
+	ID_8               idwrap.IDWrap
+	WorkspaceID_8      idwrap.IDWrap
+	VersionParentID_8  *idwrap.IDWrap
+	Name_8             string
+	Duration_8         int32
+	Running_8          bool
+	ID_9               idwrap.IDWrap
+	WorkspaceID_9      idwrap.IDWrap
+	VersionParentID_9  *idwrap.IDWrap
+	Name_9             string
+	Duration_9         int32
+	Running_9          bool
+	ID_10              idwrap.IDWrap
+	WorkspaceID_10     idwrap.IDWrap
+	VersionParentID_10 *idwrap.IDWrap
+	Name_10            string
+	Duration_10        int32
+	Running_10         bool
+}
+
+func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams) error {
+	_, err := q.exec(ctx, q.createFlowsBulkStmt, createFlowsBulk,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.VersionParentID,
+		arg.Name,
+		arg.Duration,
+		arg.Running,
+		arg.ID_2,
+		arg.WorkspaceID_2,
+		arg.VersionParentID_2,
+		arg.Name_2,
+		arg.Duration_2,
+		arg.Running_2,
+		arg.ID_3,
+		arg.WorkspaceID_3,
+		arg.VersionParentID_3,
+		arg.Name_3,
+		arg.Duration_3,
+		arg.Running_3,
+		arg.ID_4,
+		arg.WorkspaceID_4,
+		arg.VersionParentID_4,
+		arg.Name_4,
+		arg.Duration_4,
+		arg.Running_4,
+		arg.ID_5,
+		arg.WorkspaceID_5,
+		arg.VersionParentID_5,
+		arg.Name_5,
+		arg.Duration_5,
+		arg.Running_5,
+		arg.ID_6,
+		arg.WorkspaceID_6,
+		arg.VersionParentID_6,
+		arg.Name_6,
+		arg.Duration_6,
+		arg.Running_6,
+		arg.ID_7,
+		arg.WorkspaceID_7,
+		arg.VersionParentID_7,
+		arg.Name_7,
+		arg.Duration_7,
+		arg.Running_7,
+		arg.ID_8,
+		arg.WorkspaceID_8,
+		arg.VersionParentID_8,
+		arg.Name_8,
+		arg.Duration_8,
+		arg.Running_8,
+		arg.ID_9,
+		arg.WorkspaceID_9,
+		arg.VersionParentID_9,
+		arg.Name_9,
+		arg.Duration_9,
+		arg.Running_9,
+		arg.ID_10,
+		arg.WorkspaceID_10,
+		arg.VersionParentID_10,
+		arg.Name_10,
+		arg.Duration_10,
+		arg.Running_10,
 	)
 	return err
 }

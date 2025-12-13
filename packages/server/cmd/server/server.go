@@ -66,17 +66,34 @@ type workspaceImporterAdapter struct {
 }
 
 func (w *workspaceImporterAdapter) ImportWorkspaceFromYAML(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*rflowv2.ImportResults, error) {
-	// For now, return a simple empty result - this can be implemented later if needed
-	return &rflowv2.ImportResults{
+	req := &rimportv2.ImportRequest{
 		WorkspaceID: workspaceID,
+		Name:        "Imported Flow",
+		Data:        data,
+	}
+
+	res, err := w.importService.ImportUnifiedInternal(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	flowsCreated := 0
+	if res.Flow != nil {
+		flowsCreated = 1
+	}
+
+	return &rflowv2.ImportResults{
+		WorkspaceID:     workspaceID,
+		HTTPReqsCreated: len(res.HTTPReqs),
+		FilesCreated:    len(res.Files),
+		FlowsCreated:    flowsCreated,
+		NodesCreated:    len(res.Nodes),
 	}, nil
 }
 
 func (w *workspaceImporterAdapter) ImportWorkspaceFromCurl(ctx context.Context, curlData []byte, workspaceID idwrap.IDWrap) (*rflowv2.ImportResults, error) {
-	// For now, return a simple empty result - this can be implemented later if needed
-	return &rflowv2.ImportResults{
-		WorkspaceID: workspaceID,
-	}, nil
+	// ImportUnified handles format detection automatically
+	return w.ImportWorkspaceFromYAML(ctx, curlData, workspaceID)
 }
 
 func main() {

@@ -84,6 +84,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowNodeNoopStmt, err = db.PrepareContext(ctx, createFlowNodeNoop); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeNoop: %w", err)
 	}
+	if q.createFlowNodesBulkStmt, err = db.PrepareContext(ctx, createFlowNodesBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodesBulk: %w", err)
+	}
 	if q.createFlowTagStmt, err = db.PrepareContext(ctx, createFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowTag: %w", err)
 	}
@@ -92,6 +95,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createFlowVariableBulkStmt, err = db.PrepareContext(ctx, createFlowVariableBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowVariableBulk: %w", err)
+	}
+	if q.createFlowsBulkStmt, err = db.PrepareContext(ctx, createFlowsBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowsBulk: %w", err)
 	}
 	if q.createHTTPStmt, err = db.PrepareContext(ctx, createHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTP: %w", err)
@@ -804,6 +810,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createFlowNodeNoopStmt: %w", cerr)
 		}
 	}
+	if q.createFlowNodesBulkStmt != nil {
+		if cerr := q.createFlowNodesBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodesBulkStmt: %w", cerr)
+		}
+	}
 	if q.createFlowTagStmt != nil {
 		if cerr := q.createFlowTagStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowTagStmt: %w", cerr)
@@ -817,6 +828,11 @@ func (q *Queries) Close() error {
 	if q.createFlowVariableBulkStmt != nil {
 		if cerr := q.createFlowVariableBulkStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowVariableBulkStmt: %w", cerr)
+		}
+	}
+	if q.createFlowsBulkStmt != nil {
+		if cerr := q.createFlowsBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowsBulkStmt: %w", cerr)
 		}
 	}
 	if q.createHTTPStmt != nil {
@@ -1888,9 +1904,11 @@ type Queries struct {
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
 	createFlowNodeNoopStmt                     *sql.Stmt
+	createFlowNodesBulkStmt                    *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createFlowVariableStmt                     *sql.Stmt
 	createFlowVariableBulkStmt                 *sql.Stmt
+	createFlowsBulkStmt                        *sql.Stmt
 	createHTTPStmt                             *sql.Stmt
 	createHTTPAssertStmt                       *sql.Stmt
 	createHTTPAssertBulkStmt                   *sql.Stmt
@@ -2119,9 +2137,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
 		createFlowNodeNoopStmt:                     q.createFlowNodeNoopStmt,
+		createFlowNodesBulkStmt:                    q.createFlowNodesBulkStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createFlowVariableStmt:                     q.createFlowVariableStmt,
 		createFlowVariableBulkStmt:                 q.createFlowVariableBulkStmt,
+		createFlowsBulkStmt:                        q.createFlowsBulkStmt,
 		createHTTPStmt:                             q.createHTTPStmt,
 		createHTTPAssertStmt:                       q.createHTTPAssertStmt,
 		createHTTPAssertBulkStmt:                   q.createHTTPAssertBulkStmt,

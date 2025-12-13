@@ -96,11 +96,90 @@ func (s *FlowService) CreateFlow(ctx context.Context, item mflow.Flow) error {
 }
 
 func (s *FlowService) CreateFlowBulk(ctx context.Context, flows []mflow.Flow) error {
-	var err error
-	for _, flow := range flows {
-		err = s.CreateFlow(ctx, flow)
-		if err != nil {
-			return err
+	batchSize := 10
+	for i := 0; i < len(flows); i += batchSize {
+		end := i + batchSize
+		if end > len(flows) {
+			end = len(flows)
+		}
+
+		batch := flows[i:end]
+		if len(batch) == batchSize {
+			// Use bulk insert for full batches
+			arg := gen.CreateFlowsBulkParams{
+				ID:                 batch[0].ID,
+				WorkspaceID:        batch[0].WorkspaceID,
+				VersionParentID:    batch[0].VersionParentID,
+				Name:               batch[0].Name,
+				Duration:           batch[0].Duration,
+				Running:            batch[0].Running,
+				ID_2:               batch[1].ID,
+				WorkspaceID_2:      batch[1].WorkspaceID,
+				VersionParentID_2:  batch[1].VersionParentID,
+				Name_2:             batch[1].Name,
+				Duration_2:         batch[1].Duration,
+				Running_2:          batch[1].Running,
+				ID_3:               batch[2].ID,
+				WorkspaceID_3:      batch[2].WorkspaceID,
+				VersionParentID_3:  batch[2].VersionParentID,
+				Name_3:             batch[2].Name,
+				Duration_3:         batch[2].Duration,
+				Running_3:          batch[2].Running,
+				ID_4:               batch[3].ID,
+				WorkspaceID_4:      batch[3].WorkspaceID,
+				VersionParentID_4:  batch[3].VersionParentID,
+				Name_4:             batch[3].Name,
+				Duration_4:         batch[3].Duration,
+				Running_4:          batch[3].Running,
+				ID_5:               batch[4].ID,
+				WorkspaceID_5:      batch[4].WorkspaceID,
+				VersionParentID_5:  batch[4].VersionParentID,
+				Name_5:             batch[4].Name,
+				Duration_5:         batch[4].Duration,
+				Running_5:          batch[4].Running,
+				ID_6:               batch[5].ID,
+				WorkspaceID_6:      batch[5].WorkspaceID,
+				VersionParentID_6:  batch[5].VersionParentID,
+				Name_6:             batch[5].Name,
+				Duration_6:         batch[5].Duration,
+				Running_6:          batch[5].Running,
+				ID_7:               batch[6].ID,
+				WorkspaceID_7:      batch[6].WorkspaceID,
+				VersionParentID_7:  batch[6].VersionParentID,
+				Name_7:             batch[6].Name,
+				Duration_7:         batch[6].Duration,
+				Running_7:          batch[6].Running,
+				ID_8:               batch[7].ID,
+				WorkspaceID_8:      batch[7].WorkspaceID,
+				VersionParentID_8:  batch[7].VersionParentID,
+				Name_8:             batch[7].Name,
+				Duration_8:         batch[7].Duration,
+				Running_8:          batch[7].Running,
+				ID_9:               batch[8].ID,
+				WorkspaceID_9:      batch[8].WorkspaceID,
+				VersionParentID_9:  batch[8].VersionParentID,
+				Name_9:             batch[8].Name,
+				Duration_9:         batch[8].Duration,
+				Running_9:          batch[8].Running,
+				ID_10:              batch[9].ID,
+				WorkspaceID_10:     batch[9].WorkspaceID,
+				VersionParentID_10: batch[9].VersionParentID,
+				Name_10:            batch[9].Name,
+				Duration_10:        batch[9].Duration,
+				Running_10:         batch[9].Running,
+			}
+			err := s.queries.CreateFlowsBulk(ctx, arg)
+			if err != nil {
+				return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
+			}
+		} else {
+			// Fallback to single inserts for remainder
+			for _, flow := range batch {
+				err := s.CreateFlow(ctx, flow)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
