@@ -383,7 +383,15 @@ func (s *FileService) MoveFile(ctx context.Context, fileID idwrap.IDWrap, newPar
 		if fileID.Compare(*newParentID) == 0 {
 			return ErrFolderIntoItself
 		}
-		// TODO: Add cycle detection if needed, but for now just direct parent check
+		
+		// Cycle detection: Check if newParentID is a descendant of fileID
+		isDescendant, err := s.isDescendant(ctx, *newParentID, fileID)
+		if err != nil {
+			return fmt.Errorf("failed to check for cycles: %w", err)
+		}
+		if isDescendant {
+			return fmt.Errorf("cannot move folder into its own descendant")
+		}
 	}
 
 	// Validate workspace consistency if moving to a different parent
@@ -400,6 +408,33 @@ func (s *FileService) MoveFile(ctx context.Context, fileID idwrap.IDWrap, newPar
 	file.ParentID = newParentID
 	file.UpdatedAt = time.Now()
 	return s.UpdateFile(ctx, file)
+}
+
+// isDescendant checks if descendantID is a descendant of ancestorID
+func (s *FileService) isDescendant(ctx context.Context, descendantID, ancestorID idwrap.IDWrap) (bool, error) {
+	currentID := descendantID
+	// Limit recursion depth to prevent infinite loops in case of existing corruption
+	const maxDepth = 100
+
+	for i := 0; i < maxDepth; i++ {
+		// If current node is the ancestor, then yes it is a descendant (or same node)
+		if currentID.Compare(ancestorID) == 0 {
+			return true, nil
+		}
+
+		file, err := s.GetFile(ctx, currentID)
+		if err != nil {
+			return false, err
+		}
+
+		if file.ParentID == nil {
+			return false, nil // Reached root without finding ancestor
+		}
+
+		currentID = *file.ParentID
+	}
+
+	return false, fmt.Errorf("max depth exceeded while checking hierarchy")
 }
 
 // Helper functions
