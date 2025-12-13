@@ -2,7 +2,7 @@
 
 ## Core Operational Mandates
 1.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows. **CRITICAL:** Always run commands using `direnv exec . <command>` to ensure the correct environment (e.g., `NX_TUI`, `TASK_OUTPUT`) is loaded.
-2.  **Context Awareness:** Read `CLAUDE.md` and `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
+2.  **Context Awareness:** Read `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
 3.  **File Editing:**
     - Verify files exist before editing.
     - Use `git status` and `git diff` to verify changes.
@@ -31,17 +31,25 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Desktop App:** `task dev:desktop` (starts Electron + React + Go Server).
 - **Server (Go):** `pnpm nx run server:dev` (hot reload).
 - **UI (Web):** `pnpm nx run client:dev`.
-- **Spec Generation:** `pnpm nx run spec:build` (run this after editing `.tsp` files).
+- **Storybook:** `task storybook` (component library dev).
+- **Spec Generation:** `pnpm nx run spec:build` (run after editing `.tsp` files; outputs to `packages/spec/dist`).
 - **Database:** `pnpm nx run db:generate` (run after editing `sqlc.yaml` or `.sql` files).
+- **CLI Release:** `cd apps/cli && task build:release` (builds local binary to `apps/cli/dist`).
 
 ### Testing & Quality
 - **Lint:** `task lint` (runs ESLint, formatting checks).
 - **Test (Quick):** `task test` (runs unit tests).
 - **Test (CI):** `task test:ci`.
 - **Fix:** `task fix` (runs Prettier and Syncpack).
-- **Go Benchmarks:** Use `go test -bench` as described in `CLAUDE.md` for performance-critical paths.
+- **Go Benchmarks:** Use `task benchmark:run` to run, `task benchmark:baseline` to save baseline, and `task benchmark:compare` to compare.
 
 ## Implementation Guidelines
+
+### CLI (Go)
+- **Entrypoint:** `apps/cli/main.go`.
+- **Build System:** `task` (Taskfile) handles cross-compilation and embedding.
+- **Worker Embedding:** `packages/worker-js` is a TypeScript worker bundled via `tsup` and embedded into the CLI binary. If you change `packages/worker-js`, you must rebuild the CLI.
+- **Architecture:** Uses `cobra` for commands. Core logic in `apps/cli/internal/runner` (headless execution).
 
 ### Go (Server)
 - **Pattern:** Functional design, lean packages. Avoid complex OOP hierarchies.
@@ -89,30 +97,14 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
     *   **Location:** Generated code resides in `packages/db/pkg/sqlc/gen`. Source SQL is split into `packages/db/pkg/sqlc/schema/` (DDL) and `packages/db/pkg/sqlc/queries/` (DML).
     *   **Pattern:** Services wrap these generated queries, handling conversion between DB models (`gen.Http`) and Internal Models (`mhttp.HTTP`).
 
-5.  **Translation Layer**
+### Translation Layer
     *   **Internal:** Explicit conversion functions (often in `converter` or inline) map between Proto messages (API), Internal Models (Service), and DB Models (Storage).
     *   **External:** `packages/server/pkg/translate` handles import/export for formats like HAR, Curl, and Postman.
 
-### Real-time Collection System (TanStack DB Support)
-The backend implements a specific pattern to support **TanStack DB** (and similar client-side replication strategies) on the frontend.
-
-1.  **Standard RPC Pattern:**
-    *   **`*Collection` (e.g., `HttpCollection`):** Returns the full initial state of a resource list.
-    *   **`*Sync` (e.g., `HttpSync`):** A server-streaming RPC that provides real-time delta updates.
-        *   **Snapshot:** Can optionally provide an initial snapshot (state-of-the-world) to ensure consistency.
-        *   **Stream:** Pushes `Insert`, `Update`, and `Delete` events as they happen.
-    *   **Mutations (`*Insert`, `*Update`, `*Delete`):**
-        *   Perform the DB operation.
-        *   **Crucially:** Publish an event to the `eventstream` system upon success.
-
-2.  **Event Streaming (`packages/server/pkg/eventstream`)**
-    *   **Generic Streamer:** `SyncStreamer[Topic, Event]` manages subscriptions and broadcasting.
-    *   **Topics:** Events are scoped (e.g., by `WorkspaceID`) to ensure users only receive relevant updates.
-    *   **Access Control:** The `Sync` RPC applies filters (e.g., checking workspace membership) before sending events to a connected client.
-
-3.  **Frontend Integration:**
-    *   The client (using `@tanstack/react-db`) subscribes to these `*Sync` endpoints.
-    *   Incoming `Insert`/`Update`/`Delete` messages are applied to the client-side in-memory database, keeping the UI reactive without manual refetching.
+## Domain Documentation
+- **Flow Engine & Nodes:** Read `packages/server/docs/specs/FLOW.md` for details on the execution engine, node types, and variable system.
+- **HTTP & Proxy:** Read `packages/server/docs/specs/HTTP.md` for request recording, execution, and import/export logic.
+- **Real-time Sync:** Read `packages/server/docs/specs/SYNC.md` for the Deep dive into the Real-time Sync / TanStack DB pattern and Event Streaming.
 
 ### Security Best Practices
 -   **ID Enumeration Prevention:** When a user requests a resource (Workspace, Flow, etc.) they do not have access to, the server must return `CodeNotFound` (or `ErrWorkspaceNotFound`), **NOT** `CodePermissionDenied`. This prevents attackers from probing the existence of private resources by distinguishing between "does not exist" and "access denied" responses.
