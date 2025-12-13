@@ -1490,18 +1490,7 @@ func (s *FlowServiceV2RPC) streamNodeJsSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishJsEvent(eventType string, flowID idwrap.IDWrap, node mnjs.MNJS) {
-	if s.jsStream == nil {
-		return
-	}
 
-	nodePB := serializeNodeJs(node)
-	s.jsStream.Publish(JsTopic{FlowID: flowID}, JsEvent{
-		Type:   eventType,
-		FlowID: flowID,
-		Node:   nodePB,
-	})
-}
 
 func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 	ctx context.Context,

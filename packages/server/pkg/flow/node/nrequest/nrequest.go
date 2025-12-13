@@ -144,7 +144,6 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Err:        nil,
 	}
 
-	// TODO: varMap is null create varMap
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
@@ -271,7 +270,6 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		Err:        nil,
 	}
 
-	// TODO: varMap is null create varMap
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
