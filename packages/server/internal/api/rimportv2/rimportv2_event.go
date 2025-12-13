@@ -29,123 +29,189 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		})
 
 		// Publish Nodes events
-		for _, node := range results.Nodes {
-			nodePB := &flowv1.Node{
-				NodeId: node.ID.Bytes(),
-				FlowId: node.FlowID.Bytes(),
-				Name:   node.Name,
-				Kind:   converter.ToAPINodeKind(node.NodeKind),
-				Position: &flowv1.Position{
-					X: float32(node.PositionX),
-					Y: float32(node.PositionY),
-				},
+		if len(results.Nodes) > 0 {
+			grouped := make(map[rflowv2.NodeTopic][]rflowv2.NodeEvent)
+			for _, node := range results.Nodes {
+				nodePB := &flowv1.Node{
+					NodeId: node.ID.Bytes(),
+					FlowId: node.FlowID.Bytes(),
+					Name:   node.Name,
+					Kind:   converter.ToAPINodeKind(node.NodeKind),
+					Position: &flowv1.Position{
+						X: float32(node.PositionX),
+						Y: float32(node.PositionY),
+					},
+				}
+				topic := rflowv2.NodeTopic{FlowID: node.FlowID}
+				grouped[topic] = append(grouped[topic], rflowv2.NodeEvent{
+					Type: "insert",
+					Node: nodePB,
+				})
 			}
-			h.NodeStream.Publish(rflowv2.NodeTopic{FlowID: node.FlowID}, rflowv2.NodeEvent{
-				Type: "insert",
-				Node: nodePB,
-			})
+			for topic, events := range grouped {
+				h.NodeStream.Publish(topic, events...)
+			}
 		}
 
 		// Publish Edges events
-		for _, edge := range results.Edges {
-			edgePB := &flowv1.Edge{
-				EdgeId:       edge.ID.Bytes(),
-				FlowId:       edge.FlowID.Bytes(),
-				SourceId:     edge.SourceID.Bytes(),
-				TargetId:     edge.TargetID.Bytes(),
-				SourceHandle: flowv1.HandleKind(edge.SourceHandler),
-				Kind:         flowv1.EdgeKind(edge.Kind),
+		if len(results.Edges) > 0 {
+			grouped := make(map[rflowv2.EdgeTopic][]rflowv2.EdgeEvent)
+			for _, edge := range results.Edges {
+				edgePB := &flowv1.Edge{
+					EdgeId:       edge.ID.Bytes(),
+					FlowId:       edge.FlowID.Bytes(),
+					SourceId:     edge.SourceID.Bytes(),
+					TargetId:     edge.TargetID.Bytes(),
+					SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+					Kind:         flowv1.EdgeKind(edge.Kind),
+				}
+				topic := rflowv2.EdgeTopic{FlowID: edge.FlowID}
+				grouped[topic] = append(grouped[topic], rflowv2.EdgeEvent{
+					Type: "insert",
+					Edge: edgePB,
+				})
 			}
-			h.EdgeStream.Publish(rflowv2.EdgeTopic{FlowID: edge.FlowID}, rflowv2.EdgeEvent{
-				Type: "insert",
-				Edge: edgePB,
-			})
+			for topic, events := range grouped {
+				h.EdgeStream.Publish(topic, events...)
+			}
 		}
 
 		// Publish NoOpNodes events
-		for _, noOpNode := range results.NoOpNodes {
-			noOpPB := &flowv1.NodeNoOp{
-				NodeId: noOpNode.FlowNodeID.Bytes(),
-				Kind:   converter.ToAPINodeNoOpKind(noOpNode.Type),
+		if len(results.NoOpNodes) > 0 {
+			// NoOp nodes are typically scoped to a flow, but let's be safe and group
+			// Note: The original code assumed results.Flow.ID, but NoOpNode has FlowNodeID which implies it belongs to a flow.
+			// However, mnnoop.NoOpNode doesn't explicitly store FlowID in the struct passed here usually?
+			// Let's look at the struct definition if needed.
+			// Assuming they belong to results.Flow since they are part of the import results for that flow.
+			events := make([]rflowv2.NoOpEvent, len(results.NoOpNodes))
+			for i, noOpNode := range results.NoOpNodes {
+				noOpPB := &flowv1.NodeNoOp{
+					NodeId: noOpNode.FlowNodeID.Bytes(),
+					Kind:   converter.ToAPINodeNoOpKind(noOpNode.Type),
+				}
+				events[i] = rflowv2.NoOpEvent{
+					Type:   "insert",
+					FlowID: results.Flow.ID,
+					Node:   noOpPB,
+				}
 			}
-
-			h.NoopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, rflowv2.NoOpEvent{
-				Type:   "insert",
-				FlowID: results.Flow.ID,
-				Node:   noOpPB,
-			})
+			h.NoopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, events...)
 		}
 	}
+	
 	// Publish HTTP events
-	for _, httpReq := range results.HTTPReqs {
-		h.HttpStream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
-			Type:    "insert",
-			IsDelta: httpReq.IsDelta,
-			Http:    converter.ToAPIHttp(*httpReq),
-		})
+	if len(results.HTTPReqs) > 0 {
+		grouped := make(map[rhttp.HttpTopic][]rhttp.HttpEvent)
+		for _, httpReq := range results.HTTPReqs {
+			topic := rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}
+			grouped[topic] = append(grouped[topic], rhttp.HttpEvent{
+				Type:    "insert",
+				IsDelta: httpReq.IsDelta,
+				Http:    converter.ToAPIHttp(*httpReq),
+			})
+		}
+		for topic, events := range grouped {
+			h.HttpStream.Publish(topic, events...)
+		}
 	}
 
 	// Publish File events
-	for _, file := range results.Files {
-		// No longer skipping Flow files since we publish Flow event first now
-		h.FileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
-			Type: "create",
-			File: converter.ToAPIFile(*file),
-			Name: file.Name,
-		})
+	if len(results.Files) > 0 {
+		grouped := make(map[rfile.FileTopic][]rfile.FileEvent)
+		for _, file := range results.Files {
+			topic := rfile.FileTopic{WorkspaceID: file.WorkspaceID}
+			grouped[topic] = append(grouped[topic], rfile.FileEvent{
+				Type: "create",
+				File: converter.ToAPIFile(*file),
+				Name: file.Name,
+			})
+		}
+		for topic, events := range grouped {
+			h.FileStream.Publish(topic, events...)
+		}
 	}
 
 	// Publish Header events
-	for _, header := range results.HTTPHeaders {
-		h.HttpHeaderStream.Publish(rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpHeaderEvent{
-			Type:       "insert",
-			IsDelta:    header.IsDelta,
-			HttpHeader: converter.ToAPIHttpHeader(*header),
-		})
+	if len(results.HTTPHeaders) > 0 {
+		topic := rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}
+		events := make([]rhttp.HttpHeaderEvent, len(results.HTTPHeaders))
+		for i, header := range results.HTTPHeaders {
+			events[i] = rhttp.HttpHeaderEvent{
+				Type:       "insert",
+				IsDelta:    header.IsDelta,
+				HttpHeader: converter.ToAPIHttpHeader(*header),
+			}
+		}
+		h.HttpHeaderStream.Publish(topic, events...)
 	}
 
 	// Publish SearchParam events
-	for _, param := range results.HTTPSearchParams {
-		h.HttpSearchParamStream.Publish(rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpSearchParamEvent{
-			Type:            "insert",
-			IsDelta:         param.IsDelta,
-			HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
-		})
+	if len(results.HTTPSearchParams) > 0 {
+		topic := rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}
+		events := make([]rhttp.HttpSearchParamEvent, len(results.HTTPSearchParams))
+		for i, param := range results.HTTPSearchParams {
+			events[i] = rhttp.HttpSearchParamEvent{
+				Type:            "insert",
+				IsDelta:         param.IsDelta,
+				HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
+			}
+		}
+		h.HttpSearchParamStream.Publish(topic, events...)
 	}
 
 	// Publish BodyForm events
-	for _, form := range results.HTTPBodyForms {
-		h.HttpBodyFormStream.Publish(rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyFormEvent{
-			Type:         "insert",
-			IsDelta:      form.IsDelta,
-			HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
-		})
+	if len(results.HTTPBodyForms) > 0 {
+		topic := rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}
+		events := make([]rhttp.HttpBodyFormEvent, len(results.HTTPBodyForms))
+		for i, form := range results.HTTPBodyForms {
+			events[i] = rhttp.HttpBodyFormEvent{
+				Type:         "insert",
+				IsDelta:      form.IsDelta,
+				HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
+			}
+		}
+		h.HttpBodyFormStream.Publish(topic, events...)
 	}
 
 	// Publish BodyUrlEncoded events
-	for _, encoded := range results.HTTPBodyUrlEncoded {
-		h.HttpBodyUrlEncodedStream.Publish(rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyUrlEncodedEvent{
-			Type:               "insert",
-			IsDelta:            encoded.IsDelta,
-			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
-		})
+	if len(results.HTTPBodyUrlEncoded) > 0 {
+		topic := rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}
+		events := make([]rhttp.HttpBodyUrlEncodedEvent, len(results.HTTPBodyUrlEncoded))
+		for i, encoded := range results.HTTPBodyUrlEncoded {
+			events[i] = rhttp.HttpBodyUrlEncodedEvent{
+				Type:               "insert",
+				IsDelta:            encoded.IsDelta,
+				HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
+			}
+		}
+		h.HttpBodyUrlEncodedStream.Publish(topic, events...)
 	}
 
 	// Publish BodyRaw events
-	for _, raw := range results.HTTPBodyRaws {
-		h.HttpBodyRawStream.Publish(rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyRawEvent{
-			Type:        "insert",
-			IsDelta:     raw.IsDelta,
-			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
-		})
+	if len(results.HTTPBodyRaws) > 0 {
+		topic := rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}
+		events := make([]rhttp.HttpBodyRawEvent, len(results.HTTPBodyRaws))
+		for i, raw := range results.HTTPBodyRaws {
+			events[i] = rhttp.HttpBodyRawEvent{
+				Type:        "insert",
+				IsDelta:     raw.IsDelta,
+				HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
+			}
+		}
+		h.HttpBodyRawStream.Publish(topic, events...)
 	}
 
 	// Publish Assert events
-	for _, assert := range results.HTTPAsserts {
-		h.HttpAssertStream.Publish(rhttp.HttpAssertTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpAssertEvent{
-			Type:       "insert",
-			IsDelta:    assert.IsDelta,
-			HttpAssert: converter.ToAPIHttpAssert(*assert),
-		})
+	if len(results.HTTPAsserts) > 0 {
+		topic := rhttp.HttpAssertTopic{WorkspaceID: results.WorkspaceID}
+		events := make([]rhttp.HttpAssertEvent, len(results.HTTPAsserts))
+		for i, assert := range results.HTTPAsserts {
+			events[i] = rhttp.HttpAssertEvent{
+				Type:       "insert",
+				IsDelta:    assert.IsDelta,
+				HttpAssert: converter.ToAPIHttpAssert(*assert),
+			}
+		}
+		h.HttpAssertStream.Publish(topic, events...)
 	}
 }

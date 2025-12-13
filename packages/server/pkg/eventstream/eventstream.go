@@ -45,7 +45,7 @@ func WithSnapshot[Topic any, Payload any](provider SnapshotProvider[Topic, Paylo
 // are interested in and optionally provide a snapshot to seed their
 // initial state.
 type SyncStreamer[Topic any, Payload any] interface {
-	Publish(topic Topic, payload Payload)
+	Publish(topic Topic, payloads ...Payload)
 
 	Subscribe(ctx context.Context, filter TopicFilter[Topic], opts ...SubscribeOption[Topic, Payload]) (<-chan Event[Topic, Payload], error)
 

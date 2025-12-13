@@ -11,8 +11,8 @@ type MockStreamer[Topic any, Payload any] struct {
 	subscribeFunc func(ctx context.Context, filter TopicFilter[Topic], opts ...SubscribeOption[Topic, Payload]) (<-chan Event[Topic, Payload], error)
 }
 
-func (m *MockStreamer[Topic, Payload]) Publish(topic Topic, payload Payload) {}
-func (m *MockStreamer[Topic, Payload]) Shutdown()                            {}
+func (m *MockStreamer[Topic, Payload]) Publish(topic Topic, payloads ...Payload) {}
+func (m *MockStreamer[Topic, Payload]) Shutdown()                               {}
 func (m *MockStreamer[Topic, Payload]) Subscribe(ctx context.Context, filter TopicFilter[Topic], opts ...SubscribeOption[Topic, Payload]) (<-chan Event[Topic, Payload], error) {
 	return m.subscribeFunc(ctx, filter, opts...)
 }

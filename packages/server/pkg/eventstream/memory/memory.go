@@ -36,12 +36,13 @@ func NewInMemorySyncStreamer[Topic any, Payload any]() eventstream.SyncStreamer[
 	}
 }
 
-func (s *inMemorySyncStreamer[Topic, Payload]) Publish(topic Topic, payload Payload) {
+func (s *inMemorySyncStreamer[Topic, Payload]) Publish(topic Topic, payloads ...Payload) {
 	if s.closed.Load() {
 		return
 	}
-
-	event := eventstream.Event[Topic, Payload]{Topic: topic, Payload: payload}
+	if len(payloads) == 0 {
+		return
+	}
 
 	s.mu.RLock()
 	subs := make([]*subscriber[Topic, Payload], 0, len(s.subscribers))
@@ -57,7 +58,12 @@ func (s *inMemorySyncStreamer[Topic, Payload]) Publish(topic Topic, payload Payl
 		if sub.filter != nil && !sub.filter(topic) {
 			continue
 		}
-		s.trySend(sub, event)
+
+		// Try to send all payloads
+		for _, payload := range payloads {
+			event := eventstream.Event[Topic, Payload]{Topic: topic, Payload: payload}
+			s.trySend(sub, event)
+		}
 	}
 }
 
