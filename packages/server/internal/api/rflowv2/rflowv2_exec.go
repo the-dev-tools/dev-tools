@@ -488,6 +488,12 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// Create a mapping from old node IDs to new node IDs for edge remapping
 	nodeIDMapping := make(map[string]idwrap.IDWrap, len(sourceNodes))
 
+	// Events collections for bulk publishing
+	nodeEvents := make([]NodeEvent, 0, len(sourceNodes))
+	noOpEvents := make([]NoOpEvent, 0)
+	jsEvents := make([]JsEvent, 0)
+	forEvents := make([]ForEvent, 0)
+
 	// Duplicate all nodes and their sub-node data
 	for _, sourceNode := range sourceNodes {
 		newNodeID := idwrap.NewNow()
@@ -507,8 +513,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			return mflow.Flow{}, nil, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
 		}
 
-		// Duplicate node-type specific data and publish events
-		// Sub-node events must be published before base node events
+		// Duplicate node-type specific data and collect events
 		switch sourceNode.NodeKind {
 		case mnnode.NODE_KIND_NO_OP:
 			noopData, err := s.nnos.GetNodeNoop(ctx, sourceNode.ID)
@@ -520,7 +525,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				if err := s.nnos.CreateNodeNoop(ctx, newNoopData); err != nil {
 					return mflow.Flow{}, nil, fmt.Errorf("create noop node: %w", err)
 				}
-				s.publishNoOpEvent(noopEventInsert, versionFlowID, newNoopData)
+				noOpEvents = append(noOpEvents, NoOpEvent{
+					Type:   noopEventInsert,
+					FlowID: versionFlowID,
+					Node:   serializeNodeNoop(newNoopData),
+				})
 			}
 
 		case mnnode.NODE_KIND_REQUEST:
@@ -551,7 +560,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
 					return mflow.Flow{}, nil, fmt.Errorf("create for node: %w", err)
 				}
-				s.publishForEvent(forEventInsert, versionFlowID, newForData)
+				forEvents = append(forEvents, ForEvent{
+					Type:   forEventInsert,
+					FlowID: versionFlowID,
+					Node:   serializeNodeFor(newForData),
+				})
 			}
 
 		case mnnode.NODE_KIND_FOR_EACH:
@@ -593,21 +606,45 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
 					return mflow.Flow{}, nil, fmt.Errorf("create js node: %w", err)
 				}
-				s.publishJsEvent(jsEventInsert, versionFlowID, newJsData)
+				jsEvents = append(jsEvents, JsEvent{
+					Type:   jsEventInsert,
+					FlowID: versionFlowID,
+					Node:   serializeNodeJs(newJsData),
+				})
 			}
 		}
 
-		// Publish the base node event after sub-node event
-		s.publishNodeEvent(nodeEventInsert, newNode)
+		// Collect base node event
+		nodeEvents = append(nodeEvents, NodeEvent{
+			Type:   nodeEventInsert,
+			FlowID: versionFlowID,
+			Node:   serializeNode(newNode),
+		})
+	}
+
+	// Bulk publish sub-node events first
+	if len(noOpEvents) > 0 && s.noopStream != nil {
+		s.noopStream.Publish(NoOpTopic{FlowID: versionFlowID}, noOpEvents...)
+	}
+	if len(jsEvents) > 0 && s.jsStream != nil {
+		s.jsStream.Publish(JsTopic{FlowID: versionFlowID}, jsEvents...)
+	}
+	if len(forEvents) > 0 && s.forStream != nil {
+		s.forStream.Publish(ForTopic{FlowID: versionFlowID}, forEvents...)
+	}
+
+	// Bulk publish base node events
+	if len(nodeEvents) > 0 && s.nodeStream != nil {
+		s.nodeStream.Publish(NodeTopic{FlowID: versionFlowID}, nodeEvents...)
 	}
 
 	// Duplicate all edges with remapped node IDs
+	edgeEvents := make([]EdgeEvent, 0, len(sourceEdges))
 	for _, sourceEdge := range sourceEdges {
 		newSourceID, sourceOK := nodeIDMapping[sourceEdge.SourceID.String()]
 		newTargetID, targetOK := nodeIDMapping[sourceEdge.TargetID.String()]
 
 		if !sourceOK || !targetOK {
-			// Skip invalid edges
 			continue
 		}
 
@@ -623,10 +660,20 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		if err := s.es.CreateEdge(ctx, newEdge); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create edge: %w", err)
 		}
-		s.publishEdgeEvent(edgeEventInsert, newEdge)
+		edgeEvents = append(edgeEvents, EdgeEvent{
+			Type:   edgeEventInsert,
+			FlowID: versionFlowID,
+			Edge:   serializeEdge(newEdge),
+		})
+	}
+
+	// Bulk publish edge events
+	if len(edgeEvents) > 0 && s.edgeStream != nil {
+		s.edgeStream.Publish(EdgeTopic{FlowID: versionFlowID}, edgeEvents...)
 	}
 
 	// Duplicate all flow variables
+	varEvents := make([]FlowVariableEvent, 0, len(sourceVars))
 	for _, sourceVar := range sourceVars {
 		newVar := mflowvariable.FlowVariable{
 			ID:          idwrap.NewNow(),
@@ -641,7 +688,16 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		if err := s.fvs.CreateFlowVariable(ctx, newVar); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create flow variable: %w", err)
 		}
-		s.publishFlowVariableEvent(flowVarEventInsert, newVar)
+		varEvents = append(varEvents, FlowVariableEvent{
+			Type:     flowVarEventInsert,
+			FlowID:   versionFlowID,
+			Variable: newVar,
+		})
+	}
+
+	// Bulk publish variable events
+	if len(varEvents) > 0 && s.varStream != nil {
+		s.varStream.Publish(FlowVariableTopic{FlowID: versionFlowID}, varEvents...)
 	}
 
 	return version, nodeIDMapping, nil
