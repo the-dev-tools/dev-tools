@@ -536,102 +536,67 @@ func storeUnifiedChildren(
 	assertSvc *shttp.HttpAssertService,
 ) error {
 	if len(results.Headers) > 0 {
-		for _, h := range results.Headers {
-			header := mhttp.HTTPHeader{
-				ID:                 h.ID,
-				HttpID:             h.HttpID,
-				Key:                h.Key,
-				Value:              h.Value,
-				Enabled:            h.Enabled,
-				Description:        h.Description,
-				ParentHttpHeaderID: h.ParentHttpHeaderID,
-				// Ensure constraint: is_delta = FALSE OR parent_header_id IS NOT NULL
-				IsDelta:          h.IsDelta && h.ParentHttpHeaderID != nil,
-				DeltaKey:         h.DeltaKey,
-				DeltaValue:       h.DeltaValue,
-				DeltaEnabled:     h.DeltaEnabled,
-				DeltaDescription: h.DeltaDescription,
-				CreatedAt:        h.CreatedAt,
-				UpdatedAt:        h.UpdatedAt,
+		// Group by HttpID for bulk insertion
+		headersByHttpID := make(map[string][]mhttp.HTTPHeader)
+		for i := range results.Headers {
+			h := &results.Headers[i]
+			// Ensure constraint: is_delta = FALSE OR parent_header_id IS NOT NULL
+			h.IsDelta = h.IsDelta && h.ParentHttpHeaderID != nil
+			key := h.HttpID.String()
+			headersByHttpID[key] = append(headersByHttpID[key], *h)
+		}
+
+		for _, headers := range headersByHttpID {
+			if len(headers) == 0 {
+				continue
 			}
-			if err := headerSvc.Create(ctx, &header); err != nil {
-				return fmt.Errorf("failed to store header: %w", err)
+			// Use the first header's HttpID (all are the same in this group)
+			if err := headerSvc.CreateBulk(ctx, headers[0].HttpID, headers); err != nil {
+				return fmt.Errorf("failed to store headers: %w", err)
 			}
 		}
 	}
 
 	if len(results.SearchParams) > 0 {
-		for _, p := range results.SearchParams {
-			param := mhttp.HTTPSearchParam{
-				ID:                      p.ID,
-				HttpID:                  p.HttpID,
-				Key:                     p.Key,
-				Value:                   p.Value,
-				Enabled:                 p.Enabled,
-				Description:             p.Description,
-				ParentHttpSearchParamID: p.ParentHttpSearchParamID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          p.IsDelta && p.ParentHttpSearchParamID != nil,
-				DeltaKey:         p.DeltaKey,
-				DeltaValue:       p.DeltaValue,
-				DeltaEnabled:     p.DeltaEnabled,
-				DeltaDescription: p.DeltaDescription,
-				CreatedAt:        p.CreatedAt,
-				UpdatedAt:        p.UpdatedAt,
+		// Group by HttpID for bulk insertion
+		paramsByHttpID := make(map[string][]mhttp.HTTPSearchParam)
+		for i := range results.SearchParams {
+			p := &results.SearchParams[i]
+			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+			p.IsDelta = p.IsDelta && p.ParentHttpSearchParamID != nil
+			key := p.HttpID.String()
+			paramsByHttpID[key] = append(paramsByHttpID[key], *p)
+		}
+
+		for _, params := range paramsByHttpID {
+			if len(params) == 0 {
+				continue
 			}
-			if err := paramSvc.Create(ctx, &param); err != nil {
-				return fmt.Errorf("failed to store search param: %w", err)
+			if err := paramSvc.CreateBulk(ctx, params[0].HttpID, params); err != nil {
+				return fmt.Errorf("failed to store search params: %w", err)
 			}
 		}
 	}
 
 	if len(results.BodyForms) > 0 {
-		for _, f := range results.BodyForms {
-			form := mhttp.HTTPBodyForm{
-				ID:                   f.ID,
-				HttpID:               f.HttpID,
-				Key:                  f.Key,
-				Value:                f.Value,
-				Enabled:              f.Enabled,
-				Description:          f.Description,
-				ParentHttpBodyFormID: f.ParentHttpBodyFormID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          f.IsDelta && f.ParentHttpBodyFormID != nil,
-				DeltaKey:         f.DeltaKey,
-				DeltaValue:       f.DeltaValue,
-				DeltaEnabled:     f.DeltaEnabled,
-				DeltaDescription: f.DeltaDescription,
-				CreatedAt:        f.CreatedAt,
-				UpdatedAt:        f.UpdatedAt,
-			}
-			if err := formSvc.Create(ctx, &form); err != nil {
-				return fmt.Errorf("failed to store body form: %w", err)
-			}
+		for i := range results.BodyForms {
+			f := &results.BodyForms[i]
+			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+			f.IsDelta = f.IsDelta && f.ParentHttpBodyFormID != nil
+		}
+		if err := formSvc.CreateBulk(ctx, results.BodyForms); err != nil {
+			return fmt.Errorf("failed to store body forms: %w", err)
 		}
 	}
 
 	if len(results.BodyUrlencoded) > 0 {
-		for _, u := range results.BodyUrlencoded {
-			urlencoded := mhttp.HTTPBodyUrlencoded{
-				ID:                         u.ID,
-				HttpID:                     u.HttpID,
-				Key:                        u.Key,
-				Value:                      u.Value,
-				Enabled:                    u.Enabled,
-				Description:                u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil,
-				DeltaKey:         u.DeltaKey,
-				DeltaValue:       u.DeltaValue,
-				DeltaEnabled:     u.DeltaEnabled,
-				DeltaDescription: u.DeltaDescription,
-				CreatedAt:        u.CreatedAt,
-				UpdatedAt:        u.UpdatedAt,
-			}
-			if err := urlSvc.Create(ctx, &urlencoded); err != nil {
-				return fmt.Errorf("failed to store body urlencoded: %w", err)
-			}
+		for i := range results.BodyUrlencoded {
+			u := &results.BodyUrlencoded[i]
+			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+			u.IsDelta = u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil
+		}
+		if err := urlSvc.CreateBulk(ctx, results.BodyUrlencoded); err != nil {
+			return fmt.Errorf("failed to store body urlencoded: %w", err)
 		}
 	}
 
@@ -648,27 +613,13 @@ func storeUnifiedChildren(
 
 	// Store assertions
 	if len(results.Asserts) > 0 {
-		for _, a := range results.Asserts {
-			assert := mhttp.HTTPAssert{
-				ID:                 a.ID,
-				HttpID:             a.HttpID,
-				Value:              a.Value,
-				Enabled:            a.Enabled,
-				Description:        a.Description,
-				Order:              a.Order,
-				ParentHttpAssertID: a.ParentHttpAssertID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          a.IsDelta && a.ParentHttpAssertID != nil,
-				DeltaValue:       a.DeltaValue,
-				DeltaEnabled:     a.DeltaEnabled,
-				DeltaDescription: a.DeltaDescription,
-				DeltaOrder:       a.DeltaOrder,
-				CreatedAt:        a.CreatedAt,
-				UpdatedAt:        a.UpdatedAt,
-			}
-			if err := assertSvc.Create(ctx, &assert); err != nil {
-				return fmt.Errorf("failed to store assertion: %w", err)
-			}
+		for i := range results.Asserts {
+			a := &results.Asserts[i]
+			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+			a.IsDelta = a.IsDelta && a.ParentHttpAssertID != nil
+		}
+		if err := assertSvc.CreateBulk(ctx, results.Asserts); err != nil {
+			return fmt.Errorf("failed to store assertions: %w", err)
 		}
 	}
 
