@@ -59,6 +59,7 @@ import { ForEachNode, ForEachPanel } from './nodes/for-each';
 import { HttpNode, HttpPanel } from './nodes/http';
 import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
 import { NoOpNode } from './nodes/no-op';
+import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
 export const nodeTypes: XF.NodeTypes = {
   [NodeKind.CONDITION]: ConditionNode,
@@ -105,9 +106,6 @@ export const FlowEditPage = () => {
   );
 };
 
-const minZoom = 0.1;
-const maxZoom = 2;
-
 export const Flow = ({ children }: PropsWithChildren) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
@@ -135,6 +133,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const { nodes, onNodesChange, setNodeSelection } = useNodesState();
   const { edges, onEdgesChange } = useEdgeState();
+  const { onViewportChange, viewport } = useViewport();
 
   const onConnect: XF.OnConnect = (_) =>
     void edgeCollection.utils.insert({
@@ -289,9 +288,8 @@ export const Flow = ({ children }: PropsWithChildren) => {
         deleteKeyCode={['Backspace', 'Delete']}
         edges={edges}
         edgeTypes={edgeTypes}
-        fitView
-        maxZoom={maxZoom}
-        minZoom={minZoom}
+        maxZoom={VIEWPORT_MAX_ZOOM}
+        minZoom={VIEWPORT_MIN_ZOOM}
         nodes={nodes}
         nodesConnectable={!isReadOnly}
         nodesDraggable={!isReadOnly}
@@ -303,6 +301,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         onlyRenderVisibleElements
         onNodeDoubleClick={(_, node) => void navigate({ search: (_) => ({ ..._, node: node.id }), to: '.' })}
         onNodesChange={onNodesChange}
+        onViewportChange={onViewportChange}
         panOnDrag={[1, 2]}
         panOnScroll
         proOptions={{ hideAttribution: true }}
@@ -310,6 +309,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         selectionMode={XF.SelectionMode.Partial}
         selectionOnDrag
         selectNodesOnDrag={false}
+        viewport={viewport}
       >
         <XF.Background
           className={tw`text-slate-300`}
@@ -416,7 +416,7 @@ export const TopBarWithControls = () => {
     <TopBar>
       <Button
         className={tw`p-0.5`}
-        isDisabled={zoom <= minZoom}
+        isDisabled={zoom <= VIEWPORT_MIN_ZOOM}
         onPress={() => void zoomOut({ duration: 100 })}
         variant='ghost'
       >
@@ -429,7 +429,7 @@ export const TopBarWithControls = () => {
 
       <Button
         className={tw`p-0.5`}
-        isDisabled={zoom >= maxZoom}
+        isDisabled={zoom >= VIEWPORT_MAX_ZOOM}
         onPress={() => void zoomIn({ duration: 100 })}
         variant='ghost'
       >
