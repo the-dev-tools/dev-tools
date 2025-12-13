@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"sync"
 	"the-dev-tools/server/pkg/zstdcompress"
 
 	"github.com/andybalholm/brotli"
@@ -28,13 +29,28 @@ var CompressLockupMap map[string]CompressType = map[string]CompressType{
 	"br":       CompressTypeBr,
 }
 
-// TODO: refactor this for better performance
+var (
+	gzipWriterPool = sync.Pool{
+		New: func() interface{} {
+			return gzip.NewWriter(io.Discard)
+		},
+	}
+	brotliWriterPool = sync.Pool{
+		New: func() interface{} {
+			return brotli.NewWriter(io.Discard)
+		},
+	}
+)
+
 func Compress(data []byte, compressType CompressType) ([]byte, error) {
 	var buf bytes.Buffer
 	switch compressType {
 	case CompressTypeGzip:
 		// compress data with gzip
-		z := gzip.NewWriter(&buf)
+		z := gzipWriterPool.Get().(*gzip.Writer)
+		defer gzipWriterPool.Put(z)
+
+		z.Reset(&buf)
 		_, err := z.Write(data)
 		if err != nil {
 			return nil, err
@@ -48,7 +64,10 @@ func Compress(data []byte, compressType CompressType) ([]byte, error) {
 		buf.Write(byteArr)
 	case CompressTypeBr:
 		// compress data with brotli
-		w := brotli.NewWriter(&buf)
+		w := brotliWriterPool.Get().(*brotli.Writer)
+		defer brotliWriterPool.Put(w)
+
+		w.Reset(&buf)
 		_, err := w.Write(data)
 		if err != nil {
 			return nil, err

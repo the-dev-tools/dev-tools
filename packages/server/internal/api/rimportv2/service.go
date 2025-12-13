@@ -489,74 +489,8 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		"files", len(translationResult.Files),
 		"flows", len(translationResult.Flows))
 
-	// Helper to create slice pointers
-	httpReqsPtr := make([]*mhttp.HTTP, len(translationResult.HTTPRequests))
-	for i := range translationResult.HTTPRequests {
-		httpReqsPtr[i] = &translationResult.HTTPRequests[i]
-	}
-
-	filesPtr := make([]*mfile.File, len(translationResult.Files))
-	for i := range translationResult.Files {
-		filesPtr[i] = &translationResult.Files[i]
-	}
-
-	headersPtr := make([]*mhttp.HTTPHeader, len(translationResult.Headers))
-	for i := range translationResult.Headers {
-		headersPtr[i] = &translationResult.Headers[i]
-	}
-
-	paramsPtr := make([]*mhttp.HTTPSearchParam, len(translationResult.SearchParams))
-	for i := range translationResult.SearchParams {
-		paramsPtr[i] = &translationResult.SearchParams[i]
-	}
-
-	bodyFormsPtr := make([]*mhttp.HTTPBodyForm, len(translationResult.BodyForms))
-	for i := range translationResult.BodyForms {
-		bodyFormsPtr[i] = &translationResult.BodyForms[i]
-	}
-
-	bodyUrlEncodedPtr := make([]*mhttp.HTTPBodyUrlencoded, len(translationResult.BodyUrlencoded))
-	for i := range translationResult.BodyUrlencoded {
-		bodyUrlEncodedPtr[i] = &translationResult.BodyUrlencoded[i]
-	}
-
-	// Convert BodyRaw from []mhttp.HTTPBodyRaw to []*mhttp.HTTPBodyRaw
-	bodyRawsPtr := make([]*mhttp.HTTPBodyRaw, len(translationResult.BodyRaw))
-	for i := range translationResult.BodyRaw {
-		bodyRawsPtr[i] = &translationResult.BodyRaw[i]
-	}
-
-	// Convert Asserts from []mhttp.HTTPAssert to []*mhttp.HTTPAssert
-	assertsPtr := make([]*mhttp.HTTPAssert, len(translationResult.Asserts))
-	for i := range translationResult.Asserts {
-		assertsPtr[i] = &translationResult.Asserts[i]
-	}
-
-	// Only support single flow for now in ImportResults
-	var flow *mflow.Flow
-	if len(translationResult.Flows) > 0 {
-		flow = &translationResult.Flows[0]
-	}
-
-	// Build results structure early to check for missing data
-	results := &ImportResults{
-		Flow:               flow,
-		HTTPReqs:           httpReqsPtr,
-		Files:              filesPtr,
-		HTTPHeaders:        headersPtr,
-		HTTPSearchParams:   paramsPtr,
-		HTTPBodyForms:      bodyFormsPtr,
-		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
-		HTTPBodyRaws:       bodyRawsPtr,
-		HTTPAsserts:        assertsPtr,
-		Nodes:              translationResult.Nodes,
-		RequestNodes:       translationResult.RequestNodes,
-		NoOpNodes:          translationResult.NoOpNodes,
-		Edges:              translationResult.Edges,
-		Domains:            translationResult.Domains,
-		WorkspaceID:        req.WorkspaceID,
-		MissingData:        ImportMissingDataKind_UNSPECIFIED,
-	}
+	// Build results structure
+	results := buildImportResults(translationResult, req.WorkspaceID)
 
 	s.logger.Debug("ImportUnified: Checking for missing data",
 		"domain_count", len(translationResult.Domains),
@@ -637,6 +571,75 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 	}
 
 	return results, nil
+}
+
+// buildImportResults converts TranslationResult to ImportResults
+func buildImportResults(tr *TranslationResult, workspaceID idwrap.IDWrap) *ImportResults {
+	// Helper to create slice pointers
+	httpReqsPtr := make([]*mhttp.HTTP, len(tr.HTTPRequests))
+	for i := range tr.HTTPRequests {
+		httpReqsPtr[i] = &tr.HTTPRequests[i]
+	}
+
+	filesPtr := make([]*mfile.File, len(tr.Files))
+	for i := range tr.Files {
+		filesPtr[i] = &tr.Files[i]
+	}
+
+	headersPtr := make([]*mhttp.HTTPHeader, len(tr.Headers))
+	for i := range tr.Headers {
+		headersPtr[i] = &tr.Headers[i]
+	}
+
+	paramsPtr := make([]*mhttp.HTTPSearchParam, len(tr.SearchParams))
+	for i := range tr.SearchParams {
+		paramsPtr[i] = &tr.SearchParams[i]
+	}
+
+	bodyFormsPtr := make([]*mhttp.HTTPBodyForm, len(tr.BodyForms))
+	for i := range tr.BodyForms {
+		bodyFormsPtr[i] = &tr.BodyForms[i]
+	}
+
+	bodyUrlEncodedPtr := make([]*mhttp.HTTPBodyUrlencoded, len(tr.BodyUrlencoded))
+	for i := range tr.BodyUrlencoded {
+		bodyUrlEncodedPtr[i] = &tr.BodyUrlencoded[i]
+	}
+
+	bodyRawsPtr := make([]*mhttp.HTTPBodyRaw, len(tr.BodyRaw))
+	for i := range tr.BodyRaw {
+		bodyRawsPtr[i] = &tr.BodyRaw[i]
+	}
+
+	assertsPtr := make([]*mhttp.HTTPAssert, len(tr.Asserts))
+	for i := range tr.Asserts {
+		assertsPtr[i] = &tr.Asserts[i]
+	}
+
+	// Only support single flow for now in ImportResults
+	var flow *mflow.Flow
+	if len(tr.Flows) > 0 {
+		flow = &tr.Flows[0]
+	}
+
+	return &ImportResults{
+		Flow:               flow,
+		HTTPReqs:           httpReqsPtr,
+		Files:              filesPtr,
+		HTTPHeaders:        headersPtr,
+		HTTPSearchParams:   paramsPtr,
+		HTTPBodyForms:      bodyFormsPtr,
+		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
+		HTTPBodyRaws:       bodyRawsPtr,
+		HTTPAsserts:        assertsPtr,
+		Nodes:              tr.Nodes,
+		RequestNodes:       tr.RequestNodes,
+		NoOpNodes:          tr.NoOpNodes,
+		Edges:              tr.Edges,
+		Domains:            tr.Domains,
+		WorkspaceID:        workspaceID,
+		MissingData:        ImportMissingDataKind_UNSPECIFIED,
+	}
 }
 
 // ImportUnifiedWithTextData processes any supported format from text with automatic detection

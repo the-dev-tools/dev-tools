@@ -513,6 +513,28 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	}
 
 	// Store child entities
+	if err := storeUnifiedChildren(ctx, results, txHeaderService, txSearchParamService, txBodyFormService, txBodyUrlEncodedService, txBodyRawService, imp.httpAssertService.TX(tx)); err != nil {
+		return err
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func storeUnifiedChildren(
+	ctx context.Context,
+	results *TranslationResult,
+	headerSvc shttp.HttpHeaderService,
+	paramSvc *shttp.HttpSearchParamService,
+	formSvc *shttp.HttpBodyFormService,
+	urlSvc *shttp.HttpBodyUrlEncodedService,
+	bodyRawSvc *shttp.HttpBodyRawService,
+	assertSvc *shttp.HttpAssertService,
+) error {
 	if len(results.Headers) > 0 {
 		for _, h := range results.Headers {
 			header := mhttp.HTTPHeader{
@@ -532,7 +554,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:        h.CreatedAt,
 				UpdatedAt:        h.UpdatedAt,
 			}
-			if err := txHeaderService.Create(ctx, &header); err != nil {
+			if err := headerSvc.Create(ctx, &header); err != nil {
 				return fmt.Errorf("failed to store header: %w", err)
 			}
 		}
@@ -557,7 +579,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:        p.CreatedAt,
 				UpdatedAt:        p.UpdatedAt,
 			}
-			if err := txSearchParamService.Create(ctx, &param); err != nil {
+			if err := paramSvc.Create(ctx, &param); err != nil {
 				return fmt.Errorf("failed to store search param: %w", err)
 			}
 		}
@@ -582,7 +604,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:        f.CreatedAt,
 				UpdatedAt:        f.UpdatedAt,
 			}
-			if err := txBodyFormService.Create(ctx, &form); err != nil {
+			if err := formSvc.Create(ctx, &form); err != nil {
 				return fmt.Errorf("failed to store body form: %w", err)
 			}
 		}
@@ -607,7 +629,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:        u.CreatedAt,
 				UpdatedAt:        u.UpdatedAt,
 			}
-			if err := txBodyUrlEncodedService.Create(ctx, &urlencoded); err != nil {
+			if err := urlSvc.Create(ctx, &urlencoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)
 			}
 		}
@@ -618,7 +640,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			// Use CreateFull to preserve all fields including delta-specific ones
 			// (IsDelta, DeltaRawData, ParentBodyRawID)
 			body := &results.BodyRaw[i]
-			if _, err := txBodyRawService.CreateFull(ctx, body); err != nil {
+			if _, err := bodyRawSvc.CreateFull(ctx, body); err != nil {
 				return fmt.Errorf("failed to store body raw: %w", err)
 			}
 		}
@@ -626,7 +648,6 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	// Store assertions
 	if len(results.Asserts) > 0 {
-		txAssertService := imp.httpAssertService.TX(tx)
 		for _, a := range results.Asserts {
 			assert := mhttp.HTTPAssert{
 				ID:                 a.ID,
@@ -645,15 +666,10 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:        a.CreatedAt,
 				UpdatedAt:        a.UpdatedAt,
 			}
-			if err := txAssertService.Create(ctx, &assert); err != nil {
+			if err := assertSvc.Create(ctx, &assert); err != nil {
 				return fmt.Errorf("failed to store assertion: %w", err)
 			}
 		}
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
