@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rimportv2"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
@@ -158,18 +159,20 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		httpAssertService,
 		shttp.NewHttpResponseService(baseDB.Queries),
 		requestResolver,
-		stream,
-		httpHeaderStream,
-		httpSearchParamStream,
-		httpBodyFormStream,
-		httpBodyUrlEncodedStream,
-		httpAssertStream,
-		memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent](),
-		memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent](),
-		memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
-		memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
-		httpBodyRawStream,
-		nil, // log service (optional)
+		&rhttp.HttpStreamers{
+			Http:               stream,
+			HttpHeader:         httpHeaderStream,
+			HttpSearchParam:    httpSearchParamStream,
+			HttpBodyForm:       httpBodyFormStream,
+			HttpBodyUrlEncoded: httpBodyUrlEncodedStream,
+			HttpAssert:         httpAssertStream,
+			HttpVersion:        memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent](),
+			HttpResponse:       memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent](),
+			HttpResponseHeader: memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
+			HttpResponseAssert: memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
+			HttpBodyRaw:        httpBodyRawStream,
+			Log:                memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent](),
+		},
 	)
 
 	// We'll call RPC methods directly instead of using Connect clients
