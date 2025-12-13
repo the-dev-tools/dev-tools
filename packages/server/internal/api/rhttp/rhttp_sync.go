@@ -79,11 +79,20 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 		return true
 	}
 
-	converter := func(event HttpEvent) *apiv1.HttpSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpEvent) *apiv1.HttpSyncResponse {
+		var items []*apiv1.HttpSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpSyncResponseFrom(event)
+		return &apiv1.HttpSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -93,6 +102,7 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 		filter,
 		converter,
 		send,
+		nil, // Use default batching options
 	)
 }
 
@@ -132,11 +142,20 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 		return true
 	}
 
-	converter := func(event HttpSearchParamEvent) *apiv1.HttpSearchParamSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpSearchParamEvent) *apiv1.HttpSearchParamSyncResponse {
+		var items []*apiv1.HttpSearchParamSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpSearchParamSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpSearchParamSyncResponseFrom(event)
+		return &apiv1.HttpSearchParamSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -146,6 +165,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
 
@@ -166,11 +186,20 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 		return true
 	}
 
-	converter := func(event HttpAssertEvent) *apiv1.HttpAssertSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpAssertEvent) *apiv1.HttpAssertSyncResponse {
+		var items []*apiv1.HttpAssertSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpAssertSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpAssertSyncResponseFrom(event)
+		return &apiv1.HttpAssertSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -180,6 +209,7 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
 
@@ -200,13 +230,27 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 		return true
 	}
 
+	converter := func(events []HttpVersionEvent) *apiv1.HttpVersionSyncResponse {
+		var items []*apiv1.HttpVersionSync
+		for _, event := range events {
+			if resp := httpVersionSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &apiv1.HttpVersionSyncResponse{Items: items}
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpVersionStream,
 		nil,
 		filter,
-		httpVersionSyncResponseFrom,
+		converter,
 		send,
+		nil,
 	)
 }
 
@@ -245,13 +289,27 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 		return true
 	}
 
+	converter := func(events []HttpResponseEvent) *apiv1.HttpResponseSyncResponse {
+		var items []*apiv1.HttpResponseSync
+		for _, event := range events {
+			if resp := httpResponseSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &apiv1.HttpResponseSyncResponse{Items: items}
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpResponseStream,
 		nil,
 		filter,
-		httpResponseSyncResponseFrom,
+		converter,
 		send,
+		nil,
 	)
 }
 
@@ -281,13 +339,27 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 		return true
 	}
 
+	converter := func(events []HttpResponseHeaderEvent) *apiv1.HttpResponseHeaderSyncResponse {
+		var items []*apiv1.HttpResponseHeaderSync
+		for _, event := range events {
+			if resp := httpResponseHeaderSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &apiv1.HttpResponseHeaderSyncResponse{Items: items}
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpResponseHeaderStream,
 		nil,
 		filter,
-		httpResponseHeaderSyncResponseFrom,
+		converter,
 		send,
+		nil,
 	)
 }
 
@@ -317,13 +389,27 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 		return true
 	}
 
+	converter := func(events []HttpResponseAssertEvent) *apiv1.HttpResponseAssertSyncResponse {
+		var items []*apiv1.HttpResponseAssertSync
+		for _, event := range events {
+			if resp := httpResponseAssertSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &apiv1.HttpResponseAssertSyncResponse{Items: items}
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpResponseAssertStream,
 		nil,
 		filter,
-		httpResponseAssertSyncResponseFrom,
+		converter,
 		send,
+		nil,
 	)
 }
 
@@ -353,11 +439,20 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 		return true
 	}
 
-	converter := func(event HttpHeaderEvent) *apiv1.HttpHeaderSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpHeaderEvent) *apiv1.HttpHeaderSyncResponse {
+		var items []*apiv1.HttpHeaderSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpHeaderSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpHeaderSyncResponseFrom(event)
+		return &apiv1.HttpHeaderSyncResponse{Items: items}
 	}
 
 	// Subscribe to events with snapshot
@@ -368,6 +463,7 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
 
@@ -396,11 +492,20 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 		return true
 	}
 
-	converter := func(event HttpBodyFormEvent) *apiv1.HttpBodyFormDataSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpBodyFormEvent) *apiv1.HttpBodyFormDataSyncResponse {
+		var items []*apiv1.HttpBodyFormDataSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpBodyFormDataSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpBodyFormDataSyncResponseFrom(event)
+		return &apiv1.HttpBodyFormDataSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -410,6 +515,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
 
@@ -438,11 +544,20 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 		return true
 	}
 
-	converter := func(event HttpBodyUrlEncodedEvent) *apiv1.HttpBodyUrlEncodedSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpBodyUrlEncodedEvent) *apiv1.HttpBodyUrlEncodedSyncResponse {
+		var items []*apiv1.HttpBodyUrlEncodedSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpBodyUrlEncodedSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpBodyUrlEncodedSyncResponseFrom(event)
+		return &apiv1.HttpBodyUrlEncodedSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -452,6 +567,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
 
@@ -481,11 +597,20 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 		return true
 	}
 
-	converter := func(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncResponse {
-		if event.IsDelta {
+	converter := func(events []HttpBodyRawEvent) *apiv1.HttpBodyRawSyncResponse {
+		var items []*apiv1.HttpBodyRawSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpBodyRawSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
 			return nil
 		}
-		return httpBodyRawSyncResponseFrom(event)
+		return &apiv1.HttpBodyRawSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -495,6 +620,7 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
 

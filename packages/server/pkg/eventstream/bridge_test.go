@@ -51,13 +51,6 @@ func TestStreamToClient(t *testing.T) {
 				if options.Snapshot != nil {
 					events, _ := options.Snapshot(ctx)
 					for _, evt := range events {
-						// Send snapshot via sender manually for this test setup or 
-						// typically snapshot logic is internal to Subscribe implementation.
-						// Here we simulate that Subscribe returns a channel that first yields snapshot items (if any) 
-						// effectively, or that the caller processes snapshot.
-						// Actually StreamToClient relies on Subscribe returning a channel that delivers events.
-						// The real memory implementation delivers snapshot items first.
-						// So we simulate that:
 						ch <- evt
 					}
 				}
@@ -75,11 +68,19 @@ func TestStreamToClient(t *testing.T) {
 			return []Event[TestTopic, TestPayload]{{Payload: "snapshot1"}}, nil
 		}
 
-		convert := func(p TestPayload) *TestResponse {
-			return &TestResponse{Value: string(p)}
+		// Updated convert to handle bulk slice
+		convert := func(payloads []TestPayload) *TestResponse {
+			// For this test, we assume batch size 1 effectively, so we just take the first one
+			if len(payloads) > 0 {
+				return &TestResponse{Value: string(payloads[0])}
+			}
+			return nil
 		}
 
-		err := StreamToClient(ctx, mockStreamer, snapshot, nil, convert, send)
+		// Set max batch size to 1 to force immediate flush for each item
+		opts := &BulkOptions{MaxBatchSize: 1}
+
+		err := StreamToClient(ctx, mockStreamer, snapshot, nil, convert, send, opts)
 		
 		// Expect context cancelled error or nil depending on race
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -89,10 +90,11 @@ func TestStreamToClient(t *testing.T) {
 		if len(sent) != 2 {
 			t.Errorf("Expected 2 messages, got %d", len(sent))
 		}
-		if sent[0].Value != "snapshot1" {
+		// Order isn't strictly guaranteed by channel but snapshot usually comes first
+		if len(sent) > 0 && sent[0].Value != "snapshot1" {
 			t.Errorf("Expected snapshot1, got %s", sent[0].Value)
 		}
-		if sent[1].Value != "event1" {
+		if len(sent) > 1 && sent[1].Value != "event1" {
 			t.Errorf("Expected event1, got %s", sent[1].Value)
 		}
 	})
@@ -106,10 +108,10 @@ func TestStreamToClient(t *testing.T) {
 		}
 
 		var snapshot SnapshotProvider[TestTopic, TestPayload] = nil
-		var convert func(TestPayload) *TestResponse = nil
+		var convert func([]TestPayload) *TestResponse = nil
 		var send func(*TestResponse) error = nil
 
-		err := StreamToClient(context.Background(), mockStreamer, snapshot, nil, convert, send)
+		err := StreamToClient(context.Background(), mockStreamer, snapshot, nil, convert, send, nil)
 		if err != expectedErr {
 			t.Errorf("Expected error %v, got %v", expectedErr, err)
 		}
@@ -129,10 +131,13 @@ func TestStreamToClient(t *testing.T) {
 			return sendErr
 		}
 		
-		convert := func(p TestPayload) *TestResponse { return &TestResponse{} }
+		convert := func(p []TestPayload) *TestResponse { return &TestResponse{} }
 		var snapshot SnapshotProvider[TestTopic, TestPayload] = nil
 
-		err := StreamToClient(context.Background(), mockStreamer, snapshot, nil, convert, send)
+		// Use batch size 1 to force flush
+		opts := &BulkOptions{MaxBatchSize: 1}
+
+		err := StreamToClient(context.Background(), mockStreamer, snapshot, nil, convert, send, opts)
 		if err != sendErr {
 			t.Errorf("Expected error %v, got %v", sendErr, err)
 		}

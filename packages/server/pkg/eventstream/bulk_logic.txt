@@ -1,0 +1,38 @@
+StreamToClientBulk Logic Flow:
+
+   [SyncStreamer] --(Event)--> [Channel]
+                                   |
+                                   v
++----------------------- LOOP (select) -----------------------+
+|                                                             |
+|  Case 1: Receive Event                                      |
+|    |                                                        |
+|    v                                                        |
+|  [Append to Buffer]                                         |
+|    |                                                        |
+|    +-- Is Buffer Full? (len >= MaxBatchSize)                |
+|          |                                                  |
+|          +-- YES --> [Flush()] --(Batch)--> [Convert]       |
+|          |             |                      |             |
+|          |             v                      v             |
+|          |         [Reset Timer]          [Send()]          |
+|          |                                    |             |
+|          +-- NO ---> (Wait for next)          v             |
+|                                            (Client)         |
+|                                                             |
+|  Case 2: Timer Tick (FlushInterval)                         |
+|    |                                                        |
+|    v                                                        |
+|  [Flush()] --(Batch)--> [Convert] --(Msg)--> [Send()]       |
+|    |                                             |          |
+|    v                                             v          |
+|  (Buffer Cleared)                             (Client)      |
+|                                                             |
+|  Case 3: Context Done / Channel Closed                      |
+|    |                                                        |
+|    v                                                        |
+|  [Flush()] --(Remaining Items)--> ... --> [Send()]          |
+|    |                                                        |
+|    v                                                        |
+|  [Return/Exit]                                              |
++-------------------------------------------------------------+

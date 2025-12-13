@@ -379,23 +379,34 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 	}
 
 	// Converter with data fetching logic
-	converter := func(event HttpEvent) *apiv1.HttpDeltaSyncResponse {
-		// Get the full HTTP record for delta sync response
-		httpID, err := idwrap.NewFromBytes(event.Http.HttpId)
-		if err != nil {
-			return nil // Skip if can't parse ID
-		}
-		httpRecord, err := h.hs.Get(ctx, httpID)
-		if err != nil {
-			return nil // Skip if can't get the record
+	converter := func(events []HttpEvent) *apiv1.HttpDeltaSyncResponse {
+		var items []*apiv1.HttpDeltaSync
+
+		for _, event := range events {
+			// Get the full HTTP record for delta sync response
+			httpID, err := idwrap.NewFromBytes(event.Http.HttpId)
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			httpRecord, err := h.hs.Get(ctx, httpID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+
+			// Filter: Only process actual Delta records
+			if !httpRecord.IsDelta {
+				continue
+			}
+
+			if resp := httpDeltaSyncResponseFrom(event, *httpRecord); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
 		}
 
-		// Filter: Only process actual Delta records
-		if !httpRecord.IsDelta {
+		if len(items) == 0 {
 			return nil
 		}
-
-		return httpDeltaSyncResponseFrom(event, *httpRecord)
+		return &apiv1.HttpDeltaSyncResponse{Items: items}
 	}
 
 	return eventstream.StreamToClient(
@@ -405,5 +416,6 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 		filter,
 		converter,
 		send,
+		nil,
 	)
 }
