@@ -29,54 +29,84 @@ var CompressLockupMap map[string]CompressType = map[string]CompressType{
 	"br":       CompressTypeBr,
 }
 
+// pool is a type-safe wrapper around sync.Pool
+type pool[T any] struct {
+	internal sync.Pool
+}
+
+func newPool[T any](newFn func() T) *pool[T] {
+	return &pool[T]{
+		internal: sync.Pool{
+			New: func() interface{} { return newFn() },
+		},
+	}
+}
+
+func (p *pool[T]) Get() T {
+	return p.internal.Get().(T)
+}
+
+func (p *pool[T]) Put(x T) {
+	p.internal.Put(x)
+}
+
 var (
-	gzipWriterPool = sync.Pool{
-		New: func() interface{} {
-			return gzip.NewWriter(io.Discard)
-		},
-	}
-	brotliWriterPool = sync.Pool{
-		New: func() interface{} {
-			return brotli.NewWriter(io.Discard)
-		},
-	}
+	gzipWriterPool = newPool(func() *gzip.Writer {
+		return gzip.NewWriter(io.Discard)
+	})
+	brotliWriterPool = newPool(func() *brotli.Writer {
+		return brotli.NewWriter(io.Discard)
+	})
 )
 
 func Compress(data []byte, compressType CompressType) ([]byte, error) {
-	var buf bytes.Buffer
 	switch compressType {
 	case CompressTypeGzip:
-		// compress data with gzip
-		z := gzipWriterPool.Get().(*gzip.Writer)
-		defer gzipWriterPool.Put(z)
-
-		z.Reset(&buf)
-		_, err := z.Write(data)
-		if err != nil {
-			return nil, err
-		}
-		err = z.Close()
-		if err != nil {
-			return nil, err
-		}
+		return compressGzip(data)
 	case CompressTypeZstd:
-		byteArr := zstdcompress.Compress(data)
-		buf.Write(byteArr)
+		return compressZstd(data)
 	case CompressTypeBr:
-		// compress data with brotli
-		w := brotliWriterPool.Get().(*brotli.Writer)
-		defer brotliWriterPool.Put(w)
-
-		w.Reset(&buf)
-		_, err := w.Write(data)
-		if err != nil {
-			return nil, err
-		}
-		err = w.Close()
-		if err != nil {
-			return nil, err
-		}
+		return compressBrotli(data)
+	default:
+		// CompressTypeNone or unknown
+		return data, nil
 	}
+}
+
+func compressGzip(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	z := gzipWriterPool.Get()
+	defer gzipWriterPool.Put(z)
+
+	z.Reset(&buf)
+	if _, err := z.Write(data); err != nil {
+		return nil, err
+	}
+	if err := z.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func compressBrotli(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	w := brotliWriterPool.Get()
+	defer brotliWriterPool.Put(w)
+
+	w.Reset(&buf)
+	if _, err := w.Write(data); err != nil {
+		return nil, err
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func compressZstd(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	byteArr := zstdcompress.Compress(data)
+	buf.Write(byteArr)
 	return buf.Bytes(), nil
 }
 
@@ -100,6 +130,8 @@ func Decompress(data []byte, compressType CompressType) ([]byte, error) {
 		// decompress data with brotli
 		br := brotli.NewReader(&buf)
 		return io.ReadAll(br)
+	case CompressTypeNone:
+		return data, nil
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %v", compressType)
 	}
