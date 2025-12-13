@@ -29,6 +29,43 @@ import (
 	"connectrpc.com/connect"
 )
 
+// ImportServices groups all service dependencies
+type ImportServices struct {
+	Workspace          sworkspace.WorkspaceService
+	User               suser.UserService
+	Http               *shttp.HTTPService
+	Flow               *sflow.FlowService
+	File               *sfile.FileService
+	Env                senv.EnvironmentService
+	Var                svar.VarService
+	HttpHeader         shttp.HttpHeaderService
+	HttpSearchParam    *shttp.HttpSearchParamService
+	HttpBodyForm       *shttp.HttpBodyFormService
+	HttpBodyUrlEncoded *shttp.HttpBodyUrlEncodedService
+	HttpBodyRaw        *shttp.HttpBodyRawService
+	HttpAssert         *shttp.HttpAssertService
+	Node               *snode.NodeService
+	NodeRequest        *snoderequest.NodeRequestService
+	NodeNoop           *snodenoop.NodeNoopService
+	Edge               *sedge.EdgeService
+}
+
+// ImportStreamers groups all event streams
+type ImportStreamers struct {
+	Flow               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	Node               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	Edge               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
+	Noop               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
+	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	HttpHeader         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
+	HttpSearchParam    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
+	HttpBodyForm       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
+	HttpBodyUrlEncoded eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
+	HttpBodyRaw        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+	HttpAssert         eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
+	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+}
+
 // ImportV2RPC implements the Connect RPC interface for HAR import v2
 type ImportV2RPC struct {
 	db      *sql.DB
@@ -72,51 +109,24 @@ type ImportV2RPC struct {
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies
 func NewImportV2RPC(
 	db *sql.DB,
-	ws sworkspace.WorkspaceService,
-	us suser.UserService,
-	httpService *shttp.HTTPService,
-	flowService *sflow.FlowService,
-	fileService *sfile.FileService,
-	// Child entity services
-	httpHeaderService shttp.HttpHeaderService,
-	httpSearchParamService *shttp.HttpSearchParamService,
-	httpBodyFormService *shttp.HttpBodyFormService,
-	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
-	bodyService *shttp.HttpBodyRawService,
-	httpAssertService *shttp.HttpAssertService,
-	nodeService *snode.NodeService,
-	nodeRequestService *snoderequest.NodeRequestService,
-	nodeNoopService *snodenoop.NodeNoopService,
-	edgeService *sedge.EdgeService,
-	envService senv.EnvironmentService,
-	varService svar.VarService,
 	logger *slog.Logger,
-	// Streamers
-	flowStream eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent],
-	nodeStream eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent],
-	edgeStream eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent],
-	noopStream eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent],
-	stream eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent],
-	httpHeaderStream eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent],
-	httpSearchParamStream eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent],
-	httpBodyFormStream eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent],
-	httpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent],
-	httpBodyRawStream eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent],
-	httpAssertStream eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent],
-	fileStream eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent],
+	services ImportServices,
+	streamers ImportStreamers,
 ) *ImportV2RPC {
 	// Create the importer with modern service dependencies
-	importer := NewImporter(db, httpService, flowService, fileService,
-		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService,
-		httpAssertService, nodeService, nodeRequestService, nodeNoopService, edgeService, envService, varService)
+	importer := NewImporter(db,
+		services.Http, services.Flow, services.File,
+		services.HttpHeader, services.HttpSearchParam, services.HttpBodyForm, services.HttpBodyUrlEncoded, services.HttpBodyRaw,
+		services.HttpAssert, services.Node, services.NodeRequest, services.NodeNoop, services.Edge,
+		services.Env, services.Var)
 
 	// Create the validator for input validation
-	validator := NewValidator(&us)
+	validator := NewValidator(&services.User)
 
 	// Create the main service with functional options
 	service := NewService(importer, validator,
 		WithLogger(logger),
-		WithHTTPService(httpService),
+		WithHTTPService(services.Http),
 	)
 
 	// Create and return the RPC handler
@@ -124,37 +134,37 @@ func NewImportV2RPC(
 		db:                       db,
 		service:                  service,
 		Logger:                   logger,
-		ws:                       ws,
-		us:                       us,
-		FlowStream:               flowStream,
-		NodeStream:               nodeStream,
-		EdgeStream:               edgeStream,
-		NoopStream:               noopStream,
-		HttpStream:               stream,
-		HttpHeaderStream:         httpHeaderStream,
-		HttpSearchParamStream:    httpSearchParamStream,
-		HttpBodyFormStream:       httpBodyFormStream,
-		HttpBodyUrlEncodedStream: httpBodyUrlEncodedStream,
-		HttpBodyRawStream:        httpBodyRawStream,
-		HttpAssertStream:         httpAssertStream,
-		FileStream:               fileStream,
+		ws:                       services.Workspace,
+		us:                       services.User,
+		FlowStream:               streamers.Flow,
+		NodeStream:               streamers.Node,
+		EdgeStream:               streamers.Edge,
+		NoopStream:               streamers.Noop,
+		HttpStream:               streamers.Http,
+		HttpHeaderStream:         streamers.HttpHeader,
+		HttpSearchParamStream:    streamers.HttpSearchParam,
+		HttpBodyFormStream:       streamers.HttpBodyForm,
+		HttpBodyUrlEncodedStream: streamers.HttpBodyUrlEncoded,
+		HttpBodyRawStream:        streamers.HttpBodyRaw,
+		HttpAssertStream:         streamers.HttpAssert,
+		FileStream:               streamers.File,
 
 		// Exposed Services
-		HttpService:               httpService,
-		FlowService:               flowService,
-		FileService:               fileService,
-		HttpHeaderService:         httpHeaderService,
-		HttpSearchParamService:    httpSearchParamService,
-		HttpBodyFormService:       httpBodyFormService,
-		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
-		HttpBodyRawService:        bodyService,
-		HttpAssertService:         httpAssertService,
-		NodeService:               nodeService,
-		NodeRequestService:        nodeRequestService,
-		NodeNoopService:           nodeNoopService,
-		EdgeService:               edgeService,
-		EnvService:                envService,
-		VarService:                varService,
+		HttpService:               services.Http,
+		FlowService:               services.Flow,
+		FileService:               services.File,
+		HttpHeaderService:         services.HttpHeader,
+		HttpSearchParamService:    services.HttpSearchParam,
+		HttpBodyFormService:       services.HttpBodyForm,
+		HttpBodyUrlEncodedService: services.HttpBodyUrlEncoded,
+		HttpBodyRawService:        services.HttpBodyRaw,
+		HttpAssertService:         services.HttpAssert,
+		NodeService:               services.Node,
+		NodeRequestService:        services.NodeRequest,
+		NodeNoopService:           services.NodeNoop,
+		EdgeService:               services.Edge,
+		EnvService:                services.Env,
+		VarService:                services.Var,
 	}
 }
 

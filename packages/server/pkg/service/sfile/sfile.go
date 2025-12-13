@@ -416,7 +416,7 @@ func (s *FileService) isDescendant(ctx context.Context, descendantID, ancestorID
 	// Limit recursion depth to prevent infinite loops in case of existing corruption
 	const maxDepth = 100
 
-	for i := 0; i < maxDepth; i++ {
+	for range maxDepth {
 		// If current node is the ancestor, then yes it is a descendant (or same node)
 		if currentID.Compare(ancestorID) == 0 {
 			return true, nil
