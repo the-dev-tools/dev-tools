@@ -276,7 +276,7 @@ func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.I
 			return nil
 		}
 	}
-	return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("flow %s not accessible to current user", flowID.String()))
+	return connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
 }
 
 func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mnnode.MNode, error) {
