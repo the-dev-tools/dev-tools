@@ -247,6 +247,13 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		if err := httpSearchParamService.Update(ctx, data.existingParam); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if data.item.Order != nil {
+			if err := httpSearchParamService.UpdateOrder(ctx, data.existingParam.ID, data.existingParam.HttpID, data.existingParam.Order); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
 		updatedParams = append(updatedParams, *data.existingParam)
 	}
 
