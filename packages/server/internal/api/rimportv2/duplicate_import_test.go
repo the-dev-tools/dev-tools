@@ -194,3 +194,80 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	// Files should increase. Complex HAR creates files for requests + flow file.
 	require.Greater(t, len(files2), len(httpReqs1)+1, "Should have more files after second import")
 }
+
+func TestImportService_DuplicateImport_CleanDelta(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+	harData := createComplexHAR(t) // 2 requests, headers, params
+
+	// 1. Initial Import
+	req1 := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Import Clean Delta",
+		Data:        harData,
+		DomainData: []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API"},
+		},
+	})
+
+	resp1, err := fixture.rpc.Import(fixture.ctx, req1)
+	require.NoError(t, err)
+	require.NotNil(t, resp1)
+
+	// Get the first request ID (which has headers and params)
+	httpReqs1, _ := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	require.NotEmpty(t, httpReqs1)
+	reqID := httpReqs1[0].ID
+
+	// 2. Re-Import SAME Data
+	// This triggers the "Smart Merge" logic (loading existing children).
+	// If it works, it should see that headers/params match and NOT add them to the delta.
+	req2 := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Import Clean Delta",
+		Data:        harData,
+		DomainData: []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API"},
+		},
+	})
+
+	resp2, err := fixture.rpc.Import(fixture.ctx, req2)
+	require.NoError(t, err)
+	require.NotNil(t, resp2)
+
+	// 3. Find the Delta Request
+	deltas, err := fixture.services.Hs.GetDeltasByParentID(fixture.ctx, reqID)
+	require.NoError(t, err)
+	
+	// We might have multiple deltas (one from first import, one from second).
+	// The SECOND delta should be "clean" regarding unchanged children.
+	require.GreaterOrEqual(t, len(deltas), 1)
+	
+	latestDelta := deltas[len(deltas)-1] // Assuming order or just checking the latest
+	
+	// Check Delta Headers
+	deltaHeaders, err := fixture.rpc.HttpHeaderService.GetByHttpID(fixture.ctx, latestDelta.ID)
+	require.NoError(t, err)
+	
+	// CRITICAL CHECK:
+	// The Delta Request should NOT have headers that are identical to the Base Request.
+	// If the "Smart Merge" logic works, these should be filtered out.
+	// However, note that "Delta Requests" in the DB might just be empty containers 
+	// if there are no changes, OR they might contain *changes* if something diffs.
+	// Since we imported IDENTICAL data, there should be NO headers in the Delta.
+	
+	// Wait, createComplexHAR has dependency logic implicitly? No, just static data.
+	// So base and delta should be identical.
+	// "Smart Merge" means: Found Existing Base -> Compare -> Identical -> No Delta Field Set.
+	
+	// If the fix is working, the importer sees "Header A exists", so it doesn't add "Header A" to the delta entity list.
+	require.Empty(t, deltaHeaders, "Delta request should have NO headers because they are identical to base")
+	
+	// Check Delta Params
+	deltaParams, err := fixture.rpc.HttpSearchParamService.GetByHttpID(fixture.ctx, latestDelta.ID)
+	require.NoError(t, err)
+	require.Empty(t, deltaParams, "Delta request should have NO params because they are identical to base")
+}
