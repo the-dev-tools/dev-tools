@@ -19,9 +19,7 @@ const connectRouter = createConnectRouter();
 
 NodeJsExecutorService(connectRouter);
 
-const portStr = process.env['JS_WORKER_PORT'] ?? process.env['PORT'];
-const port = portStr ? parseInt(portStr, 10) : 9090;
-const WorkerServerLive = NodeHttpServer.layer(createServer, { port });
+const WorkerServerLive = NodeHttpServer.layer(createServer, { path: '/tmp/the-dev-tools/worker-js.socket' });
 
 async function* asyncIterableFromNodeServerRequest(request: IncomingMessage) {
   for await (const chunk of request) {

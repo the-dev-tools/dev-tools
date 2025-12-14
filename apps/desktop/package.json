@@ -28,6 +28,7 @@
     "electron-updater": "6.6.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "undici": "^7.16.0",
     "yaml": "2.8.1"
   },
   "devDependencies": {

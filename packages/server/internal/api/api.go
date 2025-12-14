@@ -2,7 +2,9 @@
 package api
 
 import (
+	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -69,7 +71,7 @@ func ListenServices(services []Service, port string) error {
 	}
 
 	srv := &http.Server{
-		Addr:              ":" + port,
+		Addr:              "the-dev-tools:0",
 		ReadHeaderTimeout: 10 * time.Second,
 		// INFO: Use h2c so we can serve HTTP/2 without TLS.
 		Handler: h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
@@ -79,5 +81,10 @@ func ListenServices(services []Service, port string) error {
 		}),
 	}
 
-	return srv.ListenAndServe()
+	socket, err := net.Listen("unix", "/tmp/the-dev-tools/server.socket")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return srv.Serve(socket)
 }
