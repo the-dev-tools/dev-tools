@@ -273,3 +273,117 @@ func stringPtr(s string) *string {
 func int64Ptr(i int64) *int64 {
 	return &i
 }
+
+func TestHttpService_Upsert(t *testing.T) {
+	ctx := context.Background()
+	db, err := dbtest.GetTestPreparedQueries(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	service := New(db, slog.Default())
+	httpID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+
+	http := &mhttp.HTTP{
+		ID:          httpID,
+		WorkspaceID: workspaceID,
+		Name:        "Original Name",
+		Url:         "http://example.com",
+		Method:      "GET",
+	}
+
+	// Upsert (Create)
+	err = service.Upsert(ctx, http)
+	require.NoError(t, err)
+
+	retrieved, err := service.Get(ctx, httpID)
+	require.NoError(t, err)
+	require.Equal(t, "Original Name", retrieved.Name)
+
+	// Upsert (Update)
+	http.Name = "Updated Name"
+	err = service.Upsert(ctx, http)
+	require.NoError(t, err)
+
+	retrieved, err = service.Get(ctx, httpID)
+	require.NoError(t, err)
+	require.Equal(t, "Updated Name", retrieved.Name)
+}
+
+func TestHttpService_Deltas(t *testing.T) {
+	ctx := context.Background()
+	db, err := dbtest.GetTestPreparedQueries(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	service := New(db, slog.Default())
+	workspaceID := idwrap.NewNow()
+	baseID := idwrap.NewNow()
+
+	// Create Base
+	baseHttp := &mhttp.HTTP{
+		ID:          baseID,
+		WorkspaceID: workspaceID,
+		Name:        "Base",
+		IsDelta:     false,
+	}
+	err = service.Create(ctx, baseHttp)
+	require.NoError(t, err)
+
+	// Create Delta
+	deltaID := idwrap.NewNow()
+	deltaName := "Delta"
+	deltaHttp := &mhttp.HTTP{
+		ID:           deltaID,
+		WorkspaceID:  workspaceID,
+		Name:         "Delta Base",
+		ParentHttpID: &baseID,
+		IsDelta:      true,
+		DeltaName:    &deltaName,
+	}
+	err = service.Create(ctx, deltaHttp)
+	require.NoError(t, err)
+
+	// Test GetDeltasByWorkspaceID
+	deltas, err := service.GetDeltasByWorkspaceID(ctx, workspaceID)
+	require.NoError(t, err)
+	require.Len(t, deltas, 1)
+	require.Equal(t, deltaID, deltas[0].ID)
+	require.True(t, deltas[0].IsDelta)
+
+	// Test GetDeltasByParentID
+	parentDeltas, err := service.GetDeltasByParentID(ctx, baseID)
+	require.NoError(t, err)
+	require.Len(t, parentDeltas, 1)
+	require.Equal(t, deltaID, parentDeltas[0].ID)
+}
+
+func TestHttpService_FindByURLAndMethod(t *testing.T) {
+	ctx := context.Background()
+	db, err := dbtest.GetTestPreparedQueries(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	service := New(db, slog.Default())
+	workspaceID := idwrap.NewNow()
+
+	http := &mhttp.HTTP{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Find Me",
+		Url:         "http://find.me",
+		Method:      "POST",
+	}
+	err = service.Create(ctx, http)
+	require.NoError(t, err)
+
+	// Found
+	found, err := service.FindByURLAndMethod(ctx, workspaceID, "http://find.me", "POST")
+	require.NoError(t, err)
+	require.Equal(t, http.ID, found.ID)
+
+	// Not Found
+	_, err = service.FindByURLAndMethod(ctx, workspaceID, "http://find.me", "GET")
+	require.Error(t, err)
+	require.Equal(t, ErrNoHTTPFound, err)
+}
