@@ -595,8 +595,23 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 			existing, err := httpService.FindByURLAndMethod(ctx, workspaceID, baseReqRaw.Url, baseReqRaw.Method)
 			if err == nil {
 				existingRequest = existing
-				// TODO: In a real implementation, you'd also load existing child entities
-				// For now, we'll focus on the main HTTP record and create deltas only when main record exists
+				
+				// Load existing child entities to ensure accurate delta comparison (Index-based lookups)
+				if h, err := httpService.GetHeadersByHttpID(ctx, existing.ID); err == nil {
+					existingHeaders = h
+				}
+				if p, err := httpService.GetSearchParamsByHttpID(ctx, existing.ID); err == nil {
+					existingParams = p
+				}
+				if f, err := httpService.GetBodyFormsByHttpID(ctx, existing.ID); err == nil {
+					existingBodyForms = f
+				}
+				if u, err := httpService.GetBodyUrlEncodedByHttpID(ctx, existing.ID); err == nil {
+					existingBodyUrlEncoded = u
+				}
+				if r, err := httpService.GetBodyRawByHttpID(ctx, existing.ID); err == nil && r != nil {
+					existingBodyRaws = []mhttp.HTTPBodyRaw{*r}
+				}
 			}
 		}
 

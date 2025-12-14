@@ -113,7 +113,7 @@ func (s *HttpBodyRawService) CreateFull(ctx context.Context, body *mhttp.HTTPBod
 		IsDelta:         body.IsDelta,
 		DeltaRawData:    body.DeltaRawData,
 
-		DeltaCompressionType: nil, // TODO: handle if needed
+		DeltaCompressionType: body.DeltaCompressionType,
 		CreatedAt:            now,
 		UpdatedAt:            now,
 	})
