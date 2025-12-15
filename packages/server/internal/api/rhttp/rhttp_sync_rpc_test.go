@@ -617,7 +617,7 @@ func TestHttpAssertSync_Streaming(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	// Insert
+	// Insert with enabled and order
 	id := idwrap.NewNow()
 	val := "res.status == 200"
 
@@ -627,6 +627,8 @@ func TestHttpAssertSync_Streaming(t *testing.T) {
 				HttpAssertId: id.Bytes(),
 				HttpId:       httpID.Bytes(),
 				Value:        val,
+				Enabled:      true,
+				Order:        1.5,
 			},
 		},
 	})
@@ -637,14 +639,20 @@ func TestHttpAssertSync_Streaming(t *testing.T) {
 	v := items[0].GetValue()
 	require.Equal(t, httpv1.HttpAssertSync_ValueUnion_KIND_INSERT, v.GetKind())
 	require.Equal(t, val, v.GetInsert().GetValue())
+	require.True(t, v.GetInsert().GetEnabled(), "insert should have enabled=true")
+	require.Equal(t, float32(1.5), v.GetInsert().GetOrder(), "insert should have order=1.5")
 
-	// Update
+	// Update enabled and order
 	newVal := "res.status == 201"
+	newEnabled := false
+	newOrder := float32(2.5)
 	reqUpdate := connect.NewRequest(&httpv1.HttpAssertUpdateRequest{
 		Items: []*httpv1.HttpAssertUpdate{
 			{
 				HttpAssertId: id.Bytes(),
 				Value:        &newVal,
+				Enabled:      &newEnabled,
+				Order:        &newOrder,
 			},
 		},
 	})
@@ -655,6 +663,8 @@ func TestHttpAssertSync_Streaming(t *testing.T) {
 	v = items[0].GetValue()
 	require.Equal(t, httpv1.HttpAssertSync_ValueUnion_KIND_UPDATE, v.GetKind())
 	require.Equal(t, newVal, v.GetUpdate().GetValue())
+	require.False(t, v.GetUpdate().GetEnabled(), "update should have enabled=false")
+	require.Equal(t, float32(2.5), v.GetUpdate().GetOrder(), "update should have order=2.5")
 
 	// Delete
 	reqDelete := connect.NewRequest(&httpv1.HttpAssertDeleteRequest{

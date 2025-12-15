@@ -237,6 +237,8 @@ func ToAPIHttpAssert(assert mhttp.HTTPAssert) *httpv1.HttpAssert {
 		HttpAssertId: assert.ID.Bytes(),
 		HttpId:       assert.HttpID.Bytes(),
 		Value:        assert.Value,
+		Enabled:      assert.Enabled,
+		Order:        assert.DisplayOrder,
 	}
 }
 

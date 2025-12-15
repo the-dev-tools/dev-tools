@@ -394,9 +394,11 @@ func TestToAPIHttpAssert(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	assertion := mhttp.HTTPAssert{
-		ID:     assertID,
-		HttpID: httpID,
-		Value:  "status == 200",
+		ID:           assertID,
+		HttpID:       httpID,
+		Value:        "status == 200",
+		Enabled:      true,
+		DisplayOrder: 1.5,
 	}
 
 	res := ToAPIHttpAssert(assertion)
@@ -404,6 +406,29 @@ func TestToAPIHttpAssert(t *testing.T) {
 	assert.Equal(t, assertID.Bytes(), res.HttpAssertId)
 	assert.Equal(t, httpID.Bytes(), res.HttpId)
 	assert.Equal(t, "status == 200", res.Value)
+	assert.True(t, res.Enabled)
+	assert.Equal(t, float32(1.5), res.Order)
+}
+
+func TestToAPIHttpAssert_DisabledWithOrder(t *testing.T) {
+	assertID := idwrap.NewNow()
+	httpID := idwrap.NewNow()
+
+	assertion := mhttp.HTTPAssert{
+		ID:           assertID,
+		HttpID:       httpID,
+		Value:        "body.length > 0",
+		Enabled:      false,
+		DisplayOrder: 2.5,
+	}
+
+	res := ToAPIHttpAssert(assertion)
+
+	assert.Equal(t, assertID.Bytes(), res.HttpAssertId)
+	assert.Equal(t, httpID.Bytes(), res.HttpId)
+	assert.Equal(t, "body.length > 0", res.Value)
+	assert.False(t, res.Enabled)
+	assert.Equal(t, float32(2.5), res.Order)
 }
 
 func TestToAPIHttpVersion(t *testing.T) {

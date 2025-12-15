@@ -160,7 +160,7 @@ func (s *HttpAssertService) Update(ctx context.Context, assert *mhttp.HTTPAssert
 		Value:             assert.Value,
 		Description:       assert.Description,
 		Enabled:           assert.Enabled,
-		DisplayOrder:      float64(currentAssert.DisplayOrder),
+		DisplayOrder:      float64(assert.DisplayOrder),
 		DeltaValue:        stringToNull(currentAssert.DeltaValue),
 		DeltaEnabled:      currentAssert.DeltaEnabled,
 		DeltaDescription:  stringToNull(currentAssert.DeltaDescription),

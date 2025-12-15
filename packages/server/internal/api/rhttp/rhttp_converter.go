@@ -195,22 +195,27 @@ func httpAssertSyncResponseFrom(event HttpAssertEvent) *apiv1.HttpAssertSyncResp
 
 	switch event.Type {
 	case eventTypeInsert:
-		value_ := event.HttpAssert.GetValue()
 		value = &apiv1.HttpAssertSync_ValueUnion{
 			Kind: apiv1.HttpAssertSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpAssertSyncInsert{
 				HttpAssertId: event.HttpAssert.GetHttpAssertId(),
 				HttpId:       event.HttpAssert.GetHttpId(),
-				Value:        value_,
+				Value:        event.HttpAssert.GetValue(),
+				Enabled:      event.HttpAssert.GetEnabled(),
+				Order:        event.HttpAssert.GetOrder(),
 			},
 		}
 	case eventTypeUpdate:
 		value_ := event.HttpAssert.GetValue()
+		enabled := event.HttpAssert.GetEnabled()
+		order := event.HttpAssert.GetOrder()
 		value = &apiv1.HttpAssertSync_ValueUnion{
 			Kind: apiv1.HttpAssertSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpAssertSyncUpdate{
 				HttpAssertId: event.HttpAssert.GetHttpAssertId(),
 				Value:        &value_,
+				Enabled:      &enabled,
+				Order:        &order,
 			},
 		}
 	case eventTypeDelete:
