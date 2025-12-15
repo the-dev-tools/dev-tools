@@ -229,11 +229,30 @@ func (s *FlowServiceV2RPC) executeFlow(
 	stateDrain.Add(1)
 	go func() {
 		defer stateDrain.Done()
+		
+		// Cache execution IDs to ensure stability across multiple events for the same execution
+		// Key: NodeID + Iteration info
+		executionCache := make(map[string]idwrap.IDWrap)
+
 		for status := range nodeStateChan {
 			// Persist execution state
 			execID := status.ExecutionID
 			if isZeroID(execID) {
-				execID = idwrap.NewNow()
+				// Construct cache key based on node and iteration context
+				cacheKey := status.NodeID.String()
+				if status.IterationContext != nil {
+					// Use iteration path and index for uniqueness in loops
+					cacheKey = fmt.Sprintf("%s:%v:%d", cacheKey, status.IterationContext.IterationPath, status.IterationContext.ExecutionIndex)
+				} else if status.IterationIndex >= 0 {
+					cacheKey = fmt.Sprintf("%s:%d", cacheKey, status.IterationIndex)
+				}
+
+				if cachedID, ok := executionCache[cacheKey]; ok {
+					execID = cachedID
+				} else {
+					execID = idwrap.NewNow()
+					executionCache[cacheKey] = execID
+				}
 			}
 
 			model := mnodeexecution.NodeExecution{
