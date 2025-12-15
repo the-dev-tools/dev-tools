@@ -1,27 +1,48 @@
 import { cors as connectCors, createConnectRouter } from '@connectrpc/connect';
 import { type UniversalHandler } from '@connectrpc/connect/protocol';
 import {
+  FileSystem,
   HttpMethod,
   HttpMiddleware,
   HttpRouter,
   HttpServer,
   HttpServerRequest,
   HttpServerResponse,
+  Path,
 } from '@effect/platform';
+import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
 import * as NodeHttpServerRequest from '@effect/platform-node/NodeHttpServerRequest';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Array, Effect, Layer, pipe, Stream } from 'effect';
 import { createServer, IncomingMessage } from 'http';
+import os from 'node:os';
 import { NodeJsExecutorService } from './nodejs-executor.ts';
 
 const connectRouter = createConnectRouter();
 
 NodeJsExecutorService(connectRouter);
 
-const portStr = process.env['JS_WORKER_PORT'] ?? process.env['PORT'];
-const port = portStr ? parseInt(portStr, 10) : 9090;
-const WorkerServerLive = NodeHttpServer.layer(createServer, { port });
+const WorkerServerLive = Effect.gen(function* () {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+
+  const directory = path.join(os.tmpdir(), 'the-dev-tools');
+
+  yield* fs.makeDirectory(directory, { recursive: true });
+
+  const socket = path.join(directory, 'worker-js.socket');
+
+  // Try deleting a possibly hanging socket before acquiring a new one
+  yield* fs.remove(socket, { force: true });
+
+  return yield* Effect.acquireRelease(
+    // Acquire socket & create server
+    pipe(NodeHttpServer.layer(createServer, { path: socket }), Layer.build),
+    // Release socket
+    () => pipe(fs.remove(socket, { force: true }), Effect.orDie),
+  );
+}).pipe(Layer.effectContext);
 
 async function* asyncIterableFromNodeServerRequest(request: IncomingMessage) {
   for await (const chunk of request) {
@@ -71,6 +92,8 @@ pipe(
   HttpServer.serve(),
   HttpServer.withLogAddress,
   Layer.provide(WorkerServerLive),
+  Layer.provide(NodeContext.layer),
+  Layer.provide(Layer.scope),
   Layer.launch,
   NodeRuntime.runMain,
 );
