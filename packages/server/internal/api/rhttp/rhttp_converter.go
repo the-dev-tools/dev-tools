@@ -696,8 +696,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 		if param.DeltaDescription != nil {
 			delta.Description = param.DeltaDescription
 		}
-		if param.DeltaOrder != nil {
-			order := float32(*param.DeltaOrder)
+		if param.DeltaDisplayOrder != nil {
+			order := float32(*param.DeltaDisplayOrder)
 			delta.Order = &order
 		}
 		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
@@ -756,8 +756,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 				Kind: apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 			}
 		}
-		if param.DeltaOrder != nil {
-			orderFloat := float32(*param.DeltaOrder)
+		if param.DeltaDisplayOrder != nil {
+			orderFloat := float32(*param.DeltaDisplayOrder)
 			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
 				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
 				Value: &orderFloat,
@@ -814,8 +814,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 		if header.DeltaDescription != nil {
 			delta.Description = header.DeltaDescription
 		}
-		if header.DeltaOrder != nil {
-			delta.Order = header.DeltaOrder
+		if header.DeltaDisplayOrder != nil {
+			delta.Order = header.DeltaDisplayOrder
 		}
 		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_INSERT,
@@ -873,8 +873,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 				Kind: apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 			}
 		}
-		if header.DeltaOrder != nil {
-			orderFloat := *header.DeltaOrder
+		if header.DeltaDisplayOrder != nil {
+			orderFloat := *header.DeltaDisplayOrder
 			delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
 				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
 				Value: &orderFloat,
@@ -931,8 +931,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 		if form.DeltaDescription != nil {
 			delta.Description = form.DeltaDescription
 		}
-		if form.DeltaOrder != nil {
-			delta.Order = form.DeltaOrder
+		if form.DeltaDisplayOrder != nil {
+			delta.Order = form.DeltaDisplayOrder
 		}
 		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpBodyFormDataDeltaSync_ValueUnion_KIND_INSERT,
@@ -990,8 +990,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 				Kind: apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 			}
 		}
-		if form.DeltaOrder != nil {
-			orderFloat := *form.DeltaOrder
+		if form.DeltaDisplayOrder != nil {
+			orderFloat := *form.DeltaDisplayOrder
 			delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
 				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
 				Value: &orderFloat,
@@ -1109,8 +1109,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 		if body.DeltaDescription != nil {
 			delta.Description = body.DeltaDescription
 		}
-		if body.DeltaOrder != nil {
-			delta.Order = body.DeltaOrder
+		if body.DeltaDisplayOrder != nil {
+			delta.Order = body.DeltaDisplayOrder
 		}
 		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_INSERT,
@@ -1168,8 +1168,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 				Kind: apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 			}
 		}
-		if body.DeltaOrder != nil {
-			orderFloat := *body.DeltaOrder
+		if body.DeltaDisplayOrder != nil {
+			orderFloat := *body.DeltaDisplayOrder
 			delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
 				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
 				Value: &orderFloat,

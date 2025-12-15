@@ -137,13 +137,13 @@ type HttpAssert struct {
 	Value              string
 	Enabled            bool
 	Description        string
-	Order              float64
+	DisplayOrder       float64
 	ParentHttpAssertID []byte
 	IsDelta            bool
 	DeltaValue         sql.NullString
 	DeltaEnabled       *bool
 	DeltaDescription   sql.NullString
-	DeltaOrder         sql.NullFloat64
+	DeltaDisplayOrder  sql.NullFloat64
 	CreatedAt          int64
 	UpdatedAt          int64
 }
@@ -155,14 +155,14 @@ type HttpBodyForm struct {
 	Value                string
 	Enabled              bool
 	Description          string
-	Order                float64
+	DisplayOrder         float64
 	ParentHttpBodyFormID []byte
 	IsDelta              bool
 	DeltaKey             sql.NullString
 	DeltaValue           sql.NullString
 	DeltaEnabled         *bool
 	DeltaDescription     *string
-	DeltaOrder           sql.NullFloat64
+	DeltaDisplayOrder    sql.NullFloat64
 	CreatedAt            int64
 	UpdatedAt            int64
 }
@@ -187,14 +187,14 @@ type HttpBodyUrlencoded struct {
 	Value                      string
 	Enabled                    bool
 	Description                string
-	Order                      float64
+	DisplayOrder               float64
 	ParentHttpBodyUrlencodedID []byte
 	IsDelta                    bool
 	DeltaKey                   sql.NullString
 	DeltaValue                 sql.NullString
 	DeltaEnabled               *bool
 	DeltaDescription           *string
-	DeltaOrder                 sql.NullFloat64
+	DeltaDisplayOrder          sql.NullFloat64
 	CreatedAt                  int64
 	UpdatedAt                  int64
 }
@@ -252,14 +252,14 @@ type HttpSearchParam struct {
 	Value                   string
 	Enabled                 bool
 	Description             string
-	Order                   float64
+	DisplayOrder            float64
 	ParentHttpSearchParamID []byte
 	IsDelta                 bool
 	DeltaKey                sql.NullString
 	DeltaValue              sql.NullString
 	DeltaEnabled            *bool
 	DeltaDescription        *string
-	DeltaOrder              sql.NullFloat64
+	DeltaDisplayOrder       sql.NullFloat64
 	CreatedAt               int64
 	UpdatedAt               int64
 }

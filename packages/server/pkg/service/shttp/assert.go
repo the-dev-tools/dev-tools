@@ -93,10 +93,10 @@ func (s *HttpAssertService) GetByHttpIDOrdered(ctx context.Context, httpID idwra
 
 	// Sort by order field
 	slices.SortFunc(rows, func(a, b gen.HttpAssert) int {
-		if a.Order < b.Order {
+		if a.DisplayOrder < b.DisplayOrder {
 			return -1
 		}
-		if a.Order > b.Order {
+		if a.DisplayOrder > b.DisplayOrder {
 			return 1
 		}
 		return 0
@@ -157,16 +157,16 @@ func (s *HttpAssertService) Update(ctx context.Context, assert *mhttp.HTTPAssert
 	}
 
 	return s.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
-		Value:            assert.Value,
-		Description:      assert.Description,
-		Enabled:          assert.Enabled,
-		Order:            float64(currentAssert.Order),
-		DeltaValue:       stringToNull(currentAssert.DeltaValue),
-		DeltaEnabled:     currentAssert.DeltaEnabled,
-		DeltaDescription: stringToNull(currentAssert.DeltaDescription),
-		DeltaOrder:       float32ToNullFloat64Assert(currentAssert.DeltaOrder),
-		UpdatedAt:        time.Now().Unix(),
-		ID:               assert.ID,
+		Value:             assert.Value,
+		Description:       assert.Description,
+		Enabled:           assert.Enabled,
+		DisplayOrder:      float64(currentAssert.DisplayOrder),
+		DeltaValue:        stringToNull(currentAssert.DeltaValue),
+		DeltaEnabled:      currentAssert.DeltaEnabled,
+		DeltaDescription:  stringToNull(currentAssert.DeltaDescription),
+		DeltaDisplayOrder: float32ToNullFloat64Assert(currentAssert.DeltaDisplayOrder),
+		UpdatedAt:         time.Now().Unix(),
+		ID:                assert.ID,
 	})
 }
 
@@ -177,26 +177,26 @@ func (s *HttpAssertService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, h
 	}
 
 	return s.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
-		Value:            assert.Value,
-		Description:      assert.Description,
-		Enabled:          assert.Enabled,
-		Order:            float64(order),
-		DeltaValue:       stringToNull(assert.DeltaValue),
-		DeltaEnabled:     assert.DeltaEnabled,
-		DeltaDescription: stringToNull(assert.DeltaDescription),
-		DeltaOrder:       float32ToNullFloat64Assert(assert.DeltaOrder),
-		UpdatedAt:        time.Now().Unix(),
-		ID:               assert.ID,
+		Value:             assert.Value,
+		Description:       assert.Description,
+		Enabled:           assert.Enabled,
+		DisplayOrder:      float64(order),
+		DeltaValue:        stringToNull(assert.DeltaValue),
+		DeltaEnabled:      assert.DeltaEnabled,
+		DeltaDescription:  stringToNull(assert.DeltaDescription),
+		DeltaDisplayOrder: float32ToNullFloat64Assert(assert.DeltaDisplayOrder),
+		UpdatedAt:         time.Now().Unix(),
+		ID:                assert.ID,
 	})
 }
 
 func (s *HttpAssertService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
 	return s.queries.UpdateHTTPAssertDelta(ctx, gen.UpdateHTTPAssertDeltaParams{
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: stringToNull(deltaDescription),
-		DeltaEnabled:     deltaEnabled,
-		DeltaOrder:       float32ToNullFloat64Assert(deltaOrder),
-		ID:               id,
+		DeltaValue:        stringToNull(deltaValue),
+		DeltaDescription:  stringToNull(deltaDescription),
+		DeltaEnabled:      deltaEnabled,
+		DeltaDisplayOrder: float32ToNullFloat64Assert(deltaOrder),
+		ID:                id,
 	})
 }
 
@@ -230,7 +230,7 @@ func (s *HttpAssertService) ResetDelta(ctx context.Context, id idwrap.IDWrap) er
 	assert.DeltaValue = nil
 	assert.DeltaEnabled = nil
 	assert.DeltaDescription = nil
-	assert.DeltaOrder = nil
+	assert.DeltaDisplayOrder = nil
 	assert.UpdatedAt = time.Now().Unix()
 
 	// Delete and recreate since UpdateHTTPAssert doesn't include is_delta field
@@ -245,13 +245,13 @@ func (s *HttpAssertService) ResetDelta(ctx context.Context, id idwrap.IDWrap) er
 		Value:              assert.Value,
 		Enabled:            assert.Enabled,
 		Description:        assert.Description,
-		Order:              float64(assert.Order),
+		DisplayOrder:       float64(assert.DisplayOrder),
 		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
 		IsDelta:            assert.IsDelta,
 		DeltaValue:         stringToNull(assert.DeltaValue),
 		DeltaEnabled:       assert.DeltaEnabled,
 		DeltaDescription:   stringToNull(assert.DeltaDescription),
-		DeltaOrder:         float32ToNullFloat64Assert(assert.DeltaOrder),
+		DeltaDisplayOrder:  float32ToNullFloat64Assert(assert.DeltaDisplayOrder),
 		CreatedAt:          assert.CreatedAt,
 		UpdatedAt:          assert.UpdatedAt,
 	})
@@ -283,13 +283,13 @@ func SerializeAssertModelToGen(assert mhttp.HTTPAssert) gen.HttpAssert {
 		Value:              assert.Value,
 		Enabled:            assert.Enabled,
 		Description:        assert.Description,
-		Order:              float64(assert.Order),
+		DisplayOrder:       float64(assert.DisplayOrder),
 		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
 		IsDelta:            assert.IsDelta,
 		DeltaValue:         stringToNull(assert.DeltaValue),
 		DeltaEnabled:       assert.DeltaEnabled,
 		DeltaDescription:   stringToNull(assert.DeltaDescription),
-		DeltaOrder:         float32ToNullFloat64Assert(assert.DeltaOrder),
+		DeltaDisplayOrder:  float32ToNullFloat64Assert(assert.DeltaDisplayOrder),
 		CreatedAt:          assert.CreatedAt,
 		UpdatedAt:          assert.UpdatedAt,
 	}
@@ -302,13 +302,13 @@ func DeserializeAssertGenToModel(assert gen.HttpAssert) mhttp.HTTPAssert {
 		Value:              assert.Value,
 		Enabled:            assert.Enabled,
 		Description:        assert.Description,
-		Order:              float32(assert.Order),
+		DisplayOrder:       float32(assert.DisplayOrder),
 		ParentHttpAssertID: bytesToIDWrap(assert.ParentHttpAssertID),
 		IsDelta:            assert.IsDelta,
 		DeltaValue:         nullToString(assert.DeltaValue),
 		DeltaEnabled:       assert.DeltaEnabled,
 		DeltaDescription:   nullToString(assert.DeltaDescription),
-		DeltaOrder:         nullFloat64ToFloat32Assert(assert.DeltaOrder),
+		DeltaDisplayOrder:  nullFloat64ToFloat32Assert(assert.DeltaDisplayOrder),
 		CreatedAt:          assert.CreatedAt,
 		UpdatedAt:          assert.UpdatedAt,
 	}

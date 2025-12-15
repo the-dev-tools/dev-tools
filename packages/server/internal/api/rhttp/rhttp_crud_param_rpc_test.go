@@ -50,7 +50,7 @@ func TestHttpSearchParamInsert_Success(t *testing.T) {
 	require.Equal(t, value, param.Value)
 	require.Equal(t, description, param.Description)
 	require.Equal(t, enabled, param.Enabled)
-	require.Equal(t, float64(order), param.Order)
+	require.Equal(t, float64(order), param.DisplayOrder)
 }
 
 func TestHttpSearchParamUpdate_Success(t *testing.T) {
@@ -101,7 +101,7 @@ func TestHttpSearchParamUpdate_Success(t *testing.T) {
 	require.Equal(t, newValue, param.Value)
 	require.Equal(t, newEnabled, param.Enabled)
 	require.Equal(t, newDescription, param.Description)
-	require.Equal(t, float64(newOrder), param.Order)
+	require.Equal(t, float64(newOrder), param.DisplayOrder)
 }
 
 func TestHttpSearchParamDelete_Success(t *testing.T) {

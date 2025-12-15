@@ -219,9 +219,9 @@ func TestAssertOrdering(t *testing.T) {
 	idC := idwrap.NewNow()
 
 	baseAsserts := []mhttp.HTTPAssert{
-		{ID: idB, Value: "B", Order: 2.0},
-		{ID: idA, Value: "A", Order: 1.0},
-		{ID: idC, Value: "C", Order: 3.0},
+		{ID: idB, Value: "B", DisplayOrder: 2.0},
+		{ID: idA, Value: "A", DisplayOrder: 1.0},
+		{ID: idC, Value: "C", DisplayOrder: 3.0},
 	}
 
 	t.Run("PreserveOrder", func(t *testing.T) {

@@ -70,9 +70,9 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 
 const createHTTPAssert = `-- name: CreateHTTPAssert :exec
 INSERT INTO http_assert (
-  id, http_id, value, enabled, description, "order",
+  id, http_id, value, enabled, description, display_order,
   parent_http_assert_id, is_delta, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
@@ -83,13 +83,13 @@ type CreateHTTPAssertParams struct {
 	Value              string
 	Enabled            bool
 	Description        string
-	Order              float64
+	DisplayOrder       float64
 	ParentHttpAssertID []byte
 	IsDelta            bool
 	DeltaValue         sql.NullString
 	DeltaEnabled       *bool
 	DeltaDescription   sql.NullString
-	DeltaOrder         sql.NullFloat64
+	DeltaDisplayOrder  sql.NullFloat64
 	CreatedAt          int64
 	UpdatedAt          int64
 }
@@ -101,13 +101,13 @@ func (q *Queries) CreateHTTPAssert(ctx context.Context, arg CreateHTTPAssertPara
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ParentHttpAssertID,
 		arg.IsDelta,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -116,9 +116,9 @@ func (q *Queries) CreateHTTPAssert(ctx context.Context, arg CreateHTTPAssertPara
 
 const createHTTPAssertBulk = `-- name: CreateHTTPAssertBulk :exec
 INSERT INTO http_assert (
-  id, http_id, value, enabled, description, "order",
+  id, http_id, value, enabled, description, display_order,
   parent_http_assert_id, is_delta, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -139,13 +139,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value                 string
 	Enabled               bool
 	Description           string
-	Order                 float64
+	DisplayOrder          float64
 	ParentHttpAssertID    []byte
 	IsDelta               bool
 	DeltaValue            sql.NullString
 	DeltaEnabled          *bool
 	DeltaDescription      sql.NullString
-	DeltaOrder            sql.NullFloat64
+	DeltaDisplayOrder     sql.NullFloat64
 	CreatedAt             int64
 	UpdatedAt             int64
 	ID_2                  idwrap.IDWrap
@@ -153,13 +153,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_2               string
 	Enabled_2             bool
 	Description_2         string
-	Order_2               float64
+	DisplayOrder_2        float64
 	ParentHttpAssertID_2  []byte
 	IsDelta_2             bool
 	DeltaValue_2          sql.NullString
 	DeltaEnabled_2        *bool
 	DeltaDescription_2    sql.NullString
-	DeltaOrder_2          sql.NullFloat64
+	DeltaDisplayOrder_2   sql.NullFloat64
 	CreatedAt_2           int64
 	UpdatedAt_2           int64
 	ID_3                  idwrap.IDWrap
@@ -167,13 +167,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_3               string
 	Enabled_3             bool
 	Description_3         string
-	Order_3               float64
+	DisplayOrder_3        float64
 	ParentHttpAssertID_3  []byte
 	IsDelta_3             bool
 	DeltaValue_3          sql.NullString
 	DeltaEnabled_3        *bool
 	DeltaDescription_3    sql.NullString
-	DeltaOrder_3          sql.NullFloat64
+	DeltaDisplayOrder_3   sql.NullFloat64
 	CreatedAt_3           int64
 	UpdatedAt_3           int64
 	ID_4                  idwrap.IDWrap
@@ -181,13 +181,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_4               string
 	Enabled_4             bool
 	Description_4         string
-	Order_4               float64
+	DisplayOrder_4        float64
 	ParentHttpAssertID_4  []byte
 	IsDelta_4             bool
 	DeltaValue_4          sql.NullString
 	DeltaEnabled_4        *bool
 	DeltaDescription_4    sql.NullString
-	DeltaOrder_4          sql.NullFloat64
+	DeltaDisplayOrder_4   sql.NullFloat64
 	CreatedAt_4           int64
 	UpdatedAt_4           int64
 	ID_5                  idwrap.IDWrap
@@ -195,13 +195,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_5               string
 	Enabled_5             bool
 	Description_5         string
-	Order_5               float64
+	DisplayOrder_5        float64
 	ParentHttpAssertID_5  []byte
 	IsDelta_5             bool
 	DeltaValue_5          sql.NullString
 	DeltaEnabled_5        *bool
 	DeltaDescription_5    sql.NullString
-	DeltaOrder_5          sql.NullFloat64
+	DeltaDisplayOrder_5   sql.NullFloat64
 	CreatedAt_5           int64
 	UpdatedAt_5           int64
 	ID_6                  idwrap.IDWrap
@@ -209,13 +209,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_6               string
 	Enabled_6             bool
 	Description_6         string
-	Order_6               float64
+	DisplayOrder_6        float64
 	ParentHttpAssertID_6  []byte
 	IsDelta_6             bool
 	DeltaValue_6          sql.NullString
 	DeltaEnabled_6        *bool
 	DeltaDescription_6    sql.NullString
-	DeltaOrder_6          sql.NullFloat64
+	DeltaDisplayOrder_6   sql.NullFloat64
 	CreatedAt_6           int64
 	UpdatedAt_6           int64
 	ID_7                  idwrap.IDWrap
@@ -223,13 +223,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_7               string
 	Enabled_7             bool
 	Description_7         string
-	Order_7               float64
+	DisplayOrder_7        float64
 	ParentHttpAssertID_7  []byte
 	IsDelta_7             bool
 	DeltaValue_7          sql.NullString
 	DeltaEnabled_7        *bool
 	DeltaDescription_7    sql.NullString
-	DeltaOrder_7          sql.NullFloat64
+	DeltaDisplayOrder_7   sql.NullFloat64
 	CreatedAt_7           int64
 	UpdatedAt_7           int64
 	ID_8                  idwrap.IDWrap
@@ -237,13 +237,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_8               string
 	Enabled_8             bool
 	Description_8         string
-	Order_8               float64
+	DisplayOrder_8        float64
 	ParentHttpAssertID_8  []byte
 	IsDelta_8             bool
 	DeltaValue_8          sql.NullString
 	DeltaEnabled_8        *bool
 	DeltaDescription_8    sql.NullString
-	DeltaOrder_8          sql.NullFloat64
+	DeltaDisplayOrder_8   sql.NullFloat64
 	CreatedAt_8           int64
 	UpdatedAt_8           int64
 	ID_9                  idwrap.IDWrap
@@ -251,13 +251,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_9               string
 	Enabled_9             bool
 	Description_9         string
-	Order_9               float64
+	DisplayOrder_9        float64
 	ParentHttpAssertID_9  []byte
 	IsDelta_9             bool
 	DeltaValue_9          sql.NullString
 	DeltaEnabled_9        *bool
 	DeltaDescription_9    sql.NullString
-	DeltaOrder_9          sql.NullFloat64
+	DeltaDisplayOrder_9   sql.NullFloat64
 	CreatedAt_9           int64
 	UpdatedAt_9           int64
 	ID_10                 idwrap.IDWrap
@@ -265,13 +265,13 @@ type CreateHTTPAssertBulkParams struct {
 	Value_10              string
 	Enabled_10            bool
 	Description_10        string
-	Order_10              float64
+	DisplayOrder_10       float64
 	ParentHttpAssertID_10 []byte
 	IsDelta_10            bool
 	DeltaValue_10         sql.NullString
 	DeltaEnabled_10       *bool
 	DeltaDescription_10   sql.NullString
-	DeltaOrder_10         sql.NullFloat64
+	DeltaDisplayOrder_10  sql.NullFloat64
 	CreatedAt_10          int64
 	UpdatedAt_10          int64
 }
@@ -283,13 +283,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ParentHttpAssertID,
 		arg.IsDelta,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.ID_2,
@@ -297,13 +297,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_2,
 		arg.Enabled_2,
 		arg.Description_2,
-		arg.Order_2,
+		arg.DisplayOrder_2,
 		arg.ParentHttpAssertID_2,
 		arg.IsDelta_2,
 		arg.DeltaValue_2,
 		arg.DeltaEnabled_2,
 		arg.DeltaDescription_2,
-		arg.DeltaOrder_2,
+		arg.DeltaDisplayOrder_2,
 		arg.CreatedAt_2,
 		arg.UpdatedAt_2,
 		arg.ID_3,
@@ -311,13 +311,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_3,
 		arg.Enabled_3,
 		arg.Description_3,
-		arg.Order_3,
+		arg.DisplayOrder_3,
 		arg.ParentHttpAssertID_3,
 		arg.IsDelta_3,
 		arg.DeltaValue_3,
 		arg.DeltaEnabled_3,
 		arg.DeltaDescription_3,
-		arg.DeltaOrder_3,
+		arg.DeltaDisplayOrder_3,
 		arg.CreatedAt_3,
 		arg.UpdatedAt_3,
 		arg.ID_4,
@@ -325,13 +325,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_4,
 		arg.Enabled_4,
 		arg.Description_4,
-		arg.Order_4,
+		arg.DisplayOrder_4,
 		arg.ParentHttpAssertID_4,
 		arg.IsDelta_4,
 		arg.DeltaValue_4,
 		arg.DeltaEnabled_4,
 		arg.DeltaDescription_4,
-		arg.DeltaOrder_4,
+		arg.DeltaDisplayOrder_4,
 		arg.CreatedAt_4,
 		arg.UpdatedAt_4,
 		arg.ID_5,
@@ -339,13 +339,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_5,
 		arg.Enabled_5,
 		arg.Description_5,
-		arg.Order_5,
+		arg.DisplayOrder_5,
 		arg.ParentHttpAssertID_5,
 		arg.IsDelta_5,
 		arg.DeltaValue_5,
 		arg.DeltaEnabled_5,
 		arg.DeltaDescription_5,
-		arg.DeltaOrder_5,
+		arg.DeltaDisplayOrder_5,
 		arg.CreatedAt_5,
 		arg.UpdatedAt_5,
 		arg.ID_6,
@@ -353,13 +353,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_6,
 		arg.Enabled_6,
 		arg.Description_6,
-		arg.Order_6,
+		arg.DisplayOrder_6,
 		arg.ParentHttpAssertID_6,
 		arg.IsDelta_6,
 		arg.DeltaValue_6,
 		arg.DeltaEnabled_6,
 		arg.DeltaDescription_6,
-		arg.DeltaOrder_6,
+		arg.DeltaDisplayOrder_6,
 		arg.CreatedAt_6,
 		arg.UpdatedAt_6,
 		arg.ID_7,
@@ -367,13 +367,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_7,
 		arg.Enabled_7,
 		arg.Description_7,
-		arg.Order_7,
+		arg.DisplayOrder_7,
 		arg.ParentHttpAssertID_7,
 		arg.IsDelta_7,
 		arg.DeltaValue_7,
 		arg.DeltaEnabled_7,
 		arg.DeltaDescription_7,
-		arg.DeltaOrder_7,
+		arg.DeltaDisplayOrder_7,
 		arg.CreatedAt_7,
 		arg.UpdatedAt_7,
 		arg.ID_8,
@@ -381,13 +381,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_8,
 		arg.Enabled_8,
 		arg.Description_8,
-		arg.Order_8,
+		arg.DisplayOrder_8,
 		arg.ParentHttpAssertID_8,
 		arg.IsDelta_8,
 		arg.DeltaValue_8,
 		arg.DeltaEnabled_8,
 		arg.DeltaDescription_8,
-		arg.DeltaOrder_8,
+		arg.DeltaDisplayOrder_8,
 		arg.CreatedAt_8,
 		arg.UpdatedAt_8,
 		arg.ID_9,
@@ -395,13 +395,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_9,
 		arg.Enabled_9,
 		arg.Description_9,
-		arg.Order_9,
+		arg.DisplayOrder_9,
 		arg.ParentHttpAssertID_9,
 		arg.IsDelta_9,
 		arg.DeltaValue_9,
 		arg.DeltaEnabled_9,
 		arg.DeltaDescription_9,
-		arg.DeltaOrder_9,
+		arg.DeltaDisplayOrder_9,
 		arg.CreatedAt_9,
 		arg.UpdatedAt_9,
 		arg.ID_10,
@@ -409,13 +409,13 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.Value_10,
 		arg.Enabled_10,
 		arg.Description_10,
-		arg.Order_10,
+		arg.DisplayOrder_10,
 		arg.ParentHttpAssertID_10,
 		arg.IsDelta_10,
 		arg.DeltaValue_10,
 		arg.DeltaEnabled_10,
 		arg.DeltaDescription_10,
-		arg.DeltaOrder_10,
+		arg.DeltaDisplayOrder_10,
 		arg.CreatedAt_10,
 		arg.UpdatedAt_10,
 	)
@@ -424,11 +424,11 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 
 const createHTTPBodyForm = `-- name: CreateHTTPBodyForm :exec
 INSERT INTO http_body_form (
-  id, http_id, key, value, description, enabled, "order",
+  id, http_id, key, value, description, enabled, display_order,
   parent_http_body_form_id, is_delta, delta_key, delta_value,
-  delta_description, delta_enabled, created_at, updated_at
+  delta_description, delta_enabled, delta_display_order, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPBodyFormParams struct {
@@ -438,13 +438,14 @@ type CreateHTTPBodyFormParams struct {
 	Value                string
 	Description          string
 	Enabled              bool
-	Order                float64
+	DisplayOrder         float64
 	ParentHttpBodyFormID []byte
 	IsDelta              bool
 	DeltaKey             sql.NullString
 	DeltaValue           sql.NullString
 	DeltaDescription     *string
 	DeltaEnabled         *bool
+	DeltaDisplayOrder    sql.NullFloat64
 	CreatedAt            int64
 	UpdatedAt            int64
 }
@@ -457,13 +458,14 @@ func (q *Queries) CreateHTTPBodyForm(ctx context.Context, arg CreateHTTPBodyForm
 		arg.Value,
 		arg.Description,
 		arg.Enabled,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ParentHttpBodyFormID,
 		arg.IsDelta,
 		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -519,9 +521,9 @@ func (q *Queries) CreateHTTPBodyRaw(ctx context.Context, arg CreateHTTPBodyRawPa
 
 const createHTTPBodyUrlEncoded = `-- name: CreateHTTPBodyUrlEncoded :exec
 INSERT INTO http_body_urlencoded (
-  id, http_id, key, value, enabled, description, "order",
+  id, http_id, key, value, enabled, description, display_order,
   parent_http_body_urlencoded_id, is_delta, delta_key, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
@@ -533,14 +535,14 @@ type CreateHTTPBodyUrlEncodedParams struct {
 	Value                      string
 	Enabled                    bool
 	Description                string
-	Order                      float64
+	DisplayOrder               float64
 	ParentHttpBodyUrlencodedID []byte
 	IsDelta                    bool
 	DeltaKey                   sql.NullString
 	DeltaValue                 sql.NullString
 	DeltaEnabled               *bool
 	DeltaDescription           *string
-	DeltaOrder                 sql.NullFloat64
+	DeltaDisplayOrder          sql.NullFloat64
 	CreatedAt                  int64
 	UpdatedAt                  int64
 }
@@ -553,14 +555,14 @@ func (q *Queries) CreateHTTPBodyUrlEncoded(ctx context.Context, arg CreateHTTPBo
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ParentHttpBodyUrlencodedID,
 		arg.IsDelta,
 		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -569,9 +571,9 @@ func (q *Queries) CreateHTTPBodyUrlEncoded(ctx context.Context, arg CreateHTTPBo
 
 const createHTTPBodyUrlEncodedBulk = `-- name: CreateHTTPBodyUrlEncodedBulk :exec
 INSERT INTO http_body_urlencoded (
-  id, http_id, key, value, enabled, description, "order",
+  id, http_id, key, value, enabled, description, display_order,
   parent_http_body_urlencoded_id, is_delta, delta_key, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -593,14 +595,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value                         string
 	Enabled                       bool
 	Description                   string
-	Order                         float64
+	DisplayOrder                  float64
 	ParentHttpBodyUrlencodedID    []byte
 	IsDelta                       bool
 	DeltaKey                      sql.NullString
 	DeltaValue                    sql.NullString
 	DeltaEnabled                  *bool
 	DeltaDescription              *string
-	DeltaOrder                    sql.NullFloat64
+	DeltaDisplayOrder             sql.NullFloat64
 	CreatedAt                     int64
 	UpdatedAt                     int64
 	ID_2                          idwrap.IDWrap
@@ -609,14 +611,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_2                       string
 	Enabled_2                     bool
 	Description_2                 string
-	Order_2                       float64
+	DisplayOrder_2                float64
 	ParentHttpBodyUrlencodedID_2  []byte
 	IsDelta_2                     bool
 	DeltaKey_2                    sql.NullString
 	DeltaValue_2                  sql.NullString
 	DeltaEnabled_2                *bool
 	DeltaDescription_2            *string
-	DeltaOrder_2                  sql.NullFloat64
+	DeltaDisplayOrder_2           sql.NullFloat64
 	CreatedAt_2                   int64
 	UpdatedAt_2                   int64
 	ID_3                          idwrap.IDWrap
@@ -625,14 +627,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_3                       string
 	Enabled_3                     bool
 	Description_3                 string
-	Order_3                       float64
+	DisplayOrder_3                float64
 	ParentHttpBodyUrlencodedID_3  []byte
 	IsDelta_3                     bool
 	DeltaKey_3                    sql.NullString
 	DeltaValue_3                  sql.NullString
 	DeltaEnabled_3                *bool
 	DeltaDescription_3            *string
-	DeltaOrder_3                  sql.NullFloat64
+	DeltaDisplayOrder_3           sql.NullFloat64
 	CreatedAt_3                   int64
 	UpdatedAt_3                   int64
 	ID_4                          idwrap.IDWrap
@@ -641,14 +643,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_4                       string
 	Enabled_4                     bool
 	Description_4                 string
-	Order_4                       float64
+	DisplayOrder_4                float64
 	ParentHttpBodyUrlencodedID_4  []byte
 	IsDelta_4                     bool
 	DeltaKey_4                    sql.NullString
 	DeltaValue_4                  sql.NullString
 	DeltaEnabled_4                *bool
 	DeltaDescription_4            *string
-	DeltaOrder_4                  sql.NullFloat64
+	DeltaDisplayOrder_4           sql.NullFloat64
 	CreatedAt_4                   int64
 	UpdatedAt_4                   int64
 	ID_5                          idwrap.IDWrap
@@ -657,14 +659,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_5                       string
 	Enabled_5                     bool
 	Description_5                 string
-	Order_5                       float64
+	DisplayOrder_5                float64
 	ParentHttpBodyUrlencodedID_5  []byte
 	IsDelta_5                     bool
 	DeltaKey_5                    sql.NullString
 	DeltaValue_5                  sql.NullString
 	DeltaEnabled_5                *bool
 	DeltaDescription_5            *string
-	DeltaOrder_5                  sql.NullFloat64
+	DeltaDisplayOrder_5           sql.NullFloat64
 	CreatedAt_5                   int64
 	UpdatedAt_5                   int64
 	ID_6                          idwrap.IDWrap
@@ -673,14 +675,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_6                       string
 	Enabled_6                     bool
 	Description_6                 string
-	Order_6                       float64
+	DisplayOrder_6                float64
 	ParentHttpBodyUrlencodedID_6  []byte
 	IsDelta_6                     bool
 	DeltaKey_6                    sql.NullString
 	DeltaValue_6                  sql.NullString
 	DeltaEnabled_6                *bool
 	DeltaDescription_6            *string
-	DeltaOrder_6                  sql.NullFloat64
+	DeltaDisplayOrder_6           sql.NullFloat64
 	CreatedAt_6                   int64
 	UpdatedAt_6                   int64
 	ID_7                          idwrap.IDWrap
@@ -689,14 +691,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_7                       string
 	Enabled_7                     bool
 	Description_7                 string
-	Order_7                       float64
+	DisplayOrder_7                float64
 	ParentHttpBodyUrlencodedID_7  []byte
 	IsDelta_7                     bool
 	DeltaKey_7                    sql.NullString
 	DeltaValue_7                  sql.NullString
 	DeltaEnabled_7                *bool
 	DeltaDescription_7            *string
-	DeltaOrder_7                  sql.NullFloat64
+	DeltaDisplayOrder_7           sql.NullFloat64
 	CreatedAt_7                   int64
 	UpdatedAt_7                   int64
 	ID_8                          idwrap.IDWrap
@@ -705,14 +707,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_8                       string
 	Enabled_8                     bool
 	Description_8                 string
-	Order_8                       float64
+	DisplayOrder_8                float64
 	ParentHttpBodyUrlencodedID_8  []byte
 	IsDelta_8                     bool
 	DeltaKey_8                    sql.NullString
 	DeltaValue_8                  sql.NullString
 	DeltaEnabled_8                *bool
 	DeltaDescription_8            *string
-	DeltaOrder_8                  sql.NullFloat64
+	DeltaDisplayOrder_8           sql.NullFloat64
 	CreatedAt_8                   int64
 	UpdatedAt_8                   int64
 	ID_9                          idwrap.IDWrap
@@ -721,14 +723,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_9                       string
 	Enabled_9                     bool
 	Description_9                 string
-	Order_9                       float64
+	DisplayOrder_9                float64
 	ParentHttpBodyUrlencodedID_9  []byte
 	IsDelta_9                     bool
 	DeltaKey_9                    sql.NullString
 	DeltaValue_9                  sql.NullString
 	DeltaEnabled_9                *bool
 	DeltaDescription_9            *string
-	DeltaOrder_9                  sql.NullFloat64
+	DeltaDisplayOrder_9           sql.NullFloat64
 	CreatedAt_9                   int64
 	UpdatedAt_9                   int64
 	ID_10                         idwrap.IDWrap
@@ -737,14 +739,14 @@ type CreateHTTPBodyUrlEncodedBulkParams struct {
 	Value_10                      string
 	Enabled_10                    bool
 	Description_10                string
-	Order_10                      float64
+	DisplayOrder_10               float64
 	ParentHttpBodyUrlencodedID_10 []byte
 	IsDelta_10                    bool
 	DeltaKey_10                   sql.NullString
 	DeltaValue_10                 sql.NullString
 	DeltaEnabled_10               *bool
 	DeltaDescription_10           *string
-	DeltaOrder_10                 sql.NullFloat64
+	DeltaDisplayOrder_10          sql.NullFloat64
 	CreatedAt_10                  int64
 	UpdatedAt_10                  int64
 }
@@ -757,14 +759,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ParentHttpBodyUrlencodedID,
 		arg.IsDelta,
 		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.ID_2,
@@ -773,14 +775,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_2,
 		arg.Enabled_2,
 		arg.Description_2,
-		arg.Order_2,
+		arg.DisplayOrder_2,
 		arg.ParentHttpBodyUrlencodedID_2,
 		arg.IsDelta_2,
 		arg.DeltaKey_2,
 		arg.DeltaValue_2,
 		arg.DeltaEnabled_2,
 		arg.DeltaDescription_2,
-		arg.DeltaOrder_2,
+		arg.DeltaDisplayOrder_2,
 		arg.CreatedAt_2,
 		arg.UpdatedAt_2,
 		arg.ID_3,
@@ -789,14 +791,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_3,
 		arg.Enabled_3,
 		arg.Description_3,
-		arg.Order_3,
+		arg.DisplayOrder_3,
 		arg.ParentHttpBodyUrlencodedID_3,
 		arg.IsDelta_3,
 		arg.DeltaKey_3,
 		arg.DeltaValue_3,
 		arg.DeltaEnabled_3,
 		arg.DeltaDescription_3,
-		arg.DeltaOrder_3,
+		arg.DeltaDisplayOrder_3,
 		arg.CreatedAt_3,
 		arg.UpdatedAt_3,
 		arg.ID_4,
@@ -805,14 +807,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_4,
 		arg.Enabled_4,
 		arg.Description_4,
-		arg.Order_4,
+		arg.DisplayOrder_4,
 		arg.ParentHttpBodyUrlencodedID_4,
 		arg.IsDelta_4,
 		arg.DeltaKey_4,
 		arg.DeltaValue_4,
 		arg.DeltaEnabled_4,
 		arg.DeltaDescription_4,
-		arg.DeltaOrder_4,
+		arg.DeltaDisplayOrder_4,
 		arg.CreatedAt_4,
 		arg.UpdatedAt_4,
 		arg.ID_5,
@@ -821,14 +823,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_5,
 		arg.Enabled_5,
 		arg.Description_5,
-		arg.Order_5,
+		arg.DisplayOrder_5,
 		arg.ParentHttpBodyUrlencodedID_5,
 		arg.IsDelta_5,
 		arg.DeltaKey_5,
 		arg.DeltaValue_5,
 		arg.DeltaEnabled_5,
 		arg.DeltaDescription_5,
-		arg.DeltaOrder_5,
+		arg.DeltaDisplayOrder_5,
 		arg.CreatedAt_5,
 		arg.UpdatedAt_5,
 		arg.ID_6,
@@ -837,14 +839,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_6,
 		arg.Enabled_6,
 		arg.Description_6,
-		arg.Order_6,
+		arg.DisplayOrder_6,
 		arg.ParentHttpBodyUrlencodedID_6,
 		arg.IsDelta_6,
 		arg.DeltaKey_6,
 		arg.DeltaValue_6,
 		arg.DeltaEnabled_6,
 		arg.DeltaDescription_6,
-		arg.DeltaOrder_6,
+		arg.DeltaDisplayOrder_6,
 		arg.CreatedAt_6,
 		arg.UpdatedAt_6,
 		arg.ID_7,
@@ -853,14 +855,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_7,
 		arg.Enabled_7,
 		arg.Description_7,
-		arg.Order_7,
+		arg.DisplayOrder_7,
 		arg.ParentHttpBodyUrlencodedID_7,
 		arg.IsDelta_7,
 		arg.DeltaKey_7,
 		arg.DeltaValue_7,
 		arg.DeltaEnabled_7,
 		arg.DeltaDescription_7,
-		arg.DeltaOrder_7,
+		arg.DeltaDisplayOrder_7,
 		arg.CreatedAt_7,
 		arg.UpdatedAt_7,
 		arg.ID_8,
@@ -869,14 +871,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_8,
 		arg.Enabled_8,
 		arg.Description_8,
-		arg.Order_8,
+		arg.DisplayOrder_8,
 		arg.ParentHttpBodyUrlencodedID_8,
 		arg.IsDelta_8,
 		arg.DeltaKey_8,
 		arg.DeltaValue_8,
 		arg.DeltaEnabled_8,
 		arg.DeltaDescription_8,
-		arg.DeltaOrder_8,
+		arg.DeltaDisplayOrder_8,
 		arg.CreatedAt_8,
 		arg.UpdatedAt_8,
 		arg.ID_9,
@@ -885,14 +887,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_9,
 		arg.Enabled_9,
 		arg.Description_9,
-		arg.Order_9,
+		arg.DisplayOrder_9,
 		arg.ParentHttpBodyUrlencodedID_9,
 		arg.IsDelta_9,
 		arg.DeltaKey_9,
 		arg.DeltaValue_9,
 		arg.DeltaEnabled_9,
 		arg.DeltaDescription_9,
-		arg.DeltaOrder_9,
+		arg.DeltaDisplayOrder_9,
 		arg.CreatedAt_9,
 		arg.UpdatedAt_9,
 		arg.ID_10,
@@ -901,14 +903,14 @@ func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHT
 		arg.Value_10,
 		arg.Enabled_10,
 		arg.Description_10,
-		arg.Order_10,
+		arg.DisplayOrder_10,
 		arg.ParentHttpBodyUrlencodedID_10,
 		arg.IsDelta_10,
 		arg.DeltaKey_10,
 		arg.DeltaValue_10,
 		arg.DeltaEnabled_10,
 		arg.DeltaDescription_10,
-		arg.DeltaOrder_10,
+		arg.DeltaDisplayOrder_10,
 		arg.CreatedAt_10,
 		arg.UpdatedAt_10,
 	)
@@ -1489,11 +1491,11 @@ func (q *Queries) CreateHTTPResponseHeaderBulk(ctx context.Context, arg CreateHT
 
 const createHTTPSearchParam = `-- name: CreateHTTPSearchParam :exec
 INSERT INTO http_search_param (
-  id, http_id, key, value, description, enabled, "order",
+  id, http_id, key, value, description, enabled, display_order,
   parent_http_search_param_id, is_delta, delta_key, delta_value,
-  delta_description, delta_enabled, created_at, updated_at
+  delta_description, delta_enabled, delta_display_order, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPSearchParamParams struct {
@@ -1503,13 +1505,14 @@ type CreateHTTPSearchParamParams struct {
 	Value                   string
 	Description             string
 	Enabled                 bool
-	Order                   float64
+	DisplayOrder            float64
 	ParentHttpSearchParamID []byte
 	IsDelta                 bool
 	DeltaKey                sql.NullString
 	DeltaValue              sql.NullString
 	DeltaDescription        *string
 	DeltaEnabled            *bool
+	DeltaDisplayOrder       sql.NullFloat64
 	CreatedAt               int64
 	UpdatedAt               int64
 }
@@ -1522,13 +1525,14 @@ func (q *Queries) CreateHTTPSearchParam(ctx context.Context, arg CreateHTTPSearc
 		arg.Value,
 		arg.Description,
 		arg.Enabled,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ParentHttpSearchParamID,
 		arg.IsDelta,
 		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -1802,13 +1806,13 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_assert_id,
   is_delta,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_assert
@@ -1826,13 +1830,13 @@ func (q *Queries) GetHTTPAssert(ctx context.Context, id idwrap.IDWrap) (HttpAsse
 		&i.Value,
 		&i.Enabled,
 		&i.Description,
-		&i.Order,
+		&i.DisplayOrder,
 		&i.ParentHttpAssertID,
 		&i.IsDelta,
 		&i.DeltaValue,
 		&i.DeltaEnabled,
 		&i.DeltaDescription,
-		&i.DeltaOrder,
+		&i.DeltaDisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1846,18 +1850,18 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_assert_id,
   is_delta,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_assert
 WHERE http_id = ?
-ORDER BY "order"
+ORDER BY display_order
 `
 
 func (q *Queries) GetHTTPAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpAssert, error) {
@@ -1875,13 +1879,13 @@ func (q *Queries) GetHTTPAssertsByHttpID(ctx context.Context, httpID idwrap.IDWr
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
-			&i.Order,
+			&i.DisplayOrder,
 			&i.ParentHttpAssertID,
 			&i.IsDelta,
 			&i.DeltaValue,
 			&i.DeltaEnabled,
 			&i.DeltaDescription,
-			&i.DeltaOrder,
+			&i.DeltaDisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1905,13 +1909,13 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_assert_id,
   is_delta,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_assert
@@ -1943,13 +1947,13 @@ func (q *Queries) GetHTTPAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
-			&i.Order,
+			&i.DisplayOrder,
 			&i.ParentHttpAssertID,
 			&i.IsDelta,
 			&i.DeltaValue,
 			&i.DeltaEnabled,
 			&i.DeltaDescription,
-			&i.DeltaOrder,
+			&i.DeltaDisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2181,12 +2185,13 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_body_form
 WHERE http_id = ?
-ORDER BY "order"
+ORDER BY display_order
 `
 
 type GetHTTPBodyFormsRow struct {
@@ -2202,7 +2207,8 @@ type GetHTTPBodyFormsRow struct {
 	DeltaValue           sql.NullString
 	DeltaDescription     *string
 	DeltaEnabled         *bool
-	Order                float64
+	DeltaDisplayOrder    sql.NullFloat64
+	DisplayOrder         float64
 	CreatedAt            int64
 	UpdatedAt            int64
 }
@@ -2230,7 +2236,8 @@ func (q *Queries) GetHTTPBodyForms(ctx context.Context, httpID idwrap.IDWrap) ([
 			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Order,
+			&i.DeltaDisplayOrder,
+			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2261,7 +2268,8 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_body_form
@@ -2281,7 +2289,8 @@ type GetHTTPBodyFormsByIDsRow struct {
 	DeltaValue           sql.NullString
 	DeltaDescription     *string
 	DeltaEnabled         *bool
-	Order                float64
+	DeltaDisplayOrder    sql.NullFloat64
+	DisplayOrder         float64
 	CreatedAt            int64
 	UpdatedAt            int64
 }
@@ -2318,7 +2327,8 @@ func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap
 			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Order,
+			&i.DeltaDisplayOrder,
+			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2419,14 +2429,14 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_body_urlencoded_id,
   is_delta,
   delta_key,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
@@ -2445,14 +2455,14 @@ func (q *Queries) GetHTTPBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (
 		&i.Value,
 		&i.Enabled,
 		&i.Description,
-		&i.Order,
+		&i.DisplayOrder,
 		&i.ParentHttpBodyUrlencodedID,
 		&i.IsDelta,
 		&i.DeltaKey,
 		&i.DeltaValue,
 		&i.DeltaEnabled,
 		&i.DeltaDescription,
-		&i.DeltaOrder,
+		&i.DeltaDisplayOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -2467,19 +2477,19 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_body_urlencoded_id,
   is_delta,
   delta_key,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
 WHERE http_id = ?
-ORDER BY "order"
+ORDER BY display_order
 `
 
 func (q *Queries) GetHTTPBodyUrlEncodedByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
@@ -2498,14 +2508,14 @@ func (q *Queries) GetHTTPBodyUrlEncodedByHttpID(ctx context.Context, httpID idwr
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
-			&i.Order,
+			&i.DisplayOrder,
 			&i.ParentHttpBodyUrlencodedID,
 			&i.IsDelta,
 			&i.DeltaKey,
 			&i.DeltaValue,
 			&i.DeltaEnabled,
 			&i.DeltaDescription,
-			&i.DeltaOrder,
+			&i.DeltaDisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -2530,14 +2540,14 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_body_urlencoded_id,
   is_delta,
   delta_key,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
@@ -2570,14 +2580,14 @@ func (q *Queries) GetHTTPBodyUrlEncodedsByIDs(ctx context.Context, ids []idwrap.
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
-			&i.Order,
+			&i.DisplayOrder,
 			&i.ParentHttpBodyUrlencodedID,
 			&i.IsDelta,
 			&i.DeltaKey,
 			&i.DeltaValue,
 			&i.DeltaEnabled,
 			&i.DeltaDescription,
-			&i.DeltaOrder,
+			&i.DeltaDisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3649,12 +3659,13 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_search_param
 WHERE http_id = ?
-ORDER BY "order"
+ORDER BY display_order
 `
 
 type GetHTTPSearchParamsRow struct {
@@ -3670,7 +3681,8 @@ type GetHTTPSearchParamsRow struct {
 	DeltaValue              sql.NullString
 	DeltaDescription        *string
 	DeltaEnabled            *bool
-	Order                   float64
+	DeltaDisplayOrder       sql.NullFloat64
+	DisplayOrder            float64
 	CreatedAt               int64
 	UpdatedAt               int64
 }
@@ -3698,7 +3710,8 @@ func (q *Queries) GetHTTPSearchParams(ctx context.Context, httpID idwrap.IDWrap)
 			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Order,
+			&i.DeltaDisplayOrder,
+			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3729,7 +3742,8 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_search_param
@@ -3749,7 +3763,8 @@ type GetHTTPSearchParamsByIDsRow struct {
 	DeltaValue              sql.NullString
 	DeltaDescription        *string
 	DeltaEnabled            *bool
-	Order                   float64
+	DeltaDisplayOrder       sql.NullFloat64
+	DisplayOrder            float64
 	CreatedAt               int64
 	UpdatedAt               int64
 }
@@ -3786,7 +3801,8 @@ func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDW
 			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Order,
+			&i.DeltaDisplayOrder,
+			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -4427,7 +4443,7 @@ SET
   delta_value = NULL,
   delta_description = NULL,
   delta_enabled = NULL,
-  delta_order = NULL,
+  delta_display_order = NULL,
   updated_at = unixepoch()
 WHERE id = ?
 `
@@ -4610,26 +4626,26 @@ SET
   value = ?,
   enabled = ?,
   description = ?,
-  "order" = ?,
+  display_order = ?,
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
-  delta_order = ?,
+  delta_display_order = ?,
   updated_at = ?
 WHERE id = ?
 `
 
 type UpdateHTTPAssertParams struct {
-	Value            string
-	Enabled          bool
-	Description      string
-	Order            float64
-	DeltaValue       sql.NullString
-	DeltaEnabled     *bool
-	DeltaDescription sql.NullString
-	DeltaOrder       sql.NullFloat64
-	UpdatedAt        int64
-	ID               idwrap.IDWrap
+	Value             string
+	Enabled           bool
+	Description       string
+	DisplayOrder      float64
+	DeltaValue        sql.NullString
+	DeltaEnabled      *bool
+	DeltaDescription  sql.NullString
+	DeltaDisplayOrder sql.NullFloat64
+	UpdatedAt         int64
+	ID                idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertParams) error {
@@ -4637,11 +4653,11 @@ func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertPara
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -4654,17 +4670,17 @@ SET
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
-  delta_order = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPAssertDeltaParams struct {
-	DeltaValue       sql.NullString
-	DeltaEnabled     *bool
-	DeltaDescription sql.NullString
-	DeltaOrder       sql.NullFloat64
-	ID               idwrap.IDWrap
+	DeltaValue        sql.NullString
+	DeltaEnabled      *bool
+	DeltaDescription  sql.NullString
+	DeltaDisplayOrder sql.NullFloat64
+	ID                idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPAssertDelta(ctx context.Context, arg UpdateHTTPAssertDeltaParams) error {
@@ -4672,7 +4688,7 @@ func (q *Queries) UpdateHTTPAssertDelta(ctx context.Context, arg UpdateHTTPAsser
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.ID,
 	)
 	return err
@@ -4685,18 +4701,18 @@ SET
   value = ?,
   description = ?,
   enabled = ?,
-  "order" = ?,
+  display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPBodyFormParams struct {
-	Key         string
-	Value       string
-	Description string
-	Enabled     bool
-	Order       float64
-	ID          idwrap.IDWrap
+	Key          string
+	Value        string
+	Description  string
+	Enabled      bool
+	DisplayOrder float64
+	ID           idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyForm(ctx context.Context, arg UpdateHTTPBodyFormParams) error {
@@ -4705,7 +4721,7 @@ func (q *Queries) UpdateHTTPBodyForm(ctx context.Context, arg UpdateHTTPBodyForm
 		arg.Value,
 		arg.Description,
 		arg.Enabled,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ID,
 	)
 	return err
@@ -4743,18 +4759,18 @@ func (q *Queries) UpdateHTTPBodyFormDelta(ctx context.Context, arg UpdateHTTPBod
 
 const updateHTTPBodyFormOrder = `-- name: UpdateHTTPBodyFormOrder :exec
 UPDATE http_body_form
-SET "order" = ?
+SET display_order = ?
 WHERE id = ? AND http_id = ?
 `
 
 type UpdateHTTPBodyFormOrderParams struct {
-	Order  float64
-	ID     idwrap.IDWrap
-	HttpID idwrap.IDWrap
+	DisplayOrder float64
+	ID           idwrap.IDWrap
+	HttpID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyFormOrder(ctx context.Context, arg UpdateHTTPBodyFormOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyFormOrderStmt, updateHTTPBodyFormOrder, arg.Order, arg.ID, arg.HttpID)
+	_, err := q.exec(ctx, q.updateHTTPBodyFormOrderStmt, updateHTTPBodyFormOrder, arg.DisplayOrder, arg.ID, arg.HttpID)
 	return err
 }
 
@@ -4819,18 +4835,18 @@ SET
   value = ?,
   enabled = ?,
   description = ?,
-  "order" = ?,
+  display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPBodyUrlEncodedParams struct {
-	Key         string
-	Value       string
-	Enabled     bool
-	Description string
-	Order       float64
-	ID          idwrap.IDWrap
+	Key          string
+	Value        string
+	Enabled      bool
+	Description  string
+	DisplayOrder float64
+	ID           idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyUrlEncoded(ctx context.Context, arg UpdateHTTPBodyUrlEncodedParams) error {
@@ -4839,7 +4855,7 @@ func (q *Queries) UpdateHTTPBodyUrlEncoded(ctx context.Context, arg UpdateHTTPBo
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Order,
+		arg.DisplayOrder,
 		arg.ID,
 	)
 	return err
@@ -4852,18 +4868,18 @@ SET
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
-  delta_order = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPBodyUrlEncodedDeltaParams struct {
-	DeltaKey         sql.NullString
-	DeltaValue       sql.NullString
-	DeltaEnabled     *bool
-	DeltaDescription *string
-	DeltaOrder       sql.NullFloat64
-	ID               idwrap.IDWrap
+	DeltaKey          sql.NullString
+	DeltaValue        sql.NullString
+	DeltaEnabled      *bool
+	DeltaDescription  *string
+	DeltaDisplayOrder sql.NullFloat64
+	ID                idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyUrlEncodedDelta(ctx context.Context, arg UpdateHTTPBodyUrlEncodedDeltaParams) error {
@@ -4872,7 +4888,7 @@ func (q *Queries) UpdateHTTPBodyUrlEncodedDelta(ctx context.Context, arg UpdateH
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
-		arg.DeltaOrder,
+		arg.DeltaDisplayOrder,
 		arg.ID,
 	)
 	return err
@@ -5126,17 +5142,17 @@ func (q *Queries) UpdateHTTPSearchParamDelta(ctx context.Context, arg UpdateHTTP
 
 const updateHTTPSearchParamOrder = `-- name: UpdateHTTPSearchParamOrder :exec
 UPDATE http_search_param
-SET "order" = ?
+SET display_order = ?
 WHERE id = ? AND http_id = ?
 `
 
 type UpdateHTTPSearchParamOrderParams struct {
-	Order  float64
-	ID     idwrap.IDWrap
-	HttpID idwrap.IDWrap
+	DisplayOrder float64
+	ID           idwrap.IDWrap
+	HttpID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPSearchParamOrder(ctx context.Context, arg UpdateHTTPSearchParamOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPSearchParamOrderStmt, updateHTTPSearchParamOrder, arg.Order, arg.ID, arg.HttpID)
+	_, err := q.exec(ctx, q.updateHTTPSearchParamOrderStmt, updateHTTPSearchParamOrder, arg.DisplayOrder, arg.ID, arg.HttpID)
 	return err
 }

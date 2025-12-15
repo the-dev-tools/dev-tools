@@ -250,12 +250,13 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_search_param
 WHERE http_id = ?
-ORDER BY "order";
+ORDER BY display_order;
 
 -- name: GetHTTPSearchParamsByIDs :many
 SELECT
@@ -271,7 +272,8 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_search_param
@@ -279,11 +281,11 @@ WHERE id IN (sqlc.slice('ids'));
 
 -- name: CreateHTTPSearchParam :exec
 INSERT INTO http_search_param (
-  id, http_id, key, value, description, enabled, "order",
+  id, http_id, key, value, description, enabled, display_order,
   parent_http_search_param_id, is_delta, delta_key, delta_value,
-  delta_description, delta_enabled, created_at, updated_at
+  delta_description, delta_enabled, delta_display_order, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHTTPSearchParam :exec
 UPDATE http_search_param
@@ -307,7 +309,7 @@ WHERE id = ?;
 
 -- name: UpdateHTTPSearchParamOrder :exec
 UPDATE http_search_param
-SET "order" = ?
+SET display_order = ?
 WHERE id = ? AND http_id = ?;
 
 -- name: DeleteHTTPSearchParam :exec
@@ -418,12 +420,13 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_body_form
 WHERE http_id = ?
-ORDER BY "order";
+ORDER BY display_order;
 
 -- name: GetHTTPBodyFormsByIDs :many
 SELECT
@@ -439,7 +442,8 @@ SELECT
   delta_value,
   delta_description,
   delta_enabled,
-  "order",
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_body_form
@@ -447,11 +451,11 @@ WHERE id IN (sqlc.slice('ids'));
 
 -- name: CreateHTTPBodyForm :exec
 INSERT INTO http_body_form (
-  id, http_id, key, value, description, enabled, "order",
+  id, http_id, key, value, description, enabled, display_order,
   parent_http_body_form_id, is_delta, delta_key, delta_value,
-  delta_description, delta_enabled, created_at, updated_at
+  delta_description, delta_enabled, delta_display_order, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHTTPBodyForm :exec
 UPDATE http_body_form
@@ -460,7 +464,7 @@ SET
   value = ?,
   description = ?,
   enabled = ?,
-  "order" = ?,
+  display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
@@ -483,13 +487,13 @@ SET
   delta_value = NULL,
   delta_description = NULL,
   delta_enabled = NULL,
-  delta_order = NULL,
+  delta_display_order = NULL,
   updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: UpdateHTTPBodyFormOrder :exec
 UPDATE http_body_form
-SET "order" = ?
+SET display_order = ?
 WHERE id = ? AND http_id = ?;
 
 -- name: DeleteHTTPBodyForm :exec
@@ -507,14 +511,14 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_body_urlencoded_id,
   is_delta,
   delta_key,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
@@ -529,19 +533,19 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_body_urlencoded_id,
   is_delta,
   delta_key,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
 WHERE http_id = ?
-ORDER BY "order";
+ORDER BY display_order;
 
 -- name: GetHTTPBodyUrlEncodedsByIDs :many
 SELECT
@@ -551,14 +555,14 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_body_urlencoded_id,
   is_delta,
   delta_key,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
@@ -566,17 +570,17 @@ WHERE id IN (sqlc.slice('ids'));
 
 -- name: CreateHTTPBodyUrlEncoded :exec
 INSERT INTO http_body_urlencoded (
-  id, http_id, key, value, enabled, description, "order",
+  id, http_id, key, value, enabled, description, display_order,
   parent_http_body_urlencoded_id, is_delta, delta_key, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateHTTPBodyUrlEncodedBulk :exec
 INSERT INTO http_body_urlencoded (
-  id, http_id, key, value, enabled, description, "order",
+  id, http_id, key, value, enabled, description, display_order,
   parent_http_body_urlencoded_id, is_delta, delta_key, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -597,7 +601,7 @@ SET
   value = ?,
   enabled = ?,
   description = ?,
-  "order" = ?,
+  display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
@@ -608,7 +612,7 @@ SET
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
-  delta_order = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
@@ -626,13 +630,13 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_assert_id,
   is_delta,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_assert
@@ -646,18 +650,18 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_assert_id,
   is_delta,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_assert
 WHERE http_id = ?
-ORDER BY "order";
+ORDER BY display_order;
 
 -- name: GetHTTPAssertsByIDs :many
 SELECT
@@ -666,13 +670,13 @@ SELECT
   value,
   enabled,
   description,
-  "order",
+  display_order,
   parent_http_assert_id,
   is_delta,
   delta_value,
   delta_enabled,
   delta_description,
-  delta_order,
+  delta_display_order,
   created_at,
   updated_at
 FROM http_assert
@@ -680,17 +684,17 @@ WHERE id IN (sqlc.slice('ids'));
 
 -- name: CreateHTTPAssert :exec
 INSERT INTO http_assert (
-  id, http_id, value, enabled, description, "order",
+  id, http_id, value, enabled, description, display_order,
   parent_http_assert_id, is_delta, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateHTTPAssertBulk :exec
 INSERT INTO http_assert (
-  id, http_id, value, enabled, description, "order",
+  id, http_id, value, enabled, description, display_order,
   parent_http_assert_id, is_delta, delta_value,
-  delta_enabled, delta_description, delta_order, created_at, updated_at
+  delta_enabled, delta_description, delta_display_order, created_at, updated_at
 )
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -710,11 +714,11 @@ SET
   value = ?,
   enabled = ?,
   description = ?,
-  "order" = ?,
+  display_order = ?,
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
-  delta_order = ?,
+  delta_display_order = ?,
   updated_at = ?
 WHERE id = ?;
 
@@ -724,7 +728,7 @@ SET
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
-  delta_order = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 

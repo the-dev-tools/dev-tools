@@ -521,13 +521,13 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	for _, param := range searchParams {
 		newParamID := idwrap.NewNow()
 		paramModel := &mhttp.HTTPSearchParam{
-			ID:          newParamID,
-			HttpID:      newHttpID,
-			Key:         param.Key,
-			Value:       param.Value,
-			Enabled:     param.Enabled,
-			Description: param.Description,
-			Order:       param.Order,
+			ID:           newParamID,
+			HttpID:       newHttpID,
+			Key:          param.Key,
+			Value:        param.Value,
+			Enabled:      param.Enabled,
+			Description:  param.Description,
+			DisplayOrder: param.DisplayOrder,
 		}
 		if err := httpSearchParamService.Create(ctx, paramModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -544,7 +544,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Value:                bodyForm.Value,
 			Enabled:              bodyForm.Enabled,
 			Description:          bodyForm.Description,
-			Order:                bodyForm.Order,
+			DisplayOrder:         bodyForm.DisplayOrder,
 			ParentHttpBodyFormID: bodyForm.ParentHttpBodyFormID, // Assuming direct copy is fine or handle recursive logic if needed
 		}
 		if err := httpBodyFormService.Create(ctx, bodyFormModel); err != nil {
@@ -562,7 +562,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Value:                      bodyUrlEnc.Value,
 			Enabled:                    bodyUrlEnc.Enabled,
 			Description:                bodyUrlEnc.Description,
-			Order:                      bodyUrlEnc.Order,
+			DisplayOrder:               bodyUrlEnc.DisplayOrder,
 			ParentHttpBodyUrlEncodedID: bodyUrlEnc.ParentHttpBodyUrlEncodedID, // Assuming direct copy is fine
 		}
 		if err := httpBodyUrlEncodedService.Create(ctx, bodyUrlEncodedModel); err != nil {
@@ -574,12 +574,12 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	for _, assert := range asserts {
 		newAssertID := idwrap.NewNow()
 		assertModel := &mhttp.HTTPAssert{
-			ID:          newAssertID,
-			HttpID:      newHttpID,
-			Value:       assert.Value,
-			Enabled:     true, // Assertions are always active
-			Description: "",   // No description available in DB
-			Order:       0,    // No order available in DB
+			ID:           newAssertID,
+			HttpID:       newHttpID,
+			Value:        assert.Value,
+			Enabled:      true, // Assertions are always active
+			Description:  "",   // No description available in DB
+			DisplayOrder: 0,    // No order available in DB
 		}
 		if err := httpAssertService.Create(ctx, assertModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)

@@ -55,7 +55,7 @@ CREATE TABLE http_search_param (
   value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
-  "order" REAL NOT NULL DEFAULT 0,
+  display_order REAL NOT NULL DEFAULT 0,
 
   -- Delta relationship fields
   parent_http_search_param_id BLOB,
@@ -66,7 +66,7 @@ CREATE TABLE http_search_param (
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
-  delta_order REAL,
+  delta_display_order REAL,
 
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
@@ -78,7 +78,7 @@ CREATE TABLE http_search_param (
 -- Performance indexes
 CREATE INDEX http_search_param_http_idx ON http_search_param (http_id);
 CREATE INDEX http_search_param_key_idx ON http_search_param (http_id, key);
-CREATE INDEX http_search_param_order_idx ON http_search_param (http_id, "order");
+CREATE INDEX http_search_param_order_idx ON http_search_param (http_id, display_order);
 CREATE INDEX http_search_param_delta_idx ON http_search_param (parent_http_search_param_id) WHERE is_delta = TRUE;
 
 -- HTTP headers
@@ -134,7 +134,7 @@ CREATE TABLE http_body_form (
   value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
-  "order" REAL NOT NULL DEFAULT 0,
+  display_order REAL NOT NULL DEFAULT 0,
 
   -- Delta relationship fields
   parent_http_body_form_id BLOB,
@@ -145,7 +145,7 @@ CREATE TABLE http_body_form (
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
-  delta_order REAL,
+  delta_display_order REAL,
 
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
@@ -157,7 +157,7 @@ CREATE TABLE http_body_form (
 -- Performance indexes
 CREATE INDEX http_body_form_http_idx ON http_body_form (http_id);
 CREATE INDEX http_body_form_key_idx ON http_body_form (http_id, key);
-CREATE INDEX http_body_form_order_idx ON http_body_form (http_id, "order");
+CREATE INDEX http_body_form_order_idx ON http_body_form (http_id, display_order);
 CREATE INDEX http_body_form_delta_idx ON http_body_form (parent_http_body_form_id) WHERE is_delta = TRUE;
 
 
@@ -233,7 +233,7 @@ CREATE TABLE http_assert (
   value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
-  "order" REAL NOT NULL DEFAULT 0,
+  display_order REAL NOT NULL DEFAULT 0,
 
   -- Delta relationship fields
   parent_http_assert_id BLOB,
@@ -243,7 +243,7 @@ CREATE TABLE http_assert (
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
-  delta_order REAL,
+  delta_display_order REAL,
 
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
@@ -257,7 +257,7 @@ CREATE TABLE http_assert (
 
 -- Performance indexes for HttpAssert
 CREATE INDEX http_assert_http_idx ON http_assert (http_id);
-CREATE INDEX http_assert_order_idx ON http_assert (http_id, "order");
+CREATE INDEX http_assert_order_idx ON http_assert (http_id, display_order);
 CREATE INDEX http_assert_delta_idx ON http_assert (parent_http_assert_id) WHERE is_delta = TRUE;
 
 -- Performance indexes for workspace-scoped access patterns
@@ -291,7 +291,7 @@ CREATE TABLE http_body_urlencoded (
   value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
-  "order" REAL NOT NULL DEFAULT 0,
+  display_order REAL NOT NULL DEFAULT 0,
 
   -- Delta relationship fields
   parent_http_body_urlencoded_id BLOB,
@@ -302,7 +302,7 @@ CREATE TABLE http_body_urlencoded (
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
-  delta_order REAL,
+  delta_display_order REAL,
 
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
@@ -317,7 +317,7 @@ CREATE TABLE http_body_urlencoded (
 -- Performance indexes for HttpBodyUrlEncoded
 CREATE INDEX http_body_urlencoded_http_idx ON http_body_urlencoded (http_id);
 CREATE INDEX http_body_urlencoded_key_idx ON http_body_urlencoded (http_id, key);
-CREATE INDEX http_body_urlencoded_order_idx ON http_body_urlencoded (http_id, "order");
+CREATE INDEX http_body_urlencoded_order_idx ON http_body_urlencoded (http_id, display_order);
 CREATE INDEX http_body_urlencoded_delta_idx ON http_body_urlencoded (parent_http_body_urlencoded_id) WHERE is_delta = TRUE;
 
 /*

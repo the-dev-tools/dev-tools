@@ -100,12 +100,12 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 
 		// Create the assert model
 		assertModel := &mhttp.HTTPAssert{
-			ID:          assertID,
-			HttpID:      httpID,
-			Value:       item.Value,
-			Enabled:     true, // Assertions are always active
-			Description: "",   // No description in API
-			Order:       0,    // No order in API
+			ID:           assertID,
+			HttpID:       httpID,
+			Value:        item.Value,
+			Enabled:      true, // Assertions are always active
+			Description:  "",   // No description in API
+			DisplayOrder: 0,    // No order in API
 		}
 
 		insertData = append(insertData, struct {

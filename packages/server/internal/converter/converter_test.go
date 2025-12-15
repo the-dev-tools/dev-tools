@@ -161,13 +161,13 @@ func TestToAPIHttpHeader(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	header := mhttp.HTTPHeader{
-		ID:          headerID,
-		HttpID:      httpID,
-		Key:         "Content-Type",
-		Value:       "application/json",
-		Enabled:     true,
-		Description: "The content type",
-		Order:       1,
+		ID:           headerID,
+		HttpID:       httpID,
+		Key:          "Content-Type",
+		Value:        "application/json",
+		Enabled:      true,
+		Description:  "The content type",
+		DisplayOrder: 1,
 	}
 
 	res := ToAPIHttpHeader(header)
@@ -186,13 +186,13 @@ func TestToAPIHttpSearchParam(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	param := mhttp.HTTPSearchParam{
-		ID:          paramID,
-		HttpID:      httpID,
-		Key:         "page",
-		Value:       "1",
-		Enabled:     true,
-		Description: "Page number",
-		Order:       1,
+		ID:           paramID,
+		HttpID:       httpID,
+		Key:          "page",
+		Value:        "1",
+		Enabled:      true,
+		Description:  "Page number",
+		DisplayOrder: 1,
 	}
 
 	res := ToAPIHttpSearchParam(param)
@@ -211,13 +211,13 @@ func TestToAPIHttpSearchParamFromMHttp(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	param := mhttp.HTTPSearchParam{
-		ID:          paramID,
-		HttpID:      httpID,
-		Key:         "q",
-		Value:       "search",
-		Enabled:     false,
-		Description: "Query",
-		Order:       5, // Should be ignored in FromMHttp
+		ID:           paramID,
+		HttpID:       httpID,
+		Key:          "q",
+		Value:        "search",
+		Enabled:      false,
+		Description:  "Query",
+		DisplayOrder: 5, // Should be ignored in FromMHttp
 	}
 
 	res := ToAPIHttpSearchParamFromMHttp(param)
@@ -236,13 +236,13 @@ func TestToAPIHttpBodyFormData(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	form := mhttp.HTTPBodyForm{
-		ID:          formID,
-		HttpID:      httpID,
-		Key:         "file",
-		Value:       "test.txt",
-		Enabled:     true,
-		Description: "File upload",
-		Order:       2,
+		ID:           formID,
+		HttpID:       httpID,
+		Key:          "file",
+		Value:        "test.txt",
+		Enabled:      true,
+		Description:  "File upload",
+		DisplayOrder: 2,
 	}
 
 	res := ToAPIHttpBodyFormData(form)
@@ -261,13 +261,13 @@ func TestToAPIHttpBodyFormDataFromMHttp(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	form := mhttp.HTTPBodyForm{
-		ID:          formID,
-		HttpID:      httpID,
-		Key:         "username",
-		Value:       "admin",
-		Enabled:     true,
-		Description: "Login username",
-		Order:       1,
+		ID:           formID,
+		HttpID:       httpID,
+		Key:          "username",
+		Value:        "admin",
+		Enabled:      true,
+		Description:  "Login username",
+		DisplayOrder: 1,
 	}
 
 	res := ToAPIHttpBodyFormDataFromMHttp(form)
@@ -286,13 +286,13 @@ func TestToAPIHttpBodyUrlEncoded(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	urlEnc := mhttp.HTTPBodyUrlencoded{
-		ID:          urlEncID,
-		HttpID:      httpID,
-		Key:         "token",
-		Value:       "123",
-		Enabled:     true,
-		Description: "Auth token",
-		Order:       1,
+		ID:           urlEncID,
+		HttpID:       httpID,
+		Key:          "token",
+		Value:        "123",
+		Enabled:      true,
+		Description:  "Auth token",
+		DisplayOrder: 1,
 	}
 
 	res := ToAPIHttpBodyUrlEncoded(urlEnc)
@@ -311,13 +311,13 @@ func TestToAPIHttpBodyUrlEncodedFromMHttp(t *testing.T) {
 	httpID := idwrap.NewNow()
 
 	urlEnc := mhttp.HTTPBodyUrlencoded{
-		ID:          urlEncID,
-		HttpID:      httpID,
-		Key:         "scope",
-		Value:       "read",
-		Enabled:     false,
-		Description: "Access scope",
-		Order:       2,
+		ID:           urlEncID,
+		HttpID:       httpID,
+		Key:          "scope",
+		Value:        "read",
+		Enabled:      false,
+		Description:  "Access scope",
+		DisplayOrder: 2,
 	}
 
 	res := ToAPIHttpBodyUrlEncodedFromMHttp(urlEnc)

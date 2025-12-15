@@ -241,11 +241,11 @@ func convertAsserts(in []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 		return []mhttp.HTTPAssert{}
 	}
 
-	// Sort by Order (DB model uses float ordering)
+	// Sort by DisplayOrder (DB model uses float ordering)
 	sorted := make([]mhttp.HTTPAssert, len(in))
 	copy(sorted, in)
 	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Order < sorted[j].Order
+		return sorted[i].DisplayOrder < sorted[j].DisplayOrder
 	})
 
 	return sorted

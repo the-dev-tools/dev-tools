@@ -30,21 +30,22 @@ func (s *HttpBodyFormService) TX(tx *sql.Tx) *HttpBodyFormService {
 func (s *HttpBodyFormService) Create(ctx context.Context, body *mhttp.HTTPBodyForm) error {
 	bf := SerializeBodyFormModelToGen(*body)
 	return s.queries.CreateHTTPBodyForm(ctx, gen.CreateHTTPBodyFormParams{
-		ID:                   bf.ID,
-		HttpID:               bf.HttpID,
-		Key:                  bf.Key,
-		Value:                bf.Value,
-		Description:          bf.Description,
-		Enabled:              bf.Enabled,
-		Order:                bf.Order,
-		ParentHttpBodyFormID: bf.ParentHttpBodyFormID,
-		IsDelta:              bf.IsDelta,
-		DeltaKey:             bf.DeltaKey,
-		DeltaValue:           bf.DeltaValue,
-		DeltaDescription:     bf.DeltaDescription,
-		DeltaEnabled:         bf.DeltaEnabled,
-		CreatedAt:            bf.CreatedAt,
-		UpdatedAt:            bf.UpdatedAt,
+		ID:                    bf.ID,
+		HttpID:                bf.HttpID,
+		Key:                   bf.Key,
+		Value:                 bf.Value,
+		Description:           bf.Description,
+		Enabled:               bf.Enabled,
+		DisplayOrder:          bf.DisplayOrder,
+		ParentHttpBodyFormID:  bf.ParentHttpBodyFormID,
+		IsDelta:               bf.IsDelta,
+		DeltaKey:              bf.DeltaKey,
+		DeltaValue:            bf.DeltaValue,
+		DeltaDescription:      bf.DeltaDescription,
+		DeltaEnabled:          bf.DeltaEnabled,
+		DeltaDisplayOrder:     bf.DeltaDisplayOrder,
+		CreatedAt:             bf.CreatedAt,
+		UpdatedAt:             bf.UpdatedAt,
 	})
 }
 
@@ -72,13 +73,14 @@ func (s *HttpBodyFormService) createRaw(ctx context.Context, bf gen.HttpBodyForm
 		Value:                bf.Value,
 		Description:          bf.Description,
 		Enabled:              bf.Enabled,
-		Order:                bf.Order,
+		DisplayOrder:         bf.DisplayOrder,
 		ParentHttpBodyFormID: bf.ParentHttpBodyFormID,
 		IsDelta:              bf.IsDelta,
 		DeltaKey:             bf.DeltaKey,
 		DeltaValue:           bf.DeltaValue,
 		DeltaDescription:     bf.DeltaDescription,
 		DeltaEnabled:         bf.DeltaEnabled,
+		DeltaDisplayOrder:    bf.DeltaDisplayOrder,
 		CreatedAt:            bf.CreatedAt,
 		UpdatedAt:            bf.UpdatedAt,
 	})
@@ -124,10 +126,10 @@ func (s *HttpBodyFormService) GetByHttpIDOrdered(ctx context.Context, httpID idw
 
 	// Sort by order field
 	slices.SortFunc(rows, func(a, b gen.GetHTTPBodyFormsRow) int {
-		if a.Order < b.Order {
+		if a.DisplayOrder < b.DisplayOrder {
 			return -1
 		}
-		if a.Order > b.Order {
+		if a.DisplayOrder > b.DisplayOrder {
 			return 1
 		}
 		return 0
@@ -181,20 +183,20 @@ func (s *HttpBodyFormService) GetByHttpIDs(ctx context.Context, httpIDs []idwrap
 
 func (s *HttpBodyFormService) Update(ctx context.Context, body *mhttp.HTTPBodyForm) error {
 	return s.queries.UpdateHTTPBodyForm(ctx, gen.UpdateHTTPBodyFormParams{
-		Key:         body.Key,
-		Value:       body.Value,
-		Description: body.Description,
-		Enabled:     body.Enabled,
-		Order:       float64(body.Order),
-		ID:          body.ID,
+		Key:          body.Key,
+		Value:        body.Value,
+		Description:  body.Description,
+		Enabled:      body.Enabled,
+		DisplayOrder: float64(body.DisplayOrder),
+		ID:           body.ID,
 	})
 }
 
 func (s *HttpBodyFormService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, httpID idwrap.IDWrap, order float32) error {
 	return s.queries.UpdateHTTPBodyFormOrder(ctx, gen.UpdateHTTPBodyFormOrderParams{
-		Order:  float64(order),
-		ID:     id,
-		HttpID: httpID,
+		DisplayOrder: float64(order),
+		ID:           id,
+		HttpID:       httpID,
 	})
 }
 
@@ -254,14 +256,14 @@ func SerializeBodyFormModelToGen(body mhttp.HTTPBodyForm) gen.HttpBodyForm {
 		Value:                body.Value,
 		Enabled:              body.Enabled,
 		Description:          body.Description,
-		Order:                float64(body.Order),
+		DisplayOrder:         float64(body.DisplayOrder),
 		ParentHttpBodyFormID: idWrapToBytes(body.ParentHttpBodyFormID),
 		IsDelta:              body.IsDelta,
 		DeltaKey:             stringToNull(body.DeltaKey),
 		DeltaValue:           stringToNull(body.DeltaValue),
 		DeltaEnabled:         body.DeltaEnabled,
 		DeltaDescription:     body.DeltaDescription,
-		DeltaOrder:           float32ToNullFloat64(body.DeltaOrder),
+		DeltaDisplayOrder:    float32ToNullFloat64(body.DeltaDisplayOrder),
 		CreatedAt:            body.CreatedAt,
 		UpdatedAt:            body.UpdatedAt,
 	}
@@ -275,14 +277,14 @@ func DeserializeBodyFormGenToModel(row gen.GetHTTPBodyFormsRow) mhttp.HTTPBodyFo
 		Value:                row.Value,
 		Enabled:              row.Enabled,
 		Description:          row.Description,
-		Order:                float32(row.Order),
+		DisplayOrder:         float32(row.DisplayOrder),
 		ParentHttpBodyFormID: bytesToIDWrap(row.ParentHttpBodyFormID),
 		IsDelta:              row.IsDelta,
 		DeltaKey:             nullToString(row.DeltaKey),
 		DeltaValue:           nullToString(row.DeltaValue),
 		DeltaEnabled:         row.DeltaEnabled,
 		DeltaDescription:     row.DeltaDescription,
-		DeltaOrder:           nil, // Not available in row
+		DeltaDisplayOrder:    nil, // Not available in row
 		CreatedAt:            row.CreatedAt,
 		UpdatedAt:            row.UpdatedAt,
 	}
@@ -296,14 +298,14 @@ func deserializeBodyFormByIDsRowToModel(row gen.GetHTTPBodyFormsByIDsRow) mhttp.
 		Value:                row.Value,
 		Enabled:              row.Enabled,
 		Description:          row.Description,
-		Order:                float32(row.Order),
+		DisplayOrder:         float32(row.DisplayOrder),
 		ParentHttpBodyFormID: bytesToIDWrap(row.ParentHttpBodyFormID),
 		IsDelta:              row.IsDelta,
 		DeltaKey:             nullToString(row.DeltaKey),
 		DeltaValue:           nullToString(row.DeltaValue),
 		DeltaEnabled:         row.DeltaEnabled,
 		DeltaDescription:     row.DeltaDescription,
-		DeltaOrder:           nil, // Not available in row
+		DeltaDisplayOrder:    nil, // Not available in row
 		CreatedAt:            row.CreatedAt,
 		UpdatedAt:            row.UpdatedAt,
 	}

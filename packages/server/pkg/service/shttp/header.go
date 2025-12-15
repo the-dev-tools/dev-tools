@@ -41,8 +41,8 @@ func NewHttpHeaderServiceTX(ctx context.Context, tx *sql.Tx) (*HttpHeaderService
 // SerializeHeaderModelToGen converts model HTTPHeader to DB HttpHeader
 func SerializeHeaderModelToGen(header mhttp.HTTPHeader) gen.HttpHeader {
 	var deltaDisplayOrder sql.NullFloat64
-	if header.DeltaOrder != nil {
-		deltaDisplayOrder = sql.NullFloat64{Float64: float64(*header.DeltaOrder), Valid: true}
+	if header.DeltaDisplayOrder != nil {
+		deltaDisplayOrder = sql.NullFloat64{Float64: float64(*header.DeltaDisplayOrder), Valid: true}
 	}
 
 	return gen.HttpHeader{
@@ -59,7 +59,7 @@ func SerializeHeaderModelToGen(header mhttp.HTTPHeader) gen.HttpHeader {
 		DeltaDescription:  header.DeltaDescription,
 		DeltaEnabled:      header.DeltaEnabled,
 		DeltaDisplayOrder: deltaDisplayOrder,
-		DisplayOrder:      float64(header.Order),
+		DisplayOrder:      float64(header.DisplayOrder),
 		CreatedAt:         header.CreatedAt,
 		UpdatedAt:         header.UpdatedAt,
 	}
@@ -80,14 +80,14 @@ func DeserializeHeaderGenToModel(header gen.HttpHeader) mhttp.HTTPHeader {
 		Value:              header.HeaderValue,
 		Enabled:            header.Enabled,
 		Description:        header.Description,
-		Order:              float32(header.DisplayOrder),
+		DisplayOrder:       float32(header.DisplayOrder),
 		ParentHttpHeaderID: header.ParentHeaderID,
 		IsDelta:            header.IsDelta,
 		DeltaKey:           header.DeltaHeaderKey,
 		DeltaValue:         header.DeltaHeaderValue,
 		DeltaDescription:   header.DeltaDescription,
 		DeltaEnabled:       header.DeltaEnabled,
-		DeltaOrder:         deltaOrder,
+		DeltaDisplayOrder:  deltaOrder,
 		CreatedAt:          header.CreatedAt,
 		UpdatedAt:          header.UpdatedAt,
 	}

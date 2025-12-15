@@ -77,8 +77,8 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 				if param.DeltaDescription != nil {
 					delta.Description = param.DeltaDescription
 				}
-				if param.DeltaOrder != nil {
-					order := float32(*param.DeltaOrder)
+				if param.DeltaDisplayOrder != nil {
+					order := float32(*param.DeltaDisplayOrder)
 					delta.Order = &order
 				}
 

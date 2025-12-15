@@ -140,13 +140,13 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 	for _, data := range insertData {
 		// Create the header
 		headerModel := &mhttp.HTTPHeader{
-			ID:          data.headerID,
-			HttpID:      data.httpID,
-			Key:         data.key,
-			Value:       data.value,
-			Enabled:     data.enabled,
-			Description: data.description,
-			Order:       float32(data.order),
+			ID:           data.headerID,
+			HttpID:       data.httpID,
+			Key:          data.key,
+			Value:        data.value,
+			Enabled:      data.enabled,
+			Description:  data.description,
+			DisplayOrder: float32(data.order),
 		}
 
 		if err := httpHeaderService.Create(ctx, headerModel); err != nil {
@@ -265,7 +265,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			header.Description = *data.description
 		}
 		if data.order != nil {
-			header.Order = *data.order
+			header.DisplayOrder = *data.order
 		}
 
 		if err := httpHeaderService.Update(ctx, &header); err != nil {

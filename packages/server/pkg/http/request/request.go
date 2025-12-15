@@ -1394,11 +1394,11 @@ func orderAsserts(asserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 		return append([]mhttp.HTTPAssert(nil), asserts...)
 	}
 
-	// Create a copy and sort by Order field
+	// Create a copy and sort by DisplayOrder field
 	ordered := make([]mhttp.HTTPAssert, len(asserts))
 	copy(ordered, asserts)
 	sort.Slice(ordered, func(i, j int) bool {
-		return ordered[i].Order < ordered[j].Order
+		return ordered[i].DisplayOrder < ordered[j].DisplayOrder
 	})
 
 	return ordered
