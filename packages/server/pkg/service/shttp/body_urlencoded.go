@@ -29,24 +29,7 @@ func (s *HttpBodyUrlEncodedService) TX(tx *sql.Tx) *HttpBodyUrlEncodedService {
 
 func (s *HttpBodyUrlEncodedService) Create(ctx context.Context, body *mhttp.HTTPBodyUrlencoded) error {
 	bue := SerializeBodyUrlEncodedModelToGen(*body)
-	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams{
-		ID:                         bue.ID,
-		HttpID:                     bue.HttpID,
-		Key:                        bue.Key,
-		Value:                      bue.Value,
-		Description:                bue.Description,
-		Enabled:                    bue.Enabled,
-		DisplayOrder:               bue.DisplayOrder,
-		ParentHttpBodyUrlencodedID: bue.ParentHttpBodyUrlencodedID,
-		IsDelta:                    bue.IsDelta,
-		DeltaKey:                   bue.DeltaKey,
-		DeltaValue:                 bue.DeltaValue,
-		DeltaDescription:           bue.DeltaDescription,
-		DeltaEnabled:               bue.DeltaEnabled,
-		DeltaDisplayOrder:          bue.DeltaDisplayOrder,
-		CreatedAt:                  bue.CreatedAt,
-		UpdatedAt:                  bue.UpdatedAt,
-	})
+	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams(bue))
 }
 
 func (s *HttpBodyUrlEncodedService) CreateBulk(ctx context.Context, bodyUrlEncodeds []mhttp.HTTPBodyUrlencoded) error {
@@ -66,24 +49,7 @@ func (s *HttpBodyUrlEncodedService) CreateBulk(ctx context.Context, bodyUrlEncod
 }
 
 func (s *HttpBodyUrlEncodedService) createRaw(ctx context.Context, bue gen.HttpBodyUrlencoded) error {
-	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams{
-		ID:                         bue.ID,
-		HttpID:                     bue.HttpID,
-		Key:                        bue.Key,
-		Value:                      bue.Value,
-		Description:                bue.Description,
-		Enabled:                    bue.Enabled,
-		DisplayOrder:               bue.DisplayOrder,
-		ParentHttpBodyUrlencodedID: bue.ParentHttpBodyUrlencodedID,
-		IsDelta:                    bue.IsDelta,
-		DeltaKey:                   bue.DeltaKey,
-		DeltaValue:                 bue.DeltaValue,
-		DeltaDescription:           bue.DeltaDescription,
-		DeltaEnabled:               bue.DeltaEnabled,
-		DeltaDisplayOrder:          bue.DeltaDisplayOrder,
-		CreatedAt:                  bue.CreatedAt,
-		UpdatedAt:                  bue.UpdatedAt,
-	})
+	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams(bue))
 }
 
 func (s *HttpBodyUrlEncodedService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyUrlencoded, error) {
