@@ -30,6 +30,7 @@ export const useViewport = () => {
   const key = Ulid.construct(flowId).toCanonical();
 
   const store = XF.useStoreApi();
+  const nodesInitialized = XF.useStore((_) => _.nodesInitialized);
 
   const viewport = useLiveQuery(
     (_) => _.from({ item: viewportCollection }).where(eqStruct({ flowId })).findOne(),
@@ -52,7 +53,7 @@ export const useViewport = () => {
   useEffect(() => {
     if (viewportCollection.has(key)) return;
 
-    const { domNode, nodeLookup, nodeOrigin, nodes, nodesInitialized } = store.getState();
+    const { domNode, nodeLookup, nodeOrigin, nodes } = store.getState();
     const container = domNode?.getBoundingClientRect();
 
     if (!container || !nodesInitialized) return;
@@ -72,7 +73,7 @@ export const useViewport = () => {
     );
 
     viewportCollection.insert({ flowId, ...viewport });
-  }, [flowId, key, store]);
+  }, [flowId, key, nodesInitialized, store]);
 
   return { onViewportChange, viewport };
 };
