@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"sync"
 
 	"connectrpc.com/connect"
@@ -137,31 +136,33 @@ func (s *FlowServiceV2RPC) streamNodeExecutionSync(
 		return true
 	}
 
-	events, err := s.executionStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp, err := s.executionEventToSyncResponse(ctx, evt.Payload)
+	converter := func(events []ExecutionEvent) *flowv1.NodeExecutionSyncResponse {
+		var items []*flowv1.NodeExecutionSync
+		for _, evt := range events {
+			resp, err := s.executionEventToSyncResponse(ctx, evt)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to convert execution event: %w", err))
-			}
-			if resp == nil {
+				s.logger.Error("failed to convert execution event", "error", err)
 				continue
 			}
-			if err := send(resp); err != nil {
-				return err
+			if resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
 			}
-		case <-ctx.Done():
-			return ctx.Err()
 		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &flowv1.NodeExecutionSyncResponse{Items: items}
 	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		s.executionStream,
+		eventstream.SnapshotProvider[ExecutionTopic, ExecutionEvent](snapshot),
+		filter,
+		converter,
+		send,
+		nil, // Use default batching options
+	)
 }
 
 func (s *FlowServiceV2RPC) publishExecutionEvent(eventType string, execution mnodeexecution.NodeExecution, flowID idwrap.IDWrap) {
