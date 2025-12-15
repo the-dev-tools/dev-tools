@@ -245,6 +245,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 		}
 		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeUpdate,
+			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
@@ -339,6 +340,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 	for i, assert := range deletedAsserts {
 		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
 			Type:       eventTypeDelete,
+			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}

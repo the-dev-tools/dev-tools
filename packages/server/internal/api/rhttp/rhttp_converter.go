@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	globalv1 "the-dev-tools/spec/dist/buf/go/global/v1"
 )
 
 func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
@@ -510,7 +511,8 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 			}
 		} else {
 			delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
-				Kind: apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_UNSET,
+				Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if http.DeltaMethod != nil {
@@ -521,7 +523,8 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 			}
 		} else {
 			delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
-				Kind: apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_UNSET,
+				Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if http.DeltaUrl != nil {
@@ -532,7 +535,8 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 			}
 		} else {
 			delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
-				Kind: apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_UNSET,
+				Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		// Note: BodyKind delta not implemented yet
@@ -725,7 +729,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			}
 		} else {
 			delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
-				Kind: apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if param.DeltaValue != nil {
@@ -736,7 +741,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			}
 		} else {
 			delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
-				Kind: apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if param.DeltaEnabled != nil {
@@ -747,7 +753,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			}
 		} else {
 			delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
-				Kind: apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if param.DeltaDescription != nil {
@@ -758,7 +765,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			}
 		} else {
 			delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
-				Kind: apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if param.DeltaDisplayOrder != nil {
@@ -769,7 +777,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			}
 		} else {
 			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
-				Kind: apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
@@ -842,7 +851,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 			}
 		} else {
 			delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
-				Kind: apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if header.DeltaValue != nil {
@@ -853,7 +863,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 			}
 		} else {
 			delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
-				Kind: apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if header.DeltaEnabled != nil {
@@ -864,7 +875,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 			}
 		} else {
 			delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
-				Kind: apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if header.DeltaDescription != nil {
@@ -875,7 +887,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 			}
 		} else {
 			delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
-				Kind: apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if header.DeltaDisplayOrder != nil {
@@ -886,7 +899,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 			}
 		} else {
 			delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
-				Kind: apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
@@ -959,7 +973,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 			}
 		} else {
 			delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
-				Kind: apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if form.DeltaValue != nil {
@@ -970,7 +985,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 			}
 		} else {
 			delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
-				Kind: apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if form.DeltaEnabled != nil {
@@ -981,7 +997,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 			}
 		} else {
 			delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
-				Kind: apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if form.DeltaDescription != nil {
@@ -992,7 +1009,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 			}
 		} else {
 			delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
-				Kind: apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if form.DeltaDisplayOrder != nil {
@@ -1003,7 +1021,8 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 			}
 		} else {
 			delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
-				Kind: apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{
@@ -1064,7 +1083,8 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttp.HTTPAss
 			}
 		} else {
 			delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
-				Kind: apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
@@ -1137,7 +1157,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			}
 		} else {
 			delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
-				Kind: apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if body.DeltaValue != nil {
@@ -1148,7 +1169,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			}
 		} else {
 			delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
-				Kind: apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if body.DeltaEnabled != nil {
@@ -1159,7 +1181,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			}
 		} else {
 			delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
-				Kind: apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if body.DeltaDescription != nil {
@@ -1170,7 +1193,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			}
 		} else {
 			delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
-				Kind: apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		if body.DeltaDisplayOrder != nil {
@@ -1181,7 +1205,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			}
 		} else {
 			delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
-				Kind: apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
