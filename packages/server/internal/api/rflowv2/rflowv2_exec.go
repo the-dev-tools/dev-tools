@@ -276,8 +276,9 @@ func (s *FlowServiceV2RPC) executeFlow(
 			// If this execution has a ResponseID, wait for the response to be published first
 			// This ensures frontend receives HttpResponse before NodeExecution
 			if status.AuxiliaryID != nil {
+				respIDStr := status.AuxiliaryID.String()
 				responsePublishedMu.Lock()
-				publishedChan, ok := responsePublished[status.AuxiliaryID.String()]
+				publishedChan, ok := responsePublished[respIDStr]
 				responsePublishedMu.Unlock()
 				if ok {
 					select {
@@ -286,6 +287,10 @@ func (s *FlowServiceV2RPC) executeFlow(
 					case <-ctx.Done():
 						// Context cancelled, continue anyway
 					}
+					// Clean up map entry to prevent memory leak
+					responsePublishedMu.Lock()
+					delete(responsePublished, respIDStr)
+					responsePublishedMu.Unlock()
 				}
 			}
 
