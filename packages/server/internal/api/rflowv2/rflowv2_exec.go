@@ -237,6 +237,8 @@ func (s *FlowServiceV2RPC) executeFlow(
 		for status := range nodeStateChan {
 			// Persist execution state
 			execID := status.ExecutionID
+			isNewExecution := false
+
 			if isZeroID(execID) {
 				// Construct cache key based on node and iteration context
 				cacheKey := status.NodeID.String()
@@ -252,6 +254,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 				} else {
 					execID = idwrap.NewNow()
 					executionCache[cacheKey] = execID
+					isNewExecution = true
 				}
 			}
 
@@ -279,12 +282,21 @@ func (s *FlowServiceV2RPC) executeFlow(
 				}
 			}
 
-			eventType := executionEventInsert
+			// Set CompletedAt for terminal states
 			if status.State == mnnode.NODE_STATE_SUCCESS ||
 				status.State == mnnode.NODE_STATE_FAILURE ||
 				status.State == mnnode.NODE_STATE_CANCELED {
 				now := time.Now().Unix()
 				model.CompletedAt = &now
+			}
+
+			eventType := executionEventInsert
+			// Only use UPDATE if it's NOT a new execution AND the state is terminal.
+			// If it's a new execution (first time seeing this node run), we MUST send INSERT,
+			// even if the state is already SUCCESS/FAILURE (instant execution).
+			if !isNewExecution && (status.State == mnnode.NODE_STATE_SUCCESS ||
+				status.State == mnnode.NODE_STATE_FAILURE ||
+				status.State == mnnode.NODE_STATE_CANCELED) {
 				eventType = executionEventUpdate
 			}
 
