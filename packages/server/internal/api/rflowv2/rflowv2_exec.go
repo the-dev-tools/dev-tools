@@ -148,11 +148,23 @@ func (s *FlowServiceV2RPC) executeFlow(
 	}
 
 	requestRespChan := make(chan nrequest.NodeRequestSideResp, len(nodes)*2+1)
+	// Track when HTTP responses are published so node execution events can wait
+	// This ensures frontend receives HttpResponse before NodeExecution with ResponseID
+	responsePublished := make(map[string]chan struct{})
+	var responsePublishedMu sync.Mutex
 	var respDrain sync.WaitGroup
 	respDrain.Add(1)
 	go func() {
 		defer respDrain.Done()
 		for resp := range requestRespChan {
+			responseID := resp.Resp.HTTPResponse.ID.String()
+
+			// Register the channel before processing so nodeStateChan can find it
+			responsePublishedMu.Lock()
+			publishedChan := make(chan struct{})
+			responsePublished[responseID] = publishedChan
+			responsePublishedMu.Unlock()
+
 			// Save HTTP Response
 			if err := s.httpResponseService.Create(ctx, resp.Resp.HTTPResponse); err != nil {
 				s.logger.Error("failed to save http response", "error", err)
@@ -177,6 +189,9 @@ func (s *FlowServiceV2RPC) executeFlow(
 					s.publishHttpResponseAssertEvent("insert", a, flow.WorkspaceID)
 				}
 			}
+
+			// Signal that response is published - nodeStateChan can now publish execution
+			close(publishedChan)
 
 			if resp.Done != nil {
 				close(resp.Done)
@@ -256,6 +271,22 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
 				s.logger.Error("failed to persist node execution", "error", err)
+			}
+
+			// If this execution has a ResponseID, wait for the response to be published first
+			// This ensures frontend receives HttpResponse before NodeExecution
+			if status.AuxiliaryID != nil {
+				responsePublishedMu.Lock()
+				publishedChan, ok := responsePublished[status.AuxiliaryID.String()]
+				responsePublishedMu.Unlock()
+				if ok {
+					select {
+					case <-publishedChan:
+						// Response published, safe to continue
+					case <-ctx.Done():
+						// Context cancelled, continue anyway
+					}
+				}
 			}
 
 			// Publish execution event for original node
