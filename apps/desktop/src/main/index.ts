@@ -2,14 +2,28 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import os from 'node:os';
+import { Agent } from 'undici';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
 // Workaround to allow unlimited concurrent HTTP/1.1 connections
 // https://medium.com/@hnasr/chromes-6-tcp-connections-limit-c199fe550af6
 // https://www.electronjs.org/docs/latest/api/command-line-switches#--ignore-connections-limitdomains
 app.commandLine.appendSwitch('ignore-connections-limit', 'localhost');
+
+// Register a custom protocol for server IPC
+// https://www.electronjs.org/docs/latest/api/protocol
+protocol.registerSchemesAsPrivileged([
+  {
+    privileges: {
+      corsEnabled: true,
+      supportFetchAPI: true,
+    },
+    scheme: 'server',
+  },
+]);
 
 const createWindow = Effect.gen(function* () {
   const path = yield* Path.Path;
@@ -140,6 +154,8 @@ const worker = pipe(
 );
 
 const onReady = Effect.gen(function* () {
+  const path = yield* Path.Path;
+
   autoUpdater.setFeedURL({
     provider: 'custom',
     update: {
@@ -150,6 +166,17 @@ const onReady = Effect.gen(function* () {
     updateProvider: CustomUpdateProvider,
   });
   yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());
+
+  // Redirect server IPC into a UDS
+  // https://nodejs.org/api/globals.html#custom-dispatcher
+  // https://undici.nodejs.org/#/docs/api/Client?id=parameter-connectoptions
+  const dispatcher = new Agent({ socketPath: path.join(os.tmpdir(), 'the-dev-tools', 'server.socket') });
+  protocol.handle('server', (rawRequest) => {
+    const url = rawRequest.url.replace('server://', 'http://the-dev-tools:0/');
+    let request = new Request(url, rawRequest);
+    request = new Request(request, { dispatcher } as never);
+    return fetch(request);
+  });
 
   yield* createWindow;
 

@@ -11,7 +11,7 @@ export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport',
     if (mock) return yield* ApiTransportMock;
 
     const transport = Connect.createConnectTransport({
-      baseUrl: 'http://localhost:8080',
+      baseUrl: 'server://',
       interceptors: defaultInterceptors,
       jsonOptions: { registry: Protobuf.registry },
       useHttpGet: true,
