@@ -23,25 +23,32 @@ import { Connect } from '~/api';
 import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo, useFormTable } from '~/form-table';
 import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~/routes';
 
-export const ImportDialog = () => {
+export const useImportDialog = () => {
   const modal = useProgrammaticModal();
+
+  const open = (): void =>
+    void modal.onOpenChange(
+      true,
+      <InitialDialog
+        setModal={(node) => void modal.onOpenChange(true, node)}
+        successAction={() => Promise.resolve(void modal.onOpenChange(false))}
+      />,
+    );
+
+  const render: ReactNode = modal.children && (
+    <Modal {...modal} style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }} />
+  );
+
+  return { open, render };
+};
+
+export const ImportDialogTrigger = () => {
+  const dialog = useImportDialog();
 
   return (
     <>
       <TooltipTrigger delay={750}>
-        <Button
-          className={tw`p-1`}
-          onPress={() =>
-            void modal.onOpenChange(
-              true,
-              <InitialDialog
-                setModal={(node) => void modal.onOpenChange(true, node)}
-                successAction={() => Promise.resolve(void modal.onOpenChange(false))}
-              />,
-            )
-          }
-          variant='ghost'
-        >
+        <Button className={tw`p-1`} onPress={() => void dialog.open()} variant='ghost'>
           <FileImportIcon className={tw`size-4 text-slate-500`} />
         </Button>
         <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
@@ -49,12 +56,7 @@ export const ImportDialog = () => {
         </Tooltip>
       </TooltipTrigger>
 
-      {modal.children && (
-        <Modal
-          {...modal}
-          style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}
-        />
-      )}
+      {dialog.render}
     </>
   );
 };
