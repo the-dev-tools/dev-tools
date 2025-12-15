@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -290,10 +291,49 @@ func run() error {
 		importService: importV2Srv,
 	}
 
-	// Create JS executor client (connects to worker-js started by desktop app on port 9090)
+	// Create JS executor client
+	// Environment variables:
+	//   - WORKER_MODE: "unix" (default) or "tcp"
+	//   - WORKER_SOCKET_PATH: custom socket path (unix mode)
+	//   - WORKER_URL: full URL (tcp mode, defaults to http://localhost:9090)
+	var jsHTTPClient *http.Client
+	var jsBaseURL string
+
+	workerMode := os.Getenv("WORKER_MODE")
+	if workerMode == "" {
+		workerMode = api.ServerModeUnix
+	}
+
+	switch workerMode {
+	case api.ServerModeTCP:
+		jsHTTPClient = http.DefaultClient
+		jsBaseURL = os.Getenv("WORKER_URL")
+		if jsBaseURL == "" {
+			jsBaseURL = "http://localhost:9090"
+		}
+		slog.Info("Connecting to worker-js via TCP", "url", jsBaseURL)
+	default:
+		workerSocketPath := os.Getenv("WORKER_SOCKET_PATH")
+		if workerSocketPath == "" {
+			workerSocketPath = api.DefaultWorkerSocketPath()
+		}
+		jsHTTPClient = &http.Client{
+			Transport: &http.Transport{
+				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+					dialer := net.Dialer{}
+					return dialer.DialContext(ctx, "unix", workerSocketPath)
+				},
+			},
+		}
+		// NOTE: ConnectRPC requires an address even for Unix sockets.
+		// Use placeholder since actual routing is via socket.
+		jsBaseURL = "http://the-dev-tools:0"
+		slog.Info("Connecting to worker-js via Unix socket", "path", workerSocketPath)
+	}
+
 	jsClient := node_js_executorv1connect.NewNodeJsExecutorServiceClient(
-		http.DefaultClient,
-		"http://localhost:9090",
+		jsHTTPClient,
+		jsBaseURL,
 	)
 
 	flowSrvV2 := rflowv2.New(
