@@ -221,102 +221,37 @@ func (s *FlowServiceV2RPC) executionEventToSyncResponse(
 
 	var syncEvent *flowv1.NodeExecutionSync
 	switch evt.Type {
-	case executionEventInsert:
-		syncEvent = &flowv1.NodeExecutionSync{
-			Value: &flowv1.NodeExecutionSync_ValueUnion{
-				Kind: flowv1.NodeExecutionSync_ValueUnion_KIND_INSERT,
-				Insert: &flowv1.NodeExecutionSyncInsert{
-					NodeExecutionId: evt.Execution.NodeExecutionId,
-					NodeId:          evt.Execution.NodeId,
-					Name:            evt.Execution.Name,
-					State:           evt.Execution.State,
-				},
-			},
+	case executionEventInsert, executionEventUpdate:
+		// Use UPSERT for both insert and update events to ensure the frontend can handle out-of-order delivery
+		// or missing initial state. This simplifies the client logic and makes it more robust.
+		upsert := &flowv1.NodeExecutionSyncUpsert{
+			NodeExecutionId: evt.Execution.NodeExecutionId,
+			NodeId:          evt.Execution.NodeId,
+			Name:            evt.Execution.Name,
+			State:           evt.Execution.State,
 		}
 
-		// Add optional fields to INSERT event
 		if evt.Execution.Error != nil {
-			syncEvent.Value.GetInsert().Error = evt.Execution.Error
+			upsert.Error = evt.Execution.Error
 		}
 		if evt.Execution.Input != nil {
-			syncEvent.Value.GetInsert().Input = evt.Execution.Input
+			upsert.Input = evt.Execution.Input
 		}
 		if evt.Execution.Output != nil {
-			syncEvent.Value.GetInsert().Output = evt.Execution.Output
+			upsert.Output = evt.Execution.Output
 		}
 		if evt.Execution.HttpResponseId != nil {
-			syncEvent.Value.GetInsert().HttpResponseId = evt.Execution.HttpResponseId
+			upsert.HttpResponseId = evt.Execution.HttpResponseId
 		}
 		if evt.Execution.CompletedAt != nil {
-			syncEvent.Value.GetInsert().CompletedAt = evt.Execution.CompletedAt
+			upsert.CompletedAt = evt.Execution.CompletedAt
 		}
 
-	case executionEventUpdate:
 		syncEvent = &flowv1.NodeExecutionSync{
 			Value: &flowv1.NodeExecutionSync_ValueUnion{
-				Kind: flowv1.NodeExecutionSync_ValueUnion_KIND_UPDATE,
-				Update: &flowv1.NodeExecutionSyncUpdate{
-					NodeExecutionId: evt.Execution.NodeExecutionId,
-				},
+				Kind:   flowv1.NodeExecutionSync_ValueUnion_KIND_UPSERT,
+				Upsert: upsert,
 			},
-		}
-
-		// Add optional fields to UPDATE event
-		update := syncEvent.Value.GetUpdate()
-
-		// Only include NodeId if it's being updated
-		if evt.Execution.NodeId != nil {
-			update.NodeId = evt.Execution.NodeId
-		}
-
-		// Only include Name if it's being updated
-		if evt.Execution.Name != "" {
-			update.Name = &evt.Execution.Name
-		}
-
-		// Only include State if it's being updated
-		if evt.Execution.State != flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED {
-			update.State = &evt.Execution.State
-		}
-
-		// Handle Error union
-		if evt.Execution.Error != nil {
-			update.Error = &flowv1.NodeExecutionSyncUpdate_ErrorUnion{
-				Kind:  flowv1.NodeExecutionSyncUpdate_ErrorUnion_KIND_VALUE,
-				Value: evt.Execution.Error,
-			}
-		}
-
-		// Handle Input union
-		if evt.Execution.Input != nil {
-			update.Input = &flowv1.NodeExecutionSyncUpdate_InputUnion{
-				Kind:  flowv1.NodeExecutionSyncUpdate_InputUnion_KIND_VALUE,
-				Value: evt.Execution.Input,
-			}
-		}
-
-		// Handle Output union
-		if evt.Execution.Output != nil {
-			update.Output = &flowv1.NodeExecutionSyncUpdate_OutputUnion{
-				Kind:  flowv1.NodeExecutionSyncUpdate_OutputUnion_KIND_VALUE,
-				Value: evt.Execution.Output,
-			}
-		}
-
-		// Handle HttpResponseId union
-		if evt.Execution.HttpResponseId != nil {
-			update.HttpResponseId = &flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion{
-				Kind:  flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion_KIND_VALUE,
-				Value: evt.Execution.HttpResponseId,
-			}
-		}
-
-		// Handle CompletedAt union
-		if evt.Execution.CompletedAt != nil {
-			update.CompletedAt = &flowv1.NodeExecutionSyncUpdate_CompletedAtUnion{
-				Kind:  flowv1.NodeExecutionSyncUpdate_CompletedAtUnion_KIND_VALUE,
-				Value: evt.Execution.CompletedAt,
-			}
 		}
 
 	case executionEventDelete:
