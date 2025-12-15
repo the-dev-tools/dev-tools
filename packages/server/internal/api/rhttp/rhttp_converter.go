@@ -1063,6 +1063,12 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttp.HTTPAss
 		if assert.DeltaValue != nil {
 			delta.Value = assert.DeltaValue
 		}
+		if assert.DeltaEnabled != nil {
+			delta.Enabled = assert.DeltaEnabled
+		}
+		if assert.DeltaDisplayOrder != nil {
+			delta.Order = assert.DeltaDisplayOrder
+		}
 		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpAssertDeltaSync_ValueUnion_KIND_INSERT,
 			Insert: delta,
@@ -1084,6 +1090,30 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttp.HTTPAss
 		} else {
 			delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
 				Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if assert.DeltaEnabled != nil {
+			enabledBool := *assert.DeltaEnabled
+			delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+				Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
+			}
+		} else {
+			delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+				Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if assert.DeltaDisplayOrder != nil {
+			orderFloat := *assert.DeltaDisplayOrder
+			delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+				Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
+			}
+		} else {
+			delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+				Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_UNSET,
 				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}

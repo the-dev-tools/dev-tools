@@ -66,6 +66,12 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 				if assert.DeltaValue != nil {
 					delta.Value = assert.DeltaValue
 				}
+				if assert.DeltaEnabled != nil {
+					delta.Enabled = assert.DeltaEnabled
+				}
+				if assert.DeltaDisplayOrder != nil {
+					delta.Order = assert.DeltaDisplayOrder
+				}
 
 				allDeltas = append(allDeltas, delta)
 			}
@@ -112,7 +118,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 		}
 
 		// Update delta fields
-		err = h.httpAssertService.UpdateDelta(ctx, assertID, item.Value, nil, nil, nil)
+		err = h.httpAssertService.UpdateDelta(ctx, assertID, item.Value, item.Enabled, nil, item.Order)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -181,13 +187,17 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 
 	// Step 2: Prepare updates (in memory)
 	var preparedUpdates []struct {
-		deltaID    idwrap.IDWrap
-		deltaValue *string
+		deltaID      idwrap.IDWrap
+		deltaValue   *string
+		deltaEnabled *bool
+		deltaOrder   *float32
 	}
 
 	for _, data := range updateData {
 		item := data.item
 		var deltaValue *string
+		var deltaEnabled *bool
+		var deltaOrder *float32
 
 		if item.Value != nil {
 			switch item.Value.GetKind() {
@@ -198,13 +208,35 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 				deltaValue = &valueStr
 			}
 		}
+		if item.Enabled != nil {
+			switch item.Enabled.GetKind() {
+			case apiv1.HttpAssertDeltaUpdate_EnabledUnion_KIND_UNSET:
+				deltaEnabled = nil
+			case apiv1.HttpAssertDeltaUpdate_EnabledUnion_KIND_VALUE:
+				enabledBool := item.Enabled.GetValue()
+				deltaEnabled = &enabledBool
+			}
+		}
+		if item.Order != nil {
+			switch item.Order.GetKind() {
+			case apiv1.HttpAssertDeltaUpdate_OrderUnion_KIND_UNSET:
+				deltaOrder = nil
+			case apiv1.HttpAssertDeltaUpdate_OrderUnion_KIND_VALUE:
+				orderFloat := item.Order.GetValue()
+				deltaOrder = &orderFloat
+			}
+		}
 
 		preparedUpdates = append(preparedUpdates, struct {
-			deltaID    idwrap.IDWrap
-			deltaValue *string
+			deltaID      idwrap.IDWrap
+			deltaValue   *string
+			deltaEnabled *bool
+			deltaOrder   *float32
 		}{
-			deltaID:    data.deltaID,
-			deltaValue: deltaValue,
+			deltaID:      data.deltaID,
+			deltaValue:   deltaValue,
+			deltaEnabled: deltaEnabled,
+			deltaOrder:   deltaOrder,
 		})
 	}
 
@@ -219,8 +251,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 	var updatedAsserts []mhttp.HTTPAssert
 
 	for _, update := range preparedUpdates {
-		// HttpAssert only supports updating Value delta currently (based on Insert implementation)
-		if err := httpAssertService.UpdateDelta(ctx, update.deltaID, update.deltaValue, nil, nil, nil); err != nil {
+		if err := httpAssertService.UpdateDelta(ctx, update.deltaID, update.deltaValue, update.deltaEnabled, nil, update.deltaOrder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
