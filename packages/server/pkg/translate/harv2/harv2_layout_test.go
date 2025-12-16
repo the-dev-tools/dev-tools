@@ -12,11 +12,11 @@ import (
 )
 
 func TestReorganizeNodePositions_Sequential(t *testing.T) {
-	// Scenario: Start -> Login -> Profile (Sequential)
-	// Expectation:
-	// Start: Level 0, Y=0
-	// Login: Level 1, Y=300
-	// Profile: Level 2, Y=600
+	// Scenario: Start -> Login -> Profile (Sequential, horizontal flow)
+	// Expectation (horizontal layout):
+	// Start: Level 0, X=0
+	// Login: Level 1, X=400
+	// Profile: Level 2, X=800
 
 	entries := []harv2.Entry{
 		{
@@ -58,49 +58,46 @@ func TestReorganizeNodePositions_Sequential(t *testing.T) {
 
 	start, ok := nodes["Start"]
 	require.True(t, ok)
-	
-	// Names are generated, let's assume "POST Login" and "GET Profile" or similar if name generation is consistent
-	// Or check the nodes list order if names are tricky.
+
 	// harv2 generates names like "request_1", "request_2" for Node Name field in processEntries.
-	// Wait, processEntries sets Name to "request_%d".
 	// "Start" is explicit.
-	
+
 	req1, ok := nodes["request_1"]
 	require.True(t, ok, "request_1 not found")
 	req2, ok := nodes["request_2"]
 	require.True(t, ok, "request_2 not found")
 
-	// Verify Y Positions (Depth)
-	require.Equal(t, 0.0, start.PositionY, "Start should be at Y=0")
-	require.Equal(t, 300.0, req1.PositionY, "Request 1 should be at Y=300")
-	require.Equal(t, 600.0, req2.PositionY, "Request 2 should be at Y=600")
+	// Verify X Positions (Depth - horizontal flow)
+	require.Equal(t, 0.0, start.PositionX, "Start should be at X=0")
+	require.Equal(t, 400.0, req1.PositionX, "Request 1 should be at X=400")
+	require.Equal(t, 800.0, req2.PositionX, "Request 2 should be at X=800")
 
-	// Verify X Positions (should be centered, so 0 if single node per level)
-	require.Equal(t, 0.0, start.PositionX)
-	require.Equal(t, 0.0, req1.PositionX)
-	require.Equal(t, 0.0, req2.PositionX)
+	// Verify Y Positions (should be centered, so 0 if single node per level)
+	require.Equal(t, 0.0, start.PositionY)
+	require.Equal(t, 0.0, req1.PositionY)
+	require.Equal(t, 0.0, req2.PositionY)
 }
 
 func TestReorganizeNodePositions_Parallel(t *testing.T) {
-	// Scenario: Start -> [Req A, Req B] (Parallel/Branching)
+	// Scenario: Start -> [Req A, Req B] (Parallel/Branching, horizontal flow)
 	// If Req A and Req B both depend only on Start (or same parent), they should be on same level.
 	// Note: HAR import usually linearizes by timestamp or mutation chain.
 	// To force parallel, we need them to have NO dependency on each other, and close timestamps might trigger sequential edge.
 	// But `processEntries` connects orphans to Start.
-	// If we have 2 GET requests with NO data dependency and NO timestamp/mutation link (e.g. far apart but no dependency?), 
+	// If we have 2 GET requests with NO data dependency and NO timestamp/mutation link (e.g. far apart but no dependency?),
 	// actually current logic links based on "Previous Node" for timestamp sequencing.
 	// So hard to get parallel nodes unless we break the timestamp/sequential logic or use specific dependency graph.
-	
+
 	// However, the positioning algorithm supports parallel nodes (nodes at same level).
 	// Let's try to construct a scenario where A and B both depend on Start but not each other.
-	// Since `processEntries` links `previousNode -> currentNode` by default for most cases... 
+	// Since `processEntries` links `previousNode -> currentNode` by default for most cases...
 	// Actually, looking at `processEntries`:
 	// 1. Data Dependency
 	// 2. Timestamp Sequencing (if diff <= 50ms)
 	// 3. Mutation Chain (if Mutation)
 	// 4. Sequential Ordering (if DELETE)
 	// 5. Rooting (Connect orphans to Start)
-	
+
 	// If we have GET A (t=0) and GET B (t=10s).
 	// Time diff > 50ms. No timestamp edge.
 	// Not mutation.
@@ -136,25 +133,25 @@ func TestReorganizeNodePositions_Parallel(t *testing.T) {
 	req1 := nodes["request_1"]
 	req2 := nodes["request_2"]
 
-	// Expectation:
-	// Level 0: Start
-	// Level 1: Req1, Req2
+	// Expectation (horizontal layout):
+	// Level 0: Start (X=0)
+	// Level 1: Req1, Req2 (X=400, stacked vertically on Y axis)
 
-	require.Equal(t, 0.0, start.PositionY)
-	require.Equal(t, 300.0, req1.PositionY)
-	require.Equal(t, 300.0, req2.PositionY) // Same level
+	require.Equal(t, 0.0, start.PositionX)
+	require.Equal(t, 400.0, req1.PositionX)
+	require.Equal(t, 400.0, req2.PositionX) // Same X level (horizontal)
 
-	// X Positions should differ
-	require.NotEqual(t, req1.PositionX, req2.PositionX)
+	// Y Positions should differ (parallel nodes stacked vertically)
+	require.NotEqual(t, req1.PositionY, req2.PositionY)
 
-	// Center alignment calculation:
-	// 2 nodes, spacing 400.
-	// Total width = (2-1)*400 = 400.
-	// StartX = 0 - 400/2 = -200.
-	// Node 0 X = -200 + 0 = -200
-	// Node 1 X = -200 + 400 = 200
+	// Center alignment calculation (vertical stacking):
+	// 2 nodes, spacing 150.
+	// Total height = (2-1)*150 = 150.
+	// StartY = 0 - 150/2 = -75.
+	// Node 0 Y = -75 + 0 = -75
+	// Node 1 Y = -75 + 150 = 75
 
 	// We don't enforce specific order in the map iteration in layout (it uses slice from map),
-	// so we just check they are -200 and 200.
-	require.True(t, (req1.PositionX == -200 && req2.PositionX == 200) || (req1.PositionX == 200 && req2.PositionX == -200))
+	// so we just check they are -75 and 75.
+	require.True(t, (req1.PositionY == -75 && req2.PositionY == 75) || (req1.PositionY == 75 && req2.PositionY == -75))
 }

@@ -1006,12 +1006,12 @@ func sanitizeFileName(name string) string {
 	return replacer.Replace(name)
 }
 
-// ReorganizeNodePositions positions flow nodes using a level-based layout.
-// Parallel nodes are positioned at the same Y level, sequential nodes at deeper levels.
+// ReorganizeNodePositions positions flow nodes using a level-based horizontal layout.
+// Sequential nodes flow left-to-right, parallel nodes are stacked vertically.
 func ReorganizeNodePositions(result *HarResolved) error {
 	const (
-		nodeSpacingX = 400 // Horizontal spacing between parallel nodes
-		nodeSpacingY = 300 // Vertical spacing between levels
+		nodeSpacingX = 400 // Horizontal spacing between sequential levels
+		nodeSpacingY = 150 // Vertical spacing between parallel nodes
 		startX       = 0   // Starting X position
 		startY       = 0   // Starting Y position
 	)
@@ -1103,25 +1103,25 @@ func ReorganizeNodePositions(result *HarResolved) error {
 		}
 	}
 
-	// Position nodes level by level
+	// Position nodes level by level (horizontal flow: left-to-right)
 	for level := 0; level <= len(levelNodes)-1; level++ {
 		nodes := levelNodes[level]
 		if len(nodes) == 0 {
 			continue
 		}
 
-		// Calculate Y position for this level
-		yPos := float64(startY + level*nodeSpacingY)
+		// Calculate X position for this level (sequential nodes go right)
+		xPos := float64(startX + level*nodeSpacingX)
 
-		// Calculate starting X position to center the nodes at this level
-		totalWidth := float64((len(nodes) - 1) * nodeSpacingX)
-		startXForLevel := float64(startX) - totalWidth/2
+		// Calculate starting Y position to center the nodes at this level
+		totalHeight := float64((len(nodes) - 1) * nodeSpacingY)
+		startYForLevel := float64(startY) - totalHeight/2
 
 		// Position each node in this level
 		for i, nodeID := range nodes {
 			if node := nodeMap[nodeID]; node != nil {
-				node.PositionX = startXForLevel + float64(i*nodeSpacingX)
-				node.PositionY = yPos
+				node.PositionX = xPos
+				node.PositionY = startYForLevel + float64(i*nodeSpacingY)
 			}
 		}
 	}
