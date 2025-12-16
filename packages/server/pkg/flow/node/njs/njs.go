@@ -74,12 +74,24 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 	}
 
-	// Store result in variables if available
+	// Store result in variables with tracking
 	if resp.Msg.Result != nil {
 		resultMap, err := node.ParseResultValue(resp.Msg.Result)
-		if err == nil {
-			for k, v := range resultMap {
-				node.WriteVar(req, k, v)
+		if err != nil {
+			return node.FlowNodeResult{
+				NextNodeID: next,
+				Err:        fmt.Errorf("failed to parse JS result: %w", err),
+			}
+		}
+		if req.VariableTracker != nil {
+			err = node.WriteNodeVarBulkWithTracking(req, n.Name, resultMap, req.VariableTracker)
+		} else {
+			err = node.WriteNodeVarBulk(req, n.Name, resultMap)
+		}
+		if err != nil {
+			return node.FlowNodeResult{
+				NextNodeID: next,
+				Err:        fmt.Errorf("failed to write JS result to variables: %w", err),
 			}
 		}
 	}
