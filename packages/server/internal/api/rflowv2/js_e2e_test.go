@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -64,15 +65,16 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		t.Skip("worker-js bundle not found - run 'pnpm nx run worker-js:build' first")
 	}
 
-	// Get a free port
-	port := getFreePort(t)
-	t.Logf("Using port %d for worker-js", port)
+	// Create temp directory for Unix socket
+	socketDir := t.TempDir()
+	socketPath := filepath.Join(socketDir, "worker-js.socket")
+	t.Logf("Using socket path: %s", socketPath)
 
 	// Start worker-js
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	workerCmd := startWorkerJS(t, ctx, workerJSPath, port)
+	workerCmd := startWorkerJS(t, ctx, workerJSPath, socketPath)
 	defer func() {
 		if workerCmd.Process != nil {
 			_ = workerCmd.Process.Kill()
@@ -80,12 +82,21 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	}()
 
 	// Wait for worker-js to be ready
-	waitForWorkerJS(t, port)
+	waitForWorkerJS(t, socketPath)
 
-	// Create JS client
+	// Create HTTP client that connects via Unix socket
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", socketPath)
+			},
+		},
+	}
+
+	// Create JS client (URL doesn't matter for Unix socket, but must be valid)
 	jsClient := node_js_executorv1connect.NewNodeJsExecutorServiceClient(
-		http.DefaultClient,
-		fmt.Sprintf("http://localhost:%d", port),
+		httpClient,
+		"http://localhost",
 	)
 
 	// Logger
@@ -322,8 +333,8 @@ func findWorkerJSPath(t *testing.T) string {
 	return ""
 }
 
-// startWorkerJS starts the worker-js process
-func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string, port int) *exec.Cmd {
+// startWorkerJS starts the worker-js process with Unix socket mode
+func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string, socketPath string) *exec.Cmd {
 	t.Helper()
 
 	cmd := exec.CommandContext(ctx, "node",
@@ -331,10 +342,9 @@ func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string, port in
 		"--disable-warning=ExperimentalWarning",
 		bundlePath,
 	)
-	// Use TCP mode with specified port (worker-js defaults to uds mode)
+	// Use UDS mode (default) with custom socket path
 	cmd.Env = append(os.Environ(),
-		"WORKER_MODE=tcp",
-		fmt.Sprintf("WORKER_PORT=%d", port),
+		fmt.Sprintf("WORKER_SOCKET_PATH=%s", socketPath),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -346,28 +356,20 @@ func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string, port in
 	return cmd
 }
 
-// waitForWorkerJS waits for the worker-js HTTP server to be ready
-func waitForWorkerJS(t *testing.T, port int) {
+// waitForWorkerJS waits for the worker-js Unix socket to be ready
+func waitForWorkerJS(t *testing.T, socketPath string) {
 	t.Helper()
 
-	url := fmt.Sprintf("http://localhost:%d", port)
 	for i := 0; i < 50; i++ {
-		resp, err := http.Get(url)
+		// Try to connect to the Unix socket
+		conn, err := net.Dial("unix", socketPath)
 		if err == nil {
-			resp.Body.Close()
-			t.Log("worker-js is ready")
+			conn.Close()
+			t.Log("worker-js is ready (Unix socket)")
 			return
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
 	t.Fatal("worker-js did not start in time")
-}
-
-func getFreePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
 }
