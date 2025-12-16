@@ -66,6 +66,12 @@ func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
+		// Get node model to publish event later
+		nodeModel, err := s.ns.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
+		}
+
 		model := mnforeach.MNForEach{
 			FlowNodeID:     nodeID,
 			IterExpression: item.GetPath(),
@@ -75,6 +81,11 @@ func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.R
 
 		if err := s.nfes.CreateNodeForEach(ctx, model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Publish node event so NodeForEachSync can pick up the config
+		if nodeModel != nil {
+			s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 		}
 	}
 
@@ -88,7 +99,8 @@ func (s *FlowServiceV2RPC) NodeForEachUpdate(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
@@ -113,6 +125,9 @@ func (s *FlowServiceV2RPC) NodeForEachUpdate(ctx context.Context, req *connect.R
 		if err := s.nfes.UpdateNodeForEach(ctx, *existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeForEachSync can pick up the updated config
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -125,13 +140,17 @@ func (s *FlowServiceV2RPC) NodeForEachDelete(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if err := s.nfes.DeleteNodeForEach(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeForEachSync can pick up the deletion
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

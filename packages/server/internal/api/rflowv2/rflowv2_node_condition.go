@@ -64,6 +64,12 @@ func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
+		// Get node model to publish event later
+		nodeModel, err := s.ns.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
+		}
+
 		model := mnif.MNIF{
 			FlowNodeID: nodeID,
 			Condition:  buildCondition(item.GetCondition()),
@@ -71,6 +77,11 @@ func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect
 
 		if err := s.nifs.CreateNodeIf(ctx, model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Publish node event so NodeConditionSync can pick up the condition
+		if nodeModel != nil {
+			s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 		}
 	}
 
@@ -84,7 +95,8 @@ func (s *FlowServiceV2RPC) NodeConditionUpdate(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
@@ -103,6 +115,9 @@ func (s *FlowServiceV2RPC) NodeConditionUpdate(ctx context.Context, req *connect
 		if err := s.nifs.UpdateNodeIf(ctx, *existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeConditionSync can pick up the updated condition
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -115,13 +130,17 @@ func (s *FlowServiceV2RPC) NodeConditionDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if err := s.nifs.DeleteNodeIf(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeConditionSync can pick up the deletion
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

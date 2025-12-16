@@ -62,6 +62,12 @@ func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Reques
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
+		// Get node model to publish event later
+		nodeModel, err := s.ns.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
+		}
+
 		model := mnjs.MNJS{
 			FlowNodeID:       nodeID,
 			Code:             []byte(item.GetCode()),
@@ -70,6 +76,11 @@ func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Reques
 
 		if err := s.njss.CreateNodeJS(ctx, model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Publish node event so NodeJsSync can pick up the code
+		if nodeModel != nil {
+			s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 		}
 	}
 
@@ -83,7 +94,8 @@ func (s *FlowServiceV2RPC) NodeJsUpdate(ctx context.Context, req *connect.Reques
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
@@ -102,6 +114,9 @@ func (s *FlowServiceV2RPC) NodeJsUpdate(ctx context.Context, req *connect.Reques
 		if err := s.njss.UpdateNodeJS(ctx, existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeJsSync can pick up the updated code
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -114,13 +129,17 @@ func (s *FlowServiceV2RPC) NodeJsDelete(ctx context.Context, req *connect.Reques
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if err := s.njss.DeleteNodeJS(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeJsSync can pick up the deletion
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
