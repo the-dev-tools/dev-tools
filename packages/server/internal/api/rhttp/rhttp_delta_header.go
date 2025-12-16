@@ -74,8 +74,8 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCollection(ctx context.Context, req *con
 				if header.DeltaDescription != nil {
 					delta.Description = header.DeltaDescription
 				}
-				if header.DeltaOrder != nil {
-					delta.Order = header.DeltaOrder
+				if header.DeltaDisplayOrder != nil {
+					delta.Order = header.DeltaDisplayOrder
 				}
 
 				allDeltas = append(allDeltas, delta)

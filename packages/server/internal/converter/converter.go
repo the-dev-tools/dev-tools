@@ -125,7 +125,7 @@ func ToAPIHttpHeader(header mhttp.HTTPHeader) *httpv1.HttpHeader {
 		Value:        header.Value,
 		Enabled:      header.Enabled,
 		Description:  header.Description,
-		Order:        header.Order,
+		Order:        header.DisplayOrder,
 	}
 }
 
@@ -138,7 +138,7 @@ func ToAPIHttpSearchParam(param mhttp.HTTPSearchParam) *httpv1.HttpSearchParam {
 		Value:             param.Value,
 		Enabled:           param.Enabled,
 		Description:       param.Description,
-		Order:             float32(param.Order),
+		Order:             float32(param.DisplayOrder),
 	}
 }
 
@@ -164,7 +164,7 @@ func ToAPIHttpBodyFormData(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFormData {
 		Value:              form.Value,
 		Enabled:            form.Enabled,
 		Description:        form.Description,
-		Order:              form.Order,
+		Order:              form.DisplayOrder,
 	}
 }
 
@@ -177,7 +177,7 @@ func ToAPIHttpBodyFormDataFromMHttp(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFor
 		Value:              form.Value,
 		Enabled:            form.Enabled,
 		Description:        form.Description,
-		Order:              form.Order,
+		Order:              form.DisplayOrder,
 	}
 }
 
@@ -190,7 +190,7 @@ func ToAPIHttpBodyUrlEncoded(urlEncoded mhttp.HTTPBodyUrlencoded) *httpv1.HttpBo
 		Value:                urlEncoded.Value,
 		Enabled:              urlEncoded.Enabled,
 		Description:          urlEncoded.Description,
-		Order:                urlEncoded.Order,
+		Order:                urlEncoded.DisplayOrder,
 	}
 }
 
@@ -203,7 +203,7 @@ func ToAPIHttpBodyUrlEncodedFromMHttp(encoded mhttp.HTTPBodyUrlencoded) *httpv1.
 		Value:                encoded.Value,
 		Enabled:              encoded.Enabled,
 		Description:          encoded.Description,
-		Order:                encoded.Order,
+		Order:                encoded.DisplayOrder,
 	}
 }
 
@@ -237,6 +237,8 @@ func ToAPIHttpAssert(assert mhttp.HTTPAssert) *httpv1.HttpAssert {
 		HttpAssertId: assert.ID.Bytes(),
 		HttpId:       assert.HttpID.Bytes(),
 		Value:        assert.Value,
+		Enabled:      assert.Enabled,
+		Order:        assert.DisplayOrder,
 	}
 }
 

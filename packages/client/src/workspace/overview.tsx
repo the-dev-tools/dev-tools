@@ -8,11 +8,12 @@ import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { FlowsIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
+import { FileImportIcon, FlowsIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { flowLayoutRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { getNextOrder } from '~/utils/order';
+import { useImportDialog } from './import';
 
 export const OverviewPage = () => (
   <div className={tw`px-4 py-16 text-center`}>
@@ -25,6 +26,7 @@ export const OverviewPage = () => (
     </span>
 
     <div className={tw`mx-auto mt-5 flex max-w-4xl justify-center gap-4`}>
+      <ImportButton />
       <NewHttpButton />
       <NewFlowButton />
     </div>
@@ -63,6 +65,27 @@ interface CtaIconProps {
 const CtaIcon = ({ children, className }: CtaIconProps) => (
   <div className={twJoin(tw`rounded-full p-2 text-2xl text-white`, className)}>{children}</div>
 );
+
+const ImportButton = () => {
+  const dialog = useImportDialog();
+
+  return (
+    <>
+      <CtaButton
+        description='Import Collections and Flows'
+        icon={
+          <CtaIcon className={tw`bg-amber-600`}>
+            <FileImportIcon />
+          </CtaIcon>
+        }
+        onPress={() => void dialog.open()}
+        title='Import'
+      />
+
+      {dialog.render}
+    </>
+  );
+};
 
 const NewHttpButton = () => {
   const navigate = useNavigate();

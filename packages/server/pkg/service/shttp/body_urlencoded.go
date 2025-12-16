@@ -29,23 +29,7 @@ func (s *HttpBodyUrlEncodedService) TX(tx *sql.Tx) *HttpBodyUrlEncodedService {
 
 func (s *HttpBodyUrlEncodedService) Create(ctx context.Context, body *mhttp.HTTPBodyUrlencoded) error {
 	bue := SerializeBodyUrlEncodedModelToGen(*body)
-	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams{
-		ID:                         bue.ID,
-		HttpID:                     bue.HttpID,
-		Key:                        bue.Key,
-		Value:                      bue.Value,
-		Description:                bue.Description,
-		Enabled:                    bue.Enabled,
-		Order:                      bue.Order,
-		ParentHttpBodyUrlencodedID: bue.ParentHttpBodyUrlencodedID,
-		IsDelta:                    bue.IsDelta,
-		DeltaKey:                   bue.DeltaKey,
-		DeltaValue:                 bue.DeltaValue,
-		DeltaDescription:           bue.DeltaDescription,
-		DeltaEnabled:               bue.DeltaEnabled,
-		CreatedAt:                  bue.CreatedAt,
-		UpdatedAt:                  bue.UpdatedAt,
-	})
+	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams(bue))
 }
 
 func (s *HttpBodyUrlEncodedService) CreateBulk(ctx context.Context, bodyUrlEncodeds []mhttp.HTTPBodyUrlencoded) error {
@@ -65,23 +49,7 @@ func (s *HttpBodyUrlEncodedService) CreateBulk(ctx context.Context, bodyUrlEncod
 }
 
 func (s *HttpBodyUrlEncodedService) createRaw(ctx context.Context, bue gen.HttpBodyUrlencoded) error {
-	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams{
-		ID:                         bue.ID,
-		HttpID:                     bue.HttpID,
-		Key:                        bue.Key,
-		Value:                      bue.Value,
-		Description:                bue.Description,
-		Enabled:                    bue.Enabled,
-		Order:                      bue.Order,
-		ParentHttpBodyUrlencodedID: bue.ParentHttpBodyUrlencodedID,
-		IsDelta:                    bue.IsDelta,
-		DeltaKey:                   bue.DeltaKey,
-		DeltaValue:                 bue.DeltaValue,
-		DeltaDescription:           bue.DeltaDescription,
-		DeltaEnabled:               bue.DeltaEnabled,
-		CreatedAt:                  bue.CreatedAt,
-		UpdatedAt:                  bue.UpdatedAt,
-	})
+	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams(bue))
 }
 
 func (s *HttpBodyUrlEncodedService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyUrlencoded, error) {
@@ -124,10 +92,10 @@ func (s *HttpBodyUrlEncodedService) GetByHttpIDOrdered(ctx context.Context, http
 
 	// Sort by order field
 	slices.SortFunc(rows, func(a, b gen.HttpBodyUrlencoded) int {
-		if a.Order < b.Order {
+		if a.DisplayOrder < b.DisplayOrder {
 			return -1
 		}
-		if a.Order > b.Order {
+		if a.DisplayOrder > b.DisplayOrder {
 			return 1
 		}
 		return 0
@@ -185,12 +153,12 @@ func (s *HttpBodyUrlEncodedService) GetByHttpIDs(ctx context.Context, httpIDs []
 
 func (s *HttpBodyUrlEncodedService) Update(ctx context.Context, body *mhttp.HTTPBodyUrlencoded) error {
 	return s.queries.UpdateHTTPBodyUrlEncoded(ctx, gen.UpdateHTTPBodyUrlEncodedParams{
-		Key:         body.Key,
-		Value:       body.Value,
-		Description: body.Description,
-		Enabled:     body.Enabled,
-		Order:       float64(body.Order),
-		ID:          body.ID,
+		Key:          body.Key,
+		Value:        body.Value,
+		Description:  body.Description,
+		Enabled:      body.Enabled,
+		DisplayOrder: float64(body.DisplayOrder),
+		ID:           body.ID,
 	})
 }
 
@@ -255,14 +223,14 @@ func SerializeBodyUrlEncodedModelToGen(body mhttp.HTTPBodyUrlencoded) gen.HttpBo
 		Value:                      body.Value,
 		Enabled:                    body.Enabled,
 		Description:                body.Description,
-		Order:                      float64(body.Order),
+		DisplayOrder:               float64(body.DisplayOrder),
 		ParentHttpBodyUrlencodedID: idWrapToBytes(body.ParentHttpBodyUrlEncodedID),
 		IsDelta:                    body.IsDelta,
 		DeltaKey:                   stringToNull(body.DeltaKey),
 		DeltaValue:                 stringToNull(body.DeltaValue),
 		DeltaEnabled:               body.DeltaEnabled,
 		DeltaDescription:           body.DeltaDescription,
-		DeltaOrder:                 float32ToNullFloat64UrlEncoded(body.DeltaOrder),
+		DeltaDisplayOrder:          float32ToNullFloat64UrlEncoded(body.DeltaDisplayOrder),
 		CreatedAt:                  body.CreatedAt,
 		UpdatedAt:                  body.UpdatedAt,
 	}
@@ -276,14 +244,14 @@ func DeserializeBodyUrlEncodedGenToModel(body gen.HttpBodyUrlencoded) mhttp.HTTP
 		Value:                      body.Value,
 		Enabled:                    body.Enabled,
 		Description:                body.Description,
-		Order:                      float32(body.Order),
+		DisplayOrder:               float32(body.DisplayOrder),
 		ParentHttpBodyUrlEncodedID: bytesToIDWrap(body.ParentHttpBodyUrlencodedID),
 		IsDelta:                    body.IsDelta,
 		DeltaKey:                   nullToString(body.DeltaKey),
 		DeltaValue:                 nullToString(body.DeltaValue),
 		DeltaEnabled:               body.DeltaEnabled,
 		DeltaDescription:           body.DeltaDescription,
-		DeltaOrder:                 nullFloat64ToFloat32UrlEncoded(body.DeltaOrder),
+		DeltaDisplayOrder:          nullFloat64ToFloat32UrlEncoded(body.DeltaDisplayOrder),
 		CreatedAt:                  body.CreatedAt,
 		UpdatedAt:                  body.UpdatedAt,
 	}

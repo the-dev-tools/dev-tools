@@ -103,13 +103,13 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 
 		// Create the param model
 		paramModel := &mhttp.HTTPSearchParam{
-			ID:          paramID,
-			HttpID:      httpID,
-			Key:         item.Key,
-			Value:       item.Value,
-			Enabled:     item.Enabled,
-			Description: item.Description,
-			Order:       float64(item.Order),
+			ID:           paramID,
+			HttpID:       httpID,
+			Key:          item.Key,
+			Value:        item.Value,
+			Enabled:      item.Enabled,
+			Description:  item.Description,
+			DisplayOrder: float64(item.Order),
 		}
 
 		insertData = append(insertData, struct {
@@ -229,7 +229,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 			existingParam.Description = *item.Description
 		}
 		if item.Order != nil {
-			existingParam.Order = float64(*item.Order)
+			existingParam.DisplayOrder = float64(*item.Order)
 		}
 	}
 
@@ -249,7 +249,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		}
 
 		if data.item.Order != nil {
-			if err := httpSearchParamService.UpdateOrder(ctx, data.existingParam.ID, data.existingParam.HttpID, data.existingParam.Order); err != nil {
+			if err := httpSearchParamService.UpdateOrder(ctx, data.existingParam.ID, data.existingParam.HttpID, data.existingParam.DisplayOrder); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}

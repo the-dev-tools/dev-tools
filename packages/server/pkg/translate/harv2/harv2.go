@@ -1198,14 +1198,14 @@ func createStatusAssertions(baseHttpID, deltaHttpID idwrap.IDWrap, statusCode in
 
 	baseAssertID := idwrap.NewNow()
 	baseAssert := mhttp.HTTPAssert{
-		ID:          baseAssertID,
-		HttpID:      baseHttpID,
-		Value:       assertExpr,
-		Enabled:     true,
-		Description: fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
-		Order:       float32(entryIndex),
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           baseAssertID,
+		HttpID:       baseHttpID,
+		Value:        assertExpr,
+		Enabled:      true,
+		Description:  fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
+		DisplayOrder: float32(entryIndex),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	deltaAssert := mhttp.HTTPAssert{
@@ -1214,7 +1214,7 @@ func createStatusAssertions(baseHttpID, deltaHttpID idwrap.IDWrap, statusCode in
 		Value:              assertExpr,
 		Enabled:            true,
 		Description:        fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
-		Order:              float32(entryIndex),
+		DisplayOrder:       float32(entryIndex),
 		ParentHttpAssertID: &baseAssertID,
 		IsDelta:            true,
 		CreatedAt:          now,

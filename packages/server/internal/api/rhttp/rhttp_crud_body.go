@@ -100,13 +100,13 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 
 		// Create the body form model
 		bodyFormModel := &mhttp.HTTPBodyForm{
-			ID:          bodyFormID,
-			HttpID:      httpID,
-			Key:         item.Key,
-			Value:       item.Value,
-			Enabled:     item.Enabled,
-			Description: item.Description,
-			Order:       item.Order,
+			ID:           bodyFormID,
+			HttpID:       httpID,
+			Key:          item.Key,
+			Value:        item.Value,
+			Enabled:      item.Enabled,
+			Description:  item.Description,
+			DisplayOrder: item.Order,
 		}
 
 		insertData = append(insertData, struct {
@@ -228,7 +228,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 			existingBodyForm.Description = *item.Description
 		}
 		if item.Order != nil {
-			existingBodyForm.Order = *item.Order
+			existingBodyForm.DisplayOrder = *item.Order
 		}
 	}
 
@@ -444,13 +444,13 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 
 		// Create the body URL encoded model
 		bodyUrlEncodedModel := &mhttp.HTTPBodyUrlencoded{
-			ID:          bodyUrlEncodedID,
-			HttpID:      httpID,
-			Key:         item.Key,
-			Value:       item.Value,
-			Enabled:     item.Enabled,
-			Description: item.Description,
-			Order:       item.Order,
+			ID:           bodyUrlEncodedID,
+			HttpID:       httpID,
+			Key:          item.Key,
+			Value:        item.Value,
+			Enabled:      item.Enabled,
+			Description:  item.Description,
+			DisplayOrder: item.Order,
 		}
 
 		insertData = append(insertData, struct {
@@ -570,7 +570,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 			existingBodyUrlEncoded.Description = *item.Description
 		}
 		if item.Order != nil {
-			existingBodyUrlEncoded.Order = *item.Order
+			existingBodyUrlEncoded.DisplayOrder = *item.Order
 		}
 	}
 

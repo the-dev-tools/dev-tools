@@ -141,7 +141,7 @@ func TestHttpHeaderUpdatePersistsOrder(t *testing.T) {
 	headers, err := f.handler.httpHeaderService.GetByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
 	require.Len(t, headers, 1)
-	require.Equal(t, initialOrder, headers[0].Order)
+	require.Equal(t, initialOrder, headers[0].DisplayOrder)
 
 	// Update header with new order
 	newOrder := float32(5.0)
@@ -161,7 +161,7 @@ func TestHttpHeaderUpdatePersistsOrder(t *testing.T) {
 	headers, err = f.handler.httpHeaderService.GetByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
 	require.Len(t, headers, 1)
-	require.Equal(t, newOrder, headers[0].Order, "Order should be updated to new value")
+	require.Equal(t, newOrder, headers[0].DisplayOrder, "Order should be updated to new value")
 }
 
 func TestHttpBodyFormDataUpdatePersistsOrder(t *testing.T) {
@@ -195,7 +195,7 @@ func TestHttpBodyFormDataUpdatePersistsOrder(t *testing.T) {
 	forms, err := f.handler.httpBodyFormService.GetByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
 	require.Len(t, forms, 1)
-	require.Equal(t, initialOrder, forms[0].Order)
+	require.Equal(t, initialOrder, forms[0].DisplayOrder)
 
 	// Update body form with new order
 	newOrder := float32(10.0)
@@ -215,7 +215,7 @@ func TestHttpBodyFormDataUpdatePersistsOrder(t *testing.T) {
 	forms, err = f.handler.httpBodyFormService.GetByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
 	require.Len(t, forms, 1)
-	require.Equal(t, newOrder, forms[0].Order, "Order should be updated to new value")
+	require.Equal(t, newOrder, forms[0].DisplayOrder, "Order should be updated to new value")
 }
 
 func TestHttpBodyUrlEncodedUpdatePersistsOrder(t *testing.T) {
@@ -249,7 +249,7 @@ func TestHttpBodyUrlEncodedUpdatePersistsOrder(t *testing.T) {
 	urlencoded, err := f.handler.httpBodyUrlEncodedService.GetByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
 	require.Len(t, urlencoded, 1)
-	require.Equal(t, initialOrder, urlencoded[0].Order)
+	require.Equal(t, initialOrder, urlencoded[0].DisplayOrder)
 
 	// Update body urlencoded with new order
 	newOrder := float32(15.0)
@@ -269,7 +269,7 @@ func TestHttpBodyUrlEncodedUpdatePersistsOrder(t *testing.T) {
 	urlencoded, err = f.handler.httpBodyUrlEncodedService.GetByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
 	require.Len(t, urlencoded, 1)
-	require.Equal(t, newOrder, urlencoded[0].Order, "Order should be updated to new value")
+	require.Equal(t, newOrder, urlencoded[0].DisplayOrder, "Order should be updated to new value")
 }
 
 func TestHttpHeaderOrderRoundTrip(t *testing.T) {

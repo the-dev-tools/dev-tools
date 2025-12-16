@@ -148,11 +148,23 @@ func (s *FlowServiceV2RPC) executeFlow(
 	}
 
 	requestRespChan := make(chan nrequest.NodeRequestSideResp, len(nodes)*2+1)
+	// Track when HTTP responses are published so node execution events can wait
+	// This ensures frontend receives HttpResponse before NodeExecution with ResponseID
+	responsePublished := make(map[string]chan struct{})
+	var responsePublishedMu sync.Mutex
 	var respDrain sync.WaitGroup
 	respDrain.Add(1)
 	go func() {
 		defer respDrain.Done()
 		for resp := range requestRespChan {
+			responseID := resp.Resp.HTTPResponse.ID.String()
+
+			// Register the channel before processing so nodeStateChan can find it
+			responsePublishedMu.Lock()
+			publishedChan := make(chan struct{})
+			responsePublished[responseID] = publishedChan
+			responsePublishedMu.Unlock()
+
 			// Save HTTP Response
 			if err := s.httpResponseService.Create(ctx, resp.Resp.HTTPResponse); err != nil {
 				s.logger.Error("failed to save http response", "error", err)
@@ -177,6 +189,9 @@ func (s *FlowServiceV2RPC) executeFlow(
 					s.publishHttpResponseAssertEvent("insert", a, flow.WorkspaceID)
 				}
 			}
+
+			// Signal that response is published - nodeStateChan can now publish execution
+			close(publishedChan)
 
 			if resp.Done != nil {
 				close(resp.Done)
@@ -214,11 +229,33 @@ func (s *FlowServiceV2RPC) executeFlow(
 	stateDrain.Add(1)
 	go func() {
 		defer stateDrain.Done()
+		
+		// Cache execution IDs to ensure stability across multiple events for the same execution
+		// Key: NodeID + Iteration info
+		executionCache := make(map[string]idwrap.IDWrap)
+
 		for status := range nodeStateChan {
 			// Persist execution state
 			execID := status.ExecutionID
+			isNewExecution := false
+
 			if isZeroID(execID) {
-				execID = idwrap.NewNow()
+				// Construct cache key based on node and iteration context
+				cacheKey := status.NodeID.String()
+				if status.IterationContext != nil {
+					// Use iteration path and index for uniqueness in loops
+					cacheKey = fmt.Sprintf("%s:%v:%d", cacheKey, status.IterationContext.IterationPath, status.IterationContext.ExecutionIndex)
+				} else if status.IterationIndex >= 0 {
+					cacheKey = fmt.Sprintf("%s:%d", cacheKey, status.IterationIndex)
+				}
+
+				if cachedID, ok := executionCache[cacheKey]; ok {
+					execID = cachedID
+				} else {
+					execID = idwrap.NewNow()
+					executionCache[cacheKey] = execID
+					isNewExecution = true
+				}
 			}
 
 			model := mnodeexecution.NodeExecution{
@@ -245,17 +282,47 @@ func (s *FlowServiceV2RPC) executeFlow(
 				}
 			}
 
-			eventType := executionEventInsert
+			// Set CompletedAt for terminal states
 			if status.State == mnnode.NODE_STATE_SUCCESS ||
 				status.State == mnnode.NODE_STATE_FAILURE ||
 				status.State == mnnode.NODE_STATE_CANCELED {
 				now := time.Now().Unix()
 				model.CompletedAt = &now
+			}
+
+			eventType := executionEventInsert
+			// Only use UPDATE if it's NOT a new execution AND the state is terminal.
+			// If it's a new execution (first time seeing this node run), we MUST send INSERT,
+			// even if the state is already SUCCESS/FAILURE (instant execution).
+			if !isNewExecution && (status.State == mnnode.NODE_STATE_SUCCESS ||
+				status.State == mnnode.NODE_STATE_FAILURE ||
+				status.State == mnnode.NODE_STATE_CANCELED) {
 				eventType = executionEventUpdate
 			}
 
 			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
 				s.logger.Error("failed to persist node execution", "error", err)
+			}
+
+			// If this execution has a ResponseID, wait for the response to be published first
+			// This ensures frontend receives HttpResponse before NodeExecution
+			if status.AuxiliaryID != nil {
+				respIDStr := status.AuxiliaryID.String()
+				responsePublishedMu.Lock()
+				publishedChan, ok := responsePublished[respIDStr]
+				responsePublishedMu.Unlock()
+				if ok {
+					select {
+					case <-publishedChan:
+						// Response published, safe to continue
+					case <-ctx.Done():
+						// Context cancelled, continue anyway
+					}
+					// Clean up map entry to prevent memory leak
+					responsePublishedMu.Lock()
+					delete(responsePublished, respIDStr)
+					responsePublishedMu.Unlock()
+				}
 			}
 
 			// Publish execution event for original node

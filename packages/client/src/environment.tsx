@@ -43,7 +43,7 @@ import { workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
 import { ExportDialog } from '~/workspace/export';
-import { ImportDialog } from '~/workspace/import';
+import { ImportDialogTrigger } from '~/workspace/import';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -117,7 +117,7 @@ export const EnvironmentsWidget = () => {
 
       <div className={tw`flex-1`} />
 
-      <ImportDialog />
+      <ImportDialogTrigger />
 
       <ExportDialog />
 

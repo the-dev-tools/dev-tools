@@ -75,8 +75,8 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 				if bodyForm.DeltaDescription != nil {
 					delta.Description = bodyForm.DeltaDescription
 				}
-				if bodyForm.DeltaOrder != nil {
-					delta.Order = bodyForm.DeltaOrder
+				if bodyForm.DeltaDisplayOrder != nil {
+					delta.Order = bodyForm.DeltaDisplayOrder
 				}
 
 				allDeltas = append(allDeltas, delta)
@@ -526,8 +526,8 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 				if bodyUrlEncoded.DeltaDescription != nil {
 					delta.Description = bodyUrlEncoded.DeltaDescription
 				}
-				if bodyUrlEncoded.DeltaOrder != nil {
-					delta.Order = bodyUrlEncoded.DeltaOrder
+				if bodyUrlEncoded.DeltaDisplayOrder != nil {
+					delta.Order = bodyUrlEncoded.DeltaDisplayOrder
 				}
 
 				allDeltas = append(allDeltas, delta)

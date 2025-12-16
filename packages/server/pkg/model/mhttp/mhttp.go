@@ -42,14 +42,14 @@ type HTTPSearchParam struct {
 	Value                   string         `json:"value"`
 	Description             string         `json:"description"`
 	Enabled                 bool           `json:"enabled"`
-	Order                   float64        `json:"order"`
+	DisplayOrder            float64        `json:"order"`
 	ParentHttpSearchParamID *idwrap.IDWrap `json:"parent_http_search_param_id,omitempty"`
 	IsDelta                 bool           `json:"is_delta"`
 	DeltaKey                *string        `json:"delta_key,omitempty"`
 	DeltaValue              *string        `json:"delta_value,omitempty"`
 	DeltaDescription        *string        `json:"delta_description,omitempty"`
 	DeltaEnabled            *bool          `json:"delta_enabled,omitempty"`
-	DeltaOrder              *float64       `json:"delta_order,omitempty"`
+	DeltaDisplayOrder       *float64       `json:"delta_order,omitempty"`
 	CreatedAt               int64          `json:"created_at"`
 	UpdatedAt               int64          `json:"updated_at"`
 }
@@ -65,14 +65,14 @@ type HTTPHeader struct {
 	Value              string         `json:"value"`
 	Enabled            bool           `json:"enabled"`
 	Description        string         `json:"description"`
-	Order              float32        `json:"order"`
+	DisplayOrder       float32        `json:"order"`
 	ParentHttpHeaderID *idwrap.IDWrap `json:"parent_http_header_id,omitempty"`
 	IsDelta            bool           `json:"is_delta"`
 	DeltaKey           *string        `json:"delta_key,omitempty"`
 	DeltaValue         *string        `json:"delta_value,omitempty"`
 	DeltaEnabled       *bool          `json:"delta_enabled,omitempty"`
 	DeltaDescription   *string        `json:"delta_description,omitempty"`
-	DeltaOrder         *float32       `json:"delta_order,omitempty"`
+	DeltaDisplayOrder  *float32       `json:"delta_order,omitempty"`
 	CreatedAt          int64          `json:"created_at"`
 	UpdatedAt          int64          `json:"updated_at"`
 }
@@ -88,14 +88,14 @@ type HTTPBodyForm struct {
 	Value                string         `json:"value"`
 	Description          string         `json:"description"`
 	Enabled              bool           `json:"enabled"`
-	Order                float32        `json:"order"`
+	DisplayOrder         float32        `json:"order"`
 	ParentHttpBodyFormID *idwrap.IDWrap `json:"parent_http_body_form_id,omitempty"`
 	IsDelta              bool           `json:"is_delta"`
 	DeltaKey             *string        `json:"delta_key,omitempty"`
 	DeltaValue           *string        `json:"delta_value,omitempty"`
 	DeltaDescription     *string        `json:"delta_description,omitempty"`
 	DeltaEnabled         *bool          `json:"delta_enabled,omitempty"`
-	DeltaOrder           *float32       `json:"delta_order,omitempty"`
+	DeltaDisplayOrder    *float32       `json:"delta_order,omitempty"`
 	CreatedAt            int64          `json:"created_at"`
 	UpdatedAt            int64          `json:"updated_at"`
 }
@@ -111,14 +111,14 @@ type HTTPBodyUrlencoded struct {
 	Value                      string         `json:"value"`
 	Enabled                    bool           `json:"enabled"`
 	Description                string         `json:"description"`
-	Order                      float32        `json:"order"`
+	DisplayOrder               float32        `json:"order"`
 	ParentHttpBodyUrlEncodedID *idwrap.IDWrap `json:"parent_http_body_url_encoded_id,omitempty"`
 	IsDelta                    bool           `json:"is_delta"`
 	DeltaKey                   *string        `json:"delta_key,omitempty"`
 	DeltaValue                 *string        `json:"delta_value,omitempty"`
 	DeltaEnabled               *bool          `json:"delta_enabled,omitempty"`
 	DeltaDescription           *string        `json:"delta_description,omitempty"`
-	DeltaOrder                 *float32       `json:"delta_order,omitempty"`
+	DeltaDisplayOrder          *float32       `json:"delta_order,omitempty"`
 	CreatedAt                  int64          `json:"created_at"`
 	UpdatedAt                  int64          `json:"updated_at"`
 }
@@ -146,13 +146,13 @@ type HTTPAssert struct {
 	Value              string         `json:"value"`
 	Enabled            bool           `json:"enabled"`
 	Description        string         `json:"description"`
-	Order              float32        `json:"order"`
+	DisplayOrder       float32        `json:"order"`
 	ParentHttpAssertID *idwrap.IDWrap `json:"parent_http_assert_id,omitempty"`
 	IsDelta            bool           `json:"is_delta"`
 	DeltaValue         *string        `json:"delta_value,omitempty"`
 	DeltaEnabled       *bool          `json:"delta_enabled,omitempty"`
 	DeltaDescription   *string        `json:"delta_description,omitempty"`
-	DeltaOrder         *float32       `json:"delta_order,omitempty"`
+	DeltaDisplayOrder  *float32       `json:"delta_order,omitempty"`
 	CreatedAt          int64          `json:"created_at"`
 	UpdatedAt          int64          `json:"updated_at"`
 }

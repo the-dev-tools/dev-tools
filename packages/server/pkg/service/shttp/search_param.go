@@ -93,10 +93,10 @@ func (s *HttpSearchParamService) GetByHttpIDOrdered(ctx context.Context, httpID 
 
 	// Sort by order field
 	slices.SortFunc(dbParams, func(a, b gen.GetHTTPSearchParamsRow) int {
-		if a.Order < b.Order {
+		if a.DisplayOrder < b.DisplayOrder {
 			return -1
 		}
-		if a.Order > b.Order {
+		if a.DisplayOrder > b.DisplayOrder {
 			return 1
 		}
 		return 0
@@ -189,9 +189,9 @@ func (s *HttpSearchParamService) UpdateDelta(ctx context.Context, id idwrap.IDWr
 
 func (s *HttpSearchParamService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, httpID idwrap.IDWrap, order float64) error {
 	return s.queries.UpdateHTTPSearchParamOrder(ctx, gen.UpdateHTTPSearchParamOrderParams{
-		Order:  order,
-		ID:     id,
-		HttpID: httpID,
+		DisplayOrder: order,
+		ID:           id,
+		HttpID:       httpID,
 	})
 }
 
@@ -242,7 +242,7 @@ func (s *HttpSearchParamService) ResetDelta(ctx context.Context, id idwrap.IDWra
 		Value:       param.Value,
 		Enabled:     param.Enabled,
 		Description: param.Description,
-		Order:       param.Order,
+		DisplayOrder: param.DisplayOrder,
 		// Clear delta fields
 		ParentHttpSearchParamID: nil,
 		IsDelta:                 false,
@@ -250,7 +250,7 @@ func (s *HttpSearchParamService) ResetDelta(ctx context.Context, id idwrap.IDWra
 		DeltaValue:              nil,
 		DeltaEnabled:            nil,
 		DeltaDescription:        nil,
-		DeltaOrder:              nil,
+		DeltaDisplayOrder:       nil,
 		CreatedAt:               param.CreatedAt,
 		UpdatedAt:               param.UpdatedAt,
 	})
@@ -272,16 +272,31 @@ func SerializeSearchParamModelToGen(param mhttp.HTTPSearchParam) gen.CreateHTTPS
 		Value:                   param.Value,
 		Description:             param.Description,
 		Enabled:                 param.Enabled,
-		Order:                   param.Order,
+		DisplayOrder:            param.DisplayOrder,
 		ParentHttpSearchParamID: idWrapToBytes(param.ParentHttpSearchParamID),
 		IsDelta:                 param.IsDelta,
 		DeltaKey:                stringToNull(param.DeltaKey),
 		DeltaValue:              stringToNull(param.DeltaValue),
 		DeltaDescription:        param.DeltaDescription,
 		DeltaEnabled:            param.DeltaEnabled,
+		DeltaDisplayOrder:       float64ToNullFloat64SearchParam(param.DeltaDisplayOrder),
 		CreatedAt:               param.CreatedAt,
 		UpdatedAt:               param.UpdatedAt,
 	}
+}
+
+func float64ToNullFloat64SearchParam(f *float64) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{Valid: false}
+	}
+	return sql.NullFloat64{Float64: *f, Valid: true}
+}
+
+func nullFloat64ToFloat64SearchParam(nf sql.NullFloat64) *float64 {
+	if !nf.Valid {
+		return nil
+	}
+	return &nf.Float64
 }
 
 func DeserializeSearchParamGenToModel(dbParam gen.GetHTTPSearchParamsRow) mhttp.HTTPSearchParam {
@@ -292,14 +307,14 @@ func DeserializeSearchParamGenToModel(dbParam gen.GetHTTPSearchParamsRow) mhttp.
 		Value:                   dbParam.Value,
 		Description:             dbParam.Description,
 		Enabled:                 dbParam.Enabled,
-		Order:                   dbParam.Order,
+		DisplayOrder:            dbParam.DisplayOrder,
 		ParentHttpSearchParamID: bytesToIDWrap(dbParam.ParentHttpSearchParamID),
 		IsDelta:                 dbParam.IsDelta,
 		DeltaKey:                nullToString(dbParam.DeltaKey),
 		DeltaValue:              nullToString(dbParam.DeltaValue),
 		DeltaEnabled:            dbParam.DeltaEnabled,
 		DeltaDescription:        dbParam.DeltaDescription,
-		DeltaOrder:              &dbParam.Order,
+		DeltaDisplayOrder:       nullFloat64ToFloat64SearchParam(dbParam.DeltaDisplayOrder),
 		CreatedAt:               dbParam.CreatedAt,
 		UpdatedAt:               dbParam.UpdatedAt,
 	}
@@ -313,14 +328,14 @@ func deserializeSearchParamByIDsRowToModel(row gen.GetHTTPSearchParamsByIDsRow) 
 		Value:                   row.Value,
 		Description:             row.Description,
 		Enabled:                 row.Enabled,
-		Order:                   row.Order,
+		DisplayOrder:            row.DisplayOrder,
 		ParentHttpSearchParamID: bytesToIDWrap(row.ParentHttpSearchParamID),
 		IsDelta:                 row.IsDelta,
 		DeltaKey:                nullToString(row.DeltaKey),
 		DeltaValue:              nullToString(row.DeltaValue),
 		DeltaEnabled:            row.DeltaEnabled,
 		DeltaDescription:        row.DeltaDescription,
-		DeltaOrder:              nil, // Not available in ByIDs row
+		DeltaDisplayOrder:       nullFloat64ToFloat64SearchParam(row.DeltaDisplayOrder),
 		CreatedAt:               row.CreatedAt,
 		UpdatedAt:               row.UpdatedAt,
 	}
