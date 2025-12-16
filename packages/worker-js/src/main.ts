@@ -14,7 +14,7 @@ import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeHttpServer from '@effect/platform-node/NodeHttpServer';
 import * as NodeHttpServerRequest from '@effect/platform-node/NodeHttpServerRequest';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
-import { Array, Effect, Layer, pipe, Stream } from 'effect';
+import { Array, Config, Effect, Layer, pipe, Stream } from 'effect';
 import { createServer, IncomingMessage } from 'http';
 import os from 'node:os';
 import { NodeJsExecutorService } from './nodejs-executor.ts';
@@ -23,7 +23,12 @@ const connectRouter = createConnectRouter();
 
 NodeJsExecutorService(connectRouter);
 
-const WorkerServerLive = Effect.gen(function* () {
+// Environment variables:
+//   - WORKER_MODE: "uds" (default) or "tcp"
+//   - WORKER_SOCKET_PATH: custom socket path (uds mode)
+//   - WORKER_PORT: port number (tcp mode, defaults to 9090)
+
+const WorkerServerUdsLive = Effect.gen(function* () {
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
 
@@ -31,7 +36,10 @@ const WorkerServerLive = Effect.gen(function* () {
 
   yield* fs.makeDirectory(directory, { recursive: true });
 
-  const socket = path.join(directory, 'worker-js.socket');
+  const socket = yield* pipe(
+    Config.string('WORKER_SOCKET_PATH'),
+    Config.withDefault(path.join(directory, 'worker-js.socket')),
+  );
 
   // Try deleting a possibly hanging socket before acquiring a new one
   yield* fs.remove(socket, { force: true });
@@ -42,6 +50,17 @@ const WorkerServerLive = Effect.gen(function* () {
     // Release socket
     () => pipe(fs.remove(socket, { force: true }), Effect.orDie),
   );
+});
+
+const WorkerServerTcpLive = Effect.gen(function* () {
+  const port = yield* pipe(Config.port('WORKER_PORT'), Config.withDefault(9090));
+  return yield* pipe(NodeHttpServer.layer(createServer, { port }), Layer.build);
+});
+
+const WorkerServerLive = Effect.gen(function* () {
+  const mode = yield* pipe('WORKER_MODE', Config.literal('uds', 'tcp'), Config.withDefault('uds'));
+  if (mode === 'tcp') return yield* WorkerServerTcpLive;
+  return yield* WorkerServerUdsLive;
 }).pipe(Layer.effectContext);
 
 async function* asyncIterableFromNodeServerRequest(request: IncomingMessage) {
