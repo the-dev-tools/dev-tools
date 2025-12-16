@@ -70,6 +70,12 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
+		// Get node model to publish event later
+		nodeModel, err := s.ns.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
+		}
+
 		var httpID *idwrap.IDWrap
 		if len(item.GetHttpId()) > 0 {
 			parsedID, err := idwrap.NewFromBytes(item.GetHttpId())
@@ -100,6 +106,11 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeHttpSync can pick up the httpId/deltaHttpId
+		if nodeModel != nil {
+			s.publishNodeEvent(nodeEventUpdate, *nodeModel)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -112,7 +123,8 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
@@ -148,6 +160,9 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeHttpSync can pick up the updated httpId/deltaHttpId
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -160,13 +175,17 @@ func (s *FlowServiceV2RPC) NodeHttpDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if err := s.nrs.DeleteNodeRequest(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node event so NodeHttpSync can pick up the deletion of httpId/deltaHttpId
+		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
