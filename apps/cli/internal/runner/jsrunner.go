@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	jsWorkerPort           = 9090
 	jsWorkerStartupTimeout = 30 * time.Second
 	jsWorkerHealthInterval = 1 * time.Second
 	jsWorkerInitialWait    = 2 * time.Second
@@ -28,7 +27,7 @@ type JSRunner struct {
 	cmd        *exec.Cmd
 	client     node_js_executorv1connect.NodeJsExecutorServiceClient
 	tempFile   string
-	baseURL    string
+	socketPath string
 	httpClient *http.Client
 }
 
@@ -52,27 +51,38 @@ func NewJSRunner() (*JSRunner, error) {
 	}
 	_ = tempFile.Close()
 
-	baseURL := fmt.Sprintf("http://localhost:%d", jsWorkerPort)
+	// Create a unique socket path for this runner instance
+	socketPath := fmt.Sprintf("%s/devtools-cli-worker-%d.sock", os.TempDir(), os.Getpid())
+
+	// Configure HTTP client to use Unix socket
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				dialer := net.Dialer{}
+				return dialer.DialContext(ctx, "unix", socketPath)
+			},
+		},
 	}
 
 	runner := &JSRunner{
 		cmd:        exec.Command(nodePath, "--experimental-vm-modules", tempFile.Name()),
 		tempFile:   tempFile.Name(),
-		baseURL:    baseURL,
+		socketPath: socketPath,
 		httpClient: httpClient,
 	}
-	runner.cmd.Env = append(os.Environ(), "NODE_NO_WARNINGS=1")
-
-	// Note: --disable-warning=ExperimentalWarning might vary by node version,
-	// safe choice is usually ignoring stderr or specific flags if supported.
-	// I noticed previous code used --disable-warning=ExperimentalWarning. I kept it similar but normalized.
+	// Use UDS mode (default) with custom socket path
+	runner.cmd.Env = append(os.Environ(),
+		"NODE_NO_WARNINGS=1",
+		fmt.Sprintf("WORKER_SOCKET_PATH=%s", socketPath),
+	)
 
 	// Create the RPC client
+	// NOTE: ConnectRPC requires an address even for Unix sockets.
+	// Use placeholder since actual routing is via socket.
 	runner.client = node_js_executorv1connect.NewNodeJsExecutorServiceClient(
 		httpClient,
-		baseURL,
+		"http://devtools-cli:0",
 	)
 
 	return runner, nil
@@ -126,8 +136,8 @@ func (r *JSRunner) Start(ctx context.Context) error {
 
 // isHealthy checks if the worker is responding
 func (r *JSRunner) isHealthy() bool {
-	// Try TCP connection to verify the server is listening
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", jsWorkerPort), time.Second)
+	// Try Unix socket connection to verify the server is listening
+	conn, err := net.DialTimeout("unix", r.socketPath, time.Second)
 	if err != nil {
 		return false
 	}
@@ -171,5 +181,9 @@ func (r *JSRunner) Stop() {
 
 	if r.tempFile != "" {
 		_ = os.Remove(r.tempFile)
+	}
+
+	if r.socketPath != "" {
+		_ = os.Remove(r.socketPath)
 	}
 }
