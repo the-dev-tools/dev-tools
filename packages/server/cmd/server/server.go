@@ -293,15 +293,15 @@ func run() error {
 
 	// Create JS executor client
 	// Environment variables:
-	//   - WORKER_MODE: "unix" (default) or "tcp"
-	//   - WORKER_SOCKET_PATH: custom socket path (unix mode)
+	//   - WORKER_MODE: "uds" (default) or "tcp"
+	//   - WORKER_SOCKET_PATH: custom socket path (uds mode)
 	//   - WORKER_URL: full URL (tcp mode, defaults to http://localhost:9090)
 	var jsHTTPClient *http.Client
 	var jsBaseURL string
 
 	workerMode := os.Getenv("WORKER_MODE")
 	if workerMode == "" {
-		workerMode = api.ServerModeUnix
+		workerMode = api.ServerModeUDS
 	}
 
 	switch workerMode {

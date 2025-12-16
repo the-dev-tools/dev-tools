@@ -67,8 +67,8 @@ func newCORS() *cors.Cors {
 
 // Server mode constants
 const (
-	ServerModeUnix = "unix"
-	ServerModeTCP  = "tcp"
+	ServerModeUDS = "uds"
+	ServerModeTCP = "tcp"
 )
 
 // DefaultServerSocketPath returns the default path for the server Unix socket.
@@ -84,8 +84,8 @@ func DefaultWorkerSocketPath() string {
 // ListenServices starts the server listening on either a Unix socket or TCP port.
 //
 // Environment variables:
-//   - SERVER_MODE: "unix" (default) or "tcp"
-//   - SERVER_SOCKET_PATH: custom socket path (unix mode, defaults to /tmp/the-dev-tools/server.socket)
+//   - SERVER_MODE: "uds" (default) or "tcp"
+//   - SERVER_SOCKET_PATH: custom socket path (uds mode, defaults to /tmp/the-dev-tools/server.socket)
 //   - PORT: port number (tcp mode, defaults to 8080)
 func ListenServices(services []Service, port string) error {
 	mux := http.NewServeMux()
@@ -97,16 +97,16 @@ func ListenServices(services []Service, port string) error {
 
 	mode := os.Getenv("SERVER_MODE")
 	if mode == "" {
-		mode = ServerModeUnix
+		mode = ServerModeUDS
 	}
 
 	switch mode {
 	case ServerModeTCP:
 		return listenTCP(mux, port)
-	case ServerModeUnix:
+	case ServerModeUDS:
 		return listenUnix(mux)
 	default:
-		slog.Warn("Unknown SERVER_MODE, falling back to unix", "mode", mode)
+		slog.Warn("Unknown SERVER_MODE, falling back to uds", "mode", mode)
 		return listenUnix(mux)
 	}
 }
