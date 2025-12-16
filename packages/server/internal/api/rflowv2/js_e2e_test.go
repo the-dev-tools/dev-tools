@@ -331,7 +331,11 @@ func startWorkerJS(t *testing.T, ctx context.Context, bundlePath string, port in
 		"--disable-warning=ExperimentalWarning",
 		bundlePath,
 	)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("JS_WORKER_PORT=%d", port))
+	// Use TCP mode with specified port (worker-js defaults to uds mode)
+	cmd.Env = append(os.Environ(),
+		"WORKER_MODE=tcp",
+		fmt.Sprintf("WORKER_PORT=%d", port),
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
