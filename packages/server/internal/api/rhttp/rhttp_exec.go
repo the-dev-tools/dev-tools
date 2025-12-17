@@ -299,9 +299,9 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	hsService := h.hs.TX(tx)
+	hsWriter := shttp.NewWriter(tx)
 
-	if err := hsService.Update(ctx, httpEntry); err != nil {
+	if err := hsWriter.Update(ctx, httpEntry); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update LastRunAt: %w", err))
 	}
 
@@ -309,7 +309,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
 	versionDesc := "Auto-saved version (Run)"
 
-	version, err := hsService.CreateHttpVersion(ctx, httpEntry.ID, userID, versionName, versionDesc)
+	version, err := hsWriter.CreateHttpVersion(ctx, httpEntry.ID, userID, versionName, versionDesc)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create version on run: %w", err))
 	}

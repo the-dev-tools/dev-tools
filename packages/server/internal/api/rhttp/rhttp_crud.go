@@ -127,13 +127,13 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	hsService := h.hs.TX(tx)
+	hsWriter := shttp.NewWriter(tx)
 
 	var createdHTTPs []mhttp.HTTP
 
 	// Fast writes inside minimal transaction
 	for _, httpModel := range httpModels {
-		if err := hsService.Create(ctx, httpModel); err != nil {
+		if err := hsWriter.Create(ctx, httpModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdHTTPs = append(createdHTTPs, *httpModel)
@@ -249,7 +249,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	hsService := h.hs.TX(tx)
+	hsWriter := shttp.NewWriter(tx)
 
 	var updatedHTTPs []mhttp.HTTP
 	var newVersions []mhttp.HttpVersion
@@ -261,7 +261,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 
 	// Fast updates inside minimal transaction
 	for _, data := range updateData {
-		if err := hsService.Update(ctx, data.httpModel); err != nil {
+		if err := hsWriter.Update(ctx, data.httpModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedHTTPs = append(updatedHTTPs, *data.httpModel)
@@ -271,7 +271,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
 		versionDesc := "Auto-saved version"
 
-		version, err := hsService.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
+		version, err := hsWriter.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
 		if err != nil {
 			// Log error but don't fail the update?
 			// Strict mode: fail the update if version creation fails
@@ -364,7 +364,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	hsService := h.hs.TX(tx)
+	hsWriter := shttp.NewWriter(tx)
 
 	var deletedIDs []idwrap.IDWrap
 	var deletedWorkspaceIDs []idwrap.IDWrap
@@ -375,7 +375,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 		// Perform cascade delete - the database schema should handle foreign key constraints
 		// This includes: http_search_param, http_header, http_body_form, http_body_urlencoded,
 		// http_body_raw, http_assert, http_response, etc.
-		if err := hsService.Delete(ctx, data.httpID); err != nil {
+		if err := hsWriter.Delete(ctx, data.httpID); err != nil {
 			// Handle foreign key constraint violations gracefully
 			if isForeignKeyConstraintError(err) {
 				return nil, connect.NewError(connect.CodeFailedPrecondition,
@@ -469,7 +469,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	defer devtoolsdb.TxnRollback(tx)
 
 	// Create transaction-scoped services
-	hsService := h.hs.TX(tx)
+	hsWriter := shttp.NewWriter(tx)
 	httpHeaderService := h.httpHeaderService.TX(tx)
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
@@ -497,7 +497,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		DeltaDescription: nil,
 	}
 
-	if err := hsService.Create(ctx, duplicateHttp); err != nil {
+	if err := hsWriter.Create(ctx, duplicateHttp); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
