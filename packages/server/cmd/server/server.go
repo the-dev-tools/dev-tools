@@ -282,6 +282,8 @@ func run() error {
 			HttpBodyRaw:        streamers.HttpBodyRaw,
 			HttpAssert:         streamers.HttpAssert,
 			File:               streamers.File,
+			Env:                streamers.Environment,
+			EnvVar:             streamers.EnvironmentVariable,
 		},
 	)
 	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
