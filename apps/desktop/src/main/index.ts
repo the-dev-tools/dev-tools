@@ -170,7 +170,13 @@ const onReady = Effect.gen(function* () {
   // Redirect server IPC into a UDS
   // https://nodejs.org/api/globals.html#custom-dispatcher
   // https://undici.nodejs.org/#/docs/api/Client?id=parameter-connectoptions
-  const dispatcher = new Agent({ socketPath: path.join(os.tmpdir(), 'the-dev-tools', 'server.socket') });
+  const dispatcher = new Agent({
+    socketPath: path.join(os.tmpdir(), 'the-dev-tools', 'server.socket'),
+
+    // Disable timeout for sync streams
+    bodyTimeout: 0,
+    headersTimeout: 0,
+  });
   protocol.handle('server', (rawRequest) => {
     const url = rawRequest.url.replace('server://', 'http://the-dev-tools:0/');
     let request = new Request(url, rawRequest);

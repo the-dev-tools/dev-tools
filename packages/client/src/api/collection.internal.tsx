@@ -105,7 +105,12 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
     const syncController = new AbortController();
 
     const sync = async () => {
-      const stream = Connect.stream({ method: schema.sync.method, signal: syncController.signal, transport });
+      const stream = Connect.stream({
+        method: schema.sync.method,
+        signal: syncController.signal,
+        timeoutMs: 0,
+        transport,
+      });
 
       try {
         for await (const response of stream) {
