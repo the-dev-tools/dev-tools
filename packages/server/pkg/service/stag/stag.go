@@ -7,21 +7,28 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mtag"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 type TagService struct {
+	reader  *Reader
 	queries *gen.Queries
 }
 
 var ErrNoTag error = sql.ErrNoRows
 
 func New(queries *gen.Queries) TagService {
-	return TagService{queries: queries}
+	return TagService{
+		reader:  NewReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (s *TagService) TX(tx *sql.Tx) TagService {
-	return TagService{queries: s.queries.WithTx(tx)}
+	newQueries := s.queries.WithTx(tx)
+	return TagService{
+		reader:  NewReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*TagService, error) {
@@ -30,62 +37,27 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*TagService, error) {
 		return nil, err
 	}
 	return &TagService{
+		reader:  NewReaderFromQueries(queries),
 		queries: queries,
 	}, nil
 }
 
-func ConvertDBToModel(item gen.Tag) mtag.Tag {
-	return mtag.Tag{
-		ID:          item.ID,
-		WorkspaceID: item.WorkspaceID,
-		Name:        item.Name,
-		Color:       mtag.Color(item.Color), // nolint:gosec // G115
-	}
-}
-
-func ConvertModelToDB(item mtag.Tag) gen.Tag {
-	return gen.Tag{
-		ID:          item.ID,
-		WorkspaceID: item.WorkspaceID,
-		Name:        item.Name,
-		Color:       int8(item.Color), // nolint:gosec // G115
-	}
-}
-
 func (s *TagService) GetTag(ctx context.Context, id idwrap.IDWrap) (mtag.Tag, error) {
-	item, err := s.queries.GetTag(ctx, id)
-	if err != nil {
-		return mtag.Tag{}, err
-	}
-	return ConvertDBToModel(item), nil
+	return s.reader.GetTag(ctx, id)
 }
 
 func (s *TagService) GetTagByWorkspace(ctx context.Context, id idwrap.IDWrap) ([]mtag.Tag, error) {
-	item, err := s.queries.GetTagsByWorkspaceID(ctx, id)
-	if err != nil {
-		return []mtag.Tag{}, err
-	}
-
-	return tgeneric.MassConvert(item, ConvertDBToModel), nil
+	return s.reader.GetTagByWorkspace(ctx, id)
 }
 
 func (s *TagService) CreateTag(ctx context.Context, ftag mtag.Tag) error {
-	arg := ConvertModelToDB(ftag)
-	err := s.queries.CreateTag(ctx, gen.CreateTagParams(arg))
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
+	return NewWriterFromQueries(s.queries).CreateTag(ctx, ftag)
 }
 
 func (s *TagService) UpdateTag(ctx context.Context, ftag mtag.Tag) error {
-	arg := ConvertModelToDB(ftag)
-	err := s.queries.UpdateTag(ctx, gen.UpdateTagParams{
-		ID:    arg.ID,
-		Name:  arg.Name,
-		Color: arg.Color,
-	})
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
+	return NewWriterFromQueries(s.queries).UpdateTag(ctx, ftag)
 }
 
 func (s *TagService) DeleteTag(ctx context.Context, id idwrap.IDWrap) error {
-	err := s.queries.DeleteTag(ctx, id)
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoTag, err)
+	return NewWriterFromQueries(s.queries).DeleteTag(ctx, id)
 }

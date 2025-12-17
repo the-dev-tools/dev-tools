@@ -6,22 +6,27 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 )
 
 type NodeIfService struct {
+	reader  *Reader
 	queries *gen.Queries
 }
 
 func New(queries *gen.Queries) *NodeIfService {
 	return &NodeIfService{
+		reader:  NewReaderFromQueries(queries),
 		queries: queries,
 	}
 }
 
 func (nifs NodeIfService) TX(tx *sql.Tx) *NodeIfService {
-	return &NodeIfService{queries: nifs.queries.WithTx(tx)}
+	newQueries := nifs.queries.WithTx(tx)
+	return &NodeIfService{
+		reader:  NewReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeIfService, error) {
@@ -30,63 +35,27 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeIfService, error) {
 		return nil, err
 	}
 	return &NodeIfService{
+		reader:  NewReaderFromQueries(queries),
 		queries: queries,
 	}, nil
 }
 
-func ConvertToDBNodeIf(ni mnif.MNIF) gen.FlowNodeCondition {
-	return gen.FlowNodeCondition{
-		FlowNodeID: ni.FlowNodeID,
-		Expression: ni.Condition.Comparisons.Expression,
-	}
-}
-
-func ConvertToModelNodeIf(ni gen.FlowNodeCondition) *mnif.MNIF {
-	return &mnif.MNIF{
-		FlowNodeID: ni.FlowNodeID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: ni.Expression,
-			},
-		},
-	}
-}
-
 func (nifs NodeIfService) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mnif.MNIF, error) {
-	nodeIf, err := nifs.queries.GetFlowNodeCondition(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return ConvertToModelNodeIf(nodeIf), nil
+	return nifs.reader.GetNodeIf(ctx, id)
 }
 
 func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error {
-	nodeIf := ConvertToDBNodeIf(ni)
-	return nifs.queries.CreateFlowNodeCondition(ctx, gen.CreateFlowNodeConditionParams{
-		FlowNodeID: nodeIf.FlowNodeID,
-		Expression: ni.Condition.Comparisons.Expression,
-	})
+	return NewWriterFromQueries(nifs.queries).CreateNodeIf(ctx, ni)
 }
 
 func (nifs NodeIfService) CreateNodeIfBulk(ctx context.Context, conditionNodes []mnif.MNIF) error {
-	var err error
-	for _, n := range conditionNodes {
-		err = nifs.CreateNodeIf(ctx, n)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewWriterFromQueries(nifs.queries).CreateNodeIfBulk(ctx, conditionNodes)
 }
 
 func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error {
-	nodeIf := ConvertToDBNodeIf(ni)
-	return nifs.queries.UpdateFlowNodeCondition(ctx, gen.UpdateFlowNodeConditionParams{
-		FlowNodeID: nodeIf.FlowNodeID,
-		Expression: nodeIf.Expression,
-	})
+	return NewWriterFromQueries(nifs.queries).UpdateNodeIf(ctx, ni)
 }
 
 func (nifs NodeIfService) DeleteNodeIf(ctx context.Context, id idwrap.IDWrap) error {
-	return nifs.queries.DeleteFlowNodeCondition(ctx, id)
+	return NewWriterFromQueries(nifs.queries).DeleteNodeIf(ctx, id)
 }

@@ -12,15 +12,23 @@ import (
 var ErrNoNodeForFound = sql.ErrNoRows
 
 type NodeJSService struct {
+	reader  *Reader
 	queries *gen.Queries
 }
 
 func New(queries *gen.Queries) NodeJSService {
-	return NodeJSService{queries: queries}
+	return NodeJSService{
+		reader:  NewReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (nfs NodeJSService) TX(tx *sql.Tx) NodeJSService {
-	return NodeJSService{queries: nfs.queries.WithTx(tx)}
+	newQueries := nfs.queries.WithTx(tx)
+	return NodeJSService{
+		reader:  NewReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeJSService, error) {
@@ -29,60 +37,27 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeJSService, error) {
 		return nil, err
 	}
 	return &NodeJSService{
+		reader:  NewReaderFromQueries(queries),
 		queries: queries,
 	}, nil
 }
 
-// INFO: for some reason sqlc generate `Js` as `J`, will check later why it is not working
-func ConvertDBToModel(nf gen.FlowNodeJ) mnjs.MNJS {
-	return mnjs.MNJS{
-		FlowNodeID:       nf.FlowNodeID,
-		Code:             nf.Code,
-		CodeCompressType: nf.CodeCompressType,
-	}
-}
-
-func ConvertModelToDB(mn mnjs.MNJS) gen.FlowNodeJ {
-	return gen.FlowNodeJ{
-		FlowNodeID:       mn.FlowNodeID,
-		Code:             mn.Code,
-		CodeCompressType: mn.CodeCompressType,
-	}
-}
-
 func (nfs NodeJSService) GetNodeJS(ctx context.Context, id idwrap.IDWrap) (mnjs.MNJS, error) {
-	nodeJS, err := nfs.queries.GetFlowNodeJs(ctx, id)
-	if err != nil {
-		return mnjs.MNJS{}, err
-	}
-	return ConvertDBToModel(nodeJS), nil
+	return nfs.reader.GetNodeJS(ctx, id)
 }
 
 func (nfs NodeJSService) CreateNodeJS(ctx context.Context, mn mnjs.MNJS) error {
-	nodeJS := ConvertModelToDB(mn)
-	return nfs.queries.CreateFlowNodeJs(ctx, gen.CreateFlowNodeJsParams(nodeJS))
+	return NewWriterFromQueries(nfs.queries).CreateNodeJS(ctx, mn)
 }
 
 func (nfs NodeJSService) CreateNodeJSBulk(ctx context.Context, jsNodes []mnjs.MNJS) error {
-	var err error
-	for _, jsNode := range jsNodes {
-		err = nfs.CreateNodeJS(ctx, jsNode)
-		if err != nil {
-			break
-		}
-	}
-	return err
+	return NewWriterFromQueries(nfs.queries).CreateNodeJSBulk(ctx, jsNodes)
 }
 
 func (nfs NodeJSService) UpdateNodeJS(ctx context.Context, mn mnjs.MNJS) error {
-	nodeJS := ConvertModelToDB(mn)
-	return nfs.queries.UpdateFlowNodeJs(ctx, gen.UpdateFlowNodeJsParams{
-		FlowNodeID:       nodeJS.FlowNodeID,
-		Code:             nodeJS.Code,
-		CodeCompressType: nodeJS.CodeCompressType,
-	})
+	return NewWriterFromQueries(nfs.queries).UpdateNodeJS(ctx, mn)
 }
 
 func (nfs NodeJSService) DeleteNodeJS(ctx context.Context, id idwrap.IDWrap) error {
-	return nfs.queries.DeleteFlowNodeJs(ctx, id)
+	return NewWriterFromQueries(nfs.queries).DeleteNodeJS(ctx, id)
 }

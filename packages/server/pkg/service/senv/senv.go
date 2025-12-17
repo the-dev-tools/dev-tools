@@ -4,7 +4,6 @@ package senv
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"log/slog"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -13,6 +12,7 @@ import (
 )
 
 type EnvironmentService struct {
+	reader  *Reader
 	queries *gen.Queries
 	logger  *slog.Logger
 }
@@ -31,6 +31,7 @@ func New(queries *gen.Queries, logger *slog.Logger) EnvironmentService {
 		logger = slog.Default()
 	}
 	return EnvironmentService{
+		reader:  NewReaderFromQueries(queries, logger),
 		queries: queries,
 		logger:  logger,
 	}
@@ -40,8 +41,10 @@ func (s EnvironmentService) TX(tx *sql.Tx) EnvironmentService {
 	if tx == nil {
 		return s
 	}
+	newQueries := s.queries.WithTx(tx)
 	return EnvironmentService{
-		queries: s.queries.WithTx(tx),
+		reader:  NewReaderFromQueries(newQueries, s.logger),
+		queries: newQueries,
 		logger:  s.logger,
 	}
 }
@@ -52,105 +55,31 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*EnvironmentService, error) {
 		return nil, err
 	}
 	service := EnvironmentService{
+		reader:  NewReaderFromQueries(queries, nil),
 		queries: queries,
 		logger:  slog.Default(),
 	}
 	return &service, nil
 }
 
-func ConvertToDBEnv(env menv.Env) gen.Environment {
-	return gen.Environment{
-		ID:           env.ID,
-		WorkspaceID:  env.WorkspaceID,
-		Type:         int8(env.Type),
-		Name:         env.Name,
-		Description:  env.Description,
-		DisplayOrder: env.Order,
-	}
-}
-
-func ConvertToModelEnv(env gen.Environment) *menv.Env {
-	return &menv.Env{
-		ID:          env.ID,
-		WorkspaceID: env.WorkspaceID,
-		Type:        menv.EnvType(env.Type),
-		Name:        env.Name,
-		Description: env.Description,
-		Order:       env.DisplayOrder,
-	}
-}
-
 func (s EnvironmentService) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (*menv.Env, error) {
-	env, err := s.queries.GetEnvironment(ctx, id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.DebugContext(ctx, "environment not found", "environment_id", id.String())
-			return nil, ErrNoEnvironmentFound
-		}
-		return nil, err
-	}
-	return ConvertToModelEnv(env), nil
+	return s.reader.GetEnvironment(ctx, id)
 }
 
 func (s EnvironmentService) ListEnvironments(ctx context.Context, workspaceID idwrap.IDWrap) ([]menv.Env, error) {
-	envs, err := s.queries.GetEnvironmentsByWorkspaceIDOrdered(ctx, workspaceID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []menv.Env{}, nil
-		}
-		return nil, err
-	}
-
-	result := make([]menv.Env, len(envs))
-	for i, env := range envs {
-		result[i] = *ConvertToModelEnv(env)
-	}
-	return result, nil
+	return s.reader.ListEnvironments(ctx, workspaceID)
 }
 
 func (s EnvironmentService) CreateEnvironment(ctx context.Context, env *menv.Env) error {
-	if env.Order == 0 {
-		nextOrder, err := s.nextDisplayOrder(ctx, env.WorkspaceID)
-		if err != nil {
-			return err
-		}
-		env.Order = nextOrder
-	}
-
-	dbEnv := ConvertToDBEnv(*env)
-	return s.queries.CreateEnvironment(ctx, gen.CreateEnvironmentParams(dbEnv))
+	return NewWriterFromQueries(s.queries).CreateEnvironment(ctx, env)
 }
 
 func (s EnvironmentService) UpdateEnvironment(ctx context.Context, env *menv.Env) error {
-	if env.Order == 0 {
-		current, err := s.queries.GetEnvironment(ctx, env.ID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrNoEnvironmentFound
-			}
-			return err
-		}
-		env.Order = current.DisplayOrder
-	}
-
-	dbEnv := ConvertToDBEnv(*env)
-	return s.queries.UpdateEnvironment(ctx, gen.UpdateEnvironmentParams{
-		Type:         dbEnv.Type,
-		ID:           dbEnv.ID,
-		Name:         dbEnv.Name,
-		Description:  dbEnv.Description,
-		DisplayOrder: dbEnv.DisplayOrder,
-	})
+	return NewWriterFromQueries(s.queries).UpdateEnvironment(ctx, env)
 }
 
 func (s EnvironmentService) DeleteEnvironment(ctx context.Context, id idwrap.IDWrap) error {
-	if err := s.queries.DeleteEnvironment(ctx, id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoEnvironmentFound
-		}
-		return err
-	}
-	return nil
+	return NewWriterFromQueries(s.queries).DeleteEnvironment(ctx, id)
 }
 
 // Backwards compatible wrappers ------------------------------------------------
@@ -178,38 +107,9 @@ func (s EnvironmentService) Delete(ctx context.Context, id idwrap.IDWrap) error 
 // Helpers ----------------------------------------------------------------------
 
 func (s EnvironmentService) GetWorkspaceID(ctx context.Context, envID idwrap.IDWrap) (idwrap.IDWrap, error) {
-	workspaceID, err := s.queries.GetEnvironmentWorkspaceID(ctx, envID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return idwrap.IDWrap{}, ErrNoEnvironmentFound
-		}
-		return idwrap.IDWrap{}, err
-	}
-	return workspaceID, nil
+	return s.reader.GetWorkspaceID(ctx, envID)
 }
 
 func (s EnvironmentService) CheckWorkspaceID(ctx context.Context, envID, ownerID idwrap.IDWrap) (bool, error) {
-	workspaceID, err := s.GetWorkspaceID(ctx, envID)
-	if err != nil {
-		return false, err
-	}
-	return workspaceID.Compare(ownerID) == 0, nil
-}
-
-func (s EnvironmentService) nextDisplayOrder(ctx context.Context, workspaceID idwrap.IDWrap) (float64, error) {
-	envs, err := s.queries.GetEnvironmentsByWorkspaceID(ctx, workspaceID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 1, nil
-		}
-		return 0, err
-	}
-
-	max := 0.0
-	for _, env := range envs {
-		if env.DisplayOrder > max {
-			max = env.DisplayOrder
-		}
-	}
-	return max + 1, nil
+	return s.reader.CheckWorkspaceID(ctx, envID, ownerID)
 }

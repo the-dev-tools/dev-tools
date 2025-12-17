@@ -13,15 +13,23 @@ import (
 var ErrNoNodeForFound = sql.ErrNoRows
 
 type NodeNoopService struct {
+	reader  *Reader
 	queries *gen.Queries
 }
 
 func New(queries *gen.Queries) NodeNoopService {
-	return NodeNoopService{queries: queries}
+	return NodeNoopService{
+		reader:  NewReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (nns NodeNoopService) TX(tx *sql.Tx) NodeNoopService {
-	return NodeNoopService{queries: nns.queries.WithTx(tx)}
+	newQueries := nns.queries.WithTx(tx)
+	return NodeNoopService{
+		reader:  NewReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*NodeNoopService, error) {
@@ -30,65 +38,33 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeNoopService, error) {
 		return nil, err
 	}
 	return &NodeNoopService{
+		reader:  NewReaderFromQueries(queries),
 		queries: queries,
 	}, nil
 }
 
-func ConvertToDBNodeStart(ns mnnoop.NoopNode) gen.FlowNodeNoop {
-	return gen.FlowNodeNoop{
-		FlowNodeID: ns.FlowNodeID,
-		NodeType:   int16(ns.Type),
-	}
-}
-
-func ConvertToModelNodeStart(ns gen.FlowNodeNoop) *mnnoop.NoopNode {
-	return &mnnoop.NoopNode{
-		FlowNodeID: ns.FlowNodeID,
-		Type:       mnnoop.NoopTypes(ns.NodeType),
-	}
-}
-
 func (nfs NodeNoopService) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*mnnoop.NoopNode, error) {
-	nodeFor, err := nfs.queries.GetFlowNodeNoop(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return ConvertToModelNodeStart(nodeFor), nil
+	return nfs.reader.GetNodeNoop(ctx, id)
 }
 
 func (nfs NodeNoopService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnoop.NoopNode, error) {
-	// Since there's no dedicated query for getting all NoOp nodes by flow ID,
-	// we'll need to implement this at a higher level or add a SQL query.
-	// For now, return empty slice to make it work with the collection API.
-	return []mnnoop.NoopNode{}, nil
+	return nfs.reader.GetNodesByFlowID(ctx, flowID)
 }
 
 func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
-	convertedNode := ConvertToDBNodeStart(nf)
-	return nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams(convertedNode))
+	return NewWriterFromQueries(nfs.queries).CreateNodeNoop(ctx, nf)
 }
 
 func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.NoopNode) error {
-	for _, n := range nf {
-		convertedNode := ConvertToDBNodeStart(n)
-		err := nfs.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams(convertedNode))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewWriterFromQueries(nfs.queries).CreateNodeNoopBulk(ctx, nf)
 }
 
 func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
-	// Since there's no UpdateFlowNodeNoop query, we'll use delete + create pattern
-	if err := nfs.DeleteNodeNoop(ctx, nf.FlowNodeID); err != nil && !errors.Is(err, ErrNoNodeForFound) {
-		return err
-	}
-	return nfs.CreateNodeNoop(ctx, nf)
+	return NewWriterFromQueries(nfs.queries).UpdateNodeNoop(ctx, nf)
 }
 
 func (nfs NodeNoopService) DeleteNodeNoop(ctx context.Context, id idwrap.IDWrap) error {
-	err := nfs.queries.DeleteFlowNodeNoop(ctx, id)
+	err := NewWriterFromQueries(nfs.queries).DeleteNodeNoop(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNoNodeForFound
 	}
