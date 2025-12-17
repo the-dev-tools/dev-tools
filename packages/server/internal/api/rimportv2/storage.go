@@ -92,9 +92,10 @@ func NewImporter(
 // StoreDomainVariables adds domain-to-variable mappings to all existing environments
 // in the workspace. The domain URL is stored as the variable value so users can
 // easily change the base URL by modifying the environment variable.
-func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]mvar.Var, error) {
+// Returns both any newly created environments (if default was created) and all created variables.
+func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, error) {
 	if len(domainData) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Filter to only enabled domain data WITH variable names
@@ -107,14 +108,17 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	}
 
 	if len(enabledDomains) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Get all environments in the workspace (before transaction)
 	environments, err := imp.envService.ListEnvironments(ctx, workspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list environments: %w", err)
+		return nil, nil, fmt.Errorf("failed to list environments: %w", err)
 	}
+
+	// Track any newly created environments for sync events
+	var createdEnvs []menv.Env
 
 	if len(environments) == 0 {
 		// No environments exist, create a default one
@@ -127,16 +131,17 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		}
 
 		if err := imp.envService.CreateEnvironment(ctx, &defaultEnv); err != nil {
-			return nil, fmt.Errorf("failed to create default environment: %w", err)
+			return nil, nil, fmt.Errorf("failed to create default environment: %w", err)
 		}
 
 		environments = append(environments, defaultEnv)
+		createdEnvs = append(createdEnvs, defaultEnv)
 	}
 
 	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
@@ -169,7 +174,7 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 			}
 
 			if err := txVarService.Upsert(ctx, variable); err != nil {
-				return nil, fmt.Errorf("failed to upsert variable %s for environment %s: %w", dd.Variable, env.Name, err)
+				return nil, nil, fmt.Errorf("failed to upsert variable %s for environment %s: %w", dd.Variable, env.Name, err)
 			}
 			allVariables = append(allVariables, variable)
 		}
@@ -177,10 +182,10 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return allVariables, nil
+	return createdEnvs, allVariables, nil
 }
 
 // ImportAndStore processes HAR data and returns resolved models

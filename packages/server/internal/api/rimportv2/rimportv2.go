@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
@@ -64,6 +65,8 @@ type ImportStreamers struct {
 	HttpBodyRaw        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
 	HttpAssert         eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
 	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+	Env                eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+	EnvVar             eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
 }
 
 // ImportV2RPC implements the Connect RPC interface for HAR import v2
@@ -87,6 +90,8 @@ type ImportV2RPC struct {
 	HttpBodyRawStream        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
 	HttpAssertStream         eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
 	FileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+	EnvStream                eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+	EnvVarStream             eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
 
 	// Services exposed for testing
 	HttpService               *shttp.HTTPService
@@ -148,6 +153,8 @@ func NewImportV2RPC(
 		HttpBodyRawStream:        streamers.HttpBodyRaw,
 		HttpAssertStream:         streamers.HttpAssert,
 		FileStream:               streamers.File,
+		EnvStream:                streamers.Env,
+		EnvVarStream:             streamers.EnvVar,
 
 		// Exposed Services
 		HttpService:               services.Http,

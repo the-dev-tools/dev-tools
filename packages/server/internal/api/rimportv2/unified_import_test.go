@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -387,9 +388,9 @@ func (m *MockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 	return nil
 }
 
-func (m *MockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]mvar.Var, error) {
+func (m *MockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, error) {
 	// Default mock implementation - no-op
-	return nil, nil
+	return nil, nil, nil
 }
 
 type MockValidator struct {
