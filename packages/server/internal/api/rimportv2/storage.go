@@ -92,10 +92,10 @@ func NewImporter(
 // StoreDomainVariables adds domain-to-variable mappings to all existing environments
 // in the workspace. The domain URL is stored as the variable value so users can
 // easily change the base URL by modifying the environment variable.
-// Returns both any newly created environments (if default was created) and all created variables.
-func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, error) {
+// Returns created environments (if default was created), created variables, and updated variables.
+func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, []mvar.Var, error) {
 	if len(domainData) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	// Filter to only enabled domain data WITH variable names
@@ -108,13 +108,13 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	}
 
 	if len(enabledDomains) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	// Get all environments in the workspace (before transaction)
 	environments, err := imp.envService.ListEnvironments(ctx, workspaceID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list environments: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
 	// Track any newly created environments for sync events
@@ -131,25 +131,42 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		}
 
 		if err := imp.envService.CreateEnvironment(ctx, &defaultEnv); err != nil {
-			return nil, nil, fmt.Errorf("failed to create default environment: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to create default environment: %w", err)
 		}
 
 		environments = append(environments, defaultEnv)
 		createdEnvs = append(createdEnvs, defaultEnv)
 	}
 
+	// Build a map of existing variables per environment for quick lookup
+	// key -> variable for each environment
+	existingVarsByEnv := make(map[string]map[string]mvar.Var)
+	for _, env := range environments {
+		vars, err := imp.varService.GetVariableByEnvID(ctx, env.ID)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to get variables for environment %s: %w", env.Name, err)
+		}
+		varMap := make(map[string]mvar.Var)
+		for _, v := range vars {
+			varMap[v.VarKey] = v
+		}
+		existingVarsByEnv[env.ID.String()] = varMap
+	}
+
 	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
 	txVarService := imp.varService.TX(tx)
 
-	// Add variables to each environment
-	var allVariables []mvar.Var
+	// Add variables to each environment, tracking created vs updated
+	var createdVars []mvar.Var
+	var updatedVars []mvar.Var
 	for _, env := range environments {
+		existingVars := existingVarsByEnv[env.ID.String()]
 		for i, dd := range enabledDomains {
 			// Determine scheme (default to https, but use http for localhost/IPs without TLDs usually implies local/dev)
 			scheme := "https://"
@@ -160,32 +177,51 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 			// Build the full URL value
 			urlValue := scheme + dd.Domain
 
-			// Create variable object (Upsert will handle update vs create)
-			// We provide a new ID for the creation case. If it exists, this ID is ignored
-			// and the existing row is updated (preserving its ID).
-			variable := mvar.Var{
-				ID:          idwrap.NewNow(),
-				EnvID:       env.ID,
-				VarKey:      dd.Variable,
-				Value:       urlValue,
-				Enabled:     true,
-				Description: fmt.Sprintf("Base URL for %s", dd.Domain),
-				Order:       float64(i + 1),
-			}
+			// Check if variable already exists
+			existingVar, exists := existingVars[dd.Variable]
 
-			if err := txVarService.Upsert(ctx, variable); err != nil {
-				return nil, nil, fmt.Errorf("failed to upsert variable %s for environment %s: %w", dd.Variable, env.Name, err)
+			if exists {
+				// Update existing variable - preserve its ID
+				variable := mvar.Var{
+					ID:          existingVar.ID,
+					EnvID:       env.ID,
+					VarKey:      dd.Variable,
+					Value:       urlValue,
+					Enabled:     true,
+					Description: fmt.Sprintf("Base URL for %s", dd.Domain),
+					Order:       existingVar.Order, // Preserve order
+				}
+
+				if err := txVarService.Update(ctx, &variable); err != nil {
+					return nil, nil, nil, fmt.Errorf("failed to update variable %s for environment %s: %w", dd.Variable, env.Name, err)
+				}
+				updatedVars = append(updatedVars, variable)
+			} else {
+				// Create new variable
+				variable := mvar.Var{
+					ID:          idwrap.NewNow(),
+					EnvID:       env.ID,
+					VarKey:      dd.Variable,
+					Value:       urlValue,
+					Enabled:     true,
+					Description: fmt.Sprintf("Base URL for %s", dd.Domain),
+					Order:       float64(i + 1),
+				}
+
+				if err := txVarService.Create(ctx, variable); err != nil {
+					return nil, nil, nil, fmt.Errorf("failed to create variable %s for environment %s: %w", dd.Variable, env.Name, err)
+				}
+				createdVars = append(createdVars, variable)
 			}
-			allVariables = append(allVariables, variable)
 		}
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return createdEnvs, allVariables, nil
+	return createdEnvs, createdVars, updatedVars, nil
 }
 
 // ImportAndStore processes HAR data and returns resolved models

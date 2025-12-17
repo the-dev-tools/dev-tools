@@ -238,6 +238,16 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			})
 		}
 	}
+
+	// Publish Environment Variable update events (for variables that already existed and were updated)
+	if len(results.UpdatedVars) > 0 && h.EnvVarStream != nil {
+		for _, v := range results.UpdatedVars {
+			h.EnvVarStream.Publish(renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID, EnvironmentID: v.EnvID}, renv.EnvironmentVariableEvent{
+				Type:     "update",
+				Variable: toAPIEnvironmentVariable(v),
+			})
+		}
+	}
 }
 
 // toAPIEnvironment converts internal environment model to API type

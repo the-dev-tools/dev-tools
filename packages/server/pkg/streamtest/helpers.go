@@ -66,6 +66,15 @@ func (v *Verifier) ExpectEnvVarInsert(
 	return v.ExpectEnvVar(stream, Insert, count, matcher)
 }
 
+// ExpectEnvVarUpdate is a shorthand for ExpectEnvVar with Update type.
+func (v *Verifier) ExpectEnvVarUpdate(
+	stream eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent],
+	count CountConstraint,
+	matcher func(renv.EnvironmentVariableEvent) bool,
+) *Verifier {
+	return v.ExpectEnvVar(stream, Update, count, matcher)
+}
+
 // --- HTTP helpers ---
 
 // ExpectHttp adds an expectation for HTTP events.

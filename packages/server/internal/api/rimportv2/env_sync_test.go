@@ -31,6 +31,7 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/streamtest"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 )
@@ -50,6 +51,7 @@ type envSyncTestFixture struct {
 	userID      idwrap.IDWrap
 	streamers   envSyncTestStreamers
 	envService  senv.EnvironmentService
+	varService  svar.VarService
 }
 
 func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
@@ -174,6 +176,7 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 		userID:      userID,
 		streamers:   streamers,
 		envService:  envService,
+		varService:  varService,
 	}
 }
 
@@ -299,6 +302,86 @@ func TestImportWithDomainVariables_ExistingEnv(t *testing.T) {
 	require.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp.Msg.MissingData)
 
 	verifier.WaitAndVerify(500 * time.Millisecond)
+}
+
+// TestImportWithDomainVariables_UpdateExistingVar verifies that when a variable
+// with the same key already exists, it sends an "update" event instead of "insert".
+func TestImportWithDomainVariables_UpdateExistingVar(t *testing.T) {
+	fixture := setupEnvSyncTestFixture(t)
+
+	// First, create an environment with an existing variable
+	env := &menv.Env{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: fixture.workspaceID,
+		Name:        "Test Environment",
+		Type:        menv.EnvNormal,
+	}
+	err := fixture.envService.CreateEnvironment(fixture.ctx, env)
+	require.NoError(t, err)
+
+	// Create an existing variable with the same key we'll use in the import
+	existingVarID := idwrap.NewNow()
+	existingVar := mvar.Var{
+		ID:          existingVarID,
+		EnvID:       env.ID,
+		VarKey:      "baseUrl", // Same key as we'll use in domain data
+		Value:       "https://old-value.com",
+		Enabled:     true,
+		Description: "Old description",
+		Order:       1,
+	}
+	err = fixture.varService.Create(fixture.ctx, existingVar)
+	require.NoError(t, err)
+
+	// Verify the variable was created with old value
+	createdVar, err := fixture.varService.Get(fixture.ctx, existingVarID)
+	require.NoError(t, err)
+	require.Equal(t, "https://old-value.com", createdVar.Value)
+
+	// Setup verifier - should expect UPDATE not INSERT for env var
+	verifier := streamtest.New(t).
+		// No environment should be created (env already exists)
+		ExpectEnv(fixture.streamers.Env, streamtest.Insert, streamtest.Exactly(0), nil).
+		// Expect UPDATE event for the variable (not insert)
+		ExpectEnvVarUpdate(fixture.streamers.EnvVar, streamtest.AtLeast(1), func(e renv.EnvironmentVariableEvent) bool {
+			return e.Variable != nil && e.Variable.Key == "baseUrl" && strings.Contains(e.Variable.Value, "api.example.com")
+		}).
+		// No insert events for env var (it's an update)
+		ExpectEnvVarInsert(fixture.streamers.EnvVar, streamtest.Exactly(0), nil)
+
+	// Execute import with domain data that matches existing variable key
+	req := &apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Update Var Test",
+		Data:        []byte(testHARWithDomain),
+		DomainData: []*apiv1.ImportDomainData{
+			{
+				Enabled:  true,
+				Domain:   "api.example.com",
+				Variable: "baseUrl", // Same key as existing variable
+			},
+		},
+	}
+
+	resp, err := fixture.rpc.Import(fixture.ctx, connect.NewRequest(req))
+	require.NoError(t, err)
+	require.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp.Msg.MissingData)
+
+	// Verify sync events
+	verifier.WaitAndVerify(500 * time.Millisecond)
+
+	// Verify the database was actually updated (not a new row created)
+	updatedVar, err := fixture.varService.Get(fixture.ctx, existingVarID)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.example.com", updatedVar.Value, "Variable value should be updated")
+	require.Equal(t, existingVarID, updatedVar.ID, "Variable ID should be preserved (same row updated)")
+
+	// Verify only one variable exists for this env (not duplicated)
+	allVars, err := fixture.varService.GetVariableByEnvID(fixture.ctx, env.ID)
+	require.NoError(t, err)
+	require.Len(t, allVars, 1, "Should have exactly 1 variable, not duplicated")
+	require.Equal(t, "baseUrl", allVars[0].VarKey)
+	require.Equal(t, "https://api.example.com", allVars[0].Value)
 }
 
 // TestImportWithoutDomainVariables_NoEnvVarEvents verifies that importing without

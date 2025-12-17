@@ -101,8 +101,8 @@ type Importer interface {
 	StoreImportResults(ctx context.Context, results *ImportResults) error
 	StoreUnifiedResults(ctx context.Context, results *TranslationResult) error
 	// Store domain-to-variable mappings to all existing environments
-	// Returns both created environments (if a default was created) and the created variables
-	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, error)
+	// Returns created environments (if a default was created), created variables, and updated variables
+	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) (createdEnvs []menv.Env, createdVars []mvar.Var, updatedVars []mvar.Var, err error)
 }
 
 // Validator handles input validation for import requests
@@ -160,6 +160,7 @@ type ImportResults struct {
 	// Environment variables created during import (for domain-to-variable mappings)
 	CreatedEnvs []menv.Env
 	CreatedVars []mvar.Var
+	UpdatedVars []mvar.Var
 
 	Domains     []string
 	WorkspaceID idwrap.IDWrap
@@ -405,14 +406,15 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResult
 		}
 
 		// Store domain variables (creates default environment if needed)
-		createdEnvs, createdVars, err := s.importer.StoreDomainVariables(ctx, req.WorkspaceID, req.DomainData)
+		createdEnvs, createdVars, updatedVars, err := s.importer.StoreDomainVariables(ctx, req.WorkspaceID, req.DomainData)
 		if err != nil {
 			return nil, fmt.Errorf("domain variable storage failed: %w", err)
 		}
 
-		// Store created envs and vars in results for sync event publishing
+		// Store created/updated envs and vars in results for sync event publishing
 		results.CreatedEnvs = createdEnvs
 		results.CreatedVars = createdVars
+		results.UpdatedVars = updatedVars
 
 		// Apply domain templates to HTTP requests if domain data is provided
 		httpReqsPtr, err = applyDomainTemplate(ctx, httpReqsPtr, req.DomainData, s.logger)
@@ -560,7 +562,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 	// Process domain data if provided (and we have already stored the initial data)
 	if len(req.DomainData) > 0 {
 		// Add domain-to-variable mappings to all existing environments
-		createdEnvs, createdVars, err := s.importer.StoreDomainVariables(ctx, req.WorkspaceID, req.DomainData)
+		createdEnvs, createdVars, updatedVars, err := s.importer.StoreDomainVariables(ctx, req.WorkspaceID, req.DomainData)
 		if err != nil {
 			s.logger.Error("Failed to store domain variables",
 				"workspace_id", req.WorkspaceID,
@@ -568,14 +570,16 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 			return nil, fmt.Errorf("domain variable storage failed: %w", err)
 		}
 
-		// Store created envs and vars in results for sync event publishing
+		// Store created/updated envs and vars in results for sync event publishing
 		results.CreatedEnvs = createdEnvs
 		results.CreatedVars = createdVars
+		results.UpdatedVars = updatedVars
 
-		if len(createdVars) > 0 {
+		if len(createdVars) > 0 || len(updatedVars) > 0 {
 			s.logger.Info("Added domain variables to environments",
 				"workspace_id", req.WorkspaceID,
-				"variable_count", len(createdVars))
+				"created_count", len(createdVars),
+				"updated_count", len(updatedVars))
 		}
 	}
 

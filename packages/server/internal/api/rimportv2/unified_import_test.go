@@ -388,9 +388,9 @@ func (m *MockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 	return nil
 }
 
-func (m *MockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, error) {
+func (m *MockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, []mvar.Var, error) {
 	// Default mock implementation - no-op
-	return nil, nil, nil
+	return nil, nil, nil, nil
 }
 
 type MockValidator struct {
