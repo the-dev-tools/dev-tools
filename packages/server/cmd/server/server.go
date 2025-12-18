@@ -43,7 +43,6 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
@@ -129,8 +128,8 @@ func run() error {
 	userService := suser.New(queries)
 
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
-	variableService := svar.New(queries, logger)
-	environmentService := senv.New(queries, logger)
+	variableService := senv.NewVariableService(queries, logger)
+	environmentService := senv.NewEnvironmentService(queries, logger)
 	httpService := shttp.New(queries, logger)
 
 	// HTTP child entity services
@@ -331,7 +330,7 @@ func run() error {
 	workspaceReader := sworkspace.NewReader(currentDB)
 	flowReader := sflow.NewFlowReader(currentDB)
 	nodeReader := sflow.NewNodeReader(currentDB)
-	varReader := svar.NewReader(currentDB, logger)
+	varReader := senv.NewVariableReader(currentDB, logger)
 
 	flowSrvV2 := rflowv2.New(
 		currentDB,

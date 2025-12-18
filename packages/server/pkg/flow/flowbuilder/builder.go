@@ -20,8 +20,8 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
@@ -36,7 +36,7 @@ type Builder struct {
 	NodeJS      *sflow.NodeJsService
 
 	Workspace    *sworkspace.WorkspaceService
-	Variable     *svar.VarService
+	Variable     *senv.VariableService
 	FlowVariable *sflow.FlowVariableService
 
 	Resolver resolver.RequestResolver
@@ -52,7 +52,7 @@ func New(
 	nnos *sflow.NodeNoopService,
 	njss *sflow.NodeJsService,
 	ws *sworkspace.WorkspaceService,
-	vs *svar.VarService,
+	vs *senv.VariableService,
 	fvs *sflow.FlowVariableService,
 	resolver resolver.RequestResolver,
 	logger *slog.Logger,
@@ -189,7 +189,7 @@ func (b *Builder) BuildVariables(
 		// 1. Add global environment variables
 		if workspace.GlobalEnv != (idwrap.IDWrap{}) {
 			globalVars, err := b.Variable.GetVariableByEnvID(ctx, workspace.GlobalEnv)
-			if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+			if err != nil && !errors.Is(err, senv.ErrNoVarFound) {
 				b.Logger.Warn("failed to get global environment variables", "env_id", workspace.GlobalEnv.String(), "error", err)
 			} else {
 				for _, v := range globalVars {
@@ -204,7 +204,7 @@ func (b *Builder) BuildVariables(
 		// Only if ActiveEnv is different from GlobalEnv
 		if workspace.ActiveEnv != (idwrap.IDWrap{}) && workspace.ActiveEnv != workspace.GlobalEnv {
 			activeVars, err := b.Variable.GetVariableByEnvID(ctx, workspace.ActiveEnv)
-			if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+			if err != nil && !errors.Is(err, senv.ErrNoVarFound) {
 				b.Logger.Warn("failed to get active environment variables", "env_id", workspace.ActiveEnv.String(), "error", err)
 			} else {
 				for _, v := range activeVars {

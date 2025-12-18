@@ -5,8 +5,8 @@ import (
 
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +14,7 @@ import (
 
 func TestBodyTracking(t *testing.T) {
 	// Setup
-	varMap := varsystem.NewVarMap([]mvar.Var{
+	varMap := varsystem.NewVarMap([]menv.Variable{
 		{ID: idwrap.NewNow(), VarKey: "bodyVar", Value: "replacedBody"},
 		{ID: idwrap.NewNow(), VarKey: "headerVar", Value: "replacedHeader"},
 	})

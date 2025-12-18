@@ -9,7 +9,6 @@ import (
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mvar"
 	environmentv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -263,7 +262,7 @@ func toAPIEnvironment(env menv.Env) *environmentv1.Environment {
 }
 
 // toAPIEnvironmentVariable converts internal variable model to API type
-func toAPIEnvironmentVariable(v mvar.Var) *environmentv1.EnvironmentVariable {
+func toAPIEnvironmentVariable(v menv.Variable) *environmentv1.EnvironmentVariable {
 	return &environmentv1.EnvironmentVariable{
 		EnvironmentVariableId: v.ID.Bytes(),
 		EnvironmentId:         v.EnvID.Bytes(),

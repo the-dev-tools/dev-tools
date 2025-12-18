@@ -22,8 +22,8 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -54,7 +54,7 @@ func TestFlowRun_Logging(t *testing.T) {
 	forEachService := sflow.NewNodeForEachService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
-	varService := svar.New(queries, logger)
+	varService := senv.NewVariableService(queries, logger)
 
 	// Readers
 	wsReader := sworkspace.NewReaderFromQueries(queries)

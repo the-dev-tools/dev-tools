@@ -17,7 +17,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -529,7 +528,7 @@ func (m *mockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 	return nil
 }
 
-func (m *mockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, []mvar.Var, error) {
+func (m *mockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []menv.Variable, []menv.Variable, error) {
 	// Default mock implementation - no-op
 	return nil, nil, nil, nil
 }

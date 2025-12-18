@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
@@ -160,8 +159,8 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 
 	// Create missing services manually since they aren't exposed in suite.services
 	// BaseDB is available in suite
-	envService := senv.New(suite.baseDB.Queries, suite.importHandler.Logger) // Mock logger is fine
-	varService := svar.New(suite.baseDB.Queries, suite.importHandler.Logger)
+	envService := senv.NewEnvironmentService(suite.baseDB.Queries, suite.importHandler.Logger) // Mock logger is fine
+	varService := senv.NewVariableService(suite.baseDB.Queries, suite.importHandler.Logger)
 	httpAssertService := shttp.NewHttpAssertService(suite.baseDB.Queries)
 	httpResponseService := shttp.NewHttpResponseService(suite.baseDB.Queries)
 

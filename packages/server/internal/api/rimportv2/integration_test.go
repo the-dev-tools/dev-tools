@@ -25,8 +25,8 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -138,9 +138,9 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	edgeService := sflow.NewEdgeService(base.Queries)
 
-	envService := senv.New(base.Queries, logger)
+	envService := senv.NewEnvironmentService(base.Queries, logger)
 
-	varService := svar.New(base.Queries, logger)
+	varService := senv.NewVariableService(base.Queries, logger)
 
 	// Create streamers
 

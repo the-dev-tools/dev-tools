@@ -18,12 +18,10 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
@@ -33,7 +31,7 @@ type referenceTestServices struct {
 	us   suser.UserService
 	ws   sworkspace.WorkspaceService
 	es   senv.EnvironmentService
-	vs   svar.VarService
+	vs   senv.VariableService
 	fs   sflow.FlowService
 	fns  sflow.NodeService
 	fvs  sflow.FlowVariableService
@@ -54,8 +52,8 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 	// Setup Services
 	us := suser.New(queries)
 	ws := sworkspace.New(queries)
-	es := senv.New(queries, logger)
-	vs := svar.New(queries, logger)
+	es := senv.NewEnvironmentService(queries, logger)
+	vs := senv.NewVariableService(queries, logger)
 	fs := sflow.NewFlowService(queries)
 	fns := sflow.NewNodeService(queries)
 	frns := sflow.NewNodeRequestService(queries)
@@ -116,7 +114,7 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 
 	// Create Vars
 	varID1 := idwrap.NewNow()
-	err = ts.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, menv.Variable{
 		ID:      varID1,
 		EnvID:   envID,
 		VarKey:  "env_var_1",
@@ -126,7 +124,7 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 	require.NoError(t, err)
 
 	varID2 := idwrap.NewNow()
-	err = ts.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, menv.Variable{
 		ID:      varID2,
 		EnvID:   envID,
 		VarKey:  "env_var_2",
@@ -286,7 +284,7 @@ func TestReferenceValue_Simple(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = ts.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, menv.Variable{
 		ID:      idwrap.NewNow(),
 		EnvID:   envID,
 		VarKey:  "my_var",
@@ -403,7 +401,7 @@ func TestReferenceTree_Workspace(t *testing.T) {
 
 	// Create Vars
 	varID1 := idwrap.NewNow()
-	err = ts.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, menv.Variable{
 		ID:      varID1,
 		EnvID:   envID,
 		VarKey:  "env_var_1",

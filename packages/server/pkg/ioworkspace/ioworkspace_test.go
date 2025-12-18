@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 
 	"github.com/stretchr/testify/require"
@@ -438,7 +437,7 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 		Environments: []menv.Env{
 			{ID: envID, WorkspaceID: workspaceID, Name: "Production"},
 		},
-		EnvironmentVars: []mvar.Var{
+		EnvironmentVars: []menv.Variable{
 			{ID: idwrap.NewNow(), EnvID: envID, VarKey: "API_URL", Value: "https://api.example.com"},
 		},
 	}

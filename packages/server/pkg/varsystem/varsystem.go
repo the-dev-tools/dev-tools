@@ -7,7 +7,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -16,9 +16,9 @@ var (
 	ErrInvalidKey  = fmt.Errorf("invalid key")
 )
 
-type VarMap map[string]mvar.Var
+type VarMap map[string]menv.Variable
 
-func NewVarMap(vars []mvar.Var) VarMap {
+func NewVarMap(vars []menv.Variable) VarMap {
 	varMap := make(VarMap)
 	for _, v := range vars {
 		varMap[v.VarKey] = v
@@ -26,7 +26,7 @@ func NewVarMap(vars []mvar.Var) VarMap {
 	return varMap
 }
 
-func NewVarMapWithPrefix(vars []mvar.Var, prefix string) VarMap {
+func NewVarMapWithPrefix(vars []menv.Variable, prefix string) VarMap {
 	varMap := make(VarMap)
 	for _, v := range vars {
 		varMap[prefix+v.VarKey] = v
@@ -35,7 +35,7 @@ func NewVarMapWithPrefix(vars []mvar.Var, prefix string) VarMap {
 }
 
 func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
-	vars := make([]mvar.Var, 0)
+	vars := make([]menv.Variable, 0)
 	for k, v := range anyMap {
 		HelperNewAny(&vars, v, k)
 	}
@@ -56,7 +56,7 @@ func MergeVarMap(varMap1, varMap2 VarMap) VarMap {
 // map[string]any{"foo": map[string]any{"bar": 1}} -> key: "foo.bar", value: 1
 // []int{1} -> key: "1", value: 1
 
-func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
+func HelperNewAny(vars *[]menv.Variable, target any, prefix string) {
 	prefix = strings.TrimSpace(prefix)
 	if target == nil {
 		return
@@ -81,32 +81,32 @@ func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
 			}
 		}
 	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
-		*vars = append(*vars, mvar.Var{
+		*vars = append(*vars, menv.Variable{
 			VarKey: prefix,
 			Value:  fmt.Sprintf("%v", target),
 		})
 	case reflect.String:
-		*vars = append(*vars, mvar.Var{
+		*vars = append(*vars, menv.Variable{
 			VarKey: prefix,
 			Value:  reflect.ValueOf(target).String(),
 		})
 	}
 }
 
-func (vm VarMap) ToSlice() []mvar.Var {
+func (vm VarMap) ToSlice() []menv.Variable {
 	return tgeneric.MapToSlice(vm)
 }
 
-func (vm VarMap) Get(varKey string) (mvar.Var, bool) {
+func (vm VarMap) Get(varKey string) (menv.Variable, bool) {
 	varKey = strings.TrimSpace(varKey)
 
 	// Check if this is a file reference
 	if IsFileReference(varKey) {
 		fileContent, err := ReadFileContentAsString(varKey)
 		if err != nil {
-			return mvar.Var{}, false
+			return menv.Variable{}, false
 		}
-		return mvar.Var{
+		return menv.Variable{
 			VarKey: varKey,
 			Value:  fileContent,
 		}, true
@@ -114,14 +114,14 @@ func (vm VarMap) Get(varKey string) (mvar.Var, bool) {
 
 	val, ok := vm[varKey]
 	if !ok {
-		return mvar.Var{}, false
+		return menv.Variable{}, false
 	}
 	return val, true
 }
 
 // Helper functions
-func MergeVars(global, current []mvar.Var) []mvar.Var {
-	globalMap := make(map[string]mvar.Var, len(global))
+func MergeVars(global, current []menv.Variable) []menv.Variable {
+	globalMap := make(map[string]menv.Variable, len(global))
 	for _, globalVar := range global {
 		globalMap[globalVar.VarKey] = globalVar
 	}
@@ -133,8 +133,8 @@ func MergeVars(global, current []mvar.Var) []mvar.Var {
 	return tgeneric.MapToSlice(globalMap)
 }
 
-func FilterVars(vars []mvar.Var, filter func(mvar.Var) bool) []mvar.Var {
-	filtered := make([]mvar.Var, 0, len(vars))
+func FilterVars(vars []menv.Variable, filter func(menv.Variable) bool) []menv.Variable {
+	filtered := make([]menv.Variable, 0, len(vars))
 	for _, v := range vars {
 		if filter(v) {
 			filtered = append(filtered, v)
@@ -145,7 +145,7 @@ func FilterVars(vars []mvar.Var, filter func(mvar.Var) bool) []mvar.Var {
 
 // {{varKey}}
 func GetVarKeyFromRaw(raw string) string {
-	return raw[mvar.PrefixSize : len(raw)-mvar.SuffixSize]
+	return raw[menv.PrefixSize : len(raw)-menv.SuffixSize]
 }
 
 func CheckIsVar(varKey string) bool {
@@ -155,15 +155,15 @@ func CheckIsVar(varKey string) bool {
 }
 
 func CheckPrefix(varKey string) bool {
-	return len(varKey) >= mvar.PrefixSize && varKey[:mvar.PrefixSize] == mvar.Prefix
+	return len(varKey) >= menv.PrefixSize && varKey[:menv.PrefixSize] == menv.Prefix
 }
 
 func CheckSuffix(varKey string) bool {
-	return len(varKey) >= mvar.SuffixSize && varKey[len(varKey)-mvar.SuffixSize:] == mvar.Suffix
+	return len(varKey) >= menv.SuffixSize && varKey[len(varKey)-menv.SuffixSize:] == menv.Suffix
 }
 
 func CheckStringHasAnyVarKey(raw string) bool {
-	return strings.Contains(raw, mvar.Prefix) && strings.Contains(raw, mvar.Suffix)
+	return strings.Contains(raw, menv.Prefix) && strings.Contains(raw, menv.Suffix)
 }
 
 // IsFileReference checks if a variable key refers to a file (starts with "file:")
@@ -191,7 +191,7 @@ func NewVarMapTracker(varMap VarMap) *VarMapTracker {
 }
 
 // Get tracks variable access and delegates to the underlying VarMap
-func (vmt *VarMapTracker) Get(varKey string) (mvar.Var, bool) {
+func (vmt *VarMapTracker) Get(varKey string) (menv.Variable, bool) {
 	val, ok := vmt.VarMap.Get(varKey)
 	if ok {
 		// Track this variable read
@@ -205,18 +205,18 @@ func (vmt *VarMapTracker) Get(varKey string) (mvar.Var, bool) {
 func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
-		startIndex := strings.Index(raw, mvar.Prefix)
+		startIndex := strings.Index(raw, menv.Prefix)
 		if startIndex == -1 {
 			result += raw
 			break
 		}
 
-		endIndex := strings.Index(raw[startIndex:], mvar.Suffix)
+		endIndex := strings.Index(raw[startIndex:], menv.Suffix)
 		if endIndex == -1 {
 			return "", ErrInvalidKey
 		}
 
-		rawVar := raw[startIndex : startIndex+endIndex+mvar.SuffixSize]
+		rawVar := raw[startIndex : startIndex+endIndex+menv.SuffixSize]
 		if !CheckIsVar(rawVar) {
 			return "", ErrInvalidKey
 		}
@@ -302,18 +302,18 @@ func ReadEnvValueAsString(ref string) (string, error) {
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
-		startIndex := strings.Index(raw, mvar.Prefix)
+		startIndex := strings.Index(raw, menv.Prefix)
 		if startIndex == -1 {
 			result += raw
 			break
 		}
 
-		endIndex := strings.Index(raw[startIndex:], mvar.Suffix)
+		endIndex := strings.Index(raw[startIndex:], menv.Suffix)
 		if endIndex == -1 {
 			return "", ErrInvalidKey
 		}
 
-		rawVar := raw[startIndex : startIndex+endIndex+mvar.SuffixSize]
+		rawVar := raw[startIndex : startIndex+endIndex+menv.SuffixSize]
 		if !CheckIsVar(rawVar) {
 			return "", ErrInvalidKey
 		}

@@ -13,7 +13,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
@@ -359,8 +358,8 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 
 // exportEnvironments exports environments and their variables
 func (s *IOWorkspaceService) exportEnvironments(ctx context.Context, opts ExportOptions, bundle *WorkspaceBundle) error {
-	envService := senv.New(s.queries, s.logger)
-	varService := svar.New(s.queries, s.logger)
+	envService := senv.NewEnvironmentService(s.queries, s.logger)
+	varService := senv.NewVariableService(s.queries, s.logger)
 
 	// Export all environments in workspace
 	envs, err := envService.ListEnvironments(ctx, opts.WorkspaceID)

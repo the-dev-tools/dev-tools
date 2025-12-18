@@ -6,7 +6,6 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/svar"
 )
 
 // importEnvironments imports environments from the bundle.
@@ -35,7 +34,7 @@ func (s *IOWorkspaceService) importEnvironments(ctx context.Context, envService 
 }
 
 // importEnvironmentVars imports environment variables from the bundle.
-func (s *IOWorkspaceService) importEnvironmentVars(ctx context.Context, varService svar.VarService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importEnvironmentVars(ctx context.Context, varService senv.VariableService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, envVar := range bundle.EnvironmentVars {
 		// Generate new ID if not preserving
 		if !opts.PreserveIDs {

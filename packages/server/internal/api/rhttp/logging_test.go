@@ -23,7 +23,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -37,8 +36,8 @@ func TestHttpRun_Logging(t *testing.T) {
 	defer base.Close()
 
 	services := base.GetBaseServices()
-	envService := senv.New(base.Queries, base.Logger())
-	varService := svar.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
+	varService := senv.NewVariableService(base.Queries, base.Logger())
 
 	// Setup Streamers
 	httpStreamers := &HttpStreamers{

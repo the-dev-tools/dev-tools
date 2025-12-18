@@ -13,13 +13,11 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -41,7 +39,7 @@ type DefaultImporter struct {
 	nodeNoopService           *sflow.NodeNoopService
 	edgeService               *sflow.EdgeService
 	envService                senv.EnvironmentService
-	varService                svar.VarService
+	varService                senv.VariableService
 	harTranslator             *defaultHARTranslator
 }
 
@@ -62,7 +60,7 @@ func NewImporter(
 	nodeNoopService *sflow.NodeNoopService,
 	edgeService *sflow.EdgeService,
 	envService senv.EnvironmentService,
-	varService svar.VarService,
+	varService senv.VariableService,
 ) *DefaultImporter {
 	return &DefaultImporter{
 		db:                        db,
@@ -89,7 +87,7 @@ func NewImporter(
 // in the workspace. The domain URL is stored as the variable value so users can
 // easily change the base URL by modifying the environment variable.
 // Returns created environments (if default was created), created variables, and updated variables.
-func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []mvar.Var, []mvar.Var, error) {
+func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []menv.Variable, []menv.Variable, error) {
 	if len(domainData) == 0 {
 		return nil, nil, nil, nil
 	}
@@ -136,13 +134,13 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 
 	// Build a map of existing variables per environment for quick lookup
 	// key -> variable for each environment
-	existingVarsByEnv := make(map[string]map[string]mvar.Var)
+	existingVarsByEnv := make(map[string]map[string]menv.Variable)
 	for _, env := range environments {
 		vars, err := imp.varService.GetVariableByEnvID(ctx, env.ID)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to get variables for environment %s: %w", env.Name, err)
 		}
-		varMap := make(map[string]mvar.Var)
+		varMap := make(map[string]menv.Variable)
 		for _, v := range vars {
 			varMap[v.VarKey] = v
 		}
@@ -156,11 +154,11 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txVarWriter := svar.NewWriter(tx)
+	txVarWriter := senv.NewVariableWriter(tx)
 
 	// Add variables to each environment, tracking created vs updated
-	var createdVars []mvar.Var
-	var updatedVars []mvar.Var
+	var createdVars []menv.Variable
+	var updatedVars []menv.Variable
 	for _, env := range environments {
 		existingVars := existingVarsByEnv[env.ID.String()]
 		for i, dd := range enabledDomains {
@@ -178,7 +176,7 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 
 			if exists {
 				// Update existing variable - preserve its ID
-				variable := mvar.Var{
+				variable := menv.Variable{
 					ID:          existingVar.ID,
 					EnvID:       env.ID,
 					VarKey:      dd.Variable,
@@ -194,7 +192,7 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 				updatedVars = append(updatedVars, variable)
 			} else {
 				// Create new variable
-				variable := mvar.Var{
+				variable := menv.Variable{
 					ID:          idwrap.NewNow(),
 					EnvID:       env.ID,
 					VarKey:      dd.Variable,

@@ -20,7 +20,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/api/flow/v1/flowv1connect"
@@ -202,7 +201,7 @@ type FlowServiceV2RPC struct {
 	wsReader *sworkspace.Reader
 	fsReader *sflow.FlowReader
 	nsReader *sflow.NodeReader
-	vsReader *svar.Reader
+	vsReader *senv.Reader
 	hsReader *shttp.Reader
 
 	ws       *sworkspace.WorkspaceService
@@ -218,7 +217,7 @@ type FlowServiceV2RPC struct {
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
-	vs       *svar.VarService
+	vs       *senv.VariableService
 	hs       *shttp.HTTPService
 	hbr      *shttp.HttpBodyRawService
 	resolver resolver.RequestResolver
@@ -258,7 +257,7 @@ func New(
 	wsReader *sworkspace.Reader,
 	fsReader *sflow.FlowReader,
 	nsReader *sflow.NodeReader,
-	vsReader *svar.Reader,
+	vsReader *senv.Reader,
 	hsReader *shttp.Reader,
 	ws *sworkspace.WorkspaceService,
 	fs *sflow.FlowService,
@@ -273,7 +272,7 @@ func New(
 	nes *sflow.NodeExecutionService,
 	fvs *sflow.FlowVariableService,
 	envs *senv.EnvironmentService,
-	vs *svar.VarService,
+	vs *senv.VariableService,
 	hs *shttp.HTTPService,
 	hbr *shttp.HttpBodyRawService,
 	resolver resolver.RequestResolver,

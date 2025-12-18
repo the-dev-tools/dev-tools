@@ -19,14 +19,12 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/streamtest"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
@@ -47,7 +45,7 @@ type envSyncTestFixture struct {
 	userID      idwrap.IDWrap
 	streamers   envSyncTestStreamers
 	envService  senv.EnvironmentService
-	varService  svar.VarService
+	varService  senv.VariableService
 }
 
 func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
@@ -74,8 +72,8 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
 	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
 	edgeService := sflow.NewEdgeService(base.Queries)
-	envService := senv.New(base.Queries, logger)
-	varService := svar.New(base.Queries, logger)
+	envService := senv.NewEnvironmentService(base.Queries, logger)
+	varService := senv.NewVariableService(base.Queries, logger)
 
 	// Create streamers including Env and EnvVar
 	streamers := envSyncTestStreamers{
@@ -317,7 +315,7 @@ func TestImportWithDomainVariables_UpdateExistingVar(t *testing.T) {
 
 	// Create an existing variable with the same key we'll use in the import
 	existingVarID := idwrap.NewNow()
-	existingVar := mvar.Var{
+	existingVar := menv.Variable{
 		ID:          existingVarID,
 		EnvID:       env.ID,
 		VarKey:      "baseUrl", // Same key as we'll use in domain data

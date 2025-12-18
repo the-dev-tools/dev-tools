@@ -43,7 +43,7 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 
 	base := testutil.CreateBaseDB(context.Background(), t)
 	services := base.GetBaseServices()
-	envService := senv.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
 	stream := memory.NewInMemorySyncStreamer[WorkspaceTopic, WorkspaceEvent]()
 	t.Cleanup(stream.Shutdown)
 

@@ -24,7 +24,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -87,8 +86,8 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
 	// Environment and variable services
-	envService := senv.New(queries, logger)
-	varService := svar.New(queries, logger)
+	envService := senv.NewEnvironmentService(queries, logger)
+	varService := senv.NewVariableService(queries, logger)
 
 	// Resolver
 	res := resolver.NewStandardResolver(

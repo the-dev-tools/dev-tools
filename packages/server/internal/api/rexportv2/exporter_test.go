@@ -11,13 +11,11 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 )
 
@@ -145,7 +143,7 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create environment
-	envService := senv.New(base.Queries, logger)
+	envService := senv.NewEnvironmentService(base.Queries, logger)
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
@@ -156,8 +154,8 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create variable
-	varService := svar.New(base.Queries, logger)
-	err = varService.Create(ctx, mvar.Var{
+	varService := senv.NewVariableService(base.Queries, logger)
+	err = varService.Create(ctx, menv.Variable{
 		ID:      idwrap.NewNow(),
 		EnvID:   envID,
 		VarKey:  "exported_var",
@@ -587,7 +585,7 @@ func createExporterTestData(t *testing.T, ctx context.Context, base *testutil.Ba
 	}
 
 	// Create environment
-	envService := senv.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
 	env := menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,

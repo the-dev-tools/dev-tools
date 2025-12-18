@@ -6,7 +6,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
@@ -45,7 +44,7 @@ type WorkspaceBundle struct {
 
 	// Environments and variables
 	Environments    []menv.Env
-	EnvironmentVars []mvar.Var
+	EnvironmentVars []menv.Variable
 }
 
 // CountEntities returns a map containing the count of each entity type in the bundle.

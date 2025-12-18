@@ -17,11 +17,9 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	"the-dev-tools/spec/dist/buf/go/api/environment/v1/environmentv1connect"
@@ -31,7 +29,7 @@ type EnvRPC struct {
 	DB *sql.DB
 
 	es        senv.EnvService
-	vs        svar.VarService
+	vs        senv.VariableService
 	us        suser.UserService
 	ws        sworkspace.WorkspaceService
 	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
@@ -66,7 +64,7 @@ type EnvironmentVariableEvent struct {
 func New(
 	db *sql.DB,
 	es senv.EnvService,
-	vs svar.VarService,
+	vs senv.VariableService,
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
 	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent],
@@ -99,7 +97,7 @@ func toAPIEnvironment(env menv.Env) *apiv1.Environment {
 	}
 }
 
-func toAPIEnvironmentVariable(v mvar.Var) *apiv1.EnvironmentVariable {
+func toAPIEnvironmentVariable(v menv.Variable) *apiv1.EnvironmentVariable {
 	return &apiv1.EnvironmentVariable{
 		EnvironmentVariableId: v.ID.Bytes(),
 		EnvironmentId:         v.EnvID.Bytes(),
@@ -638,7 +636,7 @@ func (e *EnvRPC) EnvironmentVariableCollection(ctx context.Context, req *connect
 	for _, env := range environments {
 		vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
 		if err != nil {
-			if errors.Is(err, svar.ErrNoVarFound) {
+			if errors.Is(err, senv.ErrNoVarFound) {
 				continue
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -722,15 +720,15 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	varWriter := svar.NewWriter(tx)
+	varWriter := senv.NewVariableWriter(tx)
 	createdVars := []struct {
-		variable    mvar.Var
+		variable    menv.Variable
 		workspaceID idwrap.IDWrap
 	}{}
 
 	// Fast inserts inside minimal transaction
 	for _, data := range varModels {
-		varReq := mvar.Var{
+		varReq := menv.Variable{
 			ID:          data.varID,
 			EnvID:       data.envID,
 			VarKey:      data.key,
@@ -744,7 +742,7 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdVars = append(createdVars, struct {
-			variable    mvar.Var
+			variable    menv.Variable
 			workspaceID idwrap.IDWrap
 		}{variable: varReq, workspaceID: data.workspaceID})
 	}
@@ -770,7 +768,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 	}
 
 	type varUpdateData struct {
-		variable    mvar.Var
+		variable    menv.Variable
 		workspaceID idwrap.IDWrap
 	}
 
@@ -790,7 +788,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 
 		variable, err := e.vs.Get(ctx, varID)
 		if err != nil {
-			if errors.Is(err, svar.ErrNoVarFound) {
+			if errors.Is(err, senv.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -848,7 +846,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	varWriter := svar.NewWriter(tx)
+	varWriter := senv.NewVariableWriter(tx)
 
 	for i := range varModels {
 		if err := varWriter.Update(ctx, &varModels[i].variable); err != nil {
@@ -878,7 +876,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 
 	type varDeleteData struct {
 		varID       idwrap.IDWrap
-		variable    mvar.Var
+		variable    menv.Variable
 		workspaceID idwrap.IDWrap
 	}
 
@@ -898,7 +896,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 
 		variable, err := e.vs.Get(ctx, varID)
 		if err != nil {
-			if errors.Is(err, svar.ErrNoVarFound) {
+			if errors.Is(err, senv.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -927,11 +925,11 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	varWriter := svar.NewWriter(tx)
+	varWriter := senv.NewVariableWriter(tx)
 
 	for _, data := range varModels {
 		if err := varWriter.Delete(ctx, data.varID); err != nil {
-			if errors.Is(err, svar.ErrNoVarFound) {
+			if errors.Is(err, senv.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -979,7 +977,7 @@ func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwra
 			workspaceSet.Store(env.WorkspaceID.String(), struct{}{})
 			vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
-				if errors.Is(err, svar.ErrNoVarFound) {
+				if errors.Is(err, senv.ErrNoVarFound) {
 					continue
 				}
 				return nil, err
@@ -1048,7 +1046,7 @@ func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService
 }
 
 // Helper function to check environment variable ownership
-func CheckOwnerVar(ctx context.Context, su suser.UserService, vs svar.VarService, es senv.EnvService, varID idwrap.IDWrap) (bool, error) {
+func CheckOwnerVar(ctx context.Context, su suser.UserService, vs senv.VariableService, es senv.EnvService, varID idwrap.IDWrap) (bool, error) {
 	variable, err := vs.Get(ctx, varID)
 	if err != nil {
 		return false, err

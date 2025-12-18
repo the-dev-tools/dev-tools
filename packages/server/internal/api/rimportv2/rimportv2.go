@@ -18,7 +18,6 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
@@ -34,7 +33,7 @@ type ImportServices struct {
 	Flow               *sflow.FlowService
 	File               *sfile.FileService
 	Env                senv.EnvironmentService
-	Var                svar.VarService
+	Var                senv.VariableService
 	HttpHeader         shttp.HttpHeaderService
 	HttpSearchParam    *shttp.HttpSearchParamService
 	HttpBodyForm       *shttp.HttpBodyFormService
@@ -104,7 +103,7 @@ type ImportV2RPC struct {
 	NodeNoopService           *sflow.NodeNoopService
 	EdgeService               *sflow.EdgeService
 	EnvService                senv.EnvironmentService
-	VarService                svar.VarService
+	VarService                senv.VariableService
 }
 
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies

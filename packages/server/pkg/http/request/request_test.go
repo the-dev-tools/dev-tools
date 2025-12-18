@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
@@ -30,7 +30,7 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 			name:        "simple variable",
 			headerValue: "{{ auth.token }}",
 			varMap: varsystem.VarMap{
-				"auth.token": mvar.Var{VarKey: "auth.token", Value: "abc123"},
+				"auth.token": menv.Variable{VarKey: "auth.token", Value: "abc123"},
 			},
 			want:    "abc123",
 			wantErr: false,
@@ -39,7 +39,7 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 			name:        "bearer token",
 			headerValue: "Bearer {{ auth.token }}",
 			varMap: varsystem.VarMap{
-				"auth.token": mvar.Var{VarKey: "auth.token", Value: "abc123"},
+				"auth.token": menv.Variable{VarKey: "auth.token", Value: "abc123"},
 			},
 			want:    "Bearer abc123",
 			wantErr: false,
@@ -48,9 +48,9 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 			name:        "multiple variables",
 			headerValue: "{{ prefix }}/{{ version }}/{{ path }}",
 			varMap: varsystem.VarMap{
-				"prefix":  mvar.Var{VarKey: "prefix", Value: "api"},
-				"version": mvar.Var{VarKey: "version", Value: "v1"},
-				"path":    mvar.Var{VarKey: "path", Value: "users"},
+				"prefix":  menv.Variable{VarKey: "prefix", Value: "api"},
+				"version": menv.Variable{VarKey: "version", Value: "v1"},
+				"path":    menv.Variable{VarKey: "path", Value: "users"},
 			},
 			want:    "api/v1/users",
 			wantErr: false,
@@ -86,7 +86,7 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 				}
 
 				// Update the varMap with the actual file path
-				tt.varMap["#file:test.txt"] = mvar.Var{
+				tt.varMap["#file:test.txt"] = menv.Variable{
 					VarKey: "#file:test.txt",
 					Value:  "#file:" + tmpFile.Name(),
 				}

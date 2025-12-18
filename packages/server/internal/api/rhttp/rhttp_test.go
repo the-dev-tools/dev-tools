@@ -23,15 +23,15 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
 
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -48,7 +48,7 @@ type httpFixture struct {
 	ws  sworkspace.WorkspaceService
 	wus sworkspacesusers.WorkspaceUserService
 	es  senv.EnvService
-	vs  svar.VarService
+	vs  senv.VariableService
 
 	userID idwrap.IDWrap
 }
@@ -58,8 +58,8 @@ func newHttpFixture(t *testing.T) *httpFixture {
 
 	base := testutil.CreateBaseDB(context.Background(), t)
 	services := base.GetBaseServices()
-	envService := senv.New(base.Queries, base.Logger())
-	varService := svar.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
+	varService := senv.NewVariableService(base.Queries, base.Logger())
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
@@ -1798,7 +1798,7 @@ func TestHttpRun_VariableSubstitutionInURL(t *testing.T) {
 	}
 
 	// Create variables
-	if err := f.vs.Create(f.ctx, mvar.Var{
+	if err := f.vs.Create(f.ctx, menv.Variable{
 		ID:      idwrap.NewNow(),
 		EnvID:   ws.GlobalEnv,
 		VarKey:  "userId",
@@ -1846,7 +1846,7 @@ func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
 	}
 
 	// Create variables
-	if err := f.vs.Create(f.ctx, mvar.Var{
+	if err := f.vs.Create(f.ctx, menv.Variable{
 		ID:      idwrap.NewNow(),
 		EnvID:   ws.GlobalEnv,
 		VarKey:  "authToken",
@@ -1895,7 +1895,7 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 	}
 
 	// Create variables
-	if err := f.vs.Create(f.ctx, mvar.Var{
+	if err := f.vs.Create(f.ctx, menv.Variable{
 		ID:      idwrap.NewNow(),
 		EnvID:   ws.GlobalEnv,
 		VarKey:  "userId",
@@ -1904,7 +1904,7 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 	}); err != nil {
 		require.NoError(t, err, "create userId variable")
 	}
-	if err := f.vs.Create(f.ctx, mvar.Var{
+	if err := f.vs.Create(f.ctx, menv.Variable{
 		ID:      idwrap.NewNow(),
 		EnvID:   ws.GlobalEnv,
 		VarKey:  "sessionId",
@@ -1971,7 +1971,7 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 	}
 
 	for k, v := range vars {
-		err := f.vs.Create(f.ctx, mvar.Var{
+		err := f.vs.Create(f.ctx, menv.Variable{
 			ID:      idwrap.NewNow(),
 			EnvID:   envID,
 			VarKey:  k,
@@ -2078,10 +2078,10 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 		require.NoError(t, err, "failed to get workspace")
 	}
 
-	if err := f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.userId", Value: "12345", Enabled: true}); err != nil {
+	if err := f.vs.Create(f.ctx, menv.Variable{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.userId", Value: "12345", Enabled: true}); err != nil {
 		require.NoError(t, err, "create response.userId")
 	}
-	if err := f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.token", Value: "secret-token-xyz", Enabled: true}); err != nil {
+	if err := f.vs.Create(f.ctx, menv.Variable{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.token", Value: "secret-token-xyz", Enabled: true}); err != nil {
 		require.NoError(t, err, "create response.token")
 	}
 
@@ -2157,9 +2157,9 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 				if err != nil {
 					require.NoError(t, err, "failed to get workspace")
 				}
-				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "用户ID", Value: "123", Enabled: true})
-				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "令牌", Value: "abc", Enabled: true})
-				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "值", Value: "val", Enabled: true})
+				f.vs.Create(f.ctx, menv.Variable{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "用户ID", Value: "123", Enabled: true})
+				f.vs.Create(f.ctx, menv.Variable{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "令牌", Value: "abc", Enabled: true})
+				f.vs.Create(f.ctx, menv.Variable{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "值", Value: "val", Enabled: true})
 			}
 
 			httpID := f.createHttpWithUrl(t, ws, "test-http", actualURL, "GET")

@@ -23,7 +23,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -49,8 +48,8 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 
 	base := testutil.CreateBaseDB(context.Background(), t)
 	services := base.GetBaseServices()
-	envService := senv.New(base.Queries, base.Logger())
-	varService := svar.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
+	varService := senv.NewVariableService(base.Queries, base.Logger())
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())

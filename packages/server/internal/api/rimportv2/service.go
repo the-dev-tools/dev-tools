@@ -18,7 +18,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
@@ -99,7 +98,7 @@ type Importer interface {
 	StoreUnifiedResults(ctx context.Context, results *TranslationResult) error
 	// Store domain-to-variable mappings to all existing environments
 	// Returns created environments (if a default was created), created variables, and updated variables
-	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) (createdEnvs []menv.Env, createdVars []mvar.Var, updatedVars []mvar.Var, err error)
+	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) (createdEnvs []menv.Env, createdVars []menv.Variable, updatedVars []menv.Variable, err error)
 }
 
 // Validator handles input validation for import requests
@@ -156,8 +155,8 @@ type ImportResults struct {
 
 	// Environment variables created during import (for domain-to-variable mappings)
 	CreatedEnvs []menv.Env
-	CreatedVars []mvar.Var
-	UpdatedVars []mvar.Var
+	CreatedVars []menv.Variable
+	UpdatedVars []menv.Variable
 
 	Domains     []string
 	WorkspaceID idwrap.IDWrap

@@ -13,14 +13,12 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/referencecompletion"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/sort/sortenabled"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
@@ -39,7 +37,7 @@ type ReferenceServiceRPC struct {
 
 	// env
 	envReader *senv.Reader
-	varReader *svar.Reader
+	varReader *senv.Reader
 
 	// flow
 	flowReader          *sflow.FlowReader
@@ -57,7 +55,7 @@ func NewReferenceServiceRPC(db *sql.DB,
 	userReader *suser.Reader,
 	workspaceReader *sworkspace.Reader,
 	envReader *senv.Reader,
-	varReader *svar.Reader,
+	varReader *senv.Reader,
 	flowReader *sflow.FlowReader,
 	nodeReader *sflow.NodeReader,
 	nodeRequestReader *sflow.NodeRequestReader,
@@ -219,7 +217,7 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 
 		present := make(map[string][]menv.Env)
 		envMap := make([]*referencev1.ReferenceTreeItem, 0, len(envs))
-		var allVars []mvar.Var
+		var allVars []menv.Variable
 
 		for _, env := range envs {
 			vars, err := c.varReader.GetVariableByEnvID(ctx, env.ID)

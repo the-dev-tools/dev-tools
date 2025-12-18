@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
@@ -92,7 +91,7 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 
 		for i, k := range keys {
 			val := yamlEnv.Variables[k]
-			variable := mvar.Var{
+			variable := menv.Variable{
 				ID:      idwrap.NewNow(),
 				EnvID:   envID,
 				VarKey:  k,

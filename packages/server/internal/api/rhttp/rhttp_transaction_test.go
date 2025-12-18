@@ -25,7 +25,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
@@ -38,7 +37,7 @@ type testServiceSetup struct {
 	ws          sworkspace.WorkspaceService
 	wus         sworkspacesusers.WorkspaceUserService
 	es          senv.EnvService
-	vs          svar.VarService
+	vs          senv.VariableService
 	ctx         context.Context
 	userID      idwrap.IDWrap
 	workspaceID idwrap.IDWrap
@@ -64,8 +63,8 @@ func createTestServiceSetup(t *testing.T) *testServiceSetup {
 	us := suser.New(queries)
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
-	es := senv.New(queries, logger)
-	vs := svar.New(queries, logger)
+	es := senv.NewEnvironmentService(queries, logger)
+	vs := senv.NewVariableService(queries, logger)
 
 	// Create test user and workspace
 	userID := idwrap.NewNow()
@@ -412,8 +411,8 @@ func BenchmarkHttpInsertOptimizedPattern(b *testing.B) {
 	us := suser.New(queries)
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
-	_ = senv.New(queries, logger) // Not used in this test
-	_ = svar.New(queries, logger) // Not used in this test
+	_ = senv.NewEnvironmentService(queries, logger) // Not used in this test
+	_ = senv.NewVariableService(queries, logger)    // Not used in this test
 
 	// Create test user and workspace
 	userID := idwrap.NewNow()

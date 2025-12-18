@@ -26,9 +26,9 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 
-	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/varsystem"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
@@ -215,10 +215,10 @@ func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID i
 	}
 
 	// Get global environment variables
-	var globalVars []mvar.Var
+	var globalVars []menv.Variable
 	if workspace.GlobalEnv != (idwrap.IDWrap{}) {
 		globalVars, err = h.vs.GetVariableByEnvID(ctx, workspace.GlobalEnv)
-		if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+		if err != nil && !errors.Is(err, senv.ErrNoVarFound) {
 			return varsystem.VarMap{}, fmt.Errorf("failed to get global environment variables: %w", err)
 		}
 	}

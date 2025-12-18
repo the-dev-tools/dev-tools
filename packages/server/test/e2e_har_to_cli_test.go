@@ -43,7 +43,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
@@ -361,7 +360,7 @@ type cliServices struct {
 	NodeNoop     *sflow.NodeNoopService
 	NodeJS       *sflow.NodeJsService
 	Environment  *senv.EnvironmentService
-	Variable     *svar.VarService
+	Variable     *senv.VariableService
 
 	HTTP               *shttp.HTTPService
 	HTTPHeader         *shttp.HttpHeaderService
@@ -393,8 +392,8 @@ func initializeCLIServices(ctx context.Context, t *testing.T, db *sql.DB) (*cliS
 	nif := sflow.NewNodeIfService(q)
 	nnos := sflow.NewNodeNoopService(q)
 	njs := sflow.NewNodeJsService(q)
-	env := senv.New(q, logger)
-	vs := svar.New(q, logger)
+	env := senv.NewEnvironmentService(q, logger)
+	vs := senv.NewVariableService(q, logger)
 
 	hs := shttp.New(q, logger)
 	hh := shttp.NewHttpHeaderService(q)
@@ -545,8 +544,8 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 	edgeService := sflow.NewEdgeService(baseDB.Queries)
 
 	// Environment and variable services
-	envService := senv.New(baseDB.Queries, mockLogger)
-	varService := svar.New(baseDB.Queries, mockLogger)
+	envService := senv.NewEnvironmentService(baseDB.Queries, mockLogger)
+	varService := senv.NewVariableService(baseDB.Queries, mockLogger)
 	fileService := sfile.New(baseDB.Queries, mockLogger)
 
 	// Create streamers

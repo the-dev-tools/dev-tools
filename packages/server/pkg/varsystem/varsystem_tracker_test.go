@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +12,7 @@ import (
 
 func TestVarMapTracker_Get(t *testing.T) {
 	// Create a base VarMap
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "token", Value: "abc123"},
 		{VarKey: "baseUrl", Value: "https://api.example.com"},
 	}
@@ -57,7 +57,7 @@ func TestVarMapTracker_Get(t *testing.T) {
 
 func TestVarMapTracker_ReplaceVars(t *testing.T) {
 	// Create a base VarMap
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "token", Value: "abc123"},
 		{VarKey: "baseUrl", Value: "https://api.example.com"},
 		{VarKey: "version", Value: "v1"},
@@ -98,7 +98,7 @@ func TestVarMapTracker_ReplaceVars(t *testing.T) {
 
 func TestVarMapTracker_ReplaceVars_SingleVariable(t *testing.T) {
 	// Create a base VarMap
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "message", Value: "Hello World"},
 	}
 	varMap := varsystem.NewVarMap(vars)
@@ -127,7 +127,7 @@ func TestVarMapTracker_ReplaceVars_SingleVariable(t *testing.T) {
 
 func TestVarMapTracker_ReplaceVars_MissingVariable(t *testing.T) {
 	// Create an empty VarMap
-	vars := []mvar.Var{}
+	vars := []menv.Variable{}
 	varMap := varsystem.NewVarMap(vars)
 
 	// Create tracker
@@ -149,7 +149,7 @@ func TestVarMapTracker_ReplaceVars_MissingVariable(t *testing.T) {
 
 func TestVarMapTracker_ReplaceVars_NoVariables(t *testing.T) {
 	// Create a base VarMap
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "token", Value: "abc123"},
 	}
 	varMap := varsystem.NewVarMap(vars)
@@ -175,7 +175,7 @@ func TestVarMapTracker_ReplaceVars_NoVariables(t *testing.T) {
 
 func TestVarMapTracker_GetReadVars_IsolatedCopy(t *testing.T) {
 	// Create a base VarMap
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "token", Value: "abc123"},
 	}
 	varMap := varsystem.NewVarMap(vars)
@@ -220,7 +220,7 @@ func TestVarMapTracker_ReplaceVars_EnvReference(t *testing.T) {
 		}
 	}()
 
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "token", Value: "#env:" + envKey},
 	}
 	tracker := varsystem.NewVarMapTracker(varsystem.NewVarMap(vars))

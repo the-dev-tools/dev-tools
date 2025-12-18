@@ -25,7 +25,6 @@ import (
 
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -68,7 +67,7 @@ type BaseTestServices struct {
 	NodeNoopService    *sflow.NodeNoopService
 	EdgeService        *sflow.EdgeService
 	EnvService         senv.EnvironmentService
-	VarService         svar.VarService
+	VarService         senv.VariableService
 }
 
 // newIntegrationTestFixture creates a complete test environment for integration tests
@@ -99,8 +98,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
 	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
 	edgeService := sflow.NewEdgeService(base.Queries)
-	envService := senv.New(base.Queries, logger)
-	varService := svar.New(base.Queries, logger)
+	envService := senv.NewEnvironmentService(base.Queries, logger)
+	varService := senv.NewVariableService(base.Queries, logger)
 
 	// Create user and workspace
 	userID := idwrap.NewNow()

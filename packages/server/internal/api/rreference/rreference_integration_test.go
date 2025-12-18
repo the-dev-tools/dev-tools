@@ -15,7 +15,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 
@@ -26,8 +25,8 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	// Setup
 	base := testutil.CreateBaseDB(context.Background(), t)
 	services := base.GetBaseServices()
-	envService := senv.New(base.Queries, base.Logger())
-	varService := svar.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
+	varService := senv.NewVariableService(base.Queries, base.Logger())
 
 	// Flow services (needed for constructor but not used)
 	flowService := sflow.NewFlowService(base.Queries)

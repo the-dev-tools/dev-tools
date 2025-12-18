@@ -17,11 +17,9 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 )
@@ -31,7 +29,7 @@ type envFixture struct {
 	base        *testutil.BaseDBQueries
 	handler     EnvRPC
 	envService  senv.EnvService
-	varService  svar.VarService
+	varService  senv.VariableService
 	workspaceID idwrap.IDWrap
 	userID      idwrap.IDWrap
 }
@@ -41,8 +39,8 @@ func newEnvFixture(t *testing.T) *envFixture {
 
 	base := testutil.CreateBaseDB(context.Background(), t)
 	services := base.GetBaseServices()
-	envService := senv.New(base.Queries, base.Logger())
-	varService := svar.New(base.Queries, base.Logger())
+	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
+	varService := senv.NewVariableService(base.Queries, base.Logger())
 	envStream := memory.NewInMemorySyncStreamer[EnvironmentTopic, EnvironmentEvent]()
 	varStream := memory.NewInMemorySyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]()
 	t.Cleanup(envStream.Shutdown)
@@ -116,7 +114,7 @@ func (f *envFixture) createEnv(t *testing.T, order float64) menv.Env {
 func (f *envFixture) createVar(t *testing.T, envID idwrap.IDWrap, order float64) idwrap.IDWrap {
 	t.Helper()
 	varID := idwrap.NewNow()
-	err := f.varService.Create(f.ctx, mvar.Var{
+	err := f.varService.Create(f.ctx, menv.Variable{
 		ID:          varID,
 		EnvID:       envID,
 		VarKey:      fmt.Sprintf("key-%f", order),
@@ -317,7 +315,7 @@ func TestEnvironmentVariableDelete(t *testing.T) {
 	require.NoError(t, err, "EnvironmentVariableDelete")
 
 	_, err = f.varService.Get(f.ctx, varID)
-	require.ErrorIs(t, err, svar.ErrNoVarFound)
+	require.ErrorIs(t, err, senv.ErrNoVarFound)
 }
 
 func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {

@@ -14,7 +14,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 
@@ -184,7 +183,7 @@ type HttpServiceRPC struct {
 
 	// Environment and variable services
 	es senv.EnvService
-	vs svar.VarService
+	vs senv.VariableService
 
 	// Additional services for HTTP components
 	bodyService         *shttp.HttpBodyRawService
@@ -213,7 +212,7 @@ func New(
 	ws sworkspace.WorkspaceService,
 	wus sworkspacesusers.WorkspaceUserService,
 	es senv.EnvService,
-	vs svar.VarService,
+	vs senv.VariableService,
 	bodyService *shttp.HttpBodyRawService,
 	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,

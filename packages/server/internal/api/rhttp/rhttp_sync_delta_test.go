@@ -20,7 +20,7 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -44,8 +44,8 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	wus := baseDBQueries.GetBaseServices().Wus
 	us := baseDBQueries.GetBaseServices().Us
 	hs := baseDBQueries.GetBaseServices().Hs
-	es := senv.New(queries, logger)
-	vs := svar.New(queries, logger)
+	es := senv.NewEnvironmentService(queries, logger)
+	vs := senv.NewVariableService(queries, logger)
 
 	bodyService := shttp.NewHttpBodyRawService(queries)
 	httpHeaderService := shttp.NewHttpHeaderService(queries)

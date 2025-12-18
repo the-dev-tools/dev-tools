@@ -26,7 +26,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
@@ -91,7 +90,7 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 	httpAssertService := shttp.NewHttpAssertService(queries)
 
 	// Additional services for builder
-	varService := svar.New(queries, logger)
+	varService := senv.NewVariableService(queries, logger)
 
 	// Initialize resolver
 	res := resolver.NewStandardResolver(
@@ -126,7 +125,7 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		DB:                 db,
 		Queries:            queries,
 		Workspace:          workspaceService,
-		Environment:        senv.New(queries, logger),
+		Environment:        senv.NewEnvironmentService(queries, logger),
 		Variable:           varService,
 		Flow:               flowService,
 		FlowEdge:           edgeService,

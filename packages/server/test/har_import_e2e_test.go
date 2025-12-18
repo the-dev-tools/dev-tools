@@ -28,7 +28,7 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/testutil"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
@@ -82,8 +82,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	edgeService := sflow.NewEdgeService(baseDB.Queries)
 
 	// Create environment and variable services
-	envService := senv.New(baseDB.Queries, mockLogger)
-	varService := svar.New(baseDB.Queries, mockLogger)
+	envService := senv.NewEnvironmentService(baseDB.Queries, mockLogger)
+	varService := senv.NewVariableService(baseDB.Queries, mockLogger)
 
 	// Create streamers using the same approach as integration tests
 	flowStream := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()

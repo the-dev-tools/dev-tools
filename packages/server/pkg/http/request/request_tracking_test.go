@@ -3,8 +3,8 @@ package request_test
 import (
 	"testing"
 	"the-dev-tools/server/pkg/http/request"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +12,7 @@ import (
 
 func TestPrepareRequestWithTracking_URL(t *testing.T) {
 	// Setup variables
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "baseUrl", Value: "https://api.example.com"},
 		{VarKey: "version", Value: "v1"},
 	}
@@ -111,7 +111,7 @@ func TestPrepareRequestWithTracking_TrimsVariableKeys(t *testing.T) {
 
 func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 	// Setup variables
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "token", Value: "abc123"},
 		{VarKey: "contentType", Value: "application/json"},
 	}
@@ -182,7 +182,7 @@ func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 
 func TestPrepareRequestWithTracking_Queries(t *testing.T) {
 	// Setup variables
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "limit", Value: "10"},
 		{VarKey: "sortBy", Value: "name"},
 	}
@@ -234,7 +234,7 @@ func TestPrepareRequestWithTracking_Queries(t *testing.T) {
 
 func TestPrepareRequestWithTracking_Body(t *testing.T) {
 	// Setup variables
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "userName", Value: "john_doe"},
 		{VarKey: "userEmail", Value: "john@example.com"},
 	}
@@ -292,7 +292,7 @@ func TestPrepareRequestWithTracking_Body(t *testing.T) {
 
 func TestPrepareRequestWithTracking_NoVariables(t *testing.T) {
 	// Setup without variables
-	varMap := varsystem.NewVarMap([]mvar.Var{})
+	varMap := varsystem.NewVarMap([]menv.Variable{})
 
 	// Setup static endpoint
 	endpoint := mhttp.HTTP{
@@ -327,7 +327,7 @@ func TestPrepareRequestWithTracking_NoVariables(t *testing.T) {
 
 func TestPrepareRequestWithTracking_ComplexScenario(t *testing.T) {
 	// Setup variables
-	vars := []mvar.Var{
+	vars := []menv.Variable{
 		{VarKey: "baseUrl", Value: "https://api.example.com"},
 		{VarKey: "version", Value: "v2"},
 		{VarKey: "token", Value: "xyz789"},

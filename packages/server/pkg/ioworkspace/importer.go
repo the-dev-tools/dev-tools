@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 )
 
 // ImportResult contains statistics and mappings from the import operation.
@@ -84,8 +83,8 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	nodeJSService := sflow.NewNodeJsService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
-	envService := senv.New(s.queries, nil).TX(tx)
-	varService := svar.New(s.queries, nil).TX(tx)
+	envService := senv.NewEnvironmentService(s.queries, nil).TX(tx)
+	varService := senv.NewVariableService(s.queries, nil).TX(tx)
 
 	// Layer 0: Flows (no dependencies)
 	if opts.ImportFlows && len(bundle.Flows) > 0 {

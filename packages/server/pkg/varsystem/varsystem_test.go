@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
@@ -16,11 +16,11 @@ import (
 func TestMergeVars(t *testing.T) {
 	// TestMergeVars tests the mergeVars function
 	// when the input is a slice of variables with no duplicates
-	a := []mvar.Var{}
+	a := []menv.Variable{}
 	const aSize = 10
 
 	for i := 0; i < aSize; i++ {
-		a = append(a, mvar.Var{
+		a = append(a, menv.Variable{
 			ID:     idwrap.NewNow(),
 			VarKey: fmt.Sprintf("key_%d", i),
 			EnvID:  idwrap.NewNow(),
@@ -28,12 +28,12 @@ func TestMergeVars(t *testing.T) {
 		})
 	}
 
-	b := []mvar.Var{}
+	b := []menv.Variable{}
 	const bNonDupe = 10
 	const bSize = bNonDupe + aSize
 
 	for i := aSize; i < bSize; i++ {
-		b = append(b, mvar.Var{
+		b = append(b, menv.Variable{
 			ID:     idwrap.NewNow(),
 			VarKey: fmt.Sprintf("key_%d", i),
 			EnvID:  idwrap.NewNow(),
@@ -52,7 +52,7 @@ func TestGetVars(t *testing.T) {
 	const key1 = "key1"
 	const value1 = "value1"
 
-	vs := varsystem.NewVarMap([]mvar.Var{
+	vs := varsystem.NewVarMap([]menv.Variable{
 		{ID: idwrap.NewNow(), VarKey: key1, EnvID: idwrap.NewNow(), Value: value1},
 	})
 
@@ -90,9 +90,9 @@ func TestLongStringReplace(t *testing.T) {
 		testUrl += fmt.Sprintf("{{%s%d}}", key_prefix, i)
 	}
 
-	a := make([]mvar.Var, total_key)
+	a := make([]menv.Variable, total_key)
 	for i := 0; i < total_key; i++ {
-		a[i] = mvar.Var{
+		a[i] = menv.Variable{
 			ID:     idwrap.NewNow(),
 			VarKey: fmt.Sprintf("%s%d", key_prefix, i),
 			EnvID:  idwrap.NewNow(),
@@ -117,13 +117,13 @@ func TestHostStringReplace(t *testing.T) {
 
 	expectedUrl := fmt.Sprintf("https://%s/search?q=", hostVarVal)
 
-	a := mvar.Var{
+	a := menv.Variable{
 		ID:     idwrap.NewNow(),
 		EnvID:  idwrap.NewNow(),
 		VarKey: hostVarKey,
 		Value:  hostVarVal,
 	}
-	vs := varsystem.NewVarMap([]mvar.Var{a})
+	vs := varsystem.NewVarMap([]menv.Variable{a})
 	urlNew, err := vs.ReplaceVars(BaseUrl)
 	if err != nil {
 		t.Fatalf("Error: %s", err)
@@ -146,13 +146,13 @@ func TestNewVarMapFromAnyMap(t *testing.T) {
 	}
 
 	expected := varsystem.VarMap{
-		"key1":            mvar.Var{Value: "value1"},
-		"key2":            mvar.Var{Value: "42"},
-		"key3":            mvar.Var{Value: "true"},
-		"key4.nestedKey1": mvar.Var{Value: "nestedValue1"},
-		"key5[0]":         mvar.Var{Value: "1"},
-		"key5[1]":         mvar.Var{Value: "2"},
-		"key5[2]":         mvar.Var{Value: "3"},
+		"key1":            menv.Variable{Value: "value1"},
+		"key2":            menv.Variable{Value: "42"},
+		"key3":            menv.Variable{Value: "true"},
+		"key4.nestedKey1": menv.Variable{Value: "nestedValue1"},
+		"key5[0]":         menv.Variable{Value: "1"},
+		"key5[1]":         menv.Variable{Value: "2"},
+		"key5[2]":         menv.Variable{Value: "3"},
 	}
 
 	result := varsystem.NewVarMapFromAnyMap(input)
@@ -253,7 +253,7 @@ func TestEnvReferenceReplaceFromVar(t *testing.T) {
 		}
 	}()
 
-	vars := varsystem.NewVarMap([]mvar.Var{
+	vars := varsystem.NewVarMap([]menv.Variable{
 		{VarKey: "token", Value: "#env:" + envKey},
 	})
 
@@ -278,7 +278,7 @@ func TestEnvReferenceMissing(t *testing.T) {
 		t.Fatalf("expected ErrKeyNotFound, got %v", err)
 	}
 
-	vars := varsystem.NewVarMap([]mvar.Var{{VarKey: "token", Value: "#env:" + envKey}})
+	vars := varsystem.NewVarMap([]menv.Variable{{VarKey: "token", Value: "#env:" + envKey}})
 	_, err = vars.ReplaceVars("{{token}}")
 	if err == nil {
 		t.Fatalf("expected error for missing env in var map")

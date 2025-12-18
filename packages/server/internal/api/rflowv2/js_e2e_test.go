@@ -26,7 +26,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
@@ -122,8 +121,8 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	nodeIfService := sflow.NewNodeIfService(queries)
 
 	// Environment and variable services
-	envService := senv.New(queries, logger)
-	varService := svar.New(queries, logger)
+	envService := senv.NewEnvironmentService(queries, logger)
+	varService := senv.NewVariableService(queries, logger)
 
 	// Resolver
 	res := resolver.NewStandardResolver(

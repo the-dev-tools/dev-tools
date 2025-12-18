@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
@@ -23,7 +22,7 @@ type Services struct {
 	// Workspace
 	Workspace   sworkspace.WorkspaceService
 	Environment senv.EnvironmentService
-	Variable    svar.VarService
+	Variable    senv.VariableService
 
 	// Flow
 	Flow         sflow.FlowService
@@ -64,8 +63,8 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 
 		// Workspace
 		Workspace:   sworkspace.New(queries),
-		Environment: senv.New(queries, logger),
-		Variable:    svar.New(queries, logger),
+		Environment: senv.NewEnvironmentService(queries, logger),
+		Variable:    senv.NewVariableService(queries, logger),
 
 		// Flow
 		Flow:         sflow.NewFlowService(queries),
