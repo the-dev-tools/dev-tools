@@ -234,7 +234,7 @@ const EnvironmentModal = () => {
                 aria-label='Environments'
                 dependencies={[{}]}
                 dragAndDropHooks={dragAndDropHooks}
-                items={environments}
+                items={environments.filter((_) => environmentCollection.utils.getKey(_) !== globalKey)}
                 onSelectionChange={(keys) => {
                   if (!Predicate.isSet(keys) || keys.size !== 1) return;
                   const [key] = keys.values();
