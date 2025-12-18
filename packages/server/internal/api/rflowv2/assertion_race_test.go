@@ -80,17 +80,17 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	noopService := snodenoop.New(queries)
 	flowVarService := sflowvariable.New(queries)
 	nodeRequestService := snoderequest.New(queries)
-	
+
 	httpService := shttp.New(queries, logger)
 	shttpBodyRawSvc := shttp.NewHttpBodyRawService(queries)
 	resAssertSvc := shttp.NewHttpAssertService(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
-	
+
 	resHeaderSvc := shttp.NewHttpHeaderService(queries)
 	resSearchParamSvc := shttp.NewHttpSearchParamService(queries)
 	resBodyFormSvc := shttp.NewHttpBodyFormService(queries)
 	resBodyUrlencodedSvc := shttp.NewHttpBodyUrlEncodedService(queries)
-	
+
 	nodeForService := snodefor.New(queries)
 	nodeForEachService := snodeforeach.New(queries)
 	nodeIfService := snodeif.New(queries)
@@ -101,7 +101,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	// Streams
 	executionStream := memory.NewInMemorySyncStreamer[ExecutionTopic, ExecutionEvent]()
 	assertStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
-	
+
 	// Resolver
 	res := resolver.NewStandardResolver(
 		&httpService,
@@ -114,6 +114,12 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	)
 
 	svc := New(
+		db,
+		wsService.Reader(),
+		flowService.Reader(),
+		nodeService.Reader(),
+		varService.Reader(),
+		httpService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,
@@ -132,13 +138,14 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 		shttpBodyRawSvc,
 		res,
 		logger,
-		nil,
+		nil, // workspaceImportService
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-		executionStream,
-		nil, nil,
-		assertStream,
-		nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // 1-10
+		executionStream, // 11
+		nil, nil,        // 12-13
+		assertStream, // 14
+		nil,          // 15 (logStream)
+		nil,          // jsClient
 	)
 
 	// 4. Setup Data
@@ -166,9 +173,9 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	// Add Assertion
 	assertID := idwrap.NewNow()
 	err = resAssertSvc.Create(ctx, &mhttp.HTTPAssert{
-		ID: assertID,
-		HttpID: httpID,
-		Value: "response.status == 200", // Standard simplified assertion syntax often used
+		ID:      assertID,
+		HttpID:  httpID,
+		Value:   "response.status == 200", // Standard simplified assertion syntax often used
 		Enabled: true,
 	})
 	require.NoError(t, err)
@@ -191,7 +198,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	// 5. Capture Events
 	var events []capturedEvent
 	var mu sync.Mutex
-	
+
 	assertCh, _ := assertStream.Subscribe(ctx, func(topic rhttp.HttpResponseAssertTopic) bool { return true })
 	execCh, _ := executionStream.Subscribe(ctx, func(topic ExecutionTopic) bool { return true })
 
@@ -205,7 +212,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 			case evt := <-execCh:
 				mu.Lock()
 				nodeID, _ := idwrap.NewFromBytes(evt.Payload.Execution.NodeId)
-				
+
 				stateStr := "UNKNOWN"
 				switch evt.Payload.Execution.State {
 				case flowv1.FlowItemState_FLOW_ITEM_STATE_RUNNING:
@@ -240,7 +247,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 
 	assertionIndex := -1
 	requestSuccessIndex := -1
-	
+
 	for i, evt := range events {
 		if evt.Type == "assertion" {
 			if assertionIndex == -1 {
@@ -256,7 +263,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 
 	assert.NotEqual(t, -1, assertionIndex, "Should receive assertion event")
 	assert.NotEqual(t, -1, requestSuccessIndex, "Should receive success execution event for request node")
-	
+
 	if assertionIndex != -1 && requestSuccessIndex != -1 {
 		assert.Less(t, assertionIndex, requestSuccessIndex, "Assertion event should arrive before Request Node Success event")
 	}

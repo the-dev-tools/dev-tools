@@ -85,23 +85,12 @@ func TestResponseExecutionSyncCoordination(t *testing.T) {
 	})
 
 	t.Run("execution without ResponseID does not wait", func(t *testing.T) {
-		responsePublished := make(map[string]chan struct{})
-		var mu sync.Mutex
-
 		executed := make(chan struct{})
 
 		// Execution handler with no ResponseID
 		go func() {
-			var auxiliaryID *idwrap.IDWrap = nil // No ResponseID
 
-			if auxiliaryID != nil {
-				mu.Lock()
-				ch, ok := responsePublished[auxiliaryID.String()]
-				mu.Unlock()
-				if ok {
-					<-ch
-				}
-			}
+			// No wait if auxiliaryID is nil (as defined above)
 
 			close(executed)
 		}()

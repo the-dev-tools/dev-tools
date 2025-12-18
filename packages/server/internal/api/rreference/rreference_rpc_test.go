@@ -38,7 +38,20 @@ import (
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 )
 
-func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwrap.IDWrap, idwrap.IDWrap) {
+type referenceTestServices struct {
+	us   suser.UserService
+	ws   sworkspace.WorkspaceService
+	es   senv.EnvironmentService
+	vs   svar.VarService
+	fs   sflow.FlowService
+	fns  snode.NodeService
+	fvs  sflowvariable.FlowVariableService
+	esvc sedge.EdgeService
+	nes  snodeexecution.NodeExecutionService
+	hrs  shttp.HttpResponseService
+}
+
+func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwrap.IDWrap, idwrap.IDWrap, referenceTestServices) {
 	ctx := context.Background()
 	baseDB := testutil.CreateBaseDB(ctx, t)
 	t.Cleanup(func() { baseDB.Close() })
@@ -61,8 +74,19 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
-	svc := NewNodeServiceRPC(
-		db, us, ws, es, vs, fs, fns, frns, fvs, edgeService, nes, httpResponseService,
+	svc := NewReferenceServiceRPC(
+		db,
+		us.Reader(),
+		ws.Reader(),
+		es.Reader(),
+		vs.Reader(),
+		fs.Reader(),
+		fns.Reader(),
+		frns.Reader(),
+		fvs.Reader(),
+		edgeService.Reader(),
+		nes.Reader(),
+		httpResponseService.Reader(),
 	)
 
 	// Create User and Workspace using BaseTestServices helper
@@ -73,15 +97,26 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 	workspaceID, err := baseServices.CreateTempCollection(ctx, userID, "Test Workspace")
 	require.NoError(t, err)
 
-	return svc, ctx, userID, workspaceID
+	return svc, ctx, userID, workspaceID, referenceTestServices{
+		us:   us,
+		ws:   ws,
+		es:   es,
+		vs:   vs,
+		fs:   fs,
+		fns:  fns,
+		fvs:  fvs,
+		esvc: edgeService,
+		nes:  nes,
+		hrs:  httpResponseService,
+	}
 }
 
 func TestReferenceCompletion_Workspace(t *testing.T) {
-	svc, ctx, _, workspaceID := setupTestService(t)
+	svc, ctx, _, workspaceID, ts := setupTestService(t)
 
 	// Create Env
 	envID := idwrap.NewNow()
-	err := svc.es.Create(ctx, menv.Env{
+	err := ts.es.Create(ctx, menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
 		Name:        "Test Env",
@@ -90,7 +125,7 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 
 	// Create Vars
 	varID1 := idwrap.NewNow()
-	err = svc.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, mvar.Var{
 		ID:      varID1,
 		EnvID:   envID,
 		VarKey:  "env_var_1",
@@ -100,7 +135,7 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 	require.NoError(t, err)
 
 	varID2 := idwrap.NewNow()
-	err = svc.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, mvar.Var{
 		ID:      varID2,
 		EnvID:   envID,
 		VarKey:  "env_var_2",
@@ -131,11 +166,11 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 }
 
 func TestReferenceCompletion_FlowNode(t *testing.T) {
-	svc, ctx, _, workspaceID := setupTestService(t)
+	svc, ctx, _, workspaceID, ts := setupTestService(t)
 
 	// Create Flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
+	err := ts.fs.CreateFlow(ctx, mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: workspaceID,
 		Name:        "Test Flow",
@@ -144,7 +179,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Source Node (REQUEST)
 	sourceNodeID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       sourceNodeID,
 		FlowID:   flowID,
 		Name:     "SourceRequest",
@@ -154,7 +189,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Target Node (REQUEST) - this is where we request completion from
 	targetNodeID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       targetNodeID,
 		FlowID:   flowID,
 		Name:     "TargetRequest",
@@ -164,7 +199,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Edge from Source to Target
 	edgeID := idwrap.NewNow()
-	err = svc.flowEdgeService.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, edge.Edge{
 		ID:       edgeID,
 		FlowID:   flowID,
 		SourceID: sourceNodeID,
@@ -174,7 +209,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Flow Variable
 	flowVarID := idwrap.NewNow()
-	err = svc.flowVariableService.CreateFlowVariable(ctx, mflowvariable.FlowVariable{
+	err = ts.fvs.CreateFlowVariable(ctx, mflowvariable.FlowVariable{
 		ID:      flowVarID,
 		FlowID:  flowID,
 		Name:    "flow_var_1",
@@ -213,13 +248,13 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 }
 
 func TestReferenceCompletion_Http(t *testing.T) {
-	svc, ctx, _, _ := setupTestService(t)
+	svc, ctx, _, _, ts := setupTestService(t)
 
 	httpID := idwrap.NewNow()
 
-	// Create Response using svc.hrs
+	// Create Response using svc.httpResponseReader
 	respID := idwrap.NewNow()
-	err := svc.hrs.Create(ctx, mhttp.HTTPResponse{
+	err := ts.hrs.Create(ctx, mhttp.HTTPResponse{
 		ID:        respID,
 		HttpID:    httpID,
 		Status:    201,
@@ -249,18 +284,18 @@ func TestReferenceCompletion_Http(t *testing.T) {
 }
 
 func TestReferenceValue_Simple(t *testing.T) {
-	svc, ctx, _, workspaceID := setupTestService(t)
+	svc, ctx, _, workspaceID, ts := setupTestService(t)
 
 	// Create Env Var
 	envID := idwrap.NewNow()
-	err := svc.es.Create(ctx, menv.Env{
+	err := ts.es.Create(ctx, menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
 		Name:        "Test Env",
 	})
 	require.NoError(t, err)
 
-	err = svc.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, mvar.Var{
 		ID:      idwrap.NewNow(),
 		EnvID:   envID,
 		VarKey:  "my_var",
@@ -283,11 +318,11 @@ func TestReferenceValue_Simple(t *testing.T) {
 }
 
 func TestReferenceValue_Nested(t *testing.T) {
-	svc, ctx, _, workspaceID := setupTestService(t)
+	svc, ctx, _, workspaceID, ts := setupTestService(t)
 
 	// Create Flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
+	err := ts.fs.CreateFlow(ctx, mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: workspaceID,
 		Name:        "Test Flow",
@@ -296,7 +331,7 @@ func TestReferenceValue_Nested(t *testing.T) {
 
 	// Create Node with Execution Data
 	nodeID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "MyNode",
@@ -328,12 +363,12 @@ func TestReferenceValue_Nested(t *testing.T) {
 	}
 
 	// Use CreateNodeExecution method
-	err = svc.nodeExecutionService.CreateNodeExecution(ctx, exec)
+	err = ts.nes.CreateNodeExecution(ctx, exec)
 	require.NoError(t, err)
 
 	// We need another node to reference "MyNode"
 	targetNodeID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       targetNodeID,
 		FlowID:   flowID,
 		Name:     "TargetNode",
@@ -342,7 +377,7 @@ func TestReferenceValue_Nested(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Edge
-	err = svc.flowEdgeService.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, edge.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: nodeID,
@@ -364,11 +399,11 @@ func TestReferenceValue_Nested(t *testing.T) {
 }
 
 func TestReferenceTree_Workspace(t *testing.T) {
-	svc, ctx, _, workspaceID := setupTestService(t)
+	svc, ctx, _, workspaceID, ts := setupTestService(t)
 
 	// Create Env
 	envID := idwrap.NewNow()
-	err := svc.es.Create(ctx, menv.Env{
+	err := ts.es.Create(ctx, menv.Env{
 		ID:          envID,
 		WorkspaceID: workspaceID,
 		Name:        "Test Env",
@@ -377,7 +412,7 @@ func TestReferenceTree_Workspace(t *testing.T) {
 
 	// Create Vars
 	varID1 := idwrap.NewNow()
-	err = svc.vs.Create(ctx, mvar.Var{
+	err = ts.vs.Create(ctx, mvar.Var{
 		ID:      varID1,
 		EnvID:   envID,
 		VarKey:  "env_var_1",
@@ -418,13 +453,13 @@ func TestReferenceTree_Workspace(t *testing.T) {
 }
 
 func TestReferenceTree_Http(t *testing.T) {
-	svc, ctx, _, _ := setupTestService(t)
+	svc, ctx, _, _, ts := setupTestService(t)
 
 	httpID := idwrap.NewNow()
 
 	// Create Response
 	respID := idwrap.NewNow()
-	err := svc.hrs.Create(ctx, mhttp.HTTPResponse{
+	err := ts.hrs.Create(ctx, mhttp.HTTPResponse{
 		ID:        respID,
 		HttpID:    httpID,
 		Status:    201,
@@ -478,11 +513,11 @@ func TestReferenceTree_Http(t *testing.T) {
 }
 
 func TestReferenceTree_FlowNode(t *testing.T) {
-	svc, ctx, _, workspaceID := setupTestService(t)
+	svc, ctx, _, workspaceID, ts := setupTestService(t)
 
 	// Create Flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
+	err := ts.fs.CreateFlow(ctx, mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: workspaceID,
 		Name:        "Test Flow",
@@ -490,7 +525,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1. Flow Variable
-	err = svc.flowVariableService.CreateFlowVariable(ctx, mflowvariable.FlowVariable{
+	err = ts.fvs.CreateFlowVariable(ctx, mflowvariable.FlowVariable{
 		ID:      idwrap.NewNow(),
 		FlowID:  flowID,
 		Name:    "flow_var",
@@ -501,7 +536,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// 2. Previous Node with Execution Data
 	node1ID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       node1ID,
 		FlowID:   flowID,
 		Name:     "NodeWithExec",
@@ -517,7 +552,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	}
 	execBytes, _ := json.Marshal(execData)
 	now := time.Now().Unix()
-	err = svc.nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+	err = ts.nes.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
 		ID:                     idwrap.NewNow(),
 		NodeID:                 node1ID,
 		Name:                   "Exec1",
@@ -530,7 +565,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// 3. Previous Node without Execution Data (Schema Fallback) - using REQUEST node
 	node2ID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       node2ID,
 		FlowID:   flowID,
 		Name:     "NodeRequest",
@@ -540,7 +575,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// 4. For Loop Node (Schema Fallback)
 	node3ID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       node3ID,
 		FlowID:   flowID,
 		Name:     "LoopNode",
@@ -550,7 +585,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// 5. Target Node
 	targetNodeID := idwrap.NewNow()
-	err = svc.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mnnode.MNode{
 		ID:       targetNodeID,
 		FlowID:   flowID,
 		Name:     "Target",
@@ -560,7 +595,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// Connect edges
 	// NodeWithExec -> Target
-	err = svc.flowEdgeService.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, edge.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: node1ID,
@@ -569,7 +604,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// NodeRequest -> Target
-	err = svc.flowEdgeService.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, edge.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: node2ID,
@@ -578,7 +613,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// LoopNode -> Target
-	err = svc.flowEdgeService.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, edge.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: node3ID,

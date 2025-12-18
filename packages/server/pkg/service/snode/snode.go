@@ -65,3 +65,5 @@ func (ns NodeService) UpdateNode(ctx context.Context, n mnnode.MNode) error {
 func (ns NodeService) DeleteNode(ctx context.Context, id idwrap.IDWrap) error {
 	return NewWriterFromQueries(ns.queries).DeleteNode(ctx, id)
 }
+
+func (ns NodeService) Reader() *Reader { return ns.reader }

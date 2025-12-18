@@ -259,7 +259,7 @@ func (s *FlowServiceV2RPC) ensureWorkspaceAccess(ctx context.Context, workspaceI
 }
 
 func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.IDWrap) error {
-	flow, err := s.fs.GetFlow(ctx, flowID)
+	flow, err := s.fsReader.GetFlow(ctx, flowID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
@@ -280,7 +280,7 @@ func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.I
 }
 
 func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mnnode.MNode, error) {
-	node, err := s.ns.GetNode(ctx, nodeID)
+	node, err := s.nsReader.GetNode(ctx, nodeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s not found", nodeID.String()))
@@ -318,7 +318,7 @@ func (s *FlowServiceV2RPC) listAccessibleFlows(ctx context.Context) ([]mflow.Flo
 	var allFlows []mflow.Flow
 	for _, ws := range workspaces {
 		// Use GetAllFlowsByWorkspaceID to include flow versions for TanStack DB sync
-		flows, err := s.fs.GetAllFlowsByWorkspaceID(ctx, ws.ID)
+		flows, err := s.fsReader.GetAllFlowsByWorkspaceID(ctx, ws.ID)
 		if err != nil {
 			if errors.Is(err, sflow.ErrNoFlowFound) {
 				continue
@@ -336,7 +336,7 @@ func (s *FlowServiceV2RPC) listUserWorkspaces(ctx context.Context) ([]mworkspace
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	workspaces, err := s.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

@@ -238,8 +238,10 @@ func run() error {
 		Log:                streamers.Log,
 	}
 
+	httpReader := shttp.NewReader(currentDB, logger, &workspaceUserService)
+
 	httpSrv := rhttp.New(
-		currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService,
+		currentDB, httpReader, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService,
 		httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService,
 		httpAssertService, httpResponseService, requestResolver,
 		httpStreamers,
@@ -338,7 +340,18 @@ func run() error {
 		jsBaseURL,
 	)
 
+	workspaceReader := sworkspace.NewReader(currentDB)
+	flowReader := sflow.NewReader(currentDB)
+	nodeReader := snode.NewReader(currentDB)
+	varReader := svar.NewReader(currentDB, logger)
+
 	flowSrvV2 := rflowv2.New(
+		currentDB,
+		workspaceReader,
+		flowReader,
+		nodeReader,
+		varReader,
+		httpReader,
 		&workspaceService,
 		&flowService,
 		&flowEdgeService,
@@ -398,9 +411,11 @@ func run() error {
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
 	// Reference Service
-	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService,
-		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService,
-		httpResponseService)
+	refServiceRPC := rreference.NewReferenceServiceRPC(currentDB,
+		userService.Reader(), workspaceService.Reader(), environmentService.Reader(), variableService.Reader(),
+		flowService.Reader(), flowNodeService.Reader(), flowNodeRequestSevice.Reader(), flowVariableService.Reader(),
+		flowEdgeService.Reader(), nodeExecutionService.Reader(),
+		httpResponseService.Reader())
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
 
 	// Start services

@@ -60,3 +60,5 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID idwrap.IDWrap, workspaceID idwrap.IDWrap) (bool, error) {
 	return us.reader.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 }
+
+func (us UserService) Reader() *Reader { return us.reader }

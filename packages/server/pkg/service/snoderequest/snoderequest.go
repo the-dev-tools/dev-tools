@@ -60,3 +60,5 @@ func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnreques
 func (nrs NodeRequestService) DeleteNodeRequest(ctx context.Context, id idwrap.IDWrap) error {
 	return NewWriterFromQueries(nrs.queries).DeleteNodeRequest(ctx, id)
 }
+
+func (s NodeRequestService) Reader() *Reader { return s.reader }

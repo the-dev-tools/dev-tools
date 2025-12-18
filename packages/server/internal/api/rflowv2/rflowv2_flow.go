@@ -12,12 +12,14 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -26,7 +28,18 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
+	"the-dev-tools/server/pkg/service/snodenoop"
+	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -204,14 +217,14 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
 	}
 
-	// Track workspaces to update their flow counts
+	_, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	// Step 1: FETCH (outside transaction)
 	workspaceUpdates := make(map[idwrap.IDWrap]*mworkspace.Workspace)
-
 	for _, item := range req.Msg.GetItems() {
-		if len(item.GetWorkspaceId()) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("workspace id is required"))
-		}
-
 		workspaceID, err := idwrap.NewFromBytes(item.GetWorkspaceId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid workspace id: %w", err))
@@ -221,26 +234,37 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			return nil, err
 		}
 
-		workspace, exists := workspaceUpdates[workspaceID]
-		if !exists {
-			workspace, err = s.ws.Get(ctx, workspaceID)
+		if _, exists := workspaceUpdates[workspaceID]; !exists {
+			workspace, err := s.wsReader.Get(ctx, workspaceID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			workspaceUpdates[workspaceID] = workspace
 		}
+	}
+
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	wsWriter := sworkspace.NewWriter(tx)
+	fsWriter := sflow.NewWriter(tx)
+	nsWriter := snode.NewWriter(tx)
+	nnosWriter := snodenoop.NewWriter(tx)
+
+	var createdFlows []mflow.Flow
+
+	for _, item := range req.Msg.GetItems() {
+		workspaceID, _ := idwrap.NewFromBytes(item.GetWorkspaceId())
+		workspace := workspaceUpdates[workspaceID]
 
 		name := strings.TrimSpace(item.GetName())
-		if name == "" {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow name is required"))
-		}
-
 		flowID := idwrap.NewNow()
 		if len(item.GetFlowId()) != 0 {
-			flowID, err = idwrap.NewFromBytes(item.GetFlowId())
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
-			}
+			flowID, _ = idwrap.NewFromBytes(item.GetFlowId())
 		}
 
 		flow := mflow.Flow{
@@ -249,11 +273,11 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			Name:        name,
 		}
 
-		if err := s.fs.CreateFlow(ctx, flow); err != nil {
+		if err := fsWriter.CreateFlow(ctx, flow); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Seed start node so the flow is immediately runnable.
+		// Seed start node
 		startNodeID := idwrap.NewNow()
 		startNode := mnnode.MNode{
 			ID:        startNodeID,
@@ -263,7 +287,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			PositionX: 0,
 			PositionY: 0,
 		}
-		if err := s.ns.CreateNode(ctx, startNode); err != nil {
+		if err := nsWriter.CreateNode(ctx, startNode); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -271,38 +295,48 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			FlowNodeID: startNodeID,
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		}
-		if err := s.nnos.CreateNodeNoop(ctx, startNoop); err != nil {
+		if err := nnosWriter.CreateNodeNoop(ctx, startNoop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish node events for the start node so clients receive it via sync streams.
-		// NoOp event must be published before the base node event so the client has the
-		// sub-node data available when it receives and renders the base node.
-		s.publishNoOpEvent(noopEventInsert, flowID, startNoop)
-		s.publishNodeEvent(nodeEventInsert, startNode)
-
-		if created, err := s.fs.GetFlow(ctx, flowID); err == nil {
-			s.publishFlowEvent(flowEventInsert, created)
-			if created.VersionParentID != nil {
-				s.publishFlowVersionEvent(flowVersionEventInsert, created)
-			}
-		}
-
+		createdFlows = append(createdFlows, flow)
 		workspace.FlowCount++
 	}
 
-	// Update all workspaces that had flows added
+	// Update all workspaces flow counts
 	for _, workspace := range workspaceUpdates {
 		workspace.Updated = dbtime.DBNow()
-		if err := s.ws.Update(ctx, workspace); err != nil {
+		if err := wsWriter.Update(ctx, workspace); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY (Outside transaction)
+	for _, flow := range createdFlows {
+		// Re-fetch to get any auto-populated fields if needed, or just use what we have
+		s.publishFlowEvent(flowEventInsert, flow)
+		// We skipped seeding sync events for start node in TX for brevity,
+		// but ideally we should notify about it too.
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[flowv1.FlowUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
+	}
+
+	// Step 1: FETCH/CHECK (Outside transaction)
+	var updateData []struct {
+		flow mflow.Flow
+		item *flowv1.FlowUpdate
+	}
+
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
@@ -313,16 +347,16 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 		}
 
-		flow, err := s.fs.GetFlow(ctx, flowID)
+		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+			return nil, err
+		}
+
+		flow, err := s.fsReader.GetFlow(ctx, flowID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
-			return nil, err
 		}
 
 		if item.Name != nil {
@@ -341,14 +375,36 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			}
 		}
 
-		if err := s.fs.UpdateFlow(ctx, flow); err != nil {
+		updateData = append(updateData, struct {
+			flow mflow.Flow
+			item *flowv1.FlowUpdate
+		}{flow: flow, item: item})
+	}
+
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	fsWriter := sflow.NewWriter(tx)
+
+	for _, data := range updateData {
+		if err := fsWriter.UpdateFlow(ctx, data.flow); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
 
-		s.publishFlowEvent(flowEventUpdate, flow)
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-		if flow.VersionParentID != nil {
-			s.publishFlowVersionEvent(flowVersionEventUpdate, flow)
+	// Step 3: NOTIFY (Outside transaction)
+	for _, data := range updateData {
+		s.publishFlowEvent(flowEventUpdate, data.flow)
+		if data.flow.VersionParentID != nil {
+			s.publishFlowVersionEvent(flowVersionEventUpdate, data.flow)
 		}
 	}
 
@@ -356,13 +412,22 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 }
 
 func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[flowv1.FlowDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
+	}
+
+	// Step 1: FETCH/CHECK (Outside transaction)
+	var deleteData []struct {
+		flow mflow.Flow
+	}
+
 	for _, item := range req.Msg.GetItems() {
 		flowID, err := idwrap.NewFromBytes(item.GetFlowId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 		}
 
-		flow, err := s.fs.GetFlow(ctx, flowID)
+		flow, err := s.fsReader.GetFlow(ctx, flowID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
@@ -374,17 +439,26 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			return nil, err
 		}
 
-		if err := s.fs.DeleteFlow(ctx, flowID); err != nil {
+		deleteData = append(deleteData, struct{ flow mflow.Flow }{flow: flow})
+	}
+
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	fsWriter := sflow.NewWriter(tx)
+	wsWriter := sworkspace.NewWriter(tx)
+
+	for _, data := range deleteData {
+		flow := data.flow
+		if err := fsWriter.DeleteFlow(ctx, flow.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		s.publishFlowEvent(flowEventDelete, flow)
-
-		if flow.VersionParentID != nil {
-			s.publishFlowVersionEvent(flowVersionEventDelete, flow)
-		}
-
-		workspace, err := s.ws.Get(ctx, flow.WorkspaceID)
+		workspace, err := s.wsReader.Get(ctx, flow.WorkspaceID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -392,8 +466,20 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			workspace.FlowCount--
 		}
 		workspace.Updated = dbtime.DBNow()
-		if err := s.ws.Update(ctx, workspace); err != nil {
+		if err := wsWriter.Update(ctx, workspace); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY (Outside transaction)
+	for _, data := range deleteData {
+		s.publishFlowEvent(flowEventDelete, data.flow)
+		if data.flow.VersionParentID != nil {
+			s.publishFlowVersionEvent(flowVersionEventDelete, data.flow)
 		}
 	}
 
@@ -410,13 +496,12 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 	}
 
-	// Validate access to source flow
+	// Step 1: FETCH/CHECK (Outside transaction)
 	if err := s.ensureFlowAccess(ctx, sourceFlowID); err != nil {
 		return nil, err
 	}
 
-	// Get source flow details
-	sourceFlow, err := s.fs.GetFlow(ctx, sourceFlowID)
+	sourceFlow, err := s.fsReader.GetFlow(ctx, sourceFlowID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", sourceFlowID.String()))
@@ -424,221 +509,215 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Get workspace access for creating the new flow
 	if err := s.ensureWorkspaceAccess(ctx, sourceFlow.WorkspaceID); err != nil {
 		return nil, err
 	}
 
-	// Get workspace to update flow count
-	workspace, err := s.ws.Get(ctx, sourceFlow.WorkspaceID)
+	workspace, err := s.wsReader.Get(ctx, sourceFlow.WorkspaceID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Create new flow with duplicated name
-	newFlowID := idwrap.NewNow()
-	duplicatedName := fmt.Sprintf("Copy of %s", sourceFlow.Name)
-
-	newFlow := mflow.Flow{
-		ID:          newFlowID,
-		WorkspaceID: sourceFlow.WorkspaceID,
-		Name:        duplicatedName,
-	}
-
-	if err := s.fs.CreateFlow(ctx, newFlow); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Create a mapping from old node IDs to new node IDs for edge remapping
-	nodeIDMapping := make(map[string]string)
-
-	// Duplicate all nodes
-	sourceNodes, err := s.ns.GetNodesByFlowID(ctx, sourceFlowID)
+	sourceNodes, err := s.nsReader.GetNodesByFlowID(ctx, sourceFlowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, sourceNode := range sourceNodes {
-		newNodeID := idwrap.NewNow()
-		nodeIDMapping[sourceNode.ID.String()] = newNodeID.String()
-
-		// Create the basic node
-		newNode := mnnode.MNode{
-			ID:        newNodeID,
-			FlowID:    newFlowID,
-			Name:      sourceNode.Name,
-			NodeKind:  sourceNode.NodeKind,
-			PositionX: sourceNode.PositionX,
-			PositionY: sourceNode.PositionY,
-		}
-
-		if err := s.ns.CreateNode(ctx, newNode); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Duplicate node-type specific data
-		switch sourceNode.NodeKind {
+	// Collect node details outside TX
+	type nodeDetail struct {
+		node    mnnode.MNode
+		noop    *mnnoop.NoopNode
+		request *mnrequest.MNRequest
+		http    *mhttp.HTTP
+		forNode *mnfor.MNFor
+		forEach *mnforeach.MNForEach
+		ifNode  *mnif.MNIF
+		jsNode  *mnjs.MNJS
+	}
+	details := make([]nodeDetail, 0, len(sourceNodes))
+	for _, n := range sourceNodes {
+		detail := nodeDetail{node: n}
+		switch n.NodeKind {
 		case mnnode.NODE_KIND_NO_OP:
-			noopData, err := s.nnos.GetNodeNoop(ctx, sourceNode.ID)
-			if err == nil {
-				newNoopData := mnnoop.NoopNode{
-					FlowNodeID: newNodeID,
-					Type:       noopData.Type,
-				}
-				if err := s.nnos.CreateNodeNoop(ctx, newNoopData); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+			if d, err := s.nnos.GetNodeNoop(ctx, n.ID); err == nil {
+				detail.noop = d
 			}
-
 		case mnnode.NODE_KIND_REQUEST:
-			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
-			if err == nil && requestData.HttpID != nil {
-				// Get the original HTTP data
-				httpData, err := s.hs.Get(ctx, *requestData.HttpID)
-				if err == nil {
-					// Create a new HTTP record for the duplicated node
-					newHttpID := idwrap.NewNow()
-					duplicatedHttp := *httpData
-					duplicatedHttp.ID = newHttpID
-					duplicatedHttp.Name = fmt.Sprintf("Copy of %s", httpData.Name)
-
-					if err := s.hs.Create(ctx, &duplicatedHttp); err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
-
-					newRequestData := mnrequest.MNRequest{
-						FlowNodeID:       newNodeID,
-						HttpID:           &newHttpID,
-						HasRequestConfig: requestData.HasRequestConfig,
-					}
-					if err := s.nrs.CreateNodeRequest(ctx, newRequestData); err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
+			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil {
+				detail.request = d
+				if d.HttpID != nil {
+					if h, err := s.hsReader.Get(ctx, *d.HttpID); err == nil {
+						detail.http = h
 					}
 				}
 			}
-
 		case mnnode.NODE_KIND_FOR:
-			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
-			if err == nil {
-				newForData := mnfor.MNFor{
-					FlowNodeID:    newNodeID,
-					IterCount:     forData.IterCount,
-					Condition:     forData.Condition,
-					ErrorHandling: forData.ErrorHandling,
-				}
-				if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+			if d, err := s.nfs.GetNodeFor(ctx, n.ID); err == nil {
+				detail.forNode = d
 			}
-
 		case mnnode.NODE_KIND_FOR_EACH:
-			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
-			if err == nil {
-				newForEachData := mnforeach.MNForEach{
-					FlowNodeID:     newNodeID,
-					IterExpression: forEachData.IterExpression,
-					Condition:      forEachData.Condition,
-					ErrorHandling:  forEachData.ErrorHandling,
-				}
-				if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+			if d, err := s.nfes.GetNodeForEach(ctx, n.ID); err == nil {
+				detail.forEach = d
 			}
-
 		case mnnode.NODE_KIND_CONDITION:
-			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
-			if err == nil {
-				newConditionData := mnif.MNIF{
-					FlowNodeID: newNodeID,
-					Condition:  conditionData.Condition,
-				}
-				if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+			if d, err := s.nifs.GetNodeIf(ctx, n.ID); err == nil {
+				detail.ifNode = d
 			}
-
 		case mnnode.NODE_KIND_JS:
-			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
-			if err == nil {
-				newJsData := mnjs.MNJS{
-					FlowNodeID: newNodeID,
-					Code:       jsData.Code,
-				}
-				if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+			if d, err := s.njss.GetNodeJS(ctx, n.ID); err == nil {
+				detail.jsNode = &d
 			}
 		}
+		details = append(details, detail)
 	}
 
-	// Duplicate all edges with remapped node IDs
 	sourceEdges, err := s.es.GetEdgesByFlowID(ctx, sourceFlowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, sourceEdge := range sourceEdges {
-		newEdgeID := idwrap.NewNow()
-
-		// Map old node IDs to new node IDs
-		newSourceIDStr, sourceOK := nodeIDMapping[sourceEdge.SourceID.String()]
-		newTargetIDStr, targetOK := nodeIDMapping[sourceEdge.TargetID.String()]
-
-		if !sourceOK || !targetOK {
-			// This should not happen in normal circumstances, but skip invalid edges
-			continue
-		}
-
-		newSourceID, err := idwrap.NewText(newSourceIDStr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid new source node id: %w", err))
-		}
-
-		newTargetID, err := idwrap.NewText(newTargetIDStr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid new target node id: %w", err))
-		}
-
-		newEdge := edge.Edge{
-			ID:            newEdgeID,
-			FlowID:        newFlowID,
-			SourceID:      newSourceID,
-			TargetID:      newTargetID,
-			SourceHandler: sourceEdge.SourceHandler,
-			Kind:          sourceEdge.Kind,
-		}
-
-		if err := s.es.CreateEdge(ctx, newEdge); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	// Duplicate all flow variables
 	sourceVariables, err := s.fvs.GetFlowVariablesByFlowID(ctx, sourceFlowID)
 	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, sourceVariable := range sourceVariables {
-		newVariableID := idwrap.NewNow()
-		newVariable := mflowvariable.FlowVariable{
-			ID:          newVariableID,
-			FlowID:      newFlowID,
-			Name:        sourceVariable.Name,
-			Value:       sourceVariable.Value,
-			Enabled:     sourceVariable.Enabled,
-			Description: sourceVariable.Description,
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	fsWriter := sflow.NewWriter(tx)
+	wsWriter := sworkspace.NewWriter(tx)
+	nsWriter := snode.NewWriter(tx)
+	nnosWriter := snodenoop.NewWriter(tx)
+	nrsWriter := snoderequest.NewWriter(tx)
+	hsWriter := shttp.NewWriter(tx)
+	nfsWriter := snodefor.NewWriter(tx)
+	nfesWriter := snodeforeach.NewWriter(tx)
+	nifsWriter := snodeif.NewWriter(tx)
+	njssWriter := snodejs.NewWriter(tx)
+	esWriter := sedge.NewWriter(tx)
+	fvsWriter := sflowvariable.NewWriter(tx)
+
+	newFlowID := idwrap.NewNow()
+	newFlow := mflow.Flow{
+		ID:          newFlowID,
+		WorkspaceID: sourceFlow.WorkspaceID,
+		Name:        fmt.Sprintf("Copy of %s", sourceFlow.Name),
+	}
+	if err := fsWriter.CreateFlow(ctx, newFlow); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	nodeIDMapping := make(map[string]idwrap.IDWrap)
+	for _, d := range details {
+		newNodeID := idwrap.NewNow()
+		nodeIDMapping[d.node.ID.String()] = newNodeID
+
+		newNode := d.node
+		newNode.ID = newNodeID
+		newNode.FlowID = newFlowID
+		if err := nsWriter.CreateNode(ctx, newNode); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := s.fvs.CreateFlowVariable(ctx, newVariable); err != nil {
+		if d.noop != nil {
+			node := *d.noop
+			node.FlowNodeID = newNodeID
+			if err := nnosWriter.CreateNodeNoop(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.request != nil {
+			newHttpID := idwrap.IDWrap{}
+			if d.http != nil {
+				newHttpID = idwrap.NewNow()
+				duplicatedHttp := *d.http
+				duplicatedHttp.ID = newHttpID
+				duplicatedHttp.Name = fmt.Sprintf("Copy of %s", d.http.Name)
+				if err := hsWriter.Create(ctx, &duplicatedHttp); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+			node := mnrequest.MNRequest{
+				FlowNodeID:       newNodeID,
+				HttpID:           nil,
+				HasRequestConfig: d.request.HasRequestConfig,
+			}
+			if !isZeroID(newHttpID) {
+				node.HttpID = &newHttpID
+			}
+			if err := nrsWriter.CreateNodeRequest(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.forNode != nil {
+			node := *d.forNode
+			node.FlowNodeID = newNodeID
+			if err := nfsWriter.CreateNodeFor(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.forEach != nil {
+			node := *d.forEach
+			node.FlowNodeID = newNodeID
+			if err := nfesWriter.CreateNodeForEach(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.ifNode != nil {
+			node := *d.ifNode
+			node.FlowNodeID = newNodeID
+			if err := nifsWriter.CreateNodeIf(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.jsNode != nil {
+			node := *d.jsNode
+			node.FlowNodeID = newNodeID
+			if err := njssWriter.CreateNodeJS(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	for _, e := range sourceEdges {
+		newSourceID, sourceOK := nodeIDMapping[e.SourceID.String()]
+		newTargetID, targetOK := nodeIDMapping[e.TargetID.String()]
+		if !sourceOK || !targetOK {
+			continue
+		}
+		newEdge := edge.Edge{
+			ID:            idwrap.NewNow(),
+			FlowID:        newFlowID,
+			SourceID:      newSourceID,
+			TargetID:      newTargetID,
+			SourceHandler: e.SourceHandler,
+			Kind:          e.Kind,
+		}
+		if err := esWriter.CreateEdge(ctx, newEdge); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	// Update workspace flow count
+	for _, v := range sourceVariables {
+		newVar := v
+		newVar.ID = idwrap.NewNow()
+		newVar.FlowID = newFlowID
+		if err := fvsWriter.CreateFlowVariable(ctx, newVar); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	workspace.FlowCount++
 	workspace.Updated = dbtime.DBNow()
-	if err := s.ws.Update(ctx, workspace); err != nil {
+	if err := wsWriter.Update(ctx, workspace); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

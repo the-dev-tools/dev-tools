@@ -113,3 +113,5 @@ func (s EnvironmentService) GetWorkspaceID(ctx context.Context, envID idwrap.IDW
 func (s EnvironmentService) CheckWorkspaceID(ctx context.Context, envID, ownerID idwrap.IDWrap) (bool, error) {
 	return s.reader.CheckWorkspaceID(ctx, envID, ownerID)
 }
+
+func (s EnvironmentService) Reader() *Reader { return s.reader }

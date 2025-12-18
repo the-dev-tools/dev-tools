@@ -117,6 +117,12 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	)
 
 	svc := New(
+		db,
+		wsService.Reader(),
+		flowService.Reader(),
+		nodeService.Reader(),
+		varService.Reader(),
+		httpService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,

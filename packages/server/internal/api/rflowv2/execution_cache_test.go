@@ -72,17 +72,17 @@ func TestExecutionCache(t *testing.T) {
 	noopService := snodenoop.New(queries)
 	flowVarService := sflowvariable.New(queries)
 	nodeRequestService := snoderequest.New(queries)
-	
+
 	httpService := shttp.New(queries, logger)
 	shttpBodyRawSvc := shttp.NewHttpBodyRawService(queries)
 	resAssertSvc := shttp.NewHttpAssertService(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
-	
+
 	resHeaderSvc := shttp.NewHttpHeaderService(queries)
 	resSearchParamSvc := shttp.NewHttpSearchParamService(queries)
 	resBodyFormSvc := shttp.NewHttpBodyFormService(queries)
 	resBodyUrlencodedSvc := shttp.NewHttpBodyUrlEncodedService(queries)
-	
+
 	nodeForService := snodefor.New(queries)
 	nodeForEachService := snodeforeach.New(queries)
 	nodeIfService := snodeif.New(queries)
@@ -93,7 +93,7 @@ func TestExecutionCache(t *testing.T) {
 	// Streams
 	executionStream := memory.NewInMemorySyncStreamer[ExecutionTopic, ExecutionEvent]()
 	assertStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
-	
+
 	// Resolver
 	res := resolver.NewStandardResolver(
 		&httpService,
@@ -106,6 +106,12 @@ func TestExecutionCache(t *testing.T) {
 	)
 
 	svc := New(
+		db,
+		wsService.Reader(),
+		flowService.Reader(),
+		nodeService.Reader(),
+		varService.Reader(),
+		httpService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,
@@ -124,13 +130,14 @@ func TestExecutionCache(t *testing.T) {
 		shttpBodyRawSvc,
 		res,
 		logger,
-		nil,
+		nil, // workspaceImportService
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-		executionStream,
-		nil, nil,
-		assertStream,
-		nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // 1-10
+		executionStream, // 11
+		nil, nil,        // 12-13
+		assertStream, // 14
+		nil,          // 15 (logStream)
+		nil,          // jsClient
 	)
 
 	// 4. Setup Data
@@ -160,7 +167,7 @@ func TestExecutionCache(t *testing.T) {
 	// 5. Capture Events to verify ID stability
 	var execEvents []ExecutionEvent
 	var mu sync.Mutex
-	
+
 	execCh, _ := executionStream.Subscribe(ctx, func(topic ExecutionTopic) bool { return true })
 
 	go func() {
@@ -190,7 +197,7 @@ func TestExecutionCache(t *testing.T) {
 	// We expect events for the Start node.
 	// Since Start node is instantaneous, it might only emit SUCCESS.
 	// But let's check what we got.
-	
+
 	startEvents := make([]ExecutionEvent, 0)
 	for _, evt := range execEvents {
 		nodeID, _ := idwrap.NewFromBytes(evt.Execution.NodeId)
@@ -198,7 +205,7 @@ func TestExecutionCache(t *testing.T) {
 			startEvents = append(startEvents, evt)
 		}
 	}
-	
+
 	if len(startEvents) >= 2 {
 		// If we got multiple events (e.g. Running, Success), IDs MUST match
 		firstID := startEvents[0].Execution.NodeExecutionId
@@ -211,12 +218,12 @@ func TestExecutionCache(t *testing.T) {
 		// If we got 0 events, that's weird but might be timing (though we slept).
 		// Note: The loop runs asynchronously.
 	}
-	
+
 	// If the system generates a new ID every time, and we get >1 events, they would differ.
 	// The problem described ("item does not exist in store") implies we got UPDATE without INSERT
 	// OR we got INSERT(ID1) then UPDATE(ID2).
-	
-	// Since Start node usually just emits SUCCESS immediately in local runner, 
+
+	// Since Start node usually just emits SUCCESS immediately in local runner,
 	// we might not see the "Running" state if it's too fast.
 	// But let's check if the code logic handles it.
 }

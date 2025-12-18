@@ -41,51 +41,54 @@ import (
 type ReferenceServiceRPC struct {
 	DB *sql.DB
 
-	us suser.UserService
-	ws sworkspace.WorkspaceService
+	userReader      *suser.Reader
+	workspaceReader *sworkspace.Reader
 
 	// env
-	es senv.EnvService
-	vs svar.VarService
+	envReader *senv.Reader
+	varReader *svar.Reader
 
 	// flow
-	fs                   sflow.FlowService
-	fns                  snode.NodeService
-	frns                 snoderequest.NodeRequestService
-	flowVariableService  sflowvariable.FlowVariableService
-	flowEdgeService      sedge.EdgeService
-	nodeExecutionService snodeexecution.NodeExecutionService
+	flowReader          *sflow.Reader
+	nodeReader          *snode.Reader
+	nodeRequestReader   *snoderequest.Reader
+	flowVariableReader  *sflowvariable.Reader
+	flowEdgeReader      *sedge.Reader
+	nodeExecutionReader *snodeexecution.Reader
 
 	// http
-	hrs shttp.HttpResponseService
+	httpResponseReader *shttp.HttpResponseReader
 }
 
-func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.WorkspaceService,
-	es senv.EnvService, vs svar.VarService,
-	fs sflow.FlowService, fns snode.NodeService, frns snoderequest.NodeRequestService,
-	flowVariableService sflowvariable.FlowVariableService,
-	edgeService sedge.EdgeService,
-	nodeExecutionService snodeexecution.NodeExecutionService,
-	hrs shttp.HttpResponseService,
+func NewReferenceServiceRPC(db *sql.DB,
+	userReader *suser.Reader,
+	workspaceReader *sworkspace.Reader,
+	envReader *senv.Reader,
+	varReader *svar.Reader,
+	flowReader *sflow.Reader,
+	nodeReader *snode.Reader,
+	nodeRequestReader *snoderequest.Reader,
+	flowVariableReader *sflowvariable.Reader,
+	flowEdgeReader *sedge.Reader,
+	nodeExecutionReader *snodeexecution.Reader,
+	httpResponseReader *shttp.HttpResponseReader,
 ) *ReferenceServiceRPC {
 	return &ReferenceServiceRPC{
 		DB: db,
 
-		us: us,
-		ws: ws,
+		userReader:      userReader,
+		workspaceReader: workspaceReader,
 
-		es: es,
-		vs: vs,
+		envReader: envReader,
+		varReader: varReader,
 
-		fs:                  fs,
-		fns:                 fns,
-		frns:                frns,
-		flowVariableService: flowVariableService,
-
-		flowEdgeService:      edgeService,
-		nodeExecutionService: nodeExecutionService,
-
-		hrs: hrs,
+		flowReader:          flowReader,
+		nodeReader:          nodeReader,
+		nodeRequestReader:   nodeRequestReader,
+		flowVariableReader:  flowVariableReader,
+		flowEdgeReader:      flowEdgeReader,
+		nodeExecutionReader: nodeExecutionReader,
+		httpResponseReader:  httpResponseReader,
 	}
 }
 
@@ -148,7 +151,7 @@ func convertReferenceCompletionItems(items []referencecompletion.ReferenceComple
 }
 
 func (c *ReferenceServiceRPC) getLatestResponse(ctx context.Context, httpID idwrap.IDWrap) (map[string]interface{}, error) {
-	responses, err := c.hrs.GetByHttpID(ctx, httpID)
+	responses, err := c.httpResponseReader.GetByHttpID(ctx, httpID)
 	if err != nil {
 		return nil, err
 	}
@@ -212,11 +215,11 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		envs, err := c.es.GetByWorkspace(ctx, wsID)
+		envs, err := c.envReader.ListEnvironments(ctx, wsID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
 		}
@@ -226,7 +229,7 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 		var allVars []mvar.Var
 
 		for _, env := range envs {
-			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
+			vars, err := c.varReader.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
@@ -302,12 +305,12 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 }
 
 func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWrap) ([]*referencev1.ReferenceTreeItem, error) {
-	nodeInst, err := c.fns.GetNode(ctx, nodeID)
+	nodeInst, err := c.nodeReader.GetNode(ctx, nodeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	flowID := nodeInst.FlowID
-	nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+	nodes, err := c.nodeReader.GetNodesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -322,7 +325,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 		return nil
 	}
 
-	flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+	flowVars, err := c.flowVariableReader.GetFlowVariablesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -336,7 +339,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	}
 
 	// Edges
-	edges, err := c.flowEdgeService.GetEdgesByFlowID(ctx, flowID)
+	edges, err := c.flowEdgeReader.GetEdgesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -355,7 +358,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 		var nodeData interface{}
 		hasExecutionData := false
 
-		executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
+		executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, node.ID)
 		if err == nil && len(executions) > 0 {
 			// Use the latest execution (first one, as they're ordered by ID DESC)
 			// This includes iteration executions which now contain the actual values
@@ -488,17 +491,17 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		envs, err := c.es.GetByWorkspace(ctx, wsID)
+		envs, err := c.envReader.ListEnvironments(ctx, wsID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
 		}
 
 		for _, env := range envs {
-			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
+			vars, err := c.varReader.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
@@ -539,17 +542,17 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 	if flowNodeID != nil {
 		nodeID := *flowNodeID
-		nodeInst, err := c.fns.GetNode(ctx, nodeID)
+		nodeInst, err := c.nodeReader.GetNode(ctx, nodeID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		flowID := nodeInst.FlowID
-		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+		nodes, err := c.nodeReader.GetNodesByFlowID(ctx, flowID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+		flowVars, err := c.flowVariableReader.GetFlowVariablesByFlowID(ctx, flowID)
 		if err != nil {
 			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -563,7 +566,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 
 		// Edges
-		edges, err := c.flowEdgeService.GetEdgesByFlowID(ctx, flowID)
+		edges, err := c.flowEdgeReader.GetEdgesByFlowID(ctx, flowID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -582,7 +585,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			var nodeData interface{}
 			hasExecutionData := false
 
-			executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
+			executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, node.ID)
 			if err == nil && len(executions) > 0 {
 				// Use the latest execution (first one, as they're ordered by ID DESC)
 				latestExecution := executions[0]
@@ -665,7 +668,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		// Add self-reference for FOR, FOREACH, and REQUEST nodes so they can reference their own variables
 		// This enables break conditions like "if foreach_8.index > 8" and request nodes to use "response.status"
 		if true {
-			currentNode, err := c.fns.GetNode(ctx, *flowNodeID)
+			currentNode, err := c.nodeReader.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
 				case mnnode.NODE_KIND_FOR:
@@ -674,7 +677,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					hasExecutionData := false
 
 					// Try to get the current node's execution data
-					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 					if err == nil && len(executions) > 0 {
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := &executions[0]
@@ -715,7 +718,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					hasExecutionData := false
 
 					// Try to get the current node's execution data
-					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 					if err == nil && len(executions) > 0 {
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := &executions[0]
@@ -757,7 +760,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					hasExecutionData := false
 
 					// Try to get the current node's execution data
-					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 					if err == nil && len(executions) > 0 {
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := &executions[0]
@@ -863,17 +866,17 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsID))
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		envs, err := c.es.GetByWorkspace(ctx, wsID)
+		envs, err := c.envReader.ListEnvironments(ctx, wsID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, ErrWorkspaceNotFound)
 		}
 
 		for _, env := range envs {
-			vars, err := c.vs.GetVariableByEnvID(ctx, env.ID)
+			vars, err := c.varReader.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
@@ -914,17 +917,17 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 	if flowNodeID != nil {
 		nodeID := *flowNodeID
-		nodeInst, err := c.fns.GetNode(ctx, nodeID)
+		nodeInst, err := c.nodeReader.GetNode(ctx, nodeID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		flowID := nodeInst.FlowID
-		nodes, err := c.fns.GetNodesByFlowID(ctx, flowID)
+		nodes, err := c.nodeReader.GetNodesByFlowID(ctx, flowID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+		flowVars, err := c.flowVariableReader.GetFlowVariablesByFlowID(ctx, flowID)
 		if err != nil {
 			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -938,7 +941,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		}
 
 		// Edges
-		edges, err := c.flowEdgeService.GetEdgesByFlowID(ctx, flowID)
+		edges, err := c.flowEdgeReader.GetEdgesByFlowID(ctx, flowID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -957,7 +960,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			var nodeData interface{}
 			hasExecutionData := false
 
-			executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
+			executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, node.ID)
 			if err == nil && len(executions) > 0 {
 				// Use the latest execution (first one, as they're ordered by ID DESC)
 				latestExecution := executions[0]
@@ -1040,7 +1043,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		// Add self-reference for REQUEST, FOR, and FOREACH nodes so they can reference their own variables
 		// This allows these nodes to use their own variables directly
 		if true {
-			currentNode, err := c.fns.GetNode(ctx, *flowNodeID)
+			currentNode, err := c.nodeReader.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
 				case mnnode.NODE_KIND_FOR, mnnode.NODE_KIND_FOR_EACH:
@@ -1049,7 +1052,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					hasExecutionData := false
 
 					// Try to get the current node's execution data
-					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 					if err == nil && len(executions) > 0 {
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := executions[0]
@@ -1094,7 +1097,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					hasExecutionData := false
 
 					// Try to get the current node's execution data
-					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 					if err == nil && len(executions) > 0 {
 						// Use the latest execution (first one, as they're ordered by ID DESC)
 						latestExecution := executions[0]

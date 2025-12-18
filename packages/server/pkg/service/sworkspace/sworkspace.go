@@ -81,3 +81,5 @@ func (ws WorkspaceService) GetByIDandUserID(ctx context.Context, orgID, userID i
 func (ws WorkspaceService) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	return ws.reader.GetWorkspacesByUserIDOrdered(ctx, userID)
 }
+
+func (ws WorkspaceService) Reader() *Reader { return ws.reader }

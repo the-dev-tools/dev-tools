@@ -77,8 +77,11 @@ func TestHttpRun_Logging(t *testing.T) {
 		httpAssertService,
 	)
 
+	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.Wus)
+
 	handler := New(
 		base.DB,
+		httpReader,
 		services.Hs,
 		services.Us,
 		services.Ws,

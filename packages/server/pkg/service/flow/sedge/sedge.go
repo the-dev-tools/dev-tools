@@ -7,19 +7,26 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 type EdgeService struct {
+	reader  *Reader
 	queries *gen.Queries
 }
 
 func New(queries *gen.Queries) EdgeService {
-	return EdgeService{queries: queries}
+	return EdgeService{
+		reader:  NewReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (es EdgeService) TX(tx *sql.Tx) EdgeService {
-	return EdgeService{queries: es.queries.WithTx(tx)}
+	newQueries := es.queries.WithTx(tx)
+	return EdgeService{
+		reader:  NewReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func NewTX(ctx context.Context, tx gen.DBTX) (*EdgeService, error) {
@@ -28,78 +35,33 @@ func NewTX(ctx context.Context, tx gen.DBTX) (*EdgeService, error) {
 		return nil, err
 	}
 	return &EdgeService{
+		reader:  NewReaderFromQueries(queries),
 		queries: queries,
 	}, nil
 }
 
-func ConvertToDBEdge(e edge.Edge) gen.FlowEdge {
-	return gen.FlowEdge{
-		ID:           e.ID,
-		FlowID:       e.FlowID,
-		SourceID:     e.SourceID,
-		TargetID:     e.TargetID,
-		SourceHandle: e.SourceHandler,
-		EdgeKind:     e.Kind,
-	}
-}
-
-func ConvertToModelEdge(e gen.FlowEdge) *edge.Edge {
-	return &edge.Edge{
-		ID:            e.ID,
-		FlowID:        e.FlowID,
-		SourceID:      e.SourceID,
-		TargetID:      e.TargetID,
-		SourceHandler: e.SourceHandle,
-		Kind:          e.EdgeKind,
-	}
-}
-
 func (es EdgeService) GetEdge(ctx context.Context, id idwrap.IDWrap) (*edge.Edge, error) {
-	edge, err := es.queries.GetFlowEdge(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return ConvertToModelEdge(edge), nil
+	return es.reader.GetEdge(ctx, id)
 }
 
 func (es EdgeService) GetEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]edge.Edge, error) {
-	edge, err := es.queries.GetFlowEdgesByFlowID(ctx, flowID)
-	if err != nil {
-		return nil, err
-	}
-	return tgeneric.MassConvertPtr(edge, ConvertToModelEdge), nil
+	return es.reader.GetEdgesByFlowID(ctx, flowID)
 }
 
 func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) error {
-	edge := ConvertToDBEdge(e)
-	return es.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams(edge))
+	return NewWriterFromQueries(es.queries).CreateEdge(ctx, e)
 }
 
 func (es EdgeService) CreateEdgeBulk(ctx context.Context, edges []edge.Edge) error {
-	for _, e := range edges {
-		err := es.CreateEdge(ctx, e)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewWriterFromQueries(es.queries).CreateEdgeBulk(ctx, edges)
 }
 
 func (es EdgeService) UpdateEdge(ctx context.Context, e edge.Edge) error {
-	edge := ConvertToDBEdge(e)
-	return es.queries.UpdateFlowEdge(ctx, gen.UpdateFlowEdgeParams{
-		ID:           edge.ID,
-		SourceID:     edge.SourceID,
-		TargetID:     edge.TargetID,
-		SourceHandle: edge.SourceHandle,
-		EdgeKind:     edge.EdgeKind,
-	})
+	return NewWriterFromQueries(es.queries).UpdateEdge(ctx, e)
 }
 
 func (es EdgeService) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {
-	err := es.queries.DeleteFlowEdge(ctx, id)
-	if err != nil {
-		return err
-	}
-	return nil
+	return NewWriterFromQueries(es.queries).DeleteEdge(ctx, id)
 }
+
+func (s EdgeService) Reader() *Reader { return s.reader }

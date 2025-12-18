@@ -80,3 +80,5 @@ func (s *FlowService) DeleteFlow(ctx context.Context, id idwrap.IDWrap) error {
 func (s *FlowService) CreateFlowVersion(ctx context.Context, parentFlow mflow.Flow) (mflow.Flow, error) {
 	return NewWriterFromQueries(s.queries).CreateFlowVersion(ctx, parentFlow)
 }
+
+func (s FlowService) Reader() *Reader { return s.reader }

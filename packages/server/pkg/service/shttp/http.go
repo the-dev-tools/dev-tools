@@ -120,3 +120,5 @@ func (hs HTTPService) CreateHttpVersion(ctx context.Context, httpID, createdBy i
 func (hs HTTPService) GetHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HttpVersion, error) {
 	return hs.reader.GetHttpVersionsByHttpID(ctx, httpID)
 }
+
+func (hs HTTPService) Reader() *Reader { return hs.reader }

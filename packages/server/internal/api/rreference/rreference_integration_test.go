@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
@@ -24,6 +23,8 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
+
+	"connectrpc.com/connect"
 )
 
 func TestReferenceCompletion_HttpId(t *testing.T) {
@@ -32,7 +33,7 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	services := base.GetBaseServices()
 	envService := senv.New(base.Queries, base.Logger())
 	varService := svar.New(base.Queries, base.Logger())
-	
+
 	// Flow services (needed for constructor but not used)
 	flowService := sflow.New(base.Queries)
 	flowNodeService := snode.New(base.Queries)
@@ -45,27 +46,27 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	httpService := services.Hs
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
 
-	svc := NewNodeServiceRPC(
+	svc := NewReferenceServiceRPC(
 		base.DB,
-		services.Us,
-		services.Ws,
-		envService,
-		varService,
-		flowService,
-		flowNodeService,
-		flowNodeRequestService,
-		flowVariableService,
-		edgeService,
-		nodeExecutionService,
-		httpResponseService,
+		services.Us.Reader(),
+		services.Ws.Reader(),
+		envService.Reader(),
+		varService.Reader(),
+		flowService.Reader(),
+		flowNodeService.Reader(),
+		flowNodeRequestService.Reader(),
+		flowVariableService.Reader(),
+		edgeService.Reader(),
+		nodeExecutionService.Reader(),
+		httpResponseService.Reader(),
 	)
 
 	// Create User
 	userID := idwrap.NewNow()
 	if err := services.Us.CreateUser(context.Background(), &muser.User{
-		ID:           userID,
-		Email:        "test@example.com",
-		Status:       muser.Active,
+		ID:     userID,
+		Email:  "test@example.com",
+		Status: muser.Active,
 	}); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
@@ -137,16 +138,16 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 		HttpId: httpID.Bytes(),
 		Path:   "response.status",
 	})
-	
+
 	valResp, err := svc.ReferenceValue(ctx, valReq)
 	if err != nil {
 		t.Fatalf("ReferenceValue failed: %v", err)
 	}
-	
+
 	if valResp.Msg.Value == "" {
 		t.Fatal("Expected value for response.status, got empty string")
 	}
-	
+
 	// Check if value matches 201. It might be returned as string "201" or "201.0" depending on formatting.
 	// In Go test output usually easier to see.
 	t.Logf("Got value: %v", valResp.Msg.Value)

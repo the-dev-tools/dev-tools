@@ -34,7 +34,7 @@ func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error)
 
 	var allHttp []mhttp.HTTP
 	for _, workspace := range workspaces {
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,7 @@ func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error)
 
 // getHttpVersionsByHttpID retrieves all versions for a specific HTTP entry
 func (h *HttpServiceRPC) getHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HttpVersion, error) {
-	return h.hs.GetHttpVersionsByHttpID(ctx, httpID)
+	return h.httpReader.GetHttpVersionsByHttpID(ctx, httpID)
 }
 
 // httpSyncResponseFrom converts HttpEvent to HttpSync response
@@ -209,7 +209,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 
 	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
 	for i := range updateData {
-		existingHttp, err := h.hs.Get(ctx, updateData[i].httpID)
+		existingHttp, err := h.httpReader.Get(ctx, updateData[i].httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -339,7 +339,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 
 	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
 	for i := range deleteData {
-		existingHttp, err := h.hs.Get(ctx, deleteData[i].httpID)
+		existingHttp, err := h.httpReader.Get(ctx, deleteData[i].httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -412,7 +412,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	}
 
 	// Get HTTP entry to check workspace permissions and retrieve source data
-	httpEntry, err := h.hs.Get(ctx, httpID)
+	httpEntry, err := h.httpReader.Get(ctx, httpID)
 	if err != nil {
 		if errors.Is(err, shttp.ErrNoHTTPFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -625,13 +625,13 @@ func (h *HttpServiceRPC) HttpVersionCollection(ctx context.Context, req *connect
 	var allVersions []*apiv1.HttpVersion
 	for _, workspace := range workspaces {
 		// Get base HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		// Also get delta HTTP entries (versions can be stored against delta IDs)
-		deltaList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
+		deltaList, err := h.httpReader.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

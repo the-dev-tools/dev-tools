@@ -176,10 +176,11 @@ type HttpStreamers struct {
 type HttpServiceRPC struct {
 	DB *sql.DB
 
-	hs  shttp.HTTPService
-	us  suser.UserService
-	ws  sworkspace.WorkspaceService
-	wus sworkspacesusers.WorkspaceUserService
+	httpReader *shttp.Reader
+	hs         shttp.HTTPService
+	us         suser.UserService
+	ws         sworkspace.WorkspaceService
+	wus        sworkspacesusers.WorkspaceUserService
 
 	// Environment and variable services
 	es senv.EnvService
@@ -206,6 +207,7 @@ type HttpServiceRPC struct {
 // New creates a new HttpServiceRPC instance
 func New(
 	db *sql.DB,
+	httpReader *shttp.Reader,
 	hs shttp.HTTPService,
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
@@ -224,6 +226,7 @@ func New(
 ) HttpServiceRPC {
 	return HttpServiceRPC{
 		DB:                        db,
+		httpReader:                httpReader,
 		hs:                        hs,
 		us:                        us,
 		ws:                        ws,

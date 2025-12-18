@@ -156,6 +156,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	// Create HTTP handler
 	httpHandler := rhttp.New(
 		baseDB.DB,
+		httpService.Reader(),
 		httpService,
 		services.Us,
 		services.Ws,

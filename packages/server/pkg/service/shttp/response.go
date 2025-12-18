@@ -14,6 +14,7 @@ import (
 var ErrNoHttpResponseFound = errors.New("no HTTP response found")
 
 type HttpResponseService struct {
+	reader  *HttpResponseReader
 	queries *gen.Queries
 }
 
@@ -66,88 +67,42 @@ func ConvertToModelHttpResponse(response gen.HttpResponse) mhttp.HTTPResponse {
 }
 
 func NewHttpResponseService(queries *gen.Queries) HttpResponseService {
-	return HttpResponseService{queries: queries}
+	return HttpResponseService{
+		reader:  NewHttpResponseReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (hrs HttpResponseService) TX(tx *sql.Tx) HttpResponseService {
-	return HttpResponseService{queries: hrs.queries.WithTx(tx)}
+	newQueries := hrs.queries.WithTx(tx)
+	return HttpResponseService{
+		reader:  NewHttpResponseReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func (hrs HttpResponseService) Create(ctx context.Context, response mhttp.HTTPResponse) error {
-	dbResponse := ConvertToDBHttpResponse(response)
-	return hrs.queries.CreateHTTPResponse(ctx, gen.CreateHTTPResponseParams(dbResponse))
+	return NewHttpResponseWriterFromQueries(hrs.queries).Create(ctx, response)
 }
 
 func (hrs HttpResponseService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponse, error) {
-	responses, err := hrs.queries.GetHTTPResponsesByHttpID(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPResponse{}, nil
-		}
-		return nil, err
-	}
-
-	result := make([]mhttp.HTTPResponse, len(responses))
-	for i, response := range responses {
-		result[i] = ConvertToModelHttpResponse(response)
-	}
-	return result, nil
+	return hrs.reader.GetByHttpID(ctx, httpID)
 }
 
 func (hrs HttpResponseService) CreateHeader(ctx context.Context, header mhttp.HTTPResponseHeader) error {
-	return hrs.queries.CreateHTTPResponseHeader(ctx, gen.CreateHTTPResponseHeaderParams{
-		ID:         header.ID,
-		ResponseID: header.ResponseID,
-		Key:        header.HeaderKey,
-		Value:      header.HeaderValue,
-		CreatedAt:  header.CreatedAt,
-	})
+	return NewHttpResponseWriterFromQueries(hrs.queries).CreateHeader(ctx, header)
 }
 
 func (hrs HttpResponseService) GetHeadersByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
-	headers, err := hrs.queries.GetHTTPResponseHeadersByHttpID(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]mhttp.HTTPResponseHeader, len(headers))
-	for i, header := range headers {
-		result[i] = mhttp.HTTPResponseHeader{
-			ID:          header.ID,
-			ResponseID:  header.ResponseID,
-			HeaderKey:   header.Key,
-			HeaderValue: header.Value,
-			CreatedAt:   header.CreatedAt,
-		}
-	}
-	return result, nil
+	return hrs.reader.GetHeadersByHttpID(ctx, httpID)
 }
 
 func (hrs HttpResponseService) GetAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {
-	asserts, err := hrs.queries.GetHTTPResponseAssertsByHttpID(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]mhttp.HTTPResponseAssert, len(asserts))
-	for i, assert := range asserts {
-		result[i] = mhttp.HTTPResponseAssert{
-			ID:         assert.ID,
-			ResponseID: assert.ResponseID,
-			Value:      assert.Value,
-			Success:    assert.Success,
-			CreatedAt:  assert.CreatedAt,
-		}
-	}
-	return result, nil
+	return hrs.reader.GetAssertsByHttpID(ctx, httpID)
 }
 
 func (hrs HttpResponseService) CreateAssert(ctx context.Context, assert mhttp.HTTPResponseAssert) error {
-	return hrs.queries.CreateHTTPResponseAssert(ctx, gen.CreateHTTPResponseAssertParams{
-		ID:         assert.ID,
-		ResponseID: assert.ResponseID,
-		Value:      assert.Value,
-		Success:    assert.Success,
-		CreatedAt:  assert.CreatedAt,
-	})
+	return NewHttpResponseWriterFromQueries(hrs.queries).CreateAssert(ctx, assert)
 }
+
+func (s HttpResponseService) Reader() *HttpResponseReader { return s.reader }

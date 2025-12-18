@@ -253,7 +253,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	}
 
 	// Get HTTP entry to check workspace permissions
-	httpEntry, err := h.hs.Get(ctx, httpID)
+	httpEntry, err := h.httpReader.Get(ctx, httpID)
 	if err != nil {
 		if errors.Is(err, shttp.ErrNoHTTPFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -347,9 +347,9 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	serviceTx := h.httpResponseService.TX(tx)
+	responseWriter := shttp.NewHttpResponseWriter(tx)
 
-	if err := serviceTx.Create(ctx, httpResponse); err != nil {
+	if err := responseWriter.Create(ctx, httpResponse); err != nil {
 		return idwrap.IDWrap{}, err
 	}
 
@@ -367,7 +367,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 			CreatedAt:   nowUnix,
 		}
 
-		if err := serviceTx.CreateHeader(ctx, responseHeader); err != nil {
+		if err := responseWriter.CreateHeader(ctx, responseHeader); err != nil {
 			return idwrap.IDWrap{}, err
 		}
 		headerEvents = append(headerEvents, HttpResponseHeaderEvent{
@@ -593,7 +593,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	serviceTx := h.httpResponseService.TX(tx)
+	responseWriter := shttp.NewHttpResponseWriter(tx)
 
 	// Insert all results in batch
 	now := time.Now().Unix()
@@ -622,7 +622,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 			CreatedAt:  now,
 		}
 
-		if err := serviceTx.CreateAssert(ctx, assert); err != nil {
+		if err := responseWriter.CreateAssert(ctx, assert); err != nil {
 			return fmt.Errorf("failed to insert assertion result for %s: %w", result.AssertionID.String(), err)
 		}
 
@@ -643,7 +643,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 	}
 
 	// Publish events
-	workspaceID, err := h.hs.GetWorkspaceID(ctx, httpID)
+	workspaceID, err := h.httpReader.GetWorkspaceID(ctx, httpID)
 	if err == nil {
 		if h.streamers.HttpResponseAssert != nil {
 			topic := HttpResponseAssertTopic{WorkspaceID: workspaceID}

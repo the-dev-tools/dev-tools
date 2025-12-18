@@ -125,3 +125,5 @@ func (s *FlowVariableService) ReorderFlowVariablesTX(ctx context.Context, tx *sq
 	}
 	return NewWriterFromQueries(queries).ReorderFlowVariables(ctx, orderedIDs)
 }
+
+func (s FlowVariableService) Reader() *Reader { return s.reader }

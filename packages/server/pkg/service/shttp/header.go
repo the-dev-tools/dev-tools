@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -15,15 +14,23 @@ import (
 var ErrNoHttpHeaderFound = errors.New("no http header found")
 
 type HttpHeaderService struct {
+	reader  *HeaderReader
 	queries *gen.Queries
 }
 
 func NewHttpHeaderService(queries *gen.Queries) HttpHeaderService {
-	return HttpHeaderService{queries: queries}
+	return HttpHeaderService{
+		reader:  NewHeaderReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (h HttpHeaderService) TX(tx *sql.Tx) HttpHeaderService {
-	return HttpHeaderService{queries: h.queries.WithTx(tx)}
+	newQueries := h.queries.WithTx(tx)
+	return HttpHeaderService{
+		reader:  NewHeaderReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func NewHttpHeaderServiceTX(ctx context.Context, tx *sql.Tx) (*HttpHeaderService, error) {
@@ -32,6 +39,7 @@ func NewHttpHeaderServiceTX(ctx context.Context, tx *sql.Tx) (*HttpHeaderService
 		return nil, err
 	}
 	headerService := HttpHeaderService{
+		reader:  NewHeaderReaderFromQueries(queries),
 		queries: queries,
 	}
 
@@ -94,143 +102,45 @@ func DeserializeHeaderGenToModel(header gen.HttpHeader) mhttp.HTTPHeader {
 }
 
 func (h HttpHeaderService) Create(ctx context.Context, header *mhttp.HTTPHeader) error {
-	if header == nil {
-		return errors.New("header cannot be nil")
-	}
-
-	now := time.Now().Unix()
-	header.CreatedAt = now
-	header.UpdatedAt = now
-
-	dbHeader := SerializeHeaderModelToGen(*header)
-	return h.queries.CreateHTTPHeader(ctx, gen.CreateHTTPHeaderParams(dbHeader))
+	return NewHeaderWriterFromQueries(h.queries).Create(ctx, header)
 }
 
 func (h HttpHeaderService) CreateBulk(ctx context.Context, httpID idwrap.IDWrap, headers []mhttp.HTTPHeader) error {
-	if len(headers) == 0 {
-		return nil
-	}
-
-	// Create headers individually since bulk operation doesn't exist
-	for _, header := range headers {
-		header.HttpID = httpID
-		if err := h.Create(ctx, &header); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return NewHeaderWriterFromQueries(h.queries).CreateBulk(ctx, httpID, headers)
 }
 
 func (h HttpHeaderService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPHeader, error) {
-	dbHeaders, err := h.queries.GetHTTPHeaders(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
-
-	var headers []mhttp.HTTPHeader
-	for _, dbHeader := range dbHeaders {
-		header := DeserializeHeaderGenToModel(dbHeader)
-		headers = append(headers, header)
-	}
-
-	return headers, nil
+	return h.reader.GetByHttpID(ctx, httpID)
 }
 
 func (h HttpHeaderService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPHeader, error) {
-	// GetByHttpID now uses ORDER BY display_order in the query
-	return h.GetByHttpID(ctx, httpID)
+	return h.reader.GetByHttpIDOrdered(ctx, httpID)
 }
 
 func (h HttpHeaderService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttp.HTTPHeader, error) {
-	if len(ids) == 0 {
-		return []mhttp.HTTPHeader{}, nil
-	}
-
-	dbHeaders, err := h.queries.GetHTTPHeadersByIDs(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-
-	var headers []mhttp.HTTPHeader
-	for _, dbHeader := range dbHeaders {
-		header := DeserializeHeaderGenToModel(dbHeader)
-		headers = append(headers, header)
-	}
-
-	return headers, nil
+	return h.reader.GetByIDs(ctx, ids)
 }
 
 func (h HttpHeaderService) GetByID(ctx context.Context, headerID idwrap.IDWrap) (mhttp.HTTPHeader, error) {
-	// Since there's no specific GetByID query for HTTP headers, we'll use GetByIDs
-	headers, err := h.GetByIDs(ctx, []idwrap.IDWrap{headerID})
-	if err != nil {
-		return mhttp.HTTPHeader{}, err
-	}
-
-	if len(headers) == 0 {
-		return mhttp.HTTPHeader{}, ErrNoHttpHeaderFound
-	}
-
-	return headers[0], nil
+	return h.reader.GetByID(ctx, headerID)
 }
 
 func (h HttpHeaderService) Update(ctx context.Context, header *mhttp.HTTPHeader) error {
-	if header == nil {
-		return errors.New("header cannot be nil")
-	}
-
-	dbHeader := SerializeHeaderModelToGen(*header)
-	return h.queries.UpdateHTTPHeader(ctx, gen.UpdateHTTPHeaderParams{
-		HeaderKey:    dbHeader.HeaderKey,
-		HeaderValue:  dbHeader.HeaderValue,
-		Description:  dbHeader.Description,
-		Enabled:      dbHeader.Enabled,
-		DisplayOrder: dbHeader.DisplayOrder,
-		ID:           dbHeader.ID,
-	})
+	return NewHeaderWriterFromQueries(h.queries).Update(ctx, header)
 }
 
 func (h HttpHeaderService) UpdateDelta(ctx context.Context, headerID idwrap.IDWrap, deltaKey, deltaValue, deltaDescription *string, deltaEnabled *bool) error {
-	return h.queries.UpdateHTTPHeaderDelta(ctx, gen.UpdateHTTPHeaderDeltaParams{
-		DeltaHeaderKey:   deltaKey,
-		DeltaHeaderValue: deltaValue,
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               headerID,
-	})
+	return NewHeaderWriterFromQueries(h.queries).UpdateDelta(ctx, headerID, deltaKey, deltaValue, deltaDescription, deltaEnabled)
 }
 
 func (h HttpHeaderService) Delete(ctx context.Context, headerID idwrap.IDWrap) error {
-	return h.queries.DeleteHTTPHeader(ctx, headerID)
+	return NewHeaderWriterFromQueries(h.queries).Delete(ctx, headerID)
 }
 
 func (h HttpHeaderService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
-	// Since bulk delete might not be generated, we fetch and delete one by one
-	// This is less efficient but safer without knowing available queries
-	headers, err := h.GetByHttpID(ctx, httpID)
-	if err != nil {
-		return err
-	}
-
-	for _, header := range headers {
-		if err := h.Delete(ctx, header.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewHeaderWriterFromQueries(h.queries).DeleteByHttpID(ctx, httpID)
 }
 
 func (h HttpHeaderService) UpdateOrder(ctx context.Context, headerID idwrap.IDWrap, displayOrder float64) error {
-	// First get the header to extract its HTTP ID for validation
-	header, err := h.GetByID(ctx, headerID)
-	if err != nil {
-		return err
-	}
-
-	return h.queries.UpdateHTTPHeaderOrder(ctx, gen.UpdateHTTPHeaderOrderParams{
-		DisplayOrder: displayOrder,
-		ID:           headerID,
-		HttpID:       header.HttpID,
-	})
+	return NewHeaderWriterFromQueries(h.queries).UpdateOrder(ctx, headerID, displayOrder)
 }

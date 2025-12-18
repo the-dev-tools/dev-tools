@@ -81,8 +81,11 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		httpAssertService,
 	)
 
+	httpReader := shttp.NewReader(db, logger, &wus)
+
 	svc := New(
 		db,
+		httpReader,
 		hs,
 		us,
 		ws,

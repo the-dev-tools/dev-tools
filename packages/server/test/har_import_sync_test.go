@@ -180,6 +180,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 	// Instantiate rhttp handler
 	httpHandler := rhttp.New(
 		suite.baseDB.DB,
+		suite.importHandler.HttpService.Reader(),
 		*suite.importHandler.HttpService,
 		suite.services.Us,
 		suite.services.Ws,

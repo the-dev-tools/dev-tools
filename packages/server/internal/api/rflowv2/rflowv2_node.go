@@ -11,9 +11,11 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/service/snode"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -28,7 +30,7 @@ func (s *FlowServiceV2RPC) NodeCollection(
 
 	var nodesPB []*flowv1.Node
 	for _, flow := range flows {
-		nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+		nodes, err := s.nsReader.GetNodesByFlowID(ctx, flow.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -57,6 +59,12 @@ func (s *FlowServiceV2RPC) NodeInsert(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeInsertRequest],
 ) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one node is required"))
+	}
+
+	// Step 1: FETCH/CHECK (Outside transaction)
+	var nodeModels []*mnnode.MNode
 	for _, item := range req.Msg.GetItems() {
 		nodeModel, err := s.deserializeNodeInsert(item)
 		if err != nil {
@@ -66,11 +74,30 @@ func (s *FlowServiceV2RPC) NodeInsert(
 		if err := s.ensureFlowAccess(ctx, nodeModel.FlowID); err != nil {
 			return nil, err
 		}
+		nodeModels = append(nodeModels, nodeModel)
+	}
 
-		if err := s.ns.CreateNode(ctx, *nodeModel); err != nil {
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	nsWriter := snode.NewWriter(tx)
+
+	for _, nodeModel := range nodeModels {
+		if err := nsWriter.CreateNode(ctx, *nodeModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY (Outside transaction)
+	for _, nodeModel := range nodeModels {
 		s.publishNodeEvent(nodeEventInsert, *nodeModel)
 	}
 
@@ -81,6 +108,16 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeUpdateRequest],
 ) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one node is required"))
+	}
+
+	// Step 1: FETCH/CHECK (Outside transaction)
+	var updateData []struct {
+		existing *mnnode.MNode
+		item     *flowv1.NodeUpdate
+	}
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -108,11 +145,34 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 			existing.PositionY = float64(item.Position.GetY())
 		}
 
-		if err := s.ns.UpdateNode(ctx, *existing); err != nil {
+		updateData = append(updateData, struct {
+			existing *mnnode.MNode
+			item     *flowv1.NodeUpdate
+		}{existing: existing, item: item})
+	}
+
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	nsWriter := snode.NewWriter(tx)
+
+	for _, data := range updateData {
+		if err := nsWriter.UpdateNode(ctx, *data.existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
 
-		s.publishNodeEvent(nodeEventUpdate, *existing)
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY (Outside transaction)
+	for _, data := range updateData {
+		s.publishNodeEvent(nodeEventUpdate, *data.existing)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -122,7 +182,16 @@ func (s *FlowServiceV2RPC) NodeDelete(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeDeleteRequest],
 ) (*connect.Response[emptypb.Empty], error) {
-	for _, item := range req.Msg.GetItems() {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one node is required"))
+	}
+
+	// Step 1: FETCH/CHECK (Outside transaction)
+	var deleteData []struct {
+		existing *mnnode.MNode
+	}
+
+	for _, item := range req.Msg.Items {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
@@ -132,12 +201,31 @@ func (s *FlowServiceV2RPC) NodeDelete(
 		if err != nil {
 			return nil, err
 		}
+		deleteData = append(deleteData, struct{ existing *mnnode.MNode }{existing: existing})
+	}
 
-		if err := s.ns.DeleteNode(ctx, nodeID); err != nil {
+	// Step 2: ACT (Inside transaction)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	nsWriter := snode.NewWriter(tx)
+
+	for _, data := range deleteData {
+		if err := nsWriter.DeleteNode(ctx, data.existing.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
 
-		s.publishNodeEvent(nodeEventDelete, *existing)
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY (Outside transaction)
+	for _, data := range deleteData {
+		s.publishNodeEvent(nodeEventDelete, *data.existing)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

@@ -5,194 +5,80 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"slices"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 var ErrNoHttpBodyUrlEncodedFound = errors.New("no http body url encoded found")
 
 type HttpBodyUrlEncodedService struct {
+	reader  *BodyUrlEncodedReader
 	queries *gen.Queries
 }
 
 func NewHttpBodyUrlEncodedService(queries *gen.Queries) *HttpBodyUrlEncodedService {
-	return &HttpBodyUrlEncodedService{queries: queries}
+	return &HttpBodyUrlEncodedService{
+		reader:  NewBodyUrlEncodedReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (s *HttpBodyUrlEncodedService) TX(tx *sql.Tx) *HttpBodyUrlEncodedService {
-	return &HttpBodyUrlEncodedService{queries: s.queries.WithTx(tx)}
+	newQueries := s.queries.WithTx(tx)
+	return &HttpBodyUrlEncodedService{
+		reader:  NewBodyUrlEncodedReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func (s *HttpBodyUrlEncodedService) Create(ctx context.Context, body *mhttp.HTTPBodyUrlencoded) error {
-	bue := SerializeBodyUrlEncodedModelToGen(*body)
-	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams(bue))
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).Create(ctx, body)
 }
 
 func (s *HttpBodyUrlEncodedService) CreateBulk(ctx context.Context, bodyUrlEncodeds []mhttp.HTTPBodyUrlencoded) error {
-	const sizeOfChunks = 10
-	convertedItems := tgeneric.MassConvert(bodyUrlEncodeds, SerializeBodyUrlEncodedModelToGen)
-
-	for bodyUrlEncodedChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
-		for _, bodyUrlEncoded := range bodyUrlEncodedChunk {
-			err := s.createRaw(ctx, bodyUrlEncoded)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *HttpBodyUrlEncodedService) createRaw(ctx context.Context, bue gen.HttpBodyUrlencoded) error {
-	return s.queries.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams(bue))
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).CreateBulk(ctx, bodyUrlEncodeds)
 }
 
 func (s *HttpBodyUrlEncodedService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyUrlencoded, error) {
-	body, err := s.queries.GetHTTPBodyUrlEncoded(ctx, id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNoHttpBodyUrlEncodedFound
-		}
-		return nil, err
-	}
-
-	model := DeserializeBodyUrlEncodedGenToModel(body)
-	return &model, nil
+	return s.reader.GetByID(ctx, id)
 }
 
 func (s *HttpBodyUrlEncodedService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyUrlencoded, error) {
-	bodies, err := s.queries.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPBodyUrlencoded{}, nil
-		}
-		return nil, err
-	}
-
-	result := make([]mhttp.HTTPBodyUrlencoded, len(bodies))
-	for i, body := range bodies {
-		result[i] = DeserializeBodyUrlEncodedGenToModel(body)
-	}
-	return result, nil
+	return s.reader.GetByHttpID(ctx, httpID)
 }
 
 func (s *HttpBodyUrlEncodedService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyUrlencoded, error) {
-	rows, err := s.queries.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPBodyUrlencoded{}, nil
-		}
-		return nil, err
-	}
-
-	// Sort by order field
-	slices.SortFunc(rows, func(a, b gen.HttpBodyUrlencoded) int {
-		if a.DisplayOrder < b.DisplayOrder {
-			return -1
-		}
-		if a.DisplayOrder > b.DisplayOrder {
-			return 1
-		}
-		return 0
-	})
-
-	result := make([]mhttp.HTTPBodyUrlencoded, len(rows))
-	for i, row := range rows {
-		result[i] = DeserializeBodyUrlEncodedGenToModel(row)
-	}
-	return result, nil
+	return s.reader.GetByHttpIDOrdered(ctx, httpID)
 }
 
 func (s *HttpBodyUrlEncodedService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttp.HTTPBodyUrlencoded, error) {
-	if len(ids) == 0 {
-		return []mhttp.HTTPBodyUrlencoded{}, nil
-	}
-
-	bodies, err := s.queries.GetHTTPBodyUrlEncodedsByIDs(ctx, ids)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPBodyUrlencoded{}, nil
-		}
-		return nil, err
-	}
-
-	result := make([]mhttp.HTTPBodyUrlencoded, len(bodies))
-	for i, body := range bodies {
-		result[i] = DeserializeBodyUrlEncodedGenToModel(body)
-	}
-	return result, nil
+	return s.reader.GetByIDs(ctx, ids)
 }
 
 func (s *HttpBodyUrlEncodedService) GetByHttpIDs(ctx context.Context, httpIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded, error) {
-	result := make(map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded, len(httpIDs))
-	if len(httpIDs) == 0 {
-		return result, nil
-	}
-
-	bodies, err := s.queries.GetHTTPBodyUrlEncodedsByIDs(ctx, httpIDs)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return result, nil
-		}
-		return nil, err
-	}
-
-	for _, body := range bodies {
-		model := DeserializeBodyUrlEncodedGenToModel(body)
-		httpID := model.HttpID
-		result[httpID] = append(result[httpID], model)
-	}
-
-	return result, nil
+	return s.reader.GetByHttpIDs(ctx, httpIDs)
 }
 
 func (s *HttpBodyUrlEncodedService) Update(ctx context.Context, body *mhttp.HTTPBodyUrlencoded) error {
-	return s.queries.UpdateHTTPBodyUrlEncoded(ctx, gen.UpdateHTTPBodyUrlEncodedParams{
-		Key:          body.Key,
-		Value:        body.Value,
-		Description:  body.Description,
-		Enabled:      body.Enabled,
-		DisplayOrder: float64(body.DisplayOrder),
-		ID:           body.ID,
-	})
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).Update(ctx, body)
 }
 
 func (s *HttpBodyUrlEncodedService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
-	return s.queries.UpdateHTTPBodyUrlEncodedDelta(ctx, gen.UpdateHTTPBodyUrlEncodedDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               id,
-	})
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).UpdateDelta(ctx, id, deltaKey, deltaValue, deltaEnabled, deltaDescription, deltaOrder)
 }
 
 func (s *HttpBodyUrlEncodedService) Delete(ctx context.Context, id idwrap.IDWrap) error {
-	return s.queries.DeleteHTTPBodyUrlEncoded(ctx, id)
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).Delete(ctx, id)
 }
 
 func (s *HttpBodyUrlEncodedService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
-	bodies, err := s.GetByHttpID(ctx, httpID)
-	if err != nil {
-		return err
-	}
-
-	for _, body := range bodies {
-		if err := s.Delete(ctx, body.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).DeleteByHttpID(ctx, httpID)
 }
 
 func (s *HttpBodyUrlEncodedService) ResetDelta(ctx context.Context, id idwrap.IDWrap) error {
-	// Reset delta fields by setting them to nil
-	return s.UpdateDelta(ctx, id, nil, nil, nil, nil, nil)
+	return NewBodyUrlEncodedWriterFromQueries(s.queries).ResetDelta(ctx, id)
 }
 
 // Note: GetStreaming is not available for HTTPBodyUrlEncoded

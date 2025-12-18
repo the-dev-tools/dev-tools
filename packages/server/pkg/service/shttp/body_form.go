@@ -5,238 +5,88 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"slices"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 var ErrNoHttpBodyFormFound = errors.New("no http body form found")
 
 type HttpBodyFormService struct {
+	reader  *BodyFormReader
 	queries *gen.Queries
 }
 
 func NewHttpBodyFormService(queries *gen.Queries) *HttpBodyFormService {
-	return &HttpBodyFormService{queries: queries}
+	return &HttpBodyFormService{
+		reader:  NewBodyFormReaderFromQueries(queries),
+		queries: queries,
+	}
 }
 
 func (s *HttpBodyFormService) TX(tx *sql.Tx) *HttpBodyFormService {
-	return &HttpBodyFormService{queries: s.queries.WithTx(tx)}
+	newQueries := s.queries.WithTx(tx)
+	return &HttpBodyFormService{
+		reader:  NewBodyFormReaderFromQueries(newQueries),
+		queries: newQueries,
+	}
 }
 
 func (s *HttpBodyFormService) Create(ctx context.Context, body *mhttp.HTTPBodyForm) error {
-	bf := SerializeBodyFormModelToGen(*body)
-	return s.queries.CreateHTTPBodyForm(ctx, gen.CreateHTTPBodyFormParams{
-		ID:                    bf.ID,
-		HttpID:                bf.HttpID,
-		Key:                   bf.Key,
-		Value:                 bf.Value,
-		Description:           bf.Description,
-		Enabled:               bf.Enabled,
-		DisplayOrder:          bf.DisplayOrder,
-		ParentHttpBodyFormID:  bf.ParentHttpBodyFormID,
-		IsDelta:               bf.IsDelta,
-		DeltaKey:              bf.DeltaKey,
-		DeltaValue:            bf.DeltaValue,
-		DeltaDescription:      bf.DeltaDescription,
-		DeltaEnabled:          bf.DeltaEnabled,
-		DeltaDisplayOrder:     bf.DeltaDisplayOrder,
-		CreatedAt:             bf.CreatedAt,
-		UpdatedAt:             bf.UpdatedAt,
-	})
+	return NewBodyFormWriterFromQueries(s.queries).Create(ctx, body)
 }
 
 func (s *HttpBodyFormService) CreateBulk(ctx context.Context, bodyForms []mhttp.HTTPBodyForm) error {
-	const sizeOfChunks = 10
-	convertedItems := tgeneric.MassConvert(bodyForms, SerializeBodyFormModelToGen)
-
-	for bodyFormChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
-		for _, bodyForm := range bodyFormChunk {
-			err := s.createRaw(ctx, bodyForm)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *HttpBodyFormService) createRaw(ctx context.Context, bf gen.HttpBodyForm) error {
-	return s.queries.CreateHTTPBodyForm(ctx, gen.CreateHTTPBodyFormParams{
-		ID:                   bf.ID,
-		HttpID:               bf.HttpID,
-		Key:                  bf.Key,
-		Value:                bf.Value,
-		Description:          bf.Description,
-		Enabled:              bf.Enabled,
-		DisplayOrder:         bf.DisplayOrder,
-		ParentHttpBodyFormID: bf.ParentHttpBodyFormID,
-		IsDelta:              bf.IsDelta,
-		DeltaKey:             bf.DeltaKey,
-		DeltaValue:           bf.DeltaValue,
-		DeltaDescription:     bf.DeltaDescription,
-		DeltaEnabled:         bf.DeltaEnabled,
-		DeltaDisplayOrder:    bf.DeltaDisplayOrder,
-		CreatedAt:            bf.CreatedAt,
-		UpdatedAt:            bf.UpdatedAt,
-	})
+	return NewBodyFormWriterFromQueries(s.queries).CreateBulk(ctx, bodyForms)
 }
 
 func (s *HttpBodyFormService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyForm, error) {
-	rows, err := s.queries.GetHTTPBodyFormsByIDs(ctx, []idwrap.IDWrap{id})
-	if err != nil {
-		return nil, err
-	}
-	if len(rows) == 0 {
-		return nil, ErrNoHttpBodyFormFound
-	}
-
-	model := deserializeBodyFormByIDsRowToModel(rows[0])
-	return &model, nil
+	return s.reader.GetByID(ctx, id)
 }
 
 func (s *HttpBodyFormService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyForm, error) {
-	rows, err := s.queries.GetHTTPBodyForms(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPBodyForm{}, nil
-		}
-		return nil, err
-	}
-
-	result := make([]mhttp.HTTPBodyForm, len(rows))
-	for i, row := range rows {
-		result[i] = DeserializeBodyFormGenToModel(row)
-	}
-	return result, nil
+	return s.reader.GetByHttpID(ctx, httpID)
 }
 
 func (s *HttpBodyFormService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPBodyForm, error) {
-	rows, err := s.queries.GetHTTPBodyForms(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPBodyForm{}, nil
-		}
-		return nil, err
-	}
-
-	// Sort by order field
-	slices.SortFunc(rows, func(a, b gen.GetHTTPBodyFormsRow) int {
-		if a.DisplayOrder < b.DisplayOrder {
-			return -1
-		}
-		if a.DisplayOrder > b.DisplayOrder {
-			return 1
-		}
-		return 0
-	})
-
-	result := make([]mhttp.HTTPBodyForm, len(rows))
-	for i, row := range rows {
-		result[i] = DeserializeBodyFormGenToModel(row)
-	}
-	return result, nil
+	return s.reader.GetByHttpIDOrdered(ctx, httpID)
 }
 
 func (s *HttpBodyFormService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttp.HTTPBodyForm, error) {
-	if len(ids) == 0 {
-		return []mhttp.HTTPBodyForm{}, nil
-	}
-
-	rows, err := s.queries.GetHTTPBodyFormsByIDs(ctx, ids)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPBodyForm{}, nil
-		}
-		return nil, err
-	}
-
-	return tgeneric.MassConvert(rows, deserializeBodyFormByIDsRowToModel), nil
+	return s.reader.GetByIDs(ctx, ids)
 }
 
 func (s *HttpBodyFormService) GetByHttpIDs(ctx context.Context, httpIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mhttp.HTTPBodyForm, error) {
-	result := make(map[idwrap.IDWrap][]mhttp.HTTPBodyForm, len(httpIDs))
-	if len(httpIDs) == 0 {
-		return result, nil
-	}
-
-	rows, err := s.queries.GetHTTPBodyFormsByIDs(ctx, httpIDs)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return result, nil
-		}
-		return nil, err
-	}
-
-	for _, row := range rows {
-		model := deserializeBodyFormByIDsRowToModel(row)
-		httpID := model.HttpID
-		result[httpID] = append(result[httpID], model)
-	}
-
-	return result, nil
+	return s.reader.GetByHttpIDs(ctx, httpIDs)
 }
 
 func (s *HttpBodyFormService) Update(ctx context.Context, body *mhttp.HTTPBodyForm) error {
-	return s.queries.UpdateHTTPBodyForm(ctx, gen.UpdateHTTPBodyFormParams{
-		Key:          body.Key,
-		Value:        body.Value,
-		Description:  body.Description,
-		Enabled:      body.Enabled,
-		DisplayOrder: float64(body.DisplayOrder),
-		ID:           body.ID,
-	})
+	return NewBodyFormWriterFromQueries(s.queries).Update(ctx, body)
 }
 
 func (s *HttpBodyFormService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, httpID idwrap.IDWrap, order float32) error {
-	return s.queries.UpdateHTTPBodyFormOrder(ctx, gen.UpdateHTTPBodyFormOrderParams{
-		DisplayOrder: float64(order),
-		ID:           id,
-		HttpID:       httpID,
-	})
+	return NewBodyFormWriterFromQueries(s.queries).UpdateOrder(ctx, id, httpID, order)
 }
 
 func (s *HttpBodyFormService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
-	return s.queries.UpdateHTTPBodyFormDelta(ctx, gen.UpdateHTTPBodyFormDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               id,
-	})
+	return NewBodyFormWriterFromQueries(s.queries).UpdateDelta(ctx, id, deltaKey, deltaValue, deltaEnabled, deltaDescription, deltaOrder)
 }
 
 func (s *HttpBodyFormService) Delete(ctx context.Context, id idwrap.IDWrap) error {
-	return s.queries.DeleteHTTPBodyForm(ctx, id)
+	return NewBodyFormWriterFromQueries(s.queries).Delete(ctx, id)
 }
 
 func (s *HttpBodyFormService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
-	forms, err := s.GetByHttpID(ctx, httpID)
-	if err != nil {
-		return err
-	}
-
-	for _, form := range forms {
-		if err := s.Delete(ctx, form.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewBodyFormWriterFromQueries(s.queries).DeleteByHttpID(ctx, httpID)
 }
 
 func (s *HttpBodyFormService) ResetDelta(ctx context.Context, id idwrap.IDWrap) error {
-	return s.queries.ResetHTTPBodyFormDelta(ctx, id)
+	return NewBodyFormWriterFromQueries(s.queries).ResetDelta(ctx, id)
 }
 
 func (s *HttpBodyFormService) GetStreaming(ctx context.Context, httpIDs []idwrap.IDWrap, updatedAt int64) ([]gen.GetHTTPBodyFormStreamingRow, error) {
-	return s.queries.GetHTTPBodyFormStreaming(ctx, gen.GetHTTPBodyFormStreamingParams{
-		HttpIds:   httpIDs,
-		UpdatedAt: updatedAt,
-	})
+	return s.reader.GetStreaming(ctx, httpIDs, updatedAt)
 }
 
 // Conversion functions

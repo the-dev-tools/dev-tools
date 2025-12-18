@@ -85,7 +85,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		}
 
 		// Verify the HTTP entry exists and user has access - use pool service
-		httpEntry, err := h.hs.Get(ctx, httpID)
+		httpEntry, err := h.httpReader.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -122,11 +122,11 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	httpAssertService := h.httpAssertService.TX(tx)
+	assertWriter := shttp.NewAssertWriter(tx)
 	var createdAsserts []mhttp.HTTPAssert
 
 	for _, data := range insertData {
-		if err := httpAssertService.Create(ctx, data.assertModel); err != nil {
+		if err := assertWriter.Create(ctx, data.assertModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdAsserts = append(createdAsserts, *data.assertModel)
@@ -139,7 +139,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 	// Publish create events for real-time sync
 	for _, assert := range createdAsserts {
 		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, assert.HttpID)
+		httpEntry, err := h.httpReader.Get(ctx, assert.HttpID)
 		if err != nil {
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
@@ -185,7 +185,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		}
 
 		// Verify the HTTP entry exists and user has access - use pool service
-		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
+		httpEntry, err := h.httpReader.Get(ctx, existingAssert.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -230,11 +230,11 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	httpAssertService := h.httpAssertService.TX(tx)
+	assertWriter := shttp.NewAssertWriter(tx)
 	var updatedAsserts []mhttp.HTTPAssert
 
 	for _, data := range updateData {
-		if err := httpAssertService.Update(ctx, data.existingAssert); err != nil {
+		if err := assertWriter.Update(ctx, data.existingAssert); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedAsserts = append(updatedAsserts, *data.existingAssert)
@@ -247,7 +247,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 	// Publish update events for real-time sync
 	for _, assert := range updatedAsserts {
 		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, assert.HttpID)
+		httpEntry, err := h.httpReader.Get(ctx, assert.HttpID)
 		if err != nil {
 			// Log error but continue - event publishing shouldn't fail the operation
 			continue
@@ -294,7 +294,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 		}
 
 		// Verify the HTTP entry exists and user has access - use pool service
-		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
+		httpEntry, err := h.httpReader.Get(ctx, existingAssert.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -325,12 +325,12 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	httpAssertService := h.httpAssertService.TX(tx)
+	assertWriter := shttp.NewAssertWriter(tx)
 	var deletedAsserts []mhttp.HTTPAssert
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
-		if err := httpAssertService.Delete(ctx, data.assertID); err != nil {
+		if err := assertWriter.Delete(ctx, data.assertID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

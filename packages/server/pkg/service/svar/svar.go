@@ -105,3 +105,5 @@ func (s VarService) MoveVariableAfter(ctx context.Context, varID, targetVarID id
 func (s VarService) MoveVariableBefore(ctx context.Context, varID, targetVarID idwrap.IDWrap) error {
 	return NewWriterFromQueries(s.queries).MoveVariableBefore(ctx, varID, targetVarID)
 }
+
+func (s VarService) Reader() *Reader { return s.reader }

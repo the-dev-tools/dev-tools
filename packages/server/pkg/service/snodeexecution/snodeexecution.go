@@ -76,3 +76,5 @@ func (s NodeExecutionService) DeleteNodeExecutionsByNodeID(ctx context.Context, 
 func (s NodeExecutionService) DeleteNodeExecutionsByNodeIDs(ctx context.Context, nodeIDs []idwrap.IDWrap) error {
 	return NewWriterFromQueries(s.queries).DeleteNodeExecutionsByNodeIDs(ctx, nodeIDs)
 }
+
+func (s NodeExecutionService) Reader() *Reader { return s.reader }

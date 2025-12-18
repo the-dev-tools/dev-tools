@@ -482,13 +482,13 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fileService := f.fs.TX(tx)
+	fileWriter := sfile.NewWriter(tx, nil)
 	var createdFiles []mfile.File
 
 	// Fast inserts inside minimal transaction
 	for _, file := range fileModels {
 		// Create file
-		if err := fileService.CreateFile(ctx, file); err != nil {
+		if err := fileWriter.CreateFile(ctx, file); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -562,12 +562,12 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fileService := f.fs.TX(tx)
+	fileWriter := sfile.NewWriter(tx, nil)
 	var successFiles []mfile.File
 
 	for _, file := range updatedFiles {
 		// Update file
-		if err := fileService.UpdateFile(ctx, file); err != nil {
+		if err := fileWriter.UpdateFile(ctx, file); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		successFiles = append(successFiles, *file)
@@ -629,12 +629,12 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fileService := f.fs.TX(tx)
+	fileWriter := sfile.NewWriter(tx, nil)
 	var deletedFiles []mfile.File
 
 	for _, file := range filesToDelete {
 		// Delete file
-		if err := fileService.DeleteFile(ctx, file.ID); err != nil {
+		if err := fileWriter.DeleteFile(ctx, file.ID); err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
@@ -774,13 +774,13 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fileService := f.fs.TX(tx)
+	fileWriter := sfile.NewWriter(tx, nil)
 	var createdFolders []mfile.File
 
 	// Fast inserts inside minimal transaction
 	for _, folder := range folderModels {
 		// Create folder
-		if err := fileService.CreateFile(ctx, folder); err != nil {
+		if err := fileWriter.CreateFile(ctx, folder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -859,12 +859,12 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fileService := f.fs.TX(tx)
+	fileWriter := sfile.NewWriter(tx, nil)
 	var successFolders []mfile.File
 
 	for _, folder := range updatedFolders {
 		// Update folder
-		if err := fileService.UpdateFile(ctx, folder); err != nil {
+		if err := fileWriter.UpdateFile(ctx, folder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -932,12 +932,12 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fileService := f.fs.TX(tx)
+	fileWriter := sfile.NewWriter(tx, nil)
 	var deletedFolders []mfile.File
 
 	for _, folder := range foldersToDelete {
 		// Delete folder
-		if err := fileService.DeleteFile(ctx, folder.ID); err != nil {
+		if err := fileWriter.DeleteFile(ctx, folder.ID); err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}

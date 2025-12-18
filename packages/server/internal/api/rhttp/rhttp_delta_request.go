@@ -35,7 +35,7 @@ func (h *HttpServiceRPC) HttpDeltaCollection(ctx context.Context, req *connect.R
 	var allDeltas []*apiv1.HttpDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.httpReader.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -88,7 +88,7 @@ func (h *HttpServiceRPC) HttpDeltaInsert(ctx context.Context, req *connect.Reque
 		}
 
 		// Check workspace write access
-		httpEntry, err := h.hs.Get(ctx, httpID)
+		httpEntry, err := h.httpReader.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -170,7 +170,7 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 		}
 
 		// Get existing delta HTTP entry
-		existingDelta, err := h.hs.Get(ctx, deltaID)
+		existingDelta, err := h.httpReader.Get(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -288,7 +288,7 @@ func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Reque
 		}
 
 		// Get existing delta HTTP entry - use pool service
-		existingDelta, err := h.hs.Get(ctx, deltaID)
+		existingDelta, err := h.httpReader.Get(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -388,7 +388,7 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 			if err != nil {
 				continue // Skip if can't parse ID
 			}
-			httpRecord, err := h.hs.Get(ctx, httpID)
+			httpRecord, err := h.httpReader.Get(ctx, httpID)
 			if err != nil {
 				continue // Skip if can't get the record
 			}

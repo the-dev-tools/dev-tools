@@ -313,12 +313,12 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	envService := e.es.TX(tx)
+	envWriter := senv.NewWriter(tx)
 	var createdEnvs []menv.Env
 
 	// Fast inserts inside minimal transaction
 	for _, envReq := range envModels {
-		if err := envService.CreateEnvironment(ctx, &envReq); err != nil {
+		if err := envWriter.CreateEnvironment(ctx, &envReq); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdEnvs = append(createdEnvs, envReq)
@@ -350,7 +350,80 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	envService := e.es.TX(tx)
+	envWriter := senv.NewWriter(tx)
+	// We need reader for checks within transaction if we want consistency,
+	// but service methods on Writer usually don't include Get.
+	// However, `envService` here was used for both read (CheckOwnerEnv, GetEnvironment) AND write (UpdateEnvironment).
+	// We need to be careful. `CheckOwnerEnv` uses `es.Get` (Reader).
+	// `envService.GetEnvironment` uses Reader logic.
+	// The pattern is: Read with Reader (outside or inside TX), Write with Writer (inside TX).
+	// Since we are inside a transaction `tx`, we should ideally use a transactional reader if we want snapshot isolation consistency,
+	// or just use the base reader if read-committed is fine and we trust the optimistic locking or simple update.
+	// But `envService := e.es.TX(tx)` provided both.
+	// The new `senv.NewWriter(tx)` ONLY provides writes.
+	// `senv.NewReader(tx)` isn't standard, we usually pass DB to Reader.
+	// However, `sql.Tx` implements the interface needed for queries.
+	// Let's see if we can use `senv.NewReader(tx)`? No, `NewReader` takes `*sql.DB`.
+	// But `NewReaderFromQueries` takes `*gen.Queries`.
+	// So we can construct a reader from the transaction if needed.
+	//
+	// Actually, `CheckOwnerEnv` takes `senv.EnvService` interface/struct.
+	// `envWriter` is `*senv.Writer`. It doesn't have `Get`.
+	//
+	// Strategy:
+	// 1. Create `envReader := senv.NewReaderFromQueries(gen.New(tx), e.es.logger)` (internal helper or exposed?)
+	//    The public API for `senv` doesn't expose `NewReaderFromQueries`.
+	//    But wait, `EnvService` struct (the bridge) has `TX(tx)` which returns a bridge bound to TX.
+	//    This bridge has both Reader (bound to TX) and Writer behavior.
+	//    So `e.es.TX(tx)` IS valid and safe IF `senv.EnvService` is correctly implemented as a bridge.
+	//    Let's check `packages/server/pkg/service/senv/senv.go`.
+	//
+	// Checking `senv.go`:
+	// func (s EnvironmentService) TX(tx *sql.Tx) EnvironmentService { ... return EnvironmentService{ reader: NewReaderFromQueries(newQueries, ...), ... } }
+	//
+	// So `e.es.TX(tx)` returns a valid Service object that uses the TX for both reads and writes.
+	// This is actually FINE and "Graceful".
+	//
+	// BUT, the goal was to "Explicitly use NewWriter(tx)" to enforce separation.
+	// If we use `NewWriter(tx)`, we lose the `Get` methods on that object.
+	//
+	// If the logic interleaves Reads and Writes on the SAME transaction object, we have two choices:
+	// A) Use the Bridge `TX()` (easiest, what we have).
+	// B) Instantiate both `envReaderTx` and `envWriterTx`.
+	//
+	// Given the instructions "Refactor ... to use NewWriter(tx)", implies we should separate them.
+	//
+	// For `EnvironmentUpdate`:
+	// We read `env` using `envService.GetEnvironment`.
+	// Then we update using `envService.UpdateEnvironment`.
+	//
+	// If we change `envService` to `envWriter`, we can't call `GetEnvironment`.
+	//
+	// Solution:
+	// Use `e.es.GetEnvironment` (Base Reader) for the reads?
+	// OR use a transactional reader?
+	//
+	// If we use base reader `e.es.GetEnvironment`, it uses `*sql.DB`.
+	// If we are in `tx`, we generally want to read from `tx` to see our own writes or maintain consistency level.
+	// However, `Get` here is before any write in this loop iteration.
+	//
+	// Let's look at `EnvironmentUpdate` logic:
+	// It iterates items. Inside loop:
+	// 1. CheckPerm (Reads)
+	// 2. GetEnvironment (Reads)
+	// 3. UpdateEnvironment (Writes)
+	//
+	// If we use `e.es` (Global Reader) for 1 and 2, and `envWriter` for 3, it is safe pattern "Fetch-Check-Act".
+	//
+	// So:
+	// `envService := e.es.TX(tx)` -> REMOVE.
+	// Use `e.es` for reads.
+	// Use `envWriter := senv.NewWriter(tx)` for writes.
+	//
+	// Let's verify `CheckOwnerEnv`. It takes `senv.EnvService`.
+	// `e.es` satisfies this.
+	//
+	// So:
 	var updatedEnvs []*menv.Env
 
 	for _, envUpdate := range req.Msg.Items {
@@ -359,12 +432,14 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, envService, envID))
+		// Use global service (Reader) for checks
+		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		env, err := envService.GetEnvironment(ctx, envID)
+		// Use global service (Reader) for Fetch
+		env, err := e.es.GetEnvironment(ctx, envID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -399,7 +474,8 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 			env.Order = float64(*envUpdate.Order)
 		}
 
-		if err := envService.UpdateEnvironment(ctx, env); err != nil {
+		// Use Writer for Act
+		if err := envWriter.UpdateEnvironment(ctx, env); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedEnvs = append(updatedEnvs, env)
@@ -434,7 +510,7 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	envService := e.es.TX(tx)
+	envWriter := senv.NewWriter(tx)
 	var deletedEnvs []menv.Env
 
 	for _, envDelete := range req.Msg.Items {
@@ -443,12 +519,12 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, envService, envID))
+		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		env, err := envService.GetEnvironment(ctx, envID)
+		env, err := e.es.GetEnvironment(ctx, envID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -456,7 +532,7 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := envService.DeleteEnvironment(ctx, envID); err != nil {
+		if err := envWriter.DeleteEnvironment(ctx, envID); err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
@@ -646,7 +722,7 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	varService := e.vs.TX(tx)
+	varWriter := svar.NewWriter(tx)
 	createdVars := []struct {
 		variable    mvar.Var
 		workspaceID idwrap.IDWrap
@@ -664,7 +740,7 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 			Order:       data.order,
 		}
 
-		if err := varService.Create(ctx, varReq); err != nil {
+		if err := varWriter.Create(ctx, varReq); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdVars = append(createdVars, struct {
@@ -699,7 +775,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	varService := e.vs.TX(tx)
+	varWriter := svar.NewWriter(tx)
 	var updatedVars []struct {
 		variable    *mvar.Var
 		workspaceID idwrap.IDWrap
@@ -712,12 +788,12 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, e.us, varService, e.es, varID))
+		rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, e.us, e.vs, e.es, varID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		variable, err := varService.Get(ctx, varID)
+		variable, err := e.vs.Get(ctx, varID)
 		if err != nil {
 			if errors.Is(err, svar.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -755,7 +831,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			variable.Order = float64(*item.Order)
 		}
 
-		if err := varService.Update(ctx, variable); err != nil {
+		if err := varWriter.Update(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		workspaceID := workspaceCache[variable.EnvID.String()]
@@ -799,7 +875,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	varService := e.vs.TX(tx)
+	varWriter := svar.NewWriter(tx)
 	deletedVars := []struct {
 		variable    mvar.Var
 		workspaceID idwrap.IDWrap
@@ -812,12 +888,12 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, e.us, varService, e.es, varID))
+		rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, e.us, e.vs, e.es, varID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		variable, err := varService.Get(ctx, varID)
+		variable, err := e.vs.Get(ctx, varID)
 		if err != nil {
 			if errors.Is(err, svar.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -825,7 +901,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := varService.Delete(ctx, varID); err != nil {
+		if err := varWriter.Delete(ctx, varID); err != nil {
 			if errors.Is(err, svar.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}

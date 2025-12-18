@@ -202,9 +202,9 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsService := c.ws.TX(tx)
-	wusService := c.wus.TX(tx)
-	envService := c.es.TX(tx)
+	wsWriter := sworkspace.NewWriter(tx)
+	wusWriter := sworkspacesusers.NewWriter(tx)
+	envWriter := senv.NewWriter(tx)
 
 	var createdIDs []idwrap.IDWrap
 
@@ -239,7 +239,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 			Order:     float64(item.Order),
 		}
 
-		if err := wsService.Create(ctx, ws); err != nil {
+		if err := wsWriter.Create(ctx, ws); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -249,7 +249,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 			Name:        "default",
 			Type:        menv.EnvGlobal,
 		}
-		if err := envService.CreateEnvironment(ctx, &defaultEnv); err != nil {
+		if err := envWriter.CreateEnvironment(ctx, &defaultEnv); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -259,7 +259,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 			UserID:      userID,
 			Role:        mworkspaceuser.RoleOwner,
 		}
-		if err := wusService.CreateWorkspaceUser(ctx, workspaceUser); err != nil {
+		if err := wusWriter.CreateWorkspaceUser(ctx, workspaceUser); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -300,8 +300,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsService := c.ws.TX(tx)
-	wusService := c.wus.TX(tx)
+	wsWriter := sworkspace.NewWriter(tx)
 
 	var updatedIDs []idwrap.IDWrap
 
@@ -315,7 +314,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		wsUser, err := wusService.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+		wsUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 		if err != nil {
 			if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -326,7 +325,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 
-		ws, err := wsService.Get(ctx, workspaceID)
+		ws, err := c.ws.Get(ctx, workspaceID)
 		if err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -352,7 +351,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 
 		ws.Updated = dbtime.DBNow()
 
-		if err := wsService.Update(ctx, ws); err != nil {
+		if err := wsWriter.Update(ctx, ws); err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
@@ -396,8 +395,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsService := c.ws.TX(tx)
-	wusService := c.wus.TX(tx)
+	wsWriter := sworkspace.NewWriter(tx)
 
 	var deletedIDs []idwrap.IDWrap
 
@@ -411,7 +409,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		wsUser, err := wusService.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+		wsUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 		if err != nil {
 			if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -422,7 +420,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 
-		if err := wsService.Delete(ctx, userID, workspaceID); err != nil {
+		if err := wsWriter.Delete(ctx, workspaceID); err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
@@ -517,6 +515,14 @@ func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID id
 }
 
 func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return false, err
+	}
+	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
+}
+
+func CheckOwnerWorkspaceWithReader(ctx context.Context, su *suser.Reader, workspaceID idwrap.IDWrap) (bool, error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return false, err

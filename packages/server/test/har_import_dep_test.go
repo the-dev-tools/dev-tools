@@ -155,6 +155,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 
 	httpHandler := rhttp.New(
 		suite.baseDB.DB,
+		suite.importHandler.HttpService.Reader(),
 		*suite.importHandler.HttpService,
 		suite.services.Us,
 		suite.services.Ws,

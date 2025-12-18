@@ -3,6 +3,7 @@ package rflowv2
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"sync"
 
@@ -206,6 +207,14 @@ const (
 )
 
 type FlowServiceV2RPC struct {
+	DB *sql.DB
+
+	wsReader *sworkspace.Reader
+	fsReader *sflow.Reader
+	nsReader *snode.Reader
+	vsReader *svar.Reader
+	hsReader *shttp.Reader
+
 	ws       *sworkspace.WorkspaceService
 	fs       *sflow.FlowService
 	es       *sedge.EdgeService
@@ -255,6 +264,12 @@ type FlowServiceV2RPC struct {
 }
 
 func New(
+	db *sql.DB,
+	wsReader *sworkspace.Reader,
+	fsReader *sflow.Reader,
+	nsReader *snode.Reader,
+	vsReader *svar.Reader,
+	hsReader *shttp.Reader,
 	ws *sworkspace.WorkspaceService,
 	fs *sflow.FlowService,
 	es *sedge.EdgeService,
@@ -298,6 +313,12 @@ func New(
 	)
 
 	return &FlowServiceV2RPC{
+		DB:                       db,
+		wsReader:                 wsReader,
+		fsReader:                 fsReader,
+		nsReader:                 nsReader,
+		vsReader:                 vsReader,
+		hsReader:                 hsReader,
 		ws:                       ws,
 		fs:                       fs,
 		es:                       es,

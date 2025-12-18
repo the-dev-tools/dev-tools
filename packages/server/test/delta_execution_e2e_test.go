@@ -111,6 +111,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	// Create handler
 	handler := rhttp.New(
 		base.DB,
+		httpService.Reader(),
 		httpService,
 		services.Us,
 		services.Ws,

@@ -5,261 +5,88 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"slices"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 var ErrNoHttpSearchParamFound = errors.New("no HttpSearchParam found")
 
 type HttpSearchParamService struct {
+	reader  *SearchParamReader
 	queries *gen.Queries
 }
 
 func NewHttpSearchParamService(queries *gen.Queries) *HttpSearchParamService {
 	return &HttpSearchParamService{
+		reader:  NewSearchParamReaderFromQueries(queries),
 		queries: queries,
 	}
 }
 
 func (s *HttpSearchParamService) TX(tx *sql.Tx) *HttpSearchParamService {
+	newQueries := s.queries.WithTx(tx)
 	return &HttpSearchParamService{
-		queries: s.queries.WithTx(tx),
+		reader:  NewSearchParamReaderFromQueries(newQueries),
+		queries: newQueries,
 	}
 }
 
 func (s *HttpSearchParamService) Create(ctx context.Context, param *mhttp.HTTPSearchParam) error {
-	dbParam := SerializeSearchParamModelToGen(*param)
-	return s.queries.CreateHTTPSearchParam(ctx, dbParam)
+	return NewSearchParamWriterFromQueries(s.queries).Create(ctx, param)
 }
 
 func (s *HttpSearchParamService) CreateBulk(ctx context.Context, httpID idwrap.IDWrap, params []mhttp.HTTPSearchParam) error {
-	if len(params) == 0 {
-		return nil
-	}
-
-	// Set the httpID for all params
-	for i := range params {
-		params[i].HttpID = httpID
-	}
-
-	// Convert to DB types
-	dbParams := tgeneric.MassConvert(params, SerializeSearchParamModelToGen)
-
-	// Chunk the inserts to avoid hitting parameter limits
-	chunkSize := 100
-	for i := 0; i < len(dbParams); i += chunkSize {
-		end := i + chunkSize
-		if end > len(dbParams) {
-			end = len(dbParams)
-		}
-
-		chunk := dbParams[i:end]
-		for _, param := range chunk {
-			err := s.queries.CreateHTTPSearchParam(ctx, param)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return NewSearchParamWriterFromQueries(s.queries).CreateBulk(ctx, httpID, params)
 }
 
 func (s *HttpSearchParamService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPSearchParam, error) {
-	dbParams, err := s.queries.GetHTTPSearchParams(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPSearchParam{}, nil
-		}
-		return nil, err
-	}
-
-	params := tgeneric.MassConvert(dbParams, DeserializeSearchParamGenToModel)
-	return params, nil
+	return s.reader.GetByHttpID(ctx, httpID)
 }
 
 func (s *HttpSearchParamService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPSearchParam, error) {
-	dbParams, err := s.queries.GetHTTPSearchParams(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return []mhttp.HTTPSearchParam{}, nil
-		}
-		return nil, err
-	}
-
-	// Sort by order field
-	slices.SortFunc(dbParams, func(a, b gen.GetHTTPSearchParamsRow) int {
-		if a.DisplayOrder < b.DisplayOrder {
-			return -1
-		}
-		if a.DisplayOrder > b.DisplayOrder {
-			return 1
-		}
-		return 0
-	})
-
-	params := tgeneric.MassConvert(dbParams, DeserializeSearchParamGenToModel)
-	return params, nil
+	return s.reader.GetByHttpIDOrdered(ctx, httpID)
 }
 
 func (s *HttpSearchParamService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttp.HTTPSearchParam, error) {
-	if len(ids) == 0 {
-		return []mhttp.HTTPSearchParam{}, nil
-	}
-
-	rows, err := s.queries.GetHTTPSearchParamsByIDs(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-
-	params := tgeneric.MassConvert(rows, deserializeSearchParamByIDsRowToModel)
-	return params, nil
+	return s.reader.GetByIDs(ctx, ids)
 }
 
 func (s *HttpSearchParamService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPSearchParam, error) {
-	rows, err := s.queries.GetHTTPSearchParamsByIDs(ctx, []idwrap.IDWrap{id})
-	if err != nil {
-		return nil, err
-	}
-	if len(rows) == 0 {
-		return nil, ErrNoHttpSearchParamFound
-	}
-
-	model := deserializeSearchParamByIDsRowToModel(rows[0])
-	return &model, nil
+	return s.reader.GetByID(ctx, id)
 }
 
 func (s *HttpSearchParamService) GetByHttpIDs(ctx context.Context, httpIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mhttp.HTTPSearchParam, error) {
-	result := make(map[idwrap.IDWrap][]mhttp.HTTPSearchParam, len(httpIDs))
-	if len(httpIDs) == 0 {
-		return result, nil
-	}
-
-	for _, httpID := range httpIDs {
-		rows, err := s.queries.GetHTTPSearchParams(ctx, httpID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				result[httpID] = []mhttp.HTTPSearchParam{}
-				continue
-			}
-			return nil, err
-		}
-
-		var params []mhttp.HTTPSearchParam
-		for _, row := range rows {
-			model := DeserializeSearchParamGenToModel(row)
-			params = append(params, model)
-		}
-		result[httpID] = params
-	}
-
-	return result, nil
+	return s.reader.GetByHttpIDs(ctx, httpIDs)
 }
 
 func (s *HttpSearchParamService) Update(ctx context.Context, param *mhttp.HTTPSearchParam) error {
-	err := s.queries.UpdateHTTPSearchParam(ctx, gen.UpdateHTTPSearchParamParams{
-		Key:         param.Key,
-		Value:       param.Value,
-		Description: param.Description,
-		Enabled:     param.Enabled,
-		ID:          param.ID,
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoHttpSearchParamFound
-		}
-		return err
-	}
-	return nil
+	return NewSearchParamWriterFromQueries(s.queries).Update(ctx, param)
 }
 
 func (s *HttpSearchParamService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float64) error {
-	return s.queries.UpdateHTTPSearchParamDelta(ctx, gen.UpdateHTTPSearchParamDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               id,
-	})
+	return NewSearchParamWriterFromQueries(s.queries).UpdateDelta(ctx, id, deltaKey, deltaValue, deltaEnabled, deltaDescription, deltaOrder)
 }
 
 func (s *HttpSearchParamService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, httpID idwrap.IDWrap, order float64) error {
-	return s.queries.UpdateHTTPSearchParamOrder(ctx, gen.UpdateHTTPSearchParamOrderParams{
-		DisplayOrder: order,
-		ID:           id,
-		HttpID:       httpID,
-	})
+	return NewSearchParamWriterFromQueries(s.queries).UpdateOrder(ctx, id, httpID, order)
 }
 
 func (s *HttpSearchParamService) Delete(ctx context.Context, paramID idwrap.IDWrap) error {
-	err := s.queries.DeleteHTTPSearchParam(ctx, paramID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoHttpSearchParamFound
-		}
-		return err
-	}
-	return nil
+	return NewSearchParamWriterFromQueries(s.queries).Delete(ctx, paramID)
 }
 
 func (s *HttpSearchParamService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
-	params, err := s.GetByHttpID(ctx, httpID)
-	if err != nil {
-		return err
-	}
-
-	for _, param := range params {
-		if err := s.Delete(ctx, param.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return NewSearchParamWriterFromQueries(s.queries).DeleteByHttpID(ctx, httpID)
 }
 
 func (s *HttpSearchParamService) GetStreaming(ctx context.Context, httpIDs []idwrap.IDWrap, updatedAt int64) ([]gen.GetHTTPSearchParamsStreamingRow, error) {
-	return s.queries.GetHTTPSearchParamsStreaming(ctx, gen.GetHTTPSearchParamsStreamingParams{
-		HttpIds:   httpIDs,
-		UpdatedAt: updatedAt,
-	})
+	return s.reader.GetStreaming(ctx, httpIDs, updatedAt)
 }
 
 func (s *HttpSearchParamService) ResetDelta(ctx context.Context, id idwrap.IDWrap) error {
-	// Get the current param to preserve main fields
-	param, err := s.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	// Update the main fields to clear delta status
-	err = s.Update(ctx, &mhttp.HTTPSearchParam{
-		ID:          param.ID,
-		HttpID:      param.HttpID,
-		Key:         param.Key,
-		Value:       param.Value,
-		Enabled:     param.Enabled,
-		Description: param.Description,
-		DisplayOrder: param.DisplayOrder,
-		// Clear delta fields
-		ParentHttpSearchParamID: nil,
-		IsDelta:                 false,
-		DeltaKey:                nil,
-		DeltaValue:              nil,
-		DeltaEnabled:            nil,
-		DeltaDescription:        nil,
-		DeltaDisplayOrder:       nil,
-		CreatedAt:               param.CreatedAt,
-		UpdatedAt:               param.UpdatedAt,
-	})
-	if err != nil {
-		return err
-	}
-
-	// Also clear delta fields using the delta update query
-	return s.UpdateDelta(ctx, id, nil, nil, nil, nil, nil)
+	return NewSearchParamWriterFromQueries(s.queries).ResetDelta(ctx, id)
 }
 
 // Conversion functions
@@ -340,6 +167,3 @@ func deserializeSearchParamByIDsRowToModel(row gen.GetHTTPSearchParamsByIDsRow) 
 		UpdatedAt:               row.UpdatedAt,
 	}
 }
-
-// Note: Helper functions (stringToNull, nullToString, idWrapToBytes, bytesToIDWrap)
-// are defined in utils.go
