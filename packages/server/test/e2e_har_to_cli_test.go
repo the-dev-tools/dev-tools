@@ -38,7 +38,6 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -381,7 +380,7 @@ func initializeCLIServices(ctx context.Context, t *testing.T, db *sql.DB) (*cliS
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	// Instantiate services (handling Value vs Pointer returns)
-	ws := sworkspace.New(q)
+	ws := sworkspace.NewWorkspaceService(q)
 	fs := sflow.NewFlowService(q)
 	fes := sflow.NewEdgeService(q)
 	fvs := sflow.NewFlowVariableService(q)

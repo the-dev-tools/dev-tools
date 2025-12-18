@@ -33,7 +33,7 @@ func (s *IOWorkspaceService) Export(ctx context.Context, opts ExportOptions) (*W
 	bundle := &WorkspaceBundle{}
 
 	// Get workspace metadata
-	workspaceService := sworkspace.New(s.queries)
+	workspaceService := sworkspace.NewWorkspaceService(s.queries)
 	workspace, err := workspaceService.Get(ctx, opts.WorkspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workspace: %w", err)

@@ -68,7 +68,7 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 	}))
 
 	// Initialize all services
-	workspaceService := sworkspace.New(queries)
+	workspaceService := sworkspace.NewWorkspaceService(queries)
 	flowService := sflow.NewFlowService(queries)
 	nodeService := sflow.NewNodeService(queries)
 	nodeRequestService := sflow.NewNodeRequestService(queries)

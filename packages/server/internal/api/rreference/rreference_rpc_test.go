@@ -51,7 +51,7 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 
 	// Setup Services
 	us := suser.New(queries)
-	ws := sworkspace.New(queries)
+	ws := sworkspace.NewWorkspaceService(queries)
 	es := senv.NewEnvironmentService(queries, logger)
 	vs := senv.NewVariableService(queries, logger)
 	fs := sflow.NewFlowService(queries)
@@ -65,7 +65,7 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 
 	svc := NewReferenceServiceRPC(
 		db,
-		us.Reader(),
+		sworkspace.NewUserReader(db),
 		ws.Reader(),
 		es.Reader(),
 		vs.Reader(),

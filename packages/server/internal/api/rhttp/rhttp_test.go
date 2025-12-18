@@ -1,6 +1,8 @@
 package rhttp
 
 import (
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/model/menv"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,20 +22,14 @@ import (
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
 
-	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -46,7 +42,7 @@ type httpFixture struct {
 	hs  shttp.HTTPService
 	us  suser.UserService
 	ws  sworkspace.WorkspaceService
-	wus sworkspacesusers.WorkspaceUserService
+	wus sworkspace.UserService
 	es  senv.EnvService
 	vs  senv.VariableService
 

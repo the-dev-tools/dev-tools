@@ -114,5 +114,4 @@ func (s EnvironmentService) CheckWorkspaceID(ctx context.Context, envID, ownerID
 	return s.reader.CheckWorkspaceID(ctx, envID, ownerID)
 }
 
-func (s EnvironmentService) EnvReader() *EnvReader { return s.reader }
-
+func (s EnvironmentService) Reader() *EnvReader { return s.reader }

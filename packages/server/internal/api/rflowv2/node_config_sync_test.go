@@ -36,7 +36,7 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Setup Services
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	flowService := sflow.NewFlowService(queries)
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
@@ -50,7 +50,7 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 	nodeNodeJsService := sflow.NewNodeJsService(queries)
 
 	// Readers
-	wsReader := sworkspace.NewReaderFromQueries(queries)
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
 	fsReader := sflow.NewFlowReaderFromQueries(queries)
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 

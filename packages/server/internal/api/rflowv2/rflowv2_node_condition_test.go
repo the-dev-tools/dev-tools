@@ -39,7 +39,7 @@ func TestNodeCondition_CRUD(t *testing.T) {
 	queries := gen.New(db)
 
 	// Setup Services
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	flowService := sflow.NewFlowService(queries)
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
@@ -57,7 +57,7 @@ func TestNodeCondition_CRUD(t *testing.T) {
 	varService := senv.NewVariableService(queries, logger)
 
 	// Readers
-	wsReader := sworkspace.NewReaderFromQueries(queries)
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
 	fsReader := sflow.NewFlowReaderFromQueries(queries)
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 

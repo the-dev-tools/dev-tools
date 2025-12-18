@@ -15,19 +15,17 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
 )
 
 // Make the imports available for tests that need them
 var _ = (&sworkspace.WorkspaceService{}).Create
-var _ = (&sworkspacesusers.WorkspaceUserService{}).CreateWorkspaceUser
+var _ = (&sworkspace.UserService{}).CreateWorkspaceUser
 
 // TestNewExportV2RPC tests the RPC handler constructor
 func TestNewExportV2RPC(t *testing.T) {

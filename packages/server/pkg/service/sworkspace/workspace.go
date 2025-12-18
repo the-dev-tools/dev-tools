@@ -13,13 +13,13 @@ import (
 var ErrNoWorkspaceFound = sql.ErrNoRows
 
 type WorkspaceService struct {
-	reader  *Reader
+	reader  *WorkspaceReader
 	queries *gen.Queries
 }
 
-func New(queries *gen.Queries) WorkspaceService {
+func NewWorkspaceService(queries *gen.Queries) WorkspaceService {
 	return WorkspaceService{
-		reader:  NewReaderFromQueries(queries),
+		reader:  NewWorkspaceReaderFromQueries(queries),
 		queries: queries,
 	}
 }
@@ -29,12 +29,12 @@ func (ws WorkspaceService) TX(tx *sql.Tx) WorkspaceService {
 	txQueries := ws.queries.WithTx(tx)
 
 	return WorkspaceService{
-		reader:  NewReaderFromQueries(txQueries),
+		reader:  NewWorkspaceReaderFromQueries(txQueries),
 		queries: txQueries,
 	}
 }
 
-func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
+func NewWorkspaceServiceTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -44,13 +44,13 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 	}
 
 	return &WorkspaceService{
-		reader:  NewReaderFromQueries(queries),
+		reader:  NewWorkspaceReaderFromQueries(queries),
 		queries: queries,
 	}, nil
 }
 
 func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) error {
-	return NewWriterFromQueries(ws.queries).Create(ctx, w)
+	return NewWorkspaceWriterFromQueries(ws.queries).Create(ctx, w)
 }
 
 func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
@@ -58,15 +58,15 @@ func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspa
 }
 
 func (ws WorkspaceService) Update(ctx context.Context, org *mworkspace.Workspace) error {
-	return NewWriterFromQueries(ws.queries).Update(ctx, org)
+	return NewWorkspaceWriterFromQueries(ws.queries).Update(ctx, org)
 }
 
 func (ws WorkspaceService) UpdateUpdatedTime(ctx context.Context, org *mworkspace.Workspace) error {
-	return NewWriterFromQueries(ws.queries).UpdateUpdatedTime(ctx, org)
+	return NewWorkspaceWriterFromQueries(ws.queries).UpdateUpdatedTime(ctx, org)
 }
 
 func (ws WorkspaceService) Delete(ctx context.Context, userID, id idwrap.IDWrap) error {
-	return NewWriterFromQueries(ws.queries).Delete(ctx, id)
+	return NewWorkspaceWriterFromQueries(ws.queries).Delete(ctx, id)
 }
 
 func (ws WorkspaceService) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
@@ -82,4 +82,4 @@ func (ws WorkspaceService) GetWorkspacesByUserIDOrdered(ctx context.Context, use
 	return ws.reader.GetWorkspacesByUserIDOrdered(ctx, userID)
 }
 
-func (ws WorkspaceService) Reader() *Reader { return ws.reader }
+func (ws WorkspaceService) Reader() *WorkspaceReader { return ws.reader }

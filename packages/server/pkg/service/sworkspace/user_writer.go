@@ -1,4 +1,4 @@
-package sworkspacesusers
+package sworkspace
 
 import (
 	"context"
@@ -7,23 +7,23 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
-type Writer struct {
+type UserWriter struct {
 	queries *gen.Queries
 }
 
-func NewWriter(tx gen.DBTX) *Writer {
-	return &Writer{
+func NewUserWriter(tx gen.DBTX) *UserWriter {
+	return &UserWriter{
 		queries: gen.New(tx),
 	}
 }
 
-func NewWriterFromQueries(queries *gen.Queries) *Writer {
-	return &Writer{
+func NewUserWriterFromQueries(queries *gen.Queries) *UserWriter {
+	return &UserWriter{
 		queries: queries,
 	}
 }
 
-func (w *Writer) CreateWorkspaceUser(ctx context.Context, user *mworkspace.WorkspaceUser) error {
+func (w *UserWriter) CreateWorkspaceUser(ctx context.Context, user *mworkspace.WorkspaceUser) error {
 	return w.queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
 		ID:          user.ID,
 		WorkspaceID: user.WorkspaceID,
@@ -32,7 +32,7 @@ func (w *Writer) CreateWorkspaceUser(ctx context.Context, user *mworkspace.Works
 	})
 }
 
-func (w *Writer) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspace.WorkspaceUser) error {
+func (w *UserWriter) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspace.WorkspaceUser) error {
 	return w.queries.UpdateWorkspaceUser(ctx, gen.UpdateWorkspaceUserParams{
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
@@ -40,6 +40,6 @@ func (w *Writer) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspace.Wor
 	})
 }
 
-func (w *Writer) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error {
+func (w *UserWriter) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error {
 	return w.queries.DeleteWorkspaceUser(ctx, id)
 }

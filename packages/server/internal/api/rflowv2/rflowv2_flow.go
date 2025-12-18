@@ -233,7 +233,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsWriter := sworkspace.NewWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 	fsWriter := sflow.NewFlowWriter(tx)
 	nsWriter := sflow.NewNodeWriter(tx)
 	nnosWriter := sflow.NewNodeNoopWriter(tx)
@@ -433,7 +433,7 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 	defer devtoolsdb.TxnRollback(tx)
 
 	fsWriter := sflow.NewFlowWriter(tx)
-	wsWriter := sworkspace.NewWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 
 	for _, data := range deleteData {
 		flow := data.flow
@@ -572,7 +572,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	defer devtoolsdb.TxnRollback(tx)
 
 	fsWriter := sflow.NewFlowWriter(tx)
-	wsWriter := sworkspace.NewWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 	nsWriter := sflow.NewNodeWriter(tx)
 	nnosWriter := sflow.NewNodeNoopWriter(tx)
 	nrsWriter := sflow.NewNodeRequestWriter(tx)

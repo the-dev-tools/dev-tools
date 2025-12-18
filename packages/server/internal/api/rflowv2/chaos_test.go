@@ -57,7 +57,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// 3. Setup Services
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	flowService := sflow.NewFlowService(queries)
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
@@ -103,7 +103,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 		wsService.Reader(),
 		flowService.Reader(),
 		nodeService.Reader(),
-		varService.Reader(),
+		envService.Reader(),
 		httpService.Reader(),
 		&wsService,
 		&flowService,

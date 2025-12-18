@@ -19,14 +19,14 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
 	"the-dev-tools/spec/dist/buf/go/api/workspace/v1/workspacev1connect"
 )
+
+var ErrWorkspaceNotFound = errors.New("workspace not found")
 
 const (
 	eventTypeInsert = "insert"
@@ -47,7 +47,7 @@ type WorkspaceServiceRPC struct {
 	DB *sql.DB
 
 	ws  sworkspace.WorkspaceService
-	wus sworkspacesusers.WorkspaceUserService
+	wus sworkspace.UserService
 	us  suser.UserService
 	es  senv.EnvService
 
@@ -57,7 +57,7 @@ type WorkspaceServiceRPC struct {
 func New(
 	db *sql.DB,
 	ws sworkspace.WorkspaceService,
-	wus sworkspacesusers.WorkspaceUserService,
+	wus sworkspace.UserService,
 	us suser.UserService,
 	es senv.EnvService,
 	stream eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent],
@@ -202,9 +202,9 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsWriter := sworkspace.NewWriter(tx)
-	wusWriter := sworkspacesusers.NewWriter(tx)
-	envWriter := senv.NewWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
+	wusWriter := sworkspace.NewUserWriter(tx)
+	envWriter := senv.NewEnvWriter(tx)
 
 	var createdIDs []idwrap.IDWrap
 
@@ -300,7 +300,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsWriter := sworkspace.NewWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 
 	var updatedIDs []idwrap.IDWrap
 
@@ -316,7 +316,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 
 		wsUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 		if err != nil {
-			if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -395,7 +395,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	wsWriter := sworkspace.NewWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 
 	var deletedIDs []idwrap.IDWrap
 
@@ -411,7 +411,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 
 		wsUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 		if err != nil {
-			if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -522,10 +522,20 @@ func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID 
 	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 }
 
-func CheckOwnerWorkspaceWithReader(ctx context.Context, su *suser.Reader, workspaceID idwrap.IDWrap) (bool, error) {
+func CheckOwnerWorkspaceWithReader(ctx context.Context, userReader *sworkspace.UserReader, workspaceID idwrap.IDWrap) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
+
+	wsu, err := userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	if err != nil {
+		return ErrWorkspaceNotFound
+	}
+
+	if wsu.Role != mworkspace.RoleOwner {
+		return ErrWorkspaceNotFound
+	}
+
+	return nil
 }

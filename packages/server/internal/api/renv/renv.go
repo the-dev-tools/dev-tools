@@ -311,7 +311,7 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	envWriter := senv.NewWriter(tx)
+	envWriter := senv.NewEnvWriter(tx)
 	var createdEnvs []menv.Env
 
 	// Fast inserts inside minimal transaction
@@ -348,7 +348,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	envWriter := senv.NewWriter(tx)
+	envWriter := senv.NewEnvWriter(tx)
 	// We need reader for checks within transaction if we want consistency,
 	// but service methods on Writer usually don't include Get.
 	// However, `envService` here was used for both read (CheckOwnerEnv, GetEnvironment) AND write (UpdateEnvironment).
@@ -416,7 +416,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 	// So:
 	// `envService := e.es.TX(tx)` -> REMOVE.
 	// Use `e.es` for reads.
-	// Use `envWriter := senv.NewWriter(tx)` for writes.
+	// Use `envWriter := senv.NewEnvWriter(tx)` for writes.
 	//
 	// Let's verify `CheckOwnerEnv`. It takes `senv.EnvService`.
 	// `e.es` satisfies this.
@@ -508,7 +508,7 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	envWriter := senv.NewWriter(tx)
+	envWriter := senv.NewEnvWriter(tx)
 	var deletedEnvs []menv.Env
 
 	for _, envDelete := range req.Msg.Items {

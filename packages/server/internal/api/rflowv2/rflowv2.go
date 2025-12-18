@@ -198,10 +198,10 @@ const (
 type FlowServiceV2RPC struct {
 	DB *sql.DB
 
-	wsReader *sworkspace.Reader
+	wsReader *sworkspace.WorkspaceReader
 	fsReader *sflow.FlowReader
 	nsReader *sflow.NodeReader
-	vsReader *senv.Reader
+	vsReader *senv.EnvReader
 	hsReader *shttp.Reader
 
 	ws       *sworkspace.WorkspaceService
@@ -254,10 +254,10 @@ type FlowServiceV2RPC struct {
 
 func New(
 	db *sql.DB,
-	wsReader *sworkspace.Reader,
+	wsReader *sworkspace.WorkspaceReader,
 	fsReader *sflow.FlowReader,
 	nsReader *sflow.NodeReader,
-	vsReader *senv.Reader,
+	vsReader *senv.EnvReader,
 	hsReader *shttp.Reader,
 	ws *sworkspace.WorkspaceService,
 	fs *sflow.FlowService,

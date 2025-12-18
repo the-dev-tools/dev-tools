@@ -15,7 +15,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	httpv1connect "the-dev-tools/spec/dist/buf/go/api/http/v1/httpv1connect"
@@ -179,7 +178,7 @@ type HttpServiceRPC struct {
 	hs         shttp.HTTPService
 	us         suser.UserService
 	ws         sworkspace.WorkspaceService
-	wus        sworkspacesusers.WorkspaceUserService
+	wus        sworkspace.UserService
 
 	// Environment and variable services
 	es senv.EnvService
@@ -210,7 +209,7 @@ func New(
 	hs shttp.HTTPService,
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
-	wus sworkspacesusers.WorkspaceUserService,
+	wus sworkspace.UserService,
 	es senv.EnvService,
 	vs senv.VariableService,
 	bodyService *shttp.HttpBodyRawService,

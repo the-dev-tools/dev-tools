@@ -1,4 +1,4 @@
-package sworkspacesusers
+package sworkspace
 
 import (
 	"the-dev-tools/db/pkg/sqlc/gen"

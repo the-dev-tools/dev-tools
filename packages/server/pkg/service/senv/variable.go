@@ -106,5 +106,4 @@ func (s VariableService) MoveVariableBefore(ctx context.Context, varID, targetVa
 	return NewVariableWriterFromQueries(s.queries).MoveVariableBefore(ctx, varID, targetVarID)
 }
 
-func (s VariableService) VariableReader() *VariableReader { return s.reader }
-
+func (s VariableService) Reader() *VariableReader { return s.reader }

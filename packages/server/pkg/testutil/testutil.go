@@ -11,12 +11,10 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
 
 type BaseDBQueries struct {
@@ -31,7 +29,7 @@ type BaseTestServices struct {
 	DB      *sql.DB
 	Us      suser.UserService
 	Ws      sworkspace.WorkspaceService
-	Wus     sworkspacesusers.WorkspaceUserService
+	Wus     sworkspace.UserService
 	Hs      shttp.HTTPService
 	Fs      sflow.FlowService
 	Fvs     sflow.FlowVariableService
@@ -54,8 +52,8 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	queries := c.Queries
 
 	mockLogger := mocklogger.NewMockLogger()
-	ws := sworkspace.New(queries)
-	wus := sworkspacesusers.New(queries)
+	ws := sworkspace.NewWorkspaceService(queries)
+	wus := sworkspace.NewUserService(queries)
 	us := suser.New(queries)
 	hs := shttp.New(queries, mockLogger)
 	fs := sflow.NewFlowService(queries)

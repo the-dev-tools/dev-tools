@@ -33,7 +33,7 @@ func setupTestService(t *testing.T) (*FileServiceRPC, *gen.Queries, context.Cont
 	queries := gen.New(db)
 
 	// Setup Services
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	fileService := sfile.New(queries, nil)
 	userService := suser.New(queries)
 

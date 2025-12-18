@@ -17,7 +17,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -73,7 +73,7 @@ func (h *HttpServiceRPC) checkWorkspaceReadAccess(ctx context.Context, workspace
 
 	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
-		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
 		}
 		return connect.NewError(connect.CodeInternal, err)
@@ -96,7 +96,7 @@ func (h *HttpServiceRPC) checkWorkspaceWriteAccess(ctx context.Context, workspac
 
 	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
-		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
 		}
 		return connect.NewError(connect.CodeInternal, err)
@@ -119,7 +119,7 @@ func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspa
 
 	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
-		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
 		}
 		return connect.NewError(connect.CodeInternal, err)

@@ -10,23 +10,23 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
-type Reader struct {
+type WorkspaceReader struct {
 	queries *gen.Queries
 }
 
-func NewReader(db *sql.DB) *Reader {
-	return &Reader{
+func NewWorkspaceReader(db *sql.DB) *WorkspaceReader {
+	return &WorkspaceReader{
 		queries: gen.New(db),
 	}
 }
 
-func NewReaderFromQueries(queries *gen.Queries) *Reader {
-	return &Reader{
+func NewWorkspaceReaderFromQueries(queries *gen.Queries) *WorkspaceReader {
+	return &WorkspaceReader{
 		queries: queries,
 	}
 }
 
-func (r *Reader) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
+func (r *WorkspaceReader) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
 	workspaceRaw, err := r.queries.GetWorkspace(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -39,7 +39,7 @@ func (r *Reader) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspa
 	return &workspace, nil
 }
 
-func (r *Reader) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
+func (r *WorkspaceReader) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	rawWorkspaces, err := r.queries.GetWorkspacesByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -50,7 +50,7 @@ func (r *Reader) GetMultiByUserID(ctx context.Context, userID idwrap.IDWrap) ([]
 	return tgeneric.MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
 }
 
-func (r *Reader) GetByIDandUserID(ctx context.Context, orgID, userID idwrap.IDWrap) (*mworkspace.Workspace, error) {
+func (r *WorkspaceReader) GetByIDandUserID(ctx context.Context, orgID, userID idwrap.IDWrap) (*mworkspace.Workspace, error) {
 	workspaceRaw, err := r.queries.GetWorkspaceByUserIDandWorkspaceID(ctx, gen.GetWorkspaceByUserIDandWorkspaceIDParams{
 		UserID:      userID,
 		WorkspaceID: orgID,
@@ -65,7 +65,7 @@ func (r *Reader) GetByIDandUserID(ctx context.Context, orgID, userID idwrap.IDWr
 	return &workspace, nil
 }
 
-func (r *Reader) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
+func (r *WorkspaceReader) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	rawWorkspaces, err := r.queries.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

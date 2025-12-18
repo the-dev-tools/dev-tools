@@ -11,16 +11,16 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
 type Reader struct {
 	queries *gen.Queries
 	logger  *slog.Logger
-	wus     *sworkspacesusers.WorkspaceUserService
+	wus     *sworkspace.UserService
 }
 
-func NewReader(db *sql.DB, logger *slog.Logger, wus *sworkspacesusers.WorkspaceUserService) *Reader {
+func NewReader(db *sql.DB, logger *slog.Logger, wus *sworkspace.UserService) *Reader {
 	return &Reader{
 		queries: gen.New(db),
 		logger:  logger,
@@ -28,7 +28,7 @@ func NewReader(db *sql.DB, logger *slog.Logger, wus *sworkspacesusers.WorkspaceU
 	}
 }
 
-func NewReaderFromQueries(queries *gen.Queries, logger *slog.Logger, wus *sworkspacesusers.WorkspaceUserService) *Reader {
+func NewReaderFromQueries(queries *gen.Queries, logger *slog.Logger, wus *sworkspace.UserService) *Reader {
 	return &Reader{
 		queries: queries,
 		logger:  logger,
@@ -160,7 +160,7 @@ func (r *Reader) CheckUserBelongsToHttp(ctx context.Context, httpID, userID idwr
 
 	wsUser, err := r.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
-		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return false, nil
 		}
 		return false, err

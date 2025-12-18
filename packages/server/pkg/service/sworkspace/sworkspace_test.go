@@ -13,10 +13,8 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
 
 func TestWorkspaceDeletion(t *testing.T) {
@@ -28,9 +26,9 @@ func TestWorkspaceDeletion(t *testing.T) {
 	queries, err := gen.Prepare(ctx, db)
 	require.NoError(t, err, "failed to prepare queries")
 
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	userService := suser.New(queries)
-	wusService := sworkspacesusers.New(queries)
+	wusService := sworkspace.NewUserService(queries)
 
 	// Create user
 	userID := idwrap.NewNow()

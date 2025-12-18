@@ -51,7 +51,7 @@ func TestExecutionCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// 3. Setup Services
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	flowService := sflow.NewFlowService(queries)
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
@@ -97,7 +97,7 @@ func TestExecutionCache(t *testing.T) {
 		wsService.Reader(),
 		flowService.Reader(),
 		nodeService.Reader(),
-		varService.Reader(),
+		envService.Reader(),
 		httpService.Reader(),
 		&wsService,
 		&flowService,

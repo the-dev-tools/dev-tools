@@ -16,11 +16,9 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
 )
@@ -31,7 +29,7 @@ type workspaceFixture struct {
 	handler WorkspaceServiceRPC
 
 	ws  sworkspace.WorkspaceService
-	wus sworkspacesusers.WorkspaceUserService
+	wus sworkspace.UserService
 	es  senv.EnvService
 	us  suser.UserService
 

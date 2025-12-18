@@ -95,7 +95,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	queries := gen.New(db)
 
 	// Setup Services
-	wsService := sworkspace.New(queries)
+	wsService := sworkspace.NewWorkspaceService(queries)
 	flowService := sflow.NewFlowService(queries)
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
@@ -140,7 +140,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		wsService.Reader(),
 		flowService.Reader(),
 		nodeService.Reader(),
-		varService.Reader(),
+		envService.Reader(),
 		httpService.Reader(),
 		&wsService,
 		&flowService,

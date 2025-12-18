@@ -19,14 +19,12 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
 
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
 
@@ -48,7 +46,7 @@ type integrationTestFixture struct {
 type BaseTestServices struct {
 	Us          suser.UserService
 	Ws          sworkspace.WorkspaceService
-	Wus         sworkspacesusers.WorkspaceUserService
+	Wus         sworkspace.UserService
 	Hs          shttp.HTTPService
 	Fs          sflow.FlowService
 	FileService sfile.FileService

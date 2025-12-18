@@ -62,7 +62,7 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		Queries: queries,
 
 		// Workspace
-		Workspace:   sworkspace.New(queries),
+		Workspace:   sworkspace.NewWorkspaceService(queries),
 		Environment: senv.NewEnvironmentService(queries, logger),
 		Variable:    senv.NewVariableService(queries, logger),
 

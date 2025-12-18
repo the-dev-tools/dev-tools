@@ -18,7 +18,6 @@ import (
 	"the-dev-tools/server/pkg/referencecompletion"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/sort/sortenabled"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
@@ -32,12 +31,12 @@ import (
 type ReferenceServiceRPC struct {
 	DB *sql.DB
 
-	userReader      *suser.Reader
-	workspaceReader *sworkspace.Reader
+	userReader      *sworkspace.UserReader
+	workspaceReader *sworkspace.WorkspaceReader
 
 	// env
-	envReader *senv.Reader
-	varReader *senv.Reader
+	envReader *senv.EnvReader
+	varReader *senv.VariableReader
 
 	// flow
 	flowReader          *sflow.FlowReader
@@ -52,10 +51,10 @@ type ReferenceServiceRPC struct {
 }
 
 func NewReferenceServiceRPC(db *sql.DB,
-	userReader *suser.Reader,
-	workspaceReader *sworkspace.Reader,
-	envReader *senv.Reader,
-	varReader *senv.Reader,
+	userReader *sworkspace.UserReader,
+	workspaceReader *sworkspace.WorkspaceReader,
+	envReader *senv.EnvReader,
+	varReader *senv.VariableReader,
 	flowReader *sflow.FlowReader,
 	nodeReader *sflow.NodeReader,
 	nodeRequestReader *sflow.NodeRequestReader,
@@ -206,7 +205,7 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
+		rpcErr := permcheck.CheckPerm(true, rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -482,7 +481,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
+		rpcErr := permcheck.CheckPerm(true, rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -857,7 +856,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
+		rpcErr := permcheck.CheckPerm(true, rworkspace.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}

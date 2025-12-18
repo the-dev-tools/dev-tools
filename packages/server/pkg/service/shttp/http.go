@@ -8,7 +8,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
 var ErrNoHTTPFound = sql.ErrNoRows
@@ -17,7 +17,7 @@ type HTTPService struct {
 	reader  *Reader
 	queries *gen.Queries
 	logger  *slog.Logger
-	wus     *sworkspacesusers.WorkspaceUserService
+	wus     *sworkspace.UserService
 }
 
 func New(queries *gen.Queries, logger *slog.Logger) HTTPService {
@@ -29,7 +29,7 @@ func New(queries *gen.Queries, logger *slog.Logger) HTTPService {
 	}
 }
 
-func NewWithWorkspaceUserService(queries *gen.Queries, logger *slog.Logger, wus *sworkspacesusers.WorkspaceUserService) HTTPService {
+func NewWithWorkspaceUserService(queries *gen.Queries, logger *slog.Logger, wus *sworkspace.UserService) HTTPService {
 	return HTTPService{
 		reader:  NewReaderFromQueries(queries, logger, wus),
 		queries: queries,
@@ -39,7 +39,7 @@ func NewWithWorkspaceUserService(queries *gen.Queries, logger *slog.Logger, wus 
 }
 
 func (hs HTTPService) TX(tx *sql.Tx) HTTPService {
-	var wus *sworkspacesusers.WorkspaceUserService
+	var wus *sworkspace.UserService
 	if hs.wus != nil {
 		wusTx := hs.wus.TX(tx)
 		wus = &wusTx

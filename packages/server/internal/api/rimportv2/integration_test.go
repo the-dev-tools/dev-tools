@@ -1,6 +1,7 @@
 package rimportv2
 
 import (
+	"the-dev-tools/server/pkg/service/senv"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,16 +20,12 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
@@ -83,7 +80,7 @@ type BaseTestServices struct {
 
 	Ws sworkspace.WorkspaceService
 
-	Wus sworkspacesusers.WorkspaceUserService
+	Wus sworkspace.UserService
 
 	Hs shttp.HTTPService
 
@@ -557,7 +554,6 @@ func TestImportService_LargeHARImport(t *testing.T) {
 	require.NotNil(t, resp)
 
 	t.Logf("Large HAR import (50 entries) completed in %v", duration)
-
 	// Verify all entries were processed
 	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)

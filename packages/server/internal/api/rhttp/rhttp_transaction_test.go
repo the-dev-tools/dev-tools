@@ -21,12 +21,10 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
 
 // testServiceSetup creates a minimal service setup for testing transaction patterns
@@ -35,7 +33,7 @@ type testServiceSetup struct {
 	hs          shttp.HTTPService
 	us          suser.UserService
 	ws          sworkspace.WorkspaceService
-	wus         sworkspacesusers.WorkspaceUserService
+	wus         sworkspace.UserService
 	es          senv.EnvService
 	vs          senv.VariableService
 	ctx         context.Context
@@ -61,8 +59,8 @@ func createTestServiceSetup(t *testing.T) *testServiceSetup {
 	logger := slog.Default()
 	hs := shttp.New(queries, logger)
 	us := suser.New(queries)
-	ws := sworkspace.New(queries)
-	wus := sworkspacesusers.New(queries)
+	ws := sworkspace.NewWorkspaceService(queries)
+	wus := sworkspace.NewUserService(queries)
 	es := senv.NewEnvironmentService(queries, logger)
 	vs := senv.NewVariableService(queries, logger)
 
@@ -409,8 +407,8 @@ func BenchmarkHttpInsertOptimizedPattern(b *testing.B) {
 	logger := slog.Default()
 	hs := shttp.New(queries, logger)
 	us := suser.New(queries)
-	ws := sworkspace.New(queries)
-	wus := sworkspacesusers.New(queries)
+	ws := sworkspace.NewWorkspaceService(queries)
+	wus := sworkspace.NewUserService(queries)
 	_ = senv.NewEnvironmentService(queries, logger) // Not used in this test
 	_ = senv.NewVariableService(queries, logger)    // Not used in this test
 

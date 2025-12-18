@@ -11,10 +11,10 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 
@@ -42,7 +42,7 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 
 	svc := NewReferenceServiceRPC(
 		base.DB,
-		services.Us.Reader(),
+		sworkspace.NewUserReader(base.DB),
 		services.Ws.Reader(),
 		envService.Reader(),
 		varService.Reader(),

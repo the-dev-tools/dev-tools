@@ -44,7 +44,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
 
@@ -123,8 +122,8 @@ func run() error {
 	}
 
 	// Initialize Services
-	workspaceService := sworkspace.New(queries)
-	workspaceUserService := sworkspacesusers.New(queries)
+	workspaceService := sworkspace.NewWorkspaceService(queries)
+	workspaceUserService := sworkspace.NewUserService(queries)
 	userService := suser.New(queries)
 
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
@@ -327,9 +326,17 @@ func run() error {
 		jsBaseURL,
 	)
 
-	workspaceReader := sworkspace.NewReader(currentDB)
+	workspaceReader := sworkspace.NewWorkspaceReader(currentDB)
+	userReader := sworkspace.NewUserReader(currentDB)
 	flowReader := sflow.NewFlowReader(currentDB)
 	nodeReader := sflow.NewNodeReader(currentDB)
+	flowNodeRequestReader := sflow.NewNodeRequestReader(currentDB)
+	flowVariableReader := sflow.NewFlowVariableReader(currentDB)
+	flowEdgeReader := sflow.NewEdgeReader(currentDB)
+	nodeExecutionReader := sflow.NewNodeExecutionReader(currentDB)
+	httpReader = shttp.NewReader(currentDB, logger, &workspaceUserService)
+	httpResponseReader := shttp.NewHttpResponseReader(currentDB)
+	envReader := senv.NewEnvReader(currentDB, logger)
 	varReader := senv.NewVariableReader(currentDB, logger)
 
 	flowSrvV2 := rflowv2.New(
@@ -337,7 +344,7 @@ func run() error {
 		workspaceReader,
 		flowReader,
 		nodeReader,
-		varReader,
+		envReader,
 		httpReader,
 		&workspaceService,
 		&flowService,
@@ -399,10 +406,18 @@ func run() error {
 
 	// Reference Service
 	refServiceRPC := rreference.NewReferenceServiceRPC(currentDB,
-		userService.Reader(), workspaceService.Reader(), environmentService.Reader(), variableService.Reader(),
-		flowService.Reader(), flowNodeService.Reader(), flowNodeRequestSevice.Reader(), flowVariableService.Reader(),
-		flowEdgeService.Reader(), nodeExecutionService.Reader(),
-		httpResponseService.Reader())
+		userReader,
+		workspaceReader,
+		envReader,
+		varReader,
+		flowReader,
+		nodeReader,
+		flowNodeRequestReader,
+		flowVariableReader,
+		flowEdgeReader,
+		nodeExecutionReader,
+		httpResponseReader,
+	)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
 
 	// Start services
