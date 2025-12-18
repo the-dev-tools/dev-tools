@@ -29,16 +29,17 @@ const Page = ({ deltaHttpId, httpId }: PageProps) => {
 
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { data: { httpResponseId } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: responseCollection })
-        .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
-        .select((_) => pick(_.item, 'httpResponseId'))
-        .orderBy((_) => _.item.httpResponseId, 'desc')
-        .limit(1)
-        .findOne(),
-    [responseCollection, deltaHttpId, httpId],
-  );
+  const { httpResponseId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: responseCollection })
+          .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
+          .select((_) => pick(_.item, 'httpResponseId'))
+          .orderBy((_) => _.item.httpResponseId, 'desc')
+          .limit(1)
+          .findOne(),
+      [responseCollection, deltaHttpId, httpId],
+    ).data ?? {};
 
   return (
     <PanelGroup autoSaveId='endpoint' direction='vertical'>

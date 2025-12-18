@@ -31,14 +31,14 @@ export const WorkspaceLayout = () => {
 
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const { data: workspace } = useLiveQuery(
+  const workspace = useLiveQuery(
     (_) =>
       _.from({ workspace: workspaceCollection })
         .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), Ulid.construct(workspaceId)))
         .select((_) => pick(_.workspace, 'name'))
         .findOne(),
     [workspaceCollection, workspaceId],
-  );
+  ).data;
 
   if (!workspace) return null;
 

@@ -1,3 +1,4 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useMatchRoute, useNavigate } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
@@ -13,11 +14,14 @@ import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
   EdgeKind,
+  FlowSchema,
   FlowService,
   FlowVariable,
   HandleKind,
   NodeKind,
   NodeNoOpKind,
+  NodeNoOpSchema,
+  NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
@@ -118,14 +122,15 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const { flowId, isReadOnly = false } = use(FlowContext);
 
-  const { duration = 0 } = useLiveQuery(
-    (_) =>
-      _.from({ item: flowCollection })
-        .where((_) => eq(_.item.flowId, flowId))
-        .select((_) => pick(_.item, 'duration'))
-        .findOne(),
-    [flowCollection, flowId],
-  ).data!;
+  const { duration } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: flowCollection })
+          .where((_) => eq(_.item.flowId, flowId))
+          .select((_) => pick(_.item, 'duration'))
+          .findOne(),
+      [flowCollection, flowId],
+    ).data ?? create(FlowSchema);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -275,7 +280,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         createPortal(
           <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
             <NodeSelectionIndicator />
-            {duration > 0 && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
+            {duration && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
           </div>,
           statusBarEndSlot,
         )}
@@ -340,14 +345,15 @@ export const TopBar = ({ children }: TopBarProps) => {
 
   const collection = useApiCollection(FlowCollectionSchema);
 
-  const { name } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.flowId, flowId))
-        .select((_) => pick(_.item, 'name'))
-        .findOne(),
-    [collection, flowId],
-  ).data!;
+  const { name } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.flowId, flowId))
+          .select((_) => pick(_.item, 'name'))
+          .findOne(),
+      [collection, flowId],
+    ).data ?? create(FlowSchema);
 
   const matchRoute = useMatchRoute();
 
@@ -452,14 +458,15 @@ const ActionBar = () => {
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const noOpCollection = useApiCollection(NodeNoOpCollectionSchema);
 
-  const { running } = useLiveQuery(
-    (_) =>
-      _.from({ item: flowCollection })
-        .where((_) => eq(_.item.flowId, flowId))
-        .select((_) => pick(_.item, 'running'))
-        .findOne(),
-    [flowCollection, flowId],
-  ).data!;
+  const { running } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: flowCollection })
+          .where((_) => eq(_.item.flowId, flowId))
+          .select((_) => pick(_.item, 'running'))
+          .findOne(),
+      [flowCollection, flowId],
+    ).data ?? create(FlowSchema);
 
   return (
     <XF.Panel
@@ -592,16 +599,17 @@ export const EditPanel = ({ nodeId }: EditPanelProps) => {
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const noOpCollection = useApiCollection(NodeNoOpCollectionSchema);
 
-  const { kind } = useLiveQuery(
-    (_) =>
-      _.from({ item: nodeCollection })
-        .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'kind'))
-        .findOne(),
-    [nodeCollection, nodeId],
-  ).data!;
+  const { kind } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: nodeCollection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'kind'))
+          .findOne(),
+      [nodeCollection, nodeId],
+    ).data ?? create(NodeSchema);
 
-  const noOpKind =
+  const { kind: noOpKind } =
     useLiveQuery(
       (_) =>
         _.from({ item: noOpCollection })
@@ -609,7 +617,7 @@ export const EditPanel = ({ nodeId }: EditPanelProps) => {
           .select((_) => pick(_.item, 'kind'))
           .findOne(),
       [noOpCollection, nodeId],
-    ).data?.kind ?? NodeNoOpKind.UNSPECIFIED;
+    ).data ?? create(NodeNoOpSchema);
 
   const view = pipe(
     Match.value({ kind, noOpKind }),

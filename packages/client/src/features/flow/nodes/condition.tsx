@@ -1,10 +1,11 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
-import { HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { HandleKind, NodeConditionSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
@@ -46,14 +47,15 @@ export const ConditionNode = (props: XF.NodeProps) => (
 export const ConditionPanel = ({ nodeId }: NodePanelProps) => {
   const collection = useApiCollection(NodeConditionCollectionSchema);
 
-  const { condition } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'condition'))
-        .findOne(),
-    [collection, nodeId],
-  ).data!;
+  const { condition } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'condition'))
+          .findOne(),
+      [collection, nodeId],
+    ).data ?? create(NodeConditionSchema);
 
   const { control, handleSubmit, watch } = useForm({
     resetOptions: { keepDirtyValues: true },

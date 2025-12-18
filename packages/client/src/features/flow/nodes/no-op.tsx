@@ -1,9 +1,10 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Match, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { twMerge } from 'tailwind-merge';
-import { NodeNoOpKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { NodeNoOpKind, NodeNoOpSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeNoOpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { PlayIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -15,14 +16,15 @@ import { CreateNode } from './create';
 export const NoOpNode = (props: XF.NodeProps) => {
   const collection = useApiCollection(NodeNoOpCollectionSchema);
 
-  const { kind } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.nodeId, Ulid.fromCanonical(props.id).bytes))
-        .select((_) => pick(_.item, 'kind'))
-        .findOne(),
-    [collection, props.id],
-  ).data!;
+  const { kind } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeId, Ulid.fromCanonical(props.id).bytes))
+          .select((_) => pick(_.item, 'kind'))
+          .findOne(),
+      [collection, props.id],
+    ).data ?? create(NodeNoOpSchema);
 
   if (kind === NodeNoOpKind.CREATE) return <CreateNode {...props} />;
 

@@ -119,16 +119,17 @@ interface VersionProps {
 const Version = ({ deltaHttpId, httpId }: VersionProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { data: { httpResponseId } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: responseCollection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .select((_) => pick(_.item, 'httpResponseId'))
-        .orderBy((_) => _.item.httpResponseId, 'desc')
-        .limit(1)
-        .findOne(),
-    [responseCollection, httpId],
-  );
+  const { httpResponseId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: responseCollection })
+          .where((_) => eq(_.item.httpId, httpId))
+          .select((_) => pick(_.item, 'httpResponseId'))
+          .orderBy((_) => _.item.httpResponseId, 'desc')
+          .limit(1)
+          .findOne(),
+      [responseCollection, httpId],
+    ).data ?? {};
 
   return (
     <PanelGroup autoSaveId='endpoint-versions' direction='vertical'>

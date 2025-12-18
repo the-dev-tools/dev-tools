@@ -1,3 +1,4 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Array, HashSet, pipe } from 'effect';
@@ -5,7 +6,7 @@ import { Ulid } from 'id128';
 import { useContext, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
-import { EdgeKind, FlowItemState, HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { EdgeKind, EdgeSchema, FlowItemState, HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -96,7 +97,7 @@ const DefaultEdge = (props: XF.EdgeProps) => {
 const NoOpEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: XF.EdgeProps) => {
   const edgeCollection = useApiCollection(EdgeCollectionSchema);
 
-  const state =
+  const { state } =
     useLiveQuery(
       (_) =>
         _.from({ item: edgeCollection })
@@ -104,7 +105,7 @@ const NoOpEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, target
           .select((_) => pick(_.item, 'state'))
           .findOne(),
       [edgeCollection, id],
-    ).data?.state ?? FlowItemState.UNSPECIFIED;
+    ).data ?? create(EdgeSchema);
 
   return (
     <ConnectionLine

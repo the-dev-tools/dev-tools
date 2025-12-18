@@ -1,12 +1,14 @@
+import { create } from '@bufbuild/protobuf';
 import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { count, eq, useLiveQuery } from '@tanstack/react-db';
-import { DateTime, Option, pipe } from 'effect';
+import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useMemo, useRef } from 'react';
 import { ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
 import { twJoin } from 'tailwind-merge';
+import { WorkspaceSchema } from '@the-dev-tools/spec/buf/api/workspace/v1/workspace_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Avatar } from '@the-dev-tools/ui/avatar';
@@ -95,7 +97,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
     [id, workspaceCollection.utils],
   );
 
-  const { name, updated } = pipe(
+  const { name, updated } =
     useLiveQuery(
       (_) =>
         _.from({ workspace: workspaceCollection })
@@ -103,21 +105,19 @@ const Item = ({ containerRef, id }: ItemProps) => {
           .select((_) => pick(_.workspace, 'name', 'updated'))
           .findOne(),
       [workspaceCollection, workspaceUlid],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? create(WorkspaceSchema);
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 
-  const { data: { fileCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ file: fileCollection })
-        .where((_) => eq(_.file.workspaceId, workspaceUlid.bytes))
-        .select((_) => ({ fileCount: count(_.file.fileId) }))
-        .findOne(),
-    [fileCollection, workspaceUlid],
-  );
+  const { fileCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ file: fileCollection })
+          .where((_) => eq(_.file.workspaceId, workspaceUlid.bytes))
+          .select((_) => ({ fileCount: count(_.file.fileId) }))
+          .findOne(),
+      [fileCollection, workspaceUlid],
+    ).data ?? {};
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 

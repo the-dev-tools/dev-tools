@@ -1,3 +1,4 @@
+import { create } from '@bufbuild/protobuf';
 import { debounceStrategy, eq, useLiveQuery, usePacedMutations } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Array, HashMap, HashSet, Match, Option, pipe } from 'effect';
@@ -20,7 +21,12 @@ import { IconType } from 'react-icons/lib';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { FlowItemState, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import {
+  FlowItemState,
+  FlowService,
+  NodeExecutionSchema,
+  NodeSchema,
+} from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeCollectionSchema, NodeExecutionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
@@ -155,7 +161,7 @@ interface NodeContainerProps extends XF.NodeProps {
 export const NodeContainer = ({ children, handles, id, selected }: NodeContainerProps) => {
   const collection = useApiCollection(NodeCollectionSchema);
 
-  const { state = FlowItemState.UNSPECIFIED } =
+  const { state } =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
@@ -163,7 +169,7 @@ export const NodeContainer = ({ children, handles, id, selected }: NodeContainer
           .select((_) => pick(_.item, 'state'))
           .findOne(),
       [collection, id],
-    ).data ?? {};
+    ).data ?? create(NodeSchema);
 
   return (
     <div className={nodeContainerStyles({ isSelected: selected, state })}>
@@ -191,7 +197,7 @@ export const NodeBody = ({ children, Icon, id }: NodeBodyProps) => {
           .select((_) => pick(_.item, 'state', 'name', 'info'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? {};
+    ).data ?? create(NodeSchema);
 
   const { deleteElements, getZoom } = XF.useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
@@ -203,7 +209,7 @@ export const NodeBody = ({ children, Icon, id }: NodeBodyProps) => {
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => collection.utils.update({ name: _, nodeId }),
-    value: name ?? '',
+    value: name,
   });
 
   let stateIndicator = pipe(
@@ -383,14 +389,15 @@ interface NodeExecutionTabsProps {
 const NodeExecutionTabs = ({ nodeExecutionId, Output }: NodeExecutionTabsProps) => {
   const collection = useApiCollection(NodeExecutionCollectionSchema);
 
-  const { input, output } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
-        .select((_) => pick(_.item, 'input', 'output'))
-        .findOne(),
-    [collection, nodeExecutionId],
-  ).data!;
+  const { input, output } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
+          .select((_) => pick(_.item, 'input', 'output'))
+          .findOne(),
+      [collection, nodeExecutionId],
+    ).data ?? create(NodeExecutionSchema);
 
   return (
     <Tabs className={tw`flex h-full flex-col pb-4`} defaultSelectedKey='output'>

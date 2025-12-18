@@ -1,3 +1,4 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
 import { ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
@@ -20,10 +21,12 @@ import { ExportService } from '@the-dev-tools/spec/buf/api/export/v1/export_pb';
 import {
   File,
   FileKind,
+  FileSchema,
   FileUpdate_ParentIdUnion_Kind,
+  FolderSchema,
 } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
-import { FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
-import { HttpMethod, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
+import { FlowSchema, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { HttpDeltaSchema, HttpMethod, HttpSchema, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
@@ -214,7 +217,7 @@ const FileItem = ({ id }: FileItemProps) => {
 
   const { fileId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
 
-  const { kind = FileKind.UNSPECIFIED } =
+  const { kind } =
     useLiveQuery(
       (_) =>
         _.from({ file: fileCollection })
@@ -222,7 +225,7 @@ const FileItem = ({ id }: FileItemProps) => {
           .select((_) => pick(_.file, 'kind'))
           .findOne(),
       [fileCollection, fileId],
-    ).data ?? {};
+    ).data ?? create(FileSchema);
 
   return pipe(
     Match.value(kind),
@@ -241,7 +244,7 @@ const FolderFile = ({ id }: FileItemProps) => {
 
   const folderCollection = useApiCollection(FolderCollectionSchema);
 
-  const { name = '' } =
+  const { name } =
     useLiveQuery(
       (_) =>
         _.from({ folder: folderCollection })
@@ -249,7 +252,7 @@ const FolderFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.folder, 'name'))
           .findOne(),
       [folderCollection, folderId],
-    ).data ?? {};
+    ).data ?? create(FolderSchema);
 
   const { data: files } = useLiveQuery(
     (_) =>
@@ -343,7 +346,7 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const httpCollection = useApiCollection(HttpCollectionSchema);
 
-  const { method = HttpMethod.UNSPECIFIED, name = '' } =
+  const { method, name } =
     useLiveQuery(
       (_) =>
         _.from({ http: httpCollection })
@@ -351,7 +354,7 @@ const HttpFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.http, 'name', 'method'))
           .findOne(),
       [httpCollection, httpId],
-    ).data ?? {};
+    ).data ?? create(HttpSchema);
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
@@ -524,7 +527,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
-  const { httpId = new Uint8Array(0) } =
+  const { httpId } =
     useLiveQuery(
       (_) =>
         _.from({ item: deltaCollection })
@@ -532,7 +535,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.item, 'httpId'))
           .findOne(),
       [deltaCollection, deltaHttpId],
-    ).data ?? {};
+    ).data ?? create(HttpDeltaSchema);
 
   const deltaOptions = {
     deltaId: deltaHttpId,
@@ -678,7 +681,7 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const flowCollection = useApiCollection(FlowCollectionSchema);
 
-  const { name = '' } =
+  const { name } =
     useLiveQuery(
       (_) =>
         _.from({ flow: flowCollection })
@@ -686,7 +689,7 @@ const FlowFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.flow, 'name'))
           .findOne(),
       [flowCollection, flowId],
-    ).data ?? {};
+    ).data ?? create(FlowSchema);
 
   const duplicateMutation = useConnectMutation(FlowService.method.flowDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);

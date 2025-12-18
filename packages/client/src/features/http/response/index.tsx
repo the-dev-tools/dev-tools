@@ -1,8 +1,10 @@
+import { create } from '@bufbuild/protobuf';
 import { count, eq, useLiveQuery } from '@tanstack/react-db';
-import { Duration, Option, pipe } from 'effect';
+import { Duration, pipe } from 'effect';
 import { Suspense } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { twJoin, twMerge } from 'tailwind-merge';
+import { HttpResponseSchema } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import {
   HttpResponseAssertCollectionSchema,
   HttpResponseCollectionSchema,
@@ -27,7 +29,7 @@ export interface ResponsePanelProps {
 export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: ResponsePanelProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { duration, size, status } = pipe(
+  const { duration, size, status } =
     useLiveQuery(
       (_) =>
         _.from({ item: responseCollection })
@@ -35,32 +37,31 @@ export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: 
           .select((_) => pick(_.item, 'duration', 'size', 'status'))
           .findOne(),
       [responseCollection, httpResponseId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? create(HttpResponseSchema);
 
   const headerCollection = useApiCollection(HttpResponseHeaderCollectionSchema);
 
-  const { data: { headerCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: headerCollection })
-        .where((_) => eq(_.item.httpResponseId, httpResponseId))
-        .select((_) => ({ headerCount: count(_.item.httpResponseHeaderId) }))
-        .findOne(),
-    [headerCollection, httpResponseId],
-  );
+  const { headerCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: headerCollection })
+          .where((_) => eq(_.item.httpResponseId, httpResponseId))
+          .select((_) => ({ headerCount: count(_.item.httpResponseHeaderId) }))
+          .findOne(),
+      [headerCollection, httpResponseId],
+    ).data ?? {};
 
   const assertCollection = useApiCollection(HttpResponseAssertCollectionSchema);
 
-  const { data: { assertCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: assertCollection })
-        .where((_) => eq(_.item.httpResponseId, httpResponseId))
-        .select((_) => ({ assertCount: count(_.item.httpResponseAssertId) }))
-        .findOne(),
-    [assertCollection, httpResponseId],
-  );
+  const { assertCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: assertCollection })
+          .where((_) => eq(_.item.httpResponseId, httpResponseId))
+          .select((_) => ({ assertCount: count(_.item.httpResponseAssertId) }))
+          .findOne(),
+      [assertCollection, httpResponseId],
+    ).data ?? {};
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>

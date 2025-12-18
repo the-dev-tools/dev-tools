@@ -1,10 +1,11 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import CodeMirror from '@uiw/react-codemirror';
-import { Option, pipe } from 'effect';
 import { useState } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';
+import { HttpResponseSchema } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -25,7 +26,7 @@ export interface BodyPanelProps {
 export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
   const collection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { body } = pipe(
+  const { body } =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
@@ -33,10 +34,7 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
           .select((_) => pick(_.item, 'body'))
           .findOne(),
       [collection, httpResponseId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? create(HttpResponseSchema);
 
   return (
     <Tabs

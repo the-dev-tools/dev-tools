@@ -64,14 +64,15 @@ export const CreateNode = ({ id, selected }: XF.NodeProps) => {
   const forCollection = useApiCollection(NodeForCollectionSchema);
   const forEachCollection = useApiCollection(NodeForEachCollectionSchema);
 
-  const edgeId = useLiveQuery(
-    (_) =>
-      _.from({ item: edgeCollection })
-        .where((_) => eq(_.item.targetId, createNodeId))
-        .select((_) => pick(_.item, 'edgeId'))
-        .findOne(),
-    [edgeCollection, createNodeId],
-  ).data?.edgeId;
+  const { edgeId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: edgeCollection })
+          .where((_) => eq(_.item.targetId, createNodeId))
+          .select((_) => pick(_.item, 'edgeId'))
+          .findOne(),
+      [edgeCollection, createNodeId],
+    ).data ?? {};
 
   useEffect(() => {
     if (!selected) void deleteElements({ nodes: [{ id }] });

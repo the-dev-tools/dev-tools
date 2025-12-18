@@ -1,8 +1,10 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import CodeMirror from '@uiw/react-codemirror';
 import * as XF from '@xyflow/react';
 import { use, useState } from 'react';
 import { FiTerminal, FiX } from 'react-icons/fi';
+import { NodeJsSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeJsCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -39,14 +41,15 @@ export const JavaScriptNode = (props: XF.NodeProps) => (
 export const JavaScriptPanel = ({ nodeId }: NodePanelProps) => {
   const collection = useApiCollection(NodeJsCollectionSchema);
 
-  const { code } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'code'))
-        .findOne(),
-    [collection, nodeId],
-  ).data!;
+  const { code } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'code'))
+          .findOne(),
+      [collection, nodeId],
+    ).data ?? create(NodeJsSchema);
 
   const { isReadOnly = false } = use(FlowContext);
 

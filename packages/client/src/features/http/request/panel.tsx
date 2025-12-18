@@ -31,25 +31,27 @@ export interface HttpRequestPanelProps {
 export const HttpRequestPanel = ({ className, deltaHttpId, httpId, isReadOnly = false }: HttpRequestPanelProps) => {
   const searchParamCollection = useApiCollection(HttpSearchParamCollectionSchema);
 
-  const { data: { searchParamCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: searchParamCollection })
-        .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
-        .select((_) => ({ searchParamCount: count(_.item.httpId) }))
-        .findOne(),
-    [deltaHttpId, httpId, searchParamCollection],
-  );
+  const { searchParamCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: searchParamCollection })
+          .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
+          .select((_) => ({ searchParamCount: count(_.item.httpId) }))
+          .findOne(),
+      [deltaHttpId, httpId, searchParamCollection],
+    ).data ?? {};
 
   const headerCollection = useApiCollection(HttpHeaderCollectionSchema);
 
-  const { data: { headerCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: headerCollection })
-        .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
-        .select((_) => ({ headerCount: count(_.item.httpId) }))
-        .findOne(),
-    [deltaHttpId, headerCollection, httpId],
-  );
+  const { headerCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: headerCollection })
+          .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
+          .select((_) => ({ headerCount: count(_.item.httpId) }))
+          .findOne(),
+      [deltaHttpId, headerCollection, httpId],
+    ).data ?? {};
 
   const [bodyKind] = useDeltaState({
     deltaId: deltaHttpId,
@@ -62,36 +64,39 @@ export const HttpRequestPanel = ({ className, deltaHttpId, httpId, isReadOnly = 
 
   const bodyFormDataCollection = useApiCollection(HttpBodyFormDataCollectionSchema);
 
-  const { data: { bodyFormDataCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: bodyFormDataCollection })
-        .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
-        .select((_) => ({ bodyFormDataCount: count(_.item.httpId) }))
-        .findOne(),
-    [bodyFormDataCollection, deltaHttpId, httpId],
-  );
+  const { bodyFormDataCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: bodyFormDataCollection })
+          .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
+          .select((_) => ({ bodyFormDataCount: count(_.item.httpId) }))
+          .findOne(),
+      [bodyFormDataCollection, deltaHttpId, httpId],
+    ).data ?? {};
 
   const bodyUrlEncodedCollection = useApiCollection(HttpBodyUrlEncodedCollectionSchema);
 
-  const { data: { bodyUrlEncodedCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: bodyUrlEncodedCollection })
-        .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
-        .select((_) => ({ bodyUrlEncodedCount: count(_.item.httpId) }))
-        .findOne(),
-    [bodyUrlEncodedCollection, deltaHttpId, httpId],
-  );
+  const { bodyUrlEncodedCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: bodyUrlEncodedCollection })
+          .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
+          .select((_) => ({ bodyUrlEncodedCount: count(_.item.httpId) }))
+          .findOne(),
+      [bodyUrlEncodedCollection, deltaHttpId, httpId],
+    ).data ?? {};
 
   const assertCollection = useApiCollection(HttpAssertCollectionSchema);
 
-  const { data: { assertCount = 0 } = {} } = useLiveQuery(
-    (_) =>
-      _.from({ item: assertCollection })
-        .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
-        .select((_) => ({ assertCount: count(_.item.httpId) }))
-        .findOne(),
-    [assertCollection, deltaHttpId, httpId],
-  );
+  const { assertCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: assertCollection })
+          .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
+          .select((_) => ({ assertCount: count(_.item.httpId) }))
+          .findOne(),
+      [assertCollection, deltaHttpId, httpId],
+    ).data ?? {};
 
   return (
     <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>

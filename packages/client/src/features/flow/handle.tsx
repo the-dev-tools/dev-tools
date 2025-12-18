@@ -1,9 +1,10 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Handle as HandleCore, HandleProps, useNodeConnections } from '@xyflow/react';
 import { Array, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { tv } from 'tailwind-variants';
-import { FlowItemState } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { EdgeSchema, FlowItemState } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
@@ -34,7 +35,7 @@ export const Handle = (props: HandleProps) => {
     Option.getOrUndefined,
   );
 
-  const state =
+  const { state } =
     useLiveQuery(
       (_) =>
         _.from({ item: edgeCollection })
@@ -42,7 +43,7 @@ export const Handle = (props: HandleProps) => {
           .select((_) => pick(_.item, 'state'))
           .findOne(),
       [edgeCollection, edgeId],
-    ).data?.state ?? FlowItemState.UNSPECIFIED;
+    ).data ?? create(EdgeSchema);
 
   return (
     <HandleCore

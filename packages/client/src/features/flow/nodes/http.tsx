@@ -1,3 +1,4 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
@@ -6,6 +7,7 @@ import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
+  NodeHttpSchema,
   NodeHttpUpdate_DeltaHttpIdUnion_Kind,
   NodeHttpUpdate_HttpIdUnion_Kind,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
@@ -49,14 +51,15 @@ const HttpNodeBody = (props: XF.NodeProps) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
 
-  const { deltaHttpId, httpId } = useLiveQuery(
-    (_) =>
-      _.from({ item: nodeHttpCollection })
-        .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
-        .findOne(),
-    [nodeHttpCollection, nodeId],
-  ).data!;
+  const { deltaHttpId, httpId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: nodeHttpCollection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
+          .findOne(),
+      [nodeHttpCollection, nodeId],
+    ).data ?? create(NodeHttpSchema);
 
   const { deleteElements } = XF.useReactFlow();
 
@@ -154,14 +157,15 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
 
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
 
-  const { deltaHttpId, httpId } = useLiveQuery(
-    (_) =>
-      _.from({ item: nodeHttpCollection })
-        .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
-        .findOne(),
-    [nodeHttpCollection, nodeId],
-  ).data!;
+  const { deltaHttpId, httpId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: nodeHttpCollection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
+          .findOne(),
+      [nodeHttpCollection, nodeId],
+    ).data ?? create(NodeHttpSchema);
 
   const deltaOptions = {
     deltaId: deltaHttpId,
@@ -244,14 +248,15 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
 const Output = ({ nodeExecutionId }: NodeExecutionOutputProps) => {
   const collection = useApiCollection(NodeExecutionCollectionSchema);
 
-  const httpResponseId = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
-        .select((_) => pick(_.item, 'httpResponseId'))
-        .findOne(),
-    [collection, nodeExecutionId],
-  ).data?.httpResponseId;
+  const { httpResponseId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
+          .select((_) => pick(_.item, 'httpResponseId'))
+          .findOne(),
+      [collection, nodeExecutionId],
+    ).data ?? {};
 
   if (!httpResponseId) return null;
 
