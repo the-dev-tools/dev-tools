@@ -14,6 +14,8 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/renv"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
@@ -51,7 +53,8 @@ type WorkspaceServiceRPC struct {
 	us  suser.UserService
 	es  senv.EnvService
 
-	stream eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
+	stream    eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
+	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 }
 
 func New(
@@ -61,14 +64,16 @@ func New(
 	us suser.UserService,
 	es senv.EnvService,
 	stream eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent],
+	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent],
 ) WorkspaceServiceRPC {
 	return WorkspaceServiceRPC{
-		DB:     db,
-		ws:     ws,
-		wus:    wus,
-		us:     us,
-		es:     es,
-		stream: stream,
+		DB:        db,
+		ws:        ws,
+		wus:       wus,
+		us:        us,
+		es:        es,
+		stream:    stream,
+		envStream: envStream,
 	}
 }
 
@@ -207,6 +212,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 	envWriter := senv.NewEnvWriter(tx)
 
 	var createdIDs []idwrap.IDWrap
+	var createdEnvs []menv.Env
 
 	for _, item := range req.Msg.Items {
 		workspaceID := idwrap.NewNow()
@@ -264,6 +270,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 		}
 
 		createdIDs = append(createdIDs, workspaceID)
+		createdEnvs = append(createdEnvs, defaultEnv)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -278,6 +285,13 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 		c.stream.Publish(WorkspaceTopic{WorkspaceID: workspaceID}, WorkspaceEvent{
 			Type:      eventTypeInsert,
 			Workspace: toAPIWorkspace(*ws),
+		})
+	}
+
+	for _, env := range createdEnvs {
+		c.envStream.Publish(renv.EnvironmentTopic{WorkspaceID: env.WorkspaceID}, renv.EnvironmentEvent{
+			Type:        eventTypeInsert,
+			Environment: converter.ToAPIEnvironment(env),
 		})
 	}
 
@@ -512,30 +526,4 @@ func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID id
 			return ctx.Err()
 		}
 	}
-}
-
-func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID idwrap.IDWrap) (bool, error) {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return false, err
-	}
-	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
-}
-
-func CheckOwnerWorkspaceWithReader(ctx context.Context, userReader *sworkspace.UserReader, workspaceID idwrap.IDWrap) error {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return err
-	}
-
-	wsu, err := userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
-	if err != nil {
-		return ErrWorkspaceNotFound
-	}
-
-	if wsu.Role != mworkspace.RoleOwner {
-		return ErrWorkspaceNotFound
-	}
-
-	return nil
 }

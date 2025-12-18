@@ -13,7 +13,7 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
@@ -84,29 +84,6 @@ func New(
 func CreateService(srv EnvRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := environmentv1connect.NewEnvironmentServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
-}
-
-func toAPIEnvironment(env menv.Env) *apiv1.Environment {
-	return &apiv1.Environment{
-		EnvironmentId: env.ID.Bytes(),
-		WorkspaceId:   env.WorkspaceID.Bytes(),
-		Name:          env.Name,
-		Description:   env.Description,
-		IsGlobal:      env.Type == menv.EnvGlobal,
-		Order:         float32(env.Order),
-	}
-}
-
-func toAPIEnvironmentVariable(v menv.Variable) *apiv1.EnvironmentVariable {
-	return &apiv1.EnvironmentVariable{
-		EnvironmentVariableId: v.ID.Bytes(),
-		EnvironmentId:         v.EnvID.Bytes(),
-		Key:                   v.VarKey,
-		Enabled:               v.Enabled,
-		Value:                 v.Value,
-		Description:           v.Description,
-		Order:                 float32(v.Order),
-	}
 }
 
 func stringPtr(s string) *string { return &s }
@@ -256,7 +233,7 @@ func (e *EnvRPC) EnvironmentCollection(ctx context.Context, req *connect.Request
 
 	items := make([]*apiv1.Environment, 0, len(environments))
 	for _, env := range environments {
-		items = append(items, toAPIEnvironment(env))
+		items = append(items, converter.ToAPIEnvironment(env))
 	}
 
 	return connect.NewResponse(&apiv1.EnvironmentCollectionResponse{Items: items}), nil
@@ -277,7 +254,7 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 		}
 
 		// Check workspace permissions OUTSIDE transaction
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
+		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, e.us, workspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -329,7 +306,7 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 	for _, env := range createdEnvs {
 		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
 			Type:        eventTypeInsert,
-			Environment: toAPIEnvironment(env),
+			Environment: converter.ToAPIEnvironment(env),
 		})
 	}
 
@@ -489,7 +466,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 		}
 		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
 			Type:        eventTypeUpdate,
-			Environment: toAPIEnvironment(*env),
+			Environment: converter.ToAPIEnvironment(*env),
 		})
 	}
 
@@ -582,7 +559,7 @@ func (e *EnvRPC) streamEnvironmentSync(ctx context.Context, userID idwrap.IDWrap
 				Topic: EnvironmentTopic{WorkspaceID: env.WorkspaceID},
 				Payload: EnvironmentEvent{
 					Type:        eventTypeInsert,
-					Environment: toAPIEnvironment(env),
+					Environment: converter.ToAPIEnvironment(env),
 				},
 			})
 		}
@@ -641,126 +618,125 @@ func (e *EnvRPC) EnvironmentVariableCollection(ctx context.Context, req *connect
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		for _, v := range vars {
-			items = append(items, toAPIEnvironmentVariable(v))
+		        for _, v := range vars {
+		            items = append(items, converter.ToAPIEnvironmentVariable(v))
+		        }
+		    }
+		
+		    return connect.NewResponse(&apiv1.EnvironmentVariableCollectionResponse{Items: items}), nil
 		}
-	}
-
-	return connect.NewResponse(&apiv1.EnvironmentVariableCollectionResponse{Items: items}), nil
-}
-
-// EnvironmentVariableInsert creates new environment variables
-func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
-	if len(req.Msg.Items) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
-	}
-
-	// Step 1: Process request data and build cache OUTSIDE transaction
-	type varData struct {
-		envID       idwrap.IDWrap
-		workspaceID idwrap.IDWrap
-		varID       idwrap.IDWrap
-		key         string
-		value       string
-		enabled     bool
-		description string
-		order       float64
-	}
-
-	var varModels []varData
-	workspaceCache := map[string]idwrap.IDWrap{}
-
-	for _, item := range req.Msg.Items {
-		envID, err := idwrap.NewFromBytes(item.EnvironmentId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		
+		// EnvironmentVariableInsert creates new environment variables
+		func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+		    if len(req.Msg.Items) == 0 {
+		        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
+		    }
+		
+		    // Step 1: Process request data and build cache OUTSIDE transaction
+		    type varData struct {
+		        envID       idwrap.IDWrap
+		        workspaceID idwrap.IDWrap
+		        varID       idwrap.IDWrap
+		        key         string
+		        value       string
+		        enabled     bool
+		        description string
+		        order       float64
+		    }
+		
+		    var varModels []varData
+		    workspaceCache := map[string]idwrap.IDWrap{}
+		
+		    for _, item := range req.Msg.Items {
+		        envID, err := idwrap.NewFromBytes(item.EnvironmentId)
+		        if err != nil {
+		            return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		        }
+		
+		        // Check permissions OUTSIDE transaction
+		        rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
+		        if rpcErr != nil {
+		            return nil, rpcErr
+		        }
+		
+		        // Build cache OUTSIDE transaction
+		        workspaceID := workspaceCache[envID.String()]
+		        if workspaceID == (idwrap.IDWrap{}) {
+		            env, err := e.es.GetEnvironment(ctx, envID)
+		            if err != nil {
+		                return nil, connect.NewError(connect.CodeInternal, err)
+		            }
+		            workspaceID = env.WorkspaceID
+		            workspaceCache[envID.String()] = workspaceID
+		        }
+		
+		        varID := idwrap.NewNow()
+		        if len(item.EnvironmentVariableId) > 0 {
+		            varID, err = idwrap.NewFromBytes(item.EnvironmentVariableId)
+		            if err != nil {
+		                return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		            }
+		        }
+		
+		        varModels = append(varModels, varData{
+		            envID:       envID,
+		            workspaceID: workspaceID,
+		            varID:       varID,
+		            key:         item.Key,
+		            value:       item.Value,
+		            enabled:     item.Enabled,
+		            description: item.Description,
+		            order:       float64(item.Order),
+		        })
+		    }
+		
+		    // Step 2: Minimal write transaction for fast inserts only
+		    tx, err := e.DB.BeginTx(ctx, nil)
+		    if err != nil {
+		        return nil, connect.NewError(connect.CodeInternal, err)
+		    }
+		    defer devtoolsdb.TxnRollback(tx)
+		
+		    varWriter := senv.NewVariableWriter(tx)
+		    createdVars := []struct {
+		        variable    menv.Variable
+		        workspaceID idwrap.IDWrap
+		    }{}
+		
+		    // Fast inserts inside minimal transaction
+		    for _, data := range varModels {
+		        varReq := menv.Variable{
+		            ID:          data.varID,
+		            EnvID:       data.envID,
+		            VarKey:      data.key,
+		            Value:       data.value,
+		            Enabled:     data.enabled,
+		            Description: data.description,
+		            Order:       data.order,
+		        }
+		
+		        if err := varWriter.Create(ctx, varReq); err != nil {
+		            return nil, connect.NewError(connect.CodeInternal, err)
+		        }
+		        createdVars = append(createdVars, struct {
+		            variable    menv.Variable
+		            workspaceID idwrap.IDWrap
+		        }{variable: varReq, workspaceID: data.workspaceID})
+		    }
+		
+		    if err := tx.Commit(); err != nil {
+		        return nil, connect.NewError(connect.CodeInternal, err)
+		    }
+		
+		    for _, evt := range createdVars {
+		        e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+		            Type:     eventTypeInsert,
+		            Variable: converter.ToAPIEnvironmentVariable(evt.variable),
+		        })
+		    }
+		
+		    return connect.NewResponse(&emptypb.Empty{}), nil
 		}
-
-		// Check permissions OUTSIDE transaction
-		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
-		// Build cache OUTSIDE transaction
-		workspaceID := workspaceCache[envID.String()]
-		if workspaceID == (idwrap.IDWrap{}) {
-			env, err := e.es.GetEnvironment(ctx, envID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			workspaceID = env.WorkspaceID
-			workspaceCache[envID.String()] = workspaceID
-		}
-
-		varID := idwrap.NewNow()
-		if len(item.EnvironmentVariableId) > 0 {
-			varID, err = idwrap.NewFromBytes(item.EnvironmentVariableId)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, err)
-			}
-		}
-
-		varModels = append(varModels, varData{
-			envID:       envID,
-			workspaceID: workspaceID,
-			varID:       varID,
-			key:         item.Key,
-			value:       item.Value,
-			enabled:     item.Enabled,
-			description: item.Description,
-			order:       float64(item.Order),
-		})
-	}
-
-	// Step 2: Minimal write transaction for fast inserts only
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	varWriter := senv.NewVariableWriter(tx)
-	createdVars := []struct {
-		variable    menv.Variable
-		workspaceID idwrap.IDWrap
-	}{}
-
-	// Fast inserts inside minimal transaction
-	for _, data := range varModels {
-		varReq := menv.Variable{
-			ID:          data.varID,
-			EnvID:       data.envID,
-			VarKey:      data.key,
-			Value:       data.value,
-			Enabled:     data.enabled,
-			Description: data.description,
-			Order:       data.order,
-		}
-
-		if err := varWriter.Create(ctx, varReq); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		createdVars = append(createdVars, struct {
-			variable    menv.Variable
-			workspaceID idwrap.IDWrap
-		}{variable: varReq, workspaceID: data.workspaceID})
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	for _, evt := range createdVars {
-		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
-			Type:     eventTypeInsert,
-			Variable: toAPIEnvironmentVariable(evt.variable),
-		})
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
 // EnvironmentVariableUpdate updates existing environment variables
 func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
@@ -861,7 +837,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 	for _, data := range varModels {
 		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: data.workspaceID, EnvironmentID: data.variable.EnvID}, EnvironmentVariableEvent{
 			Type:     eventTypeUpdate,
-			Variable: toAPIEnvironmentVariable(data.variable),
+			Variable: converter.ToAPIEnvironmentVariable(data.variable),
 		})
 	}
 
@@ -988,7 +964,7 @@ func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwra
 					Topic: EnvironmentVariableTopic{WorkspaceID: env.WorkspaceID, EnvironmentID: env.ID},
 					Payload: EnvironmentVariableEvent{
 						Type:     eventTypeInsert,
-						Variable: toAPIEnvironmentVariable(copyVar),
+						Variable: converter.ToAPIEnvironmentVariable(copyVar),
 					},
 				})
 			}

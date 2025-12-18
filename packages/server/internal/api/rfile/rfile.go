@@ -13,7 +13,6 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -464,7 +463,7 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 	// Step 2: Check permissions for all files OUTSIDE transaction
 	for _, file := range fileModels {
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, file.WorkspaceID))
+		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, file.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -536,7 +535,7 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 		}
 
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
+		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -614,7 +613,7 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 		}
 
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
+		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -745,7 +744,7 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 	defaultWorkspace := workspaces[0] // Use first workspace as default
 
 	// Step 2: Check workspace permissions OUTSIDE transaction
-	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, defaultWorkspace.ID))
+	rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, defaultWorkspace.ID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -833,7 +832,7 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 		}
 
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
+		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -917,7 +916,7 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 		}
 
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
+		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -1023,5 +1022,5 @@ func CheckOwnerFile(ctx context.Context, fs sfile.FileService, us suser.UserServ
 	if err != nil {
 		return false, err
 	}
-	return rworkspace.CheckOwnerWorkspace(ctx, us, workspaceID)
+	return mwauth.CheckOwnerWorkspace(ctx, us, workspaceID)
 }

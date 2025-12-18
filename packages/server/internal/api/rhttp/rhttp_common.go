@@ -12,7 +12,6 @@ import (
 	"connectrpc.com/connect"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -61,7 +60,7 @@ func CheckOwnerHttp(ctx context.Context, hs shttp.HTTPService, us suser.UserServ
 	if err != nil {
 		return false, err
 	}
-	return rworkspace.CheckOwnerWorkspace(ctx, us, workspaceID)
+	return mwauth.CheckOwnerWorkspace(ctx, us, workspaceID)
 }
 
 // checkWorkspaceReadAccess verifies if user has read access to workspace (any role)

@@ -8,8 +8,6 @@ import (
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/model/menv"
-	environmentv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -223,7 +221,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		for _, env := range results.CreatedEnvs {
 			h.EnvStream.Publish(renv.EnvironmentTopic{WorkspaceID: env.WorkspaceID}, renv.EnvironmentEvent{
 				Type:        "insert",
-				Environment: toAPIEnvironment(env),
+				Environment: converter.ToAPIEnvironment(env),
 			})
 		}
 	}
@@ -233,7 +231,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		for _, v := range results.CreatedVars {
 			h.EnvVarStream.Publish(renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID, EnvironmentID: v.EnvID}, renv.EnvironmentVariableEvent{
 				Type:     "insert",
-				Variable: toAPIEnvironmentVariable(v),
+				Variable: converter.ToAPIEnvironmentVariable(v),
 			})
 		}
 	}
@@ -243,33 +241,8 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		for _, v := range results.UpdatedVars {
 			h.EnvVarStream.Publish(renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID, EnvironmentID: v.EnvID}, renv.EnvironmentVariableEvent{
 				Type:     "update",
-				Variable: toAPIEnvironmentVariable(v),
+				Variable: converter.ToAPIEnvironmentVariable(v),
 			})
 		}
-	}
-}
-
-// toAPIEnvironment converts internal environment model to API type
-func toAPIEnvironment(env menv.Env) *environmentv1.Environment {
-	return &environmentv1.Environment{
-		EnvironmentId: env.ID.Bytes(),
-		WorkspaceId:   env.WorkspaceID.Bytes(),
-		Name:          env.Name,
-		Description:   env.Description,
-		IsGlobal:      env.Type == menv.EnvGlobal,
-		Order:         float32(env.Order),
-	}
-}
-
-// toAPIEnvironmentVariable converts internal variable model to API type
-func toAPIEnvironmentVariable(v menv.Variable) *environmentv1.EnvironmentVariable {
-	return &environmentv1.EnvironmentVariable{
-		EnvironmentVariableId: v.ID.Bytes(),
-		EnvironmentId:         v.EnvID.Bytes(),
-		Key:                   v.VarKey,
-		Enabled:               v.Enabled,
-		Value:                 v.Value,
-		Description:           v.Description,
-		Order:                 float32(v.Order),
 	}
 }

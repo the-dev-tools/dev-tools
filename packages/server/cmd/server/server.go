@@ -192,7 +192,7 @@ func run() error {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, streamers.Workspace)
+	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, streamers.Workspace, streamers.Environment)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
 	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, streamers.Environment, streamers.EnvironmentVariable)

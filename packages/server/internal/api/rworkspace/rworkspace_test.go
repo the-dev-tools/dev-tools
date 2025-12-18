@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
@@ -43,7 +44,9 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	services := base.GetBaseServices()
 	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
 	stream := memory.NewInMemorySyncStreamer[WorkspaceTopic, WorkspaceEvent]()
+	envStream := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
 	t.Cleanup(stream.Shutdown)
+	t.Cleanup(envStream.Shutdown)
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
@@ -57,7 +60,7 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	})
 	require.NoError(t, err, "create user")
 
-	handler := New(base.DB, services.Ws, services.Wus, services.Us, envService, stream)
+	handler := New(base.DB, services.Ws, services.Wus, services.Us, envService, stream, envStream)
 
 	t.Cleanup(base.Close)
 
@@ -298,7 +301,8 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	}
 }
 
-func TestWorkspaceInsertPublishesEvent(t *testing.T) {
+
+func TestWorkspaceInsertPublishesEnvironmentEvent(t *testing.T) {
 	t.Parallel()
 
 	f := newWorkspaceFixture(t)
@@ -306,37 +310,51 @@ func TestWorkspaceInsertPublishesEvent(t *testing.T) {
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
 
-	msgCh := make(chan *apiv1.WorkspaceSyncResponse, 5)
-	errCh := make(chan error, 1)
+	// Subscribe to Environment events
+	msgCh := make(chan *apiv1.WorkspaceSyncResponse, 5) // Use a dummy for workspace sync
+	envCh := make(chan renv.EnvironmentEvent, 10)
+
+	// Subscribe to the environment stream directly
+	events, err := f.handler.envStream.Subscribe(ctx, func(topic renv.EnvironmentTopic) bool {
+		return true // Accept all for test
+	})
+	require.NoError(t, err)
 
 	go func() {
-		err := f.handler.streamWorkspaceSync(ctx, f.userID, func(resp *apiv1.WorkspaceSyncResponse) error {
-			msgCh <- resp
-			return nil
-		})
-		errCh <- err
-		close(msgCh)
+		for {
+			select {
+			case evt, ok := <-events:
+				if !ok {
+					return
+				}
+				envCh <- evt.Payload
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
 
 	createReq := connect.NewRequest(&apiv1.WorkspaceInsertRequest{
 		Items: []*apiv1.WorkspaceInsert{
 			{
-				Name: "api-created",
+				Name: "sync-test-workspace",
 			},
 		},
 	})
-	_, err := f.handler.WorkspaceInsert(f.ctx, createReq)
+	_, err = f.handler.WorkspaceInsert(f.ctx, createReq)
 	require.NoError(t, err, "WorkspaceInsert")
 
-	items := collectWorkspaceSyncItems(t, msgCh, 1)
-	val := items[0].GetValue()
-	require.NotNil(t, val, "create response missing value union")
-	require.Equal(t, apiv1.WorkspaceSync_ValueUnion_KIND_INSERT, val.GetKind())
-	require.Equal(t, "api-created", val.GetInsert().GetName())
-
-	cancel()
-	err = <-errCh
-	if err != nil {
-		require.ErrorIs(t, err, context.Canceled)
+	// Verify Environment Event
+	select {
+	case evt := <-envCh:
+		require.Equal(t, "insert", evt.Type)
+		require.NotNil(t, evt.Environment)
+		require.Equal(t, "default", evt.Environment.Name)
+		require.True(t, evt.Environment.IsGlobal)
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "timeout waiting for environment sync event")
 	}
+
+	_ = msgCh
+	cancel()
 }

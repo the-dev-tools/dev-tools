@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
@@ -218,7 +218,7 @@ func (v *SimpleValidator) ValidateWorkspaceAccess(ctx context.Context, workspace
 	}
 
 	// Check user permissions using rworkspace helper
-	hasAccess, err := rworkspace.CheckOwnerWorkspace(ctx, *v.userService, workspaceID)
+	hasAccess, err := mwauth.CheckOwnerWorkspace(ctx, *v.userService, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to check workspace access: %w", err)
 	}

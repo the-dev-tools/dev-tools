@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/suser"
@@ -55,8 +55,8 @@ func (v *DefaultValidator) ValidateWorkspaceAccess(ctx context.Context, workspac
 	}
 
 	// Check workspace ownership using existing auth middleware pattern
-	// This follows the same pattern as rimport: permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, wsUlid))
-	if rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, *v.us, workspaceID)); rpcErr != nil {
+	// This follows the same pattern as rimport: permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, c.us, wsUlid))
+	if rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, *v.us, workspaceID)); rpcErr != nil {
 		return ErrPermissionDenied
 	}
 	return nil

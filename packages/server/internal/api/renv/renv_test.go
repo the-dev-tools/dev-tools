@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
@@ -476,7 +477,7 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 
 	f.handler.envStream.Publish(EnvironmentTopic{WorkspaceID: otherWorkspaceID}, EnvironmentEvent{
 		Type:        "insert",
-		Environment: toAPIEnvironment(otherEnv),
+		Environment: converter.ToAPIEnvironment(otherEnv),
 	})
 
 	select {

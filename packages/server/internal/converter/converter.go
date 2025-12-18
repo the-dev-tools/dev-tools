@@ -11,11 +11,38 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/menv"
 
+	environmentv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	filev1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
+
+// ToAPIEnvironment converts model Environment to API Environment
+func ToAPIEnvironment(env menv.Env) *environmentv1.Environment {
+	return &environmentv1.Environment{
+		EnvironmentId: env.ID.Bytes(),
+		WorkspaceId:   env.WorkspaceID.Bytes(),
+		Name:          env.Name,
+		Description:   env.Description,
+		IsGlobal:      env.Type == menv.EnvGlobal,
+		Order:         float32(env.Order),
+	}
+}
+
+// ToAPIEnvironmentVariable converts model EnvironmentVariable to API EnvironmentVariable
+func ToAPIEnvironmentVariable(v menv.Variable) *environmentv1.EnvironmentVariable {
+	return &environmentv1.EnvironmentVariable{
+		EnvironmentVariableId: v.ID.Bytes(),
+		EnvironmentId:         v.EnvID.Bytes(),
+		Key:                   v.VarKey,
+		Enabled:               v.Enabled,
+		Value:                 v.Value,
+		Description:           v.Description,
+		Order:                 float32(v.Order),
+	}
+}
 
 // ToAPIHttp converts model HTTP to API HTTP
 func ToAPIHttp(http mhttp.HTTP) *httpv1.Http {
