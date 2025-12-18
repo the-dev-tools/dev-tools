@@ -11,9 +11,8 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
 )
 
 const (
@@ -346,7 +345,7 @@ func createRequestSummary(data *ioworkspace.WorkspaceBundle) map[string]interfac
 }
 
 // Helper counting functions
-func countFlowNodes(flowID idwrap.IDWrap, nodes []mnnode.MNode) int {
+func countFlowNodes(flowID idwrap.IDWrap, nodes []mflow.Node) int {
 	count := 0
 	for _, node := range nodes {
 		if node.FlowID.Compare(flowID) == 0 {
@@ -366,7 +365,7 @@ func countFlowEdges(flowID idwrap.IDWrap, edges []edge.Edge) int {
 	return count
 }
 
-func countFlowVariables(flowID idwrap.IDWrap, variables []mflowvariable.FlowVariable) int {
+func countFlowVariables(flowID idwrap.IDWrap, variables []mflow.FlowVariable) int {
 	count := 0
 	for _, variable := range variables {
 		if variable.FlowID.Compare(flowID) == 0 {

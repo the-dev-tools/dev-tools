@@ -14,7 +14,6 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -32,11 +31,11 @@ func TestNodeHttpCRUD(t *testing.T) {
 
 	// 2. Setup: Create Node (REQUEST kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mnnode.MNode{
+	err = svc.ns.CreateNode(ctx, mflow.Node{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      "HTTP Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -162,11 +161,11 @@ func TestNodeHttpErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mnnode.MNode{
+	err = svc.ns.CreateNode(ctx, mflow.Node{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      "HTTP Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 0,
 		PositionY: 0,
 	})

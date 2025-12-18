@@ -18,7 +18,6 @@ import (
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -60,10 +59,19 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 	nodeIfService := snodeif.New(queries)
 	nodeJsService := snodejs.New(queries)
 
+	// Readers
+	wsReader := sworkspace.NewReaderFromQueries(queries)
+	fsReader := sflow.NewReaderFromQueries(queries)
+	nsReader := snode.NewReaderFromQueries(queries)
+
 	// Create in-memory node stream
 	nodeStream := memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
 
 	svc := &FlowServiceV2RPC{
+		DB:         db,
+		wsReader:   wsReader,
+		fsReader:   fsReader,
+		nsReader:   nsReader,
 		ws:         &wsService,
 		fs:         &flowService,
 		ns:         &nodeService,
@@ -160,11 +168,11 @@ func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 
 	// Create base node (REQUEST kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mnnode.MNode{
+	err = svc.ns.CreateNode(ctx, mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "HTTP Node",
-		NodeKind: mnnode.NODE_KIND_REQUEST,
+		NodeKind: mflow.NODE_KIND_REQUEST,
 	})
 	require.NoError(t, err)
 
@@ -238,11 +246,11 @@ func TestNodeConditionSync_PublishesEventsOnCRUD(t *testing.T) {
 
 	// Create base node (CONDITION kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mnnode.MNode{
+	err = svc.ns.CreateNode(ctx, mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "Condition Node",
-		NodeKind: mnnode.NODE_KIND_CONDITION,
+		NodeKind: mflow.NODE_KIND_CONDITION,
 	})
 	require.NoError(t, err)
 
@@ -310,11 +318,11 @@ func TestNodeForEachSync_PublishesEventsOnCRUD(t *testing.T) {
 
 	// Create base node (FOR_EACH kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mnnode.MNode{
+	err = svc.ns.CreateNode(ctx, mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "ForEach Node",
-		NodeKind: mnnode.NODE_KIND_FOR_EACH,
+		NodeKind: mflow.NODE_KIND_FOR_EACH,
 	})
 	require.NoError(t, err)
 
@@ -382,11 +390,11 @@ func TestNodeJsSync_PublishesEventsOnCRUD(t *testing.T) {
 
 	// Create base node (JS kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mnnode.MNode{
+	err = svc.ns.CreateNode(ctx, mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "JS Node",
-		NodeKind: mnnode.NODE_KIND_JS,
+		NodeKind: mflow.NODE_KIND_JS,
 	})
 	require.NoError(t, err)
 

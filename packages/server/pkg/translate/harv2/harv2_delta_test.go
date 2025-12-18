@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/translate/harv2"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestConvertHAR_DeltaLinkage(t *testing.T) {
@@ -157,7 +158,7 @@ func TestConvertHAR_DeltaDependencies(t *testing.T) {
 
 	// Base header should contain the raw secret
 	require.Contains(t, baseHeader, "SECRET_TOKEN_123", "Base header should contain raw secret")
-	
+
 	// And if the URL had a dependency, checking Delta Request URL would be valid.
 	// Let's check if URL dependency is propagated.
 }

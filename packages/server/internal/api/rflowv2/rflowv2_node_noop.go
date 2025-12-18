@@ -13,8 +13,7 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -40,7 +39,7 @@ func (s *FlowServiceV2RPC) NodeNoOpCollection(
 
 		for _, node := range nodes {
 			// Only process NoOp nodes
-			if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+			if node.NodeKind != mflow.NODE_KIND_NO_OP {
 				continue
 			}
 
@@ -75,9 +74,9 @@ func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		noop := mnnoop.NoopNode{
+		noop := mflow.NodeNoop{
 			FlowNodeID: nodeID,
-			Type:       mnnoop.NoopTypes(item.GetKind()), // nolint:gosec // G115
+			Type:       mflow.NoopTypes(item.GetKind()), // nolint:gosec // G115
 		}
 		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -118,9 +117,9 @@ func (s *FlowServiceV2RPC) NodeNoOpUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		noop := mnnoop.NoopNode{
+		noop := mflow.NodeNoop{
 			FlowNodeID: nodeID,
-			Type:       mnnoop.NoopTypes(item.GetKind()), // nolint:gosec // G115
+			Type:       mflow.NoopTypes(item.GetKind()), // nolint:gosec // G115
 		}
 		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -212,7 +211,7 @@ func (s *FlowServiceV2RPC) streamNoOpSync(
 
 			for _, node := range nodes {
 				// Only process NoOp nodes
-				if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+				if node.NodeKind != mflow.NODE_KIND_NO_OP {
 					continue
 				}
 
@@ -279,7 +278,7 @@ func (s *FlowServiceV2RPC) streamNoOpSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishNoOpEvent(eventType string, flowID idwrap.IDWrap, node mnnoop.NoopNode) {
+func (s *FlowServiceV2RPC) publishNoOpEvent(eventType string, flowID idwrap.IDWrap, node mflow.NodeNoop) {
 	if s.noopStream == nil {
 		return
 	}

@@ -152,5 +152,5 @@ func TestLogSync(t *testing.T) {
 	}
 
 	cancel() // Stop the stream
-	<-errCh   // Wait for goroutine to finish
+	<-errCh  // Wait for goroutine to finish
 }

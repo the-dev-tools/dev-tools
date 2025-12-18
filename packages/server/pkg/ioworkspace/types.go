@@ -6,15 +6,7 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
@@ -40,17 +32,17 @@ type WorkspaceBundle struct {
 
 	// Flow structures
 	Flows         []mflow.Flow
-	FlowVariables []mflowvariable.FlowVariable
-	FlowNodes     []mnnode.MNode
+	FlowVariables []mflow.FlowVariable
+	FlowNodes     []mflow.Node
 	FlowEdges     []edge.Edge
 
 	// Flow node implementations by type
-	FlowRequestNodes   []mnrequest.MNRequest
-	FlowConditionNodes []mnif.MNIF
-	FlowNoopNodes      []mnnoop.NoopNode
-	FlowForNodes       []mnfor.MNFor
-	FlowForEachNodes   []mnforeach.MNForEach
-	FlowJSNodes        []mnjs.MNJS
+	FlowRequestNodes   []mflow.NodeRequest
+	FlowConditionNodes []mflow.NodeIf
+	FlowNoopNodes      []mflow.NodeNoop
+	FlowForNodes       []mflow.NodeFor
+	FlowForEachNodes   []mflow.NodeForEach
+	FlowJSNodes        []mflow.NodeJS
 
 	// Environments and variables
 	Environments    []menv.Env
@@ -119,7 +111,7 @@ func (wb *WorkspaceBundle) GetFlowByName(name string) *mflow.Flow {
 
 // GetNodeByID finds and returns a flow node by its ID.
 // Returns nil if the node is not found.
-func (wb *WorkspaceBundle) GetNodeByID(id idwrap.IDWrap) *mnnode.MNode {
+func (wb *WorkspaceBundle) GetNodeByID(id idwrap.IDWrap) *mflow.Node {
 	for i := range wb.FlowNodes {
 		if wb.FlowNodes[i].ID.Compare(id) == 0 {
 			return &wb.FlowNodes[i]

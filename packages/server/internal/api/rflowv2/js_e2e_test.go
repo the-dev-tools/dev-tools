@@ -23,10 +23,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
@@ -226,27 +222,27 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 
 	// Start Node (NoOp)
 	startNodeID := idwrap.NewNow()
-	startNode := mnnode.MNode{
+	startNode := mflow.Node{
 		ID:       startNodeID,
 		FlowID:   flowID,
 		Name:     "Start",
-		NodeKind: mnnode.NODE_KIND_NO_OP,
+		NodeKind: mflow.NODE_KIND_NO_OP,
 	}
 	err = nodeService.CreateNode(testCtx, startNode)
 	require.NoError(t, err)
-	err = noopService.CreateNodeNoop(testCtx, mnnoop.NoopNode{
+	err = noopService.CreateNodeNoop(testCtx, mflow.NodeNoop{
 		FlowNodeID: startNodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	})
 	require.NoError(t, err)
 
 	// JS Node
 	jsNodeID := idwrap.NewNow()
-	jsNode := mnnode.MNode{
+	jsNode := mflow.Node{
 		ID:        jsNodeID,
 		FlowID:    flowID,
 		Name:      "JS Node",
-		NodeKind:  mnnode.NODE_KIND_JS,
+		NodeKind:  mflow.NODE_KIND_JS,
 		PositionX: 100,
 		PositionY: 0,
 	}
@@ -256,7 +252,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	// JS Code that returns a value
 	// The code must export a default function or value
 	jsCode := `export default function(ctx) { return { result: "hello from js", computed: 42 }; }`
-	err = nodeJsService.CreateNodeJS(testCtx, mnjs.MNJS{
+	err = nodeJsService.CreateNodeJS(testCtx, mflow.NodeJS{
 		FlowNodeID: jsNodeID,
 		Code:       []byte(jsCode),
 	})
@@ -282,10 +278,10 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 
 	// --- Verify Execution ---
 	// Poll for JS node execution to complete
-	var exec *mnodeexecution.NodeExecution
+	var exec *mflow.NodeExecution
 	for i := 0; i < 30; i++ {
 		exec, err = nodeExecService.GetLatestNodeExecutionByNodeID(testCtx, jsNodeID)
-		if err == nil && exec != nil && mnnode.NodeState(exec.State) == mnnode.NODE_STATE_SUCCESS {
+		if err == nil && exec != nil && mflow.NodeState(exec.State) == mflow.NODE_STATE_SUCCESS {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -297,7 +293,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	if exec.Error != nil {
 		errMsg = *exec.Error
 	}
-	require.Equal(t, mnnode.NODE_STATE_SUCCESS, mnnode.NodeState(exec.State),
+	require.Equal(t, mflow.NODE_STATE_SUCCESS, mflow.NodeState(exec.State),
 		"JS node should have SUCCESS state, got: %v, error: %s", exec.State, errMsg)
 
 	t.Log("✅ JS node executed successfully via worker-js!")

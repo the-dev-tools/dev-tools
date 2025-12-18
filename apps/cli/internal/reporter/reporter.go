@@ -13,7 +13,7 @@ import (
 	"the-dev-tools/cli/internal/model"
 
 	"the-dev-tools/server/pkg/flow/runner"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type FlowStartInfo struct {
@@ -272,7 +272,7 @@ func (j *junitReporter) Flush() error {
 				Time: fmt.Sprintf("%.6f", node.Duration.Seconds()),
 			}
 
-			if strings.EqualFold(node.State, mnnode.StringNodeState(mnnode.NODE_STATE_SUCCESS)) {
+			if strings.EqualFold(node.State, mflow.StringNodeState(mflow.NODE_STATE_SUCCESS)) {
 				// no failure
 			} else {
 				failureType := node.State
@@ -389,7 +389,7 @@ func (c *consoleReporter) HandleFlowStart(info FlowStartInfo) {
 }
 
 func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
-	if event.Status.State == mnnode.NODE_STATE_RUNNING {
+	if event.Status.State == mflow.NODE_STATE_RUNNING {
 		return
 	}
 
@@ -401,10 +401,10 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 	}
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	statusStr := mnnode.StringNodeStateWithIcons(event.Status.State)
+	statusStr := mflow.StringNodeStateWithIcons(event.Status.State)
 	fmt.Printf(state.rowFormat, timestamp, event.Status.Name, FormatDuration(event.Status.RunDuration), statusStr)
 
-	if event.Status.State == mnnode.NODE_STATE_SUCCESS {
+	if event.Status.State == mflow.NODE_STATE_SUCCESS {
 		c.mu.Lock()
 		state.successCount++
 		c.mu.Unlock()

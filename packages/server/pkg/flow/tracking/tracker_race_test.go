@@ -4,8 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/flow/tracking"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestVariableTracker_ConcurrentAccess(t *testing.T) {

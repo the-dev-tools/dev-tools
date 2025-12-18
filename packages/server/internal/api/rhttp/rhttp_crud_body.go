@@ -566,143 +566,143 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		if item.Enabled != nil {
 			existingBodyUrlEncoded.Enabled = *item.Enabled
 		}
-		        if item.Description != nil {
-		            existingBodyUrlEncoded.Description = *item.Description
-		        }
-		        if item.Order != nil {
-		            existingBodyUrlEncoded.DisplayOrder = *item.Order
-		        }
-		    }
-		
-		    // Step 3: Execute updates in transaction
-		    tx, err := h.DB.BeginTx(ctx, nil)
-		    if err != nil {
-		        return nil, connect.NewError(connect.CodeInternal, err)
-		    }
-		    defer devtoolsdb.TxnRollback(tx)
-		
-		    bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
-		    var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
-		
-		    for _, data := range updateData {
-		        if err := bodyUrlEncodedWriter.Update(ctx, data.existingBodyUrlEncoded); err != nil {
-		            return nil, connect.NewError(connect.CodeInternal, err)
-		        }
-		        updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
-		    }
-		
-		    if err := tx.Commit(); err != nil {
-		        return nil, connect.NewError(connect.CodeInternal, err)
-		    }
-		
-		    // Publish update events for real-time sync
-		    for _, bodyUrlEncoded := range updatedBodyUrlEncodeds {
-		        // Get workspace ID for the HTTP entry
-		        httpEntry, err := h.httpReader.Get(ctx, bodyUrlEncoded.HttpID)
-		        if err != nil {
-		            continue
-		        }
-		        h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
-		            Type:               eventTypeUpdate,
-		            IsDelta:            bodyUrlEncoded.IsDelta,
-		            HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
-		        })
-		    }
-		
-		    return connect.NewResponse(&emptypb.Empty{}), nil
+		if item.Description != nil {
+			existingBodyUrlEncoded.Description = *item.Description
 		}
-		
-		func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-		    if len(req.Msg.GetItems()) == 0 {
-		        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
-		    }
-		
-		    // Step 1: Gather data and check permissions OUTSIDE transaction
-		    var deleteData []struct {
-		        bodyUrlEncodedID       idwrap.IDWrap
-		        existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-		        workspaceID            idwrap.IDWrap
-		    }
-		
-		    for _, item := range req.Msg.Items {
-		        if len(item.HttpBodyUrlEncodedId) == 0 {
-		            return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_url_encoded_id is required"))
-		        }
-		
-		        bodyUrlEncodedID, err := idwrap.NewFromBytes(item.HttpBodyUrlEncodedId)
-		        if err != nil {
-		            return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		        }
-		
-		        // Get existing body URL encoded - use pool service
-		        existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyUrlEncodedID)
-		        if err != nil {
-		            if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
-		                return nil, connect.NewError(connect.CodeNotFound, err)
-		            }
-		            return nil, connect.NewError(connect.CodeInternal, err)
-		        }
-		
-		        // Verify the HTTP entry exists and user has access - use pool service
-		        httpEntry, err := h.httpReader.Get(ctx, existingBodyUrlEncoded.HttpID)
-		        if err != nil {
-		            if errors.Is(err, shttp.ErrNoHTTPFound) {
-		                return nil, connect.NewError(connect.CodeNotFound, err)
-		            }
-		            return nil, connect.NewError(connect.CodeInternal, err)
-		        }
-		
-		        // Check delete access to the workspace
-		        if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
-		            return nil, err
-		        }
-		
-		        deleteData = append(deleteData, struct {
-		            bodyUrlEncodedID       idwrap.IDWrap
-		            existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-		            workspaceID            idwrap.IDWrap
-		        }{
-		            bodyUrlEncodedID:       bodyUrlEncodedID,
-		            existingBodyUrlEncoded: existingBodyUrlEncoded,
-		            workspaceID:            httpEntry.WorkspaceID,
-		        })
-		    }
-		
-		    // Step 2: Execute deletes in transaction
-		    tx, err := h.DB.BeginTx(ctx, nil)
-		    if err != nil {
-		        return nil, connect.NewError(connect.CodeInternal, err)
-		    }
-		    defer devtoolsdb.TxnRollback(tx)
-		
-		    bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
-		    var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
-		    var deletedWorkspaceIDs []idwrap.IDWrap
-		
-		    for _, data := range deleteData {
-		        if err := bodyUrlEncodedWriter.Delete(ctx, data.bodyUrlEncodedID); err != nil {
-		            return nil, connect.NewError(connect.CodeInternal, err)
-		        }
-		
-		        deletedBodyUrlEncodeds = append(deletedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
-		        deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
-		    }
-		
-		    if err := tx.Commit(); err != nil {
-		        return nil, connect.NewError(connect.CodeInternal, err)
-		    }
-		
-		    // Publish delete events for real-time sync
-		    for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
-		        h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
-		            Type:               eventTypeDelete,
-		            IsDelta:            bodyUrlEncoded.IsDelta,
-		            HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
-		        })
-		    }
-		
-		    return connect.NewResponse(&emptypb.Empty{}), nil
+		if item.Order != nil {
+			existingBodyUrlEncoded.DisplayOrder = *item.Order
 		}
+	}
+
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
+	var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
+
+	for _, data := range updateData {
+		if err := bodyUrlEncodedWriter.Update(ctx, data.existingBodyUrlEncoded); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync
+	for _, bodyUrlEncoded := range updatedBodyUrlEncodeds {
+		// Get workspace ID for the HTTP entry
+		httpEntry, err := h.httpReader.Get(ctx, bodyUrlEncoded.HttpID)
+		if err != nil {
+			continue
+		}
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
+			Type:               eventTypeUpdate,
+			IsDelta:            bodyUrlEncoded.IsDelta,
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		bodyUrlEncodedID       idwrap.IDWrap
+		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
+		workspaceID            idwrap.IDWrap
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.HttpBodyUrlEncodedId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_url_encoded_id is required"))
+		}
+
+		bodyUrlEncodedID, err := idwrap.NewFromBytes(item.HttpBodyUrlEncodedId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing body URL encoded - use pool service
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyUrlEncodedID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify the HTTP entry exists and user has access - use pool service
+		httpEntry, err := h.httpReader.Get(ctx, existingBodyUrlEncoded.HttpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		deleteData = append(deleteData, struct {
+			bodyUrlEncodedID       idwrap.IDWrap
+			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
+			workspaceID            idwrap.IDWrap
+		}{
+			bodyUrlEncodedID:       bodyUrlEncodedID,
+			existingBodyUrlEncoded: existingBodyUrlEncoded,
+			workspaceID:            httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
+	var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		if err := bodyUrlEncodedWriter.Delete(ctx, data.bodyUrlEncodedID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedBodyUrlEncodeds = append(deletedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync
+	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
+		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
+			Type:               eventTypeDelete,
+			IsDelta:            bodyUrlEncoded.IsDelta,
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
 func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyRawCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {

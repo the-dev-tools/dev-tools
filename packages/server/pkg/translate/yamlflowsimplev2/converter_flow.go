@@ -11,10 +11,7 @@ import (
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
@@ -95,7 +92,7 @@ type StepProcessingResult struct {
 // processFlowVariables processes flow variables and returns a variable map
 func processFlowVariables(flowEntry YamlFlowFlowV2, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) (varsystem.VarMap, error) {
 	for _, variable := range flowEntry.Variables {
-		flowVar := mflowvariable.FlowVariable{
+		flowVar := mflow.FlowVariable{
 			ID:      idwrap.NewNow(),
 			FlowID:  flowID,
 			Name:    variable.Name,
@@ -124,8 +121,8 @@ type HTTPAssociatedData struct {
 	BodyRaw        mhttp.HTTPBodyRaw
 	BodyForms      []mhttp.HTTPBodyForm
 	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
-	FlowNode       *mnnode.MNode
-	RequestNode    *mnrequest.MNRequest
+	FlowNode       *mflow.Node
+	RequestNode    *mflow.NodeRequest
 }
 
 func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, steps []YamlStepWrapper, startNodeFound bool, result *ioworkspace.WorkspaceBundle) error {

@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 var ErrNoNodeFound error = sql.ErrNoRows
@@ -42,23 +42,23 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeService, error) {
 	}, nil
 }
 
-func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnnode.MNode, error) {
+func (ns NodeService) GetNode(ctx context.Context, id idwrap.IDWrap) (*mflow.Node, error) {
 	return ns.reader.GetNode(ctx, id)
 }
 
-func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnode.MNode, error) {
+func (ns NodeService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mflow.Node, error) {
 	return ns.reader.GetNodesByFlowID(ctx, flowID)
 }
 
-func (ns NodeService) CreateNode(ctx context.Context, n mnnode.MNode) error {
+func (ns NodeService) CreateNode(ctx context.Context, n mflow.Node) error {
 	return NewWriterFromQueries(ns.queries).CreateNode(ctx, n)
 }
 
-func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) error {
+func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mflow.Node) error {
 	return NewWriterFromQueries(ns.queries).CreateNodeBulk(ctx, nodes)
 }
 
-func (ns NodeService) UpdateNode(ctx context.Context, n mnnode.MNode) error {
+func (ns NodeService) UpdateNode(ctx context.Context, n mflow.Node) error {
 	return NewWriterFromQueries(ns.queries).UpdateNode(ctx, n)
 }
 

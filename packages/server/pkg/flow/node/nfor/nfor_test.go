@@ -12,8 +12,7 @@ import (
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type failingNode struct {
@@ -62,7 +61,7 @@ func (n failingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 			ExecutionID: req.ExecutionID,
 			NodeID:      n.id,
 			Name:        n.name,
-			State:       mnnode.NODE_STATE_FAILURE,
+			State:       mflow.NODE_STATE_FAILURE,
 			Error:       n.err,
 		})
 	}
@@ -78,7 +77,7 @@ func (n failingNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, re
 			ExecutionID: req.ExecutionID,
 			NodeID:      n.id,
 			Name:        n.name,
-			State:       mnnode.NODE_STATE_FAILURE,
+			State:       mflow.NODE_STATE_FAILURE,
 			Error:       n.err,
 		})
 	}
@@ -90,7 +89,7 @@ func TestNodeForDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 	childID := idwrap.NewNow()
 	childErr := errors.New("child execution failed")
 
-	loop := New(loopID, "LoopNode", 1, 0, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+	loop := New(loopID, "LoopNode", 1, 0, mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	childRan := false
 	child := failingNode{id: childID, name: "Child", err: childErr, ran: &childRan}
 
@@ -130,14 +129,14 @@ func TestNodeForDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 	loopCancelled := false
 	var loopFailure runner.FlowNodeStatus
 	for _, st := range statuses {
-		if st.NodeID == childID && st.State == mnnode.NODE_STATE_FAILURE {
+		if st.NodeID == childID && st.State == mflow.NODE_STATE_FAILURE {
 			childLogged = true
 		}
-		if st.NodeID == loopID && st.State == mnnode.NODE_STATE_FAILURE {
+		if st.NodeID == loopID && st.State == mflow.NODE_STATE_FAILURE {
 			loopFailureLogged = true
 			loopFailure = st
 		}
-		if st.NodeID == loopID && st.State == mnnode.NODE_STATE_CANCELED {
+		if st.NodeID == loopID && st.State == mflow.NODE_STATE_CANCELED {
 			loopCancelled = true
 		}
 		require.NotEqual(t, "Error Summary", st.Name)
@@ -159,7 +158,7 @@ func TestNodeForDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 
 func TestNodeForSetsIterationEventFlag(t *testing.T) {
 	loopID := idwrap.NewNow()
-	loop := New(loopID, "LoopNode", 2, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loop := New(loopID, "LoopNode", 2, 0, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 
 	edgeMap := edge.EdgesMap{
 		loopID: {
@@ -196,7 +195,7 @@ func TestNodeForSetsIterationEventFlag(t *testing.T) {
 	for _, st := range iterationEvents {
 		require.Equal(t, loopID, st.LoopNodeID)
 		require.True(t, st.IterationIndex == 0 || st.IterationIndex == 1)
-		require.True(t, st.State == mnnode.NODE_STATE_RUNNING || st.State == mnnode.NODE_STATE_SUCCESS)
+		require.True(t, st.State == mflow.NODE_STATE_RUNNING || st.State == mflow.NODE_STATE_SUCCESS)
 	}
 	require.NotNil(t, finalStatus, "expected loop terminal status")
 	require.False(t, finalStatus.IterationEvent)
@@ -209,7 +208,7 @@ func TestNodeForSkipsDuplicateLoopEntryTargets(t *testing.T) {
 	nodeBID := idwrap.NewNow()
 	nodeCID := idwrap.NewNow()
 
-	loop := New(loopID, "LoopNode", 1, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loop := New(loopID, "LoopNode", 1, 0, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 
 	var nodeARuns, nodeBRuns, nodeCRuns int
 

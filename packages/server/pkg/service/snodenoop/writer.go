@@ -5,7 +5,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -20,12 +20,12 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
+func (w *Writer) CreateNodeNoop(ctx context.Context, nf mflow.NodeNoop) error {
 	convertedNode := ConvertToDBNodeStart(nf)
 	return w.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams(convertedNode))
 }
 
-func (w *Writer) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.NoopNode) error {
+func (w *Writer) CreateNodeNoopBulk(ctx context.Context, nf []mflow.NodeNoop) error {
 	for _, n := range nf {
 		convertedNode := ConvertToDBNodeStart(n)
 		err := w.queries.CreateFlowNodeNoop(ctx, gen.CreateFlowNodeNoopParams(convertedNode))
@@ -36,7 +36,7 @@ func (w *Writer) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.NoopNode) e
 	return nil
 }
 
-func (w *Writer) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
+func (w *Writer) UpdateNodeNoop(ctx context.Context, nf mflow.NodeNoop) error {
 	// Since there's no UpdateFlowNodeNoop query, we'll use delete + create pattern
 	// Note: In strict segregation, using w.DeleteNodeNoop directly is fine as it's within the Writer struct
 	if err := w.DeleteNodeNoop(ctx, nf.FlowNodeID); err != nil && !errors.Is(err, ErrNoNodeForFound) {

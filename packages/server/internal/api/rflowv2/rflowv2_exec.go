@@ -24,15 +24,6 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
@@ -127,9 +118,9 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 func (s *FlowServiceV2RPC) executeFlow(
 	ctx context.Context,
 	flow mflow.Flow,
-	nodes []mnnode.MNode,
+	nodes []mflow.Node,
 	edges []edge.Edge,
-	flowVars []mflowvariable.FlowVariable,
+	flowVars []mflow.FlowVariable,
 	versionFlowID idwrap.IDWrap,
 	nodeIDMapping map[string]idwrap.IDWrap,
 	userID idwrap.IDWrap,
@@ -229,7 +220,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	stateDrain.Add(1)
 	go func() {
 		defer stateDrain.Done()
-		
+
 		// Cache execution IDs to ensure stability across multiple events for the same execution
 		// Key: NodeID + Iteration info
 		executionCache := make(map[string]idwrap.IDWrap)
@@ -258,7 +249,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 				}
 			}
 
-			model := mnodeexecution.NodeExecution{
+			model := mflow.NodeExecution{
 				ID:         execID,
 				NodeID:     status.NodeID,
 				Name:       status.Name,
@@ -283,9 +274,9 @@ func (s *FlowServiceV2RPC) executeFlow(
 			}
 
 			// Set CompletedAt for terminal states
-			if status.State == mnnode.NODE_STATE_SUCCESS ||
-				status.State == mnnode.NODE_STATE_FAILURE ||
-				status.State == mnnode.NODE_STATE_CANCELED {
+			if status.State == mflow.NODE_STATE_SUCCESS ||
+				status.State == mflow.NODE_STATE_FAILURE ||
+				status.State == mflow.NODE_STATE_CANCELED {
 				now := time.Now().Unix()
 				model.CompletedAt = &now
 			}
@@ -294,9 +285,9 @@ func (s *FlowServiceV2RPC) executeFlow(
 			// Only use UPDATE if it's NOT a new execution AND the state is terminal.
 			// If it's a new execution (first time seeing this node run), we MUST send INSERT,
 			// even if the state is already SUCCESS/FAILURE (instant execution).
-			if !isNewExecution && (status.State == mnnode.NODE_STATE_SUCCESS ||
-				status.State == mnnode.NODE_STATE_FAILURE ||
-				status.State == mnnode.NODE_STATE_CANCELED) {
+			if !isNewExecution && (status.State == mflow.NODE_STATE_SUCCESS ||
+				status.State == mflow.NODE_STATE_FAILURE ||
+				status.State == mflow.NODE_STATE_CANCELED) {
 				eventType = executionEventUpdate
 			}
 
@@ -330,7 +321,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 			// Also create execution for the version node so history shows correct state
 			if versionNodeID, ok := nodeIDMapping[status.NodeID.String()]; ok {
-				versionModel := mnodeexecution.NodeExecution{
+				versionModel := mflow.NodeExecution{
 					ID:                     idwrap.NewNow(),
 					NodeID:                 versionNodeID,
 					Name:                   model.Name,
@@ -405,16 +396,16 @@ func (s *FlowServiceV2RPC) executeFlow(
 				})
 			}
 
-			if s.logStream != nil && status.State != mnnode.NODE_STATE_RUNNING {
+			if s.logStream != nil && status.State != mflow.NODE_STATE_RUNNING {
 				idStr := status.NodeID.String()
-				stateStr := mnnode.StringNodeState(status.State)
+				stateStr := mflow.StringNodeState(status.State)
 				msg := fmt.Sprintf("Node %s: %s", idStr, stateStr)
 
 				var logLevel logv1.LogLevel
 				switch status.State {
-				case mnnode.NODE_STATE_FAILURE:
+				case mflow.NODE_STATE_FAILURE:
 					logLevel = logv1.LogLevel_LOG_LEVEL_ERROR
-				case mnnode.NODE_STATE_CANCELED:
+				case mflow.NODE_STATE_CANCELED:
 					logLevel = logv1.LogLevel_LOG_LEVEL_WARNING
 				default:
 					logLevel = logv1.LogLevel_LOG_LEVEL_UNSPECIFIED
@@ -540,9 +531,9 @@ func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[fl
 func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	ctx context.Context,
 	sourceFlow mflow.Flow,
-	sourceNodes []mnnode.MNode,
+	sourceNodes []mflow.Node,
 	sourceEdges []edge.Edge,
-	sourceVars []mflowvariable.FlowVariable,
+	sourceVars []mflow.FlowVariable,
 ) (mflow.Flow, map[string]idwrap.IDWrap, error) {
 	// Create the version flow record
 	version, err := s.fs.CreateFlowVersion(ctx, sourceFlow)
@@ -567,7 +558,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		nodeIDMapping[sourceNode.ID.String()] = newNodeID
 
 		// Create the base node
-		newNode := mnnode.MNode{
+		newNode := mflow.Node{
 			ID:        newNodeID,
 			FlowID:    versionFlowID,
 			Name:      sourceNode.Name,
@@ -582,10 +573,10 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		// Duplicate node-type specific data and collect events
 		switch sourceNode.NodeKind {
-		case mnnode.NODE_KIND_NO_OP:
+		case mflow.NODE_KIND_NO_OP:
 			noopData, err := s.nnos.GetNodeNoop(ctx, sourceNode.ID)
 			if err == nil {
-				newNoopData := mnnoop.NoopNode{
+				newNoopData := mflow.NodeNoop{
 					FlowNodeID: newNodeID,
 					Type:       noopData.Type,
 				}
@@ -599,11 +590,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				})
 			}
 
-		case mnnode.NODE_KIND_REQUEST:
+		case mflow.NODE_KIND_REQUEST:
 			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
 			if err == nil {
 				// Copy the request node config (referencing same HTTP, not duplicating)
-				newRequestData := mnrequest.MNRequest{
+				newRequestData := mflow.NodeRequest{
 					FlowNodeID:       newNodeID,
 					HttpID:           requestData.HttpID,
 					DeltaHttpID:      requestData.DeltaHttpID,
@@ -615,10 +606,10 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				// Request node events are handled through nodeStream subscription
 			}
 
-		case mnnode.NODE_KIND_FOR:
+		case mflow.NODE_KIND_FOR:
 			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
 			if err == nil {
-				newForData := mnfor.MNFor{
+				newForData := mflow.NodeFor{
 					FlowNodeID:    newNodeID,
 					IterCount:     forData.IterCount,
 					Condition:     forData.Condition,
@@ -634,10 +625,10 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				})
 			}
 
-		case mnnode.NODE_KIND_FOR_EACH:
+		case mflow.NODE_KIND_FOR_EACH:
 			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
 			if err == nil {
-				newForEachData := mnforeach.MNForEach{
+				newForEachData := mflow.NodeForEach{
 					FlowNodeID:     newNodeID,
 					IterExpression: forEachData.IterExpression,
 					Condition:      forEachData.Condition,
@@ -649,10 +640,10 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				// ForEach node events are handled through nodeStream subscription
 			}
 
-		case mnnode.NODE_KIND_CONDITION:
+		case mflow.NODE_KIND_CONDITION:
 			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
 			if err == nil {
-				newConditionData := mnif.MNIF{
+				newConditionData := mflow.NodeIf{
 					FlowNodeID: newNodeID,
 					Condition:  conditionData.Condition,
 				}
@@ -662,10 +653,10 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				// Condition node events are handled through nodeStream subscription
 			}
 
-		case mnnode.NODE_KIND_JS:
+		case mflow.NODE_KIND_JS:
 			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
 			if err == nil {
-				newJsData := mnjs.MNJS{
+				newJsData := mflow.NodeJS{
 					FlowNodeID:       newNodeID,
 					Code:             jsData.Code,
 					CodeCompressType: jsData.CodeCompressType,
@@ -742,7 +733,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// Duplicate all flow variables
 	varEvents := make([]FlowVariableEvent, 0, len(sourceVars))
 	for _, sourceVar := range sourceVars {
-		newVar := mflowvariable.FlowVariable{
+		newVar := mflow.FlowVariable{
 			ID:          idwrap.NewNow(),
 			FlowID:      versionFlowID,
 			Name:        sourceVar.Name,

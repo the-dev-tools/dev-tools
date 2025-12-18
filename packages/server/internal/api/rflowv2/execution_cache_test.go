@@ -23,8 +23,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
@@ -159,9 +157,9 @@ func TestExecutionCache(t *testing.T) {
 	require.NoError(t, err)
 
 	startNodeID := idwrap.NewNow()
-	err = nodeService.CreateNode(ctx, mnnode.MNode{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP})
+	err = nodeService.CreateNode(ctx, mflow.Node{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP})
 	require.NoError(t, err)
-	err = noopService.CreateNodeNoop(ctx, mnnoop.NoopNode{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START})
+	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START})
 	require.NoError(t, err)
 
 	// 5. Capture Events to verify ID stability

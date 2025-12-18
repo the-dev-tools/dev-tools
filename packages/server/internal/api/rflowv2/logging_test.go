@@ -21,8 +21,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -68,6 +66,11 @@ func TestFlowRun_Logging(t *testing.T) {
 	jsService := snodejs.New(queries)
 	varService := svar.New(queries, logger)
 
+	// Readers
+	wsReader := sworkspace.NewReaderFromQueries(queries)
+	fsReader := sflow.NewReaderFromQueries(queries)
+	nsReader := snode.NewReaderFromQueries(queries)
+
 	// Mock resolver (or use standard with nil services if not used in test)
 	// Since we only use NoOp node in this test, resolver won't be called for requests
 	// But builder needs it.
@@ -94,6 +97,10 @@ func TestFlowRun_Logging(t *testing.T) {
 	)
 
 	svc := &FlowServiceV2RPC{
+		DB:           db,
+		wsReader:     wsReader,
+		fsReader:     fsReader,
+		nsReader:     nsReader,
 		ws:           &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
@@ -147,20 +154,20 @@ func TestFlowRun_Logging(t *testing.T) {
 
 	// Create Start Node (NoOp)
 	startNodeID := idwrap.NewNow()
-	startNode := mnnode.MNode{
+	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
 	require.NoError(t, err)
 
-	err = noopService.CreateNodeNoop(ctx, mnnoop.NoopNode{
+	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
 		FlowNodeID: startNodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	})
 	require.NoError(t, err)
 

@@ -9,7 +9,8 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestBodyTracking(t *testing.T) {
 	// Setup
@@ -36,10 +37,10 @@ func TestBodyTracking(t *testing.T) {
 	res, err := request.PrepareHTTPRequestWithTracking(
 		httpReq,
 		headers,
-		nil,      // params
+		nil, // params
 		rawBody,
-		nil,      // form
-		nil,      // urlEncoded
+		nil, // form
+		nil, // urlEncoded
 		varMap,
 	)
 	require.NoError(t, err, "PrepareHTTPRequestWithTracking failed")

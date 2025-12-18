@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -282,10 +283,10 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 
 	asserts := []mhttp.HTTPAssert{
 		{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Enabled:     true,
-			Value: "response.status == 205",
+			ID:      idwrap.NewNow(),
+			HttpID:  httpID,
+			Enabled: true,
+			Value:   "response.status == 205",
 		},
 	}
 
@@ -344,10 +345,10 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 	}
 	asserts := []mhttp.HTTPAssert{
 		{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Enabled:     true,
-			Value: "response.status == 205",
+			ID:      idwrap.NewNow(),
+			HttpID:  httpID,
+			Enabled: true,
+			Value:   "response.status == 205",
 		},
 	}
 
@@ -440,10 +441,10 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 	}
 	asserts := []mhttp.HTTPAssert{
 		{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Enabled:     true,
-			Value: "response.status == 205",
+			ID:      idwrap.NewNow(),
+			HttpID:  httpID,
+			Enabled: true,
+			Value:   "response.status == 205",
 		},
 	}
 

@@ -15,7 +15,8 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 	tests := []struct {
@@ -306,10 +307,10 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 
 	baseAsserts := []mhttp.HTTPAssert{
 		{
-			ID:          idwrap.NewNow(),
-			HttpID:      baseExampleID,
-			Value: "response.status == 200",
-			Enabled:     true,
+			ID:      idwrap.NewNow(),
+			HttpID:  baseExampleID,
+			Value:   "response.status == 200",
+			Enabled: true,
 		},
 	}
 
@@ -336,10 +337,10 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 
 	deltaAsserts := []mhttp.HTTPAssert{
 		{
-			ID:          idwrap.NewNow(),
-			HttpID:      deltaExampleID,
-			Value: "response.status == 201",
-			Enabled:     true,
+			ID:      idwrap.NewNow(),
+			HttpID:  deltaExampleID,
+			Value:   "response.status == 201",
+			Enabled: true,
 		},
 	}
 
@@ -479,10 +480,10 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 	baseAssertIDWithParent := idwrap.NewNow()
 	baseAssertsWithParent := []mhttp.HTTPAssert{
 		{
-			ID:          baseAssertIDWithParent,
-			HttpID:      baseExampleID,
-			Value: "response.status == 200",
-			Enabled:     true,
+			ID:      baseAssertIDWithParent,
+			HttpID:  baseExampleID,
+			Value:   "response.status == 200",
+			Enabled: true,
 		},
 	}
 
@@ -509,11 +510,11 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 
 	deltaAsserts := []mhttp.HTTPAssert{
 		{
-			ID:             idwrap.NewNow(),
-			HttpID:         deltaExampleID,
+			ID:                 idwrap.NewNow(),
+			HttpID:             deltaExampleID,
 			ParentHttpAssertID: &baseAssertIDWithParent,
-			Value:    "response.status == 201",
-			Enabled:        true,
+			Value:              "response.status == 201",
+			Enabled:            true,
 		},
 	}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -19,12 +19,12 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
+func (w *Writer) CreateNodeForEach(ctx context.Context, nf mflow.NodeForEach) error {
 	nodeForEach := ConvertToDBNodeFor(nf)
 	return w.queries.CreateFlowNodeForEach(ctx, gen.CreateFlowNodeForEachParams(nodeForEach))
 }
 
-func (w *Writer) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mnforeach.MNForEach) error {
+func (w *Writer) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mflow.NodeForEach) error {
 	var err error
 	for _, forEachNode := range forEachNodes {
 		err = w.CreateNodeForEach(ctx, forEachNode)
@@ -35,7 +35,7 @@ func (w *Writer) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mnfor
 	return err
 }
 
-func (w *Writer) UpdateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
+func (w *Writer) UpdateNodeForEach(ctx context.Context, nf mflow.NodeForEach) error {
 	nodeForEach := ConvertToDBNodeFor(nf)
 	return w.queries.UpdateFlowNodeForEach(ctx, gen.UpdateFlowNodeForEachParams{
 		FlowNodeID:     nodeForEach.FlowNodeID,

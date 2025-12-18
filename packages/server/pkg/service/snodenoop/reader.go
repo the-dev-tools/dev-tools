@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Reader struct {
@@ -20,7 +20,7 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	return &Reader{queries: queries}
 }
 
-func (r *Reader) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*mnnoop.NoopNode, error) {
+func (r *Reader) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeNoop, error) {
 	nodeFor, err := r.queries.GetFlowNodeNoop(ctx, id)
 	if err != nil {
 		return nil, err
@@ -28,9 +28,9 @@ func (r *Reader) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*mnnoop.Noo
 	return ConvertToModelNodeStart(nodeFor), nil
 }
 
-func (r *Reader) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnoop.NoopNode, error) {
+func (r *Reader) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mflow.NodeNoop, error) {
 	// Since there's no dedicated query for getting all NoOp nodes by flow ID,
 	// we'll need to implement this at a higher level or add a SQL query.
 	// For now, return empty slice to make it work with the collection API.
-	return []mnnoop.NoopNode{}, nil
+	return []mflow.NodeNoop{}, nil
 }

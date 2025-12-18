@@ -33,22 +33,22 @@ func NewBodyFormWriterFromQueries(queries *gen.Queries) *BodyFormWriter {
 func (w *BodyFormWriter) Create(ctx context.Context, body *mhttp.HTTPBodyForm) error {
 	bf := SerializeBodyFormModelToGen(*body)
 	return w.queries.CreateHTTPBodyForm(ctx, gen.CreateHTTPBodyFormParams{
-		ID:                    bf.ID,
-		HttpID:                bf.HttpID,
-		Key:                   bf.Key,
-		Value:                 bf.Value,
-		Description:           bf.Description,
-		Enabled:               bf.Enabled,
-		DisplayOrder:          bf.DisplayOrder,
-		ParentHttpBodyFormID:  bf.ParentHttpBodyFormID,
-		IsDelta:               bf.IsDelta,
-		DeltaKey:              bf.DeltaKey,
-		DeltaValue:            bf.DeltaValue,
-		DeltaDescription:      bf.DeltaDescription,
-		DeltaEnabled:          bf.DeltaEnabled,
-		DeltaDisplayOrder:     bf.DeltaDisplayOrder,
-		CreatedAt:             bf.CreatedAt,
-		UpdatedAt:             bf.UpdatedAt,
+		ID:                   bf.ID,
+		HttpID:               bf.HttpID,
+		Key:                  bf.Key,
+		Value:                bf.Value,
+		Description:          bf.Description,
+		Enabled:              bf.Enabled,
+		DisplayOrder:         bf.DisplayOrder,
+		ParentHttpBodyFormID: bf.ParentHttpBodyFormID,
+		IsDelta:              bf.IsDelta,
+		DeltaKey:             bf.DeltaKey,
+		DeltaValue:           bf.DeltaValue,
+		DeltaDescription:     bf.DeltaDescription,
+		DeltaEnabled:         bf.DeltaEnabled,
+		DeltaDisplayOrder:    bf.DeltaDisplayOrder,
+		CreatedAt:            bf.CreatedAt,
+		UpdatedAt:            bf.UpdatedAt,
 	})
 }
 

@@ -18,22 +18,13 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
-func isStartNode(node mnnode.MNode) bool {
-	if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+func isStartNode(node mflow.Node) bool {
+	if node.NodeKind != mflow.NODE_KIND_NO_OP {
 		return false
 	}
 	return strings.EqualFold(node.Name, "start")
@@ -64,7 +55,7 @@ func serializeEdge(e edge.Edge) *flowv1.Edge {
 	}
 }
 
-func serializeNode(n mnnode.MNode) *flowv1.Node {
+func serializeNode(n mflow.Node) *flowv1.Node {
 	position := &flowv1.Position{
 		X: float32(n.PositionX),
 		Y: float32(n.PositionY),
@@ -80,7 +71,7 @@ func serializeNode(n mnnode.MNode) *flowv1.Node {
 	}
 }
 
-func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
+func serializeNodeHTTP(n mflow.NodeRequest) *flowv1.NodeHttp {
 	if n.HttpID == nil {
 		return &flowv1.NodeHttp{
 			NodeId: n.FlowNodeID.Bytes(),
@@ -96,14 +87,14 @@ func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
 	return msg
 }
 
-func serializeNodeNoop(n mnnoop.NoopNode) *flowv1.NodeNoOp {
+func serializeNodeNoop(n mflow.NodeNoop) *flowv1.NodeNoOp {
 	return &flowv1.NodeNoOp{
 		NodeId: n.FlowNodeID.Bytes(),
 		Kind:   converter.ToAPINodeNoOpKind(n.Type),
 	}
 }
 
-func serializeNodeFor(n mnfor.MNFor) *flowv1.NodeFor {
+func serializeNodeFor(n mflow.NodeFor) *flowv1.NodeFor {
 	return &flowv1.NodeFor{
 		NodeId:        n.FlowNodeID.Bytes(),
 		Iterations:    int32(n.IterCount), // nolint:gosec // G115
@@ -112,14 +103,14 @@ func serializeNodeFor(n mnfor.MNFor) *flowv1.NodeFor {
 	}
 }
 
-func serializeNodeCondition(n mnif.MNIF) *flowv1.NodeCondition {
+func serializeNodeCondition(n mflow.NodeIf) *flowv1.NodeCondition {
 	return &flowv1.NodeCondition{
 		NodeId:    n.FlowNodeID.Bytes(),
 		Condition: n.Condition.Comparisons.Expression,
 	}
 }
 
-func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
+func serializeNodeForEach(n mflow.NodeForEach) *flowv1.NodeForEach {
 	return &flowv1.NodeForEach{
 		NodeId:        n.FlowNodeID.Bytes(),
 		Path:          n.IterExpression,
@@ -128,14 +119,14 @@ func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
 	}
 }
 
-func serializeNodeJs(n mnjs.MNJS) *flowv1.NodeJs {
+func serializeNodeJs(n mflow.NodeJS) *flowv1.NodeJs {
 	return &flowv1.NodeJs{
 		NodeId: n.FlowNodeID.Bytes(),
 		Code:   string(n.Code),
 	}
 }
 
-func serializeNodeExecution(execution mnodeexecution.NodeExecution) *flowv1.NodeExecution {
+func serializeNodeExecution(execution mflow.NodeExecution) *flowv1.NodeExecution {
 	result := &flowv1.NodeExecution{
 		NodeExecutionId: execution.ID.Bytes(),
 		NodeId:          execution.NodeID.Bytes(),
@@ -179,7 +170,7 @@ func serializeNodeExecution(execution mnodeexecution.NodeExecution) *flowv1.Node
 	return result
 }
 
-func serializeFlowVariable(variable mflowvariable.FlowVariable) *flowv1.FlowVariable {
+func serializeFlowVariable(variable mflow.FlowVariable) *flowv1.FlowVariable {
 	return &flowv1.FlowVariable{
 		FlowVariableId: variable.ID.Bytes(),
 		FlowId:         variable.FlowID.Bytes(),
@@ -207,7 +198,7 @@ func convertHandle(h flowv1.HandleKind) edge.EdgeHandle {
 	return edge.EdgeHandle(h)
 }
 
-func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mnnode.MNode, error) {
+func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mflow.Node, error) {
 	if item == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node insert item is required"))
 	}
@@ -235,11 +226,11 @@ func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mnno
 		posY = float64(p.GetY())
 	}
 
-	return &mnnode.MNode{
+	return &mflow.Node{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      item.GetName(),
-		NodeKind:  mnnode.NodeKind(item.GetKind()),
+		NodeKind:  mflow.NodeKind(item.GetKind()),
 		PositionX: posX,
 		PositionY: posY,
 	}, nil
@@ -279,7 +270,7 @@ func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.I
 	return connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
 }
 
-func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mnnode.MNode, error) {
+func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mflow.Node, error) {
 	node, err := s.nsReader.GetNode(ctx, nodeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

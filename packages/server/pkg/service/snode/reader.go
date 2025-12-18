@@ -6,7 +6,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -22,7 +22,7 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	return &Reader{queries: queries}
 }
 
-func (r *Reader) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnnode.MNode, error) {
+func (r *Reader) GetNode(ctx context.Context, id idwrap.IDWrap) (*mflow.Node, error) {
 	node, err := r.queries.GetFlowNode(ctx, id)
 	if err != nil {
 		return nil, err
@@ -30,11 +30,11 @@ func (r *Reader) GetNode(ctx context.Context, id idwrap.IDWrap) (*mnnode.MNode, 
 	return ConvertNodeToModel(node), nil
 }
 
-func (r *Reader) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnode.MNode, error) {
+func (r *Reader) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mflow.Node, error) {
 	nodes, err := r.queries.GetFlowNodesByFlowID(ctx, flowID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return []mnnode.MNode{}, nil
+			return []mflow.Node{}, nil
 		}
 		return nil, err
 	}

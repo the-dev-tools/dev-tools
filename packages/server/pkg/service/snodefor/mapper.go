@@ -3,10 +3,10 @@ package snodefor
 import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
-func ConvertToDBNodeFor(nf mnfor.MNFor) gen.FlowNodeFor {
+func ConvertToDBNodeFor(nf mflow.NodeFor) gen.FlowNodeFor {
 	return gen.FlowNodeFor{
 		FlowNodeID:    nf.FlowNodeID,
 		IterCount:     nf.IterCount,
@@ -15,11 +15,11 @@ func ConvertToDBNodeFor(nf mnfor.MNFor) gen.FlowNodeFor {
 	}
 }
 
-func ConvertToModelNodeFor(nf gen.FlowNodeFor) *mnfor.MNFor {
-	return &mnfor.MNFor{
+func ConvertToModelNodeFor(nf gen.FlowNodeFor) *mflow.NodeFor {
+	return &mflow.NodeFor{
 		FlowNodeID:    nf.FlowNodeID,
 		IterCount:     nf.IterCount,
-		ErrorHandling: mnfor.ErrorHandling(nf.ErrorHandling),
+		ErrorHandling: mflow.ErrorHandling(nf.ErrorHandling),
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
 				Expression: nf.Expression,

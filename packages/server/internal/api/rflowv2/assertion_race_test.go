@@ -25,9 +25,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
@@ -181,15 +178,15 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	startNodeID := idwrap.NewNow()
-	err = nodeService.CreateNode(ctx, mnnode.MNode{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP})
+	err = nodeService.CreateNode(ctx, mflow.Node{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP})
 	require.NoError(t, err)
-	err = noopService.CreateNodeNoop(ctx, mnnoop.NoopNode{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START})
+	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START})
 	require.NoError(t, err)
 
 	requestNodeID := idwrap.NewNow()
-	err = nodeService.CreateNode(ctx, mnnode.MNode{ID: requestNodeID, FlowID: flowID, Name: "Request Node", NodeKind: mnnode.NODE_KIND_REQUEST})
+	err = nodeService.CreateNode(ctx, mflow.Node{ID: requestNodeID, FlowID: flowID, Name: "Request Node", NodeKind: mflow.NODE_KIND_REQUEST})
 	require.NoError(t, err)
-	err = nodeRequestService.CreateNodeRequest(ctx, mnrequest.MNRequest{FlowNodeID: requestNodeID, HttpID: &httpID})
+	err = nodeRequestService.CreateNodeRequest(ctx, mflow.NodeRequest{FlowNodeID: requestNodeID, HttpID: &httpID})
 	require.NoError(t, err)
 
 	err = edgeService.CreateEdge(ctx, edge.Edge{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: requestNodeID, SourceHandler: edge.HandleUnspecified})

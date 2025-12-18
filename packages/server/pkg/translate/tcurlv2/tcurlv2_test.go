@@ -3,9 +3,10 @@ package tcurlv2
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mworkspace"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestConvertCurl(t *testing.T) {

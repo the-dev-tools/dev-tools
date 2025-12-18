@@ -13,8 +13,7 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -37,7 +36,7 @@ func (s *FlowServiceV2RPC) NodeForCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, n := range nodes {
-			if n.NodeKind != mnnode.NODE_KIND_FOR {
+			if n.NodeKind != mflow.NODE_KIND_FOR {
 				continue
 			}
 			nodeFor, err := s.nfs.GetNodeFor(ctx, n.ID)
@@ -64,11 +63,11 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		model := mnfor.MNFor{
+		model := mflow.NodeFor{
 			FlowNodeID:    nodeID,
 			IterCount:     int64(item.GetIterations()),
 			Condition:     buildCondition(item.GetCondition()),
-			ErrorHandling: mnfor.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
+			ErrorHandling: mflow.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
 		}
 
 		if err := s.nfs.CreateNodeFor(ctx, model); err != nil {
@@ -105,7 +104,7 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 		}
 
 		if item.ErrorHandling != nil {
-			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
+			existing.ErrorHandling = mflow.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
 		}
 
 		if err := s.nfs.UpdateNodeFor(ctx, *existing); err != nil {
@@ -195,7 +194,7 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 
 			for _, node := range nodes {
 				// Only process For nodes
-				if node.NodeKind != mnnode.NODE_KIND_FOR {
+				if node.NodeKind != mflow.NODE_KIND_FOR {
 					continue
 				}
 
@@ -267,7 +266,7 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishForEvent(eventType string, flowID idwrap.IDWrap, node mnfor.MNFor) {
+func (s *FlowServiceV2RPC) publishForEvent(eventType string, flowID idwrap.IDWrap, node mflow.NodeFor) {
 	if s.forStream == nil {
 		return
 	}

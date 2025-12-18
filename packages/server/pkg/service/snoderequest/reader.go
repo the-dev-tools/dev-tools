@@ -6,7 +6,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Reader struct {
@@ -21,7 +21,7 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	return &Reader{queries: queries}
 }
 
-func (r *Reader) GetNodeRequest(ctx context.Context, id idwrap.IDWrap) (*mnrequest.MNRequest, error) {
+func (r *Reader) GetNodeRequest(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeRequest, error) {
 	nodeHTTP, err := r.queries.GetFlowNodeHTTP(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

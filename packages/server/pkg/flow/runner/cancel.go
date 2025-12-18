@@ -2,8 +2,8 @@
 package runner
 
 import (
-    "context"
-    "errors"
+	"context"
+	"errors"
 )
 
 // ErrFlowCanceledByThrow marks an intentional cancellation triggered by a node (e.g., via a user throw).
@@ -12,9 +12,8 @@ var ErrFlowCanceledByThrow = errors.New("flow canceled by throw")
 
 // IsCancellationError returns true if the error represents a cancellation (explicit throw or context cancellation).
 func IsCancellationError(err error) bool {
-    if err == nil {
-        return false
-    }
-    return errors.Is(err, ErrFlowCanceledByThrow) || errors.Is(err, context.Canceled)
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, ErrFlowCanceledByThrow) || errors.Is(err, context.Canceled)
 }
-

@@ -18,9 +18,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/service/shttp"
 )
 
@@ -121,11 +118,11 @@ type HarResolved struct {
 	Files []mfile.File `json:"files"`
 
 	// Flow Items (preserving existing flow generation)
-	Flow         mflow.Flow            `json:"flow"`
-	Nodes        []mnnode.MNode        `json:"nodes"`
-	RequestNodes []mnrequest.MNRequest `json:"request_nodes"`
-	NoOpNodes    []mnnoop.NoopNode     `json:"no_op_nodes"`
-	Edges        []edge.Edge           `json:"edges"`
+	Flow         mflow.Flow          `json:"flow"`
+	Nodes        []mflow.Node        `json:"nodes"`
+	RequestNodes []mflow.NodeRequest `json:"request_nodes"`
+	NoOpNodes    []mflow.NodeNoop    `json:"no_op_nodes"`
+	Edges        []edge.Edge         `json:"edges"`
 }
 
 // Helper functions for request processing
@@ -275,9 +272,9 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		HTTPBodyUrlEncoded: make([]mhttp.HTTPBodyUrlencoded, 0),
 		HTTPBodyRaws:       make([]mhttp.HTTPBodyRaw, 0),
 		HTTPAsserts:        make([]mhttp.HTTPAssert, 0),
-		Nodes:              make([]mnnode.MNode, 0),
-		RequestNodes:       make([]mnrequest.MNRequest, 0),
-		NoOpNodes:          make([]mnnoop.NoopNode, 0),
+		Nodes:              make([]mflow.Node, 0),
+		RequestNodes:       make([]mflow.NodeRequest, 0),
+		NoOpNodes:          make([]mflow.NodeNoop, 0),
 		Edges:              make([]edge.Edge, 0),
 	}
 
@@ -292,18 +289,18 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 
 	// 1. Create Start Node
 	startNodeID := idwrap.NewNow()
-	startNode := mnnode.MNode{
+	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	result.Nodes = append(result.Nodes, startNode)
-	result.NoOpNodes = append(result.NoOpNodes, mnnoop.NoopNode{
+	result.NoOpNodes = append(result.NoOpNodes, mflow.NodeNoop{
 		FlowNodeID: startNodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	})
 
 	// Tracking variables for dependency rules
@@ -339,11 +336,11 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 
 		// Create Node
 		nodeID := idwrap.NewNow()
-		node := mnnode.MNode{
+		node := mflow.Node{
 			ID:        nodeID,
 			FlowID:    flowID,
 			Name:      fmt.Sprintf("request_%d", nodeCounter),
-			NodeKind:  mnnode.NODE_KIND_REQUEST,
+			NodeKind:  mflow.NODE_KIND_REQUEST,
 			PositionX: currentX,
 			PositionY: 0, // Will be refined later if we implement sophisticated layout, currently horizontal
 		}
@@ -376,7 +373,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		deltaRaw := CreateDeltaBodyRaw(baseRaw, templatedRaw, deltaReq.ID)
 
 		// Create Request Node config
-		reqNode := mnrequest.MNRequest{
+		reqNode := mflow.NodeRequest{
 			FlowNodeID:  nodeID,
 			HttpID:      &baseReq.ID,
 			DeltaHttpID: &deltaReq.ID,
@@ -521,9 +518,9 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		HTTPBodyUrlEncoded: make([]mhttp.HTTPBodyUrlencoded, 0),
 		HTTPBodyRaws:       make([]mhttp.HTTPBodyRaw, 0),
 		HTTPAsserts:        make([]mhttp.HTTPAssert, 0),
-		Nodes:              make([]mnnode.MNode, 0),
-		RequestNodes:       make([]mnrequest.MNRequest, 0),
-		NoOpNodes:          make([]mnnoop.NoopNode, 0),
+		Nodes:              make([]mflow.Node, 0),
+		RequestNodes:       make([]mflow.NodeRequest, 0),
+		NoOpNodes:          make([]mflow.NodeNoop, 0),
 		Edges:              make([]edge.Edge, 0),
 	}
 
@@ -538,18 +535,18 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 
 	// 1. Create Start Node
 	startNodeID := idwrap.NewNow()
-	startNode := mnnode.MNode{
+	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	result.Nodes = append(result.Nodes, startNode)
-	result.NoOpNodes = append(result.NoOpNodes, mnnoop.NoopNode{
+	result.NoOpNodes = append(result.NoOpNodes, mflow.NodeNoop{
 		FlowNodeID: startNodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	})
 
 	// Tracking variables for dependency rules
@@ -595,7 +592,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 			existing, err := httpService.FindByURLAndMethod(ctx, workspaceID, baseReqRaw.Url, baseReqRaw.Method)
 			if err == nil {
 				existingRequest = existing
-				
+
 				// Load existing child entities to ensure accurate delta comparison (Index-based lookups)
 				if h, err := httpService.GetHeadersByHttpID(ctx, existing.ID); err == nil {
 					existingHeaders = h
@@ -746,18 +743,18 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 
 		// Create Node
 		nodeID := idwrap.NewNow()
-		node := mnnode.MNode{
+		node := mflow.Node{
 			ID:        nodeID,
 			FlowID:    flowID,
 			Name:      fmt.Sprintf("request_%d", nodeCounter),
-			NodeKind:  mnnode.NODE_KIND_REQUEST,
+			NodeKind:  mflow.NODE_KIND_REQUEST,
 			PositionX: currentX,
 			PositionY: 0,
 		}
 		currentX += nodeSpacingX
 
 		// Create Request Node config
-		reqNode := mnrequest.MNRequest{
+		reqNode := mflow.NodeRequest{
 			FlowNodeID:  nodeID,
 			HttpID:      &baseRequest.ID,
 			DeltaHttpID: &deltaReq.ID,
@@ -1017,15 +1014,15 @@ func ReorganizeNodePositions(result *HarResolved) error {
 	)
 
 	// Map for quick node lookup
-	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	nodeMap := make(map[idwrap.IDWrap]*mflow.Node)
 	for i := range result.Nodes {
 		nodeMap[result.Nodes[i].ID] = &result.Nodes[i]
 	}
 
 	// Find start node
-	var startNode *mnnode.MNode
+	var startNode *mflow.Node
 	for i := range result.NoOpNodes {
-		if result.NoOpNodes[i].Type == mnnoop.NODE_NO_OP_KIND_START {
+		if result.NoOpNodes[i].Type == mflow.NODE_NO_OP_KIND_START {
 			startNode = nodeMap[result.NoOpNodes[i].FlowNodeID]
 			break
 		}

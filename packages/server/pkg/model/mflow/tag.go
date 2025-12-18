@@ -1,5 +1,5 @@
 //nolint:revive // exported
-package mflowtag
+package mflow
 
 import "the-dev-tools/server/pkg/idwrap"
 

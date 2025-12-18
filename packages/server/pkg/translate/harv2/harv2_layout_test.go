@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/translate/harv2"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestReorganizeNodePositions_Sequential(t *testing.T) {
@@ -51,7 +52,7 @@ func TestReorganizeNodePositions_Sequential(t *testing.T) {
 	require.NoError(t, err)
 
 	// Map nodes by name for easy lookup
-	nodes := make(map[string]mnnode.MNode)
+	nodes := make(map[string]mflow.Node)
 	for _, n := range result.Nodes {
 		nodes[n.Name] = n
 	}
@@ -109,11 +110,11 @@ func TestReorganizeNodePositions_Parallel(t *testing.T) {
 	entries := []harv2.Entry{
 		{
 			StartedDateTime: time.Now(),
-			Request: harv2.Request{Method: "GET", URL: "https://api.com/a"},
+			Request:         harv2.Request{Method: "GET", URL: "https://api.com/a"},
 		},
 		{
 			StartedDateTime: time.Now().Add(10 * time.Second), // Far apart
-			Request: harv2.Request{Method: "GET", URL: "https://api.com/b"},
+			Request:         harv2.Request{Method: "GET", URL: "https://api.com/b"},
 		},
 	}
 
@@ -124,7 +125,7 @@ func TestReorganizeNodePositions_Parallel(t *testing.T) {
 	result, err := harv2.ConvertHARWithDepFinder(har, workspaceID, &depFinder)
 	require.NoError(t, err)
 
-	nodes := make(map[string]mnnode.MNode)
+	nodes := make(map[string]mflow.Node)
 	for _, n := range result.Nodes {
 		nodes[n.Name] = n
 	}

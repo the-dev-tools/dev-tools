@@ -14,7 +14,7 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/snode"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -64,7 +64,7 @@ func (s *FlowServiceV2RPC) NodeInsert(
 	}
 
 	// Step 1: FETCH/CHECK (Outside transaction)
-	var nodeModels []*mnnode.MNode
+	var nodeModels []*mflow.Node
 	for _, item := range req.Msg.GetItems() {
 		nodeModel, err := s.deserializeNodeInsert(item)
 		if err != nil {
@@ -114,7 +114,7 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 
 	// Step 1: FETCH/CHECK (Outside transaction)
 	var updateData []struct {
-		existing *mnnode.MNode
+		existing *mflow.Node
 		item     *flowv1.NodeUpdate
 	}
 
@@ -146,7 +146,7 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 		}
 
 		updateData = append(updateData, struct {
-			existing *mnnode.MNode
+			existing *mflow.Node
 			item     *flowv1.NodeUpdate
 		}{existing: existing, item: item})
 	}
@@ -188,7 +188,7 @@ func (s *FlowServiceV2RPC) NodeDelete(
 
 	// Step 1: FETCH/CHECK (Outside transaction)
 	var deleteData []struct {
-		existing *mnnode.MNode
+		existing *mflow.Node
 	}
 
 	for _, item := range req.Msg.Items {
@@ -201,7 +201,7 @@ func (s *FlowServiceV2RPC) NodeDelete(
 		if err != nil {
 			return nil, err
 		}
-		deleteData = append(deleteData, struct{ existing *mnnode.MNode }{existing: existing})
+		deleteData = append(deleteData, struct{ existing *mflow.Node }{existing: existing})
 	}
 
 	// Step 2: ACT (Inside transaction)
@@ -332,7 +332,7 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishNodeEvent(eventType string, model mnnode.MNode) {
+func (s *FlowServiceV2RPC) publishNodeEvent(eventType string, model mflow.Node) {
 	if s.nodeStream == nil {
 		return
 	}

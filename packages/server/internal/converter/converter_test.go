@@ -5,16 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	filev1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestToAPIHttp(t *testing.T) {
@@ -618,16 +617,16 @@ func TestToAPIFileKind(t *testing.T) {
 
 func TestToAPINodeKind(t *testing.T) {
 	tests := []struct {
-		input    mnnode.NodeKind
+		input    mflow.NodeKind
 		expected flowv1.NodeKind
 	}{
-		{mnnode.NODE_KIND_NO_OP, flowv1.NodeKind_NODE_KIND_NO_OP},
-		{mnnode.NODE_KIND_REQUEST, flowv1.NodeKind_NODE_KIND_HTTP},
-		{mnnode.NODE_KIND_CONDITION, flowv1.NodeKind_NODE_KIND_CONDITION},
-		{mnnode.NODE_KIND_FOR, flowv1.NodeKind_NODE_KIND_FOR},
-		{mnnode.NODE_KIND_FOR_EACH, flowv1.NodeKind_NODE_KIND_FOR_EACH},
-		{mnnode.NODE_KIND_JS, flowv1.NodeKind_NODE_KIND_JS},
-		{mnnode.NodeKind(-1), flowv1.NodeKind_NODE_KIND_NO_OP},
+		{mflow.NODE_KIND_NO_OP, flowv1.NodeKind_NODE_KIND_NO_OP},
+		{mflow.NODE_KIND_REQUEST, flowv1.NodeKind_NODE_KIND_HTTP},
+		{mflow.NODE_KIND_CONDITION, flowv1.NodeKind_NODE_KIND_CONDITION},
+		{mflow.NODE_KIND_FOR, flowv1.NodeKind_NODE_KIND_FOR},
+		{mflow.NODE_KIND_FOR_EACH, flowv1.NodeKind_NODE_KIND_FOR_EACH},
+		{mflow.NODE_KIND_JS, flowv1.NodeKind_NODE_KIND_JS},
+		{mflow.NodeKind(-1), flowv1.NodeKind_NODE_KIND_NO_OP},
 	}
 
 	for _, tt := range tests {
@@ -639,15 +638,15 @@ func TestToAPINodeKind(t *testing.T) {
 
 func TestToAPINodeNoOpKind(t *testing.T) {
 	tests := []struct {
-		input    mnnoop.NoopTypes
+		input    mflow.NoopTypes
 		expected flowv1.NodeNoOpKind
 	}{
-		{mnnoop.NODE_NO_OP_KIND_START, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START},
-		{mnnoop.NODE_NO_OP_KIND_CREATE, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_CREATE},
-		{mnnoop.NODE_NO_OP_KIND_THEN, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_THEN},
-		{mnnoop.NODE_NO_OP_KIND_ELSE, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_ELSE},
-		{mnnoop.NODE_NO_OP_KIND_LOOP, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_LOOP},
-		{mnnoop.NoopTypes(-1), flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START},
+		{mflow.NODE_NO_OP_KIND_START, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START},
+		{mflow.NODE_NO_OP_KIND_CREATE, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_CREATE},
+		{mflow.NODE_NO_OP_KIND_THEN, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_THEN},
+		{mflow.NODE_NO_OP_KIND_ELSE, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_ELSE},
+		{mflow.NODE_NO_OP_KIND_LOOP, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_LOOP},
+		{mflow.NoopTypes(-1), flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START},
 	}
 
 	for _, tt := range tests {
@@ -659,12 +658,12 @@ func TestToAPINodeNoOpKind(t *testing.T) {
 
 func TestToAPIErrorHandling(t *testing.T) {
 	tests := []struct {
-		input    mnfor.ErrorHandling
+		input    mflow.ErrorHandling
 		expected flowv1.ErrorHandling
 	}{
-		{mnfor.ErrorHandling_ERROR_HANDLING_IGNORE, flowv1.ErrorHandling_ERROR_HANDLING_IGNORE},
-		{mnfor.ErrorHandling_ERROR_HANDLING_BREAK, flowv1.ErrorHandling_ERROR_HANDLING_BREAK},
-		{mnfor.ErrorHandling(-1), flowv1.ErrorHandling_ERROR_HANDLING_IGNORE},
+		{mflow.ErrorHandling_ERROR_HANDLING_IGNORE, flowv1.ErrorHandling_ERROR_HANDLING_IGNORE},
+		{mflow.ErrorHandling_ERROR_HANDLING_BREAK, flowv1.ErrorHandling_ERROR_HANDLING_BREAK},
+		{mflow.ErrorHandling(-1), flowv1.ErrorHandling_ERROR_HANDLING_IGNORE},
 	}
 
 	for _, tt := range tests {

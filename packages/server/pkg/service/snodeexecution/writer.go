@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -20,7 +20,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+func (w *Writer) CreateNodeExecution(ctx context.Context, ne mflow.NodeExecution) error {
 	var errorSQL sql.NullString
 	if ne.Error != nil {
 		errorSQL = sql.NullString{
@@ -54,7 +54,7 @@ func (w *Writer) CreateNodeExecution(ctx context.Context, ne mnodeexecution.Node
 	return err
 }
 
-func (w *Writer) UpdateNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+func (w *Writer) UpdateNodeExecution(ctx context.Context, ne mflow.NodeExecution) error {
 	var errorSQL sql.NullString
 	if ne.Error != nil {
 		errorSQL = sql.NullString{
@@ -84,7 +84,7 @@ func (w *Writer) UpdateNodeExecution(ctx context.Context, ne mnodeexecution.Node
 	return err
 }
 
-func (w *Writer) UpsertNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+func (w *Writer) UpsertNodeExecution(ctx context.Context, ne mflow.NodeExecution) error {
 	var errorSQL sql.NullString
 	if ne.Error != nil {
 		errorSQL = sql.NullString{

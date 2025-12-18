@@ -1,5 +1,5 @@
 //nolint:revive // exported
-package mnodeexecution
+package mflow
 
 import (
 	"encoding/json"

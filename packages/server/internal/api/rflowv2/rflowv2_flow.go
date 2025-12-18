@@ -20,13 +20,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -279,11 +272,11 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 
 		// Seed start node
 		startNodeID := idwrap.NewNow()
-		startNode := mnnode.MNode{
+		startNode := mflow.Node{
 			ID:        startNodeID,
 			FlowID:    flowID,
 			Name:      "Start",
-			NodeKind:  mnnode.NODE_KIND_NO_OP,
+			NodeKind:  mflow.NODE_KIND_NO_OP,
 			PositionX: 0,
 			PositionY: 0,
 		}
@@ -291,9 +284,9 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		startNoop := mnnoop.NoopNode{
+		startNoop := mflow.NodeNoop{
 			FlowNodeID: startNodeID,
-			Type:       mnnoop.NODE_NO_OP_KIND_START,
+			Type:       mflow.NODE_NO_OP_KIND_START,
 		}
 		if err := nnosWriter.CreateNodeNoop(ctx, startNoop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -525,24 +518,24 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 	// Collect node details outside TX
 	type nodeDetail struct {
-		node    mnnode.MNode
-		noop    *mnnoop.NoopNode
-		request *mnrequest.MNRequest
+		node    mflow.Node
+		noop    *mflow.NodeNoop
+		request *mflow.NodeRequest
 		http    *mhttp.HTTP
-		forNode *mnfor.MNFor
-		forEach *mnforeach.MNForEach
-		ifNode  *mnif.MNIF
-		jsNode  *mnjs.MNJS
+		forNode *mflow.NodeFor
+		forEach *mflow.NodeForEach
+		ifNode  *mflow.NodeIf
+		jsNode  *mflow.NodeJS
 	}
 	details := make([]nodeDetail, 0, len(sourceNodes))
 	for _, n := range sourceNodes {
 		detail := nodeDetail{node: n}
 		switch n.NodeKind {
-		case mnnode.NODE_KIND_NO_OP:
+		case mflow.NODE_KIND_NO_OP:
 			if d, err := s.nnos.GetNodeNoop(ctx, n.ID); err == nil {
 				detail.noop = d
 			}
-		case mnnode.NODE_KIND_REQUEST:
+		case mflow.NODE_KIND_REQUEST:
 			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil {
 				detail.request = d
 				if d.HttpID != nil {
@@ -551,19 +544,19 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 					}
 				}
 			}
-		case mnnode.NODE_KIND_FOR:
+		case mflow.NODE_KIND_FOR:
 			if d, err := s.nfs.GetNodeFor(ctx, n.ID); err == nil {
 				detail.forNode = d
 			}
-		case mnnode.NODE_KIND_FOR_EACH:
+		case mflow.NODE_KIND_FOR_EACH:
 			if d, err := s.nfes.GetNodeForEach(ctx, n.ID); err == nil {
 				detail.forEach = d
 			}
-		case mnnode.NODE_KIND_CONDITION:
+		case mflow.NODE_KIND_CONDITION:
 			if d, err := s.nifs.GetNodeIf(ctx, n.ID); err == nil {
 				detail.ifNode = d
 			}
-		case mnnode.NODE_KIND_JS:
+		case mflow.NODE_KIND_JS:
 			if d, err := s.njss.GetNodeJS(ctx, n.ID); err == nil {
 				detail.jsNode = &d
 			}
@@ -641,7 +634,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
 			}
-			node := mnrequest.MNRequest{
+			node := mflow.NodeRequest{
 				FlowNodeID:       newNodeID,
 				HttpID:           nil,
 				HasRequestConfig: d.request.HasRequestConfig,

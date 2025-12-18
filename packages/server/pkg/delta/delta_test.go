@@ -3,9 +3,10 @@ package delta
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/require"
 )
 
 // pointers for scalar types
@@ -105,16 +106,16 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 
 	baseHeaders := []mhttp.HTTPHeader{
 		{
-			ID:          baseID1,
-			Key:   "Content-Type",
-			Value: "application/json",
-			Enabled:     true,
+			ID:      baseID1,
+			Key:     "Content-Type",
+			Value:   "application/json",
+			Enabled: true,
 		},
 		{
-			ID:          baseID2,
-			Key:   "Authorization",
-			Value: "Bearer token",
-			Enabled:     true,
+			ID:      baseID2,
+			Key:     "Authorization",
+			Value:   "Bearer token",
+			Enabled: true,
 		},
 	}
 
@@ -122,9 +123,9 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		// Delta targets baseID1
 		deltaHeaders := []mhttp.HTTPHeader{
 			{
-				ID:               idwrap.NewNow(),
-				ParentHttpHeaderID:   &baseID1,
-				DeltaValue: ptrStr("application/xml"),
+				ID:                 idwrap.NewNow(),
+				ParentHttpHeaderID: &baseID1,
+				DeltaValue:         ptrStr("application/xml"),
 			},
 		}
 
@@ -153,9 +154,9 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		randomID := idwrap.NewNow()
 		deltaHeaders := []mhttp.HTTPHeader{
 			{
-				ID:               idwrap.NewNow(),
-				ParentHttpHeaderID:   &randomID, // Does not match any base item
-				DeltaValue: ptrStr("Should Not Exist"),
+				ID:                 idwrap.NewNow(),
+				ParentHttpHeaderID: &randomID, // Does not match any base item
+				DeltaValue:         ptrStr("Should Not Exist"),
 			},
 		}
 
@@ -177,7 +178,7 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 func TestCollectionResolution_Additions(t *testing.T) {
 	baseHeaders := []mhttp.HTTPHeader{
 		{
-			ID:          idwrap.NewNow(),
+			ID:    idwrap.NewNow(),
 			Key:   "Base",
 			Value: "Val",
 		},
@@ -187,10 +188,10 @@ func TestCollectionResolution_Additions(t *testing.T) {
 		newID := idwrap.NewNow()
 		deltaHeaders := []mhttp.HTTPHeader{
 			{
-				ID:             newID,
+				ID:                 newID,
 				ParentHttpHeaderID: nil, // nil ParentID means addition
-				Key:      "New-Header",
-				Value:    "New-Value",
+				Key:                "New-Header",
+				Value:              "New-Value",
 			},
 		}
 

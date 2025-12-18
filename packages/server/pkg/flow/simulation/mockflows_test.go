@@ -11,7 +11,8 @@ import (
 	"the-dev-tools/server/pkg/flow/runner"
 	flowlocalrunner "the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -281,7 +282,7 @@ func TestCreateMockFlow_IntegrationWithFlowLocalRunner(t *testing.T) {
 	nodeSuccessMap := make(map[idwrap.IDWrap]bool)
 
 	for _, status := range nodeStatuses {
-		if status.State == mnnode.NODE_STATE_SUCCESS {
+		if status.State == mflow.NODE_STATE_SUCCESS {
 			successCount++
 			nodeSuccessMap[status.NodeID] = true
 		}
@@ -369,7 +370,7 @@ func TestCreateMockFlow_Performance_BasicLoad(t *testing.T) {
 	// Verify all nodes completed successfully
 	successCount := 0
 	for _, status := range nodeStatuses {
-		if status.State == mnnode.NODE_STATE_SUCCESS {
+		if status.State == mflow.NODE_STATE_SUCCESS {
 			successCount++
 		}
 	}
@@ -572,11 +573,11 @@ func TestCreateMockFlow_TimeoutBehavior(t *testing.T) {
 
 	for _, status := range nodeStatuses {
 		switch status.State {
-		case mnnode.NODE_STATE_SUCCESS:
+		case mflow.NODE_STATE_SUCCESS:
 			successCount++
-		case mnnode.NODE_STATE_CANCELED:
+		case mflow.NODE_STATE_CANCELED:
 			canceledCount++
-		case mnnode.NODE_STATE_FAILURE:
+		case mflow.NODE_STATE_FAILURE:
 			failureCount++
 		}
 	}

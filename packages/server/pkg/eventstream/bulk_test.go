@@ -7,7 +7,8 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream/memory"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 // TestInMemorySyncStreamer_BulkPublish verifies that the buffer is large enough
 // to handle a burst of events (e.g. 100) which is greater than the old default of 32.

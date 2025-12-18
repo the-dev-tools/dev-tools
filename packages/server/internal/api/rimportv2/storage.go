@@ -479,84 +479,84 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-			// Create transactional services
-			txFileService := imp.fileService.TX(tx)
-			txHttpService := imp.httpService.TX(tx)
-			txFlowService := imp.flowService.TX(tx)
-			txHeaderWriter := shttp.NewHeaderWriter(tx)
-			txSearchParamWriter := shttp.NewSearchParamWriter(tx)
-			txBodyFormWriter := shttp.NewBodyFormWriter(tx)
-				txBodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
-				txBodyRawWriter := shttp.NewBodyRawWriter(tx)
-				txNodeService := imp.nodeService.TX(tx)
-				txNodeRequestService := imp.nodeRequestService.TX(tx)
-				txNodeNoopService := imp.nodeNoopService.TX(tx)
-				txEdgeService := imp.edgeService.TX(tx)
-			
-				// Store files first (they may be referenced by HTTP entities)
-				if len(results.Files) > 0 {
-					for i := range results.Files {
-						file := &results.Files[i]
-						if err := txFileService.CreateFile(ctx, file); err != nil {
-							return fmt.Errorf("failed to store file: %w", err)
-						}
-					}
-				}
-			
-				// Store HTTP entities
-				if len(results.HTTPRequests) > 0 {
-					for _, httpReq := range results.HTTPRequests {
-						if err := txHttpService.Create(ctx, &httpReq); err != nil {
-							return fmt.Errorf("failed to store HTTP entity: %w", err)
-						}
-					}
-				}
-			
-				// Store flows
-				if len(results.Flows) > 0 {
-					if err := txFlowService.CreateFlowBulk(ctx, results.Flows); err != nil {
-						return fmt.Errorf("failed to store flows: %w", err)
-					}
-				}
-			
-				// Store nodes
-				if len(results.Nodes) > 0 {
-					if err := txNodeService.CreateNodeBulk(ctx, results.Nodes); err != nil {
-						return fmt.Errorf("failed to store nodes: %w", err)
-					}
-				}
-			
-				// Store request nodes
-				if len(results.RequestNodes) > 0 {
-					for _, reqNode := range results.RequestNodes {
-						if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
-							return fmt.Errorf("failed to store request node: %w", err)
-						}
-					}
-				}
-			
-				// Store no-op nodes
-				if len(results.NoOpNodes) > 0 {
-					for _, noopNode := range results.NoOpNodes {
-						if err := txNodeNoopService.CreateNodeNoop(ctx, noopNode); err != nil {
-							return fmt.Errorf("failed to store no-op node: %w", err)
-						}
-					}
-				}
-			
-				// Store edges
-				if len(results.Edges) > 0 {
-					for _, edge := range results.Edges {
-						if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
-							return fmt.Errorf("failed to store edge: %w", err)
-						}
-					}
-				}
-			
-				// Store child entities
-				if err := storeUnifiedChildren(ctx, results, txHeaderWriter, txSearchParamWriter, txBodyFormWriter, txBodyUrlEncodedWriter, txBodyRawWriter, shttp.NewAssertWriter(tx)); err != nil {
-					return err
-				}	// Commit transaction
+	// Create transactional services
+	txFileService := imp.fileService.TX(tx)
+	txHttpService := imp.httpService.TX(tx)
+	txFlowService := imp.flowService.TX(tx)
+	txHeaderWriter := shttp.NewHeaderWriter(tx)
+	txSearchParamWriter := shttp.NewSearchParamWriter(tx)
+	txBodyFormWriter := shttp.NewBodyFormWriter(tx)
+	txBodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
+	txBodyRawWriter := shttp.NewBodyRawWriter(tx)
+	txNodeService := imp.nodeService.TX(tx)
+	txNodeRequestService := imp.nodeRequestService.TX(tx)
+	txNodeNoopService := imp.nodeNoopService.TX(tx)
+	txEdgeService := imp.edgeService.TX(tx)
+
+	// Store files first (they may be referenced by HTTP entities)
+	if len(results.Files) > 0 {
+		for i := range results.Files {
+			file := &results.Files[i]
+			if err := txFileService.CreateFile(ctx, file); err != nil {
+				return fmt.Errorf("failed to store file: %w", err)
+			}
+		}
+	}
+
+	// Store HTTP entities
+	if len(results.HTTPRequests) > 0 {
+		for _, httpReq := range results.HTTPRequests {
+			if err := txHttpService.Create(ctx, &httpReq); err != nil {
+				return fmt.Errorf("failed to store HTTP entity: %w", err)
+			}
+		}
+	}
+
+	// Store flows
+	if len(results.Flows) > 0 {
+		if err := txFlowService.CreateFlowBulk(ctx, results.Flows); err != nil {
+			return fmt.Errorf("failed to store flows: %w", err)
+		}
+	}
+
+	// Store nodes
+	if len(results.Nodes) > 0 {
+		if err := txNodeService.CreateNodeBulk(ctx, results.Nodes); err != nil {
+			return fmt.Errorf("failed to store nodes: %w", err)
+		}
+	}
+
+	// Store request nodes
+	if len(results.RequestNodes) > 0 {
+		for _, reqNode := range results.RequestNodes {
+			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
+				return fmt.Errorf("failed to store request node: %w", err)
+			}
+		}
+	}
+
+	// Store no-op nodes
+	if len(results.NoOpNodes) > 0 {
+		for _, noopNode := range results.NoOpNodes {
+			if err := txNodeNoopService.CreateNodeNoop(ctx, noopNode); err != nil {
+				return fmt.Errorf("failed to store no-op node: %w", err)
+			}
+		}
+	}
+
+	// Store edges
+	if len(results.Edges) > 0 {
+		for _, edge := range results.Edges {
+			if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
+				return fmt.Errorf("failed to store edge: %w", err)
+			}
+		}
+	}
+
+	// Store child entities
+	if err := storeUnifiedChildren(ctx, results, txHeaderWriter, txSearchParamWriter, txBodyFormWriter, txBodyUrlEncodedWriter, txBodyRawWriter, shttp.NewAssertWriter(tx)); err != nil {
+		return err
+	} // Commit transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}

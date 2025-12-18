@@ -3,10 +3,10 @@ package snoderequest
 import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
-func ConvertToDBNodeHTTP(nr mnrequest.MNRequest) (gen.FlowNodeHttp, bool) {
+func ConvertToDBNodeHTTP(nr mflow.NodeRequest) (gen.FlowNodeHttp, bool) {
 	if nr.HttpID == nil || isZeroID(*nr.HttpID) {
 		return gen.FlowNodeHttp{}, false
 	}
@@ -23,7 +23,7 @@ func ConvertToDBNodeHTTP(nr mnrequest.MNRequest) (gen.FlowNodeHttp, bool) {
 	}, true
 }
 
-func ConvertToModelNodeHTTP(nr gen.FlowNodeHttp) *mnrequest.MNRequest {
+func ConvertToModelNodeHTTP(nr gen.FlowNodeHttp) *mflow.NodeRequest {
 	var deltaID *idwrap.IDWrap
 	if len(nr.DeltaHttpID) > 0 {
 		id, err := idwrap.NewFromBytes(nr.DeltaHttpID)
@@ -33,7 +33,7 @@ func ConvertToModelNodeHTTP(nr gen.FlowNodeHttp) *mnrequest.MNRequest {
 	}
 	httpID := nr.HttpID
 
-	result := &mnrequest.MNRequest{
+	result := &mflow.NodeRequest{
 		FlowNodeID:  nr.FlowNodeID,
 		HttpID:      &httpID,
 		DeltaHttpID: deltaID,

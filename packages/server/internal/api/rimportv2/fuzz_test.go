@@ -14,9 +14,9 @@ func FuzzFormatDetector(f *testing.F) {
 
 	// Seed corpus
 	f.Add([]byte(`{"log": {"entries": []}}`)) // HAR
-	f.Add([]byte(`curl http://example.com`))   // Curl
-	f.Add([]byte(`flows: []`))                 // YAML
-	f.Add([]byte(`random garbage data`))       // Garbage
+	f.Add([]byte(`curl http://example.com`))  // Curl
+	f.Add([]byte(`flows: []`))                // YAML
+	f.Add([]byte(`random garbage data`))      // Garbage
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		// Should not panic or hang

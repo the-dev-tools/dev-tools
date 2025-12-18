@@ -7,7 +7,8 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestPrepareRequestWithTracking_URL(t *testing.T) {
 	// Setup variables
@@ -19,8 +20,8 @@ func TestPrepareRequestWithTracking_URL(t *testing.T) {
 
 	// Setup endpoint with variables
 	endpoint := mhttp.HTTP{
-		Method:  "GET",
-		Url:     "{{baseUrl}}/{{version}}/users",
+		Method:   "GET",
+		Url:      "{{baseUrl}}/{{version}}/users",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
@@ -71,8 +72,8 @@ func TestPrepareRequestWithTracking_TrimsVariableKeys(t *testing.T) {
 	})
 
 	endpoint := mhttp.HTTP{
-		Method:  "GET",
-		Url:     "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+		Method:   "GET",
+		Url:      "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
@@ -118,8 +119,8 @@ func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 
 	// Setup endpoint and headers with variables
 	endpoint := mhttp.HTTP{
-		Method:  "POST",
-		Url:     "https://api.example.com/users",
+		Method:   "POST",
+		Url:      "https://api.example.com/users",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
@@ -189,8 +190,8 @@ func TestPrepareRequestWithTracking_Queries(t *testing.T) {
 
 	// Setup endpoint and queries with variables
 	endpoint := mhttp.HTTP{
-		Method:  "GET",
-		Url:     "https://api.example.com/users",
+		Method:   "GET",
+		Url:      "https://api.example.com/users",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
@@ -241,8 +242,8 @@ func TestPrepareRequestWithTracking_Body(t *testing.T) {
 
 	// Setup endpoint with body containing variables
 	endpoint := mhttp.HTTP{
-		Method:  "POST",
-		Url:     "https://api.example.com/users",
+		Method:   "POST",
+		Url:      "https://api.example.com/users",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
@@ -295,8 +296,8 @@ func TestPrepareRequestWithTracking_NoVariables(t *testing.T) {
 
 	// Setup static endpoint
 	endpoint := mhttp.HTTP{
-		Method:  "GET",
-		Url:     "https://api.example.com/users",
+		Method:   "GET",
+		Url:      "https://api.example.com/users",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
@@ -337,8 +338,8 @@ func TestPrepareRequestWithTracking_ComplexScenario(t *testing.T) {
 
 	// Setup complex endpoint with variables in multiple places
 	endpoint := mhttp.HTTP{
-		Method:  "PUT",
-		Url:     "{{baseUrl}}/{{version}}/users/{{userId}}",
+		Method:   "PUT",
+		Url:      "{{baseUrl}}/{{version}}/users/{{userId}}",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 

@@ -16,7 +16,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
@@ -57,6 +56,11 @@ func setupNodeTest(t *testing.T) (*FlowServiceV2RPC, context.Context, *testutil.
 	jsService := snodejs.New(queries)
 	varService := svar.New(queries, logger)
 
+	// Readers
+	wsReader := sworkspace.NewReaderFromQueries(queries)
+	fsReader := sflow.NewReaderFromQueries(queries)
+	nsReader := snode.NewReaderFromQueries(queries)
+
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 
@@ -76,15 +80,19 @@ func setupNodeTest(t *testing.T) (*FlowServiceV2RPC, context.Context, *testutil.
 	)
 
 	svc := &FlowServiceV2RPC{
-		ws:      &wsService,
-		fs:      &flowService,
-		ns:      &nodeService,
-		nes:     &nodeExecService,
-		es:      &edgeService,
-		nnos:    &noopService,
-		fvs:     &flowVarService,
-		logger:  logger,
-		builder: builder,
+		DB:       baseDB.DB,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nes:      &nodeExecService,
+		es:       &edgeService,
+		nnos:     &noopService,
+		fvs:      &flowVarService,
+		logger:   logger,
+		builder:  builder,
 		// No streams needed for basic CRUD
 	}
 
@@ -139,7 +147,7 @@ func TestNodeInsert(t *testing.T) {
 	node, err := svc.ns.GetNode(ctx, nodeID)
 	require.NoError(t, err)
 	assert.Equal(t, "New Node", node.Name)
-	assert.Equal(t, mnnode.NODE_KIND_REQUEST, node.NodeKind)
+	assert.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind)
 	assert.Equal(t, 100.0, node.PositionX)
 	assert.Equal(t, 200.0, node.PositionY)
 	assert.Equal(t, flowID, node.FlowID)
@@ -151,11 +159,11 @@ func TestNodeUpdate(t *testing.T) {
 
 	// Create initial node
 	nodeID := idwrap.NewNow()
-	initialNode := mnnode.MNode{
+	initialNode := mflow.Node{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      "Initial Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 0,
 		PositionY: 0,
 	}
@@ -215,11 +223,11 @@ func TestNodeDelete(t *testing.T) {
 
 	// Create node to delete
 	nodeID := idwrap.NewNow()
-	node := mnnode.MNode{
+	node := mflow.Node{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      "Node To Delete",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 0,
 		PositionY: 0,
 	}

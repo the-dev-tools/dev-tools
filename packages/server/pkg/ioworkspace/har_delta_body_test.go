@@ -10,8 +10,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/snoderequest"
 
@@ -88,15 +86,15 @@ func TestImport_DeltaBodyRaw(t *testing.T) {
 				Name:        "Test Flow",
 			},
 		},
-		FlowNodes: []mnnode.MNode{
+		FlowNodes: []mflow.Node{
 			{
 				ID:       nodeID,
 				FlowID:   flowID,
-				NodeKind: mnnode.NODE_KIND_REQUEST,
+				NodeKind: mflow.NODE_KIND_REQUEST,
 				Name:     "Request Node",
 			},
 		},
-		FlowRequestNodes: []mnrequest.MNRequest{
+		FlowRequestNodes: []mflow.NodeRequest{
 			{
 				FlowNodeID:       nodeID,
 				HttpID:           &baseID,

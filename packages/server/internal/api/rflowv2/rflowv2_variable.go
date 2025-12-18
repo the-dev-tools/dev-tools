@@ -13,7 +13,7 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -73,7 +73,7 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable key is required"))
 		}
 
-		variable := mflowvariable.FlowVariable{
+		variable := mflow.FlowVariable{
 			ID:          variableID,
 			FlowID:      flowID,
 			Name:        key,
@@ -278,7 +278,7 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable mflowvariable.FlowVariable) {
+func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable mflow.FlowVariable) {
 	if s.varStream == nil {
 		return
 	}

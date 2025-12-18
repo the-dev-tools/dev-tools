@@ -3,8 +3,9 @@ package tpostmanv2
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestIntegration_SimpleWorkflow tests a complete workflow from parsing to conversion

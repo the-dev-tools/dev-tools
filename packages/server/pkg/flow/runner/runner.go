@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"time"
 )
 
@@ -58,7 +58,7 @@ type FlowNodeStatus struct {
 	ExecutionID      idwrap.IDWrap
 	NodeID           idwrap.IDWrap
 	Name             string
-	State            mnnode.NodeState
+	State            mflow.NodeState
 	OutputData       any
 	InputData        any // Data that was read by this node during execution
 	RunDuration      time.Duration
@@ -70,7 +70,7 @@ type FlowNodeStatus struct {
 	AuxiliaryID      *idwrap.IDWrap
 }
 
-func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {
+func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mflow.NodeState, output []byte) FlowNodeStatus {
 	return FlowNodeStatus{
 		NodeID:     nodeID,
 		State:      status,
@@ -94,7 +94,7 @@ type FlowNodeLogPayload struct {
 	ExecutionID      idwrap.IDWrap
 	NodeID           idwrap.IDWrap
 	Name             string
-	State            mnnode.NodeState
+	State            mflow.NodeState
 	Error            error
 	OutputData       any
 	RunDuration      time.Duration

@@ -72,7 +72,7 @@ func TestHttpRun_Delta_HeaderOverride(t *testing.T) {
 
 	// 1. Create Base Request
 	baseID := f.createHttpWithUrl(t, ws, "base-http", testServer.URL, "GET")
-	
+
 	// Add Base Header
 	f.createHttpHeader(t, baseID, "X-Custom", "BaseValue")
 
@@ -102,12 +102,12 @@ func TestHttpRun_Delta_HeaderOverride(t *testing.T) {
 	}
 	// We need to link it to the base header to be an override, otherwise it's an addition.
 	// But since we are using "X-Custom" key, the resolver *might* match by key if ParentHttpHeaderID is missing?
-	// Let's check resolver logic. 
+	// Let's check resolver logic.
 	// resolver.go: resolveHeaders: "For delta headers without parent ID, try to find matching base header by key name" -> NO, it doesn't seem to do that in the `pkg/delta` logic.
 	// `pkg/delta` uses ID mapping.
 	// `rhttp_integration_test.go` (disabled) implied key matching for legacy.
 	// Let's explicitly set ParentHttpHeaderID to be safe and correct.
-	
+
 	// Get Base Header ID
 	baseHeaders, _ := f.handler.httpHeaderService.GetByHttpIDOrdered(f.ctx, baseID)
 	require.NotEmpty(t, baseHeaders)
@@ -164,7 +164,7 @@ func TestHttpRun_Delta_NewHeader(t *testing.T) {
 	// BUT the resolver logic expects `IsDelta=false` for additions?
 	// `resolveHeaders`: `if !d.IsDelta { additions = append(additions, d) }`
 	// Yes.
-	
+
 	newHeaderID := idwrap.NewNow()
 	newHeader := &mhttp.HTTPHeader{
 		ID:      newHeaderID,
@@ -172,7 +172,7 @@ func TestHttpRun_Delta_NewHeader(t *testing.T) {
 		Key:     "X-New",
 		Value:   "NewValue",
 		Enabled: true,
-		IsDelta: false, 
+		IsDelta: false,
 	}
 	err = f.handler.httpHeaderService.Create(f.ctx, newHeader)
 	require.NoError(t, err)

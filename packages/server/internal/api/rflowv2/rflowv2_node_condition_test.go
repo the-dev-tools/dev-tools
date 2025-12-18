@@ -22,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -67,6 +66,11 @@ func TestNodeCondition_CRUD(t *testing.T) {
 	jsService := snodejs.New(queries)
 	varService := svar.New(queries, logger)
 
+	// Readers
+	wsReader := sworkspace.NewReaderFromQueries(queries)
+	fsReader := sflow.NewReaderFromQueries(queries)
+	nsReader := snode.NewReaderFromQueries(queries)
+
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 
@@ -86,16 +90,20 @@ func TestNodeCondition_CRUD(t *testing.T) {
 	)
 
 	svc := &FlowServiceV2RPC{
-		ws:      &wsService,
-		fs:      &flowService,
-		ns:      &nodeService,
-		nifs:    ifService,
-		nes:     &nodeExecService,
-		es:      &edgeService,
-		nnos:    &noopService,
-		fvs:     &flowVarService,
-		logger:  logger,
-		builder: builder,
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nifs:     ifService,
+		nes:      &nodeExecService,
+		es:       &edgeService,
+		nnos:     &noopService,
+		fvs:      &flowVarService,
+		logger:   logger,
+		builder:  builder,
 	}
 
 	// Setup Data
@@ -138,11 +146,11 @@ func TestNodeCondition_CRUD(t *testing.T) {
 
 	// Create Base Node
 	nodeID := idwrap.NewNow()
-	baseNode := mnnode.MNode{
+	baseNode := mflow.Node{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      "Condition Node",
-		NodeKind:  mnnode.NODE_KIND_CONDITION,
+		NodeKind:  mflow.NODE_KIND_CONDITION,
 		PositionX: 100,
 		PositionY: 100,
 	}

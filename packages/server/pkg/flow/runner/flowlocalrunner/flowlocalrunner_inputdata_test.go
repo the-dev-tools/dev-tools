@@ -15,8 +15,9 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,7 +68,6 @@ func (n *singleEdgeStartNode) RunAsync(ctx context.Context, req *node.FlowNodeRe
 	resultChan <- n.RunSync(ctx, req)
 }
 
-
 func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 	t.Parallel()
 	startID := idwrap.NewNow()
@@ -108,7 +108,7 @@ func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 	go func() {
 		defer close(statesDone)
 		for status := range nodeStates {
-			if status.NodeID == targetID && status.State == mnnode.NODE_STATE_SUCCESS {
+			if status.NodeID == targetID && status.State == mflow.NODE_STATE_SUCCESS {
 				mu.Lock()
 				successSeen = true
 				if data, ok := status.InputData.(map[string]any); ok {
@@ -177,10 +177,10 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 	startNode := &singleEdgeStartNode{id: startID, next: requestNodeID}
 
 	endpoint := mhttp.HTTP{
-		ID:      idwrap.NewNow(),
-		Name:    "request",
-		Method:  "GET",
-		Url:     "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+		ID:       idwrap.NewNow(),
+		Name:     "request",
+		Method:   "GET",
+		Url:      "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
 		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 	rawBody := &mhttp.HTTPBodyRaw{
@@ -250,7 +250,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 	go func() {
 		defer close(statesDone)
 		for status := range nodeStates {
-			if status.NodeID == requestNodeID && status.State == mnnode.NODE_STATE_SUCCESS {
+			if status.NodeID == requestNodeID && status.State == mflow.NODE_STATE_SUCCESS {
 				mu.Lock()
 				successSeen = true
 				if data, ok := status.InputData.(map[string]any); ok {
@@ -399,7 +399,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables(t *testing
 	go func() {
 		defer close(statesDone)
 		for status := range nodeStates {
-			if status.NodeID == requestNodeID && status.State == mnnode.NODE_STATE_SUCCESS {
+			if status.NodeID == requestNodeID && status.State == mflow.NODE_STATE_SUCCESS {
 				mu.Lock()
 				successSeen = true
 				if data, ok := status.InputData.(map[string]any); ok {

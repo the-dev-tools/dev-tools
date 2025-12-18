@@ -3,9 +3,10 @@ package rimportv2
 import (
 	"errors"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/pkg/idwrap"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+
+	"connectrpc.com/connect"
 )
 
 // convertToImportRequest converts protobuf request to internal request model.

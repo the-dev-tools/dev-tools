@@ -4,7 +4,7 @@ import (
 	"context"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -19,7 +19,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNode(ctx context.Context, n mnnode.MNode) error {
+func (w *Writer) CreateNode(ctx context.Context, n mflow.Node) error {
 	node := ConvertNodeToDB(n)
 	return w.queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 		ID:        node.ID,
@@ -31,7 +31,7 @@ func (w *Writer) CreateNode(ctx context.Context, n mnnode.MNode) error {
 	})
 }
 
-func (w *Writer) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) error {
+func (w *Writer) CreateNodeBulk(ctx context.Context, nodes []mflow.Node) error {
 	batchSize := 10
 	for i := 0; i < len(nodes); i += batchSize {
 		end := i + batchSize
@@ -119,7 +119,7 @@ func (w *Writer) CreateNodeBulk(ctx context.Context, nodes []mnnode.MNode) error
 	return nil
 }
 
-func (w *Writer) UpdateNode(ctx context.Context, n mnnode.MNode) error {
+func (w *Writer) UpdateNode(ctx context.Context, n mflow.Node) error {
 	node := ConvertNodeToDB(n)
 	return w.queries.UpdateFlowNode(ctx, gen.UpdateFlowNodeParams{
 		ID:        node.ID,

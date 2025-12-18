@@ -5,7 +5,8 @@ import (
 
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func stringPtr(v string) *string {
 	return &v

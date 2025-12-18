@@ -14,8 +14,7 @@ import (
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/varsystem"
 	"time"
 )
@@ -26,11 +25,11 @@ type NodeForEach struct {
 	IterPath      string
 	Timeout       time.Duration
 	Condition     mcondition.Condition
-	ErrorHandling mnfor.ErrorHandling
+	ErrorHandling mflow.ErrorHandling
 }
 
 func New(id idwrap.IDWrap, name string, iterPath string, timeout time.Duration,
-	condition mcondition.Condition, errorHandling mnfor.ErrorHandling,
+	condition mcondition.Condition, errorHandling mflow.ErrorHandling,
 ) *NodeForEach {
 	return &NodeForEach{
 		FlowNodeID:    id,
@@ -236,7 +235,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					ExecutionID:      executionID, // Store this ID for update
 					NodeID:           nr.FlowNodeID,
 					Name:             executionName,
-					State:            mnnode.NODE_STATE_RUNNING,
+					State:            mflow.NODE_STATE_RUNNING,
 					OutputData:       iterationData,
 					IterationEvent:   true,
 					IterationIndex:   currentIndex,
@@ -258,7 +257,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_FAILURE,
+						State:            mflow.NODE_STATE_FAILURE,
 						Error:            result.Err,
 						OutputData:       iterationData,
 						IterationEvent:   true,
@@ -271,7 +270,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_SUCCESS,
+						State:            mflow.NODE_STATE_SUCCESS,
 						OutputData:       iterationData,
 						IterationEvent:   true,
 						IterationIndex:   currentIndex,
@@ -285,11 +284,11 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Handle iteration error according to error policy
 			if result.Err != nil {
 				switch nr.ErrorHandling {
-				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				case mflow.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
-				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 					goto ExitSeq // Stop loop but don't propagate error
-				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				case mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					loopError = result.Err
 					goto ExitSeq // Fail entire flow
 				}
@@ -386,7 +385,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					ExecutionID:      executionID, // Store this ID for update
 					NodeID:           nr.FlowNodeID,
 					Name:             executionName,
-					State:            mnnode.NODE_STATE_RUNNING,
+					State:            mflow.NODE_STATE_RUNNING,
 					OutputData:       iterationData,
 					IterationEvent:   true,
 					IterationIndex:   currentIndex,
@@ -407,7 +406,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_FAILURE,
+						State:            mflow.NODE_STATE_FAILURE,
 						Error:            result.Err,
 						OutputData:       iterationData,
 						IterationEvent:   true,
@@ -420,7 +419,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_SUCCESS,
+						State:            mflow.NODE_STATE_SUCCESS,
 						OutputData:       iterationData,
 						IterationEvent:   true,
 						IterationIndex:   currentIndex,
@@ -434,11 +433,11 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Handle iteration error according to error policy
 			if result.Err != nil {
 				switch nr.ErrorHandling {
-				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				case mflow.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
-				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 					goto ExitSeq2 // Stop loop but don't propagate error
-				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				case mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					loopError = result.Err
 					goto ExitSeq2 // Fail entire flow
 				}
@@ -623,13 +622,13 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc, predecessorMap)
 			if err != nil {
 				switch nr.ErrorHandling {
-				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				case mflow.ErrorHandling_ERROR_HANDLING_IGNORE:
 					// Log error but continue to next iteration
 					continue
-				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 					// Stop the loop but don't propagate error
 					return node.FlowNodeResult{}
-				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				case mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					// Default behavior: fail the entire flow
 					return node.FlowNodeResult{Err: err}
 				}
@@ -713,7 +712,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						ExecutionID:      executionID, // Store this ID for update
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_RUNNING,
+						State:            mflow.NODE_STATE_RUNNING,
 						OutputData:       iterationData,
 						IterationEvent:   true,
 						IterationIndex:   currentIndex,
@@ -735,7 +734,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_SUCCESS,
+						State:            mflow.NODE_STATE_SUCCESS,
 						OutputData:       map[string]any{"item": item, "key": currentIndex},
 						IterationEvent:   true,
 						IterationIndex:   currentIndex,
@@ -748,12 +747,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
 					switch nr.ErrorHandling {
-					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					case mflow.ErrorHandling_ERROR_HANDLING_IGNORE:
 						continue // Continue to next iteration
-					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 						sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 						return // Stop loop but don't propagate error
-					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					case mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
 						goto ExitSeqAsync // Exit the loop immediately on error
 					}
@@ -856,7 +855,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						ExecutionID:      executionID, // Store this ID for update
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_RUNNING,
+						State:            mflow.NODE_STATE_RUNNING,
 						OutputData:       iterationData,
 						IterationEvent:   true,
 						IterationIndex:   currentIndex,
@@ -877,7 +876,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
-						State:            mnnode.NODE_STATE_SUCCESS,
+						State:            mflow.NODE_STATE_SUCCESS,
 						OutputData:       map[string]any{"item": value, "key": key},
 						IterationEvent:   true,
 						IterationIndex:   currentIndex,
@@ -890,12 +889,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
 					switch nr.ErrorHandling {
-					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					case mflow.ErrorHandling_ERROR_HANDLING_IGNORE:
 						continue // Continue to next iteration
-					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 						sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 						return // Stop loop but don't propagate error
-					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					case mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
 						goto ExitSeq2Async
 					}

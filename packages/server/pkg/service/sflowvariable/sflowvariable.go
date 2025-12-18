@@ -7,7 +7,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type FlowVariableService struct {
@@ -44,23 +44,23 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowVariableService, error) {
 	}, nil
 }
 
-func (s *FlowVariableService) GetFlowVariable(ctx context.Context, id idwrap.IDWrap) (mflowvariable.FlowVariable, error) {
+func (s *FlowVariableService) GetFlowVariable(ctx context.Context, id idwrap.IDWrap) (mflow.FlowVariable, error) {
 	return s.reader.GetFlowVariable(ctx, id)
 }
 
-func (s *FlowVariableService) GetFlowVariablesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mflowvariable.FlowVariable, error) {
+func (s *FlowVariableService) GetFlowVariablesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mflow.FlowVariable, error) {
 	return s.reader.GetFlowVariablesByFlowID(ctx, flowID)
 }
 
-func (s *FlowVariableService) CreateFlowVariable(ctx context.Context, item mflowvariable.FlowVariable) error {
+func (s *FlowVariableService) CreateFlowVariable(ctx context.Context, item mflow.FlowVariable) error {
 	return NewWriterFromQueries(s.queries).CreateFlowVariable(ctx, item)
 }
 
-func (s *FlowVariableService) CreateFlowVariableBulk(ctx context.Context, variables []mflowvariable.FlowVariable) error {
+func (s *FlowVariableService) CreateFlowVariableBulk(ctx context.Context, variables []mflow.FlowVariable) error {
 	return NewWriterFromQueries(s.queries).CreateFlowVariableBulk(ctx, variables)
 }
 
-func (s *FlowVariableService) UpdateFlowVariable(ctx context.Context, item mflowvariable.FlowVariable) error {
+func (s *FlowVariableService) UpdateFlowVariable(ctx context.Context, item mflow.FlowVariable) error {
 	return NewWriterFromQueries(s.queries).UpdateFlowVariable(ctx, item)
 }
 
@@ -69,7 +69,7 @@ func (s *FlowVariableService) DeleteFlowVariable(ctx context.Context, id idwrap.
 }
 
 // GetFlowVariablesByFlowIDOrdered returns flow variables in the flow ordered by display_order
-func (s *FlowVariableService) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID idwrap.IDWrap) ([]mflowvariable.FlowVariable, error) {
+func (s *FlowVariableService) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID idwrap.IDWrap) ([]mflow.FlowVariable, error) {
 	return s.reader.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
 }
 

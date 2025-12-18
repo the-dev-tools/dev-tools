@@ -48,10 +48,10 @@ func TestWorkspaceDeletion(t *testing.T) {
 	createWS := func(name string, order float64) idwrap.IDWrap {
 		wsID := idwrap.NewNow()
 		ws := &mworkspace.Workspace{
-			ID:           wsID,
-			Name:         name,
-			Updated:      dbtime.DBNow(),
-			Order:        order,
+			ID:      wsID,
+			Name:    name,
+			Updated: dbtime.DBNow(),
+			Order:   order,
 		}
 		err := wsService.Create(ctx, ws)
 		require.NoError(t, err, "create workspace")

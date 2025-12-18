@@ -10,30 +10,24 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
 // createStartNodeWithID creates a default start node with a specific ID
 func createStartNodeWithID(nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) {
-	startNode := mnnode.MNode{
+	startNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "Start",
-		NodeKind: mnnode.NODE_KIND_NO_OP,
+		NodeKind: mflow.NODE_KIND_NO_OP,
 	}
 	result.FlowNodes = append(result.FlowNodes, startNode)
 
-	noopNode := mnnoop.NoopNode{
+	noopNode := mflow.NodeNoop{
 		FlowNodeID: nodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	}
 	result.FlowNoopNodes = append(result.FlowNoopNodes, noopNode)
 }
@@ -210,17 +204,17 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, step *Yam
 		UpdatedAt:    now,
 	}
 
-	requestNode := mnrequest.MNRequest{
+	requestNode := mflow.NodeRequest{
 		FlowNodeID:       nodeID,
 		HttpID:           &httpID,
 		HasRequestConfig: true,
 	}
 
-	flowNode := mnnode.MNode{
+	flowNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_REQUEST,
+		NodeKind: mflow.NODE_KIND_REQUEST,
 	}
 
 	associated := &HTTPAssociatedData{
@@ -242,15 +236,15 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, step *Yam
 }
 
 func processIfStructStep(step *YamlStepIf, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
-	flowNode := mnnode.MNode{
+	flowNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     step.Name,
-		NodeKind: mnnode.NODE_KIND_CONDITION,
+		NodeKind: mflow.NODE_KIND_CONDITION,
 	}
 	result.FlowNodes = append(result.FlowNodes, flowNode)
 
-	cond := mnif.MNIF{
+	cond := mflow.NodeIf{
 		FlowNodeID: nodeID,
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
@@ -263,11 +257,11 @@ func processIfStructStep(step *YamlStepIf, nodeID, flowID idwrap.IDWrap, result 
 }
 
 func processForStructStep(step *YamlStepFor, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
-	flowNode := mnnode.MNode{
+	flowNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     step.Name,
-		NodeKind: mnnode.NODE_KIND_FOR,
+		NodeKind: mflow.NODE_KIND_FOR,
 	}
 	result.FlowNodes = append(result.FlowNodes, flowNode)
 
@@ -281,7 +275,7 @@ func processForStructStep(step *YamlStepFor, nodeID, flowID idwrap.IDWrap, resul
 		iterCount = count
 	}
 
-	forNode := mnfor.MNFor{
+	forNode := mflow.NodeFor{
 		FlowNodeID: nodeID,
 		IterCount:  iterCount,
 	}
@@ -290,15 +284,15 @@ func processForStructStep(step *YamlStepFor, nodeID, flowID idwrap.IDWrap, resul
 }
 
 func processForEachStructStep(step *YamlStepForEach, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
-	flowNode := mnnode.MNode{
+	flowNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     step.Name,
-		NodeKind: mnnode.NODE_KIND_FOR_EACH,
+		NodeKind: mflow.NODE_KIND_FOR_EACH,
 	}
 	result.FlowNodes = append(result.FlowNodes, flowNode)
 
-	forEachNode := mnforeach.MNForEach{
+	forEachNode := mflow.NodeForEach{
 		FlowNodeID:     nodeID,
 		IterExpression: step.Items,
 	}
@@ -307,15 +301,15 @@ func processForEachStructStep(step *YamlStepForEach, nodeID, flowID idwrap.IDWra
 }
 
 func processJSStructStep(step *YamlStepJS, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
-	flowNode := mnnode.MNode{
+	flowNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     step.Name,
-		NodeKind: mnnode.NODE_KIND_JS,
+		NodeKind: mflow.NODE_KIND_JS,
 	}
 	result.FlowNodes = append(result.FlowNodes, flowNode)
 
-	jsNode := mnjs.MNJS{
+	jsNode := mflow.NodeJS{
 		FlowNodeID: nodeID,
 		Code:       []byte(strings.TrimSpace(step.Code)),
 	}

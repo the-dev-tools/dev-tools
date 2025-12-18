@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHttpBodyRawService(t *testing.T) {
@@ -17,7 +18,7 @@ func TestHttpBodyRawService(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpBodyRawService(db)
-	
+
 	// Parent HTTP
 	httpService := New(db, nil)
 	httpID := idwrap.NewNow()
@@ -49,11 +50,11 @@ func TestHttpBodyRawService(t *testing.T) {
 	// Let's assume Update(ctx, body) exists or check logic.
 	// Looking at previous patterns, Update might not exist for BodyRaw as it's often 1:1 and Upsert logic or specific updates.
 	// Actually, body_raw.go often has `Update` method.
-	
+
 	// Let's try UpdateRawData if it exists, or Upsert.
 	// Based on rhttp_exec logic, it uses `bodyService.GetByHttpID`.
 	// Let's try creating a delta too.
-	
+
 	deltaID := idwrap.NewNow()
 	// Create Delta Request first
 	err = httpService.Create(ctx, &mhttp.HTTP{
@@ -83,7 +84,7 @@ func TestHttpBodyFormService(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpBodyFormService(db)
-	
+
 	// Parent HTTP
 	httpService := New(db, nil)
 	httpID := idwrap.NewNow()
@@ -134,7 +135,7 @@ func TestHttpBodyUrlEncodedService(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpBodyUrlEncodedService(db)
-	
+
 	// Parent HTTP
 	httpService := New(db, nil)
 	httpID := idwrap.NewNow()

@@ -4,7 +4,7 @@ import (
 	"context"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -19,7 +19,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error {
+func (w *Writer) CreateNodeIf(ctx context.Context, ni mflow.NodeIf) error {
 	nodeIf := ConvertToDBNodeIf(ni)
 	return w.queries.CreateFlowNodeCondition(ctx, gen.CreateFlowNodeConditionParams{
 		FlowNodeID: nodeIf.FlowNodeID,
@@ -27,7 +27,7 @@ func (w *Writer) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error {
 	})
 }
 
-func (w *Writer) CreateNodeIfBulk(ctx context.Context, conditionNodes []mnif.MNIF) error {
+func (w *Writer) CreateNodeIfBulk(ctx context.Context, conditionNodes []mflow.NodeIf) error {
 	var err error
 	for _, n := range conditionNodes {
 		err = w.CreateNodeIf(ctx, n)
@@ -38,7 +38,7 @@ func (w *Writer) CreateNodeIfBulk(ctx context.Context, conditionNodes []mnif.MNI
 	return nil
 }
 
-func (w *Writer) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error {
+func (w *Writer) UpdateNodeIf(ctx context.Context, ni mflow.NodeIf) error {
 	nodeIf := ConvertToDBNodeIf(ni)
 	return w.queries.UpdateFlowNodeCondition(ctx, gen.UpdateFlowNodeConditionParams{
 		FlowNodeID: nodeIf.FlowNodeID,

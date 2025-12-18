@@ -21,10 +21,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
@@ -248,27 +244,27 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// Start Node
 	startNodeID := idwrap.NewNow()
-	startNode := mnnode.MNode{
+	startNode := mflow.Node{
 		ID:       startNodeID,
 		FlowID:   flowID,
 		Name:     "Start",
-		NodeKind: mnnode.NODE_KIND_NO_OP,
+		NodeKind: mflow.NODE_KIND_NO_OP,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
 	require.NoError(t, err)
-	err = noopService.CreateNodeNoop(ctx, mnnoop.NoopNode{
+	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
 		FlowNodeID: startNodeID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	})
 	require.NoError(t, err)
 
 	// HTTP Request Node
 	requestNodeID := idwrap.NewNow()
-	requestNode := mnnode.MNode{
+	requestNode := mflow.Node{
 		ID:        requestNodeID,
 		FlowID:    flowID,
 		Name:      "Delta Request Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 100,
 		PositionY: 0,
 	}
@@ -276,7 +272,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	// Link Node to HTTP (with Delta)
-	err = nodeRequestService.CreateNodeRequest(ctx, mnrequest.MNRequest{
+	err = nodeRequestService.CreateNodeRequest(ctx, mflow.NodeRequest{
 		FlowNodeID:  requestNodeID,
 		HttpID:      &baseID,
 		DeltaHttpID: &deltaID, // Mapped to delta_http_id in DB
@@ -301,10 +297,10 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// 6. Verification
 	// Check Node Execution (Poll for completion)
-	var exec *mnodeexecution.NodeExecution
+	var exec *mflow.NodeExecution
 	for i := 0; i < 10; i++ {
 		exec, err = nodeExecService.GetLatestNodeExecutionByNodeID(ctx, requestNodeID)
-		if err == nil && exec != nil && mnnode.NodeState(exec.State) == mnnode.NODE_STATE_SUCCESS {
+		if err == nil && exec != nil && mflow.NodeState(exec.State) == mflow.NODE_STATE_SUCCESS {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -312,5 +308,5 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, exec, "Node execution not found for node %s", requestNodeID.String())
-	require.Equal(t, mnnode.NODE_STATE_SUCCESS, mnnode.NodeState(exec.State))
+	require.Equal(t, mflow.NODE_STATE_SUCCESS, mflow.NodeState(exec.State))
 }

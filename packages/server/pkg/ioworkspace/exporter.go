@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
@@ -300,7 +300,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 // exportNodeImplementation exports the specific implementation for a node based on its type
 func (s *IOWorkspaceService) exportNodeImplementation(
 	ctx context.Context,
-	node mnnode.MNode,
+	node mflow.Node,
 	bundle *WorkspaceBundle,
 	nodeRequestService snoderequest.NodeRequestService,
 	nodeIfService *snodeif.NodeIfService,
@@ -310,7 +310,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	nodeJSService snodejs.NodeJSService,
 ) error {
 	switch node.NodeKind {
-	case mnnode.NODE_KIND_REQUEST:
+	case mflow.NODE_KIND_REQUEST:
 		nodeRequest, err := nodeRequestService.GetNodeRequest(ctx, node.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get request node: %w", err)
@@ -319,7 +319,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 			bundle.FlowRequestNodes = append(bundle.FlowRequestNodes, *nodeRequest)
 		}
 
-	case mnnode.NODE_KIND_CONDITION:
+	case mflow.NODE_KIND_CONDITION:
 		nodeIf, err := nodeIfService.GetNodeIf(ctx, node.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get if node: %w", err)
@@ -328,7 +328,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 			bundle.FlowConditionNodes = append(bundle.FlowConditionNodes, *nodeIf)
 		}
 
-	case mnnode.NODE_KIND_NO_OP:
+	case mflow.NODE_KIND_NO_OP:
 		nodeNoop, err := nodeNoopService.GetNodeNoop(ctx, node.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get noop node: %w", err)
@@ -337,7 +337,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 			bundle.FlowNoopNodes = append(bundle.FlowNoopNodes, *nodeNoop)
 		}
 
-	case mnnode.NODE_KIND_FOR:
+	case mflow.NODE_KIND_FOR:
 		nodeFor, err := nodeForService.GetNodeFor(ctx, node.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get for node: %w", err)
@@ -346,7 +346,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 			bundle.FlowForNodes = append(bundle.FlowForNodes, *nodeFor)
 		}
 
-	case mnnode.NODE_KIND_FOR_EACH:
+	case mflow.NODE_KIND_FOR_EACH:
 		nodeForEach, err := nodeForEachService.GetNodeForEach(ctx, node.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get foreach node: %w", err)
@@ -355,7 +355,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 			bundle.FlowForEachNodes = append(bundle.FlowForEachNodes, *nodeForEach)
 		}
 
-	case mnnode.NODE_KIND_JS:
+	case mflow.NODE_KIND_JS:
 		nodeJS, err := nodeJSService.GetNodeJS(ctx, node.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("failed to get js node: %w", err)

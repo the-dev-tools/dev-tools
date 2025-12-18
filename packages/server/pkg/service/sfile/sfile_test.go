@@ -97,7 +97,6 @@ func TestFileService_ListFilesByWorkspace(t *testing.T) {
 	assert.Equal(t, "flow1", files[1].Name)
 }
 
-
 func TestFileService_MoveFile(t *testing.T) {
 	ctx := context.Background()
 	baseDB := testutil.CreateBaseDB(ctx, t)
@@ -190,4 +189,3 @@ func TestFileService_DeleteFile(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, ErrFileNotFound, err)
 }
-

@@ -16,7 +16,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
@@ -295,7 +294,7 @@ func checkFlowsHaveJSNodes(ctx context.Context, flows []mflow.Flow, c *common.Se
 		}
 
 		for _, node := range nodes {
-			if node.NodeKind == mnnode.NODE_KIND_JS {
+			if node.NodeKind == mflow.NODE_KIND_JS {
 				return true, nil
 			}
 		}

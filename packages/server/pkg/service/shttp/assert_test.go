@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHttpAssertService(t *testing.T) {
@@ -17,7 +18,7 @@ func TestHttpAssertService(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpAssertService(db)
-	
+
 	// Parent HTTP
 	httpService := New(db, nil)
 	httpID := idwrap.NewNow()

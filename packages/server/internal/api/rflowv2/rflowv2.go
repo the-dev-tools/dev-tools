@@ -16,7 +16,7 @@ import (
 	"the-dev-tools/server/pkg/flow/flowbuilder"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -93,7 +93,7 @@ type FlowVariableTopic struct {
 type FlowVariableEvent struct {
 	Type     string
 	FlowID   idwrap.IDWrap
-	Variable mflowvariable.FlowVariable
+	Variable mflow.FlowVariable
 }
 
 // NoOpTopic identifies the flow whose NoOp nodes are being published.

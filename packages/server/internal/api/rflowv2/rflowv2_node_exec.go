@@ -14,8 +14,8 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -165,7 +165,7 @@ func (s *FlowServiceV2RPC) streamNodeExecutionSync(
 	)
 }
 
-func (s *FlowServiceV2RPC) publishExecutionEvent(eventType string, execution mnodeexecution.NodeExecution, flowID idwrap.IDWrap) {
+func (s *FlowServiceV2RPC) publishExecutionEvent(eventType string, execution mflow.NodeExecution, flowID idwrap.IDWrap) {
 	if s.executionStream == nil {
 		return
 	}

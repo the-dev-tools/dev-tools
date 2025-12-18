@@ -3,10 +3,10 @@ package snodeexecution
 import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
-func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecution {
+func ConvertNodeExecutionToDB(ne mflow.NodeExecution) *gen.NodeExecution {
 	var errorSQL sql.NullString
 	if ne.Error != nil {
 		errorSQL = sql.NullString{
@@ -38,7 +38,7 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 	}
 }
 
-func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecution {
+func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mflow.NodeExecution {
 	var errorPtr *string
 	if ne.Error.Valid {
 		errorPtr = &ne.Error.String
@@ -51,7 +51,7 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 		completedAtPtr = &ne.CompletedAt.Int64
 	}
 
-	return &mnodeexecution.NodeExecution{
+	return &mflow.NodeExecution{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
 		Name:                   ne.Name,

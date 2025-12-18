@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHttpHeaderService(t *testing.T) {
@@ -17,7 +18,7 @@ func TestHttpHeaderService(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpHeaderService(db)
-	
+
 	// Need a parent HTTP request
 	httpService := New(db, nil)
 	workspaceID := idwrap.NewNow()
@@ -81,15 +82,15 @@ func TestHttpHeaderService_Delta(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpHeaderService(db)
-	
+
 	// Create Delta Request
 	httpService := New(db, nil)
 	deltaID := idwrap.NewNow()
 	err = httpService.Create(ctx, &mhttp.HTTP{
-		ID:          deltaID,
-		WorkspaceID: idwrap.NewNow(),
-		Name:        "Delta",
-		IsDelta:     true,
+		ID:           deltaID,
+		WorkspaceID:  idwrap.NewNow(),
+		Name:         "Delta",
+		IsDelta:      true,
 		ParentHttpID: &idwrap.IDWrap{}, // Fake parent
 	})
 	require.NoError(t, err)
@@ -99,7 +100,7 @@ func TestHttpHeaderService_Delta(t *testing.T) {
 	deltaKey := "Delta-Key"
 	deltaValue := "Delta-Value"
 	deltaEnabled := true
-	
+
 	header := &mhttp.HTTPHeader{
 		ID:           headerID,
 		HttpID:       deltaID,
@@ -108,9 +109,9 @@ func TestHttpHeaderService_Delta(t *testing.T) {
 		DeltaValue:   &deltaValue,
 		DeltaEnabled: &deltaEnabled,
 		// Needs ParentHttpHeaderID constraint usually, but we bypass for unit test if DB constraint allows or we mock parent
-		ParentHttpHeaderID: &idwrap.IDWrap{}, 
+		ParentHttpHeaderID: &idwrap.IDWrap{},
 	}
-	
+
 	err = service.Create(ctx, header)
 	require.NoError(t, err)
 

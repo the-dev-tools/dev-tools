@@ -13,8 +13,7 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -35,7 +34,7 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, n := range nodes {
-			if n.NodeKind != mnnode.NODE_KIND_REQUEST {
+			if n.NodeKind != mflow.NODE_KIND_REQUEST {
 				continue
 			}
 			nodeReq, err := s.nrs.GetNodeRequest(ctx, n.ID)
@@ -98,7 +97,7 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			}
 		}
 
-		if err := s.nrs.CreateNodeRequest(ctx, mnrequest.MNRequest{
+		if err := s.nrs.CreateNodeRequest(ctx, mflow.NodeRequest{
 			FlowNodeID:       nodeID,
 			HttpID:           httpID,
 			DeltaHttpID:      deltaHttpID,
@@ -152,7 +151,7 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 			}
 		}
 
-		if err := s.nrs.UpdateNodeRequest(ctx, mnrequest.MNRequest{
+		if err := s.nrs.UpdateNodeRequest(ctx, mflow.NodeRequest{
 			FlowNodeID:       nodeID,
 			HttpID:           httpID,
 			DeltaHttpID:      deltaHttpID,
@@ -235,7 +234,7 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 
 			for _, nodeModel := range nodes {
 				// Filter for HTTP nodes (REQUEST nodes)
-				if nodeModel.NodeKind != mnnode.NODE_KIND_REQUEST {
+				if nodeModel.NodeKind != mflow.NODE_KIND_REQUEST {
 					continue
 				}
 

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 var ErrNoNodeForFound = sql.ErrNoRows
@@ -43,19 +43,19 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForService, error) {
 	}, nil
 }
 
-func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mnfor.MNFor, error) {
+func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeFor, error) {
 	return nfs.reader.GetNodeFor(ctx, id)
 }
 
-func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
+func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mflow.NodeFor) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeFor(ctx, nf)
 }
 
-func (nfs NodeForService) CreateNodeForBulk(ctx context.Context, nf []mnfor.MNFor) error {
+func (nfs NodeForService) CreateNodeForBulk(ctx context.Context, nf []mflow.NodeFor) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeForBulk(ctx, nf)
 }
 
-func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
+func (nfs NodeForService) UpdateNodeFor(ctx context.Context, nf mflow.NodeFor) error {
 	return NewWriterFromQueries(nfs.queries).UpdateNodeFor(ctx, nf)
 }
 

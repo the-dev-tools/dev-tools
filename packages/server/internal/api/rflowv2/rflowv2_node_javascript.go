@@ -14,8 +14,7 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -38,7 +37,7 @@ func (s *FlowServiceV2RPC) NodeJsCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, n := range nodes {
-			if n.NodeKind != mnnode.NODE_KIND_JS {
+			if n.NodeKind != mflow.NODE_KIND_JS {
 				continue
 			}
 			nodeJs, err := s.njss.GetNodeJS(ctx, n.ID)
@@ -68,7 +67,7 @@ func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Reques
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
 		}
 
-		model := mnjs.MNJS{
+		model := mflow.NodeJS{
 			FlowNodeID:       nodeID,
 			Code:             []byte(item.GetCode()),
 			CodeCompressType: compress.CompressTypeNone,
@@ -189,7 +188,7 @@ func (s *FlowServiceV2RPC) streamNodeJsSync(
 
 			for _, nodeModel := range nodes {
 				// Filter for JS nodes
-				if nodeModel.NodeKind != mnnode.NODE_KIND_JS {
+				if nodeModel.NodeKind != mflow.NODE_KIND_JS {
 					continue
 				}
 
@@ -256,8 +255,6 @@ func (s *FlowServiceV2RPC) streamNodeJsSync(
 		}
 	}
 }
-
-
 
 func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 	ctx context.Context,

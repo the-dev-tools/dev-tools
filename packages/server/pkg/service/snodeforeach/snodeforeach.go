@@ -7,7 +7,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 var ErrNoNodeForEachFound = errors.New("node foreach not found")
@@ -43,19 +43,19 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeForEachService, error) {
 	}, nil
 }
 
-func (nfs NodeForEachService) GetNodeForEach(ctx context.Context, id idwrap.IDWrap) (*mnforeach.MNForEach, error) {
+func (nfs NodeForEachService) GetNodeForEach(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeForEach, error) {
 	return nfs.reader.GetNodeForEach(ctx, id)
 }
 
-func (nfs NodeForEachService) CreateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
+func (nfs NodeForEachService) CreateNodeForEach(ctx context.Context, nf mflow.NodeForEach) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeForEach(ctx, nf)
 }
 
-func (nfs NodeForEachService) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mnforeach.MNForEach) error {
+func (nfs NodeForEachService) CreateNodeForEachBulk(ctx context.Context, forEachNodes []mflow.NodeForEach) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeForEachBulk(ctx, forEachNodes)
 }
 
-func (nfs NodeForEachService) UpdateNodeForEach(ctx context.Context, nf mnforeach.MNForEach) error {
+func (nfs NodeForEachService) UpdateNodeForEach(ctx context.Context, nf mflow.NodeForEach) error {
 	return NewWriterFromQueries(nfs.queries).UpdateNodeForEach(ctx, nf)
 }
 

@@ -18,10 +18,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
@@ -179,21 +176,21 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Source Node (REQUEST)
 	sourceNodeID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       sourceNodeID,
 		FlowID:   flowID,
 		Name:     "SourceRequest",
-		NodeKind: mnnode.NODE_KIND_REQUEST,
+		NodeKind: mflow.NODE_KIND_REQUEST,
 	})
 	require.NoError(t, err)
 
 	// Create Target Node (REQUEST) - this is where we request completion from
 	targetNodeID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       targetNodeID,
 		FlowID:   flowID,
 		Name:     "TargetRequest",
-		NodeKind: mnnode.NODE_KIND_REQUEST,
+		NodeKind: mflow.NODE_KIND_REQUEST,
 	})
 	require.NoError(t, err)
 
@@ -209,7 +206,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Flow Variable
 	flowVarID := idwrap.NewNow()
-	err = ts.fvs.CreateFlowVariable(ctx, mflowvariable.FlowVariable{
+	err = ts.fvs.CreateFlowVariable(ctx, mflow.FlowVariable{
 		ID:      flowVarID,
 		FlowID:  flowID,
 		Name:    "flow_var_1",
@@ -331,11 +328,11 @@ func TestReferenceValue_Nested(t *testing.T) {
 
 	// Create Node with Execution Data
 	nodeID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "MyNode",
-		NodeKind: mnnode.NODE_KIND_JS,
+		NodeKind: mflow.NODE_KIND_JS,
 	})
 	require.NoError(t, err)
 
@@ -352,11 +349,11 @@ func TestReferenceValue_Nested(t *testing.T) {
 	outputBytes, _ := json.Marshal(outputData)
 
 	now := time.Now().Unix()
-	exec := mnodeexecution.NodeExecution{
+	exec := mflow.NodeExecution{
 		ID:                     execID,
 		NodeID:                 nodeID,
 		Name:                   "Exec 1",
-		State:                  mnnode.NODE_STATE_SUCCESS,
+		State:                  mflow.NODE_STATE_SUCCESS,
 		CompletedAt:            &now,
 		OutputData:             outputBytes,
 		OutputDataCompressType: compress.CompressTypeNone,
@@ -368,11 +365,11 @@ func TestReferenceValue_Nested(t *testing.T) {
 
 	// We need another node to reference "MyNode"
 	targetNodeID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       targetNodeID,
 		FlowID:   flowID,
 		Name:     "TargetNode",
-		NodeKind: mnnode.NODE_KIND_JS,
+		NodeKind: mflow.NODE_KIND_JS,
 	})
 	require.NoError(t, err)
 
@@ -525,7 +522,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1. Flow Variable
-	err = ts.fvs.CreateFlowVariable(ctx, mflowvariable.FlowVariable{
+	err = ts.fvs.CreateFlowVariable(ctx, mflow.FlowVariable{
 		ID:      idwrap.NewNow(),
 		FlowID:  flowID,
 		Name:    "flow_var",
@@ -536,11 +533,11 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// 2. Previous Node with Execution Data
 	node1ID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       node1ID,
 		FlowID:   flowID,
 		Name:     "NodeWithExec",
-		NodeKind: mnnode.NODE_KIND_JS,
+		NodeKind: mflow.NODE_KIND_JS,
 	})
 	require.NoError(t, err)
 
@@ -552,11 +549,11 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	}
 	execBytes, _ := json.Marshal(execData)
 	now := time.Now().Unix()
-	err = ts.nes.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+	err = ts.nes.CreateNodeExecution(ctx, mflow.NodeExecution{
 		ID:                     idwrap.NewNow(),
 		NodeID:                 node1ID,
 		Name:                   "Exec1",
-		State:                  mnnode.NODE_STATE_SUCCESS,
+		State:                  mflow.NODE_STATE_SUCCESS,
 		CompletedAt:            &now,
 		OutputData:             execBytes,
 		OutputDataCompressType: compress.CompressTypeNone,
@@ -565,31 +562,31 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// 3. Previous Node without Execution Data (Schema Fallback) - using REQUEST node
 	node2ID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       node2ID,
 		FlowID:   flowID,
 		Name:     "NodeRequest",
-		NodeKind: mnnode.NODE_KIND_REQUEST,
+		NodeKind: mflow.NODE_KIND_REQUEST,
 	})
 	require.NoError(t, err)
 
 	// 4. For Loop Node (Schema Fallback)
 	node3ID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       node3ID,
 		FlowID:   flowID,
 		Name:     "LoopNode",
-		NodeKind: mnnode.NODE_KIND_FOR,
+		NodeKind: mflow.NODE_KIND_FOR,
 	})
 	require.NoError(t, err)
 
 	// 5. Target Node
 	targetNodeID := idwrap.NewNow()
-	err = ts.fns.CreateNode(ctx, mnnode.MNode{
+	err = ts.fns.CreateNode(ctx, mflow.Node{
 		ID:       targetNodeID,
 		FlowID:   flowID,
 		Name:     "Target",
-		NodeKind: mnnode.NODE_KIND_JS,
+		NodeKind: mflow.NODE_KIND_JS,
 	})
 	require.NoError(t, err)
 

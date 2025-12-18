@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflowtag"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -21,7 +21,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateFlowTag(ctx context.Context, ftag mflowtag.FlowTag) error {
+func (w *Writer) CreateFlowTag(ctx context.Context, ftag mflow.FlowTag) error {
 	arg := ConvertModelToDB(ftag)
 	err := w.queries.CreateFlowTag(ctx, gen.CreateFlowTagParams(arg))
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowTag, err)

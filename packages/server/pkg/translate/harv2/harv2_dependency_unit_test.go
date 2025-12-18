@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/translate/harv2"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHARv2_DependencyChain_Unit(t *testing.T) {
@@ -80,7 +81,7 @@ func TestHARv2_DependencyChain_Unit(t *testing.T) {
 	// 4. Verify Headers
 	// Base B should have raw value "Bearer abc-123"
 	// Delta B should have templated value "Bearer {{...}}"
-	
+
 	// Helper to find headers for a request ID
 	findHeader := func(httpID idwrap.IDWrap, key string) *mhttp.HTTPHeader {
 		for i := range result.HTTPHeaders {

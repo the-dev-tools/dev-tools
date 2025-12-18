@@ -20,9 +20,6 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -86,7 +83,7 @@ func New(
 func (b *Builder) BuildNodes(
 	ctx context.Context,
 	flow mflow.Flow,
-	nodes []mnnode.MNode,
+	nodes []mflow.Node,
 	timeout time.Duration,
 	httpClient httpclient.HttpClient,
 	respChan chan nrequest.NodeRequestSideResp,
@@ -97,16 +94,16 @@ func (b *Builder) BuildNodes(
 
 	for _, nodeModel := range nodes {
 		switch nodeModel.NodeKind {
-		case mnnode.NODE_KIND_NO_OP:
+		case mflow.NODE_KIND_NO_OP:
 			noopModel, err := b.NodeNoop.GetNodeNoop(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
 			flowNodeMap[nodeModel.ID] = nnoop.New(nodeModel.ID, nodeModel.Name)
-			if noopModel.Type == mnnoop.NODE_NO_OP_KIND_START {
+			if noopModel.Type == mflow.NODE_NO_OP_KIND_START {
 				startNodeID = nodeModel.ID
 			}
-		case mnnode.NODE_KIND_REQUEST:
+		case mflow.NODE_KIND_REQUEST:
 			requestCfg, err := b.NodeRequest.GetNodeRequest(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
@@ -136,7 +133,7 @@ func (b *Builder) BuildNodes(
 			)
 			flowNodeMap[nodeModel.ID] = requestNode
 
-		case mnnode.NODE_KIND_FOR:
+		case mflow.NODE_KIND_FOR:
 			forCfg, err := b.NodeFor.GetNodeFor(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
@@ -146,19 +143,19 @@ func (b *Builder) BuildNodes(
 			} else {
 				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeout, forCfg.ErrorHandling)
 			}
-		case mnnode.NODE_KIND_FOR_EACH:
+		case mflow.NODE_KIND_FOR_EACH:
 			forEachCfg, err := b.NodeForEach.GetNodeForEach(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
 			flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, forEachCfg.IterExpression, timeout, forEachCfg.Condition, forEachCfg.ErrorHandling)
-		case mnnode.NODE_KIND_CONDITION:
+		case mflow.NODE_KIND_CONDITION:
 			condCfg, err := b.NodeIf.GetNodeIf(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
 			flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, condCfg.Condition)
-		case mnnode.NODE_KIND_JS:
+		case mflow.NODE_KIND_JS:
 			jsCfg, err := b.NodeJS.GetNodeJS(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
@@ -186,7 +183,7 @@ func (b *Builder) BuildNodes(
 func (b *Builder) BuildVariables(
 	ctx context.Context,
 	workspaceID idwrap.IDWrap,
-	flowVars []mflowvariable.FlowVariable,
+	flowVars []mflow.FlowVariable,
 ) (map[string]any, error) {
 	baseVars := make(map[string]any)
 

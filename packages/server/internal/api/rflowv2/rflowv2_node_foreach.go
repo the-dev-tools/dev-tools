@@ -14,9 +14,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -39,7 +37,7 @@ func (s *FlowServiceV2RPC) NodeForEachCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, n := range nodes {
-			if n.NodeKind != mnnode.NODE_KIND_FOR_EACH {
+			if n.NodeKind != mflow.NODE_KIND_FOR_EACH {
 				continue
 			}
 			nodeForEach, err := s.nfes.GetNodeForEach(ctx, n.ID)
@@ -72,11 +70,11 @@ func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
 		}
 
-		model := mnforeach.MNForEach{
+		model := mflow.NodeForEach{
 			FlowNodeID:     nodeID,
 			IterExpression: item.GetPath(),
 			Condition:      buildCondition(item.GetCondition()),
-			ErrorHandling:  mnfor.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
+			ErrorHandling:  mflow.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
 		}
 
 		if err := s.nfes.CreateNodeForEach(ctx, model); err != nil {
@@ -119,7 +117,7 @@ func (s *FlowServiceV2RPC) NodeForEachUpdate(ctx context.Context, req *connect.R
 			existing.Condition = buildCondition(item.GetCondition())
 		}
 		if item.ErrorHandling != nil {
-			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
+			existing.ErrorHandling = mflow.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
 		}
 
 		if err := s.nfes.UpdateNodeForEach(ctx, *existing); err != nil {
@@ -200,7 +198,7 @@ func (s *FlowServiceV2RPC) streamNodeForEachSync(
 
 			for _, nodeModel := range nodes {
 				// Filter for ForEach nodes
-				if nodeModel.NodeKind != mnnode.NODE_KIND_FOR_EACH {
+				if nodeModel.NodeKind != mflow.NODE_KIND_FOR_EACH {
 					continue
 				}
 

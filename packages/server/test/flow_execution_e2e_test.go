@@ -14,8 +14,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -128,11 +126,11 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 
 	// 2. Create Start Node
 	startNodeID := idwrap.NewNow()
-	err = f.nodeService.CreateNode(f.ctx, mnnode.MNode{
+	err = f.nodeService.CreateNode(f.ctx, mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_NO_OP,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -153,18 +151,18 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Node A
-	err = f.nodeService.CreateNode(f.ctx, mnnode.MNode{
+	err = f.nodeService.CreateNode(f.ctx, mflow.Node{
 		ID:        reqNodeAID,
 		FlowID:    flowID,
 		Name:      "Request A Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 200,
 		PositionY: 0,
 	})
 	require.NoError(t, err)
 
 	// Link Node A to HTTP A
-	err = f.nodeRequestService.CreateNodeRequest(f.ctx, mnrequest.MNRequest{
+	err = f.nodeRequestService.CreateNodeRequest(f.ctx, mflow.NodeRequest{
 		FlowNodeID: reqNodeAID,
 		HttpID:     &httpAID,
 	})
@@ -185,18 +183,18 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Node B
-	err = f.nodeService.CreateNode(f.ctx, mnnode.MNode{
+	err = f.nodeService.CreateNode(f.ctx, mflow.Node{
 		ID:        reqNodeBID,
 		FlowID:    flowID,
 		Name:      "Request B Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 400,
 		PositionY: 0,
 	})
 	require.NoError(t, err)
 
 	// Link Node B to HTTP B
-	err = f.nodeRequestService.CreateNodeRequest(f.ctx, mnrequest.MNRequest{
+	err = f.nodeRequestService.CreateNodeRequest(f.ctx, mflow.NodeRequest{
 		FlowNodeID: reqNodeBID,
 		HttpID:     &httpBID,
 	})

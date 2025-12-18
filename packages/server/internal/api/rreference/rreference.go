@@ -13,8 +13,7 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/reference"
@@ -346,7 +345,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 	edgesMap := edge.NewEdgesMap(edges)
 
-	beforeNodes := make([]mnnode.MNode, 0, len(nodes))
+	beforeNodes := make([]mflow.Node, 0, len(nodes))
 	for _, node := range nodes {
 		if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
 			beforeNodes = append(beforeNodes, node)
@@ -413,7 +412,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 		// Otherwise, provide schema for specific node types
 		switch node.NodeKind {
-		case mnnode.NODE_KIND_FOR_EACH:
+		case mflow.NODE_KIND_FOR_EACH:
 			// For foreach loops, they write 'item' and 'key' variables
 			nodeVarsMap := map[string]interface{}{
 				"item": nil, // Can be any type from the iterated collection
@@ -424,7 +423,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-		case mnnode.NODE_KIND_FOR:
+		case mflow.NODE_KIND_FOR:
 			// For for loops, they write 'index' variable
 			nodeVarsMap := map[string]interface{}{
 				"index": 0,
@@ -434,7 +433,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-		case mnnode.NODE_KIND_REQUEST:
+		case mflow.NODE_KIND_REQUEST:
 			// For REQUEST nodes, provide the schema structure
 			nodeVarsMap := map[string]interface{}{
 				"request": map[string]interface{}{
@@ -557,7 +556,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			flowVars = []mflowvariable.FlowVariable{}
+			flowVars = []mflow.FlowVariable{}
 		}
 
 		sortenabled.GetAllWithState(&flowVars, true)
@@ -573,7 +572,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		edgesMap := edge.NewEdgesMap(edges)
 
-		beforeNodes := make([]mnnode.MNode, 0, len(nodes))
+		beforeNodes := make([]mflow.Node, 0, len(nodes))
 		for _, node := range nodes {
 			if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
 				beforeNodes = append(beforeNodes, node)
@@ -630,7 +629,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 			// Otherwise, provide schema for specific node types
 			switch node.NodeKind {
-			case mnnode.NODE_KIND_FOR_EACH:
+			case mflow.NODE_KIND_FOR_EACH:
 				// For foreach loops, they write 'item' and 'key' variables
 				nodeVarsMap := map[string]interface{}{
 					"item": nil, // Can be any type from the iterated collection
@@ -638,14 +637,14 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
 
-			case mnnode.NODE_KIND_FOR:
+			case mflow.NODE_KIND_FOR:
 				// For for loops, they write 'index' variable
 				nodeVarsMap := map[string]interface{}{
 					"index": 0,
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
 
-			case mnnode.NODE_KIND_REQUEST:
+			case mflow.NODE_KIND_REQUEST:
 				// For REQUEST nodes, provide the schema structure
 				nodeVarsMap := map[string]interface{}{
 					"request": map[string]interface{}{
@@ -671,7 +670,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			currentNode, err := c.nodeReader.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
-				case mnnode.NODE_KIND_FOR:
+				case mflow.NODE_KIND_FOR:
 					// FOR nodes can reference their own index from execution data
 					var nodeData interface{}
 					hasExecutionData := false
@@ -712,7 +711,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						creator.AddWithKey(currentNode.Name, nodeVarsMap)
 					}
 
-				case mnnode.NODE_KIND_FOR_EACH:
+				case mflow.NODE_KIND_FOR_EACH:
 					// FOREACH nodes can reference their own item and key from execution data
 					var nodeData interface{}
 					hasExecutionData := false
@@ -754,7 +753,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						creator.AddWithKey(currentNode.Name, nodeVarsMap)
 					}
 
-				case mnnode.NODE_KIND_REQUEST:
+				case mflow.NODE_KIND_REQUEST:
 					// REQUEST nodes can reference their own response and request directly (without prefix)
 					var nodeData interface{}
 					hasExecutionData := false
@@ -932,7 +931,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			flowVars = []mflowvariable.FlowVariable{}
+			flowVars = []mflow.FlowVariable{}
 		}
 
 		sortenabled.GetAllWithState(&flowVars, true)
@@ -948,7 +947,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		edgesMap := edge.NewEdgesMap(edges)
 
-		beforeNodes := make([]mnnode.MNode, 0, len(nodes))
+		beforeNodes := make([]mflow.Node, 0, len(nodes))
 		for _, node := range nodes {
 			if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
 				beforeNodes = append(beforeNodes, node)
@@ -1005,7 +1004,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 			// Otherwise, provide schema for specific node types
 			switch node.NodeKind {
-			case mnnode.NODE_KIND_FOR_EACH:
+			case mflow.NODE_KIND_FOR_EACH:
 				// For foreach loops, they write 'item' and 'key' variables
 				nodeVarsMap := map[string]interface{}{
 					"item": nil, // Can be any type from the iterated collection
@@ -1013,14 +1012,14 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
 
-			case mnnode.NODE_KIND_FOR:
+			case mflow.NODE_KIND_FOR:
 				// For for loops, they write 'index' variable
 				nodeVarsMap := map[string]interface{}{
 					"index": 0,
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
 
-			case mnnode.NODE_KIND_REQUEST:
+			case mflow.NODE_KIND_REQUEST:
 				// For REQUEST nodes, provide the schema structure
 				nodeVarsMap := map[string]interface{}{
 					"request": map[string]interface{}{
@@ -1046,7 +1045,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			currentNode, err := c.nodeReader.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
-				case mnnode.NODE_KIND_FOR, mnnode.NODE_KIND_FOR_EACH:
+				case mflow.NODE_KIND_FOR, mflow.NODE_KIND_FOR_EACH:
 					// FOR and FOREACH nodes can reference their own index/item/key from execution data
 					var nodeData interface{}
 					hasExecutionData := false
@@ -1079,7 +1078,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 						lookup.AddWithKey(currentNode.Name, nodeData)
 					} else {
 						// No execution data, provide the schema
-						if currentNode.NodeKind == mnnode.NODE_KIND_FOR {
+						if currentNode.NodeKind == mflow.NODE_KIND_FOR {
 							lookup.AddWithKey(currentNode.Name, map[string]interface{}{
 								"index": 0,
 							})
@@ -1091,7 +1090,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 						}
 					}
 
-				case mnnode.NODE_KIND_REQUEST:
+				case mflow.NODE_KIND_REQUEST:
 					// REQUEST nodes can reference their own response and request directly (without prefix)
 					var nodeData interface{}
 					hasExecutionData := false

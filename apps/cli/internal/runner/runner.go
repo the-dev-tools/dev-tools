@@ -20,7 +20,6 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
 	// Service interfaces
@@ -319,7 +318,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 					Status:   nodeStatus,
 				})
 			}
-			if nodeStatus.State != mnnode.NODE_STATE_RUNNING {
+			if nodeStatus.State != mflow.NODE_STATE_RUNNING {
 				// Hack: Fix for unintended file system artifacts (like .git folder) being picked up as nodes
 				// This usually happens when implicit file scanning interacts with the flow execution
 				if nodeStatus.Name == ".git" || strings.HasPrefix(nodeStatus.Name, ".git/") || strings.HasPrefix(nodeStatus.Name, ".git\\") {
@@ -379,7 +378,7 @@ func buildNodeRunResult(status runner.FlowNodeStatus) model.NodeRunResult {
 		NodeID:      status.NodeID.String(),
 		ExecutionID: status.ExecutionID.String(),
 		Name:        status.Name,
-		State:       mnnode.StringNodeState(status.State),
+		State:       mflow.StringNodeState(status.State),
 		Duration:    status.RunDuration,
 	}
 

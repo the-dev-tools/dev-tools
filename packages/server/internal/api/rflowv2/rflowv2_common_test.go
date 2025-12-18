@@ -12,15 +12,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -31,12 +22,12 @@ func TestSerializeNodeHTTP(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    mnrequest.MNRequest
+		input    mflow.NodeRequest
 		expected *flowv1.NodeHttp
 	}{
 		{
 			name: "With HTTP ID and Delta ID",
-			input: mnrequest.MNRequest{
+			input: mflow.NodeRequest{
 				FlowNodeID:  nodeID,
 				HttpID:      &httpID,
 				DeltaHttpID: &deltaHttpID,
@@ -49,7 +40,7 @@ func TestSerializeNodeHTTP(t *testing.T) {
 		},
 		{
 			name: "Without HTTP ID",
-			input: mnrequest.MNRequest{
+			input: mflow.NodeRequest{
 				FlowNodeID: nodeID,
 				HttpID:     nil,
 			},
@@ -59,7 +50,7 @@ func TestSerializeNodeHTTP(t *testing.T) {
 		},
 		{
 			name: "With HTTP ID but no Delta ID",
-			input: mnrequest.MNRequest{
+			input: mflow.NodeRequest{
 				FlowNodeID:  nodeID,
 				HttpID:      &httpID,
 				DeltaHttpID: nil,
@@ -85,16 +76,16 @@ func TestSerializeNode(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    mnnode.MNode
+		input    mflow.Node
 		expected *flowv1.Node
 	}{
 		{
 			name: "Basic Node",
-			input: mnnode.MNode{
+			input: mflow.Node{
 				ID:        nodeID,
 				FlowID:    flowID,
 				Name:      "Test Node",
-				NodeKind:  mnnode.NODE_KIND_REQUEST,
+				NodeKind:  mflow.NODE_KIND_REQUEST,
 				PositionX: 100.5,
 				PositionY: 200.5,
 			},
@@ -216,14 +207,14 @@ func TestSerializeNodeNoop(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	tests := []struct {
 		name     string
-		input    mnnoop.NoopNode
+		input    mflow.NodeNoop
 		expected *flowv1.NodeNoOp
 	}{
 		{
 			name: "NoOp Start",
-			input: mnnoop.NoopNode{
+			input: mflow.NodeNoop{
 				FlowNodeID: nodeID,
-				Type:       mnnoop.NODE_NO_OP_KIND_START,
+				Type:       mflow.NODE_NO_OP_KIND_START,
 			},
 			expected: &flowv1.NodeNoOp{
 				NodeId: nodeID.Bytes(),
@@ -232,9 +223,9 @@ func TestSerializeNodeNoop(t *testing.T) {
 		},
 		{
 			name: "NoOp Loop",
-			input: mnnoop.NoopNode{
+			input: mflow.NodeNoop{
 				FlowNodeID: nodeID,
-				Type:       mnnoop.NODE_NO_OP_KIND_LOOP,
+				Type:       mflow.NODE_NO_OP_KIND_LOOP,
 			},
 			expected: &flowv1.NodeNoOp{
 				NodeId: nodeID.Bytes(),
@@ -255,15 +246,15 @@ func TestSerializeNodeFor(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	tests := []struct {
 		name     string
-		input    mnfor.MNFor
+		input    mflow.NodeFor
 		expected *flowv1.NodeFor
 	}{
 		{
 			name: "For Node",
-			input: mnfor.MNFor{
+			input: mflow.NodeFor{
 				FlowNodeID:    nodeID,
 				IterCount:     10,
-				ErrorHandling: mnfor.ErrorHandling_ERROR_HANDLING_IGNORE,
+				ErrorHandling: mflow.ErrorHandling_ERROR_HANDLING_IGNORE,
 				Condition: mcondition.Condition{
 					Comparisons: mcondition.Comparison{
 						Expression: "true",
@@ -291,12 +282,12 @@ func TestSerializeNodeCondition(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	tests := []struct {
 		name     string
-		input    mnif.MNIF
+		input    mflow.NodeIf
 		expected *flowv1.NodeCondition
 	}{
 		{
 			name: "Condition Node",
-			input: mnif.MNIF{
+			input: mflow.NodeIf{
 				FlowNodeID: nodeID,
 				Condition: mcondition.Condition{
 					Comparisons: mcondition.Comparison{
@@ -323,15 +314,15 @@ func TestSerializeNodeForEach(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	tests := []struct {
 		name     string
-		input    mnforeach.MNForEach
+		input    mflow.NodeForEach
 		expected *flowv1.NodeForEach
 	}{
 		{
 			name: "ForEach Node",
-			input: mnforeach.MNForEach{
+			input: mflow.NodeForEach{
 				FlowNodeID:     nodeID,
 				IterExpression: "items",
-				ErrorHandling:  mnfor.ErrorHandling_ERROR_HANDLING_BREAK,
+				ErrorHandling:  mflow.ErrorHandling_ERROR_HANDLING_BREAK,
 				Condition: mcondition.Condition{
 					Comparisons: mcondition.Comparison{
 						Expression: "item.active",
@@ -359,12 +350,12 @@ func TestSerializeNodeJs(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	tests := []struct {
 		name     string
-		input    mnjs.MNJS
+		input    mflow.NodeJS
 		expected *flowv1.NodeJs
 	}{
 		{
 			name: "JS Node",
-			input: mnjs.MNJS{
+			input: mflow.NodeJS{
 				FlowNodeID: nodeID,
 				Code:       []byte("console.log('hello')"),
 			},
@@ -390,11 +381,11 @@ func TestSerializeNodeExecution(t *testing.T) {
 	completedAt := time.Now().Unix()
 
 	t.Run("Basic Execution", func(t *testing.T) {
-		input := mnodeexecution.NodeExecution{
+		input := mflow.NodeExecution{
 			ID:          executionID,
 			NodeID:      nodeID,
 			Name:        "Test Exec",
-			State:       mnnode.NODE_STATE_SUCCESS,
+			State:       mflow.NODE_STATE_SUCCESS,
 			CompletedAt: &completedAt,
 			ResponseID:  &httpID,
 		}
@@ -404,32 +395,32 @@ func TestSerializeNodeExecution(t *testing.T) {
 		assert.Equal(t, executionID.Bytes(), res.NodeExecutionId)
 		assert.Equal(t, nodeID.Bytes(), res.NodeId)
 		assert.Equal(t, "Test Exec", res.Name)
-		assert.Equal(t, flowv1.FlowItemState(mnnode.NODE_STATE_SUCCESS), res.State)
+		assert.Equal(t, flowv1.FlowItemState(mflow.NODE_STATE_SUCCESS), res.State)
 		assert.Equal(t, httpID.Bytes(), res.HttpResponseId)
 		assert.Equal(t, completedAt, res.CompletedAt.Seconds)
 	})
 
 	t.Run("With Error", func(t *testing.T) {
-		input := mnodeexecution.NodeExecution{
+		input := mflow.NodeExecution{
 			ID:     executionID,
 			NodeID: nodeID,
 			Name:   "Error Exec",
-			State:  mnnode.NODE_STATE_FAILURE,
+			State:  mflow.NODE_STATE_FAILURE,
 			Error:  ptr("Something went wrong"),
 		}
 
 		res := serializeNodeExecution(input)
 
 		assert.Equal(t, "Something went wrong", *res.Error)
-		assert.Equal(t, flowv1.FlowItemState(mnnode.NODE_STATE_FAILURE), res.State)
+		assert.Equal(t, flowv1.FlowItemState(mflow.NODE_STATE_FAILURE), res.State)
 	})
 
 	t.Run("With Input/Output JSON", func(t *testing.T) {
-		input := mnodeexecution.NodeExecution{
+		input := mflow.NodeExecution{
 			ID:     executionID,
 			NodeID: nodeID,
 			Name:   "Data Exec",
-			State:  mnnode.NODE_STATE_SUCCESS,
+			State:  mflow.NODE_STATE_SUCCESS,
 		}
 
 		err := input.SetInputJSON(json.RawMessage(`{"foo":"bar"}`))
@@ -456,12 +447,12 @@ func TestSerializeFlowVariable(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    mflowvariable.FlowVariable
+		input    mflow.FlowVariable
 		expected *flowv1.FlowVariable
 	}{
 		{
 			name: "Flow Variable",
-			input: mflowvariable.FlowVariable{
+			input: mflow.FlowVariable{
 				ID:          variableID,
 				FlowID:      flowID,
 				Name:        "var1",
@@ -493,37 +484,37 @@ func TestSerializeFlowVariable(t *testing.T) {
 func TestIsStartNode(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    mnnode.MNode
+		input    mflow.Node
 		expected bool
 	}{
 		{
 			name: "Start Node",
-			input: mnnode.MNode{
-				NodeKind: mnnode.NODE_KIND_NO_OP,
+			input: mflow.Node{
+				NodeKind: mflow.NODE_KIND_NO_OP,
 				Name:     "Start",
 			},
 			expected: true,
 		},
 		{
 			name: "Start Node Lowercase",
-			input: mnnode.MNode{
-				NodeKind: mnnode.NODE_KIND_NO_OP,
+			input: mflow.Node{
+				NodeKind: mflow.NODE_KIND_NO_OP,
 				Name:     "start",
 			},
 			expected: true,
 		},
 		{
 			name: "Not Start Node",
-			input: mnnode.MNode{
-				NodeKind: mnnode.NODE_KIND_NO_OP,
+			input: mflow.Node{
+				NodeKind: mflow.NODE_KIND_NO_OP,
 				Name:     "End",
 			},
 			expected: false,
 		},
 		{
 			name: "Not NoOp Node",
-			input: mnnode.MNode{
-				NodeKind: mnnode.NODE_KIND_REQUEST,
+			input: mflow.Node{
+				NodeKind: mflow.NODE_KIND_REQUEST,
 				Name:     "Start",
 			},
 			expected: false,
@@ -561,7 +552,7 @@ func TestDeserializeNodeInsert(t *testing.T) {
 		assert.Equal(t, flowID, result.FlowID)
 		assert.Equal(t, nodeID, result.ID)
 		assert.Equal(t, "New Node", result.Name)
-		assert.Equal(t, mnnode.NODE_KIND_REQUEST, result.NodeKind)
+		assert.Equal(t, mflow.NODE_KIND_REQUEST, result.NodeKind)
 		assert.Equal(t, 10.0, result.PositionX)
 		assert.Equal(t, 20.0, result.PositionY)
 	})

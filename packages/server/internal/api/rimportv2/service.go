@@ -1,7 +1,8 @@
-//nolint:revive // exported
 // Package rimportv2 provides a modern HAR import service with TypeSpec compliance.
 // It implements a simple, maintainable architecture with dependency injection for core services,
 // functional options pattern for configuration, and comprehensive error handling for local development tool workflows.
+//
+//nolint:revive // exported
 package rimportv2
 
 import (
@@ -18,9 +19,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/translate/harv2"
@@ -152,9 +150,9 @@ type ImportResults struct {
 	HTTPAsserts        []*mhttp.HTTPAssert
 
 	// Flow-specific entities
-	Nodes        []mnnode.MNode
-	RequestNodes []mnrequest.MNRequest
-	NoOpNodes    []mnnoop.NoopNode
+	Nodes        []mflow.Node
+	RequestNodes []mflow.NodeRequest
+	NoOpNodes    []mflow.NodeNoop
 	Edges        []edge.Edge
 
 	// Environment variables created during import (for domain-to-variable mappings)

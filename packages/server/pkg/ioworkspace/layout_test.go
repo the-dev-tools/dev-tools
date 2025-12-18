@@ -6,9 +6,6 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -21,10 +18,10 @@ func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 		Flows: []mflow.Flow{
 			{ID: flowID, Name: "Test Flow"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{ID: nodeID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: nodeID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
-		FlowRequestNodes: []mnrequest.MNRequest{
+		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: nodeID},
 		},
 	}
@@ -43,7 +40,7 @@ func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 	}
 
 	// Should have start node type
-	if bundle.FlowNoopNodes[0].Type != mnnoop.NODE_NO_OP_KIND_START {
+	if bundle.FlowNoopNodes[0].Type != mflow.NODE_NO_OP_KIND_START {
 		t.Errorf("Expected start node type, got %d", bundle.FlowNoopNodes[0].Type)
 	}
 
@@ -63,14 +60,14 @@ func TestEnsureFlowStructure_DoesNotDuplicateStartNode(t *testing.T) {
 		Flows: []mflow.Flow{
 			{ID: flowID, Name: "Test Flow"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
-			{ID: requestNodeID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: requestNodeID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
-		FlowNoopNodes: []mnnoop.NoopNode{
-			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		FlowNoopNodes: []mflow.NodeNoop{
+			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
-		FlowRequestNodes: []mnrequest.MNRequest{
+		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: requestNodeID},
 		},
 		FlowEdges: []edge.Edge{
@@ -107,15 +104,15 @@ func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
 		Flows: []mflow.Flow{
 			{ID: flowID, Name: "Test Flow"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
-			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
-			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
+			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
-		FlowNoopNodes: []mnnoop.NoopNode{
-			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		FlowNoopNodes: []mflow.NodeNoop{
+			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
-		FlowRequestNodes: []mnrequest.MNRequest{
+		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: node1ID},
 			{FlowNodeID: node2ID},
 		},
@@ -129,7 +126,7 @@ func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
 	require.NoError(t, err, "EnsureFlowStructure failed")
 
 	// Find nodes by ID and check positions
-	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	nodeMap := make(map[idwrap.IDWrap]*mflow.Node)
 	for i := range bundle.FlowNodes {
 		nodeMap[bundle.FlowNodes[i].ID] = &bundle.FlowNodes[i]
 	}
@@ -164,15 +161,15 @@ func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
 		Flows: []mflow.Flow{
 			{ID: flowID, Name: "Test Flow"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
-			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
-			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
+			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
-		FlowNoopNodes: []mnnoop.NoopNode{
-			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		FlowNoopNodes: []mflow.NodeNoop{
+			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
-		FlowRequestNodes: []mnrequest.MNRequest{
+		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: node1ID},
 			{FlowNodeID: node2ID},
 		},
@@ -186,7 +183,7 @@ func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
 	require.NoError(t, err, "EnsureFlowStructure failed")
 
 	// Find nodes by ID
-	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	nodeMap := make(map[idwrap.IDWrap]*mflow.Node)
 	for i := range bundle.FlowNodes {
 		nodeMap[bundle.FlowNodes[i].ID] = &bundle.FlowNodes[i]
 	}

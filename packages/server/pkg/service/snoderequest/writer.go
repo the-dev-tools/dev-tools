@@ -6,7 +6,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -21,7 +21,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
+func (w *Writer) CreateNodeRequest(ctx context.Context, nr mflow.NodeRequest) error {
 	nodeHTTP, ok := ConvertToDBNodeHTTP(nr)
 	if !ok {
 		return nil
@@ -29,7 +29,7 @@ func (w *Writer) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) 
 	return w.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams(nodeHTTP))
 }
 
-func (w *Writer) CreateNodeRequestBulk(ctx context.Context, nodes []mnrequest.MNRequest) error {
+func (w *Writer) CreateNodeRequestBulk(ctx context.Context, nodes []mflow.NodeRequest) error {
 	for _, node := range nodes {
 		nodeHTTP, ok := ConvertToDBNodeHTTP(node)
 		if !ok {
@@ -43,7 +43,7 @@ func (w *Writer) CreateNodeRequestBulk(ctx context.Context, nodes []mnrequest.MN
 	return nil
 }
 
-func (w *Writer) UpdateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
+func (w *Writer) UpdateNodeRequest(ctx context.Context, nr mflow.NodeRequest) error {
 	nodeHTTP, ok := ConvertToDBNodeHTTP(nr)
 	if !ok {
 		// Treat removal of HttpID as request to delete any existing binding.

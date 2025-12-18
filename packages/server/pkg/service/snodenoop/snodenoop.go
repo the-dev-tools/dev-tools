@@ -7,7 +7,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 var ErrNoNodeForFound = sql.ErrNoRows
@@ -43,23 +43,23 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeNoopService, error) {
 	}, nil
 }
 
-func (nfs NodeNoopService) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*mnnoop.NoopNode, error) {
+func (nfs NodeNoopService) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeNoop, error) {
 	return nfs.reader.GetNodeNoop(ctx, id)
 }
 
-func (nfs NodeNoopService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnoop.NoopNode, error) {
+func (nfs NodeNoopService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mflow.NodeNoop, error) {
 	return nfs.reader.GetNodesByFlowID(ctx, flowID)
 }
 
-func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
+func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mflow.NodeNoop) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeNoop(ctx, nf)
 }
 
-func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.NoopNode) error {
+func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mflow.NodeNoop) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeNoopBulk(ctx, nf)
 }
 
-func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
+func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mflow.NodeNoop) error {
 	return NewWriterFromQueries(nfs.queries).UpdateNodeNoop(ctx, nf)
 }
 

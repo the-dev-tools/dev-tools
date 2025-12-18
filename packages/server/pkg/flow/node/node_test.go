@@ -5,8 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/flow/node"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestAddNodeVar(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 var ErrNoNodeForFound = sql.ErrNoRows
@@ -42,19 +42,19 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeJSService, error) {
 	}, nil
 }
 
-func (nfs NodeJSService) GetNodeJS(ctx context.Context, id idwrap.IDWrap) (mnjs.MNJS, error) {
+func (nfs NodeJSService) GetNodeJS(ctx context.Context, id idwrap.IDWrap) (mflow.NodeJS, error) {
 	return nfs.reader.GetNodeJS(ctx, id)
 }
 
-func (nfs NodeJSService) CreateNodeJS(ctx context.Context, mn mnjs.MNJS) error {
+func (nfs NodeJSService) CreateNodeJS(ctx context.Context, mn mflow.NodeJS) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeJS(ctx, mn)
 }
 
-func (nfs NodeJSService) CreateNodeJSBulk(ctx context.Context, jsNodes []mnjs.MNJS) error {
+func (nfs NodeJSService) CreateNodeJSBulk(ctx context.Context, jsNodes []mflow.NodeJS) error {
 	return NewWriterFromQueries(nfs.queries).CreateNodeJSBulk(ctx, jsNodes)
 }
 
-func (nfs NodeJSService) UpdateNodeJS(ctx context.Context, mn mnjs.MNJS) error {
+func (nfs NodeJSService) UpdateNodeJS(ctx context.Context, mn mflow.NodeJS) error {
 	return NewWriterFromQueries(nfs.queries).UpdateNodeJS(ctx, mn)
 }
 

@@ -9,8 +9,8 @@ import (
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/translate/harv2"
 
 	"github.com/stretchr/testify/require"
@@ -518,10 +518,10 @@ func TestFlowGraphGeneration(t *testing.T) {
 	// Also verify MNode structure
 	for _, node := range resolved.Nodes {
 		nodeIDs[node.ID] = true
-		if node.NodeKind == mnnode.NODE_KIND_NO_OP {
+		if node.NodeKind == mflow.NODE_KIND_NO_OP {
 			continue
 		}
-		require.Equal(t, mnnode.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
+		require.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
 	}
 
 	// Verify edges exist for sequential requests
@@ -638,10 +638,10 @@ func TestNodeLevelCalculation(t *testing.T) {
 
 	// Verify that nodes have proper positioning fields (they start at 0,0 and will be positioned by layout)
 	for _, node := range resolved.Nodes {
-		if node.NodeKind == mnnode.NODE_KIND_NO_OP {
+		if node.NodeKind == mflow.NODE_KIND_NO_OP {
 			continue
 		}
-		require.Equal(t, mnnode.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
+		require.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
 	}
 }
 

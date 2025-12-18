@@ -8,10 +8,9 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mhttp"
 )
 
 func TestValidateURL(t *testing.T) {
@@ -128,8 +127,8 @@ func TestSanitizeFileName(t *testing.T) {
 
 func TestExtractQueryParamsFromURL(t *testing.T) {
 	tests := []struct {
-		name          string
-		rawURL        string
+		name           string
+		rawURL         string
 		expectedParams []NameValuePair
 		expectedBase   string
 		expectErr      bool
@@ -145,8 +144,8 @@ func TestExtractQueryParamsFromURL(t *testing.T) {
 			expectErr:    false,
 		},
 		{
-			name:          "URL without query params",
-			rawURL:        "https://api.example.com/users",
+			name:           "URL without query params",
+			rawURL:         "https://api.example.com/users",
 			expectedParams: []NameValuePair{},
 			expectedBase:   "https://api.example.com/users",
 			expectErr:      false,
@@ -305,7 +304,7 @@ func TestValidateReferences(t *testing.T) {
 			name: "Valid data",
 			data: &ioworkspace.WorkspaceBundle{
 				Flows: []mflow.Flow{{ID: idwrap.NewNow()}},
-				FlowNodes: []mnnode.MNode{
+				FlowNodes: []mflow.Node{
 					{ID: idwrap.NewNow(), FlowID: idwrap.NewNow()}, // This will be invalid
 				},
 			},
@@ -335,10 +334,10 @@ func TestGenerateStats(t *testing.T) {
 			{Method: "POST"},
 			{Method: "GET"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{NodeKind: mnnode.NODE_KIND_REQUEST},
-			{NodeKind: mnnode.NODE_KIND_CONDITION},
-			{NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{NodeKind: mflow.NODE_KIND_REQUEST},
+			{NodeKind: mflow.NODE_KIND_CONDITION},
+			{NodeKind: mflow.NODE_KIND_REQUEST},
 		},
 		Flows: []mflow.Flow{{}, {}},
 		Files: []mfile.File{{}, {}, {}},
@@ -360,8 +359,8 @@ func TestGenerateStats(t *testing.T) {
 
 	// Check node type breakdown
 	nodeTypes := stats["flow_node_types"].(map[string]int)
-	require.Equal(t, 2, nodeTypes[string(mnnode.NODE_KIND_REQUEST)])
-	require.Equal(t, 1, nodeTypes[string(mnnode.NODE_KIND_CONDITION)])
+	require.Equal(t, 2, nodeTypes[string(mflow.NODE_KIND_REQUEST)])
+	require.Equal(t, 1, nodeTypes[string(mflow.NODE_KIND_CONDITION)])
 
 	// Check averages
 	require.Equal(t, 1.5, stats["avg_nodes_per_flow"].(float64))

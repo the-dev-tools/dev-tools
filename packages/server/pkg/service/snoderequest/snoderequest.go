@@ -7,7 +7,7 @@ import (
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type NodeRequestService struct {
@@ -41,19 +41,19 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeRequestService, error) {
 	}, nil
 }
 
-func (nrs NodeRequestService) GetNodeRequest(ctx context.Context, id idwrap.IDWrap) (*mnrequest.MNRequest, error) {
+func (nrs NodeRequestService) GetNodeRequest(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeRequest, error) {
 	return nrs.reader.GetNodeRequest(ctx, id)
 }
 
-func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
+func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mflow.NodeRequest) error {
 	return NewWriterFromQueries(nrs.queries).CreateNodeRequest(ctx, nr)
 }
 
-func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nodes []mnrequest.MNRequest) error {
+func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nodes []mflow.NodeRequest) error {
 	return NewWriterFromQueries(nrs.queries).CreateNodeRequestBulk(ctx, nodes)
 }
 
-func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
+func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mflow.NodeRequest) error {
 	return NewWriterFromQueries(nrs.queries).UpdateNodeRequest(ctx, nr)
 }
 

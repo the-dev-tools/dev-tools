@@ -1,11 +1,8 @@
 //nolint:revive // exported
-package mnnode
+package mflow
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
 
 type NodeKind = int32
@@ -38,15 +35,11 @@ func StringNodeStateWithIcons(a NodeState) string {
 	return [...]string{"🔄 Starting", "⏳ Running", "✅ Success", "❌ Failed", "Canceled"}[a]
 }
 
-type MNode struct {
+type Node struct {
 	ID        idwrap.IDWrap
 	FlowID    idwrap.IDWrap
 	Name      string
 	NodeKind  NodeKind
 	PositionX float64
 	PositionY float64
-}
-
-type NodeInterface interface {
-	mnfor.MNFor | mnif.MNIF | mnrequest.MNRequest
 }

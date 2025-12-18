@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Reader struct {
@@ -20,7 +20,7 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	return &Reader{queries: queries}
 }
 
-func (r *Reader) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mnif.MNIF, error) {
+func (r *Reader) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeIf, error) {
 	nodeIf, err := r.queries.GetFlowNodeCondition(ctx, id)
 	if err != nil {
 		return nil, err

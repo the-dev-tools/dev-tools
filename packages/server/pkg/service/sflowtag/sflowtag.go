@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflowtag"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type FlowTagService struct {
@@ -34,15 +34,15 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowTagService, error) {
 	}, nil
 }
 
-func (s *FlowTagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mflowtag.FlowTag, error) {
+func (s *FlowTagService) GetFlowTag(ctx context.Context, id idwrap.IDWrap) (mflow.FlowTag, error) {
 	return s.reader.GetFlowTag(ctx, id)
 }
 
-func (s *FlowTagService) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) ([]mflowtag.FlowTag, error) {
+func (s *FlowTagService) GetFlowTagsByTagID(ctx context.Context, tagID idwrap.IDWrap) ([]mflow.FlowTag, error) {
 	return s.reader.GetFlowTagsByTagID(ctx, tagID)
 }
 
-func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mflowtag.FlowTag) error {
+func (s *FlowTagService) CreateFlowTag(ctx context.Context, ftag mflow.FlowTag) error {
 	return NewWriterFromQueries(s.queries).CreateFlowTag(ctx, ftag)
 }
 

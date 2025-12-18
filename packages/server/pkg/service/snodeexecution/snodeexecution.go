@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type NodeExecutionService struct {
@@ -40,32 +40,32 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeExecutionService, error) {
 	}, nil
 }
 
-func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mflow.NodeExecution) error {
 	return NewWriterFromQueries(s.queries).CreateNodeExecution(ctx, ne)
 }
 
-func (s NodeExecutionService) GetNodeExecution(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
+func (s NodeExecutionService) GetNodeExecution(ctx context.Context, executionID idwrap.IDWrap) (*mflow.NodeExecution, error) {
 	return s.reader.GetNodeExecution(ctx, executionID)
 }
 
-func (s NodeExecutionService) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {
+func (s NodeExecutionService) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mflow.NodeExecution, error) {
 	return s.reader.GetNodeExecutionsByNodeID(ctx, nodeID)
 }
 
-func (s NodeExecutionService) ListNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {
+func (s NodeExecutionService) ListNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mflow.NodeExecution, error) {
 	// For now, use the existing method - could add pagination later
 	return s.reader.GetNodeExecutionsByNodeID(ctx, nodeID)
 }
 
-func (s NodeExecutionService) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
+func (s NodeExecutionService) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idwrap.IDWrap) (*mflow.NodeExecution, error) {
 	return s.reader.GetLatestNodeExecutionByNodeID(ctx, nodeID)
 }
 
-func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mflow.NodeExecution) error {
 	return NewWriterFromQueries(s.queries).UpdateNodeExecution(ctx, ne)
 }
 
-func (s NodeExecutionService) UpsertNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+func (s NodeExecutionService) UpsertNodeExecution(ctx context.Context, ne mflow.NodeExecution) error {
 	return NewWriterFromQueries(s.queries).UpsertNodeExecution(ctx, ne)
 }
 

@@ -9,10 +9,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 
 	filev1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -326,19 +324,19 @@ func ToAPIFileKind(kind mfile.ContentType) filev1.FileKind {
 }
 
 // ToAPINodeKind converts model NodeKind to API NodeKind
-func ToAPINodeKind(kind mnnode.NodeKind) flowv1.NodeKind {
+func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 	switch kind {
-	case mnnode.NODE_KIND_NO_OP:
+	case mflow.NODE_KIND_NO_OP:
 		return flowv1.NodeKind_NODE_KIND_NO_OP
-	case mnnode.NODE_KIND_REQUEST:
+	case mflow.NODE_KIND_REQUEST:
 		return flowv1.NodeKind_NODE_KIND_HTTP
-	case mnnode.NODE_KIND_CONDITION:
+	case mflow.NODE_KIND_CONDITION:
 		return flowv1.NodeKind_NODE_KIND_CONDITION
-	case mnnode.NODE_KIND_FOR:
+	case mflow.NODE_KIND_FOR:
 		return flowv1.NodeKind_NODE_KIND_FOR
-	case mnnode.NODE_KIND_FOR_EACH:
+	case mflow.NODE_KIND_FOR_EACH:
 		return flowv1.NodeKind_NODE_KIND_FOR_EACH
-	case mnnode.NODE_KIND_JS:
+	case mflow.NODE_KIND_JS:
 		return flowv1.NodeKind_NODE_KIND_JS
 	default:
 		return flowv1.NodeKind_NODE_KIND_NO_OP
@@ -346,17 +344,17 @@ func ToAPINodeKind(kind mnnode.NodeKind) flowv1.NodeKind {
 }
 
 // ToAPINodeNoOpKind converts model NoopTypes to API NodeNoOpKind
-func ToAPINodeNoOpKind(kind mnnoop.NoopTypes) flowv1.NodeNoOpKind {
+func ToAPINodeNoOpKind(kind mflow.NoopTypes) flowv1.NodeNoOpKind {
 	switch kind {
-	case mnnoop.NODE_NO_OP_KIND_START:
+	case mflow.NODE_NO_OP_KIND_START:
 		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START
-	case mnnoop.NODE_NO_OP_KIND_CREATE:
+	case mflow.NODE_NO_OP_KIND_CREATE:
 		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_CREATE
-	case mnnoop.NODE_NO_OP_KIND_THEN:
+	case mflow.NODE_NO_OP_KIND_THEN:
 		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_THEN
-	case mnnoop.NODE_NO_OP_KIND_ELSE:
+	case mflow.NODE_NO_OP_KIND_ELSE:
 		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_ELSE
-	case mnnoop.NODE_NO_OP_KIND_LOOP:
+	case mflow.NODE_NO_OP_KIND_LOOP:
 		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_LOOP
 	default:
 		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START
@@ -364,11 +362,11 @@ func ToAPINodeNoOpKind(kind mnnoop.NoopTypes) flowv1.NodeNoOpKind {
 }
 
 // ToAPIErrorHandling converts model ErrorHandling to API ErrorHandling
-func ToAPIErrorHandling(eh mnfor.ErrorHandling) flowv1.ErrorHandling {
+func ToAPIErrorHandling(eh mflow.ErrorHandling) flowv1.ErrorHandling {
 	switch eh {
-	case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+	case mflow.ErrorHandling_ERROR_HANDLING_IGNORE:
 		return flowv1.ErrorHandling_ERROR_HANDLING_IGNORE
-	case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+	case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 		return flowv1.ErrorHandling_ERROR_HANDLING_BREAK
 	default:
 		return flowv1.ErrorHandling_ERROR_HANDLING_IGNORE

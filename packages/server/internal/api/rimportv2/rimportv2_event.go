@@ -84,7 +84,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		if len(results.NoOpNodes) > 0 {
 			// NoOp nodes are typically scoped to a flow, but let's be safe and group
 			// Note: The original code assumed results.Flow.ID, but NoOpNode has FlowNodeID which implies it belongs to a flow.
-			// However, mnnoop.NoOpNode doesn't explicitly store FlowID in the struct passed here usually?
+			// However, mflow.NoOpNode doesn't explicitly store FlowID in the struct passed here usually?
 			// Let's look at the struct definition if needed.
 			// Assuming they belong to results.Flow since they are part of the import results for that flow.
 			events := make([]rflowv2.NoOpEvent, len(results.NoOpNodes))
@@ -102,7 +102,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			h.NoopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, events...)
 		}
 	}
-	
+
 	// Publish HTTP events
 	if len(results.HTTPReqs) > 0 {
 		grouped := make(map[rhttp.HttpTopic][]rhttp.HttpEvent)

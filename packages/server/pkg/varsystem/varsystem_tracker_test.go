@@ -7,7 +7,8 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestVarMapTracker_Get(t *testing.T) {
 	// Create a base VarMap

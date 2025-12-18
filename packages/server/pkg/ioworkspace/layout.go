@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 // Layout constants for node positioning
@@ -38,7 +37,7 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 	// Check if start node already exists for this flow
 	var startNodeID *idwrap.IDWrap
 	for i := range wb.FlowNoopNodes {
-		if wb.FlowNoopNodes[i].Type == mnnoop.NODE_NO_OP_KIND_START {
+		if wb.FlowNoopNodes[i].Type == mflow.NODE_NO_OP_KIND_START {
 			// Find the corresponding flow node
 			for j := range wb.FlowNodes {
 				if wb.FlowNodes[j].ID.Compare(wb.FlowNoopNodes[i].FlowNodeID) == 0 &&
@@ -56,19 +55,19 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 	// If no start node exists, create one
 	if startNodeID == nil {
 		newStartNodeID := idwrap.NewNow()
-		startNode := mnnode.MNode{
+		startNode := mflow.Node{
 			ID:        newStartNodeID,
 			FlowID:    flowID,
 			Name:      "Start",
-			NodeKind:  mnnode.NODE_KIND_NO_OP,
+			NodeKind:  mflow.NODE_KIND_NO_OP,
 			PositionX: StartX,
 			PositionY: StartY,
 		}
 		wb.FlowNodes = append(wb.FlowNodes, startNode)
 
-		noopNode := mnnoop.NoopNode{
+		noopNode := mflow.NodeNoop{
 			FlowNodeID: newStartNodeID,
-			Type:       mnnoop.NODE_NO_OP_KIND_START,
+			Type:       mflow.NODE_NO_OP_KIND_START,
 		}
 		wb.FlowNoopNodes = append(wb.FlowNoopNodes, noopNode)
 	}
@@ -84,7 +83,7 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 // Parallel nodes are positioned at the same Y level, sequential nodes at deeper levels.
 func (wb *WorkspaceBundle) layoutFlowNodes(flowID idwrap.IDWrap) error {
 	// Build node map for this flow
-	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	nodeMap := make(map[idwrap.IDWrap]*mflow.Node)
 	for i := range wb.FlowNodes {
 		if wb.FlowNodes[i].FlowID.Compare(flowID) == 0 {
 			nodeMap[wb.FlowNodes[i].ID] = &wb.FlowNodes[i]
@@ -96,9 +95,9 @@ func (wb *WorkspaceBundle) layoutFlowNodes(flowID idwrap.IDWrap) error {
 	}
 
 	// Find start node for this flow
-	var startNode *mnnode.MNode
+	var startNode *mflow.Node
 	for i := range wb.FlowNoopNodes {
-		if wb.FlowNoopNodes[i].Type == mnnoop.NODE_NO_OP_KIND_START {
+		if wb.FlowNoopNodes[i].Type == mflow.NODE_NO_OP_KIND_START {
 			if node := nodeMap[wb.FlowNoopNodes[i].FlowNodeID]; node != nil {
 				startNode = node
 				break

@@ -12,7 +12,7 @@ type MockStreamer[Topic any, Payload any] struct {
 }
 
 func (m *MockStreamer[Topic, Payload]) Publish(topic Topic, payloads ...Payload) {}
-func (m *MockStreamer[Topic, Payload]) Shutdown()                               {}
+func (m *MockStreamer[Topic, Payload]) Shutdown()                                {}
 func (m *MockStreamer[Topic, Payload]) Subscribe(ctx context.Context, filter TopicFilter[Topic], opts ...SubscribeOption[Topic, Payload]) (<-chan Event[Topic, Payload], error) {
 	return m.subscribeFunc(ctx, filter, opts...)
 }
@@ -42,7 +42,7 @@ func TestStreamToClient(t *testing.T) {
 		mockStreamer := &MockStreamer[TestTopic, TestPayload]{
 			subscribeFunc: func(ctx context.Context, filter TopicFilter[TestTopic], opts ...SubscribeOption[TestTopic, TestPayload]) (<-chan Event[TestTopic, TestPayload], error) {
 				ch := make(chan Event[TestTopic, TestPayload], 1)
-				
+
 				// Execute snapshot logic if provided
 				options := &SubscribeOptions[TestTopic, TestPayload]{}
 				for _, opt := range opts {
@@ -59,7 +59,7 @@ func TestStreamToClient(t *testing.T) {
 				go func() {
 					ch <- Event[TestTopic, TestPayload]{Payload: "event1"}
 				}()
-				
+
 				return ch, nil
 			},
 		}
@@ -81,7 +81,7 @@ func TestStreamToClient(t *testing.T) {
 		opts := &BulkOptions{MaxBatchSize: 1}
 
 		err := StreamToClient(ctx, mockStreamer, snapshot, nil, convert, send, opts)
-		
+
 		// Expect context cancelled error or nil depending on race
 		if err != nil && !errors.Is(err, context.Canceled) {
 			t.Errorf("Unexpected error: %v", err)
@@ -130,7 +130,7 @@ func TestStreamToClient(t *testing.T) {
 		send := func(r *TestResponse) error {
 			return sendErr
 		}
-		
+
 		convert := func(p []TestPayload) *TestResponse { return &TestResponse{} }
 		var snapshot SnapshotProvider[TestTopic, TestPayload] = nil
 

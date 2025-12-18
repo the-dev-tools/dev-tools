@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type NodeIfService struct {
@@ -40,19 +40,19 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeIfService, error) {
 	}, nil
 }
 
-func (nifs NodeIfService) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mnif.MNIF, error) {
+func (nifs NodeIfService) GetNodeIf(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeIf, error) {
 	return nifs.reader.GetNodeIf(ctx, id)
 }
 
-func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mnif.MNIF) error {
+func (nifs NodeIfService) CreateNodeIf(ctx context.Context, ni mflow.NodeIf) error {
 	return NewWriterFromQueries(nifs.queries).CreateNodeIf(ctx, ni)
 }
 
-func (nifs NodeIfService) CreateNodeIfBulk(ctx context.Context, conditionNodes []mnif.MNIF) error {
+func (nifs NodeIfService) CreateNodeIfBulk(ctx context.Context, conditionNodes []mflow.NodeIf) error {
 	return NewWriterFromQueries(nifs.queries).CreateNodeIfBulk(ctx, conditionNodes)
 }
 
-func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mnif.MNIF) error {
+func (nifs NodeIfService) UpdateNodeIf(ctx context.Context, ni mflow.NodeIf) error {
 	return NewWriterFromQueries(nifs.queries).UpdateNodeIf(ctx, ni)
 }
 

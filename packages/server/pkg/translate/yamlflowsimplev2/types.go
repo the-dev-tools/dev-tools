@@ -10,13 +10,6 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
 
 // YamlFlowFormatV2 represents the modern YAML structure for simplified workflows
@@ -342,7 +335,7 @@ type ConvertOptionsV2 struct {
 // YamlFlowDataV2 contains the intermediate data structure during YAML parsing
 type YamlFlowDataV2 struct {
 	Flow      mflow.Flow
-	Nodes     []mnnode.MNode
+	Nodes     []mflow.Node
 	Edges     []edge.Edge
 	Variables []YamlVariableV2
 
@@ -350,12 +343,12 @@ type YamlFlowDataV2 struct {
 	HTTPRequests []YamlHTTPRequestV2
 
 	// Flow node implementations
-	NoopNodes      []mnnoop.NoopNode
-	RequestNodes   []mnrequest.MNRequest
-	ConditionNodes []mnif.MNIF
-	ForNodes       []mnfor.MNFor
-	ForEachNodes   []mnforeach.MNForEach
-	JSNodes        []mnjs.MNJS
+	NoopNodes      []mflow.NodeNoop
+	RequestNodes   []mflow.NodeRequest
+	ConditionNodes []mflow.NodeIf
+	ForNodes       []mflow.NodeFor
+	ForEachNodes   []mflow.NodeForEach
+	JSNodes        []mflow.NodeJS
 }
 
 // YamlVariableV2 represents a variable during parsing

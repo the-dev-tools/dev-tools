@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
 	node_js_executorv1 "the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
+
+	"connectrpc.com/connect"
 )
 
 type NodeJS struct {

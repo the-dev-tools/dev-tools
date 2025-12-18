@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"the-dev-tools/cli/internal/model"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 func TestParseReportSpecsDefault(t *testing.T) {
@@ -56,14 +56,14 @@ func TestJSONReporterFlush(t *testing.T) {
 				NodeID:      "Node1",
 				ExecutionID: "Exec1",
 				Name:        "Step 1",
-				State:       mnnode.StringNodeState(mnnode.NODE_STATE_SUCCESS),
+				State:       mflow.StringNodeState(mflow.NODE_STATE_SUCCESS),
 				Duration:    50 * time.Millisecond,
 			},
 			{
 				NodeID:      "Node2",
 				ExecutionID: "Exec2",
 				Name:        "Step 2",
-				State:       mnnode.StringNodeState(mnnode.NODE_STATE_FAILURE),
+				State:       mflow.StringNodeState(mflow.NODE_STATE_FAILURE),
 				Duration:    25 * time.Millisecond,
 				Error:       "boom",
 			},
@@ -128,14 +128,14 @@ func TestJUnitReporterFlush(t *testing.T) {
 				NodeID:      "Node1",
 				ExecutionID: "Exec1",
 				Name:        "Step 1",
-				State:       mnnode.StringNodeState(mnnode.NODE_STATE_SUCCESS),
+				State:       mflow.StringNodeState(mflow.NODE_STATE_SUCCESS),
 				Duration:    100 * time.Millisecond,
 			},
 			{
 				NodeID:      "Node2",
 				ExecutionID: "Exec2",
 				Name:        "Step 2",
-				State:       mnnode.StringNodeState(mnnode.NODE_STATE_FAILURE),
+				State:       mflow.StringNodeState(mflow.NODE_STATE_FAILURE),
 				Duration:    200 * time.Millisecond,
 				Error:       "fail",
 			},

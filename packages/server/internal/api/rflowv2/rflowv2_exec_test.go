@@ -21,9 +21,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -67,6 +64,11 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 	jsService := snodejs.New(queries)
 	varService := svar.New(queries, logger)
 
+	// Readers
+	wsReader := sworkspace.NewReaderFromQueries(queries)
+	fsReader := sflow.NewReaderFromQueries(queries)
+	nsReader := snode.NewReaderFromQueries(queries)
+
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 
@@ -86,6 +88,10 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 	)
 
 	svc := &FlowServiceV2RPC{
+		DB:           db,
+		wsReader:     wsReader,
+		fsReader:     fsReader,
+		nsReader:     nsReader,
 		ws:           &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
@@ -230,38 +236,38 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 
 	// Create Nodes
 	node1ID := idwrap.NewNow()
-	node1 := mnnode.MNode{
+	node1 := mflow.Node{
 		ID:        node1ID,
 		FlowID:    flowID,
 		Name:      "Node 1",
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_NO_OP,
 		PositionX: 10,
 		PositionY: 20,
 	}
 	err = svc.ns.CreateNode(ctx, node1)
 	require.NoError(t, err)
 
-	err = svc.nnos.CreateNodeNoop(ctx, mnnoop.NoopNode{
+	err = svc.nnos.CreateNodeNoop(ctx, mflow.NodeNoop{
 		FlowNodeID: node1ID,
-		Type:       mnnoop.NODE_NO_OP_KIND_START,
+		Type:       mflow.NODE_NO_OP_KIND_START,
 	})
 	require.NoError(t, err)
 
 	node2ID := idwrap.NewNow()
-	node2 := mnnode.MNode{
+	node2 := mflow.Node{
 		ID:        node2ID,
 		FlowID:    flowID,
 		Name:      "Node 2",
-		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_NO_OP,
 		PositionX: 100,
 		PositionY: 200,
 	}
 	err = svc.ns.CreateNode(ctx, node2)
 	require.NoError(t, err)
 
-	err = svc.nnos.CreateNodeNoop(ctx, mnnoop.NoopNode{
+	err = svc.nnos.CreateNodeNoop(ctx, mflow.NodeNoop{
 		FlowNodeID: node2ID,
-		Type:       mnnoop.NODE_NO_OP_KIND_THEN,
+		Type:       mflow.NODE_NO_OP_KIND_THEN,
 	})
 	require.NoError(t, err)
 
@@ -280,7 +286,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 
 	// Create Variable
 	varID := idwrap.NewNow()
-	sourceVar := mflowvariable.FlowVariable{
+	sourceVar := mflow.FlowVariable{
 		ID:          varID,
 		FlowID:      flowID,
 		Name:        "TestVar",
@@ -293,9 +299,9 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 	require.NoError(t, err)
 
 	// Prepare inputs for createFlowVersionSnapshot
-	sourceNodes := []mnnode.MNode{node1, node2}
+	sourceNodes := []mflow.Node{node1, node2}
 	sourceEdges := []edge.Edge{sourceEdge}
-	sourceVars := []mflowvariable.FlowVariable{sourceVar}
+	sourceVars := []mflow.FlowVariable{sourceVar}
 
 	// EXECUTE
 	versionFlow, nodeMapping, err := svc.createFlowVersionSnapshot(ctx, sourceFlow, sourceNodes, sourceEdges, sourceVars)
@@ -353,7 +359,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 	// Verify sub-node data (NoOp)
 	noop1, err := svc.nnos.GetNodeNoop(ctx, mappedNode1ID)
 	require.NoError(t, err)
-	assert.Equal(t, mnnoop.NODE_NO_OP_KIND_START, noop1.Type)
+	assert.Equal(t, mflow.NODE_NO_OP_KIND_START, noop1.Type)
 }
 
 func TestCreateFlowVersionSnapshot_ErrorHandling(t *testing.T) {

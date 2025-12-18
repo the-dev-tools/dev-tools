@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHttpSearchParamService(t *testing.T) {
@@ -17,7 +18,7 @@ func TestHttpSearchParamService(t *testing.T) {
 	defer db.Close()
 
 	service := NewHttpSearchParamService(db)
-	
+
 	// Parent HTTP
 	httpService := New(db, nil)
 	httpID := idwrap.NewNow()
@@ -53,17 +54,17 @@ func TestHttpSearchParamService(t *testing.T) {
 
 	// Update
 	// Update signature: Update(ctx, id, key, value, description, enabled, order)
-	// Let's check signature in search_param.go. 
+	// Let's check signature in search_param.go.
 	// I'll assume standard signature, but verify if compilation fails.
 	// Actually, based on previous `header.go` experience, it might take a struct OR args.
 	// Let's check `search_param.go` content if possible, or just try struct first as that's cleaner if supported.
 	// But `NewHttpHeaderService` was struct-based. `NewHttpSearchParamService` likely too?
 	// Wait, `header_test.go` I fixed to use struct.
 	// Let's check `search_param.go` to be sure.
-	
+
 	param.Key = "query"
 	param.Value = "updated"
-	err = service.Update(ctx, param) 
+	err = service.Update(ctx, param)
 	require.NoError(t, err)
 
 	updated, err := service.GetByID(ctx, paramID)

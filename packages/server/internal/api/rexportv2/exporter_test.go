@@ -111,7 +111,7 @@ func TestDefaultExporter_ExportWorkspaceData_WorkspaceNotFound(t *testing.T) {
 // TestDefaultExporter_ExportToYAML_WithEnvironments tests YAML export with environments
 func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// Manual setup to access DB
 	base := testutil.CreateBaseDB(ctx, t)
 	t.Cleanup(base.Close)
@@ -154,7 +154,7 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	}
 	err = envService.CreateEnvironment(ctx, &env)
 	require.NoError(t, err)
-	
+
 	// Create variable
 	varService := svar.New(base.Queries, logger)
 	err = varService.Create(ctx, mvar.Var{
@@ -186,11 +186,11 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	envsRaw, ok := parsed["environments"].([]interface{})
 	require.True(t, ok)
 	require.NotEmpty(t, envsRaw)
-	
+
 	envMap, ok := envsRaw[0].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, "default", envMap["name"])
-	
+
 	varsMap, ok := envMap["variables"].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, "exported_value", varsMap["exported_var"])

@@ -10,15 +10,7 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 
@@ -84,8 +76,8 @@ func TestCountEntities_WithData(t *testing.T) {
 		Flows: []mflow.Flow{
 			{ID: idwrap.NewNow(), WorkspaceID: workspaceID, Name: "Flow 1"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{ID: idwrap.NewNow(), FlowID: idwrap.NewNow(), Name: "Node 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: idwrap.NewNow(), FlowID: idwrap.NewNow(), Name: "Node 1", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
 		Environments: []menv.Env{
 			{ID: idwrap.NewNow(), WorkspaceID: workspaceID, Name: "Production"},
@@ -218,9 +210,9 @@ func TestGetNodeByID(t *testing.T) {
 	nodeID2 := idwrap.NewNow()
 
 	bundle := &WorkspaceBundle{
-		FlowNodes: []mnnode.MNode{
-			{ID: nodeID1, FlowID: flowID, Name: "Start Node", NodeKind: mnnode.NODE_KIND_NO_OP},
-			{ID: nodeID2, FlowID: flowID, Name: "Request Node", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: nodeID1, FlowID: flowID, Name: "Start Node", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: nodeID2, FlowID: flowID, Name: "Request Node", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
 	}
 
@@ -417,31 +409,31 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 		Flows: []mflow.Flow{
 			{ID: flowID, WorkspaceID: workspaceID, Name: "Test Flow"},
 		},
-		FlowVariables: []mflowvariable.FlowVariable{
+		FlowVariables: []mflow.FlowVariable{
 			{ID: idwrap.NewNow(), FlowID: flowID, Name: "timeout", Value: "60"},
 		},
-		FlowNodes: []mnnode.MNode{
-			{ID: nodeID, FlowID: flowID, Name: "Request Node", NodeKind: mnnode.NODE_KIND_REQUEST},
+		FlowNodes: []mflow.Node{
+			{ID: nodeID, FlowID: flowID, Name: "Request Node", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
 		FlowEdges: []edge.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: idwrap.NewNow(), TargetID: nodeID},
 		},
-		FlowRequestNodes: []mnrequest.MNRequest{
+		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: nodeID, HttpID: &httpID},
 		},
-		FlowConditionNodes: []mnif.MNIF{
+		FlowConditionNodes: []mflow.NodeIf{
 			{FlowNodeID: idwrap.NewNow(), Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 200"}}},
 		},
-		FlowNoopNodes: []mnnoop.NoopNode{
-			{FlowNodeID: idwrap.NewNow(), Type: mnnoop.NODE_NO_OP_KIND_START},
+		FlowNoopNodes: []mflow.NodeNoop{
+			{FlowNodeID: idwrap.NewNow(), Type: mflow.NODE_NO_OP_KIND_START},
 		},
-		FlowForNodes: []mnfor.MNFor{
+		FlowForNodes: []mflow.NodeFor{
 			{FlowNodeID: idwrap.NewNow(), IterCount: 5},
 		},
-		FlowForEachNodes: []mnforeach.MNForEach{
+		FlowForEachNodes: []mflow.NodeForEach{
 			{FlowNodeID: idwrap.NewNow(), IterExpression: "users"},
 		},
-		FlowJSNodes: []mnjs.MNJS{
+		FlowJSNodes: []mflow.NodeJS{
 			{FlowNodeID: idwrap.NewNow(), Code: []byte("console.log('test')")},
 		},
 		Environments: []menv.Env{

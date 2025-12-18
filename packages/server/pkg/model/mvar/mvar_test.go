@@ -18,7 +18,7 @@ func TestIsEnabled(t *testing.T) {
 			Value:   "test_value",
 			Enabled: true,
 		}
-		
+
 		assert.True(t, v.IsEnabled(), "Enabled variable should return true")
 	})
 
@@ -30,7 +30,7 @@ func TestIsEnabled(t *testing.T) {
 			Value:   "test_value",
 			Enabled: false,
 		}
-		
+
 		assert.False(t, v.IsEnabled(), "Disabled variable should return false")
 	})
 }
@@ -79,12 +79,12 @@ func TestSortEnabledFiltering(t *testing.T) {
 		// Make a copy to avoid modifying original
 		varsCopy := make([]Var, len(vars))
 		copy(varsCopy, vars)
-		
+
 		// Get only enabled variables (modifies slice in place)
 		sortenabled.GetAllWithState(&varsCopy, true)
-		
+
 		assert.Equal(t, 3, len(varsCopy), "Should have 3 enabled variables")
-		
+
 		// Verify all returned variables are enabled
 		for _, v := range varsCopy {
 			assert.True(t, v.IsEnabled(), "All filtered variables should be enabled")
@@ -125,12 +125,12 @@ func TestSortEnabledFiltering(t *testing.T) {
 				Enabled: false,
 			},
 		}
-		
+
 		// Get only disabled variables (modifies slice in place)
 		sortenabled.GetAllWithState(&vars, false)
-		
+
 		assert.Equal(t, 2, len(vars), "Should have 2 disabled variables")
-		
+
 		// Verify all returned variables are disabled
 		for _, v := range vars {
 			assert.False(t, v.IsEnabled(), "All filtered variables should be disabled")
@@ -151,7 +151,7 @@ func TestSortEnabledFiltering(t *testing.T) {
 			{ID: idwrap.NewNow(), VarKey: "VAR2", Enabled: true},
 			{ID: idwrap.NewNow(), VarKey: "VAR3", Enabled: true},
 		}
-		
+
 		sortenabled.GetAllWithState(&allEnabled, true)
 		assert.Equal(t, 3, len(allEnabled), "Should keep all 3 enabled variables")
 	})
@@ -161,7 +161,7 @@ func TestSortEnabledFiltering(t *testing.T) {
 			{ID: idwrap.NewNow(), VarKey: "VAR1", Enabled: false},
 			{ID: idwrap.NewNow(), VarKey: "VAR2", Enabled: false},
 		}
-		
+
 		sortenabled.GetAllWithState(&allDisabled, true)
 		assert.Empty(t, allDisabled, "Should have no variables when filtering for enabled")
 	})

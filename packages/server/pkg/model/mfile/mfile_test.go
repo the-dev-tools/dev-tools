@@ -145,13 +145,13 @@ func TestFile_HelperMethods(t *testing.T) {
 	parentID := idwrap.NewNow()
 
 	tests := []struct {
-		name         string
-		file         File
-		isFolder     bool
-		isHTTP       bool
-		isFlow       bool
-		isRoot       bool
-		hasContent   bool
+		name       string
+		file       File
+		isFolder   bool
+		isHTTP     bool
+		isFlow     bool
+		isRoot     bool
+		hasContent bool
 	}{
 		{
 			name: "folder file",

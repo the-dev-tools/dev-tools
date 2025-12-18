@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Reader struct {
@@ -20,7 +20,7 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	return &Reader{queries: queries}
 }
 
-func (r *Reader) GetNodeForEach(ctx context.Context, id idwrap.IDWrap) (*mnforeach.MNForEach, error) {
+func (r *Reader) GetNodeForEach(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeForEach, error) {
 	nodeForEach, err := r.queries.GetFlowNodeForEach(ctx, id)
 	if err != nil {
 		return nil, err

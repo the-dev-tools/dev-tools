@@ -4,7 +4,7 @@ import (
 	"context"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type Writer struct {
@@ -19,13 +19,13 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	return &Writer{queries: queries}
 }
 
-func (w *Writer) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
+func (w *Writer) CreateNodeFor(ctx context.Context, nf mflow.NodeFor) error {
 	// Preserve UNSPECIFIED to allow default "throw" semantics in flow runner.
 	nodeFor := ConvertToDBNodeFor(nf)
 	return w.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams(nodeFor))
 }
 
-func (w *Writer) CreateNodeForBulk(ctx context.Context, nf []mnfor.MNFor) error {
+func (w *Writer) CreateNodeForBulk(ctx context.Context, nf []mflow.NodeFor) error {
 	var err error
 	for _, n := range nf {
 		err = w.CreateNodeFor(ctx, n)
@@ -36,7 +36,7 @@ func (w *Writer) CreateNodeForBulk(ctx context.Context, nf []mnfor.MNFor) error 
 	return err
 }
 
-func (w *Writer) UpdateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
+func (w *Writer) UpdateNodeFor(ctx context.Context, nf mflow.NodeFor) error {
 	nodeFor := ConvertToDBNodeFor(nf)
 	return w.queries.UpdateFlowNodeFor(ctx, gen.UpdateFlowNodeForParams{
 		FlowNodeID:    nodeFor.FlowNodeID,

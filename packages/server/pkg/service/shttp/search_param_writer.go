@@ -133,13 +133,13 @@ func (w *SearchParamWriter) ResetDelta(ctx context.Context, id idwrap.IDWrap) er
 	}
 
 	err = w.Update(ctx, &mhttp.HTTPSearchParam{
-		ID:          param.ID,
-		HttpID:      param.HttpID,
-		Key:         param.Key,
-		Value:       param.Value,
-		Enabled:     param.Enabled,
-		Description: param.Description,
-		DisplayOrder: param.DisplayOrder,
+		ID:                      param.ID,
+		HttpID:                  param.HttpID,
+		Key:                     param.Key,
+		Value:                   param.Value,
+		Enabled:                 param.Enabled,
+		Description:             param.Description,
+		DisplayOrder:            param.DisplayOrder,
 		ParentHttpSearchParamID: nil,
 		IsDelta:                 false,
 		DeltaKey:                nil,

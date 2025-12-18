@@ -20,8 +20,8 @@ import (
 	flowlocalrunner "the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mflow"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -299,7 +299,7 @@ func TestFlowLocalRunnerEmitsLogEvents(t *testing.T) {
 		t.Fatalf("expected log payloads, got none")
 	}
 	for _, entry := range logs {
-		if entry.State == mnnode.NODE_STATE_RUNNING {
+		if entry.State == mflow.NODE_STATE_RUNNING {
 			t.Fatalf("unexpected running state in log payloads: %+v", entry)
 		}
 	}
@@ -361,7 +361,7 @@ func TestFlowLocalRunnerMultiFailureIncludesOutputData(t *testing.T) {
 	logs := drainLogs(logChan)
 	var failureLog runner.FlowNodeLogPayload
 	for _, entry := range logs {
-		if entry.NodeID == failID && entry.State == mnnode.NODE_STATE_FAILURE {
+		if entry.NodeID == failID && entry.State == mflow.NODE_STATE_FAILURE {
 			failureLog = entry
 			break
 		}
@@ -455,7 +455,7 @@ func buildLoopFlow(iterations int64, client httpclient.HttpClient) (idwrap.IDWra
 	requestID := idwrap.NewNow()
 
 	startNode := nnoop.New(startID, "start")
-	loopNode := nfor.New(loopID, "loop", iterations, time.Millisecond, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loopNode := nfor.New(loopID, "loop", iterations, time.Millisecond, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 	requestNode := &benchRequestNode{id: requestID, name: "request", client: client}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
@@ -535,7 +535,7 @@ func (n *benchRequestNode) RunAsync(ctx context.Context, req *node.FlowNodeReque
 
 func TestLoopNodeEmitsFinalSuccessStatus(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	loopNode := nfor.New(nodeID, "loop", 0, time.Millisecond, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loopNode := nfor.New(nodeID, "loop", 0, time.Millisecond, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		nodeID: loopNode,
 	}
@@ -549,7 +549,7 @@ func TestLoopNodeEmitsFinalSuccessStatus(t *testing.T) {
 		t.Fatalf("flow runner returned error: %v", err)
 	}
 
-	var states []mnnode.NodeState
+	var states []mflow.NodeState
 	for status := range statusChan {
 		states = append(states, status.State)
 	}
@@ -557,10 +557,10 @@ func TestLoopNodeEmitsFinalSuccessStatus(t *testing.T) {
 	if len(states) < 2 {
 		t.Fatalf("expected at least 2 statuses (RUNNING and SUCCESS), got %d", len(states))
 	}
-	if states[0] != mnnode.NODE_STATE_RUNNING {
+	if states[0] != mflow.NODE_STATE_RUNNING {
 		t.Fatalf("expected first status to be RUNNING, got %v", states[0])
 	}
-	if states[len(states)-1] != mnnode.NODE_STATE_SUCCESS {
+	if states[len(states)-1] != mflow.NODE_STATE_SUCCESS {
 		t.Fatalf("expected final status to be SUCCESS, got %v", states[len(states)-1])
 	}
 }
@@ -573,7 +573,7 @@ func BenchmarkFlowRunnerForLoopWithMockRequest(b *testing.B) {
 	loopID := idwrap.NewNow()
 	requestID := idwrap.NewNow()
 
-	loopNode := nfor.New(loopID, "loop", 1000, time.Millisecond, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loopNode := nfor.New(loopID, "loop", 1000, time.Millisecond, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 	requestNode := &benchRequestNode{id: requestID, name: "request", client: client}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
@@ -644,10 +644,10 @@ func TestFlowLocalRunnerSingleModeSequential(t *testing.T) {
 	for i := 0; i < len(nodeMap); i++ {
 		running := statuses[2*i]
 		success := statuses[2*i+1]
-		if running.State != mnnode.NODE_STATE_RUNNING {
+		if running.State != mflow.NODE_STATE_RUNNING {
 			t.Fatalf("expected RUNNING state at index %d, got %v", 2*i, running.State)
 		}
-		if success.State != mnnode.NODE_STATE_SUCCESS {
+		if success.State != mflow.NODE_STATE_SUCCESS {
 			t.Fatalf("expected SUCCESS state at index %d, got %v", 2*i+1, success.State)
 		}
 		if running.NodeID != success.NodeID {
@@ -715,9 +715,9 @@ func TestFlowLocalRunnerMultiModeConcurrentExecution(t *testing.T) {
 	successCount := make(map[idwrap.IDWrap]int)
 	for status := range statusChan {
 		switch status.State {
-		case mnnode.NODE_STATE_RUNNING:
+		case mflow.NODE_STATE_RUNNING:
 			runningCount[status.NodeID]++
-		case mnnode.NODE_STATE_SUCCESS:
+		case mflow.NODE_STATE_SUCCESS:
 			successCount[status.NodeID]++
 		}
 	}
@@ -774,7 +774,7 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 
 	loopID := idwrap.NewNow()
 	bodyID := idwrap.NewNow()
-	loopNode := nfor.New(loopID, "loop", 1, time.Millisecond, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loopNode := nfor.New(loopID, "loop", 1, time.Millisecond, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 	bodyNode := &stubNode{id: bodyID, name: "body"}
 	loopNodes := map[idwrap.IDWrap]node.FlowNode{
 		loopID: loopNode,
@@ -805,7 +805,7 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 	loopID2 := idwrap.NewNow()
 	bodyAID := idwrap.NewNow()
 	bodyBID := idwrap.NewNow()
-	complexLoopNode := nfor.New(loopID2, "loop", 1, time.Millisecond, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	complexLoopNode := nfor.New(loopID2, "loop", 1, time.Millisecond, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 	bodyANode := &stubNode{id: bodyAID, name: "bodyA", next: []idwrap.IDWrap{bodyBID}}
 	bodyBNode := &stubNode{id: bodyBID, name: "bodyB"}
 	complexNodes := map[idwrap.IDWrap]node.FlowNode{
@@ -868,7 +868,7 @@ func TestLoopCoordinatorPerNodeTimeout(t *testing.T) {
 	loopID := idwrap.NewNow()
 	bodyID := idwrap.NewNow()
 	bodyNode := mocknode.NewDelayedMockNode(bodyID, nil, slowDelay)
-	loopNode := nfor.New(loopID, "loop", iterations, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	loopNode := nfor.New(loopID, "loop", iterations, 0, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		loopID: loopNode,
@@ -901,7 +901,7 @@ func TestLoopCoordinatorPerNodeTimeout(t *testing.T) {
 	}
 
 	for _, st := range statuses {
-		if st.NodeID == loopID && st.State == mnnode.NODE_STATE_CANCELED {
+		if st.NodeID == loopID && st.State == mflow.NODE_STATE_CANCELED {
 			t.Fatalf("loop node was canceled unexpectedly: %+v", st)
 		}
 	}

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -36,7 +36,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	}
 }
 
-func (w *Writer) CreateFlowVariable(ctx context.Context, item mflowvariable.FlowVariable) error {
+func (w *Writer) CreateFlowVariable(ctx context.Context, item mflow.FlowVariable) error {
 	arg := ConvertModelToDB(item)
 	err := w.queries.CreateFlowVariable(ctx, gen.CreateFlowVariableParams(arg))
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
@@ -44,7 +44,7 @@ func (w *Writer) CreateFlowVariable(ctx context.Context, item mflowvariable.Flow
 
 const sizeOfChunks = 10
 
-func (w *Writer) CreateFlowVariableBulk(ctx context.Context, variables []mflowvariable.FlowVariable) error {
+func (w *Writer) CreateFlowVariableBulk(ctx context.Context, variables []mflow.FlowVariable) error {
 	for chunk := range slices.Chunk(variables, sizeOfChunks) {
 		if len(chunk) < 10 {
 			for _, variable := range chunk {
@@ -165,7 +165,7 @@ func createBulkParams(items []gen.FlowVariable) gen.CreateFlowVariableBulkParams
 	return params
 }
 
-func (w *Writer) UpdateFlowVariable(ctx context.Context, item mflowvariable.FlowVariable) error {
+func (w *Writer) UpdateFlowVariable(ctx context.Context, item mflow.FlowVariable) error {
 	err := w.queries.UpdateFlowVariable(ctx, gen.UpdateFlowVariableParams{
 		ID:          item.ID,
 		Key:         item.Name,

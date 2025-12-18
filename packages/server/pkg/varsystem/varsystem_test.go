@@ -10,7 +10,8 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestMergeVars(t *testing.T) {
 	// TestMergeVars tests the mergeVars function

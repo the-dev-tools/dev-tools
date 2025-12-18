@@ -2,10 +2,10 @@ package sflowvariable
 
 import (
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
-func ConvertModelToDB(item mflowvariable.FlowVariable) gen.FlowVariable {
+func ConvertModelToDB(item mflow.FlowVariable) gen.FlowVariable {
 	return gen.FlowVariable{
 		ID:           item.ID,
 		FlowID:       item.FlowID,
@@ -17,8 +17,8 @@ func ConvertModelToDB(item mflowvariable.FlowVariable) gen.FlowVariable {
 	}
 }
 
-func ConvertDBToModel(item gen.FlowVariable) mflowvariable.FlowVariable {
-	return mflowvariable.FlowVariable{
+func ConvertDBToModel(item gen.FlowVariable) mflow.FlowVariable {
+	return mflow.FlowVariable{
 		ID:          item.ID,
 		FlowID:      item.FlowID,
 		Name:        item.Key,

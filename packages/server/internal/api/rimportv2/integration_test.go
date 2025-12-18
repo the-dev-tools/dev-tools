@@ -307,12 +307,12 @@ func TestImportRPC_Integration(t *testing.T) {
 	fixture := newIntegrationTestFixture(t)
 
 	tests := []struct {
-		name        string
-		harData     []byte
-		domainData  []ImportDomainData  // nil = first call (not provided), empty = skip, with values = configure
+		name         string
+		harData      []byte
+		domainData   []ImportDomainData // nil = first call (not provided), empty = skip, with values = configure
 		useNilDomain bool               // When true, use nil for DomainData in request (first call behavior)
-		expectError bool
-		expectResp  func(*apiv1.ImportResponse) bool
+		expectError  bool
+		expectResp   func(*apiv1.ImportResponse) bool
 	}{
 		{
 			name:    "successful simple import",

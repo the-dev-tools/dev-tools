@@ -13,7 +13,7 @@ import (
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mflow"
 	"time"
 )
 
@@ -70,7 +70,7 @@ func newNodeStatusEmitter(channels runner.FlowEventChannels) *nodeStatusEmitter 
 
 func (e *nodeStatusEmitter) emit(status runner.FlowNodeStatus) {
 	targets := runner.FlowNodeEventTargetState
-	if status.State != mnnode.NODE_STATE_RUNNING {
+	if status.State != mflow.NODE_STATE_RUNNING {
 		targets |= runner.FlowNodeEventTargetLog
 	}
 	e.emitWithTargets(status, targets)
@@ -276,7 +276,7 @@ func sendQueuedCancellationStatuses(queue []idwrap.IDWrap, req *node.FlowNodeReq
 				ExecutionID:      idwrap.NewNow(),
 				NodeID:           nodeID,
 				Name:             nodeRef.GetName(),
-				State:            mnnode.NODE_STATE_CANCELED,
+				State:            mflow.NODE_STATE_CANCELED,
 				Error:            cancelErr,
 				IterationContext: req.IterationContext,
 			})
@@ -314,7 +314,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 			ExecutionID:      executionID,
 			NodeID:           nodeID,
 			Name:             currentNode.GetName(),
-			State:            mnnode.NODE_STATE_RUNNING,
+			State:            mflow.NODE_STATE_RUNNING,
 			IterationContext: req.IterationContext,
 		}
 		statusLogFunc(runningStatus)
@@ -374,9 +374,9 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 
 		if result.Err != nil {
 			if runner.IsCancellationError(result.Err) {
-				status.State = mnnode.NODE_STATE_CANCELED
+				status.State = mflow.NODE_STATE_CANCELED
 			} else {
-				status.State = mnnode.NODE_STATE_FAILURE
+				status.State = mflow.NODE_STATE_FAILURE
 			}
 			status.Error = result.Err
 			if trackData {
@@ -392,7 +392,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 		}
 
 		if nodeCtxErr != nil {
-			status.State = mnnode.NODE_STATE_CANCELED
+			status.State = mflow.NODE_STATE_CANCELED
 			status.Error = nodeCtxErr
 			if trackData {
 				if len(trackedOutput) > 0 {
@@ -407,7 +407,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 		}
 
 		if !result.SkipFinalStatus {
-			status.State = mnnode.NODE_STATE_SUCCESS
+			status.State = mflow.NODE_STATE_SUCCESS
 			if trackData {
 				if len(trackedOutput) > 0 {
 					status.OutputData = node.DeepCopyValue(trackedOutput)
@@ -639,7 +639,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 				ExecutionID:      execID,
 				NodeID:           runningStatus.NodeID,
 				Name:             runningStatus.Name,
-				State:            mnnode.NODE_STATE_CANCELED,
+				State:            mflow.NODE_STATE_CANCELED,
 				Error:            cancelErr,
 				IterationContext: runningStatus.IterationContext,
 				RunDuration:      duration,
@@ -658,7 +658,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 					ExecutionID:      idwrap.NewNow(),
 					NodeID:           nodeID,
 					Name:             node.GetName(),
-					State:            mnnode.NODE_STATE_CANCELED,
+					State:            mflow.NODE_STATE_CANCELED,
 					Error:            cancelErr,
 					IterationContext: req.IterationContext,
 				}
@@ -725,7 +725,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 					ExecutionID:      executionID,
 					NodeID:           nodeID,
 					Name:             currentNode.GetName(),
-					State:            mnnode.NODE_STATE_RUNNING,
+					State:            mflow.NODE_STATE_RUNNING,
 					Error:            nil,
 					IterationContext: req.IterationContext,
 				}
@@ -810,9 +810,9 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 			// due to global context cancellation when there is no node error.
 			if result.err != nil {
 				if runner.IsCancellationError(result.err) {
-					status.State = mnnode.NODE_STATE_CANCELED
+					status.State = mflow.NODE_STATE_CANCELED
 				} else {
-					status.State = mnnode.NODE_STATE_FAILURE
+					status.State = mflow.NODE_STATE_FAILURE
 				}
 				status.Error = result.err
 				if trackData {
@@ -834,7 +834,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 			}
 
 			if FlowNodeCancelCtx.Err() != nil {
-				status.State = mnnode.NODE_STATE_CANCELED
+				status.State = mflow.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
 				if trackData {
 					// Capture tracked input/output data even for canceled nodes
@@ -860,7 +860,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 			// Loop nodes handle their own iteration tracking internally
 			// FOR/FOREACH nodes set skipFinalStatus to avoid creating empty main execution
 			if !result.skipFinalStatus {
-				status.State = mnnode.NODE_STATE_SUCCESS
+				status.State = mflow.NODE_STATE_SUCCESS
 				status.Error = nil
 				if trackData {
 					// Use the tracked output data which has the proper tree structure
@@ -937,7 +937,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 				ExecutionID:      execID,
 				NodeID:           runningStatus.NodeID,
 				Name:             runningStatus.Name,
-				State:            mnnode.NODE_STATE_CANCELED,
+				State:            mflow.NODE_STATE_CANCELED,
 				Error:            cancelErr,
 				IterationContext: runningStatus.IterationContext,
 				RunDuration:      duration,
@@ -953,7 +953,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					ExecutionID:      idwrap.NewNow(),
 					NodeID:           nodeID,
 					Name:             nodeRef.GetName(),
-					State:            mnnode.NODE_STATE_CANCELED,
+					State:            mflow.NODE_STATE_CANCELED,
 					Error:            cancelErr,
 					IterationContext: req.IterationContext,
 				})
@@ -1013,7 +1013,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					ExecutionID:      executionID,
 					NodeID:           nodeID,
 					Name:             flowNode.GetName(),
-					State:            mnnode.NODE_STATE_RUNNING,
+					State:            mflow.NODE_STATE_RUNNING,
 					Error:            nil,
 					IterationContext: req.IterationContext,
 				}
@@ -1111,9 +1111,9 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					timedOut = true
 				}
 				if runner.IsCancellationError(result.err) {
-					status.State = mnnode.NODE_STATE_CANCELED
+					status.State = mflow.NODE_STATE_CANCELED
 				} else {
-					status.State = mnnode.NODE_STATE_FAILURE
+					status.State = mflow.NODE_STATE_FAILURE
 				}
 				status.Error = result.err
 				if trackData {
@@ -1133,7 +1133,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 			}
 
 			if flowCtx.Err() != nil && !isLoop {
-				status.State = mnnode.NODE_STATE_CANCELED
+				status.State = mflow.NODE_STATE_CANCELED
 				status.Error = flowCtx.Err()
 				if trackData {
 					if result.inputData != nil {
@@ -1150,7 +1150,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 			}
 
 			if !result.skipFinalStatus {
-				status.State = mnnode.NODE_STATE_SUCCESS
+				status.State = mflow.NODE_STATE_SUCCESS
 				status.Error = nil
 				if trackData {
 					if result.outputData != nil {

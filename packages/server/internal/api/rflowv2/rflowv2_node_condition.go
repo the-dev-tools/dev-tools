@@ -13,8 +13,7 @@ import (
 
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -37,7 +36,7 @@ func (s *FlowServiceV2RPC) NodeConditionCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, n := range nodes {
-			if n.NodeKind != mnnode.NODE_KIND_CONDITION {
+			if n.NodeKind != mflow.NODE_KIND_CONDITION {
 				continue
 			}
 			nodeCondition, err := s.nifs.GetNodeIf(ctx, n.ID)
@@ -70,7 +69,7 @@ func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
 		}
 
-		model := mnif.MNIF{
+		model := mflow.NodeIf{
 			FlowNodeID: nodeID,
 			Condition:  buildCondition(item.GetCondition()),
 		}
@@ -190,7 +189,7 @@ func (s *FlowServiceV2RPC) streamNodeConditionSync(
 
 			for _, nodeModel := range nodes {
 				// Filter for Condition nodes
-				if nodeModel.NodeKind != mnnode.NODE_KIND_CONDITION {
+				if nodeModel.NodeKind != mflow.NODE_KIND_CONDITION {
 					continue
 				}
 

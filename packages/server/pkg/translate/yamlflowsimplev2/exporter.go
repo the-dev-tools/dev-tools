@@ -8,14 +8,8 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 
 	"gopkg.in/yaml.v3"
 )
@@ -27,7 +21,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// Build maps for efficient lookup
-	nodeMap := make(map[idwrap.IDWrap]mnnode.MNode)
+	nodeMap := make(map[idwrap.IDWrap]mflow.Node)
 	for _, n := range data.FlowNodes {
 		nodeMap[n.ID] = n
 	}
@@ -81,27 +75,27 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// Node Specific Maps
-	reqNodeMap := make(map[idwrap.IDWrap]mnrequest.MNRequest)
+	reqNodeMap := make(map[idwrap.IDWrap]mflow.NodeRequest)
 	for _, n := range data.FlowRequestNodes {
 		reqNodeMap[n.FlowNodeID] = n
 	}
 
-	ifNodeMap := make(map[idwrap.IDWrap]mnif.MNIF)
+	ifNodeMap := make(map[idwrap.IDWrap]mflow.NodeIf)
 	for _, n := range data.FlowConditionNodes {
 		ifNodeMap[n.FlowNodeID] = n
 	}
 
-	forNodeMap := make(map[idwrap.IDWrap]mnfor.MNFor)
+	forNodeMap := make(map[idwrap.IDWrap]mflow.NodeFor)
 	for _, n := range data.FlowForNodes {
 		forNodeMap[n.FlowNodeID] = n
 	}
 
-	forEachNodeMap := make(map[idwrap.IDWrap]mnforeach.MNForEach)
+	forEachNodeMap := make(map[idwrap.IDWrap]mflow.NodeForEach)
 	for _, n := range data.FlowForEachNodes {
 		forEachNodeMap[n.FlowNodeID] = n
 	}
 
-	jsNodeMap := make(map[idwrap.IDWrap]mnjs.MNJS)
+	jsNodeMap := make(map[idwrap.IDWrap]mflow.NodeJS)
 	for _, n := range data.FlowJSNodes {
 		jsNodeMap[n.FlowNodeID] = n
 	}
@@ -133,7 +127,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// First pass: collect all HTTP requests used in flows and create unique names
 	for _, flow := range data.Flows {
 		for _, n := range data.FlowNodes {
-			if n.FlowID != flow.ID || n.NodeKind != mnnode.NODE_KIND_REQUEST {
+			if n.FlowID != flow.ID || n.NodeKind != mflow.NODE_KIND_REQUEST {
 				continue
 			}
 			reqNode, ok := reqNodeMap[n.ID]
@@ -227,14 +221,14 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			}
 		}
 
-		var flowNodes []mnnode.MNode
+		var flowNodes []mflow.Node
 		var startNodeID idwrap.IDWrap
 		for _, n := range data.FlowNodes {
 			if n.FlowID == flow.ID {
 				flowNodes = append(flowNodes, n)
-				if n.NodeKind == mnnode.NODE_KIND_NO_OP {
+				if n.NodeKind == mflow.NODE_KIND_NO_OP {
 					for _, noop := range data.FlowNoopNodes {
-						if noop.FlowNodeID == n.ID && noop.Type == mnnoop.NODE_NO_OP_KIND_START {
+						if noop.FlowNodeID == n.ID && noop.Type == mflow.NODE_NO_OP_KIND_START {
 							startNodeID = n.ID
 							break
 						}
@@ -282,7 +276,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			}
 
 			switch node.NodeKind {
-			case mnnode.NODE_KIND_REQUEST:
+			case mflow.NODE_KIND_REQUEST:
 				reqNode, ok := reqNodeMap[node.ID]
 				if !ok || reqNode.HttpID == nil {
 					continue
@@ -304,7 +298,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 				stepWrapper.Request = reqStep
 
-			case mnnode.NODE_KIND_CONDITION:
+			case mflow.NODE_KIND_CONDITION:
 				ifNode, ok := ifNodeMap[node.ID]
 				if !ok {
 					continue
@@ -316,7 +310,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				// Removed legacy then/else fields
 				stepWrapper.If = ifStep
 
-			case mnnode.NODE_KIND_FOR:
+			case mflow.NODE_KIND_FOR:
 				forNode, ok := forNodeMap[node.ID]
 				if !ok {
 					continue
@@ -328,7 +322,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				// Removed legacy loop field
 				stepWrapper.For = forStep
 
-			case mnnode.NODE_KIND_FOR_EACH:
+			case mflow.NODE_KIND_FOR_EACH:
 				forEachNode, ok := forEachNodeMap[node.ID]
 				if !ok {
 					continue
@@ -340,7 +334,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				// Removed legacy loop field
 				stepWrapper.ForEach = forEachStep
 
-			case mnnode.NODE_KIND_JS:
+			case mflow.NODE_KIND_JS:
 				jsNode, ok := jsNodeMap[node.ID]
 				if !ok {
 					continue
@@ -351,7 +345,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 				stepWrapper.JS = jsStep
 
-			case mnnode.NODE_KIND_NO_OP:
+			case mflow.NODE_KIND_NO_OP:
 				if node.ID == startNodeID {
 					noopStep := &YamlStepNoop{
 						YamlStepCommon: common,
@@ -409,14 +403,14 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	return yaml.Marshal(yamlFormat)
 }
 
-func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesBySource map[idwrap.IDWrap][]edge.Edge) []mnnode.MNode {
-	nodeMap := make(map[idwrap.IDWrap]mnnode.MNode)
+func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mflow.Node, edgesBySource map[idwrap.IDWrap][]edge.Edge) []mflow.Node {
+	nodeMap := make(map[idwrap.IDWrap]mflow.Node)
 	for _, n := range allNodes {
 		nodeMap[n.ID] = n
 	}
 
 	visited := make(map[idwrap.IDWrap]bool)
-	var result []mnnode.MNode
+	var result []mflow.Node
 	queue := []idwrap.IDWrap{startNodeID}
 	visited[startNodeID] = true
 
@@ -429,7 +423,7 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 		}
 
 		edges := edgesBySource[currentID]
-		var neighbors []mnnode.MNode
+		var neighbors []mflow.Node
 		for _, e := range edges {
 			if target, ok := nodeMap[e.TargetID]; ok {
 				neighbors = append(neighbors, target)
@@ -448,7 +442,7 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 		}
 	}
 
-	var disconnected []mnnode.MNode
+	var disconnected []mflow.Node
 	for _, n := range allNodes {
 		if !visited[n.ID] {
 			disconnected = append(disconnected, n)

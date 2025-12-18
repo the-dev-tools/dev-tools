@@ -3,11 +3,10 @@ package snodeforeach
 import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
-func ConvertToDBNodeFor(nf mnforeach.MNForEach) gen.FlowNodeForEach {
+func ConvertToDBNodeFor(nf mflow.NodeForEach) gen.FlowNodeForEach {
 	return gen.FlowNodeForEach{
 		FlowNodeID:     nf.FlowNodeID,
 		IterExpression: nf.IterExpression,
@@ -16,11 +15,11 @@ func ConvertToDBNodeFor(nf mnforeach.MNForEach) gen.FlowNodeForEach {
 	}
 }
 
-func ConvertToModelNodeFor(nf gen.FlowNodeForEach) *mnforeach.MNForEach {
-	return &mnforeach.MNForEach{
+func ConvertToModelNodeFor(nf gen.FlowNodeForEach) *mflow.NodeForEach {
+	return &mflow.NodeForEach{
 		FlowNodeID:     nf.FlowNodeID,
 		IterExpression: nf.IterExpression,
-		ErrorHandling:  mnfor.ErrorHandling(nf.ErrorHandling),
+		ErrorHandling:  mflow.ErrorHandling(nf.ErrorHandling),
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
 				Expression: nf.Expression,

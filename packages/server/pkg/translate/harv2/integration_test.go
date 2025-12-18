@@ -9,8 +9,8 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/translate/harv2"
 
 	"github.com/stretchr/testify/require"
@@ -135,9 +135,9 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	require.Len(t, result.Nodes, 3, "Should have 3 nodes (Start + 2 for original requests)")
 
 	// Verify node naming convention (request_1, request_2)
-	var requestNodes []mnnode.MNode
+	var requestNodes []mflow.Node
 	for _, node := range result.Nodes {
-		if node.NodeKind == mnnode.NODE_KIND_REQUEST {
+		if node.NodeKind == mflow.NODE_KIND_REQUEST {
 			requestNodes = append(requestNodes, node)
 		}
 	}

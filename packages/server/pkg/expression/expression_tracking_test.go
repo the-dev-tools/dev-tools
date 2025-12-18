@@ -7,7 +7,8 @@ import (
 	"iter"
 	"the-dev-tools/server/pkg/flow/tracking"
 
-	"github.com/stretchr/testify/require")
+	"github.com/stretchr/testify/require"
+)
 
 func TestExpressionEvaluteAsBool_WithTracking(t *testing.T) {
 	env := NewEnv(map[string]any{
