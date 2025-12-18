@@ -16,22 +16,12 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -244,9 +234,9 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 	defer devtoolsdb.TxnRollback(tx)
 
 	wsWriter := sworkspace.NewWriter(tx)
-	fsWriter := sflow.NewWriter(tx)
-	nsWriter := snode.NewWriter(tx)
-	nnosWriter := snodenoop.NewWriter(tx)
+	fsWriter := sflow.NewFlowWriter(tx)
+	nsWriter := sflow.NewNodeWriter(tx)
+	nnosWriter := sflow.NewNodeNoopWriter(tx)
 
 	var createdFlows []mflow.Flow
 
@@ -381,7 +371,7 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fsWriter := sflow.NewWriter(tx)
+	fsWriter := sflow.NewFlowWriter(tx)
 
 	for _, data := range updateData {
 		if err := fsWriter.UpdateFlow(ctx, data.flow); err != nil {
@@ -442,7 +432,7 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fsWriter := sflow.NewWriter(tx)
+	fsWriter := sflow.NewFlowWriter(tx)
 	wsWriter := sworkspace.NewWriter(tx)
 
 	for _, data := range deleteData {
@@ -570,7 +560,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	}
 
 	sourceVariables, err := s.fvs.GetFlowVariablesByFlowID(ctx, sourceFlowID)
-	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+	if err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -581,18 +571,18 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	fsWriter := sflow.NewWriter(tx)
+	fsWriter := sflow.NewFlowWriter(tx)
 	wsWriter := sworkspace.NewWriter(tx)
-	nsWriter := snode.NewWriter(tx)
-	nnosWriter := snodenoop.NewWriter(tx)
-	nrsWriter := snoderequest.NewWriter(tx)
+	nsWriter := sflow.NewNodeWriter(tx)
+	nnosWriter := sflow.NewNodeNoopWriter(tx)
+	nrsWriter := sflow.NewNodeRequestWriter(tx)
 	hsWriter := shttp.NewWriter(tx)
-	nfsWriter := snodefor.NewWriter(tx)
-	nfesWriter := snodeforeach.NewWriter(tx)
-	nifsWriter := snodeif.NewWriter(tx)
-	njssWriter := snodejs.NewWriter(tx)
-	esWriter := sedge.NewWriter(tx)
-	fvsWriter := sflowvariable.NewWriter(tx)
+	nfsWriter := sflow.NewNodeForWriter(tx)
+	nfesWriter := sflow.NewNodeForEachWriter(tx)
+	nifsWriter := sflow.NewNodeIfWriter(tx)
+	njssWriter := sflow.NewNodeJsWriter(tx)
+	esWriter := sflow.NewEdgeWriter(tx)
+	fvsWriter := sflow.NewFlowVariableWriter(tx)
 
 	newFlowID := idwrap.NewNow()
 	newFlow := mflow.Flow{
@@ -682,7 +672,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		if !sourceOK || !targetOK {
 			continue
 		}
-		newEdge := edge.Edge{
+		newEdge := mflow.Edge{
 			ID:            idwrap.NewNow(),
 			FlowID:        newFlowID,
 			SourceID:      newSourceID,

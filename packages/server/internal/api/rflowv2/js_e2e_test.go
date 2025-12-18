@@ -19,24 +19,13 @@ import (
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -108,13 +97,13 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 
 	// Setup Services
 	wsService := sworkspace.New(queries)
-	flowService := sflow.New(queries)
-	nodeService := snode.New(queries)
-	nodeExecService := snodeexecution.New(queries)
-	edgeService := sedge.New(queries)
-	noopService := snodenoop.New(queries)
-	flowVarService := sflowvariable.New(queries)
-	nodeJsService := snodejs.New(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nodeExecService := sflow.NewNodeExecutionService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	noopService := sflow.NewNodeNoopService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
+	nodeNodeJsService := sflow.NewNodeJsService(queries)
 
 	// HTTP services (for resolver)
 	httpService := shttp.New(queries, logger)
@@ -127,10 +116,10 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
 	// Node specific services
-	nodeRequestService := snoderequest.New(queries)
-	nodeForService := snodefor.New(queries)
-	nodeForEachService := snodeforeach.New(queries)
-	nodeIfService := snodeif.New(queries)
+	nodeRequestService := sflow.NewNodeRequestService(queries)
+	nodeForService := sflow.NewNodeForService(queries)
+	nodeForEachService := sflow.NewNodeForEachService(queries)
+	nodeIfService := sflow.NewNodeIfService(queries)
 
 	// Environment and variable services
 	envService := senv.New(queries, logger)
@@ -163,7 +152,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		&nodeForEachService,
 		nodeIfService,
 		&noopService,
-		&nodeJsService,
+		&nodeNodeJsService,
 		&nodeExecService,
 		&flowVarService,
 		&envService,
@@ -252,7 +241,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	// JS Code that returns a value
 	// The code must export a default function or value
 	jsCode := `export default function(ctx) { return { result: "hello from js", computed: 42 }; }`
-	err = nodeJsService.CreateNodeJS(testCtx, mflow.NodeJS{
+	err = nodeNodeJsService.CreateNodeJS(testCtx, mflow.NodeJS{
 		FlowNodeID: jsNodeID,
 		Code:       []byte(jsCode),
 	})
@@ -262,12 +251,12 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 
 	// Edge: Start -> JS (no further edges - flow ends after JS node)
 	edgeID := idwrap.NewNow()
-	err = edgeService.CreateEdge(testCtx, edge.Edge{
+	err = edgeService.CreateEdge(testCtx, mflow.Edge{
 		ID:            edgeID,
 		FlowID:        flowID,
 		SourceID:      startNodeID,
 		TargetID:      jsNodeID,
-		SourceHandler: edge.HandleUnspecified,
+		SourceHandler: mflow.HandleUnspecified,
 	})
 	require.NoError(t, err)
 

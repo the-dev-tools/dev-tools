@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"the-dev-tools/server/pkg/service/sflow"
 	"time"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -23,15 +24,10 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
@@ -68,7 +64,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 
 	// Create HTTP service first
 	httpService := shttp.New(baseDB.Queries, mockLogger)
-	flowService := sflow.New(baseDB.Queries)
+	flowService := sflow.NewFlowService(baseDB.Queries)
 	fileService := sfile.New(baseDB.Queries, mockLogger)
 
 	// Create child entity services
@@ -80,10 +76,10 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	httpAssertService := shttp.NewHttpAssertService(baseDB.Queries)
 
 	// Create node services
-	nodeService := snode.New(baseDB.Queries)
-	nodeRequestService := snoderequest.New(baseDB.Queries)
-	nodeNoopService := snodenoop.New(baseDB.Queries)
-	edgeService := sedge.New(baseDB.Queries)
+	nodeService := sflow.NewNodeService(baseDB.Queries)
+	nodeRequestService := sflow.NewNodeRequestService(baseDB.Queries)
+	nodeNoopService := sflow.NewNodeNoopService(baseDB.Queries)
+	edgeService := sflow.NewEdgeService(baseDB.Queries)
 
 	// Create environment and variable services
 	envService := senv.New(baseDB.Queries, mockLogger)

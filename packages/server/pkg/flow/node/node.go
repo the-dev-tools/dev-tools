@@ -7,10 +7,10 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -39,7 +39,7 @@ type FlowNodeRequest struct {
 	VarMap           map[string]any
 	ReadWriteLock    *sync.RWMutex
 	NodeMap          map[idwrap.IDWrap]FlowNode
-	EdgeSourceMap    edge.EdgesMap
+	EdgeSourceMap    mflow.EdgesMap
 	Timeout          time.Duration
 	LogPushFunc      LogPushFunc
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
@@ -189,7 +189,7 @@ func CloneIterationLabels(labels []runner.IterationLabel) []runner.IterationLabe
 //
 // If filtering removes every target (e.g. due to a cycle), we fall back to the
 // original slice so execution can still proceed.
-func FilterLoopEntryNodes(edgeMap edge.EdgesMap, loopTargets []idwrap.IDWrap) []idwrap.IDWrap {
+func FilterLoopEntryNodes(edgeMap mflow.EdgesMap, loopTargets []idwrap.IDWrap) []idwrap.IDWrap {
 	if len(loopTargets) < 2 {
 		return loopTargets
 	}
@@ -201,7 +201,7 @@ func FilterLoopEntryNodes(edgeMap edge.EdgesMap, loopTargets []idwrap.IDWrap) []
 			if other == candidate {
 				continue
 			}
-			if edge.IsNodeCheckTarget(edgeMap, other, candidate) == edge.NodeBefore {
+			if mflow.IsNodeCheckTarget(edgeMap, other, candidate) == mflow.NodeBefore {
 				skip = true
 				break
 			}
@@ -225,23 +225,23 @@ func FilterLoopEntryNodes(edgeMap edge.EdgesMap, loopTargets []idwrap.IDWrap) []
 //
 // When the requested targets already match the existing loop edges, the
 // original map is returned to avoid unnecessary allocations.
-func BuildLoopExecutionEdgeMap(edgeMap edge.EdgesMap, loopNodeID idwrap.IDWrap, loopTargets []idwrap.IDWrap) edge.EdgesMap {
+func BuildLoopExecutionEdgeMap(edgeMap mflow.EdgesMap, loopNodeID idwrap.IDWrap, loopTargets []idwrap.IDWrap) mflow.EdgesMap {
 	if len(loopTargets) == 0 {
 		return edgeMap
 	}
 
 	loopHandles, ok := edgeMap[loopNodeID]
 	if ok {
-		if current, ok := loopHandles[edge.HandleLoop]; ok && equalIDSlice(current, loopTargets) {
+		if current, ok := loopHandles[mflow.HandleLoop]; ok && equalIDSlice(current, loopTargets) {
 			return edgeMap
 		}
 	}
 
-	cloned := make(edge.EdgesMap, len(edgeMap))
+	cloned := make(mflow.EdgesMap, len(edgeMap))
 	for sourceID, handles := range edgeMap {
-		handleMap := make(map[edge.EdgeHandle][]idwrap.IDWrap, len(handles))
+		handleMap := make(map[mflow.EdgeHandle][]idwrap.IDWrap, len(handles))
 		for handle, targets := range handles {
-			if sourceID == loopNodeID && handle == edge.HandleLoop {
+			if sourceID == loopNodeID && handle == mflow.HandleLoop {
 				handleMap[handle] = append([]idwrap.IDWrap(nil), loopTargets...)
 				continue
 			}
@@ -251,11 +251,11 @@ func BuildLoopExecutionEdgeMap(edgeMap edge.EdgesMap, loopNodeID idwrap.IDWrap, 
 	}
 
 	if _, exists := cloned[loopNodeID]; !exists {
-		cloned[loopNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleLoop: append([]idwrap.IDWrap(nil), loopTargets...),
+		cloned[loopNodeID] = map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleLoop: append([]idwrap.IDWrap(nil), loopTargets...),
 		}
-	} else if _, ok := cloned[loopNodeID][edge.HandleLoop]; !ok {
-		cloned[loopNodeID][edge.HandleLoop] = append([]idwrap.IDWrap(nil), loopTargets...)
+	} else if _, ok := cloned[loopNodeID][mflow.HandleLoop]; !ok {
+		cloned[loopNodeID][mflow.HandleLoop] = append([]idwrap.IDWrap(nil), loopTargets...)
 	}
 
 	return cloned

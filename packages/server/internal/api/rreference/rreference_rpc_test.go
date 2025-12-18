@@ -14,20 +14,14 @@ import (
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -41,10 +35,10 @@ type referenceTestServices struct {
 	es   senv.EnvironmentService
 	vs   svar.VarService
 	fs   sflow.FlowService
-	fns  snode.NodeService
-	fvs  sflowvariable.FlowVariableService
-	esvc sedge.EdgeService
-	nes  snodeexecution.NodeExecutionService
+	fns  sflow.NodeService
+	fvs  sflow.FlowVariableService
+	esvc sflow.EdgeService
+	nes  sflow.NodeExecutionService
 	hrs  shttp.HttpResponseService
 }
 
@@ -62,12 +56,12 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 	ws := sworkspace.New(queries)
 	es := senv.New(queries, logger)
 	vs := svar.New(queries, logger)
-	fs := sflow.New(queries)
-	fns := snode.New(queries)
-	frns := snoderequest.New(queries)
-	fvs := sflowvariable.New(queries)
-	edgeService := sedge.New(queries)
-	nes := snodeexecution.New(queries)
+	fs := sflow.NewFlowService(queries)
+	fns := sflow.NewNodeService(queries)
+	frns := sflow.NewNodeRequestService(queries)
+	fvs := sflow.NewFlowVariableService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	nes := sflow.NewNodeExecutionService(queries)
 
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
@@ -196,7 +190,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 
 	// Create Edge from Source to Target
 	edgeID := idwrap.NewNow()
-	err = ts.esvc.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, mflow.Edge{
 		ID:       edgeID,
 		FlowID:   flowID,
 		SourceID: sourceNodeID,
@@ -374,7 +368,7 @@ func TestReferenceValue_Nested(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Edge
-	err = ts.esvc.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, mflow.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: nodeID,
@@ -592,7 +586,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 
 	// Connect edges
 	// NodeWithExec -> Target
-	err = ts.esvc.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, mflow.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: node1ID,
@@ -601,7 +595,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// NodeRequest -> Target
-	err = ts.esvc.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, mflow.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: node2ID,
@@ -610,7 +604,7 @@ func TestReferenceTree_FlowNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// LoopNode -> Target
-	err = ts.esvc.CreateEdge(ctx, edge.Edge{
+	err = ts.esvc.CreateEdge(ctx, mflow.Edge{
 		ID:       idwrap.NewNow(),
 		FlowID:   flowID,
 		SourceID: node3ID,

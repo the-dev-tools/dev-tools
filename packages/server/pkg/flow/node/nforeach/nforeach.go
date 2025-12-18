@@ -8,7 +8,6 @@ import (
 	"iter"
 	"sync"
 	"the-dev-tools/server/pkg/expression"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
@@ -58,10 +57,10 @@ func (nr *NodeForEach) IsLoopCoordinator() bool {
 }
 
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
 	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleThen)
 	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
 	pendingTemplate := node.BuildPendingMap(predecessorMap)
 
@@ -480,10 +479,10 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 }
 
 func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
 	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleThen)
 	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
 	pendingTemplate := node.BuildPendingMap(predecessorMap)
 

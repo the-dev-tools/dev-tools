@@ -22,17 +22,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -51,25 +41,25 @@ func TestFlowRun_Logging(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	wsService := sworkspace.New(queries)
-	flowService := sflow.New(queries)
-	nodeService := snode.New(queries)
-	nodeExecService := snodeexecution.New(queries)
-	edgeService := sedge.New(queries)
-	noopService := snodenoop.New(queries)
-	flowVarService := sflowvariable.New(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nodeExecService := sflow.NewNodeExecutionService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	noopService := sflow.NewNodeNoopService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
 
 	// Missing services for builder
-	reqService := snoderequest.New(queries)
-	forService := snodefor.New(queries)
-	forEachService := snodeforeach.New(queries)
-	ifService := snodeif.New(queries)
-	jsService := snodejs.New(queries)
+	reqService := sflow.NewNodeRequestService(queries)
+	forService := sflow.NewNodeForService(queries)
+	forEachService := sflow.NewNodeForEachService(queries)
+	ifService := sflow.NewNodeIfService(queries)
+	jsService := sflow.NewNodeJsService(queries)
 	varService := svar.New(queries, logger)
 
 	// Readers
 	wsReader := sworkspace.NewReaderFromQueries(queries)
-	fsReader := sflow.NewReaderFromQueries(queries)
-	nsReader := snode.NewReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	// Mock resolver (or use standard with nil services if not used in test)
 	// Since we only use NoOp node in this test, resolver won't be called for requests

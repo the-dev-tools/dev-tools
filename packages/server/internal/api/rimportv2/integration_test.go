@@ -20,15 +20,11 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -118,7 +114,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	httpService := shttp.New(base.Queries, logger)
 
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 
 	fileService := sfile.New(base.Queries, logger)
 
@@ -134,13 +130,13 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 
-	nodeService := snode.New(base.Queries)
+	nodeService := sflow.NewNodeService(base.Queries)
 
-	nodeRequestService := snoderequest.New(base.Queries)
+	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
 
-	nodeNoopService := snodenoop.New(base.Queries)
+	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
 
-	edgeService := sedge.New(base.Queries)
+	edgeService := sflow.NewEdgeService(base.Queries)
 
 	envService := senv.New(base.Queries, logger)
 

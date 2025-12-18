@@ -13,7 +13,6 @@ import (
 
 	"the-dev-tools/server/pkg/depfinder" //nolint:gocritic // imports grouping
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -122,7 +121,7 @@ type HarResolved struct {
 	Nodes        []mflow.Node        `json:"nodes"`
 	RequestNodes []mflow.NodeRequest `json:"request_nodes"`
 	NoOpNodes    []mflow.NodeNoop    `json:"no_op_nodes"`
-	Edges        []edge.Edge         `json:"edges"`
+	Edges        []mflow.Edge        `json:"edges"`
 }
 
 // Helper functions for request processing
@@ -139,7 +138,7 @@ func isMutationMethod(method string) bool {
 	}
 }
 
-func edgeExists(edges []edge.Edge, source, target idwrap.IDWrap) bool {
+func edgeExists(edges []mflow.Edge, source, target idwrap.IDWrap) bool {
 	for _, e := range edges {
 		if e.SourceID == source && e.TargetID == target {
 			return true
@@ -275,7 +274,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		Nodes:              make([]mflow.Node, 0),
 		RequestNodes:       make([]mflow.NodeRequest, 0),
 		NoOpNodes:          make([]mflow.NodeNoop, 0),
-		Edges:              make([]edge.Edge, 0),
+		Edges:              make([]mflow.Edge, 0),
 	}
 
 	// Create Flow
@@ -521,7 +520,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		Nodes:              make([]mflow.Node, 0),
 		RequestNodes:       make([]mflow.NodeRequest, 0),
 		NoOpNodes:          make([]mflow.NodeNoop, 0),
-		Edges:              make([]edge.Edge, 0),
+		Edges:              make([]mflow.Edge, 0),
 	}
 
 	// Create Flow
@@ -860,12 +859,12 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 }
 
 func addEdge(result *HarResolved, flowID, sourceID, targetID idwrap.IDWrap) {
-	result.Edges = append(result.Edges, edge.Edge{
+	result.Edges = append(result.Edges, mflow.Edge{
 		ID:            idwrap.NewNow(),
 		FlowID:        flowID,
 		SourceID:      sourceID,
 		TargetID:      targetID,
-		SourceHandler: edge.HandleUnspecified,
+		SourceHandler: mflow.HandleUnspecified,
 	})
 }
 
@@ -1127,7 +1126,7 @@ func ReorganizeNodePositions(result *HarResolved) error {
 }
 
 // applyTransitiveReduction removes redundant edges from the graph
-func applyTransitiveReduction(edges []edge.Edge) []edge.Edge {
+func applyTransitiveReduction(edges []mflow.Edge) []mflow.Edge {
 	if len(edges) == 0 {
 		return edges
 	}
@@ -1145,7 +1144,7 @@ func applyTransitiveReduction(edges []edge.Edge) []edge.Edge {
 	}
 
 	// For each edge, check if there's an alternative path
-	var reducedEdges []edge.Edge
+	var reducedEdges []mflow.Edge
 	for _, edge := range edges {
 		if !hasAlternativePath(adjMap, edge.SourceID, edge.TargetID, edge.TargetID) {
 			reducedEdges = append(reducedEdges, edge)

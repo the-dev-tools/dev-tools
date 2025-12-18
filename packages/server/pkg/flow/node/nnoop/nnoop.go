@@ -3,9 +3,9 @@ package nnoop
 
 import (
 	"context"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 const NodeOutputKey = "noop"
@@ -35,14 +35,14 @@ func (n NodeNoop) GetName() string {
 }
 
 func (n NodeNoop) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleUnspecified)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)
 	var result node.FlowNodeResult
 	result.NextNodeID = nextID
 	return result
 }
 
 func (n NodeNoop) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleUnspecified)
+	trueID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)
 	var result node.FlowNodeResult
 	result.NextNodeID = trueID
 	resultChan <- result

@@ -9,19 +9,10 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 )
@@ -214,16 +205,16 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 
 // exportFlows exports flows and all associated data (nodes, edges, variables, node implementations)
 func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions, bundle *WorkspaceBundle) error {
-	flowService := sflow.New(s.queries)
-	flowVariableService := sflowvariable.New(s.queries)
-	nodeService := snode.New(s.queries)
-	edgeService := sedge.New(s.queries)
-	nodeRequestService := snoderequest.New(s.queries)
-	nodeIfService := snodeif.New(s.queries)
-	nodeNoopService := snodenoop.New(s.queries)
-	nodeForService := snodefor.New(s.queries)
-	nodeForEachService := snodeforeach.New(s.queries)
-	nodeJSService := snodejs.New(s.queries)
+	flowService := sflow.NewFlowService(s.queries)
+	flowVariableService := sflow.NewFlowVariableService(s.queries)
+	nodeService := sflow.NewNodeService(s.queries)
+	edgeService := sflow.NewEdgeService(s.queries)
+	nodeRequestService := sflow.NewNodeRequestService(s.queries)
+	nodeIfService := sflow.NewNodeIfService(s.queries)
+	nodeNoopService := sflow.NewNodeNoopService(s.queries)
+	nodeForService := sflow.NewNodeForService(s.queries)
+	nodeForEachService := sflow.NewNodeForEachService(s.queries)
+	nodeJSService := sflow.NewNodeJsService(s.queries)
 
 	var flowIDs []idwrap.IDWrap
 
@@ -302,12 +293,12 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	ctx context.Context,
 	node mflow.Node,
 	bundle *WorkspaceBundle,
-	nodeRequestService snoderequest.NodeRequestService,
-	nodeIfService *snodeif.NodeIfService,
-	nodeNoopService snodenoop.NodeNoopService,
-	nodeForService snodefor.NodeForService,
-	nodeForEachService snodeforeach.NodeForEachService,
-	nodeJSService snodejs.NodeJSService,
+	nodeRequestService sflow.NodeRequestService,
+	nodeIfService *sflow.NodeIfService,
+	nodeNoopService sflow.NodeNoopService,
+	nodeForService sflow.NodeForService,
+	nodeForEachService sflow.NodeForEachService,
+	nodeJSService sflow.NodeJsService,
 ) error {
 	switch node.NodeKind {
 	case mflow.NODE_KIND_REQUEST:

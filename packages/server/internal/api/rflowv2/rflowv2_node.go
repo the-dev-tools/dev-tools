@@ -15,7 +15,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/sflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -84,7 +84,7 @@ func (s *FlowServiceV2RPC) NodeInsert(
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	nsWriter := snode.NewWriter(tx)
+	nsWriter := sflow.NewNodeWriter(tx)
 
 	for _, nodeModel := range nodeModels {
 		if err := nsWriter.CreateNode(ctx, *nodeModel); err != nil {
@@ -158,7 +158,7 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	nsWriter := snode.NewWriter(tx)
+	nsWriter := sflow.NewNodeWriter(tx)
 
 	for _, data := range updateData {
 		if err := nsWriter.UpdateNode(ctx, *data.existing); err != nil {
@@ -211,7 +211,7 @@ func (s *FlowServiceV2RPC) NodeDelete(
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	nsWriter := snode.NewWriter(tx)
+	nsWriter := sflow.NewNodeWriter(tx)
 
 	for _, data := range deleteData {
 		if err := nsWriter.DeleteNode(ctx, data.existing.ID); err != nil {

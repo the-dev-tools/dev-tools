@@ -20,47 +20,40 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
 
 type Builder struct {
-	Node        *snode.NodeService
-	NodeRequest *snoderequest.NodeRequestService
-	NodeFor     *snodefor.NodeForService
-	NodeForEach *snodeforeach.NodeForEachService
-	NodeIf      *snodeif.NodeIfService
-	NodeNoop    *snodenoop.NodeNoopService
-	NodeJS      *snodejs.NodeJSService
+	Node        *sflow.NodeService
+	NodeRequest *sflow.NodeRequestService
+	NodeFor     *sflow.NodeForService
+	NodeForEach *sflow.NodeForEachService
+	NodeIf      *sflow.NodeIfService
+	NodeNoop    *sflow.NodeNoopService
+	NodeJS      *sflow.NodeJsService
 
 	Workspace    *sworkspace.WorkspaceService
 	Variable     *svar.VarService
-	FlowVariable *sflowvariable.FlowVariableService
+	FlowVariable *sflow.FlowVariableService
 
 	Resolver resolver.RequestResolver
 	Logger   *slog.Logger
 }
 
 func New(
-	ns *snode.NodeService,
-	nrs *snoderequest.NodeRequestService,
-	nfs *snodefor.NodeForService,
-	nfes *snodeforeach.NodeForEachService,
-	nifs *snodeif.NodeIfService,
-	nnos *snodenoop.NodeNoopService,
-	njss *snodejs.NodeJSService,
+	ns *sflow.NodeService,
+	nrs *sflow.NodeRequestService,
+	nfs *sflow.NodeForService,
+	nfes *sflow.NodeForEachService,
+	nifs *sflow.NodeIfService,
+	nnos *sflow.NodeNoopService,
+	njss *sflow.NodeJsService,
 	ws *sworkspace.WorkspaceService,
 	vs *svar.VarService,
-	fvs *sflowvariable.FlowVariableService,
+	fvs *sflow.FlowVariableService,
 	resolver resolver.RequestResolver,
 	logger *slog.Logger,
 ) *Builder {

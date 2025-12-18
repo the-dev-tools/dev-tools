@@ -17,14 +17,13 @@ import (
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rlog"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/sflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
 )
@@ -62,7 +61,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	}
 
 	flowVars, err := s.fvs.GetFlowVariablesByFlowID(ctx, flowID)
-	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+	if err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -119,7 +118,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	ctx context.Context,
 	flow mflow.Flow,
 	nodes []mflow.Node,
-	edges []edge.Edge,
+	edges []mflow.Edge,
 	flowVars []mflow.FlowVariable,
 	versionFlowID idwrap.IDWrap,
 	nodeIDMapping map[string]idwrap.IDWrap,
@@ -195,7 +194,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	}()
 
 	sharedHTTPClient := httpclient.New()
-	edgeMap := edge.NewEdgesMap(edges)
+	edgeMap := mflow.NewEdgesMap(edges)
 
 	const defaultNodeTimeout = 60 // seconds
 	timeoutDuration := time.Duration(defaultNodeTimeout) * time.Second
@@ -532,7 +531,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	ctx context.Context,
 	sourceFlow mflow.Flow,
 	sourceNodes []mflow.Node,
-	sourceEdges []edge.Edge,
+	sourceEdges []mflow.Edge,
 	sourceVars []mflow.FlowVariable,
 ) (mflow.Flow, map[string]idwrap.IDWrap, error) {
 	// Create the version flow record
@@ -706,7 +705,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			continue
 		}
 
-		newEdge := edge.Edge{
+		newEdge := mflow.Edge{
 			ID:            idwrap.NewNow(),
 			FlowID:        versionFlowID,
 			SourceID:      newSourceID,

@@ -22,14 +22,10 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/streamtest"
 	"the-dev-tools/server/pkg/testutil"
@@ -66,7 +62,7 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 
 	// Create services
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
@@ -74,10 +70,10 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 	httpAssertService := shttp.NewHttpAssertService(base.Queries)
-	nodeService := snode.New(base.Queries)
-	nodeRequestService := snoderequest.New(base.Queries)
-	nodeNoopService := snodenoop.New(base.Queries)
-	edgeService := sedge.New(base.Queries)
+	nodeService := sflow.NewNodeService(base.Queries)
+	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
+	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
+	edgeService := sflow.NewEdgeService(base.Queries)
 	envService := senv.New(base.Queries, logger)
 	varService := svar.New(base.Queries, logger)
 

@@ -10,8 +10,8 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snoderequest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,7 +48,7 @@ func TestImport_DeltaBodyRaw(t *testing.T) {
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 	// Services for verification
-	nodeRequestService := snoderequest.New(queries)
+	nodeRequestService := sflow.NewNodeRequestService(queries)
 
 	// httpService is consumed by Import internally or passed?
 	// svc.Import takes httpService.

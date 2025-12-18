@@ -17,19 +17,9 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -210,23 +200,23 @@ type FlowServiceV2RPC struct {
 	DB *sql.DB
 
 	wsReader *sworkspace.Reader
-	fsReader *sflow.Reader
-	nsReader *snode.Reader
+	fsReader *sflow.FlowReader
+	nsReader *sflow.NodeReader
 	vsReader *svar.Reader
 	hsReader *shttp.Reader
 
 	ws       *sworkspace.WorkspaceService
 	fs       *sflow.FlowService
-	es       *sedge.EdgeService
-	ns       *snode.NodeService
-	nrs      *snoderequest.NodeRequestService
-	nfs      *snodefor.NodeForService
-	nfes     *snodeforeach.NodeForEachService
-	nifs     *snodeif.NodeIfService
-	nnos     *snodenoop.NodeNoopService
-	njss     *snodejs.NodeJSService
-	nes      *snodeexecution.NodeExecutionService
-	fvs      *sflowvariable.FlowVariableService
+	es       *sflow.EdgeService
+	ns       *sflow.NodeService
+	nrs      *sflow.NodeRequestService
+	nfs      *sflow.NodeForService
+	nfes     *sflow.NodeForEachService
+	nifs     *sflow.NodeIfService
+	nnos     *sflow.NodeNoopService
+	njss     *sflow.NodeJsService
+	nes      *sflow.NodeExecutionService
+	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
 	vs       *svar.VarService
 	hs       *shttp.HTTPService
@@ -266,22 +256,22 @@ type FlowServiceV2RPC struct {
 func New(
 	db *sql.DB,
 	wsReader *sworkspace.Reader,
-	fsReader *sflow.Reader,
-	nsReader *snode.Reader,
+	fsReader *sflow.FlowReader,
+	nsReader *sflow.NodeReader,
 	vsReader *svar.Reader,
 	hsReader *shttp.Reader,
 	ws *sworkspace.WorkspaceService,
 	fs *sflow.FlowService,
-	es *sedge.EdgeService,
-	ns *snode.NodeService,
-	nrs *snoderequest.NodeRequestService,
-	nfs *snodefor.NodeForService,
-	nfes *snodeforeach.NodeForEachService,
-	nifs *snodeif.NodeIfService,
-	nnos *snodenoop.NodeNoopService,
-	njss *snodejs.NodeJSService,
-	nes *snodeexecution.NodeExecutionService,
-	fvs *sflowvariable.FlowVariableService,
+	es *sflow.EdgeService,
+	ns *sflow.NodeService,
+	nrs *sflow.NodeRequestService,
+	nfs *sflow.NodeForService,
+	nfes *sflow.NodeForEachService,
+	nifs *sflow.NodeIfService,
+	nnos *sflow.NodeNoopService,
+	njss *sflow.NodeJsService,
+	nes *sflow.NodeExecutionService,
+	fvs *sflow.FlowVariableService,
 	envs *senv.EnvironmentService,
 	vs *svar.VarService,
 	hs *shttp.HTTPService,

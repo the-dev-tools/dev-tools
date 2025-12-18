@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -41,7 +40,7 @@ type TranslationResult struct {
 	Nodes        []mflow.Node
 	RequestNodes []mflow.NodeRequest
 	NoOpNodes    []mflow.NodeNoop
-	Edges        []edge.Edge
+	Edges        []mflow.Edge
 
 	// Metadata
 	DetectedFormat Format

@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 
 	"github.com/stretchr/testify/require"
@@ -142,7 +142,7 @@ func newRequestNodeFixture(asserts []mhttp.HTTPAssert, respChan chan NodeRequest
 		VarMap:        map[string]any{},
 		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
-		EdgeSourceMap: edge.EdgesMap{},
+		EdgeSourceMap: mflow.EdgesMap{},
 		ExecutionID:   idwrap.NewNow(),
 	}
 
@@ -224,7 +224,7 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 		},
 		ReadWriteLock:   &sync.RWMutex{},
 		NodeMap:         map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
-		EdgeSourceMap:   edge.EdgesMap{},
+		EdgeSourceMap:   mflow.EdgesMap{},
 		ExecutionID:     idwrap.NewNow(),
 		VariableTracker: tracker,
 	}
@@ -313,7 +313,7 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 		VarMap:        map[string]any{},
 		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
-		EdgeSourceMap: edge.EdgesMap{},
+		EdgeSourceMap: mflow.EdgesMap{},
 		ExecutionID:   idwrap.NewNow(),
 	}
 
@@ -375,7 +375,7 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 		VarMap:          map[string]any{},
 		ReadWriteLock:   &sync.RWMutex{},
 		NodeMap:         map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
-		EdgeSourceMap:   edge.EdgesMap{},
+		EdgeSourceMap:   mflow.EdgesMap{},
 		ExecutionID:     idwrap.NewNow(),
 		VariableTracker: tracker,
 	}
@@ -470,7 +470,7 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 		VarMap:        map[string]any{},
 		ReadWriteLock: &sync.RWMutex{},
 		NodeMap:       map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
-		EdgeSourceMap: edge.EdgesMap{},
+		EdgeSourceMap: mflow.EdgesMap{},
 		ExecutionID:   idwrap.NewNow(),
 	}
 

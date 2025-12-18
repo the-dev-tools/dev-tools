@@ -21,25 +21,14 @@ import (
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -70,13 +59,13 @@ func TestChaos_EventOrdering(t *testing.T) {
 
 	// 3. Setup Services
 	wsService := sworkspace.New(queries)
-	flowService := sflow.New(queries)
-	nodeService := snode.New(queries)
-	nodeExecService := snodeexecution.New(queries)
-	edgeService := sedge.New(queries)
-	noopService := snodenoop.New(queries)
-	flowVarService := sflowvariable.New(queries)
-	nodeRequestService := snoderequest.New(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nodeExecService := sflow.NewNodeExecutionService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	noopService := sflow.NewNodeNoopService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
+	nodeRequestService := sflow.NewNodeRequestService(queries)
 
 	httpService := shttp.New(queries, logger)
 	shttpBodyRawSvc := shttp.NewHttpBodyRawService(queries)
@@ -88,10 +77,10 @@ func TestChaos_EventOrdering(t *testing.T) {
 	resBodyFormSvc := shttp.NewHttpBodyFormService(queries)
 	resBodyUrlencodedSvc := shttp.NewHttpBodyUrlEncodedService(queries)
 
-	nodeForService := snodefor.New(queries)
-	nodeForEachService := snodeforeach.New(queries)
-	nodeIfService := snodeif.New(queries)
-	nodeJsService := snodejs.New(queries)
+	nodeForService := sflow.NewNodeForService(queries)
+	nodeForEachService := sflow.NewNodeForEachService(queries)
+	nodeIfService := sflow.NewNodeIfService(queries)
+	nodeNodeJsService := sflow.NewNodeJsService(queries)
 	envService := senv.New(queries, logger)
 	varService := svar.New(queries, logger)
 
@@ -126,7 +115,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 		&nodeForEachService,
 		nodeIfService,
 		&noopService,
-		&nodeJsService,
+		&nodeNodeJsService,
 		&nodeExecService,
 		&flowVarService,
 		&envService,
@@ -166,7 +155,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 	require.NoError(t, nodeService.CreateNode(ctx, mflow.Node{ID: requestNodeID, FlowID: flowID, Name: "Request", NodeKind: mflow.NODE_KIND_REQUEST}))
 	require.NoError(t, nodeRequestService.CreateNodeRequest(ctx, mflow.NodeRequest{FlowNodeID: requestNodeID, HttpID: &httpID}))
 
-	require.NoError(t, edgeService.CreateEdge(ctx, edge.Edge{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: requestNodeID, SourceHandler: edge.HandleUnspecified}))
+	require.NoError(t, edgeService.CreateEdge(ctx, mflow.Edge{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: requestNodeID, SourceHandler: mflow.HandleUnspecified}))
 
 	// 5. Chaos Monitoring
 	const iterations = 50

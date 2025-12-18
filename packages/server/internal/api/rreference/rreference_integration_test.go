@@ -12,14 +12,9 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
@@ -35,12 +30,12 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	varService := svar.New(base.Queries, base.Logger())
 
 	// Flow services (needed for constructor but not used)
-	flowService := sflow.New(base.Queries)
-	flowNodeService := snode.New(base.Queries)
-	flowNodeRequestService := snoderequest.New(base.Queries)
-	flowVariableService := sflowvariable.New(base.Queries)
-	edgeService := sedge.New(base.Queries)
-	nodeExecutionService := snodeexecution.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
+	flowNodeService := sflow.NewNodeService(base.Queries)
+	flowNodeRequestService := sflow.NewNodeRequestService(base.Queries)
+	flowVariableService := sflow.NewFlowVariableService(base.Queries)
+	edgeService := sflow.NewEdgeService(base.Queries)
+	nodeExecutionService := sflow.NewNodeExecutionService(base.Queries)
 
 	// HTTP services
 	httpService := services.Hs

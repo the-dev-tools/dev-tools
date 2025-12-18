@@ -15,14 +15,10 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
 
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
@@ -40,10 +36,10 @@ type DefaultImporter struct {
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	bodyService               *shttp.HttpBodyRawService
 	httpAssertService         *shttp.HttpAssertService
-	nodeService               *snode.NodeService
-	nodeRequestService        *snoderequest.NodeRequestService
-	nodeNoopService           *snodenoop.NodeNoopService
-	edgeService               *sedge.EdgeService
+	nodeService               *sflow.NodeService
+	nodeRequestService        *sflow.NodeRequestService
+	nodeNoopService           *sflow.NodeNoopService
+	edgeService               *sflow.EdgeService
 	envService                senv.EnvironmentService
 	varService                svar.VarService
 	harTranslator             *defaultHARTranslator
@@ -61,10 +57,10 @@ func NewImporter(
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
 	httpAssertService *shttp.HttpAssertService,
-	nodeService *snode.NodeService,
-	nodeRequestService *snoderequest.NodeRequestService,
-	nodeNoopService *snodenoop.NodeNoopService,
-	edgeService *sedge.EdgeService,
+	nodeService *sflow.NodeService,
+	nodeRequestService *sflow.NodeRequestService,
+	nodeNoopService *sflow.NodeNoopService,
+	edgeService *sflow.EdgeService,
 	envService senv.EnvironmentService,
 	varService svar.VarService,
 ) *DefaultImporter {

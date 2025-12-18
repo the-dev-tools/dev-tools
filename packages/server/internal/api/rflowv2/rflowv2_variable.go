@@ -14,7 +14,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/sflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -30,7 +30,7 @@ func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *conn
 	for _, flow := range flows {
 		variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flow.ID)
 		if err != nil {
-			if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			if errors.Is(err, sflow.ErrNoFlowVariableFound) {
 				continue // No variables for this flow, continue to next
 			} else {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -106,7 +106,7 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 
 		variable, err := s.fvs.GetFlowVariable(ctx, variableID)
 		if err != nil {
-			if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			if errors.Is(err, sflow.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow variable %s not found", variableID.String()))
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -166,7 +166,7 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 
 		variable, err := s.fvs.GetFlowVariable(ctx, variableID)
 		if err != nil {
-			if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			if errors.Is(err, sflow.ErrNoFlowVariableFound) {
 				continue
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -176,7 +176,7 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 			return nil, err
 		}
 
-		if err := s.fvs.DeleteFlowVariable(ctx, variableID); err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+		if err := s.fvs.DeleteFlowVariable(ctx, variableID); err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -222,7 +222,7 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 
 			variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flow.ID)
 			if err != nil {
-				if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+				if errors.Is(err, sflow.ErrNoFlowVariableFound) {
 					continue
 				}
 				return nil, err

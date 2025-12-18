@@ -7,20 +7,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"the-dev-tools/server/pkg/service/sflow"
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/testutil"
 )
 
@@ -30,9 +26,9 @@ type flowExecutionFixture struct {
 
 	// Additional services needed for execution
 	httpService          shttp.HTTPService
-	nodeService          snode.NodeService
-	nodeRequestService   snoderequest.NodeRequestService
-	nodeExecutionService snodeexecution.NodeExecutionService
+	nodeService          sflow.NodeService
+	nodeRequestService   sflow.NodeRequestService
+	nodeExecutionService sflow.NodeExecutionService
 	httpHeaderService    shttp.HttpHeaderService
 
 	userID      idwrap.IDWrap
@@ -66,9 +62,9 @@ func newFlowExecutionFixture(t *testing.T) *flowExecutionFixture {
 
 	// Initialize specific services
 	httpService := shttp.New(base.Queries, base.Logger())
-	nodeService := snode.New(base.Queries)
-	nodeRequestService := snoderequest.New(base.Queries)
-	nodeExecutionService := snodeexecution.New(base.Queries)
+	nodeService := sflow.NewNodeService(base.Queries)
+	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
+	nodeExecutionService := sflow.NewNodeExecutionService(base.Queries)
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 
 	// Start Mock Server
@@ -202,29 +198,29 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 
 	// 5. Create Edges (Start -> A -> B)
 	// Note: Edge service is usually needed here
-	edgeService := sedge.New(f.services.Queries) // Assuming we can access Queries
+	edgeService := sflow.NewEdgeService(f.services.Queries) // Assuming we can access Queries
 
 	// Start -> A
 	edge1ID := idwrap.NewNow()
-	err = edgeService.CreateEdge(f.ctx, edge.Edge{
+	err = edgeService.CreateEdge(f.ctx, mflow.Edge{
 		ID:            edge1ID,
 		FlowID:        flowID,
 		SourceID:      startNodeID,
 		TargetID:      reqNodeAID,
-		Kind:          int32(edge.EdgeKindNoOp), // Use correct enum cast
-		SourceHandler: edge.EdgeHandle(0),
+		Kind:          int32(mflow.EdgeKindNoOp), // Use correct enum cast
+		SourceHandler: mflow.EdgeHandle(0),
 	})
 	require.NoError(t, err)
 
 	// A -> B
 	edge2ID := idwrap.NewNow()
-	err = edgeService.CreateEdge(f.ctx, edge.Edge{
+	err = edgeService.CreateEdge(f.ctx, mflow.Edge{
 		ID:            edge2ID,
 		FlowID:        flowID,
 		SourceID:      reqNodeAID,
 		TargetID:      reqNodeBID,
-		Kind:          int32(edge.EdgeKindNoOp), // Use correct enum cast
-		SourceHandler: edge.EdgeHandle(0),
+		Kind:          int32(mflow.EdgeKindNoOp), // Use correct enum cast
+		SourceHandler: mflow.EdgeHandle(0),
 	})
 	require.NoError(t, err)
 

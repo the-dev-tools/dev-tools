@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"runtime"
 	"sync"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/tracking"
@@ -32,7 +31,7 @@ type FlowLocalRunner struct {
 	FlowNodeMap      map[idwrap.IDWrap]node.FlowNode
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
 
-	EdgesMap    edge.EdgesMap
+	EdgesMap    mflow.EdgesMap
 	StartNodeID idwrap.IDWrap
 	Timeout     time.Duration
 
@@ -44,7 +43,7 @@ type FlowLocalRunner struct {
 
 var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
 
-func CreateFlowRunner(id, flowID, startNodeID idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
+func CreateFlowRunner(id, flowID, startNodeID idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
 	return &FlowLocalRunner{
 		ID:                 id,
 		FlowID:             flowID,
@@ -123,7 +122,7 @@ func (r *FlowLocalRunner) SetDataTrackingEnabled(enabled bool) {
 	r.enableDataTracking = enabled
 }
 
-func selectExecutionMode(nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap) ExecutionMode {
+func selectExecutionMode(nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap) ExecutionMode {
 	nodeCount := len(nodeMap)
 	if nodeCount == 0 {
 		return ExecutionModeSingle
@@ -140,7 +139,7 @@ func selectExecutionMode(nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.
 			if len(targetIDs) == 0 {
 				continue
 			}
-			if handle == edge.HandleLoop {
+			if handle == mflow.HandleLoop {
 				if len(targetIDs) > 1 {
 					simpleStructure = false
 				}
@@ -158,7 +157,7 @@ func selectExecutionMode(nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.
 		if nonLoopTargets > 1 {
 			simpleStructure = false
 		}
-		if _, ok := handles[edge.HandleLoop]; ok && nonLoopTargets > 0 {
+		if _, ok := handles[mflow.HandleLoop]; ok && nonLoopTargets > 0 {
 			// Loop node with additional branch work beyond the loop/then path
 			if nonLoopTargets > 1 {
 				simpleStructure = false
@@ -594,7 +593,7 @@ var (
 	trackerPool        = sync.Pool{New: func() any { return tracking.NewVariableTracker() }}
 )
 
-func BuildPredecessorMap(edgesMap edge.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
+func BuildPredecessorMap(edgesMap mflow.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
 	predecessors := make(map[idwrap.IDWrap][]idwrap.IDWrap, len(edgesMap))
 	for sourceID, edges := range edgesMap {
 		for _, targets := range edges {

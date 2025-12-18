@@ -7,7 +7,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 )
@@ -336,7 +335,7 @@ type ConvertOptionsV2 struct {
 type YamlFlowDataV2 struct {
 	Flow      mflow.Flow
 	Nodes     []mflow.Node
-	Edges     []edge.Edge
+	Edges     []mflow.Edge
 	Variables []YamlVariableV2
 
 	// HTTP request data

@@ -6,19 +6,10 @@ import (
 	"fmt"
 
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 )
 
@@ -80,17 +71,17 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	httpBodyRawService := shttp.NewHttpBodyRawService(s.queries).TX(tx)
 	httpAssertService := shttp.NewHttpAssertService(s.queries).TX(tx)
 
-	flowService := sflow.New(s.queries).TX(tx)
-	flowVariableService := sflowvariable.New(s.queries).TX(tx)
-	nodeService := snode.New(s.queries).TX(tx)
-	edgeService := sedge.New(s.queries).TX(tx)
+	flowService := sflow.NewFlowService(s.queries).TX(tx)
+	flowVariableService := sflow.NewFlowVariableService(s.queries).TX(tx)
+	nodeService := sflow.NewNodeService(s.queries).TX(tx)
+	edgeService := sflow.NewEdgeService(s.queries).TX(tx)
 
-	nodeRequestService := snoderequest.New(s.queries).TX(tx)
-	nodeIfService := snodeif.New(s.queries).TX(tx)
-	nodeNoopService := snodenoop.New(s.queries).TX(tx)
-	nodeForService := snodefor.New(s.queries).TX(tx)
-	nodeForEachService := snodeforeach.New(s.queries).TX(tx)
-	nodeJSService := snodejs.New(s.queries).TX(tx)
+	nodeRequestService := sflow.NewNodeRequestService(s.queries).TX(tx)
+	nodeIfService := sflow.NewNodeIfService(s.queries).TX(tx)
+	nodeNoopService := sflow.NewNodeNoopService(s.queries).TX(tx)
+	nodeForService := sflow.NewNodeForService(s.queries).TX(tx)
+	nodeForEachService := sflow.NewNodeForEachService(s.queries).TX(tx)
+	nodeJSService := sflow.NewNodeJsService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
 	envService := senv.New(s.queries, nil).TX(tx)

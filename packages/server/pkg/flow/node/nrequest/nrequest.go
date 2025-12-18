@@ -5,12 +5,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/http/response"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/varsystem"
 )
@@ -138,7 +138,7 @@ func (nr *NodeRequest) GetName() string {
 }
 
 func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), mflow.HandleUnspecified)
 	result := node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
@@ -264,7 +264,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 }
 
 func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), mflow.HandleUnspecified)
 	result := node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,

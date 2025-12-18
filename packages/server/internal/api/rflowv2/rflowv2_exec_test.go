@@ -16,23 +16,12 @@ import (
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/flowbuilder"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -48,26 +37,26 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 
 	// Setup Services
 	wsService := sworkspace.New(queries)
-	flowService := sflow.New(queries)
-	nodeService := snode.New(queries)
-	nodeExecService := snodeexecution.New(queries)
-	edgeService := sedge.New(queries)
-	noopService := snodenoop.New(queries)
-	flowVarService := sflowvariable.New(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nodeExecService := sflow.NewNodeExecutionService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	noopService := sflow.NewNodeNoopService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Missing services for builder
-	reqService := snoderequest.New(queries)
-	forService := snodefor.New(queries)
-	forEachService := snodeforeach.New(queries)
-	ifService := snodeif.New(queries)
-	jsService := snodejs.New(queries)
+	reqService := sflow.NewNodeRequestService(queries)
+	forService := sflow.NewNodeForService(queries)
+	forEachService := sflow.NewNodeForEachService(queries)
+	ifService := sflow.NewNodeIfService(queries)
+	jsService := sflow.NewNodeJsService(queries)
 	varService := svar.New(queries, logger)
 
 	// Readers
 	wsReader := sworkspace.NewReaderFromQueries(queries)
-	fsReader := sflow.NewReaderFromQueries(queries)
-	nsReader := snode.NewReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
@@ -273,13 +262,13 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 
 	// Create Edge
 	edgeID := idwrap.NewNow()
-	sourceEdge := edge.Edge{
+	sourceEdge := mflow.Edge{
 		ID:            edgeID,
 		FlowID:        flowID,
 		SourceID:      node1ID,
 		TargetID:      node2ID,
 		SourceHandler: 0,
-		Kind:          edge.EdgeKindUnspecified,
+		Kind:          mflow.EdgeKindUnspecified,
 	}
 	err = svc.es.CreateEdge(ctx, sourceEdge)
 	require.NoError(t, err)
@@ -300,7 +289,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 
 	// Prepare inputs for createFlowVersionSnapshot
 	sourceNodes := []mflow.Node{node1, node2}
-	sourceEdges := []edge.Edge{sourceEdge}
+	sourceEdges := []mflow.Edge{sourceEdge}
 	sourceVars := []mflow.FlowVariable{sourceVar}
 
 	// EXECUTE

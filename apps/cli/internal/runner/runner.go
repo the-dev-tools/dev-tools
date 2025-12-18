@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/cli/internal/model"
 	"the-dev-tools/cli/internal/reporter"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -24,18 +23,16 @@ import (
 
 	// Service interfaces
 	"the-dev-tools/server/pkg/flow/flowbuilder"
-	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/sflow"
 
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
 )
 
 type RunnerServices struct {
-	NodeService         snode.NodeService
-	EdgeService         sedge.EdgeService
-	FlowVariableService sflowvariable.FlowVariableService
+	NodeService         sflow.NodeService
+	EdgeService         sflow.EdgeService
+	FlowVariableService sflow.FlowVariableService
 	Builder             *flowbuilder.Builder
 	JSClient            node_js_executorv1connect.NodeJsExecutorServiceClient
 }
@@ -208,7 +205,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	if err != nil {
 		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get edges")))
 	}
-	edgeMap := edge.NewEdgesMap(edges)
+	edgeMap := mflow.NewEdgesMap(edges)
 
 	flowVars, err := services.FlowVariableService.GetFlowVariablesByFlowID(ctx, latestFlowID)
 	if err != nil {

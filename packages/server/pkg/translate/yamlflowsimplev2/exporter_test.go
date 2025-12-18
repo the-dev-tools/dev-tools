@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -305,7 +304,7 @@ func TestMarshalSimplifiedYAML_WithDeltaOverrides(t *testing.T) {
 				DeltaHttpID: &deltaHttpID, // This is the key - points to delta
 			},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{
 				ID:       idwrap.NewNow(),
 				FlowID:   flowID,
@@ -423,7 +422,7 @@ func TestMarshalSimplifiedYAML_WithDeltaRawBody(t *testing.T) {
 				DeltaHttpID: &deltaHttpID, // Points to delta
 			},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{
 				ID:       idwrap.NewNow(),
 				FlowID:   flowID,
@@ -542,7 +541,7 @@ func TestMarshalSimplifiedYAML_WithDeltaDisabledHeader(t *testing.T) {
 				DeltaHttpID: &deltaHttpID,
 			},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{
 				ID:       idwrap.NewNow(),
 				FlowID:   flowID,
@@ -643,7 +642,7 @@ func TestMarshalSimplifiedYAML_WithNewDeltaHeader(t *testing.T) {
 				DeltaHttpID: &deltaHttpID,
 			},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{
 				ID:       idwrap.NewNow(),
 				FlowID:   flowID,
@@ -694,7 +693,7 @@ func TestParallelStartDependency(t *testing.T) {
 			{FlowNodeID: nodeAID, Code: []byte("console.log('A')")},
 			{FlowNodeID: nodeBID, Code: []byte("console.log('B')")},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: nodeAID},
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: nodeBID},
 		},
@@ -843,7 +842,7 @@ func TestExplicitSerial_Export(t *testing.T) {
 			{FlowNodeID: nA, Code: []byte("log('A')")},
 			{FlowNodeID: nB, Code: []byte("log('B')")},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nStart, TargetID: nA},
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nA, TargetID: nB},
 		},

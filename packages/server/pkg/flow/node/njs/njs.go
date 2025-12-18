@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	node_js_executorv1 "the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
@@ -45,7 +45,7 @@ func (n NodeJS) GetName() string {
 }
 
 func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	next := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleUnspecified)
+	next := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)
 
 	if n.nodejsClient == nil {
 		return node.FlowNodeResult{

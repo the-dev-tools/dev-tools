@@ -3,7 +3,6 @@ package ioworkspace
 import (
 	"testing"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 
@@ -70,7 +69,7 @@ func TestEnsureFlowStructure_DoesNotDuplicateStartNode(t *testing.T) {
 		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: requestNodeID},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: requestNodeID},
 		},
 	}
@@ -116,7 +115,7 @@ func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
 			{FlowNodeID: node1ID},
 			{FlowNodeID: node2ID},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: node1ID},
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: node1ID, TargetID: node2ID},
 		},
@@ -173,7 +172,7 @@ func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
 			{FlowNodeID: node1ID},
 			{FlowNodeID: node2ID},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: node1ID},
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: node2ID},
 		},

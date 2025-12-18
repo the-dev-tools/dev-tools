@@ -12,8 +12,8 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -88,7 +88,7 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 			}
 		}
 
-		model := edge.Edge{
+		model := mflow.Edge{
 			ID:            edgeID,
 			FlowID:        flowID,
 			SourceID:      sourceID,
@@ -279,7 +279,7 @@ func (s *FlowServiceV2RPC) streamEdgeSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishEdgeEvent(eventType string, model edge.Edge) {
+func (s *FlowServiceV2RPC) publishEdgeEvent(eventType string, model mflow.Edge) {
 	if s.edgeStream == nil {
 		return
 	}

@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/mocknode"
 	"the-dev-tools/server/pkg/flow/node/nfor"
@@ -25,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func legacyGetPredecessorNodes(nodeID idwrap.IDWrap, edgesMap edge.EdgesMap) []idwrap.IDWrap {
+func legacyGetPredecessorNodes(nodeID idwrap.IDWrap, edgesMap mflow.EdgesMap) []idwrap.IDWrap {
 	var predecessors []idwrap.IDWrap
 	seen := make(map[idwrap.IDWrap]bool)
 
@@ -43,21 +42,21 @@ func legacyGetPredecessorNodes(nodeID idwrap.IDWrap, edgesMap edge.EdgesMap) []i
 	return predecessors
 }
 
-func buildDenseEdges(nodeCount int, fanout int) edge.EdgesMap {
+func buildDenseEdges(nodeCount int, fanout int) mflow.EdgesMap {
 	nodes := make([]idwrap.IDWrap, nodeCount)
 	for i := 0; i < nodeCount; i++ {
 		nodes[i] = idwrap.NewNow()
 	}
 
-	var edges []edge.Edge
+	var edges []mflow.Edge
 	for i := 0; i < nodeCount; i++ {
 		for j := 1; j <= fanout; j++ {
 			targetIndex := (i + j) % nodeCount
-			edges = append(edges, edge.NewEdge(idwrap.NewNow(), nodes[i], nodes[targetIndex], edge.HandleUnspecified, int32(edge.EdgeKindNoOp)))
+			edges = append(edges, mflow.NewEdge(idwrap.NewNow(), nodes[i], nodes[targetIndex], mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)))
 		}
 	}
 
-	return edge.NewEdgesMap(edges)
+	return mflow.NewEdgesMap(edges)
 }
 
 func BenchmarkLegacyPredecessorLookup(b *testing.B) {
@@ -208,7 +207,7 @@ func waitForStart(tb testing.TB, ch <-chan struct{}, name string) {
 	}
 }
 
-func buildLinearStubFlow(count int, captureOrder bool) (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, edge.EdgesMap, *[]string) {
+func buildLinearStubFlow(count int, captureOrder bool) (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, mflow.EdgesMap, *[]string) {
 	ids := make([]idwrap.IDWrap, count)
 	for i := range ids {
 		ids[i] = idwrap.NewNow()
@@ -221,7 +220,7 @@ func buildLinearStubFlow(count int, captureOrder bool) (idwrap.IDWrap, map[idwra
 	}
 
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode, count)
-	edgesMap := make(edge.EdgesMap, count)
+	edgesMap := make(mflow.EdgesMap, count)
 
 	for i := 0; i < count; i++ {
 		name := fmt.Sprintf("node-%d", i)
@@ -230,8 +229,8 @@ func buildLinearStubFlow(count int, captureOrder bool) (idwrap.IDWrap, map[idwra
 			next = []idwrap.IDWrap{ids[i+1]}
 		}
 		nodeMap[ids[i]] = &stubNode{id: ids[i], name: name, next: next, callLog: callLog}
-		edgesMap[ids[i]] = map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: next,
+		edgesMap[ids[i]] = map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: next,
 		}
 	}
 
@@ -270,9 +269,9 @@ func TestFlowLocalRunnerEmitsLogEvents(t *testing.T) {
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		startID: stub,
 	}
-	edgesMap := edge.EdgesMap{
+	edgesMap := mflow.EdgesMap{
 		startID: {
-			edge.HandleUnspecified: nil,
+			mflow.HandleUnspecified: nil,
 		},
 	}
 
@@ -335,12 +334,12 @@ func TestFlowLocalRunnerMultiFailureIncludesOutputData(t *testing.T) {
 		failID:  failure,
 	}
 
-	edgesMap := edge.EdgesMap{
+	edgesMap := mflow.EdgesMap{
 		startID: {
-			edge.HandleUnspecified: []idwrap.IDWrap{failID},
+			mflow.HandleUnspecified: []idwrap.IDWrap{failID},
 		},
 		failID: {
-			edge.HandleUnspecified: nil,
+			mflow.HandleUnspecified: nil,
 		},
 	}
 
@@ -385,7 +384,7 @@ func TestFlowLocalRunnerMultiFailureIncludesOutputData(t *testing.T) {
 	}
 }
 
-func buildBranchingStubFlow() (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, edge.EdgesMap) {
+func buildBranchingStubFlow() (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, mflow.EdgesMap) {
 	startID := idwrap.NewNow()
 	leftID := idwrap.NewNow()
 	rightID := idwrap.NewNow()
@@ -398,30 +397,30 @@ func buildBranchingStubFlow() (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, e
 		joinID:  &stubNode{id: joinID, name: "join"},
 	}
 
-	edgesMap := edge.EdgesMap{
-		startID: map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: []idwrap.IDWrap{leftID, rightID},
+	edgesMap := mflow.EdgesMap{
+		startID: map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: []idwrap.IDWrap{leftID, rightID},
 		},
-		leftID: map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: []idwrap.IDWrap{joinID},
+		leftID: map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: []idwrap.IDWrap{joinID},
 		},
-		rightID: map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: []idwrap.IDWrap{joinID},
+		rightID: map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: []idwrap.IDWrap{joinID},
 		},
-		joinID: map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: nil,
+		joinID: map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: nil,
 		},
 	}
 
 	return startID, nodeMap, edgesMap
 }
 
-func buildStarStubFlow(branches int) (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, edge.EdgesMap) {
+func buildStarStubFlow(branches int) (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, mflow.EdgesMap) {
 	startID := idwrap.NewNow()
 	sinkID := idwrap.NewNow()
 
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode, branches+2)
-	edgesMap := make(edge.EdgesMap, branches+2)
+	edgesMap := make(mflow.EdgesMap, branches+2)
 
 	branchIDs := make([]idwrap.IDWrap, branches)
 	for i := 0; i < branches; i++ {
@@ -429,27 +428,27 @@ func buildStarStubFlow(branches int) (idwrap.IDWrap, map[idwrap.IDWrap]node.Flow
 	}
 
 	nodeMap[startID] = &stubNode{id: startID, name: "start", next: append([]idwrap.IDWrap(nil), branchIDs...)}
-	edgesMap[startID] = map[edge.EdgeHandle][]idwrap.IDWrap{
-		edge.HandleUnspecified: branchIDs,
+	edgesMap[startID] = map[mflow.EdgeHandle][]idwrap.IDWrap{
+		mflow.HandleUnspecified: branchIDs,
 	}
 
 	for i, branchID := range branchIDs {
 		name := fmt.Sprintf("branch-%d", i)
 		nodeMap[branchID] = &stubNode{id: branchID, name: name, next: []idwrap.IDWrap{sinkID}}
-		edgesMap[branchID] = map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: []idwrap.IDWrap{sinkID},
+		edgesMap[branchID] = map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: []idwrap.IDWrap{sinkID},
 		}
 	}
 
 	nodeMap[sinkID] = &stubNode{id: sinkID, name: "sink"}
-	edgesMap[sinkID] = map[edge.EdgeHandle][]idwrap.IDWrap{
-		edge.HandleUnspecified: nil,
+	edgesMap[sinkID] = map[mflow.EdgeHandle][]idwrap.IDWrap{
+		mflow.HandleUnspecified: nil,
 	}
 
 	return startID, nodeMap, edgesMap
 }
 
-func buildLoopFlow(iterations int64, client httpclient.HttpClient) (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, edge.EdgesMap) {
+func buildLoopFlow(iterations int64, client httpclient.HttpClient) (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, mflow.EdgesMap) {
 	startID := idwrap.NewNow()
 	loopID := idwrap.NewNow()
 	requestID := idwrap.NewNow()
@@ -464,16 +463,16 @@ func buildLoopFlow(iterations int64, client httpclient.HttpClient) (idwrap.IDWra
 		requestID: requestNode,
 	}
 
-	edgesMap := edge.EdgesMap{
+	edgesMap := mflow.EdgesMap{
 		startID: {
-			edge.HandleUnspecified: []idwrap.IDWrap{loopID},
+			mflow.HandleUnspecified: []idwrap.IDWrap{loopID},
 		},
 		loopID: {
-			edge.HandleLoop: []idwrap.IDWrap{requestID},
-			edge.HandleThen: nil,
+			mflow.HandleLoop: []idwrap.IDWrap{requestID},
+			mflow.HandleThen: nil,
 		},
 		requestID: {
-			edge.HandleUnspecified: nil,
+			mflow.HandleUnspecified: nil,
 		},
 	}
 
@@ -539,7 +538,7 @@ func TestLoopNodeEmitsFinalSuccessStatus(t *testing.T) {
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		nodeID: loopNode,
 	}
-	edgesMap := make(edge.EdgesMap)
+	edgesMap := make(mflow.EdgesMap)
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), nodeID, nodeMap, edgesMap, 0, nil)
 
 	statusChan := make(chan runner.FlowNodeStatus, 8)
@@ -581,13 +580,13 @@ func BenchmarkFlowRunnerForLoopWithMockRequest(b *testing.B) {
 		requestID: requestNode,
 	}
 
-	edgesMap := edge.EdgesMap{
+	edgesMap := mflow.EdgesMap{
 		loopID: {
-			edge.HandleLoop: []idwrap.IDWrap{requestID},
-			edge.HandleThen: nil,
+			mflow.HandleLoop: []idwrap.IDWrap{requestID},
+			mflow.HandleThen: nil,
 		},
 		requestID: {
-			edge.HandleUnspecified: nil,
+			mflow.HandleUnspecified: nil,
 		},
 	}
 
@@ -683,12 +682,12 @@ func TestFlowLocalRunnerMultiModeConcurrentExecution(t *testing.T) {
 		rightNode.GetID(): rightNode,
 	}
 
-	edgesMap := edge.EdgesMap{
+	edgesMap := mflow.EdgesMap{
 		startID: {
-			edge.HandleUnspecified: []idwrap.IDWrap{leftNode.GetID(), rightNode.GetID()},
+			mflow.HandleUnspecified: []idwrap.IDWrap{leftNode.GetID(), rightNode.GetID()},
 		},
-		leftNode.GetID():  map[edge.EdgeHandle][]idwrap.IDWrap{},
-		rightNode.GetID(): map[edge.EdgeHandle][]idwrap.IDWrap{},
+		leftNode.GetID():  map[mflow.EdgeHandle][]idwrap.IDWrap{},
+		rightNode.GetID(): map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
@@ -780,11 +779,11 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 		loopID: loopNode,
 		bodyID: bodyNode,
 	}
-	loopEdges := edge.EdgesMap{
+	loopEdges := mflow.EdgesMap{
 		loopID: {
-			edge.HandleLoop: []idwrap.IDWrap{bodyID},
+			mflow.HandleLoop: []idwrap.IDWrap{bodyID},
 		},
-		bodyID: map[edge.EdgeHandle][]idwrap.IDWrap{},
+		bodyID: map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
 	loopRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, loopNodes, loopEdges, 0, nil)
@@ -813,15 +812,15 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 		bodyAID: bodyANode,
 		bodyBID: bodyBNode,
 	}
-	complexEdges := edge.EdgesMap{
-		loopID2: map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleLoop: []idwrap.IDWrap{bodyAID},
-			edge.HandleThen: []idwrap.IDWrap{bodyBID},
+	complexEdges := mflow.EdgesMap{
+		loopID2: map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleLoop: []idwrap.IDWrap{bodyAID},
+			mflow.HandleThen: []idwrap.IDWrap{bodyBID},
 		},
-		bodyAID: map[edge.EdgeHandle][]idwrap.IDWrap{
-			edge.HandleUnspecified: []idwrap.IDWrap{bodyBID},
+		bodyAID: map[mflow.EdgeHandle][]idwrap.IDWrap{
+			mflow.HandleUnspecified: []idwrap.IDWrap{bodyBID},
 		},
-		bodyBID: map[edge.EdgeHandle][]idwrap.IDWrap{},
+		bodyBID: map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
 	complexRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID2, complexNodes, complexEdges, 0, nil)
@@ -874,11 +873,11 @@ func TestLoopCoordinatorPerNodeTimeout(t *testing.T) {
 		loopID: loopNode,
 		bodyID: bodyNode,
 	}
-	edgesMap := edge.EdgesMap{
+	edgesMap := mflow.EdgesMap{
 		loopID: {
-			edge.HandleLoop: []idwrap.IDWrap{bodyID},
+			mflow.HandleLoop: []idwrap.IDWrap{bodyID},
 		},
-		bodyID: map[edge.EdgeHandle][]idwrap.IDWrap{},
+		bodyID: map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, nodeMap, edgesMap, perNodeTimeout, nil)
@@ -917,9 +916,9 @@ func benchmarkBlockingFlow(b *testing.B, mode flowlocalrunner.ExecutionMode, wid
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
 			startID: startNode,
 		}
-		edgesMap := edge.EdgesMap{
+		edgesMap := mflow.EdgesMap{
 			startID: {
-				edge.HandleUnspecified: make([]idwrap.IDWrap, width),
+				mflow.HandleUnspecified: make([]idwrap.IDWrap, width),
 			},
 		}
 
@@ -929,9 +928,9 @@ func benchmarkBlockingFlow(b *testing.B, mode flowlocalrunner.ExecutionMode, wid
 			n := newBlockingNode(fmt.Sprintf("worker-%d", idx), releaseChans[idx])
 			branchIDs[idx] = n.GetID()
 			nodeMap[n.GetID()] = n
-			edgesMap[n.GetID()] = map[edge.EdgeHandle][]idwrap.IDWrap{}
+			edgesMap[n.GetID()] = map[mflow.EdgeHandle][]idwrap.IDWrap{}
 		}
-		edgesMap[startID][edge.HandleUnspecified] = append([]idwrap.IDWrap(nil), branchIDs...)
+		edgesMap[startID][mflow.HandleUnspecified] = append([]idwrap.IDWrap(nil), branchIDs...)
 		startNode.next = append([]idwrap.IDWrap(nil), branchIDs...)
 
 		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
@@ -974,7 +973,7 @@ func BenchmarkFlowLocalRunnerBlockingFlow(b *testing.B) {
 	})
 }
 
-func runExecutionModeBenchmark(b *testing.B, startID idwrap.IDWrap, nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, mode flowlocalrunner.ExecutionMode) {
+func runExecutionModeBenchmark(b *testing.B, startID idwrap.IDWrap, nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap, mode flowlocalrunner.ExecutionMode) {
 	ctx := context.Background()
 
 	b.ResetTimer()

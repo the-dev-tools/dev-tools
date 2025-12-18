@@ -14,7 +14,6 @@ import (
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -44,7 +43,7 @@ func serializeFlow(flow mflow.Flow) *flowv1.Flow {
 	return msg
 }
 
-func serializeEdge(e edge.Edge) *flowv1.Edge {
+func serializeEdge(e mflow.Edge) *flowv1.Edge {
 	return &flowv1.Edge{
 		EdgeId:       e.ID.Bytes(),
 		FlowId:       e.FlowID.Bytes(),
@@ -194,8 +193,8 @@ func buildCondition(expression string) mcondition.Condition {
 	}
 }
 
-func convertHandle(h flowv1.HandleKind) edge.EdgeHandle {
-	return edge.EdgeHandle(h)
+func convertHandle(h flowv1.HandleKind) mflow.EdgeHandle {
+	return mflow.EdgeHandle(h)
 }
 
 func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mflow.Node, error) {
@@ -285,7 +284,7 @@ func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.I
 	return node, nil
 }
 
-func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.IDWrap) (*edge.Edge, error) {
+func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.IDWrap) (*mflow.Edge, error) {
 	edgeModel, err := s.es.GetEdge(ctx, edgeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

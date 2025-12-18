@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
@@ -37,7 +36,7 @@ func (n recordingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	if n.runCount != nil {
 		*n.runCount++
 	}
-	next := edge.GetNextNodeID(req.EdgeSourceMap, n.id, edge.HandleThen)
+	next := mflow.GetNextNodeID(req.EdgeSourceMap, n.id, mflow.HandleThen)
 	return node.FlowNodeResult{NextNodeID: next}
 }
 
@@ -45,7 +44,7 @@ func (n recordingNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	if n.runCount != nil {
 		*n.runCount++
 	}
-	next := edge.GetNextNodeID(req.EdgeSourceMap, n.id, edge.HandleThen)
+	next := mflow.GetNextNodeID(req.EdgeSourceMap, n.id, mflow.HandleThen)
 	resultChan <- node.FlowNodeResult{NextNodeID: next}
 }
 
@@ -94,9 +93,9 @@ func TestNodeForEachDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 	childRan := false
 	child := failingNode{id: childID, name: "Child", err: childErr, ran: &childRan}
 
-	edgeMap := edge.EdgesMap{
+	edgeMap := mflow.EdgesMap{
 		loopID: {
-			edge.HandleLoop: []idwrap.IDWrap{childID},
+			mflow.HandleLoop: []idwrap.IDWrap{childID},
 		},
 	}
 
@@ -160,9 +159,9 @@ func TestNodeForEachSetsIterationEventFlag(t *testing.T) {
 	loopID := idwrap.NewNow()
 	loop := New(loopID, "ForEachNode", "items", 0, mcondition.Condition{}, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 
-	edgeMap := edge.EdgesMap{
+	edgeMap := mflow.EdgesMap{
 		loopID: {
-			edge.HandleLoop: []idwrap.IDWrap{},
+			mflow.HandleLoop: []idwrap.IDWrap{},
 		},
 	}
 
@@ -217,11 +216,11 @@ func TestNodeForEachSkipsDuplicateLoopEntryTargets(t *testing.T) {
 	nodeB := recordingNode{id: nodeBID, name: "B", runCount: &nodeBRuns}
 	nodeC := recordingNode{id: nodeCID, name: "C", runCount: &nodeCRuns}
 
-	edges := edge.NewEdgesMap(edge.NewEdges(
-		edge.NewEdge(idwrap.NewNow(), loopID, nodeAID, edge.HandleLoop, 0),
-		edge.NewEdge(idwrap.NewNow(), loopID, nodeCID, edge.HandleLoop, 0),
-		edge.NewEdge(idwrap.NewNow(), nodeAID, nodeBID, edge.HandleThen, 0),
-		edge.NewEdge(idwrap.NewNow(), nodeBID, nodeCID, edge.HandleThen, 0),
+	edges := mflow.NewEdgesMap(mflow.NewEdges(
+		mflow.NewEdge(idwrap.NewNow(), loopID, nodeAID, mflow.HandleLoop, 0),
+		mflow.NewEdge(idwrap.NewNow(), loopID, nodeCID, mflow.HandleLoop, 0),
+		mflow.NewEdge(idwrap.NewNow(), nodeAID, nodeBID, mflow.HandleThen, 0),
+		mflow.NewEdge(idwrap.NewNow(), nodeBID, nodeCID, mflow.HandleThen, 0),
 	))
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(

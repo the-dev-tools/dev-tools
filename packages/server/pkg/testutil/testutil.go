@@ -13,7 +13,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -35,7 +34,7 @@ type BaseTestServices struct {
 	Wus     sworkspacesusers.WorkspaceUserService
 	Hs      shttp.HTTPService
 	Fs      sflow.FlowService
-	Fvs     sflowvariable.FlowVariableService
+	Fvs     sflow.FlowVariableService
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
@@ -59,8 +58,8 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
 	hs := shttp.New(queries, mockLogger)
-	fs := sflow.New(queries)
-	fvs := sflowvariable.New(queries)
+	fs := sflow.NewFlowService(queries)
+	fvs := sflow.NewFlowVariableService(queries)
 	return BaseTestServices{
 		Queries: queries,
 		DB:      c.DB,

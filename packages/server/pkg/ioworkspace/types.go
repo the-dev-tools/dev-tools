@@ -1,7 +1,6 @@
 package ioworkspace
 
 import (
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -34,7 +33,7 @@ type WorkspaceBundle struct {
 	Flows         []mflow.Flow
 	FlowVariables []mflow.FlowVariable
 	FlowNodes     []mflow.Node
-	FlowEdges     []edge.Edge
+	FlowEdges     []mflow.Edge
 
 	// Flow node implementations by type
 	FlowRequestNodes   []mflow.NodeRequest

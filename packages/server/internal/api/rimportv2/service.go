@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -153,7 +152,7 @@ type ImportResults struct {
 	Nodes        []mflow.Node
 	RequestNodes []mflow.NodeRequest
 	NoOpNodes    []mflow.NodeNoop
-	Edges        []edge.Edge
+	Edges        []mflow.Edge
 
 	// Environment variables created during import (for domain-to-variable mappings)
 	CreatedEnvs []menv.Env

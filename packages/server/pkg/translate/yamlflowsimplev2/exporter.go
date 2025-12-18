@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -101,8 +100,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// Edges Map (Source -> []Edge)
-	edgesBySource := make(map[idwrap.IDWrap][]edge.Edge)
-	edgesByTarget := make(map[idwrap.IDWrap][]edge.Edge)
+	edgesBySource := make(map[idwrap.IDWrap][]mflow.Edge)
+	edgesByTarget := make(map[idwrap.IDWrap][]mflow.Edge)
 	for _, e := range data.FlowEdges {
 		edgesBySource[e.SourceID] = append(edgesBySource[e.SourceID], e)
 		edgesByTarget[e.TargetID] = append(edgesByTarget[e.TargetID], e)
@@ -253,13 +252,13 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 				depStr := sourceNode.Name
 				switch e.SourceHandler {
-				case edge.HandleThen:
+				case mflow.HandleThen:
 					depStr += ".then"
-				case edge.HandleElse:
+				case mflow.HandleElse:
 					depStr += ".else"
-				case edge.HandleLoop:
+				case mflow.HandleLoop:
 					depStr += ".loop"
-				case edge.HandleUnspecified:
+				case mflow.HandleUnspecified:
 					// Do nothing, just the name
 				default:
 					// Unknown handler, default to name
@@ -403,7 +402,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	return yaml.Marshal(yamlFormat)
 }
 
-func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mflow.Node, edgesBySource map[idwrap.IDWrap][]edge.Edge) []mflow.Node {
+func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mflow.Node, edgesBySource map[idwrap.IDWrap][]mflow.Edge) []mflow.Node {
 	nodeMap := make(map[idwrap.IDWrap]mflow.Node)
 	for _, n := range allNodes {
 		nodeMap[n.ID] = n

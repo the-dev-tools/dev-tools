@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"testing"
+	"the-dev-tools/server/pkg/service/sflow"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -19,15 +20,10 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -67,10 +63,10 @@ type BaseTestServices struct {
 	HttpAssertService         *shttp.HttpAssertService
 
 	// Flow related services
-	NodeService        *snode.NodeService
-	NodeRequestService *snoderequest.NodeRequestService
-	NodeNoopService    *snodenoop.NodeNoopService
-	EdgeService        *sedge.EdgeService
+	NodeService        *sflow.NodeService
+	NodeRequestService *sflow.NodeRequestService
+	NodeNoopService    *sflow.NodeNoopService
+	EdgeService        *sflow.EdgeService
 	EnvService         senv.EnvironmentService
 	VarService         svar.VarService
 }
@@ -89,7 +85,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	// Create additional services needed for export
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
@@ -99,10 +95,10 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 
-	nodeService := snode.New(base.Queries)
-	nodeRequestService := snoderequest.New(base.Queries)
-	nodeNoopService := snodenoop.New(base.Queries)
-	edgeService := sedge.New(base.Queries)
+	nodeService := sflow.NewNodeService(base.Queries)
+	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
+	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
+	edgeService := sflow.NewEdgeService(base.Queries)
 	envService := senv.New(base.Queries, logger)
 	varService := svar.New(base.Queries, logger)
 

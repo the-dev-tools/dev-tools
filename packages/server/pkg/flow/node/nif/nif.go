@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 	"the-dev-tools/server/pkg/expression"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
@@ -39,8 +39,8 @@ func (n NodeIf) GetName() string {
 }
 
 func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
-	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
+	trueID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleThen)
+	falseID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleElse)
 	var result node.FlowNodeResult
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
@@ -94,8 +94,8 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 }
 
 func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
-	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
+	trueID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleThen)
+	falseID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleElse)
 	var result node.FlowNodeResult
 
 	// Create a deep copy of VarMap to prevent concurrent access issues

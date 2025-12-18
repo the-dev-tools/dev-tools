@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/menv"
@@ -415,7 +414,7 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 		FlowNodes: []mflow.Node{
 			{ID: nodeID, FlowID: flowID, Name: "Request Node", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
-		FlowEdges: []edge.Edge{
+		FlowEdges: []mflow.Edge{
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: idwrap.NewNow(), TargetID: nodeID},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{

@@ -16,25 +16,14 @@ import (
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -67,12 +56,12 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// 3. Setup Services
 	wsService := sworkspace.New(queries)
-	flowService := sflow.New(queries)
-	nodeService := snode.New(queries)
-	nodeExecService := snodeexecution.New(queries)
-	edgeService := sedge.New(queries)
-	noopService := snodenoop.New(queries)
-	flowVarService := sflowvariable.New(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nodeExecService := sflow.NewNodeExecutionService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	noopService := sflow.NewNodeNoopService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
 
 	// shttp services (Used by FlowServiceV2RPC and for Data Creation)
 	httpService := shttp.New(queries, logger)
@@ -86,13 +75,13 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	resBodyUrlencodedSvc := shttp.NewHttpBodyUrlEncodedService(queries)
 	resAssertSvc := shttp.NewHttpAssertService(queries)
 
-	nodeRequestService := snoderequest.New(queries)
+	nodeRequestService := sflow.NewNodeRequestService(queries)
 
 	// Node specific services needed for FlowServiceV2RPC
-	nodeForService := snodefor.New(queries)
-	nodeForEachService := snodeforeach.New(queries)
-	nodeIfService := snodeif.New(queries) // Returns *NodeIfService
-	nodeJsService := snodejs.New(queries)
+	nodeForService := sflow.NewNodeForService(queries)
+	nodeForEachService := sflow.NewNodeForEachService(queries)
+	nodeIfService := sflow.NewNodeIfService(queries) // Returns *NodeIfService
+	nodeNodeJsService := sflow.NewNodeJsService(queries)
 
 	// Response services
 	httpResponseService := shttp.NewHttpResponseService(queries)
@@ -128,7 +117,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		&nodeForEachService,
 		nodeIfService,
 		&noopService,
-		&nodeJsService,
+		&nodeNodeJsService,
 		&nodeExecService,
 		&flowVarService,
 		&envService,
@@ -281,12 +270,12 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// Edge: Start -> Request
 	edgeID := idwrap.NewNow()
-	err = edgeService.CreateEdge(ctx, edge.Edge{
+	err = edgeService.CreateEdge(ctx, mflow.Edge{
 		ID:            edgeID,
 		FlowID:        flowID,
 		SourceID:      startNodeID,
 		TargetID:      requestNodeID,
-		SourceHandler: edge.HandleUnspecified,
+		SourceHandler: mflow.HandleUnspecified,
 	})
 	require.NoError(t, err)
 

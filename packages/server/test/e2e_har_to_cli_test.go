@@ -25,7 +25,6 @@ import (
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rimportv2"
 	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/flowbuilder"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -40,19 +39,10 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
@@ -361,15 +351,15 @@ type cliServices struct {
 
 	Workspace    *sworkspace.WorkspaceService
 	Flow         *sflow.FlowService
-	FlowEdge     *sedge.EdgeService
-	FlowVariable *sflowvariable.FlowVariableService
-	Node         *snode.NodeService
-	NodeRequest  *snoderequest.NodeRequestService
-	NodeFor      *snodefor.NodeForService
-	NodeForEach  *snodeforeach.NodeForEachService
-	NodeIf       *snodeif.NodeIfService
-	NodeNoop     *snodenoop.NodeNoopService
-	NodeJS       *snodejs.NodeJSService
+	FlowEdge     *sflow.EdgeService
+	FlowVariable *sflow.FlowVariableService
+	Node         *sflow.NodeService
+	NodeRequest  *sflow.NodeRequestService
+	NodeFor      *sflow.NodeForService
+	NodeForEach  *sflow.NodeForEachService
+	NodeIf       *sflow.NodeIfService
+	NodeNoop     *sflow.NodeNoopService
+	NodeJS       *sflow.NodeJsService
 	Environment  *senv.EnvironmentService
 	Variable     *svar.VarService
 
@@ -393,16 +383,16 @@ func initializeCLIServices(ctx context.Context, t *testing.T, db *sql.DB) (*cliS
 
 	// Instantiate services (handling Value vs Pointer returns)
 	ws := sworkspace.New(q)
-	fs := sflow.New(q)
-	fes := sedge.New(q)
-	fvs := sflowvariable.New(q)
-	ns := snode.New(q)
-	nrs := snoderequest.New(q)
-	nfs := snodefor.New(q)
-	nfes := snodeforeach.New(q)
-	nif := snodeif.New(q)
-	nnos := snodenoop.New(q)
-	njs := snodejs.New(q)
+	fs := sflow.NewFlowService(q)
+	fes := sflow.NewEdgeService(q)
+	fvs := sflow.NewFlowVariableService(q)
+	ns := sflow.NewNodeService(q)
+	nrs := sflow.NewNodeRequestService(q)
+	nfs := sflow.NewNodeForService(q)
+	nfes := sflow.NewNodeForEachService(q)
+	nif := sflow.NewNodeIfService(q)
+	nnos := sflow.NewNodeNoopService(q)
+	njs := sflow.NewNodeJsService(q)
 	env := senv.New(q, logger)
 	vs := svar.New(q, logger)
 
@@ -456,7 +446,7 @@ func executeFlow(ctx context.Context, flowPtr *mflow.Flow, c *cliServices, build
 		return err
 	}
 	fmt.Printf("DEBUG: Found %d edges for flow %s\n", len(edges), latestFlowID)
-	edgeMap := edge.NewEdgesMap(edges)
+	edgeMap := mflow.NewEdgesMap(edges)
 
 	flowVars, err := c.FlowVariable.GetFlowVariablesByFlowID(ctx, latestFlowID)
 	if err != nil {
@@ -549,10 +539,10 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 	httpAssertService := shttp.NewHttpAssertService(baseDB.Queries)
 
 	// Node services
-	nodeService := snode.New(baseDB.Queries)
-	nodeRequestService := snoderequest.New(baseDB.Queries)
-	nodeNoopService := snodenoop.New(baseDB.Queries)
-	edgeService := sedge.New(baseDB.Queries)
+	nodeService := sflow.NewNodeService(baseDB.Queries)
+	nodeRequestService := sflow.NewNodeRequestService(baseDB.Queries)
+	nodeNoopService := sflow.NewNodeNoopService(baseDB.Queries)
+	edgeService := sflow.NewEdgeService(baseDB.Queries)
 
 	// Environment and variable services
 	envService := senv.New(baseDB.Queries, mockLogger)

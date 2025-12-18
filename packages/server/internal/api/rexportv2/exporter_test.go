@@ -31,7 +31,7 @@ func TestNewExporter(t *testing.T) {
 	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 	workspaceService := services.Ws
 
@@ -120,7 +120,7 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 	workspaceService := services.Ws
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
@@ -519,7 +519,7 @@ func setupExporterWithoutData(t *testing.T, ctx context.Context) *SimpleExporter
 	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 	workspaceService := services.Ws
 
@@ -544,7 +544,7 @@ func setupExporterWithTestData(t *testing.T, ctx context.Context) (*SimpleExport
 	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 	workspaceService := services.Ws
 

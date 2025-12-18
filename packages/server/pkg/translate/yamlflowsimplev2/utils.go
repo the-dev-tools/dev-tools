@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -355,7 +354,7 @@ func countFlowNodes(flowID idwrap.IDWrap, nodes []mflow.Node) int {
 	return count
 }
 
-func countFlowEdges(flowID idwrap.IDWrap, edges []edge.Edge) int {
+func countFlowEdges(flowID idwrap.IDWrap, edges []mflow.Edge) int {
 	count := 0
 	for _, edge := range edges {
 		if edge.FlowID.Compare(flowID) == 0 {

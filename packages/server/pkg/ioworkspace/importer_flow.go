@@ -6,16 +6,7 @@ import (
 	"fmt"
 
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 )
 
 // importFlows imports flows from the bundle.
@@ -51,7 +42,7 @@ func (s *IOWorkspaceService) importFlows(ctx context.Context, flowService sflow.
 }
 
 // importFlowVariables imports flow variables from the bundle.
-func (s *IOWorkspaceService) importFlowVariables(ctx context.Context, flowVariableService sflowvariable.FlowVariableService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowVariables(ctx context.Context, flowVariableService sflow.FlowVariableService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, flowVar := range bundle.FlowVariables {
 		// Generate new ID if not preserving
 		if !opts.PreserveIDs {
@@ -74,7 +65,7 @@ func (s *IOWorkspaceService) importFlowVariables(ctx context.Context, flowVariab
 }
 
 // importFlowNodes imports flow nodes from the bundle.
-func (s *IOWorkspaceService) importFlowNodes(ctx context.Context, nodeService snode.NodeService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowNodes(ctx context.Context, nodeService sflow.NodeService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, node := range bundle.FlowNodes {
 		oldID := node.ID
 
@@ -101,7 +92,7 @@ func (s *IOWorkspaceService) importFlowNodes(ctx context.Context, nodeService sn
 }
 
 // importFlowEdges imports flow edges from the bundle.
-func (s *IOWorkspaceService) importFlowEdges(ctx context.Context, edgeService sedge.EdgeService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowEdges(ctx context.Context, edgeService sflow.EdgeService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, edge := range bundle.FlowEdges {
 		// Generate new ID if not preserving
 		if !opts.PreserveIDs {
@@ -132,7 +123,7 @@ func (s *IOWorkspaceService) importFlowEdges(ctx context.Context, edgeService se
 }
 
 // importFlowRequestNodes imports flow request nodes from the bundle.
-func (s *IOWorkspaceService) importFlowRequestNodes(ctx context.Context, nodeRequestService snoderequest.NodeRequestService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowRequestNodes(ctx context.Context, nodeRequestService sflow.NodeRequestService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, requestNode := range bundle.FlowRequestNodes {
 		// Remap flow node ID
 		if newNodeID, ok := result.NodeIDMap[requestNode.FlowNodeID]; ok {
@@ -164,7 +155,7 @@ func (s *IOWorkspaceService) importFlowRequestNodes(ctx context.Context, nodeReq
 }
 
 // importFlowConditionNodes imports flow condition nodes from the bundle.
-func (s *IOWorkspaceService) importFlowConditionNodes(ctx context.Context, nodeIfService *snodeif.NodeIfService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowConditionNodes(ctx context.Context, nodeIfService *sflow.NodeIfService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, conditionNode := range bundle.FlowConditionNodes {
 		// Remap flow node ID
 		if newNodeID, ok := result.NodeIDMap[conditionNode.FlowNodeID]; ok {
@@ -182,7 +173,7 @@ func (s *IOWorkspaceService) importFlowConditionNodes(ctx context.Context, nodeI
 }
 
 // importFlowNoopNodes imports flow noop nodes from the bundle.
-func (s *IOWorkspaceService) importFlowNoopNodes(ctx context.Context, nodeNoopService snodenoop.NodeNoopService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowNoopNodes(ctx context.Context, nodeNoopService sflow.NodeNoopService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, noopNode := range bundle.FlowNoopNodes {
 		// Remap flow node ID
 		if newNodeID, ok := result.NodeIDMap[noopNode.FlowNodeID]; ok {
@@ -200,7 +191,7 @@ func (s *IOWorkspaceService) importFlowNoopNodes(ctx context.Context, nodeNoopSe
 }
 
 // importFlowForNodes imports flow for nodes from the bundle.
-func (s *IOWorkspaceService) importFlowForNodes(ctx context.Context, nodeForService snodefor.NodeForService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowForNodes(ctx context.Context, nodeForService sflow.NodeForService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, forNode := range bundle.FlowForNodes {
 		// Remap flow node ID
 		if newNodeID, ok := result.NodeIDMap[forNode.FlowNodeID]; ok {
@@ -218,7 +209,7 @@ func (s *IOWorkspaceService) importFlowForNodes(ctx context.Context, nodeForServ
 }
 
 // importFlowForEachNodes imports flow foreach nodes from the bundle.
-func (s *IOWorkspaceService) importFlowForEachNodes(ctx context.Context, nodeForEachService snodeforeach.NodeForEachService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowForEachNodes(ctx context.Context, nodeForEachService sflow.NodeForEachService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, forEachNode := range bundle.FlowForEachNodes {
 		// Remap flow node ID
 		if newNodeID, ok := result.NodeIDMap[forEachNode.FlowNodeID]; ok {
@@ -236,7 +227,7 @@ func (s *IOWorkspaceService) importFlowForEachNodes(ctx context.Context, nodeFor
 }
 
 // importFlowJSNodes imports flow JS nodes from the bundle.
-func (s *IOWorkspaceService) importFlowJSNodes(ctx context.Context, nodeJSService snodejs.NodeJSService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+func (s *IOWorkspaceService) importFlowJSNodes(ctx context.Context, nodeJSService sflow.NodeJsService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, jsNode := range bundle.FlowJSNodes {
 		// Remap flow node ID
 		if newNodeID, ok := result.NodeIDMap[jsNode.FlowNodeID]; ok {

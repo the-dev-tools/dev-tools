@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -129,7 +128,7 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 	for _, node := range nodeList {
 		for _, depName := range node.dependsOn {
 			sourceName := depName
-			handler := edge.HandleUnspecified
+			handler := mflow.HandleUnspecified
 
 			// Check for dot notation (e.g., "Check.then")
 			if strings.Contains(depName, ".") {
@@ -138,11 +137,11 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 					sourceName = parts[0]
 					switch parts[1] {
 					case "then":
-						handler = edge.HandleThen
+						handler = mflow.HandleThen
 					case "else":
-						handler = edge.HandleElse
+						handler = mflow.HandleElse
 					case "loop":
-						handler = edge.HandleLoop
+						handler = mflow.HandleLoop
 					}
 				}
 			}
@@ -162,14 +161,14 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 				if !ok {
 					return NewYamlFlowErrorV2("if 'then' target not found", "then", step.If.Then)
 				}
-				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleThen))
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleThen))
 			}
 			if step.If.Else != "" {
 				target, ok := nodeInfoMap[step.If.Else]
 				if !ok {
 					return NewYamlFlowErrorV2("if 'else' target not found", "else", step.If.Else)
 				}
-				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleElse))
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleElse))
 			}
 		}
 
@@ -179,7 +178,7 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 				if !ok {
 					return NewYamlFlowErrorV2("for 'loop' target not found", "loop", step.For.Loop)
 				}
-				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleLoop))
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleLoop))
 			}
 		}
 
@@ -189,7 +188,7 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 				if !ok {
 					return NewYamlFlowErrorV2("for_each 'loop' target not found", "loop", step.ForEach.Loop)
 				}
-				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, edge.HandleLoop))
+				result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleLoop))
 			}
 		}
 
@@ -197,15 +196,15 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 		// When an explicit start node exists, disconnected nodes should remain disconnected (won't run)
 		if len(node.dependsOn) == 0 {
 			if node.id != startNodeID && !startNodeFound {
-				result.FlowEdges = append(result.FlowEdges, createEdge(startNodeID, node.id, flowID, edge.HandleUnspecified))
+				result.FlowEdges = append(result.FlowEdges, createEdge(startNodeID, node.id, flowID, mflow.HandleUnspecified))
 			}
 		}
 	}
 	return nil
 }
 
-func createEdge(source, target, flowID idwrap.IDWrap, handler edge.EdgeHandle) edge.Edge {
-	return edge.Edge{
+func createEdge(source, target, flowID idwrap.IDWrap, handler mflow.EdgeHandle) mflow.Edge {
+	return mflow.Edge{
 		ID:            idwrap.NewNow(),
 		FlowID:        flowID,
 		SourceID:      source,

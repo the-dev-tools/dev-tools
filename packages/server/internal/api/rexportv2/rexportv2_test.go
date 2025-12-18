@@ -40,7 +40,7 @@ func TestNewExportV2RPC(t *testing.T) {
 
 	// Create additional services
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
 	rpc := NewExportV2RPC(
@@ -69,7 +69,7 @@ func TestCreateExportV2Service(t *testing.T) {
 	logger := base.Logger()
 
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
 	rpc := NewExportV2RPC(
@@ -487,7 +487,7 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 
 	// Create additional services
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
 	// Create user and workspace

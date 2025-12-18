@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"the-dev-tools/server/pkg/expression"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
@@ -99,10 +98,10 @@ func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRe
 }
 
 func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
 	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleThen)
 	// Track if we had any iteration errors to determine if we need final status
 	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
 	pendingTemplate := node.BuildPendingMap(predecessorMap)
@@ -289,10 +288,10 @@ Exit:
 }
 
 func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
 	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleThen)
 	// Track if we had any iteration errors to determine if we need final status
 	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
 	pendingTemplate := node.BuildPendingMap(predecessorMap)

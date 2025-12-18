@@ -3,9 +3,9 @@ package nstart
 
 import (
 	"context"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 type NodeStart struct {
@@ -29,7 +29,7 @@ func (nr *NodeStart) SetID(id idwrap.IDWrap) {
 }
 
 func (nr *NodeStart) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleUnspecified)
 
 	return node.FlowNodeResult{
 		NextNodeID: nextID,
@@ -38,7 +38,7 @@ func (nr *NodeStart) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 }
 
 func (nr *NodeStart) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleUnspecified)
+	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleUnspecified)
 
 	result := node.FlowNodeResult{
 		NextNodeID: nextID,

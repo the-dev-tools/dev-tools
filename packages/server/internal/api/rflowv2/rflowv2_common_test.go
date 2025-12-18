@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -116,26 +115,26 @@ func TestSerializeEdge(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    edge.Edge
+		input    mflow.Edge
 		expected *flowv1.Edge
 	}{
 		{
 			name: "NoOp Edge",
-			input: edge.Edge{
+			input: mflow.Edge{
 				ID:            edgeID,
 				FlowID:        flowID,
-				Kind:          int32(edge.EdgeKindNoOp),
+				Kind:          int32(mflow.EdgeKindNoOp),
 				SourceID:      sourceID,
 				TargetID:      targetID,
-				SourceHandler: edge.HandleThen,
+				SourceHandler: mflow.HandleThen,
 			},
 			expected: &flowv1.Edge{
 				EdgeId:       edgeID.Bytes(),
 				FlowId:       flowID.Bytes(),
-				Kind:         flowv1.EdgeKind(edge.EdgeKindNoOp),
+				Kind:         flowv1.EdgeKind(mflow.EdgeKindNoOp),
 				SourceId:     sourceID.Bytes(),
 				TargetId:     targetID.Bytes(),
-				SourceHandle: flowv1.HandleKind(edge.HandleThen),
+				SourceHandle: flowv1.HandleKind(mflow.HandleThen),
 			},
 		},
 	}

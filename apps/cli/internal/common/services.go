@@ -7,18 +7,9 @@ import (
 	"log/slog"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 )
@@ -36,17 +27,17 @@ type Services struct {
 
 	// Flow
 	Flow         sflow.FlowService
-	FlowEdge     sedge.EdgeService
-	FlowVariable sflowvariable.FlowVariableService
+	FlowEdge     sflow.EdgeService
+	FlowVariable sflow.FlowVariableService
 
 	// Flow Nodes
-	Node        snode.NodeService
-	NodeRequest snoderequest.NodeRequestService
-	NodeFor     snodefor.NodeForService
-	NodeForEach snodeforeach.NodeForEachService
-	NodeNoop    snodenoop.NodeNoopService
-	NodeIf      snodeif.NodeIfService
-	NodeJS      snodejs.NodeJSService
+	Node        sflow.NodeService
+	NodeRequest sflow.NodeRequestService
+	NodeFor     sflow.NodeForService
+	NodeForEach sflow.NodeForEachService
+	NodeNoop    sflow.NodeNoopService
+	NodeIf      sflow.NodeIfService
+	NodeJS      sflow.NodeJsService
 
 	// HTTP (V2)
 	HTTP               shttp.HTTPService
@@ -77,18 +68,18 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		Variable:    svar.New(queries, logger),
 
 		// Flow
-		Flow:         sflow.New(queries),
-		FlowEdge:     sedge.New(queries),
-		FlowVariable: sflowvariable.New(queries),
+		Flow:         sflow.NewFlowService(queries),
+		FlowEdge:     sflow.NewEdgeService(queries),
+		FlowVariable: sflow.NewFlowVariableService(queries),
 
 		// Flow Nodes
-		Node:        snode.New(queries),
-		NodeRequest: snoderequest.New(queries),
-		NodeFor:     snodefor.New(queries),
-		NodeForEach: snodeforeach.New(queries),
-		NodeNoop:    snodenoop.New(queries),
-		NodeIf:      *snodeif.New(queries),
-		NodeJS:      snodejs.New(queries),
+		Node:        sflow.NewNodeService(queries),
+		NodeRequest: sflow.NewNodeRequestService(queries),
+		NodeFor:     sflow.NewNodeForService(queries),
+		NodeForEach: sflow.NewNodeForEachService(queries),
+		NodeNoop:    sflow.NewNodeNoopService(queries),
+		NodeIf:      *sflow.NewNodeIfService(queries),
+		NodeJS:      sflow.NewNodeJsService(queries),
 
 		// HTTP (V2)
 		HTTP:               shttp.New(queries, logger),

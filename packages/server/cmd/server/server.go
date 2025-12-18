@@ -38,22 +38,10 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sfile"
-
 	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -157,19 +145,19 @@ func run() error {
 	fileService := sfile.New(queries, logger)
 
 	// Flow
-	flowService := sflow.New(queries)
-	flowEdgeService := sedge.New(queries)
-	flowVariableService := sflowvariable.New(queries)
+	flowService := sflow.NewFlowService(queries)
+	flowEdgeService := sflow.NewEdgeService(queries)
+	flowVariableService := sflow.NewFlowVariableService(queries)
 
 	// nodes
-	flowNodeService := snode.New(queries)
-	flowNodeRequestSevice := snoderequest.New(queries)
-	flowNodeForService := snodefor.New(queries)
-	flowNodeForeachService := snodeforeach.New(queries)
-	flowNodeConditionService := snodeif.New(queries)
-	flowNodeNoOpService := snodenoop.New(queries)
-	flowNodeJsService := snodejs.New(queries)
-	nodeExecutionService := snodeexecution.New(queries)
+	flowNodeService := sflow.NewNodeService(queries)
+	flowNodeRequestSevice := sflow.NewNodeRequestService(queries)
+	flowNodeForService := sflow.NewNodeForService(queries)
+	flowNodeForeachService := sflow.NewNodeForEachService(queries)
+	flowNodeConditionService := sflow.NewNodeIfService(queries)
+	flowNodeNoOpService := sflow.NewNodeNoopService(queries)
+	flowNodeNodeJsService := sflow.NewNodeJsService(queries)
+	nodeExecutionService := sflow.NewNodeExecutionService(queries)
 
 	// Initialize Streamers
 	streamers := NewStreamers()
@@ -341,8 +329,8 @@ func run() error {
 	)
 
 	workspaceReader := sworkspace.NewReader(currentDB)
-	flowReader := sflow.NewReader(currentDB)
-	nodeReader := snode.NewReader(currentDB)
+	flowReader := sflow.NewFlowReader(currentDB)
+	nodeReader := sflow.NewNodeReader(currentDB)
 	varReader := svar.NewReader(currentDB, logger)
 
 	flowSrvV2 := rflowv2.New(
@@ -361,7 +349,7 @@ func run() error {
 		&flowNodeForeachService,
 		flowNodeConditionService,
 		&flowNodeNoOpService,
-		&flowNodeJsService,
+		&flowNodeNodeJsService,
 		&nodeExecutionService,
 		&flowVariableService,
 		&environmentService,

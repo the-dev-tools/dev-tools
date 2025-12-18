@@ -134,7 +134,7 @@ func TestNodeHttpCRUD(t *testing.T) {
 
 		// Verify
 		nodeReq, err := svc.nrs.GetNodeRequest(ctx, nodeID)
-		// Assuming GetNodeRequest returns nil when not found based on analysis of snoderequest.go
+		// Assuming GetNodeRequest returns nil when not found based on analysis of sflow.go
 		if err != nil {
 			// If it returned an error (like sql.ErrNoRows wrapped), check that.
 			// But previous analysis said it returns nil, nil on ErrNoRows.

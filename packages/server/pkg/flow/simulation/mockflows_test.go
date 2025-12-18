@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node/mocknode"
 	"the-dev-tools/server/pkg/flow/runner"
 	flowlocalrunner "the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
@@ -137,7 +136,7 @@ func TestCreateMockFlow_EdgesConnectivity(t *testing.T) {
 
 	for i := 0; i < len(result.Nodes)-1; i++ {
 		// Get next nodes from edges map
-		nextNodes := edge.GetNextNodeID(result.EdgesMap, currentID, edge.HandleThen)
+		nextNodes := mflow.GetNextNodeID(result.EdgesMap, currentID, mflow.HandleThen)
 		if len(nextNodes) != 1 {
 			t.Errorf("Expected exactly 1 next node from %v, got %d", currentID, len(nextNodes))
 			break

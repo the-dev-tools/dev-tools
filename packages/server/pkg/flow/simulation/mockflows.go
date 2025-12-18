@@ -4,10 +4,10 @@ package simulation
 import (
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/mocknode"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 )
 
 // MockFlowParams defines the parameters for creating mock flows
@@ -20,8 +20,8 @@ type MockFlowParams struct {
 // MockFlowResult contains the three data structures FlowLocalRunner needs
 type MockFlowResult struct {
 	Nodes       map[idwrap.IDWrap]node.FlowNode
-	Edges       []edge.Edge
-	EdgesMap    edge.EdgesMap
+	Edges       []mflow.Edge
+	EdgesMap    mflow.EdgesMap
 	StartNodeID idwrap.IDWrap
 }
 
@@ -31,7 +31,7 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 	// Calculate total nodes: 1 start + request nodes + for loop nodes
 	totalNodes := 1 + params.RequestCount + params.ForLoopCount
 	nodes := make(map[idwrap.IDWrap]node.FlowNode, totalNodes)
-	edges := make([]edge.Edge, 0, totalNodes-1) // n-1 edges for linear flow
+	edges := make([]mflow.Edge, 0, totalNodes-1) // n-1 edges for linear flow
 
 	// Generate all node IDs first
 	nodeIDs := make([]idwrap.IDWrap, totalNodes)
@@ -66,11 +66,11 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 		if i == 0 {
 			// Edge from start to first request node
 			edgeID := idwrap.NewNow()
-			edges = append(edges, edge.NewEdge(edgeID, startNodeID, nodeID, edge.HandleThen, edge.EdgeKindNoOp))
+			edges = append(edges, mflow.NewEdge(edgeID, startNodeID, nodeID, mflow.HandleThen, mflow.EdgeKindNoOp))
 		} else {
 			// Edge from previous request node to this one
 			edgeID := idwrap.NewNow()
-			edges = append(edges, edge.NewEdge(edgeID, nodeIDs[currentIndex-1], nodeID, edge.HandleThen, edge.EdgeKindNoOp))
+			edges = append(edges, mflow.NewEdge(edgeID, nodeIDs[currentIndex-1], nodeID, mflow.HandleThen, mflow.EdgeKindNoOp))
 		}
 
 		currentIndex++
@@ -100,13 +100,13 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 		}
 
 		edgeID := idwrap.NewNow()
-		edges = append(edges, edge.NewEdge(edgeID, sourceID, nodeID, edge.HandleThen, edge.EdgeKindNoOp))
+		edges = append(edges, mflow.NewEdge(edgeID, sourceID, nodeID, mflow.HandleThen, mflow.EdgeKindNoOp))
 
 		currentIndex++
 	}
 
 	// Create edges map from edges
-	edgesMap := edge.NewEdgesMap(edges)
+	edgesMap := mflow.NewEdgesMap(edges)
 
 	return MockFlowResult{
 		Nodes:       nodes,

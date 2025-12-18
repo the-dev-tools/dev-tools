@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -18,13 +17,8 @@ import (
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/referencecompletion"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -48,12 +42,12 @@ type ReferenceServiceRPC struct {
 	varReader *svar.Reader
 
 	// flow
-	flowReader          *sflow.Reader
-	nodeReader          *snode.Reader
-	nodeRequestReader   *snoderequest.Reader
-	flowVariableReader  *sflowvariable.Reader
-	flowEdgeReader      *sedge.Reader
-	nodeExecutionReader *snodeexecution.Reader
+	flowReader          *sflow.FlowReader
+	nodeReader          *sflow.NodeReader
+	nodeRequestReader   *sflow.NodeRequestReader
+	flowVariableReader  *sflow.FlowVariableReader
+	flowEdgeReader      *sflow.EdgeReader
+	nodeExecutionReader *sflow.NodeExecutionReader
 
 	// http
 	httpResponseReader *shttp.HttpResponseReader
@@ -64,12 +58,12 @@ func NewReferenceServiceRPC(db *sql.DB,
 	workspaceReader *sworkspace.Reader,
 	envReader *senv.Reader,
 	varReader *svar.Reader,
-	flowReader *sflow.Reader,
-	nodeReader *snode.Reader,
-	nodeRequestReader *snoderequest.Reader,
-	flowVariableReader *sflowvariable.Reader,
-	flowEdgeReader *sedge.Reader,
-	nodeExecutionReader *snodeexecution.Reader,
+	flowReader *sflow.FlowReader,
+	nodeReader *sflow.NodeReader,
+	nodeRequestReader *sflow.NodeRequestReader,
+	flowVariableReader *sflow.FlowVariableReader,
+	flowEdgeReader *sflow.EdgeReader,
+	nodeExecutionReader *sflow.NodeExecutionReader,
 	httpResponseReader *shttp.HttpResponseReader,
 ) *ReferenceServiceRPC {
 	return &ReferenceServiceRPC{
@@ -343,11 +337,11 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	edgesMap := edge.NewEdgesMap(edges)
+	edgesMap := mflow.NewEdgesMap(edges)
 
 	beforeNodes := make([]mflow.Node, 0, len(nodes))
 	for _, node := range nodes {
-		if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
+		if mflow.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == mflow.NodeBefore {
 			beforeNodes = append(beforeNodes, node)
 		}
 	}
@@ -553,7 +547,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		flowVars, err := c.flowVariableReader.GetFlowVariablesByFlowID(ctx, flowID)
 		if err != nil {
-			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			if !errors.Is(err, sflow.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			flowVars = []mflow.FlowVariable{}
@@ -570,11 +564,11 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		edgesMap := edge.NewEdgesMap(edges)
+		edgesMap := mflow.NewEdgesMap(edges)
 
 		beforeNodes := make([]mflow.Node, 0, len(nodes))
 		for _, node := range nodes {
-			if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
+			if mflow.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == mflow.NodeBefore {
 				beforeNodes = append(beforeNodes, node)
 			}
 		}
@@ -928,7 +922,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		flowVars, err := c.flowVariableReader.GetFlowVariablesByFlowID(ctx, flowID)
 		if err != nil {
-			if !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			if !errors.Is(err, sflow.ErrNoFlowVariableFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			flowVars = []mflow.FlowVariable{}
@@ -945,11 +939,11 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		edgesMap := edge.NewEdgesMap(edges)
+		edgesMap := mflow.NewEdgesMap(edges)
 
 		beforeNodes := make([]mflow.Node, 0, len(nodes))
 		for _, node := range nodes {
-			if edge.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == edge.NodeBefore {
+			if mflow.IsNodeCheckTarget(edgesMap, node.ID, nodeID) == mflow.NodeBefore {
 				beforeNodes = append(beforeNodes, node)
 			}
 		}

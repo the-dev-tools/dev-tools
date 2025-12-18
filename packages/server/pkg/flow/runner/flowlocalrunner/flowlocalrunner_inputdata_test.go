@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -82,10 +81,10 @@ func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 	}
 
 	edgeID := idwrap.NewNow()
-	edges := []edge.Edge{
-		edge.NewEdge(edgeID, startID, targetID, edge.HandleUnspecified, int32(edge.EdgeKindNoOp)),
+	edges := []mflow.Edge{
+		mflow.NewEdge(edgeID, startID, targetID, mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)),
 	}
-	edgesMap := edge.NewEdgesMap(edges)
+	edgesMap := mflow.NewEdgesMap(edges)
 
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
@@ -219,10 +218,10 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		requestNodeID: requestNode,
 	}
 
-	edges := []edge.Edge{
-		edge.NewEdge(idwrap.NewNow(), startID, requestNodeID, edge.HandleUnspecified, int32(edge.EdgeKindNoOp)),
+	edges := []mflow.Edge{
+		mflow.NewEdge(idwrap.NewNow(), startID, requestNodeID, mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)),
 	}
-	edgesMap := edge.NewEdgesMap(edges)
+	edgesMap := mflow.NewEdgesMap(edges)
 
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
@@ -366,10 +365,10 @@ func TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables(t *testing
 		requestNodeID: requestNode,
 	}
 
-	edges := []edge.Edge{
-		edge.NewEdge(idwrap.NewNow(), startID, requestNodeID, edge.HandleUnspecified, int32(edge.EdgeKindNoOp)),
+	edges := []mflow.Edge{
+		mflow.NewEdge(idwrap.NewNow(), startID, requestNodeID, mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)),
 	}
-	edgesMap := edge.NewEdgesMap(edges)
+	edgesMap := mflow.NewEdgesMap(edges)
 
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()

@@ -13,14 +13,10 @@ import (
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -45,10 +41,10 @@ type ImportServices struct {
 	HttpBodyUrlEncoded *shttp.HttpBodyUrlEncodedService
 	HttpBodyRaw        *shttp.HttpBodyRawService
 	HttpAssert         *shttp.HttpAssertService
-	Node               *snode.NodeService
-	NodeRequest        *snoderequest.NodeRequestService
-	NodeNoop           *snodenoop.NodeNoopService
-	Edge               *sedge.EdgeService
+	Node               *sflow.NodeService
+	NodeRequest        *sflow.NodeRequestService
+	NodeNoop           *sflow.NodeNoopService
+	Edge               *sflow.EdgeService
 }
 
 // ImportStreamers groups all event streams
@@ -103,10 +99,10 @@ type ImportV2RPC struct {
 	HttpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	HttpBodyRawService        *shttp.HttpBodyRawService
 	HttpAssertService         *shttp.HttpAssertService
-	NodeService               *snode.NodeService
-	NodeRequestService        *snoderequest.NodeRequestService
-	NodeNoopService           *snodenoop.NodeNoopService
-	EdgeService               *sedge.EdgeService
+	NodeService               *sflow.NodeService
+	NodeRequestService        *sflow.NodeRequestService
+	NodeNoopService           *sflow.NodeNoopService
+	EdgeService               *sflow.EdgeService
 	EnvService                senv.EnvironmentService
 	VarService                svar.VarService
 }

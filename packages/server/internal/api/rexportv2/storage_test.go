@@ -22,7 +22,7 @@ func TestNewStorage(t *testing.T) {
 	logger := base.Logger()
 
 	httpService := shttp.New(base.Queries, logger)
-	flowService := sflow.New(base.Queries)
+	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
 	storage := NewStorage(&services.Ws, &httpService, &flowService, fileService)
