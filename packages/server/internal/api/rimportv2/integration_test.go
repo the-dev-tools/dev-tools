@@ -19,7 +19,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -206,7 +206,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	// Create workspace-user relationship
 
-	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 
 		ID: idwrap.NewNow(),
 
@@ -214,7 +214,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 		UserID: userID,
 
-		Role: mworkspaceuser.RoleOwner,
+		Role: mworkspace.RoleOwner,
 	})
 
 	require.NoError(t, err)

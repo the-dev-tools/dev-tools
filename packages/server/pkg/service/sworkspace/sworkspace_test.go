@@ -13,7 +13,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -55,11 +55,11 @@ func TestWorkspaceDeletion(t *testing.T) {
 		}
 		err := wsService.Create(ctx, ws)
 		require.NoError(t, err, "create workspace")
-		err = wusService.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+		err = wusService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 			ID:          idwrap.NewNow(),
 			WorkspaceID: wsID,
 			UserID:      userID,
-			Role:        mworkspaceuser.RoleOwner,
+			Role:        mworkspace.RoleOwner,
 		})
 		require.NoError(t, err, "create workspace user")
 		return wsID

@@ -19,7 +19,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
@@ -158,11 +158,11 @@ func (f *httpStreamingFixture) createWorkspace(t *testing.T, name string) idwrap
 	}
 	require.NoError(t, f.es.CreateEnvironment(f.ctx, &env), "create environment")
 
-	member := &mworkspaceuser.WorkspaceUser{
+	member := &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      f.userID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	}
 	require.NoError(t, f.wus.CreateWorkspaceUser(f.ctx, member), "create workspace user")
 
@@ -347,11 +347,11 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 	}
 	require.NoError(t, f.es.CreateEnvironment(context.Background(), &env), "create other env")
 
-	otherMember := &mworkspaceuser.WorkspaceUser{
+	otherMember := &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: otherWorkspaceID,
 		UserID:      otherUserID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	}
 	require.NoError(t, f.wus.CreateWorkspaceUser(context.Background(), otherMember), "create other workspace user")
 

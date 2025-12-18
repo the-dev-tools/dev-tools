@@ -21,7 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
@@ -91,11 +91,11 @@ func createTestServiceSetup(t *testing.T) *testServiceSetup {
 	require.NoError(t, err)
 
 	// Create workspace user with admin role
-	err = wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	err = wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        mworkspaceuser.RoleAdmin,
+		Role:        mworkspace.RoleAdmin,
 	})
 	require.NoError(t, err)
 
@@ -282,7 +282,7 @@ func TestTransactionPatternCompliance(t *testing.T) {
 	// Test that permission checks work outside transaction
 	wsUser, err := setup.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(setup.ctx, workspaces[0].ID, setup.userID)
 	require.NoError(t, err, "Permission check should work outside transaction")
-	require.GreaterOrEqual(t, wsUser.Role, mworkspaceuser.RoleAdmin, "User should have admin access")
+	require.GreaterOrEqual(t, wsUser.Role, mworkspace.RoleAdmin, "User should have admin access")
 
 	// Test that we can do model creation outside transaction
 	httpModels := make([]*mhttp.HTTP, 0)
@@ -335,7 +335,7 @@ func TestHttpInsertPatternValidation(t *testing.T) {
 	start = time.Now()
 	wsUser, err := setup.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(setup.ctx, workspaces[0].ID, setup.userID)
 	require.NoError(t, err, "Permission check should work outside transaction")
-	require.GreaterOrEqual(t, wsUser.Role, mworkspaceuser.RoleAdmin, "User should have admin access")
+	require.GreaterOrEqual(t, wsUser.Role, mworkspace.RoleAdmin, "User should have admin access")
 	permissionTime := time.Since(start)
 
 	t.Logf("✅ Permission check outside transaction took: %v", permissionTime)
@@ -443,11 +443,11 @@ func BenchmarkHttpInsertOptimizedPattern(b *testing.B) {
 	}
 
 	// Create workspace user with admin role
-	err = wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	err = wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        mworkspaceuser.RoleAdmin,
+		Role:        mworkspace.RoleAdmin,
 	})
 	if err != nil {
 		b.Fatalf("Failed to create workspace user: %v", err)

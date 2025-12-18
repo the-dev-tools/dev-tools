@@ -18,7 +18,7 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
@@ -68,11 +68,11 @@ func newEnvFixture(t *testing.T) *envFixture {
 	})
 	require.NoError(t, err, "create workspace")
 
-	err = services.Wus.CreateWorkspaceUser(context.Background(), &mworkspaceuser.WorkspaceUser{
+	err = services.Wus.CreateWorkspaceUser(context.Background(), &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	})
 	require.NoError(t, err, "create workspace user")
 

@@ -16,7 +16,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 
@@ -112,11 +112,11 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Link user to workspace
-	err = svc.wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	err = svc.wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      mwauth.LocalDummyID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	})
 	require.NoError(t, err)
 

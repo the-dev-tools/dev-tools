@@ -20,7 +20,7 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -114,11 +114,11 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	})
 	require.NoError(t, err)
 
-	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	})
 	require.NoError(t, err)
 

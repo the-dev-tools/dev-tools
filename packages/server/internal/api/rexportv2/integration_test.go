@@ -19,7 +19,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
 
@@ -124,10 +124,10 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	require.NoError(t, err)
 
 	// Add user to workspace
-	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		UserID:      userID,
 		WorkspaceID: workspaceID,
-		Role:        mworkspaceuser.RoleAdmin,
+		Role:        mworkspace.RoleAdmin,
 	})
 	require.NoError(t, err)
 

@@ -23,7 +23,7 @@ import (
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -216,11 +216,11 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	}
 
 	// Create workspace-user relationship using authenticated context
-	err = services.Wus.CreateWorkspaceUser(authCtx, &mworkspaceuser.WorkspaceUser{
+	err = services.Wus.CreateWorkspaceUser(authCtx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create workspace-user relationship: %v", err)

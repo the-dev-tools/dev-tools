@@ -38,7 +38,7 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -106,7 +106,7 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 	err = services.Ws.Create(authCtx, &mworkspace.Workspace{ID: wsID, Name: "Source Workspace"})
 	require.NoError(t, err)
 
-	err = services.Wus.CreateWorkspaceUser(authCtx, &mworkspaceuser.WorkspaceUser{ID: idwrap.NewNow(), WorkspaceID: wsID, UserID: uid, Role: mworkspaceuser.RoleOwner})
+	err = services.Wus.CreateWorkspaceUser(authCtx, &mworkspace.WorkspaceUser{ID: idwrap.NewNow(), WorkspaceID: wsID, UserID: uid, Role: mworkspace.RoleOwner})
 	require.NoError(t, err)
 
 	// Setup Import Handler

@@ -11,7 +11,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -80,11 +80,11 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	}
 
 	// Link User to Workspace
-	if err := services.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+	if err := services.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	}); err != nil {
 		t.Fatalf("create workspace user: %v", err)
 	}

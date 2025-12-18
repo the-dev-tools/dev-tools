@@ -4,7 +4,7 @@ import (
 	"context"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
 type Writer struct {
@@ -23,7 +23,7 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	}
 }
 
-func (w *Writer) CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error {
+func (w *Writer) CreateWorkspaceUser(ctx context.Context, user *mworkspace.WorkspaceUser) error {
 	return w.queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
 		ID:          user.ID,
 		WorkspaceID: user.WorkspaceID,
@@ -32,7 +32,7 @@ func (w *Writer) CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.W
 	})
 }
 
-func (w *Writer) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspaceuser.WorkspaceUser) error {
+func (w *Writer) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspace.WorkspaceUser) error {
 	return w.queries.UpdateWorkspaceUser(ctx, gen.UpdateWorkspaceUserParams{
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,

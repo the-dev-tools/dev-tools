@@ -14,7 +14,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -80,7 +80,7 @@ func (h *HttpServiceRPC) checkWorkspaceReadAccess(ctx context.Context, workspace
 	}
 
 	// Any role provides read access
-	if wsUser.Role < mworkspaceuser.RoleUser {
+	if wsUser.Role < mworkspace.RoleUser {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
 
@@ -103,7 +103,7 @@ func (h *HttpServiceRPC) checkWorkspaceWriteAccess(ctx context.Context, workspac
 	}
 
 	// Write access requires Admin or Owner role
-	if wsUser.Role < mworkspaceuser.RoleAdmin {
+	if wsUser.Role < mworkspace.RoleAdmin {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
 
@@ -126,7 +126,7 @@ func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspa
 	}
 
 	// Delete access requires Owner role only
-	if wsUser.Role != mworkspaceuser.RoleOwner {
+	if wsUser.Role != mworkspace.RoleOwner {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
 

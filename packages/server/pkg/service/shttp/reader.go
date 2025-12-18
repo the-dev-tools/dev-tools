@@ -10,7 +10,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
 
@@ -166,7 +166,7 @@ func (r *Reader) CheckUserBelongsToHttp(ctx context.Context, httpID, userID idwr
 		return false, err
 	}
 
-	return wsUser.Role >= mworkspaceuser.RoleUser, nil
+	return wsUser.Role >= mworkspace.RoleUser, nil
 }
 
 func (r *Reader) GetHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HttpVersion, error) {

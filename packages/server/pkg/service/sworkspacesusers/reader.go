@@ -6,7 +6,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -26,7 +26,7 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	}
 }
 
-func (r *Reader) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
+func (r *Reader) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mworkspace.WorkspaceUser, error) {
 	wsuser, err := r.queries.GetWorkspaceUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -35,15 +35,15 @@ func (r *Reader) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mwork
 		return nil, err
 	}
 
-	return &mworkspaceuser.WorkspaceUser{
+	return &mworkspace.WorkspaceUser{
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
-		Role:        mworkspaceuser.Role(wsuser.Role), // nolint:gosec // G115
+		Role:        mworkspace.Role(wsuser.Role), // nolint:gosec // G115
 	}, nil
 }
 
-func (r *Reader) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
+func (r *Reader) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.WorkspaceUser, error) {
 	rawWsUsers, err := r.queries.GetWorkspaceUserByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (r *Reader) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDW
 	return tgeneric.MassConvert(rawWsUsers, ConvertToModelWorkspaceUser), nil
 }
 
-func (r *Reader) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
+func (r *Reader) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.IDWrap) ([]mworkspace.WorkspaceUser, error) {
 	rawWsUsers, err := r.queries.GetWorkspaceUserByWorkspaceID(ctx, wsID)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (r *Reader) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.
 	return tgeneric.MassConvert(rawWsUsers, ConvertToModelWorkspaceUser), nil
 }
 
-func (r *Reader) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
+func (r *Reader) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID idwrap.IDWrap) (*mworkspace.WorkspaceUser, error) {
 	wsu, err := r.queries.GetWorkspaceUserByWorkspaceIDAndUserID(ctx, gen.GetWorkspaceUserByWorkspaceIDAndUserIDParams{
 		WorkspaceID: wsID,
 		UserID:      userID,

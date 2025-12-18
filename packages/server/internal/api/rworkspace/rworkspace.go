@@ -19,7 +19,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -253,11 +253,11 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		workspaceUser := &mworkspaceuser.WorkspaceUser{
+		workspaceUser := &mworkspace.WorkspaceUser{
 			ID:          idwrap.NewNow(),
 			WorkspaceID: workspaceID,
 			UserID:      userID,
-			Role:        mworkspaceuser.RoleOwner,
+			Role:        mworkspace.RoleOwner,
 		}
 		if err := wusWriter.CreateWorkspaceUser(ctx, workspaceUser); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -321,7 +321,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		if wsUser.Role < mworkspaceuser.RoleAdmin {
+		if wsUser.Role < mworkspace.RoleAdmin {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 
@@ -416,7 +416,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		if wsUser.Role != mworkspaceuser.RoleOwner {
+		if wsUser.Role != mworkspace.RoleOwner {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 

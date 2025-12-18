@@ -26,7 +26,7 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 
@@ -172,11 +172,11 @@ func (f *httpFixture) createWorkspace(t *testing.T, name string) idwrap.IDWrap {
 	err = f.es.CreateEnvironment(f.ctx, &env)
 	require.NoError(t, err, "create environment")
 
-	member := &mworkspaceuser.WorkspaceUser{
+	member := &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      f.userID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	}
 	err = f.wus.CreateWorkspaceUser(f.ctx, member)
 	require.NoError(t, err, "create workspace user")
@@ -501,11 +501,11 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	err = f.es.CreateEnvironment(context.Background(), &env)
 	require.NoError(t, err, "create other env")
 
-	otherMember := &mworkspaceuser.WorkspaceUser{
+	otherMember := &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: otherWorkspaceID,
 		UserID:      otherUserID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	}
 	err = f.wus.CreateWorkspaceUser(context.Background(), otherMember)
 	require.NoError(t, err, "create other workspace user")
@@ -856,11 +856,11 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 	err = f.es.CreateEnvironment(context.Background(), &env)
 	require.NoError(t, err, "create other env")
 
-	otherMember := &mworkspaceuser.WorkspaceUser{
+	otherMember := &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: otherWorkspaceID,
 		UserID:      otherUserID,
-		Role:        mworkspaceuser.RoleOwner,
+		Role:        mworkspace.RoleOwner,
 	}
 	err = f.wus.CreateWorkspaceUser(context.Background(), otherMember)
 	require.NoError(t, err, "create other workspace user")

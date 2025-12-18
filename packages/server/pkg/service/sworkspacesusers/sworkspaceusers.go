@@ -7,7 +7,7 @@ import (
 	"errors"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
 var ErrWorkspaceUserNotFound = errors.New("workspace user not found")
@@ -43,15 +43,15 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceUserService, error) {
 	}, nil
 }
 
-func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error {
+func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *mworkspace.WorkspaceUser) error {
 	return NewWriterFromQueries(wsu.queries).CreateWorkspaceUser(ctx, user)
 }
 
-func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
+func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id idwrap.IDWrap) (*mworkspace.WorkspaceUser, error) {
 	return wsu.reader.GetWorkspaceUser(ctx, id)
 }
 
-func (wsu WorkspaceUserService) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspaceuser.WorkspaceUser) error {
+func (wsu WorkspaceUserService) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspace.WorkspaceUser) error {
 	return NewWriterFromQueries(wsu.queries).UpdateWorkspaceUser(ctx, wsuser)
 }
 
@@ -59,21 +59,21 @@ func (wsu WorkspaceUserService) DeleteWorkspaceUser(ctx context.Context, id idwr
 	return NewWriterFromQueries(wsu.queries).DeleteWorkspaceUser(ctx, id)
 }
 
-func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
+func (wsus WorkspaceUserService) GetWorkspaceUserByUserID(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.WorkspaceUser, error) {
 	return wsus.reader.GetWorkspaceUserByUserID(ctx, userID)
 }
 
-func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
+func (wsus WorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Context, wsID idwrap.IDWrap) ([]mworkspace.WorkspaceUser, error) {
 	return wsus.reader.GetWorkspaceUserByWorkspaceID(ctx, wsID)
 }
 
-func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
+func (wsus WorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, wsID, userID idwrap.IDWrap) (*mworkspace.WorkspaceUser, error) {
 	return wsus.reader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, wsID, userID)
 }
 
 // is a greater than b
-func IsPermGreater(a, b *mworkspaceuser.WorkspaceUser) (bool, error) {
-	if a.Role > mworkspaceuser.RoleOwner || b.Role > mworkspaceuser.RoleOwner {
+func IsPermGreater(a, b *mworkspace.WorkspaceUser) (bool, error) {
+	if a.Role > mworkspace.RoleOwner || b.Role > mworkspace.RoleOwner {
 		return false, errors.New("invalid role")
 	}
 	return a.Role > b.Role, nil

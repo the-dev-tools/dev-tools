@@ -2,10 +2,10 @@ package sworkspacesusers
 
 import (
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
-func ConvertToDBWorkspaceUser(wsuser mworkspaceuser.WorkspaceUser) gen.WorkspacesUser {
+func ConvertToDBWorkspaceUser(wsuser mworkspace.WorkspaceUser) gen.WorkspacesUser {
 	return gen.WorkspacesUser{
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
@@ -14,11 +14,11 @@ func ConvertToDBWorkspaceUser(wsuser mworkspaceuser.WorkspaceUser) gen.Workspace
 	}
 }
 
-func ConvertToModelWorkspaceUser(wsuser gen.WorkspacesUser) mworkspaceuser.WorkspaceUser {
-	return mworkspaceuser.WorkspaceUser{
+func ConvertToModelWorkspaceUser(wsuser gen.WorkspacesUser) mworkspace.WorkspaceUser {
+	return mworkspace.WorkspaceUser{
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
-		Role:        mworkspaceuser.Role(wsuser.Role), // nolint:gosec // G115
+		Role:        mworkspace.Role(wsuser.Role), // nolint:gosec // G115
 	}
 }
