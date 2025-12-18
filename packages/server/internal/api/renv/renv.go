@@ -769,17 +769,12 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
 	}
 
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	varWriter := svar.NewWriter(tx)
-	var updatedVars []struct {
-		variable    *mvar.Var
+	type varUpdateData struct {
+		variable    mvar.Var
 		workspaceID idwrap.IDWrap
 	}
+
+	var varModels []varUpdateData
 	workspaceCache := map[string]idwrap.IDWrap{}
 
 	for _, item := range req.Msg.Items {
@@ -831,9 +826,6 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			variable.Order = float64(*item.Order)
 		}
 
-		if err := varWriter.Update(ctx, variable); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 		workspaceID := workspaceCache[variable.EnvID.String()]
 		if workspaceID == (idwrap.IDWrap{}) {
 			env, err := e.es.GetEnvironment(ctx, variable.EnvID)
@@ -843,20 +835,35 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			workspaceID = env.WorkspaceID
 			workspaceCache[variable.EnvID.String()] = workspaceID
 		}
-		updatedVars = append(updatedVars, struct {
-			variable    *mvar.Var
-			workspaceID idwrap.IDWrap
-		}{variable: variable, workspaceID: workspaceID})
+
+		varModels = append(varModels, varUpdateData{
+			variable:    *variable,
+			workspaceID: workspaceID,
+		})
+	}
+
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	varWriter := svar.NewWriter(tx)
+
+	for i := range varModels {
+		if err := varWriter.Update(ctx, &varModels[i].variable); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, evt := range updatedVars {
-		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+	for _, data := range varModels {
+		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: data.workspaceID, EnvironmentID: data.variable.EnvID}, EnvironmentVariableEvent{
 			Type:     eventTypeUpdate,
-			Variable: toAPIEnvironmentVariable(*evt.variable),
+			Variable: toAPIEnvironmentVariable(data.variable),
 		})
 	}
 
@@ -869,17 +876,13 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
 	}
 
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	varWriter := svar.NewWriter(tx)
-	deletedVars := []struct {
+	type varDeleteData struct {
+		varID       idwrap.IDWrap
 		variable    mvar.Var
 		workspaceID idwrap.IDWrap
-	}{}
+	}
+
+	var varModels []varDeleteData
 	workspaceCache := map[string]idwrap.IDWrap{}
 
 	for _, item := range req.Msg.Items {
@@ -901,12 +904,6 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := varWriter.Delete(ctx, varID); err != nil {
-			if errors.Is(err, svar.ErrNoVarFound) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 		workspaceID := workspaceCache[variable.EnvID.String()]
 		if workspaceID == (idwrap.IDWrap{}) {
 			env, err := e.es.GetEnvironment(ctx, variable.EnvID)
@@ -916,22 +913,41 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			workspaceID = env.WorkspaceID
 			workspaceCache[variable.EnvID.String()] = workspaceID
 		}
-		deletedVars = append(deletedVars, struct {
-			variable    mvar.Var
-			workspaceID idwrap.IDWrap
-		}{variable: *variable, workspaceID: workspaceID})
+
+		varModels = append(varModels, varDeleteData{
+			varID:       varID,
+			variable:    *variable,
+			workspaceID: workspaceID,
+		})
+	}
+
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	varWriter := svar.NewWriter(tx)
+
+	for _, data := range varModels {
+		if err := varWriter.Delete(ctx, data.varID); err != nil {
+			if errors.Is(err, svar.ErrNoVarFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, evt := range deletedVars {
-		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+	for _, data := range varModels {
+		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: data.workspaceID, EnvironmentID: data.variable.EnvID}, EnvironmentVariableEvent{
 			Type: eventTypeDelete,
 			Variable: &apiv1.EnvironmentVariable{
-				EnvironmentVariableId: evt.variable.ID.Bytes(),
-				EnvironmentId:         evt.variable.EnvID.Bytes(),
+				EnvironmentVariableId: data.variable.ID.Bytes(),
+				EnvironmentId:         data.variable.EnvID.Bytes(),
 			},
 		})
 	}

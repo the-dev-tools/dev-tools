@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -546,4 +547,100 @@ func collectEnvironmentVariableSyncItems(t *testing.T, ch <-chan *apiv1.Environm
 	}
 
 	return items
+}
+
+func TestEnvironmentVariableDeleteConcurrent(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+
+	var varIDs []idwrap.IDWrap
+	for i := 0; i < 10; i++ {
+		varIDs = append(varIDs, f.createVar(t, env.ID, float64(i)))
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(varIDs))
+
+	for _, varID := range varIDs {
+		wg.Add(1)
+		go func(id idwrap.IDWrap) {
+			defer wg.Done()
+			req := connect.NewRequest(&apiv1.EnvironmentVariableDeleteRequest{
+				Items: []*apiv1.EnvironmentVariableDelete{{EnvironmentVariableId: id.Bytes()}},
+			})
+			_, err := f.handler.EnvironmentVariableDelete(f.ctx, req)
+			if err != nil {
+				errCh <- err
+			}
+		}(varID)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+		close(errCh)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("deadlock: concurrent deletes timed out")
+	}
+
+	for err := range errCh {
+		require.NoError(t, err, "concurrent delete failed")
+	}
+}
+
+func TestEnvironmentVariableUpdateConcurrent(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+
+	var varIDs []idwrap.IDWrap
+	for i := 0; i < 10; i++ {
+		varIDs = append(varIDs, f.createVar(t, env.ID, float64(i)))
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(varIDs))
+
+	for i, varID := range varIDs {
+		wg.Add(1)
+		go func(id idwrap.IDWrap, idx int) {
+			defer wg.Done()
+			newValue := fmt.Sprintf("updated-%d", idx)
+			req := connect.NewRequest(&apiv1.EnvironmentVariableUpdateRequest{
+				Items: []*apiv1.EnvironmentVariableUpdate{{
+					EnvironmentVariableId: id.Bytes(),
+					Value:                 &newValue,
+				}},
+			})
+			_, err := f.handler.EnvironmentVariableUpdate(f.ctx, req)
+			if err != nil {
+				errCh <- err
+			}
+		}(varID, i)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+		close(errCh)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("deadlock: concurrent updates timed out")
+	}
+
+	for err := range errCh {
+		require.NoError(t, err, "concurrent update failed")
+	}
 }
