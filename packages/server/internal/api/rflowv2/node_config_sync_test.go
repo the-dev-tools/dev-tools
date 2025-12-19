@@ -142,8 +142,8 @@ func collectEvents(eventChan <-chan NodeEvent, count int, timeout time.Duration)
 	return events
 }
 
-// TestNodeHttpSync_PublishesEventsOnCRUD verifies that NodeHttp operations
-// publish events to the node stream.
+// TestNodeHttpSync_PublishesEventsOnCRUD verifies that NodeHttp Update/Delete operations
+// publish events to the node stream. Insert does not publish (frontend calls NodeInsert separately).
 func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 	svc, ctx, _, workspaceID, eventChan := setupTestServiceWithStreams(t)
 
@@ -168,7 +168,8 @@ func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 
 	httpID := idwrap.NewNow()
 
-	t.Run("Insert publishes event", func(t *testing.T) {
+	t.Run("Insert does not publish event", func(t *testing.T) {
+		// Insert does not publish event - the frontend calls NodeInsert separately which handles that
 		req := connect.NewRequest(&flowv1.NodeHttpInsertRequest{
 			Items: []*flowv1.NodeHttpInsert{{
 				NodeId: nodeID.Bytes(),
@@ -180,8 +181,7 @@ func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 		require.NoError(t, err)
 
 		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Insert")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		require.Len(t, events, 0, "Should not receive event after Insert")
 	})
 
 	t.Run("Update publishes event", func(t *testing.T) {

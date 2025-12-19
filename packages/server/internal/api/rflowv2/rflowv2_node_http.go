@@ -69,12 +69,6 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		// Get node model to publish event later
-		nodeModel, err := s.ns.GetNode(ctx, nodeID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
-		}
-
 		var httpID *idwrap.IDWrap
 		if len(item.GetHttpId()) > 0 {
 			parsedID, err := idwrap.NewFromBytes(item.GetHttpId())
@@ -104,11 +98,6 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			HasRequestConfig: httpID != nil,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Publish node event so NodeHttpSync can pick up the httpId/deltaHttpId
-		if nodeModel != nil {
-			s.publishNodeEvent(nodeEventUpdate, *nodeModel)
 		}
 	}
 
