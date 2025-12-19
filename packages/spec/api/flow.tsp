@@ -47,15 +47,10 @@ enum HandleKind {
   Loop,
 }
 
-enum EdgeKind {
-  NoOp,
-}
-
 @TanStackDB.collection
 model Edge {
   @primaryKey edgeId: Id;
   @foreignKey flowId: Id;
-  kind: EdgeKind;
   @foreignKey sourceId: Id;
   @foreignKey targetId: Id;
   sourceHandle: HandleKind;
@@ -63,7 +58,7 @@ model Edge {
 }
 
 enum NodeKind {
-  NoOp,
+  ManualStart,
   Http,
   Condition,
   For,
@@ -94,24 +89,10 @@ model Node {
   @visibility(Lifecycle.Read) info?: string;
 }
 
-enum NodeNoOpKind {
-  Start,
-  Create,
-  Then,
-  Else,
-  Loop,
-}
-
-@TanStackDB.collection
-model NodeNoOp {
-  @primaryKey nodeId: Id;
-  kind: NodeNoOpKind;
-}
-
 @TanStackDB.collection
 model NodeHttp {
   @primaryKey nodeId: Id;
-  @foreignKey httpId?: Id;
+  @foreignKey httpId: Id;
   @foreignKey deltaHttpId?: Id;
 }
 
