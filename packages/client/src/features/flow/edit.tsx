@@ -2,9 +2,9 @@ import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useMatchRoute, useNavigate } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
-import { Array, Boolean, Duration, HashSet, Match, MutableHashMap, Option, pipe, Record } from 'effect';
+import { Duration, Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, ReactNode, use, useRef } from 'react';
+import { PropsWithChildren, ReactNode, use, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
 import { Button as AriaButton, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { createPortal } from 'react-dom';
@@ -13,14 +13,10 @@ import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
-  EdgeKind,
   FlowSchema,
   FlowService,
   FlowVariable,
-  HandleKind,
   NodeKind,
-  NodeNoOpKind,
-  NodeNoOpSchema,
   NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
@@ -30,7 +26,6 @@ import {
   FlowVariableCollectionSchema,
   NodeCollectionSchema,
   NodeHttpCollectionSchema,
-  NodeNoOpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
@@ -54,6 +49,7 @@ import { ReferenceContext } from '~/reference';
 import { flowHistoryRouteApi, flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
+import { AddNodeSidebar } from './add-node';
 import { FlowContext } from './context';
 import { ConnectionLine, edgeTypes, useEdgeState } from './edge';
 import { NodeStateContext, useNodesState } from './node';
@@ -62,7 +58,7 @@ import { ForNode, ForPanel } from './nodes/for';
 import { ForEachNode, ForEachPanel } from './nodes/for-each';
 import { HttpNode, HttpPanel } from './nodes/http';
 import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
-import { NoOpNode } from './nodes/no-op';
+import { ManualStartNode } from './nodes/manual-start';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
 export const nodeTypes: XF.NodeTypes = {
@@ -71,21 +67,29 @@ export const nodeTypes: XF.NodeTypes = {
   [NodeKind.FOR_EACH]: ForEachNode,
   [NodeKind.HTTP]: HttpNode,
   [NodeKind.JS]: JavaScriptNode,
-  [NodeKind.NO_OP]: NoOpNode,
+  [NodeKind.MANUAL_START]: ManualStartNode,
   [NodeKind.UNSPECIFIED]: () => null,
 };
 
 export const FlowEditPage = () => {
   const { flowId, nodeId } = flowLayoutRouteApi.useLoaderData();
 
+  const [sidebar, setSidebar] = useState<ReactNode>(null);
+
   const flow = (
     <Flow key={Ulid.construct(flowId).toCanonical()}>
       <ActionBar />
+
+      {sidebar && (
+        <XF.Panel className={tw`inset-y-0 w-80 border-l border-slate-200 bg-white`} position='top-right'>
+          {sidebar}
+        </XF.Panel>
+      )}
     </Flow>
   );
 
   return (
-    <FlowContext.Provider value={{ flowId }}>
+    <FlowContext.Provider value={{ flowId, setSidebar }}>
       <XF.ReactFlowProvider>
         {Option.isNone(nodeId) ? (
           <PanelGroup direction='vertical'>
@@ -115,10 +119,9 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const flowCollection = useApiCollection(FlowCollectionSchema);
   const edgeCollection = useApiCollection(EdgeCollectionSchema);
   const nodeCollection = useApiCollection(NodeCollectionSchema);
-  const nodeNoOpCollection = useApiCollection(NodeNoOpCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
 
-  const { getEdges, getNode, getNodes, screenToFlowPosition } = XF.useReactFlow();
+  const { getNodes, screenToFlowPosition } = XF.useReactFlow();
 
   const { flowId, isReadOnly = false } = use(FlowContext);
 
@@ -149,81 +152,6 @@ export const Flow = ({ children }: PropsWithChildren) => {
       targetId: Ulid.fromCanonical(_.target).bytes,
     });
 
-  const onConnectEnd: XF.OnConnectEnd = (event, { fromNode, isValid }) => {
-    if (!(event instanceof MouseEvent)) return;
-    if (isValid) return;
-    if (fromNode === null) return;
-
-    const nodeUlid = Ulid.generate();
-
-    setNodeSelection(() => HashSet.make(nodeUlid.toCanonical()));
-
-    nodeNoOpCollection.utils.insert({ kind: NodeNoOpKind.CREATE, nodeId: nodeUlid.bytes });
-
-    nodeCollection.utils.insert({
-      flowId,
-      kind: NodeKind.NO_OP,
-      nodeId: nodeUlid.bytes,
-      position: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
-    });
-
-    edgeCollection.utils.insert({
-      edgeId: Ulid.generate().bytes,
-      flowId,
-      kind: EdgeKind.NO_OP,
-      sourceId: Ulid.fromCanonical(fromNode.id).bytes,
-      targetId: nodeUlid.bytes,
-    });
-  };
-
-  const onBeforeDelete: XF.OnBeforeDelete = ({ edges, nodes }) => {
-    if (isReadOnly) return Promise.resolve(false);
-
-    const deleteNodeMap = pipe(
-      nodes.map((_) => [_.id, _] as const),
-      MutableHashMap.fromIterable,
-    );
-
-    const deleteEdgeMap = pipe(
-      edges.map((_) => [_.id, _] as const),
-      MutableHashMap.fromIterable,
-    );
-
-    const edgesWithHandles = pipe(
-      getEdges(),
-      Array.map(Option.liftPredicate((_) => !!_.sourceHandle && _.sourceHandle !== HandleKind.UNSPECIFIED.toString())),
-      Array.getSomes,
-    );
-
-    // Do 2 passes to find indirectly referenced edges through edge source
-    for (let i = 0; i < 2; i++) {
-      for (const edge of edgesWithHandles) {
-        if (
-          !Boolean.some([
-            MutableHashMap.has(deleteEdgeMap, edge.id),
-            MutableHashMap.has(deleteNodeMap, edge.source),
-            MutableHashMap.has(deleteNodeMap, edge.target),
-          ])
-        ) {
-          continue;
-        }
-
-        MutableHashMap.set(deleteEdgeMap, edge.id, edge);
-
-        const source = getNode(edge.source);
-        if (source) MutableHashMap.set(deleteNodeMap, source.id, source);
-
-        const target = getNode(edge.target);
-        if (target) MutableHashMap.set(deleteNodeMap, target.id, target);
-      }
-    }
-
-    return Promise.resolve({
-      edges: pipe(Record.fromEntries(deleteEdgeMap), Record.values),
-      nodes: pipe(Record.fromEntries(deleteNodeMap), Record.values),
-    });
-  };
-
   const { dropProps } = useDrop({
     onDrop: async ({ items, x, y }) => {
       const [item] = items;
@@ -245,7 +173,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         nodeCollection.utils.insert({
           flowId,
           kind: NodeKind.HTTP,
-          name: `http_${getNodes().length + 1}`,
+          name: `http_${getNodes().length}`,
           nodeId,
           position,
         });
@@ -263,7 +191,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         nodeCollection.utils.insert({
           flowId,
           kind: NodeKind.HTTP,
-          name: `http_${getNodes().length + 1}`,
+          name: `http_${getNodes().length}`,
           nodeId,
           position,
         });
@@ -289,7 +217,6 @@ export const Flow = ({ children }: PropsWithChildren) => {
         {...(dropProps as object)}
         colorMode='light'
         connectionLineComponent={ConnectionLine}
-        defaultEdgeOptions={{ type: EdgeKind.UNSPECIFIED.toString() }}
         deleteKeyCode={['Backspace', 'Delete']}
         edges={edges}
         edgeTypes={edgeTypes}
@@ -299,11 +226,8 @@ export const Flow = ({ children }: PropsWithChildren) => {
         nodesConnectable={!isReadOnly}
         nodesDraggable={!isReadOnly}
         nodeTypes={nodeTypes}
-        onBeforeDelete={onBeforeDelete}
         onConnect={onConnect}
-        onConnectEnd={onConnectEnd}
         onEdgesChange={onEdgesChange}
-        onlyRenderVisibleElements
         onNodeDoubleClick={(_, node) => void navigate({ search: (_) => ({ ..._, node: node.id }), to: '.' })}
         onNodesChange={onNodesChange}
         onViewportChange={onViewportChange}
@@ -448,15 +372,10 @@ export const TopBarWithControls = () => {
 };
 
 const ActionBar = () => {
-  const { flowId } = use(FlowContext);
-  const { setNodeSelection } = use(NodeStateContext);
+  const { flowId, setSidebar } = use(FlowContext);
   const { transport } = rootRouteApi.useRouteContext();
-  const flow = XF.useReactFlow();
-  const storeApi = XF.useStoreApi();
 
   const flowCollection = useApiCollection(FlowCollectionSchema);
-  const nodeCollection = useApiCollection(NodeCollectionSchema);
-  const noOpCollection = useApiCollection(NodeNoOpCollectionSchema);
 
   const { running } =
     useLiveQuery(
@@ -473,21 +392,7 @@ const ActionBar = () => {
       className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow-sm`}
       position='bottom-center'
     >
-      <Button
-        className={tw`px-1.5 py-1`}
-        onPress={() => {
-          const { domNode } = storeApi.getState();
-          if (!domNode) return;
-          const box = domNode.getBoundingClientRect();
-          const position = flow.screenToFlowPosition({ x: box.x + box.width / 2, y: box.y + box.height * 0.1 });
-
-          const nodeUlid = Ulid.generate();
-          setNodeSelection(() => HashSet.make(nodeUlid.toCanonical()));
-          noOpCollection.utils.insert({ kind: NodeNoOpKind.CREATE, nodeId: nodeUlid.bytes });
-          nodeCollection.utils.insert({ flowId, kind: NodeKind.NO_OP, nodeId: nodeUlid.bytes, position });
-        }}
-        variant='ghost dark'
-      >
+      <Button className={tw`px-1.5 py-1`} onPress={() => void setSidebar?.(<AddNodeSidebar />)} variant='ghost dark'>
         <FiPlus className={tw`size-5 text-slate-300`} />
         Add Node
       </Button>
@@ -597,7 +502,6 @@ export const EditPanel = ({ nodeId }: EditPanelProps) => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const nodeCollection = useApiCollection(NodeCollectionSchema);
-  const noOpCollection = useApiCollection(NodeNoOpCollectionSchema);
 
   const { kind } =
     useLiveQuery(
@@ -609,19 +513,9 @@ export const EditPanel = ({ nodeId }: EditPanelProps) => {
       [nodeCollection, nodeId],
     ).data ?? create(NodeSchema);
 
-  const { kind: noOpKind } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: noOpCollection })
-          .where((_) => eq(_.item.nodeId, nodeId))
-          .select((_) => pick(_.item, 'kind'))
-          .findOne(),
-      [noOpCollection, nodeId],
-    ).data ?? create(NodeNoOpSchema);
-
   const view = pipe(
-    Match.value({ kind, noOpKind }),
-    Match.when({ kind: NodeKind.NO_OP, noOpKind: NodeNoOpKind.START }, () => <SettingsPanel />),
+    Match.value({ kind }),
+    Match.when({ kind: NodeKind.MANUAL_START }, () => <SettingsPanel />),
     Match.when({ kind: NodeKind.CONDITION }, () => <ConditionPanel nodeId={nodeId} />),
     Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachPanel nodeId={nodeId} />),
     Match.when({ kind: NodeKind.FOR }, (_) => <ForPanel nodeId={nodeId} />),

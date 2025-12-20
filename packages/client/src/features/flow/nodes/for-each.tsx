@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
+import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
@@ -9,7 +10,7 @@ import { ErrorHandling, HandleKind, NodeForEachSchema } from '@the-dev-tools/spe
 import { NodeForEachCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
-import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';
+import { ForIcon } from '@the-dev-tools/ui/icons';
 import { SelectItem, SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
@@ -17,34 +18,30 @@ import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps } from '../node';
+import { NodeBodyNew, NodeExecutionPanel, NodeName, NodePanelProps, NodeStateIndicator, NodeTitle } from '../node';
 
-export const ForEachNode = (props: XF.NodeProps) => (
-  <NodeContainer
-    {...props}
-    handles={
-      <>
-        <Handle position={XF.Position.Top} type='target' />
-        <Handle id={HandleKind.LOOP.toString()} isConnectable={false} position={XF.Position.Bottom} type='source' />
-        <Handle id={HandleKind.THEN.toString()} isConnectable={false} position={XF.Position.Bottom} type='source' />
-      </>
-    }
-  >
-    <NodeBody {...props} Icon={ForIcon}>
-      <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
-        <div
-          className={tw`
-            flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs leading-4 font-medium
-            tracking-tight text-slate-800 shadow-xs
-          `}
-        >
-          <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-          <span>Edit Loop</span>
-        </div>
+export const ForEachNode = ({ id, selected }: XF.NodeProps) => {
+  const nodeId = Ulid.fromCanonical(id).bytes;
+
+  return (
+    <div className={tw`flex flex-col items-center`}>
+      <div className={tw`relative`}>
+        <NodeBodyNew className={tw`w-48 text-teal-500`} icon={<ForIcon />} nodeId={nodeId} selected={selected}>
+          <div className={tw`flex-1`}>
+            <NodeTitle className={tw`text-left`}>For Each</NodeTitle>
+            <NodeName className={tw`ml-0 text-left`} nodeId={nodeId} />
+          </div>
+
+          <NodeStateIndicator nodeId={nodeId} />
+        </NodeBodyNew>
+
+        <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
+        <Handle kind={HandleKind.THEN} nodeId={nodeId} position={XF.Position.Right} type='source' />
+        <Handle kind={HandleKind.LOOP} nodeId={nodeId} position={XF.Position.Bottom} type='source' />
       </div>
-    </NodeBody>
-  </NodeContainer>
-);
+    </div>
+  );
+};
 
 export const ForEachPanel = ({ nodeId }: NodePanelProps) => {
   const collection = useApiCollection(NodeForEachCollectionSchema);

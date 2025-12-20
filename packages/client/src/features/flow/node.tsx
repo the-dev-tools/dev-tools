@@ -3,11 +3,10 @@ import { debounceStrategy, eq, useLiveQuery, usePacedMutations } from '@tanstack
 import * as XF from '@xyflow/react';
 import { Array, HashMap, HashSet, Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { createContext, Dispatch, ReactNode, SetStateAction, use, useContext, useRef, useState } from 'react';
+import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
 import {
   Button as AriaButton,
   Key,
-  MenuTrigger,
   Tab,
   TabList,
   TabPanel,
@@ -16,8 +15,6 @@ import {
   TooltipTrigger,
   Tree,
 } from 'react-aria-components';
-import { FiMoreHorizontal } from 'react-icons/fi';
-import { IconType } from 'react-icons/lib';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
@@ -28,17 +25,14 @@ import {
   NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeCollectionSchema, NodeExecutionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
-import { Menu, MenuItem, MenuItemLink, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { Connect, useApiCollection } from '~/api';
 import { rootRouteApi } from '~/routes';
-import { pick } from '~/utils/tanstack-db';
+import { eqStruct, pick } from '~/utils/tanstack-db';
 import { FlowContext } from './context';
 
 export interface NodeStateContext {
@@ -138,58 +132,121 @@ export const useNodesState = () => {
   return { nodes: items, onNodesChange: onChange, setNodeSelection: setSelection };
 };
 
-const nodeContainerStyles = tv({
-  // eslint-disable-next-line better-tailwindcss/no-unregistered-classes
-  base: tw`nopan relative w-80 rounded-lg bg-slate-200 p-1 shadow-xs outline-1 transition-colors`,
+const nodeBodyStyles = tv({
+  base: tw`
+    relative size-16 overflow-clip rounded-xl border-2 border-white bg-white outline outline-slate-800 transition-colors
+  `,
   variants: {
-    isSelected: { true: tw`bg-slate-300` },
+    selected: { true: tw`bg-slate-200` },
     state: {
-      [FlowItemState.CANCELED]: tw`outline-slate-600`,
+      [FlowItemState.CANCELED]: tw`outline-slate-300`,
       [FlowItemState.FAILURE]: tw`outline-red-600`,
       [FlowItemState.RUNNING]: tw`outline-violet-600`,
       [FlowItemState.SUCCESS]: tw`outline-green-600`,
-      [FlowItemState.UNSPECIFIED]: tw`outline-slate-300`,
+      [FlowItemState.UNSPECIFIED]: tw`outline-slate-800`,
     } satisfies Record<FlowItemState, string>,
   },
 });
 
-interface NodeContainerProps extends XF.NodeProps {
-  children: ReactNode;
-  handles?: ReactNode;
+interface NodeBodyNewProps {
+  children?: ReactNode;
+  className?: string;
+  icon: ReactNode;
+  nodeId: Uint8Array;
+  selected: boolean;
 }
 
-export const NodeContainer = ({ children, handles, id, selected }: NodeContainerProps) => {
+export const NodeBodyNew = ({ children, className, icon, nodeId, selected }: NodeBodyNewProps) => {
   const collection = useApiCollection(NodeCollectionSchema);
 
   const { state } =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
-          .where((_) => eq(_.item.nodeId, Ulid.fromCanonical(id).bytes))
+          .where(eqStruct({ nodeId }))
           .select((_) => pick(_.item, 'state'))
           .findOne(),
-      [collection, id],
+      [collection, nodeId],
     ).data ?? create(NodeSchema);
 
   return (
-    <div className={nodeContainerStyles({ isSelected: selected, state })}>
-      {children}
-      {handles}
+    <div className={nodeBodyStyles({ className, selected, state })}>
+      <div className={tw`absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-30 blur-lg`} />
+
+      <div className={tw`flex size-full items-center gap-1 p-2.5`}>
+        <div className={tw`text-[2.5rem]`}>{icon}</div>
+
+        {children}
+      </div>
     </div>
   );
 };
 
-interface NodeBodyProps extends XF.NodeProps {
-  children: ReactNode;
-  Icon: IconType;
+interface NodeStateIndicatorProps {
+  children?: ReactNode;
+  nodeId: Uint8Array;
 }
 
-export const NodeBody = ({ children, Icon, id }: NodeBodyProps) => {
+export const NodeStateIndicator = ({ children, nodeId }: NodeStateIndicatorProps) => {
   const collection = useApiCollection(NodeCollectionSchema);
 
-  const nodeId = Ulid.fromCanonical(id).bytes;
+  const { info = 'testing', state = FlowItemState.CANCELED } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where(eqStruct({ nodeId }))
+          .select((_) => pick(_.item, 'state', 'info'))
+          .findOne(),
+      [collection, nodeId],
+    ).data ?? create(NodeSchema);
 
-  const { info, name, state } =
+  let indicator = pipe(
+    Match.value(state),
+    Match.when(FlowItemState.RUNNING, () => (
+      <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
+    )),
+    Match.when(FlowItemState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
+    Match.when(FlowItemState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
+    Match.when(FlowItemState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
+    Match.orElse(() => children),
+  );
+
+  if (indicator && info)
+    indicator = (
+      <TooltipTrigger delay={750}>
+        <AriaButton className={tw`pointer-events-auto block cursor-help`}>{indicator}</AriaButton>
+        <Tooltip className={tw`max-w-lg rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{info}</Tooltip>
+      </TooltipTrigger>
+    );
+
+  return indicator;
+};
+
+interface NodeTitleProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export const NodeTitle = ({ children, className }: NodeTitleProps) => (
+  <div
+    className={twMerge(
+      tw`flex items-center gap-1 text-center text-xs leading-4 font-semibold tracking-tight text-slate-800`,
+      className,
+    )}
+  >
+    {children}
+  </div>
+);
+
+interface NodeNameProps {
+  className?: string;
+  nodeId: Uint8Array;
+}
+
+export const NodeName = ({ className, nodeId }: NodeNameProps) => {
+  const collection = useApiCollection(NodeCollectionSchema);
+
+  const { name } =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
@@ -199,101 +256,32 @@ export const NodeBody = ({ children, Icon, id }: NodeBodyProps) => {
       [collection, nodeId],
     ).data ?? create(NodeSchema);
 
-  const { deleteElements, getZoom } = XF.useReactFlow();
-  const { isReadOnly = false } = use(FlowContext);
-
-  const ref = useRef<HTMLDivElement>(null);
-  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
-
-  const { escapeRef, escapeRender } = useEscapePortal<HTMLButtonElement>(ref);
-
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => collection.utils.update({ name: _, nodeId }),
     value: name,
   });
 
-  let stateIndicator = pipe(
-    Match.value(state),
-    Match.when(FlowItemState.RUNNING, () => (
-      <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
-    )),
-    Match.when(FlowItemState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
-    Match.when(FlowItemState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
-    Match.when(FlowItemState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
-    Match.orElse(() => null),
-  );
-
-  if (stateIndicator && info)
-    stateIndicator = (
-      <TooltipTrigger delay={750}>
-        <Button className={tw`p-0`} variant='ghost'>
-          {stateIndicator}
-        </Button>
-        <Tooltip className={tw`max-w-lg rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{info}</Tooltip>
-      </TooltipTrigger>
-    );
-
   return (
-    <>
-      <div
-        className={tw`flex items-center gap-3 px-1 pt-0.5 pb-1.5`}
-        onContextMenu={(event) => {
-          const offset = ref.current?.getBoundingClientRect();
-          if (!offset) return;
-          onContextMenu(event, offset, getZoom());
-        }}
-        ref={ref}
-      >
-        <Icon className={tw`size-5 text-slate-500`} />
-
-        <div className={tw`h-4 w-px bg-slate-300`} />
-
-        <AriaButton
-          className={tw`cursor-text truncate text-xs leading-5 font-medium tracking-tight`}
-          onPress={() => void edit()}
-          ref={escapeRef}
-        >
-          {name}
-        </AriaButton>
-
-        {isEditing &&
-          escapeRender(
-            <TextInputField
-              aria-label='New node name'
-              inputClassName={tw`-mx-2 mt-2 bg-white py-0.75`}
-              {...textFieldProps}
-            />,
-            getZoom(),
-          )}
-
-        <div className={tw`flex-1`} />
-
-        {stateIndicator}
-
-        {!isReadOnly && (
-          <MenuTrigger {...menuTriggerProps}>
-            {/* eslint-disable-next-line better-tailwindcss/no-unregistered-classes */}
-            <Button className={tw`nodrag p-0.5`} variant='ghost'>
-              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
-            </Button>
-
-            <Menu {...menuProps}>
-              <MenuItemLink search={(_) => ({ ..._, node: id })} to='.'>
-                Edit
-              </MenuItemLink>
-
-              <MenuItem onAction={() => void edit()}>Rename</MenuItem>
-
-              <MenuItem onAction={() => void deleteElements({ nodes: [{ id }] })} variant='danger'>
-                Delete
-              </MenuItem>
-            </Menu>
-          </MenuTrigger>
+    <div className={tw`relative`}>
+      <AriaButton
+        className={twMerge(
+          tw`pointer-events-auto mx-auto block cursor-text text-center text-xs tracking-tight text-slate-500`,
+          isEditing && tw`opacity-0`,
+          className,
         )}
-      </div>
+        onPress={() => void edit()}
+      >
+        {name}
+      </AriaButton>
 
-      {children}
-    </>
+      {isEditing && (
+        <TextInputField
+          aria-label='New node name'
+          inputClassName={tw`absolute top-0 left-1/2 w-24 -translate-x-1/2 bg-white px-1 py-0 text-xs`}
+          {...textFieldProps}
+        />
+      )}
+    </div>
   );
 };
 

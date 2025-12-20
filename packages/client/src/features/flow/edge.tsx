@@ -6,13 +6,14 @@ import { Ulid } from 'id128';
 import { useContext, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
-import { EdgeKind, EdgeSchema, FlowItemState, HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { EdgeSchema, FlowItemState, HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from './context';
+import { HandleHalo } from './handle';
 
 export const useEdgeState = () => {
   const { flowId } = useContext(FlowContext);
@@ -26,7 +27,7 @@ export const useEdgeState = () => {
       (_) =>
         _.from({ item: collection })
           .where((_) => eq(_.item.flowId, flowId))
-          .select((_) => pick(_.item, 'edgeId', 'sourceId', 'sourceHandle', 'targetId', 'kind')),
+          .select((_) => pick(_.item, 'edgeId', 'sourceId', 'sourceHandle', 'targetId')),
       [collection, flowId],
     ).data,
     Array.map((_): XF.Edge => {
@@ -37,7 +38,6 @@ export const useEdgeState = () => {
         source: Ulid.construct(_.sourceId).toCanonical(),
         sourceHandle: _.sourceHandle === HandleKind.UNSPECIFIED ? null : _.sourceHandle.toString(),
         target: Ulid.construct(_.targetId).toCanonical(),
-        type: _.kind.toString(),
       };
     }),
   );
@@ -55,9 +55,6 @@ export const useEdgeState = () => {
       ),
     );
 
-    if (changes.add?.length) console.log('add', changes.add);
-    //  pipe(changes.add, Array.map(_ => {}))
-
     if (changes.remove?.length)
       pipe(
         changes.remove,
@@ -69,17 +66,45 @@ export const useEdgeState = () => {
   return { edges: items, onEdgesChange: onChange };
 };
 
-const DefaultEdge = (props: XF.EdgeProps) => {
-  const { id, sourceX, sourceY, targetX, targetY } = props;
+const DefaultEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: XF.EdgeProps) => {
   const { deleteElements } = XF.useReactFlow();
 
-  const [labelX, labelY] = XF.getEdgeCenter({ sourceX, sourceY, targetX, targetY });
+  const { labelX, labelY } = getConnectionPath({ sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY });
+
+  const edgeCollection = useApiCollection(EdgeCollectionSchema);
+
+  const { state } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: edgeCollection })
+          .where((_) => eq(_.item.edgeId, Ulid.fromCanonical(id).bytes))
+          .select((_) => pick(_.item, 'state'))
+          .findOne(),
+      [edgeCollection, id],
+    ).data ?? create(EdgeSchema);
 
   return (
     <>
-      <NoOpEdge {...props} />
+      <ConnectionLine
+        connected
+        fromPosition={sourcePosition}
+        fromX={sourceX}
+        fromY={sourceY}
+        state={state}
+        toPosition={targetPosition}
+        toX={targetX}
+        toY={targetY}
+      />
 
       <XF.EdgeLabelRenderer>
+        <div className={tw`absolute -z-10 size-0`} style={{ transform: `translate(${sourceX}px,${sourceY}px)` }}>
+          <HandleHalo />
+        </div>
+
+        <div className={tw`absolute -z-10 size-0`} style={{ transform: `translate(${targetX}px,${targetY}px)` }}>
+          <HandleHalo />
+        </div>
+
         <div
           // eslint-disable-next-line better-tailwindcss/no-unregistered-classes
           className={tw`nodrag nopan pointer-events-auto absolute`}
@@ -94,36 +119,8 @@ const DefaultEdge = (props: XF.EdgeProps) => {
   );
 };
 
-const NoOpEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: XF.EdgeProps) => {
-  const edgeCollection = useApiCollection(EdgeCollectionSchema);
-
-  const { state } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: edgeCollection })
-          .where((_) => eq(_.item.edgeId, Ulid.fromCanonical(id).bytes))
-          .select((_) => pick(_.item, 'state'))
-          .findOne(),
-      [edgeCollection, id],
-    ).data ?? create(EdgeSchema);
-
-  return (
-    <ConnectionLine
-      connected
-      fromPosition={sourcePosition}
-      fromX={sourceX}
-      fromY={sourceY}
-      state={state}
-      toPosition={targetPosition}
-      toX={targetX}
-      toY={targetY}
-    />
-  );
-};
-
 export const edgeTypes: XF.EdgeTypes = {
-  [EdgeKind.NO_OP]: NoOpEdge,
-  [EdgeKind.UNSPECIFIED]: DefaultEdge,
+  default: DefaultEdge,
 };
 
 const connectionLineStyles = tv({
@@ -155,9 +152,7 @@ export const ConnectionLine = ({
   toX,
   toY,
 }: ConnectionLineProps) => {
-  const [edgePath] = XF.getSmoothStepPath({
-    borderRadius: 8,
-    offset: 8,
+  const { path } = getConnectionPath({
     sourcePosition: fromPosition,
     sourceX: fromX,
     sourceY: fromY,
@@ -166,5 +161,20 @@ export const ConnectionLine = ({
     targetY: toY,
   });
 
-  return <path className={connectionLineStyles({ state })} d={edgePath} strokeDasharray={connected ? undefined : 4} />;
+  return <path className={connectionLineStyles({ state })} d={path} strokeDasharray={connected ? undefined : 4} />;
+};
+
+const getConnectionPath = (
+  params: Pick<
+    XF.GetSmoothStepPathParams,
+    'sourcePosition' | 'sourceX' | 'sourceY' | 'targetPosition' | 'targetX' | 'targetY'
+  >,
+) => {
+  const [path, labelX, labelY, offsetX, offsetY] = XF.getSmoothStepPath({
+    borderRadius: 8,
+    offset: 64,
+    ...params,
+  });
+
+  return { labelX, labelY, offsetX, offsetY, path };
 };

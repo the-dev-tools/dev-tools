@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
+import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
@@ -8,41 +9,37 @@ import { useDebouncedCallback } from 'use-debounce';
 import { HandleKind, NodeConditionSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
-import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
+import { IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps } from '../node';
+import { NodeBodyNew, NodeExecutionPanel, NodeName, NodePanelProps, NodeStateIndicator, NodeTitle } from '../node';
 
-export const ConditionNode = (props: XF.NodeProps) => (
-  <NodeContainer
-    {...props}
-    handles={
-      <>
-        <Handle position={XF.Position.Top} type='target' />
-        <Handle id={HandleKind.THEN.toString()} isConnectable={false} position={XF.Position.Bottom} type='source' />
-        <Handle id={HandleKind.ELSE.toString()} isConnectable={false} position={XF.Position.Bottom} type='source' />
-      </>
-    }
-  >
-    <NodeBody {...props} Icon={IfIcon}>
-      <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
-        <div
-          className={tw`
-            flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs leading-5 font-medium tracking-tight
-            text-slate-800 shadow-xs
-          `}
-        >
-          <CheckListAltIcon className={tw`size-5 text-slate-500`} />
-          <span>Edit Condition</span>
-        </div>
+export const ConditionNode = ({ id, selected }: XF.NodeProps) => {
+  const nodeId = Ulid.fromCanonical(id).bytes;
+
+  return (
+    <div className={tw`flex flex-col items-center`}>
+      <div className={tw`relative`}>
+        <NodeBodyNew className={tw`w-48 text-sky-500`} icon={<IfIcon />} nodeId={nodeId} selected={selected}>
+          <div className={tw`flex-1`}>
+            <NodeTitle className={tw`text-left`}>If</NodeTitle>
+            <NodeName className={tw`ml-0 text-left`} nodeId={nodeId} />
+          </div>
+
+          <NodeStateIndicator nodeId={nodeId} />
+        </NodeBodyNew>
+
+        <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
+        <Handle kind={HandleKind.THEN} nodeId={nodeId} position={XF.Position.Right} type='source' />
+        <Handle kind={HandleKind.ELSE} nodeId={nodeId} position={XF.Position.Bottom} type='source' />
       </div>
-    </NodeBody>
-  </NodeContainer>
-);
+    </div>
+  );
+};
 
 export const ConditionPanel = ({ nodeId }: NodePanelProps) => {
   const collection = useApiCollection(NodeConditionCollectionSchema);

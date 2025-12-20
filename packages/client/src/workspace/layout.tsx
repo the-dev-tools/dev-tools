@@ -97,7 +97,7 @@ export const WorkspaceLayout = () => {
                   <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Add New File</Tooltip>
                 </TooltipTrigger>
 
-                <FileCreateMenu />
+                <FileCreateMenu navigate />
               </MenuTrigger>
             </div>
 
