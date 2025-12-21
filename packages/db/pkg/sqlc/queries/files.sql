@@ -4,14 +4,21 @@
 
 -- name: GetFile :one
 -- Get a single file by ID
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE id = ?;
 
 -- name: CreateFile :exec
 -- Create a new file
-INSERT INTO files (id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO files (id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: FindFileByPathHash :one
+-- Find a file by its path hash and workspace ID
+SELECT id
+FROM files
+WHERE workspace_id = ? AND path_hash = ?
+LIMIT 1;
 
 -- name: UpdateFile :exec
 -- Update an existing file
@@ -25,33 +32,33 @@ DELETE FROM files WHERE id = ?;
 
 -- name: GetFilesByWorkspaceID :many
 -- Get all files in a workspace (unordered)
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE workspace_id = ?;
 
 -- name: GetFilesByWorkspaceIDOrdered :many
 -- Get all files in a workspace ordered by display_order
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE workspace_id = ?
 ORDER BY display_order, id;
 
 -- name: GetFilesByParentID :many
 -- Get all files directly under a parent (unordered)
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE parent_id = ?;
 
 -- name: GetFilesByParentIDOrdered :many
 -- Get all files directly under a parent ordered by display_order
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE parent_id = ?
 ORDER BY display_order, id;
 
 -- name: GetRootFilesByWorkspaceID :many
 -- Get root-level files (no parent folder) in a workspace ordered by display_order
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE workspace_id = ? AND parent_id IS NULL
 ORDER BY display_order, id;
@@ -64,7 +71,7 @@ WHERE id = ?;
 
 -- name: GetFileWithContent :one
 -- Get a file with its content (two-query pattern for union types)
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE id = ?;
 

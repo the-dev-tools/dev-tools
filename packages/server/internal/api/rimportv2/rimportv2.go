@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"sync"
 	"time"
 
 	"the-dev-tools/server/internal/api"
@@ -66,11 +67,12 @@ type ImportStreamers struct {
 
 // ImportV2RPC implements the Connect RPC interface for HAR import v2
 type ImportV2RPC struct {
-	db      *sql.DB
-	service *Service
-	Logger  *slog.Logger
-	ws      sworkspace.WorkspaceService
-	us      suser.UserService
+	db       *sql.DB
+	service  *Service
+	Logger   *slog.Logger
+	ws       sworkspace.WorkspaceService
+	us       suser.UserService
+	importMu sync.Mutex
 
 	// Streamers for real-time updates
 	FlowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
@@ -172,8 +174,8 @@ func NewImportV2RPC(
 
 // CreateImportV2Service creates the service registration for rimportv2
 // This follows the exact same pattern as rimport.CreateService function
-func CreateImportV2Service(srv ImportV2RPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := importv1connect.NewImportServiceHandler(&srv, options...)
+func CreateImportV2Service(srv *ImportV2RPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := importv1connect.NewImportServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
@@ -185,6 +187,9 @@ func (h *ImportV2RPC) ImportUnifiedInternal(ctx context.Context, req *ImportRequ
 // Import implements the Import RPC method from the TypeSpec interface
 // This method delegates to the internal service after proper validation and setup
 func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.ImportRequest]) (*connect.Response[apiv1.ImportResponse], error) {
+	h.importMu.Lock()
+	defer h.importMu.Unlock()
+
 	startTime := time.Now()
 
 	h.Logger.Info("Received ImportV2 RPC request",

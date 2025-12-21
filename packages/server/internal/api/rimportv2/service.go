@@ -95,7 +95,7 @@ type Importer interface {
 	StoreFlows(ctx context.Context, flows []*mflow.Flow) error
 	// Store complete import results atomically
 	StoreImportResults(ctx context.Context, results *ImportResults) error
-	StoreUnifiedResults(ctx context.Context, results *TranslationResult) error
+	StoreUnifiedResults(ctx context.Context, results *TranslationResult) (dedupFiles map[idwrap.IDWrap]bool, dedupHTTP map[idwrap.IDWrap]bool, err error)
 	// Store domain-to-variable mappings to all existing environments
 	// Returns created environments (if a default was created), created variables, and updated variables
 	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) (createdEnvs []menv.Env, createdVars []menv.Variable, updatedVars []menv.Variable, err error)
@@ -161,6 +161,10 @@ type ImportResults struct {
 	Domains     []string
 	WorkspaceID idwrap.IDWrap
 	MissingData ImportMissingDataKind
+
+	// Tracking for deduplication to prevent redundant sync events
+	DeduplicatedFiles   map[idwrap.IDWrap]bool
+	DeduplicatedHTTPReqs map[idwrap.IDWrap]bool
 }
 
 // ImportRequest represents the incoming import request with domain data
@@ -534,7 +538,8 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 
 	s.logger.Debug("ImportUnified: Storing results")
 	// Store all results atomically
-	if err := s.importer.StoreUnifiedResults(ctx, translationResult); err != nil {
+	dedupFiles, dedupHTTP, err := s.importer.StoreUnifiedResults(ctx, translationResult)
+	if err != nil {
 		s.logger.Error("Storage failed - unexpected internal error",
 			"workspace_id", req.WorkspaceID,
 			"format", translationResult.DetectedFormat,
@@ -545,7 +550,9 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 			"error", err)
 		return nil, fmt.Errorf("storage operation failed: %w", err)
 	}
-	s.logger.Debug("ImportUnified: Storage complete")
+	results.DeduplicatedFiles = dedupFiles
+	results.DeduplicatedHTTPReqs = dedupHTTP
+	s.logger.Debug("ImportUnified: Storage complete", "dedup_files", len(dedupFiles), "dedup_http", len(dedupHTTP))
 
 	s.logger.Info("Unified import completed successfully",
 		"workspace_id", req.WorkspaceID,
@@ -654,6 +661,8 @@ func buildImportResults(tr *TranslationResult, workspaceID idwrap.IDWrap) *Impor
 		Domains:            tr.Domains,
 		WorkspaceID:        workspaceID,
 		MissingData:        ImportMissingDataKind_UNSPECIFIED,
+		DeduplicatedFiles:   make(map[idwrap.IDWrap]bool),
+		DeduplicatedHTTPReqs: make(map[idwrap.IDWrap]bool),
 	}
 }
 

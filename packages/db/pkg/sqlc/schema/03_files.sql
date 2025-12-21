@@ -13,6 +13,7 @@ CREATE TABLE files (
   content_kind INT8 NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
   display_order REAL NOT NULL DEFAULT 0,
+  path_hash TEXT,
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   CHECK (length (id) == 16),
 	CHECK (content_kind IN (0, 1, 2, 3)), -- 0 = folder, 1 = http, 2 = flow, 3 = http_delta
@@ -29,6 +30,8 @@ CREATE TABLE files (
 
 -- Performance indexes for file system operations
 CREATE INDEX files_workspace_idx ON files (workspace_id);
+
+CREATE UNIQUE INDEX files_path_hash_idx ON files (workspace_id, path_hash) WHERE path_hash IS NOT NULL;
 
 CREATE INDEX files_hierarchy_idx ON files (
   workspace_id,

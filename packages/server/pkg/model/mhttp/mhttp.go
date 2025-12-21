@@ -14,6 +14,7 @@ type HTTP struct {
 	Method           string         `json:"method"`
 	Description      string         `json:"description"`
 	BodyKind         HttpBodyKind   `json:"body_kind"`
+	ContentHash      *string        `json:"content_hash,omitempty"`
 	ParentHttpID     *idwrap.IDWrap `json:"parent_http_id,omitempty"`
 	IsDelta          bool           `json:"is_delta"`
 	DeltaName        *string        `json:"delta_name,omitempty"`

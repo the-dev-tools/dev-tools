@@ -145,6 +145,20 @@ func (r *Reader) FindByURLAndMethod(ctx context.Context, workspaceID idwrap.IDWr
 	return ConvertToModelHTTP(http), nil
 }
 
+func (r *Reader) FindHTTPByContentHash(ctx context.Context, workspaceID idwrap.IDWrap, contentHash string) (idwrap.IDWrap, error) {
+	id, err := r.queries.FindHTTPByContentHash(ctx, gen.FindHTTPByContentHashParams{
+		WorkspaceID: workspaceID,
+		ContentHash: sql.NullString{String: contentHash, Valid: true},
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return idwrap.IDWrap{}, ErrNoHTTPFound
+		}
+		return idwrap.IDWrap{}, err
+	}
+	return id, nil
+}
+
 func (r *Reader) CheckUserBelongsToHttp(ctx context.Context, httpID, userID idwrap.IDWrap) (bool, error) {
 	workspaceID, err := r.GetWorkspaceID(ctx, httpID)
 	if err != nil {

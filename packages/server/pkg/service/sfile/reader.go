@@ -144,6 +144,23 @@ func (r *Reader) GetWorkspaceID(ctx context.Context, fileID idwrap.IDWrap) (idwr
 	return workspaceID, nil
 }
 
+func (r *Reader) FindFileByPathHash(ctx context.Context, workspaceID idwrap.IDWrap, pathHash string) (idwrap.IDWrap, error) {
+	r.logger.Debug("Finding file by path hash", "workspace_id", workspaceID.String(), "path_hash", pathHash)
+
+	id, err := r.queries.FindFileByPathHash(ctx, gen.FindFileByPathHashParams{
+		WorkspaceID: workspaceID,
+		PathHash:    sql.NullString{String: pathHash, Valid: true},
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return idwrap.IDWrap{}, ErrFileNotFound
+		}
+		return idwrap.IDWrap{}, fmt.Errorf("failed to find file by path hash: %w", err)
+	}
+
+	return id, nil
+}
+
 func (r *Reader) CheckWorkspaceID(ctx context.Context, fileID, workspaceID idwrap.IDWrap) (bool, error) {
 	fileWorkspaceID, err := r.GetWorkspaceID(ctx, fileID)
 	if err != nil {

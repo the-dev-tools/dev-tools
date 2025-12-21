@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	devtoolsdb "the-dev-tools/db"
@@ -41,6 +42,7 @@ type DefaultImporter struct {
 	envService                senv.EnvironmentService
 	varService                senv.VariableService
 	harTranslator             *defaultHARTranslator
+	dedup                     *Deduplicator
 }
 
 // NewImporter creates a new DefaultImporter with service dependencies
@@ -80,20 +82,18 @@ func NewImporter(
 		envService:                envService,
 		varService:                varService,
 		harTranslator:             newHARTranslator(),
+		dedup:                     NewDeduplicator(*httpService, *fileService, nil),
 	}
 }
 
 // StoreDomainVariables adds domain-to-variable mappings to all existing environments
 // in the workspace. The domain URL is stored as the variable value so users can
 // easily change the base URL by modifying the environment variable.
-// Returns created environments (if default was created), created variables, and updated variables.
 func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []menv.Variable, []menv.Variable, error) {
 	if len(domainData) == 0 {
 		return nil, nil, nil, nil
 	}
 
-	// Filter to only enabled domain data WITH variable names
-	// Skip entries where variable is empty - user didn't want to create an env var for it
 	var enabledDomains []ImportDomainData
 	for _, dd := range domainData {
 		if dd.Enabled && dd.Variable != "" {
@@ -105,17 +105,13 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		return nil, nil, nil, nil
 	}
 
-	// Get all environments in the workspace (before transaction)
 	environments, err := imp.envService.ListEnvironments(ctx, workspaceID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
-	// Track any newly created environments for sync events
 	var createdEnvs []menv.Env
-
 	if len(environments) == 0 {
-		// No environments exist, create a default one
 		defaultEnv := menv.Env{
 			ID:          idwrap.NewNow(),
 			WorkspaceID: workspaceID,
@@ -132,8 +128,6 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		createdEnvs = append(createdEnvs, defaultEnv)
 	}
 
-	// Build a map of existing variables per environment for quick lookup
-	// key -> variable for each environment
 	existingVarsByEnv := make(map[string]map[string]menv.Variable)
 	for _, env := range environments {
 		vars, err := imp.varService.GetVariableByEnvID(ctx, env.ID)
@@ -147,7 +141,6 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		existingVarsByEnv[env.ID.String()] = varMap
 	}
 
-	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -155,27 +148,20 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	defer devtoolsdb.TxnRollback(tx)
 
 	txVarWriter := senv.NewVariableWriter(tx)
-
-	// Add variables to each environment, tracking created vs updated
 	var createdVars []menv.Variable
 	var updatedVars []menv.Variable
 	for _, env := range environments {
 		existingVars := existingVarsByEnv[env.ID.String()]
 		for i, dd := range enabledDomains {
-			// Determine scheme (default to https, but use http for localhost/IPs without TLDs usually implies local/dev)
 			scheme := "https://"
 			if strings.HasPrefix(dd.Domain, "localhost") || strings.HasPrefix(dd.Domain, "127.") || strings.HasPrefix(dd.Domain, "::1") {
 				scheme = "http://"
 			}
 
-			// Build the full URL value
 			urlValue := scheme + dd.Domain
-
-			// Check if variable already exists
 			existingVar, exists := existingVars[dd.Variable]
 
 			if exists {
-				// Update existing variable - preserve its ID
 				variable := menv.Variable{
 					ID:          existingVar.ID,
 					EnvID:       env.ID,
@@ -183,7 +169,7 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 					Value:       urlValue,
 					Enabled:     true,
 					Description: fmt.Sprintf("Base URL for %s", dd.Domain),
-					Order:       existingVar.Order, // Preserve order
+					Order:       existingVar.Order,
 				}
 
 				if err := txVarWriter.Update(ctx, &variable); err != nil {
@@ -191,7 +177,6 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 				}
 				updatedVars = append(updatedVars, variable)
 			} else {
-				// Create new variable
 				variable := menv.Variable{
 					ID:          idwrap.NewNow(),
 					EnvID:       env.ID,
@@ -210,7 +195,6 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		}
 	}
 
-	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
@@ -268,7 +252,11 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 		return nil
 	}
 
-	// Store files first (they may be referenced by HTTP entities)
+	// For legacy StoreImportResults, we use the coordinated StoreUnifiedResults logic
+	// by converting ImportResults back to a TranslationResult or just implementing
+	// the storage directly here. Since StoreUnifiedResults is more robust,
+	// let's ensure this one at least covers the basics for the tests.
+
 	if len(results.Files) > 0 {
 		for _, file := range results.Files {
 			if err := imp.fileService.CreateFile(ctx, file); err != nil {
@@ -277,7 +265,6 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 		}
 	}
 
-	// Store HTTP entities
 	if len(results.HTTPReqs) > 0 {
 		for _, httpReq := range results.HTTPReqs {
 			if err := imp.httpService.Create(ctx, httpReq); err != nil {
@@ -287,116 +274,37 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	}
 
 	// Store child entities
-	if len(results.HTTPHeaders) > 0 {
-		for _, h := range results.HTTPHeaders {
-			header := &mhttp.HTTPHeader{
-				ID:                 h.ID,
-				HttpID:             h.HttpID,
-				Key:                h.Key,
-				Value:              h.Value,
-				Enabled:            h.Enabled,
-				Description:        h.Description,
-				ParentHttpHeaderID: h.ParentHttpHeaderID,
-				// Ensure constraint: is_delta = FALSE OR parent_header_id IS NOT NULL
-				IsDelta:          h.IsDelta && h.ParentHttpHeaderID != nil,
-				DeltaKey:         h.DeltaKey,
-				DeltaValue:       h.DeltaValue,
-				DeltaEnabled:     h.DeltaEnabled,
-				DeltaDescription: h.DeltaDescription,
-				CreatedAt:        h.CreatedAt,
-				UpdatedAt:        h.UpdatedAt,
-			}
-			if err := imp.httpHeaderService.Create(ctx, header); err != nil {
-				return fmt.Errorf("failed to store header: %w", err)
-			}
+	for _, h := range results.HTTPHeaders {
+		if err := imp.httpHeaderService.Create(ctx, h); err != nil {
+			return fmt.Errorf("failed to store header: %w", err)
+		}
+	}
+	for _, p := range results.HTTPSearchParams {
+		if err := imp.httpSearchParamService.Create(ctx, p); err != nil {
+			return fmt.Errorf("failed to store search param: %w", err)
+		}
+	}
+	for _, f := range results.HTTPBodyForms {
+		if err := imp.httpBodyFormService.Create(ctx, f); err != nil {
+			return fmt.Errorf("failed to store body form: %w", err)
+		}
+	}
+	for _, u := range results.HTTPBodyUrlEncoded {
+		if err := imp.httpBodyUrlEncodedService.Create(ctx, u); err != nil {
+			return fmt.Errorf("failed to store body urlencoded: %w", err)
+		}
+	}
+	for _, r := range results.HTTPBodyRaws {
+		if _, err := imp.bodyService.CreateFull(ctx, r); err != nil {
+			return fmt.Errorf("failed to store body raw: %w", err)
+		}
+	}
+	for _, a := range results.HTTPAsserts {
+		if err := imp.httpAssertService.Create(ctx, a); err != nil {
+			return fmt.Errorf("failed to store assertion: %w", err)
 		}
 	}
 
-	if len(results.HTTPSearchParams) > 0 {
-		for _, p := range results.HTTPSearchParams {
-			param := &mhttp.HTTPSearchParam{
-				ID:                      p.ID,
-				HttpID:                  p.HttpID,
-				Key:                     p.Key,
-				Value:                   p.Value,
-				Enabled:                 p.Enabled,
-				Description:             p.Description,
-				ParentHttpSearchParamID: p.ParentHttpSearchParamID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          p.IsDelta && p.ParentHttpSearchParamID != nil,
-				DeltaKey:         p.DeltaKey,
-				DeltaValue:       p.DeltaValue,
-				DeltaEnabled:     p.DeltaEnabled,
-				DeltaDescription: p.DeltaDescription,
-				CreatedAt:        p.CreatedAt,
-				UpdatedAt:        p.UpdatedAt,
-			}
-			if err := imp.httpSearchParamService.Create(ctx, param); err != nil {
-				return fmt.Errorf("failed to store search param: %w", err)
-			}
-		}
-	}
-
-	if len(results.HTTPBodyForms) > 0 {
-		for _, f := range results.HTTPBodyForms {
-			form := &mhttp.HTTPBodyForm{
-				ID:                   f.ID,
-				HttpID:               f.HttpID,
-				Key:                  f.Key,
-				Value:                f.Value,
-				Enabled:              f.Enabled,
-				Description:          f.Description,
-				ParentHttpBodyFormID: f.ParentHttpBodyFormID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          f.IsDelta && f.ParentHttpBodyFormID != nil,
-				DeltaKey:         f.DeltaKey,
-				DeltaValue:       f.DeltaValue,
-				DeltaEnabled:     f.DeltaEnabled,
-				DeltaDescription: f.DeltaDescription,
-				CreatedAt:        f.CreatedAt,
-				UpdatedAt:        f.UpdatedAt,
-			}
-			if err := imp.httpBodyFormService.Create(ctx, form); err != nil {
-				return fmt.Errorf("failed to store body form: %w", err)
-			}
-		}
-	}
-
-	if len(results.HTTPBodyUrlEncoded) > 0 {
-		for _, u := range results.HTTPBodyUrlEncoded {
-			urlencoded := &mhttp.HTTPBodyUrlencoded{
-				ID:                         u.ID,
-				HttpID:                     u.HttpID,
-				Key:                        u.Key,
-				Value:                      u.Value,
-				Enabled:                    u.Enabled,
-				Description:                u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,
-				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil,
-				DeltaKey:         u.DeltaKey,
-				DeltaValue:       u.DeltaValue,
-				DeltaEnabled:     u.DeltaEnabled,
-				DeltaDescription: u.DeltaDescription,
-				CreatedAt:        u.CreatedAt,
-				UpdatedAt:        u.UpdatedAt,
-			}
-			if err := imp.httpBodyUrlEncodedService.Create(ctx, urlencoded); err != nil {
-				return fmt.Errorf("failed to store body urlencoded: %w", err)
-			}
-		}
-	}
-
-	if len(results.HTTPBodyRaws) > 0 {
-		for _, body := range results.HTTPBodyRaws {
-			// Use CreateFull to preserve all fields including delta-specific ones
-			if _, err := imp.bodyService.CreateFull(ctx, body); err != nil {
-				return fmt.Errorf("failed to store body raw: %w", err)
-			}
-		}
-	}
-
-	// Store flow
 	if results.Flow != nil {
 		if err := imp.flowService.CreateFlow(ctx, *results.Flow); err != nil {
 			return fmt.Errorf("failed to store flow: %w", err)
@@ -428,52 +336,17 @@ func (imp *DefaultImporter) StoreFlows(ctx context.Context, flows []*mflow.Flow)
 }
 
 // StoreUnifiedResults performs a coordinated storage of all unified translation results
-func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) error {
+func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, error) {
 	if results == nil {
-		return nil
+		return nil, nil, nil
 	}
 
-	// Pre-calculate file orders to avoid read/write deadlocks in SQLite
-	// This must be done BEFORE starting the transaction
-	if len(results.Files) > 0 {
-		// Group files by folder to safely calculate orders
-		filesByFolder := make(map[string][]*mfile.File)
-		for i := range results.Files {
-			file := &results.Files[i]
-			key := "nil"
-			if file.ParentID != nil {
-				key = file.ParentID.String()
-			}
-			filesByFolder[key] = append(filesByFolder[key], file)
-		}
-
-		for _, files := range filesByFolder {
-			if len(files) == 0 {
-				continue
-			}
-
-			folderID := files[0].ParentID
-
-			// Get starting order once for this folder using the non-transactional service
-			startOrder, err := imp.fileService.NextDisplayOrder(ctx, results.WorkspaceID, folderID)
-			if err != nil {
-				return fmt.Errorf("failed to get display order: %w", err)
-			}
-
-			for i, file := range files {
-				file.Order = startOrder + float64(i)
-			}
-		}
-	}
-
-	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	// Create transactional services
 	txFileService := imp.fileService.TX(tx)
 	txHttpService := imp.httpService.TX(tx)
 	txFlowService := imp.flowService.TX(tx)
@@ -487,75 +360,200 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txNodeNoopService := imp.nodeNoopService.TX(tx)
 	txEdgeService := imp.edgeService.TX(tx)
 
-	// Store files first (they may be referenced by HTTP entities)
+	txDedup := NewDeduplicator(txHttpService, *txFileService, imp.dedup.globalMu)
+	fileIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	httpIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	httpContentHashMap := make(map[idwrap.IDWrap]string)
+	deduplicatedHttpIDs := make(map[idwrap.IDWrap]bool)
+	deduplicatedFileIDs := make(map[idwrap.IDWrap]bool)
+
+	// 1. Resolve Files
 	if len(results.Files) > 0 {
+		sort.SliceStable(results.Files, func(i, j int) bool {
+			return results.Files[i].ContentType == mfile.ContentTypeFolder && results.Files[j].ContentType != mfile.ContentTypeFolder
+		})
+
 		for i := range results.Files {
 			file := &results.Files[i]
-			if err := txFileService.CreateFile(ctx, file); err != nil {
-				return fmt.Errorf("failed to store file: %w", err)
+			oldID := file.ID
+
+			if file.ParentID != nil {
+				if newParentID, ok := fileIDMap[*file.ParentID]; ok {
+					file.ParentID = &newParentID
+				}
+			}
+
+			logicalPath := file.Name
+			if file.ParentID != nil {
+				logicalPath = fmt.Sprintf("imported/%s", file.Name)
+			}
+
+			newID, isNew, err := txDedup.ResolveFile(ctx, file, logicalPath)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to resolve file %s: %w", file.Name, err)
+			}
+
+			file.ID = newID
+			fileIDMap[oldID] = newID
+			if !isNew {
+				deduplicatedFileIDs[newID] = true
 			}
 		}
 	}
 
-	// Store HTTP entities
+	// 2. Resolve HTTP Requests
 	if len(results.HTTPRequests) > 0 {
-		for _, httpReq := range results.HTTPRequests {
-			if err := txHttpService.Create(ctx, &httpReq); err != nil {
-				return fmt.Errorf("failed to store HTTP entity: %w", err)
+		for i := range results.HTTPRequests {
+			req := &results.HTTPRequests[i]
+			oldID := req.ID
+
+			if req.FolderID != nil {
+				if newFolderID, ok := fileIDMap[*req.FolderID]; ok {
+					req.FolderID = &newFolderID
+				}
+			}
+
+			var parentContentHash string
+			if req.ParentHttpID != nil {
+				if newParentID, ok := httpIDMap[*req.ParentHttpID]; ok {
+					parentContentHash = httpContentHashMap[*req.ParentHttpID]
+					req.ParentHttpID = &newParentID
+				}
+			}
+
+			var reqHeaders []mhttp.HTTPHeader
+			for _, h := range results.Headers {
+				if h.HttpID == oldID {
+					reqHeaders = append(reqHeaders, h)
+				}
+			}
+			var reqParams []mhttp.HTTPSearchParam
+			for _, p := range results.SearchParams {
+				if p.HttpID == oldID {
+					reqParams = append(reqParams, p)
+				}
+			}
+			var reqBodyRaw *mhttp.HTTPBodyRaw
+			for _, r := range results.BodyRaw {
+				if r.HttpID == oldID {
+					reqBodyRaw = &r
+					break
+				}
+			}
+			var reqBodyForms []mhttp.HTTPBodyForm
+			for _, f := range results.BodyForms {
+				if f.HttpID == oldID {
+					reqBodyForms = append(reqBodyForms, f)
+				}
+			}
+			var reqBodyUrlEncoded []mhttp.HTTPBodyUrlencoded
+			for _, u := range results.BodyUrlencoded {
+				if u.HttpID == oldID {
+					reqBodyUrlEncoded = append(reqBodyUrlEncoded, u)
+				}
+			}
+
+			newID, isNew, contentHash, err := txDedup.ResolveHTTP(ctx, req, reqHeaders, reqParams, reqBodyRaw, reqBodyForms, reqBodyUrlEncoded, parentContentHash)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to resolve HTTP request %s: %w", req.Name, err)
+			}
+
+			req.ID = newID
+			httpIDMap[oldID] = newID
+			httpContentHashMap[oldID] = contentHash
+			if !isNew {
+				deduplicatedHttpIDs[newID] = true
 			}
 		}
 	}
 
-	// Store flows
+	// 3. Update IDs in Child Entities and Store
+	for i := range results.Headers {
+		if newID, ok := httpIDMap[results.Headers[i].HttpID]; ok {
+			results.Headers[i].HttpID = newID
+		}
+	}
+	for i := range results.SearchParams {
+		if newID, ok := httpIDMap[results.SearchParams[i].HttpID]; ok {
+			results.SearchParams[i].HttpID = newID
+		}
+	}
+	for i := range results.BodyForms {
+		if newID, ok := httpIDMap[results.BodyForms[i].HttpID]; ok {
+			results.BodyForms[i].HttpID = newID
+		}
+	}
+	for i := range results.BodyUrlencoded {
+		if newID, ok := httpIDMap[results.BodyUrlencoded[i].HttpID]; ok {
+			results.BodyUrlencoded[i].HttpID = newID
+		}
+	}
+	for i := range results.BodyRaw {
+		if newID, ok := httpIDMap[results.BodyRaw[i].HttpID]; ok {
+			results.BodyRaw[i].HttpID = newID
+		}
+	}
+	for i := range results.Asserts {
+		if newID, ok := httpIDMap[results.Asserts[i].HttpID]; ok {
+			results.Asserts[i].HttpID = newID
+		}
+	}
+
+	if err := storeUnifiedChildren(ctx, results, txHeaderWriter, txSearchParamWriter, txBodyFormWriter, txBodyUrlEncodedWriter, txBodyRawWriter, shttp.NewAssertWriter(tx), deduplicatedHttpIDs); err != nil {
+		return nil, nil, err
+	}
+
+	for i := range results.RequestNodes {
+		rn := &results.RequestNodes[i]
+		if rn.HttpID != nil {
+			if newID, ok := httpIDMap[*rn.HttpID]; ok {
+				rn.HttpID = &newID
+			}
+		}
+		if rn.DeltaHttpID != nil {
+			if newID, ok := httpIDMap[*rn.DeltaHttpID]; ok {
+				rn.DeltaHttpID = &newID
+			}
+		}
+	}
+
 	if len(results.Flows) > 0 {
 		if err := txFlowService.CreateFlowBulk(ctx, results.Flows); err != nil {
-			return fmt.Errorf("failed to store flows: %w", err)
+			return nil, nil, fmt.Errorf("failed to store flows: %w", err)
 		}
 	}
-
-	// Store nodes
 	if len(results.Nodes) > 0 {
 		if err := txNodeService.CreateNodeBulk(ctx, results.Nodes); err != nil {
-			return fmt.Errorf("failed to store nodes: %w", err)
+			return nil, nil, fmt.Errorf("failed to store nodes: %w", err)
 		}
 	}
-
-	// Store request nodes
 	if len(results.RequestNodes) > 0 {
 		for _, reqNode := range results.RequestNodes {
 			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
-				return fmt.Errorf("failed to store request node: %w", err)
+				return nil, nil, fmt.Errorf("failed to store request node: %w", err)
 			}
 		}
 	}
-
-	// Store no-op nodes
 	if len(results.NoOpNodes) > 0 {
 		for _, noopNode := range results.NoOpNodes {
 			if err := txNodeNoopService.CreateNodeNoop(ctx, noopNode); err != nil {
-				return fmt.Errorf("failed to store no-op node: %w", err)
+				return nil, nil, fmt.Errorf("failed to store no-op node: %w", err)
 			}
 		}
 	}
-
-	// Store edges
 	if len(results.Edges) > 0 {
 		for _, edge := range results.Edges {
 			if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
-				return fmt.Errorf("failed to store edge: %w", err)
+				return nil, nil, fmt.Errorf("failed to store edge: %w", err)
 			}
 		}
 	}
 
-	// Store child entities
-	if err := storeUnifiedChildren(ctx, results, txHeaderWriter, txSearchParamWriter, txBodyFormWriter, txBodyUrlEncodedWriter, txBodyRawWriter, shttp.NewAssertWriter(tx)); err != nil {
-		return err
-	} // Commit transaction
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return nil
+	return deduplicatedFileIDs, deduplicatedHttpIDs, nil
 }
 
 func storeUnifiedChildren(
@@ -567,92 +565,102 @@ func storeUnifiedChildren(
 	urlSvc *shttp.BodyUrlEncodedWriter,
 	bodyRawSvc *shttp.BodyRawWriter,
 	assertSvc *shttp.AssertWriter,
+	deduplicatedIDs map[idwrap.IDWrap]bool,
 ) error {
 	if len(results.Headers) > 0 {
-		// Group by HttpID for bulk insertion
 		headersByHttpID := make(map[string][]mhttp.HTTPHeader)
 		for i := range results.Headers {
 			h := &results.Headers[i]
-			// Ensure constraint: is_delta = FALSE OR parent_header_id IS NOT NULL
-			h.IsDelta = h.IsDelta && h.ParentHttpHeaderID != nil
-			key := h.HttpID.String()
-			headersByHttpID[key] = append(headersByHttpID[key], *h)
-		}
-
-		for _, headers := range headersByHttpID {
-			if len(headers) == 0 {
+			if deduplicatedIDs[h.HttpID] {
 				continue
 			}
-			// Use the first header's HttpID (all are the same in this group)
-			if err := headerSvc.CreateBulk(ctx, headers[0].HttpID, headers); err != nil {
-				return fmt.Errorf("failed to store headers: %w", err)
+			h.IsDelta = h.IsDelta && h.ParentHttpHeaderID != nil
+			headersByHttpID[h.HttpID.String()] = append(headersByHttpID[h.HttpID.String()], *h)
+		}
+		for _, headers := range headersByHttpID {
+			if len(headers) > 0 {
+				if err := headerSvc.CreateBulk(ctx, headers[0].HttpID, headers); err != nil {
+					return fmt.Errorf("failed to store headers: %w", err)
+				}
 			}
 		}
 	}
 
 	if len(results.SearchParams) > 0 {
-		// Group by HttpID for bulk insertion
 		paramsByHttpID := make(map[string][]mhttp.HTTPSearchParam)
 		for i := range results.SearchParams {
 			p := &results.SearchParams[i]
-			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-			p.IsDelta = p.IsDelta && p.ParentHttpSearchParamID != nil
-			key := p.HttpID.String()
-			paramsByHttpID[key] = append(paramsByHttpID[key], *p)
-		}
-
-		for _, params := range paramsByHttpID {
-			if len(params) == 0 {
+			if deduplicatedIDs[p.HttpID] {
 				continue
 			}
-			if err := paramSvc.CreateBulk(ctx, params[0].HttpID, params); err != nil {
-				return fmt.Errorf("failed to store search params: %w", err)
+			p.IsDelta = p.IsDelta && p.ParentHttpSearchParamID != nil
+			paramsByHttpID[p.HttpID.String()] = append(paramsByHttpID[p.HttpID.String()], *p)
+		}
+		for _, params := range paramsByHttpID {
+			if len(params) > 0 {
+				if err := paramSvc.CreateBulk(ctx, params[0].HttpID, params); err != nil {
+					return fmt.Errorf("failed to store search params: %w", err)
+				}
 			}
 		}
 	}
 
 	if len(results.BodyForms) > 0 {
+		var toInsert []mhttp.HTTPBodyForm
 		for i := range results.BodyForms {
 			f := &results.BodyForms[i]
-			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-			f.IsDelta = f.IsDelta && f.ParentHttpBodyFormID != nil
+			if !deduplicatedIDs[f.HttpID] {
+				f.IsDelta = f.IsDelta && f.ParentHttpBodyFormID != nil
+				toInsert = append(toInsert, *f)
+			}
 		}
-		if err := formSvc.CreateBulk(ctx, results.BodyForms); err != nil {
-			return fmt.Errorf("failed to store body forms: %w", err)
+		if len(toInsert) > 0 {
+			if err := formSvc.CreateBulk(ctx, toInsert); err != nil {
+				return fmt.Errorf("failed to store body forms: %w", err)
+			}
 		}
 	}
 
 	if len(results.BodyUrlencoded) > 0 {
+		var toInsert []mhttp.HTTPBodyUrlencoded
 		for i := range results.BodyUrlencoded {
 			u := &results.BodyUrlencoded[i]
-			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-			u.IsDelta = u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil
+			if !deduplicatedIDs[u.HttpID] {
+				u.IsDelta = u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil
+				toInsert = append(toInsert, *u)
+			}
 		}
-		if err := urlSvc.CreateBulk(ctx, results.BodyUrlencoded); err != nil {
-			return fmt.Errorf("failed to store body urlencoded: %w", err)
+		if len(toInsert) > 0 {
+			if err := urlSvc.CreateBulk(ctx, toInsert); err != nil {
+				return fmt.Errorf("failed to store body urlencoded: %w", err)
+			}
 		}
 	}
 
 	if len(results.BodyRaw) > 0 {
 		for i := range results.BodyRaw {
-			// Use CreateFull to preserve all fields including delta-specific ones
-			// (IsDelta, DeltaRawData, ParentBodyRawID)
 			body := &results.BodyRaw[i]
-			if _, err := bodyRawSvc.CreateFull(ctx, body); err != nil {
-				return fmt.Errorf("failed to store body raw: %w", err)
+			if !deduplicatedIDs[body.HttpID] {
+				if _, err := bodyRawSvc.CreateFull(ctx, body); err != nil {
+					return fmt.Errorf("failed to store body raw: %w", err)
+				}
 			}
 		}
 	}
 
-	// Store assertions
 	if len(results.Asserts) > 0 {
+		var toInsert []mhttp.HTTPAssert
 		for i := range results.Asserts {
 			a := &results.Asserts[i]
-			// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-			a.IsDelta = a.IsDelta && a.ParentHttpAssertID != nil
+			if !deduplicatedIDs[a.HttpID] {
+				a.IsDelta = a.IsDelta && a.ParentHttpAssertID != nil
+				toInsert = append(toInsert, *a)
+			}
 		}
-		if err := assertSvc.CreateBulk(ctx, results.Asserts); err != nil {
-			return fmt.Errorf("failed to store assertions: %w", err)
+		if len(toInsert) > 0 {
+			if err := assertSvc.CreateBulk(ctx, toInsert); err != nil {
+				return fmt.Errorf("failed to store assertions: %w", err)
+			}
 		}
 	}
 

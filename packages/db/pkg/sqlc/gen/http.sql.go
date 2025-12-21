@@ -17,10 +17,10 @@ import (
 const createHTTP = `-- name: CreateHTTP :exec
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,
-  parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_body_kind, delta_description,
-  last_run_at, created_at, updated_at
+  content_hash, parent_http_id, is_delta, delta_name, delta_url, delta_method,
+  delta_body_kind, delta_description, last_run_at, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPParams struct {
@@ -32,6 +32,7 @@ type CreateHTTPParams struct {
 	Method           string
 	BodyKind         int8
 	Description      string
+	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string
@@ -54,6 +55,7 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 		arg.Method,
 		arg.BodyKind,
 		arg.Description,
+		arg.ContentHash,
 		arg.ParentHttpID,
 		arg.IsDelta,
 		arg.DeltaName,
@@ -1664,6 +1666,26 @@ func (q *Queries) DeleteHTTPSearchParam(ctx context.Context, id idwrap.IDWrap) e
 	return err
 }
 
+const findHTTPByContentHash = `-- name: FindHTTPByContentHash :one
+SELECT id
+FROM http
+WHERE workspace_id = ? AND content_hash = ?
+LIMIT 1
+`
+
+type FindHTTPByContentHashParams struct {
+	WorkspaceID idwrap.IDWrap
+	ContentHash sql.NullString
+}
+
+// Find existing HTTP request by content hash for deduplication
+func (q *Queries) FindHTTPByContentHash(ctx context.Context, arg FindHTTPByContentHashParams) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.findHTTPByContentHashStmt, findHTTPByContentHash, arg.WorkspaceID, arg.ContentHash)
+	var id idwrap.IDWrap
+	err := row.Scan(&id)
+	return id, err
+}
+
 const findHTTPByURLAndMethod = `-- name: FindHTTPByURLAndMethod :one
 SELECT
   id,
@@ -1674,6 +1696,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -1711,6 +1734,7 @@ func (q *Queries) FindHTTPByURLAndMethod(ctx context.Context, arg FindHTTPByURLA
 		&i.Method,
 		&i.BodyKind,
 		&i.Description,
+		&i.ContentHash,
 		&i.ParentHttpID,
 		&i.IsDelta,
 		&i.DeltaName,
@@ -1745,7 +1769,7 @@ SELECT
   body_kind,
 
   description,
-
+  content_hash,
   parent_http_id,
 
   is_delta,
@@ -1784,6 +1808,7 @@ func (q *Queries) GetHTTP(ctx context.Context, id idwrap.IDWrap) (Http, error) {
 		&i.Method,
 		&i.BodyKind,
 		&i.Description,
+		&i.ContentHash,
 		&i.ParentHttpID,
 		&i.IsDelta,
 		&i.DeltaName,
@@ -2614,6 +2639,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -2637,6 +2663,7 @@ type GetHTTPDeltasByParentIDRow struct {
 	Method           string
 	BodyKind         int8
 	Description      string
+	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string
@@ -2666,6 +2693,7 @@ func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idw
 			&i.Method,
 			&i.BodyKind,
 			&i.Description,
+			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
@@ -2699,6 +2727,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -2732,6 +2761,7 @@ func (q *Queries) GetHTTPDeltasByWorkspaceID(ctx context.Context, workspaceID id
 			&i.Method,
 			&i.BodyKind,
 			&i.Description,
+			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
@@ -4160,6 +4190,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -4183,6 +4214,7 @@ type GetHTTPsByFolderIDRow struct {
 	Method           string
 	BodyKind         int8
 	Description      string
+	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string
@@ -4212,6 +4244,7 @@ func (q *Queries) GetHTTPsByFolderID(ctx context.Context, folderID *idwrap.IDWra
 			&i.Method,
 			&i.BodyKind,
 			&i.Description,
+			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
@@ -4245,6 +4278,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -4267,6 +4301,7 @@ type GetHTTPsByIDsRow struct {
 	Method           string
 	BodyKind         int8
 	Description      string
+	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string
@@ -4306,6 +4341,7 @@ func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]Get
 			&i.Method,
 			&i.BodyKind,
 			&i.Description,
+			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
@@ -4339,6 +4375,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -4372,6 +4409,7 @@ func (q *Queries) GetHTTPsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.Method,
 			&i.BodyKind,
 			&i.Description,
+			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
@@ -4465,6 +4503,7 @@ WITH RECURSIVE delta_chain AS (
     h.method,
     h.body_kind,
     h.description,
+    h.content_hash,
     h.parent_http_id,
     h.is_delta,
     h.delta_name,
@@ -4490,6 +4529,7 @@ WITH RECURSIVE delta_chain AS (
     COALESCE(h.delta_method, dc.method, dc.method) as method,
     COALESCE(h.delta_body_kind, dc.body_kind, dc.body_kind) as body_kind,
     COALESCE(h.delta_description, dc.description, dc.description) as description,
+    COALESCE(h.content_hash, dc.content_hash, dc.content_hash) as content_hash,
     h.parent_http_id,
     h.is_delta,
     h.delta_name,
@@ -4514,6 +4554,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -4542,6 +4583,7 @@ type ResolveHTTPWithDeltasRow struct {
 	Method           string
 	BodyKind         int8
 	Description      string
+	ContentHash      sql.NullString
 	ParentHttpID     []byte
 	IsDelta          bool
 	DeltaName        interface{}
@@ -4568,6 +4610,7 @@ func (q *Queries) ResolveHTTPWithDeltas(ctx context.Context, arg ResolveHTTPWith
 		&i.Method,
 		&i.BodyKind,
 		&i.Description,
+		&i.ContentHash,
 		&i.ParentHttpID,
 		&i.IsDelta,
 		&i.DeltaName,
