@@ -45,6 +45,7 @@ type File struct {
 	ContentType ContentType    // Type of content
 	Name        string
 	Order       float64
+	PathHash    *string
 	UpdatedAt   time.Time
 }
 

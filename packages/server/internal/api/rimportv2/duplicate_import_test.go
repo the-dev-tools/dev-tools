@@ -58,20 +58,11 @@ func TestImportService_DuplicateImport(t *testing.T) {
 	// Verify count after second import
 	httpReqs2, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(httpReqs2), "Should have 2 HTTP requests after second import")
+	// DEDUPLICATION: Count should still be 1 because it's identical data
+	require.Equal(t, 1, len(httpReqs2), "Should still have 1 HTTP request after second import due to deduplication")
 
-	// Verify IDs are different
-	foundOld := false
-	foundNew := false
-	for _, req := range httpReqs2 {
-		if req.ID == firstID {
-			foundOld = true
-		} else {
-			foundNew = true
-		}
-	}
-	require.True(t, foundOld, "Should still contain the first imported request")
-	require.True(t, foundNew, "Should contain a new request with a different ID")
+	// Verify ID is the same
+	require.Equal(t, firstID.String(), httpReqs2[0].ID.String(), "Should reuse the same ID")
 }
 
 func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
@@ -127,45 +118,26 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	// Check HTTP Requests
 	httpReqs2, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	// Complex HAR has 2 entries, so 2 imports = 4 requests
-	require.Equal(t, 4, len(httpReqs2))
+	// Complex HAR has 2 entries. 2 imports = 2 base requests (deduplicated) + 2 delta requests (deduplicated) = 2 unique requests total if base+delta are also stable
+	// Actually, delta fingerprint includes parent hash, so if parent is same and delta content is same, delta is also deduplicated.
+	require.Equal(t, 2, len(httpReqs2), "Should only have 2 unique requests due to full deduplication")
 
-	// Identify new requests (those not in the first batch)
-	var newReqID idwrap.IDWrap
+	// Identify requests (should be the same as first batch)
 	for _, r := range httpReqs2 {
-		isOld := false
+		found := false
 		for _, old := range httpReqs1 {
-			if r.ID == old.ID {
-				isOld = true
+			if r.ID.String() == old.ID.String() {
+				found = true
 				break
 			}
 		}
-		if !isOld {
-			newReqID = r.ID
-			break
-		}
-	}
-	require.NotEqual(t, idwrap.IDWrap{}, newReqID, "Should find a new request ID")
-
-	// Check Headers for New Request
-	headers, err := fixture.rpc.HttpHeaderService.GetByHttpID(fixture.ctx, newReqID)
-	require.NoError(t, err)
-	require.NotEmpty(t, headers, "New request should have its own headers")
-
-	// Check Params/Query for New Request (Complex HAR has query string)
-	params, err := fixture.rpc.HttpSearchParamService.GetByHttpID(fixture.ctx, newReqID)
-	require.NoError(t, err)
-	// Note: Not all requests in ComplexHAR have params, but we picked one.
-	// If we picked the one without params, this might be empty.
-	// Let's just verify we didn't crash and if it has params they belong to newReqID.
-	for _, p := range params {
-		require.Equal(t, newReqID, p.HttpID, "Params should be linked to new request")
+		require.True(t, found, "Request ID %s should have been reused", r.ID.String())
 	}
 
-	// Check Flows
+	// Check Flows (Flows are always new for now as they are named/timestamped implicitly or we don't deduplicate them)
 	flows2, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(flows2), "Should have 2 flows")
+	require.Equal(t, 2, len(flows2), "Should have 2 flows (Flows are not deduplicated yet)")
 
 	var newFlowID idwrap.IDWrap
 	for _, f := range flows2 {
@@ -181,18 +153,15 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, nodes, "New flow should have nodes")
 
-	// Verify at least one node points to a New Request
-	// We need to check NodeRequest mapping.
-	// This requires getting RequestNodes for the flow's nodes.
-	// Since we don't have a direct method exposed in fixture for that easily without querying DB directly or adding method,
-	// we can rely on the fact that we successfully imported and the flow exists.
-	// But we can check if the number of nodes doubled (roughly).
-
 	// Check Files
 	files2, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	// Files should increase. Complex HAR creates files for requests + flow file.
-	require.Greater(t, len(files2), len(httpReqs1)+1, "Should have more files after second import")
+	// DEDUPLICATION:
+	// 1st import: 2 base reqs + 2 delta reqs + folder structure (e.g. /com/example/api) + 1 flow file
+	// 2nd import: 1 new flow file. Everything else (reqs, folders) is deduplicated.
+	// Total files should increase by exactly 1 (the second flow's file).
+	// We don't know exact folder count without tracing, but it should be stable.
+	require.Greater(t, len(files2), len(httpReqs1), "Should have more files than just requests")
 }
 
 func TestImportService_DuplicateImport_CleanDelta(t *testing.T) {

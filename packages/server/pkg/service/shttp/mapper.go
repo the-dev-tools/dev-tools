@@ -1,6 +1,7 @@
 package shttp
 
 import (
+	"database/sql"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/model/mhttp"
 )
@@ -16,6 +17,11 @@ func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
 		lastRunAt = *http.LastRunAt
 	}
 
+	var contentHash sql.NullString
+	if http.ContentHash != nil {
+		contentHash = sql.NullString{String: *http.ContentHash, Valid: true}
+	}
+
 	return gen.Http{
 		ID:               http.ID,
 		WorkspaceID:      http.WorkspaceID,
@@ -25,6 +31,7 @@ func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
 		Method:           http.Method,
 		BodyKind:         int8(http.BodyKind),
 		Description:      http.Description,
+		ContentHash:      contentHash,
 		ParentHttpID:     http.ParentHttpID,
 		IsDelta:          http.IsDelta,
 		DeltaName:        http.DeltaName,
@@ -76,6 +83,11 @@ func interfaceToInt64Ptr(v interface{}) *int64 {
 }
 
 func ConvertToModelHTTP(http gen.Http) *mhttp.HTTP {
+	var contentHash *string
+	if http.ContentHash.Valid {
+		contentHash = &http.ContentHash.String
+	}
+
 	return &mhttp.HTTP{
 		ID:               http.ID,
 		WorkspaceID:      http.WorkspaceID,
@@ -85,6 +97,7 @@ func ConvertToModelHTTP(http gen.Http) *mhttp.HTTP {
 		Method:           http.Method,
 		BodyKind:         mhttp.HttpBodyKind(http.BodyKind),
 		Description:      http.Description,
+		ContentHash:      contentHash,
 		ParentHttpID:     http.ParentHttpID,
 		IsDelta:          http.IsDelta,
 		DeltaName:        http.DeltaName,

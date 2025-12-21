@@ -264,6 +264,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWorkspaceUserStmt, err = db.PrepareContext(ctx, deleteWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspaceUser: %w", err)
 	}
+	if q.findFileByPathHashStmt, err = db.PrepareContext(ctx, findFileByPathHash); err != nil {
+		return nil, fmt.Errorf("error preparing query FindFileByPathHash: %w", err)
+	}
+	if q.findHTTPByContentHashStmt, err = db.PrepareContext(ctx, findHTTPByContentHash); err != nil {
+		return nil, fmt.Errorf("error preparing query FindHTTPByContentHash: %w", err)
+	}
 	if q.findHTTPByURLAndMethodStmt, err = db.PrepareContext(ctx, findHTTPByURLAndMethod); err != nil {
 		return nil, fmt.Errorf("error preparing query FindHTTPByURLAndMethod: %w", err)
 	}
@@ -1108,6 +1114,16 @@ func (q *Queries) Close() error {
 	if q.deleteWorkspaceUserStmt != nil {
 		if cerr := q.deleteWorkspaceUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteWorkspaceUserStmt: %w", cerr)
+		}
+	}
+	if q.findFileByPathHashStmt != nil {
+		if cerr := q.findFileByPathHashStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing findFileByPathHashStmt: %w", cerr)
+		}
+	}
+	if q.findHTTPByContentHashStmt != nil {
+		if cerr := q.findHTTPByContentHashStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing findHTTPByContentHashStmt: %w", cerr)
 		}
 	}
 	if q.findHTTPByURLAndMethodStmt != nil {
@@ -1964,6 +1980,8 @@ type Queries struct {
 	deleteVariableStmt                         *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
+	findFileByPathHashStmt                     *sql.Stmt
+	findHTTPByContentHashStmt                  *sql.Stmt
 	findHTTPByURLAndMethodStmt                 *sql.Stmt
 	getAllFlowsByWorkspaceIDStmt               *sql.Stmt
 	getAllWorkspacesByUserIDStmt               *sql.Stmt
@@ -2197,6 +2215,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteVariableStmt:                         q.deleteVariableStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
+		findFileByPathHashStmt:                     q.findFileByPathHashStmt,
+		findHTTPByContentHashStmt:                  q.findHTTPByContentHashStmt,
 		findHTTPByURLAndMethodStmt:                 q.findHTTPByURLAndMethodStmt,
 		getAllFlowsByWorkspaceIDStmt:               q.getAllFlowsByWorkspaceIDStmt,
 		getAllWorkspacesByUserIDStmt:               q.getAllWorkspacesByUserIDStmt,

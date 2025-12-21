@@ -274,7 +274,7 @@ func run() error {
 			EnvVar:             streamers.EnvironmentVariable,
 		},
 	)
-	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
+	newServiceManager.AddService(rimportv2.CreateImportV2Service(importV2Srv, optionsAll))
 
 	// Create workspace importer adapter for flow service
 	workspaceImporter := &workspaceImporterAdapter{

@@ -28,6 +28,7 @@ type File struct {
 	ContentKind  int8
 	Name         string
 	DisplayOrder float64
+	PathHash     sql.NullString
 	UpdatedAt    int64
 }
 
@@ -119,6 +120,7 @@ type Http struct {
 	Method           string
 	BodyKind         int8
 	Description      string
+	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string

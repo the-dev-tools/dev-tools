@@ -129,6 +129,10 @@ func (s *FileService) MoveFile(ctx context.Context, fileID idwrap.IDWrap, newPar
 	return NewWriterFromQueries(s.queries, s.logger).MoveFile(ctx, fileID, newParentID)
 }
 
+func (s *FileService) Reader() *Reader {
+	return s.reader
+}
+
 // Helper functions
 
 func getIDString(id *idwrap.IDWrap) string {

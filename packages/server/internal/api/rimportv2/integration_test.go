@@ -427,11 +427,12 @@ func TestImportService_DatabaseImport(t *testing.T) {
 		DomainData: []ImportDomainData{
 			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
 		},
+		DomainDataWasProvided: true,
 	}
 
 	// Create the service directly using the RPC's service
 	service := fixture.rpc.service
-	resp, err := service.Import(fixture.ctx, req)
+	resp, err := service.ImportUnified(fixture.ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 

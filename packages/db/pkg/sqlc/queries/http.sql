@@ -21,7 +21,7 @@ SELECT
   body_kind,
 
   description,
-
+  content_hash,
   parent_http_id,
 
   is_delta,
@@ -56,6 +56,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -80,6 +81,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -104,6 +106,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -127,6 +130,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -156,6 +160,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -173,13 +178,20 @@ WHERE workspace_id = ?
   AND is_delta = FALSE
 LIMIT 1;
 
+-- name: FindHTTPByContentHash :one
+-- Find existing HTTP request by content hash for deduplication
+SELECT id
+FROM http
+WHERE workspace_id = ? AND content_hash = ?
+LIMIT 1;
+
 -- name: CreateHTTP :exec
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,
-  parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_body_kind, delta_description,
-  last_run_at, created_at, updated_at
+  content_hash, parent_http_id, is_delta, delta_name, delta_url, delta_method,
+  delta_body_kind, delta_description, last_run_at, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHTTP :exec
 UPDATE http
@@ -219,6 +231,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,
@@ -1172,6 +1185,7 @@ WITH RECURSIVE delta_chain AS (
     h.method,
     h.body_kind,
     h.description,
+    h.content_hash,
     h.parent_http_id,
     h.is_delta,
     h.delta_name,
@@ -1197,6 +1211,7 @@ WITH RECURSIVE delta_chain AS (
     COALESCE(h.delta_method, dc.method, dc.method) as method,
     COALESCE(h.delta_body_kind, dc.body_kind, dc.body_kind) as body_kind,
     COALESCE(h.delta_description, dc.description, dc.description) as description,
+    COALESCE(h.content_hash, dc.content_hash, dc.content_hash) as content_hash,
     h.parent_http_id,
     h.is_delta,
     h.delta_name,
@@ -1221,6 +1236,7 @@ SELECT
   method,
   body_kind,
   description,
+  content_hash,
   parent_http_id,
   is_delta,
   delta_name,

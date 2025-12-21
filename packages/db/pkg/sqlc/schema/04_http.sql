@@ -15,6 +15,7 @@ CREATE TABLE http (
   method TEXT NOT NULL,
   body_kind INT8 NOT NULL DEFAULT 2,
   description TEXT NOT NULL DEFAULT '',
+  content_hash TEXT,
 
   -- Delta system fields
   parent_http_id BLOB DEFAULT NULL,        -- Parent HTTP for delta records
@@ -46,6 +47,7 @@ CREATE INDEX http_folder_idx ON http (folder_id) WHERE folder_id IS NOT NULL;
 CREATE INDEX http_parent_delta_idx ON http (parent_http_id, is_delta);
 CREATE INDEX http_workspace_name_idx ON http (workspace_id, name);
 CREATE INDEX http_method_idx ON http (method);
+CREATE INDEX http_content_hash_idx ON http (workspace_id, content_hash) WHERE content_hash IS NOT NULL;
 
 -- HTTP search parameters (query strings)
 CREATE TABLE http_search_param (

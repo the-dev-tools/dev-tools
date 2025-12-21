@@ -344,7 +344,7 @@ func TestConstraints(t *testing.T) {
 
 type MockImporter struct {
 	importFunc func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error)
-	storeFunc  func(ctx context.Context, results *TranslationResult) error
+	storeFunc  func(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, error)
 }
 
 func (m *MockImporter) ImportAndStore(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
@@ -380,11 +380,11 @@ func (m *MockImporter) StoreImportResults(ctx context.Context, results *ImportRe
 	return nil
 }
 
-func (m *MockImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) error {
+func (m *MockImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, error) {
 	if m.storeFunc != nil {
 		return m.storeFunc(ctx, results)
 	}
-	return nil
+	return nil, nil, nil
 }
 
 func (m *MockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []menv.Variable, []menv.Variable, error) {

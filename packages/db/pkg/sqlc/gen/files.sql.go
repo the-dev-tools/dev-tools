@@ -7,13 +7,14 @@ package gen
 
 import (
 	"context"
+	"database/sql"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
 )
 
 const createFile = `-- name: CreateFile :exec
-INSERT INTO files (id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO files (id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFileParams struct {
@@ -24,6 +25,7 @@ type CreateFileParams struct {
 	ContentKind  int8
 	Name         string
 	DisplayOrder float64
+	PathHash     sql.NullString
 	UpdatedAt    int64
 }
 
@@ -37,6 +39,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) error {
 		arg.ContentKind,
 		arg.Name,
 		arg.DisplayOrder,
+		arg.PathHash,
 		arg.UpdatedAt,
 	)
 	return err
@@ -52,9 +55,29 @@ func (q *Queries) DeleteFile(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const findFileByPathHash = `-- name: FindFileByPathHash :one
+SELECT id
+FROM files
+WHERE workspace_id = ? AND path_hash = ?
+LIMIT 1
+`
+
+type FindFileByPathHashParams struct {
+	WorkspaceID idwrap.IDWrap
+	PathHash    sql.NullString
+}
+
+// Find a file by its path hash and workspace ID
+func (q *Queries) FindFileByPathHash(ctx context.Context, arg FindFileByPathHashParams) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.findFileByPathHashStmt, findFileByPathHash, arg.WorkspaceID, arg.PathHash)
+	var id idwrap.IDWrap
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getFile = `-- name: GetFile :one
 
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE id = ?
 `
@@ -73,13 +96,14 @@ func (q *Queries) GetFile(ctx context.Context, id idwrap.IDWrap) (File, error) {
 		&i.ContentKind,
 		&i.Name,
 		&i.DisplayOrder,
+		&i.PathHash,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getFileWithContent = `-- name: GetFileWithContent :one
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE id = ?
 `
@@ -96,6 +120,7 @@ func (q *Queries) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) (Fil
 		&i.ContentKind,
 		&i.Name,
 		&i.DisplayOrder,
+		&i.PathHash,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -116,7 +141,7 @@ func (q *Queries) GetFileWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idw
 }
 
 const getFilesByParentID = `-- name: GetFilesByParentID :many
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE parent_id = ?
 `
@@ -139,6 +164,7 @@ func (q *Queries) GetFilesByParentID(ctx context.Context, parentID *idwrap.IDWra
 			&i.ContentKind,
 			&i.Name,
 			&i.DisplayOrder,
+			&i.PathHash,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -155,7 +181,7 @@ func (q *Queries) GetFilesByParentID(ctx context.Context, parentID *idwrap.IDWra
 }
 
 const getFilesByParentIDOrdered = `-- name: GetFilesByParentIDOrdered :many
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE parent_id = ?
 ORDER BY display_order, id
@@ -179,6 +205,7 @@ func (q *Queries) GetFilesByParentIDOrdered(ctx context.Context, parentID *idwra
 			&i.ContentKind,
 			&i.Name,
 			&i.DisplayOrder,
+			&i.PathHash,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -195,7 +222,7 @@ func (q *Queries) GetFilesByParentIDOrdered(ctx context.Context, parentID *idwra
 }
 
 const getFilesByWorkspaceID = `-- name: GetFilesByWorkspaceID :many
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE workspace_id = ?
 `
@@ -218,6 +245,7 @@ func (q *Queries) GetFilesByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.ContentKind,
 			&i.Name,
 			&i.DisplayOrder,
+			&i.PathHash,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -234,7 +262,7 @@ func (q *Queries) GetFilesByWorkspaceID(ctx context.Context, workspaceID idwrap.
 }
 
 const getFilesByWorkspaceIDOrdered = `-- name: GetFilesByWorkspaceIDOrdered :many
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE workspace_id = ?
 ORDER BY display_order, id
@@ -258,6 +286,7 @@ func (q *Queries) GetFilesByWorkspaceIDOrdered(ctx context.Context, workspaceID 
 			&i.ContentKind,
 			&i.Name,
 			&i.DisplayOrder,
+			&i.PathHash,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -294,7 +323,7 @@ func (q *Queries) GetFlowContent(ctx context.Context, id idwrap.IDWrap) (GetFlow
 }
 
 const getRootFilesByWorkspaceID = `-- name: GetRootFilesByWorkspaceID :many
-SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
 WHERE workspace_id = ? AND parent_id IS NULL
 ORDER BY display_order, id
@@ -318,6 +347,7 @@ func (q *Queries) GetRootFilesByWorkspaceID(ctx context.Context, workspaceID idw
 			&i.ContentKind,
 			&i.Name,
 			&i.DisplayOrder,
+			&i.PathHash,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
