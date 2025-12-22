@@ -1,9 +1,10 @@
 # Gemini Context & Instructions
 
 ## Core Operational Mandates
-1.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows. **CRITICAL:** Always run commands using `direnv exec . <command>` to ensure the correct environment (e.g., `NX_TUI`, `TASK_OUTPUT`) is loaded.
-2.  **Context Awareness:** Read `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
-3.  **File Editing:**
+1.  **Efficiency:** Always run commands like `task test`, `pnpm nx`, or `npm install` in the background (using `&`) and check their logs periodically to avoid getting stuck or timing out.
+2.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows. **CRITICAL:** Always run commands using `direnv exec . <command>` to ensure the correct environment (e.g., `NX_TUI`, `TASK_OUTPUT`) is loaded.
+3.  **Context Awareness:** Read `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
+4.  **File Editing:**
     - Verify files exist before editing.
     - Use `git status` and `git diff` to verify changes.
     - **Never** revert changes you didn't author unless instructed.
