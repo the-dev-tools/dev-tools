@@ -41,4 +41,5 @@ type Node struct {
 	NodeKind  NodeKind
 	PositionX float64
 	PositionY float64
+	State     NodeState
 }

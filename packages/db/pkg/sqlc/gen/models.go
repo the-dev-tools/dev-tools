@@ -47,6 +47,7 @@ type FlowEdge struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
+	State        int8
 }
 
 type FlowNode struct {
@@ -56,6 +57,7 @@ type FlowNode struct {
 	NodeKind  int32
 	PositionX float64
 	PositionY float64
+	State     int8
 }
 
 type FlowNodeCondition struct {

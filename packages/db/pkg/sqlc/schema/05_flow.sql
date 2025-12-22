@@ -38,6 +38,7 @@ CREATE TABLE flow_node (
   node_kind INT NOT NULL,
   position_x REAL NOT NULL,
   position_y REAL NOT NULL,
+  state INT8 NOT NULL DEFAULT 0,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
@@ -49,6 +50,7 @@ CREATE TABLE flow_edge (
   source_id BLOB NOT NULL,
   target_id BLOB NOT NULL,
   source_handle INT NOT NULL,
+  state INT8 NOT NULL DEFAULT 0,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 

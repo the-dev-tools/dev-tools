@@ -214,6 +214,20 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
 
+	// Reset all node states to UNSPECIFIED before flow execution
+	for _, node := range nodes {
+		if err := s.ns.UpdateNodeState(ctx, node.ID, mflow.NODE_STATE_UNSPECIFIED); err != nil {
+			s.logger.Error("failed to reset node state", "node_id", node.ID.String(), "error", err)
+		}
+	}
+
+	// Reset all edge states to UNSPECIFIED before flow execution
+	for _, edge := range edges {
+		if err := s.es.UpdateEdgeState(ctx, edge.ID, mflow.NODE_STATE_UNSPECIFIED); err != nil {
+			s.logger.Error("failed to reset edge state", "edge_id", edge.ID.String(), "error", err)
+		}
+	}
+
 	nodeStateChan := make(chan runner.FlowNodeStatus, len(nodes)*2+1)
 	var stateDrain sync.WaitGroup
 	stateDrain.Add(1)
@@ -292,6 +306,27 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
 				s.logger.Error("failed to persist node execution", "error", err)
+			}
+
+			// Update node state in database
+			if err := s.ns.UpdateNodeState(ctx, status.NodeID, status.State); err != nil {
+				s.logger.Error("failed to update node state", "node_id", status.NodeID.String(), "error", err)
+			}
+
+			// Update edge states based on node execution state
+			if status.State == mflow.NODE_STATE_SUCCESS || status.State == mflow.NODE_STATE_FAILURE {
+				// Find edges that start from this node
+				for _, edge := range edges {
+					if edge.SourceID == status.NodeID {
+						edgeState := mflow.NODE_STATE_SUCCESS
+						if status.State == mflow.NODE_STATE_FAILURE {
+							edgeState = mflow.NODE_STATE_FAILURE
+						}
+						if err := s.es.UpdateEdgeState(ctx, edge.ID, edgeState); err != nil {
+							s.logger.Error("failed to update edge state", "edge_id", edge.ID.String(), "error", err)
+						}
+					}
+				}
 			}
 
 			// If this execution has a ResponseID, wait for the response to be published first

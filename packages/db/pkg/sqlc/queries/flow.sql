@@ -177,7 +177,8 @@ SELECT
   name,
   node_kind,
   position_x,
-  position_y
+  position_y,
+  state
 FROM
   flow_node
 WHERE
@@ -191,7 +192,8 @@ SELECT
   name,
   node_kind,
   position_x,
-  position_y
+  position_y,
+  state
 FROM
   flow_node
 WHERE
@@ -199,24 +201,24 @@ WHERE
 
 -- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, name, node_kind, position_x, position_y)
+  flow_node (id, flow_id, name, node_kind, position_x, position_y, state)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, 0);
 
 -- name: CreateFlowNodesBulk :exec
 INSERT INTO
-  flow_node (id, flow_id, name, node_kind, position_x, position_y)
+  flow_node (id, flow_id, name, node_kind, position_x, position_y, state)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0),
+  (?, ?, ?, ?, ?, ?, 0);
 
 -- name: UpdateFlowNode :exec
 UPDATE flow_node
@@ -224,6 +226,13 @@ SET
   name = ?,
   position_x = ?,
   position_y = ?
+WHERE
+  id = ?;
+
+-- name: UpdateFlowNodeState :exec
+UPDATE flow_node
+SET
+  state = ?
 WHERE
   id = ?;
 
@@ -238,7 +247,8 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle
+  source_handle,
+  state
 FROM
   flow_edge
 WHERE
@@ -251,7 +261,8 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle
+  source_handle,
+  state
 FROM
   flow_edge
 WHERE
@@ -259,9 +270,9 @@ WHERE
 
 -- name: CreateFlowEdge :exec
 INSERT INTO
-  flow_edge (id, flow_id, source_id, target_id, source_handle)
+  flow_edge (id, flow_id, source_id, target_id, source_handle, state)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, 0);
 
 -- name: UpdateFlowEdge :exec
 UPDATE flow_edge
@@ -269,6 +280,13 @@ SET
   source_id = ?,
   target_id = ?,
   source_handle = ?
+WHERE
+  id = ?;
+
+-- name: UpdateFlowEdgeState :exec
+UPDATE flow_edge
+SET
+  state = ?
 WHERE
   id = ?;
 

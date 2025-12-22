@@ -64,4 +64,8 @@ func (es EdgeService) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {
 	return NewEdgeWriterFromQueries(es.queries).DeleteEdge(ctx, id)
 }
 
+func (es EdgeService) UpdateEdgeState(ctx context.Context, id idwrap.IDWrap, state mflow.NodeState) error {
+	return NewEdgeWriterFromQueries(es.queries).UpdateEdgeState(ctx, id, state)
+}
+
 func (s EdgeService) Reader() *EdgeReader { return s.reader }

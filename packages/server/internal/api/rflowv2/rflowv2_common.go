@@ -46,6 +46,7 @@ func serializeEdge(e mflow.Edge) *flowv1.Edge {
 		SourceId:     e.SourceID.Bytes(),
 		TargetId:     e.TargetID.Bytes(),
 		SourceHandle: flowv1.HandleKind(e.SourceHandler),
+		State:        flowv1.FlowItemState(e.State),
 	}
 }
 
@@ -61,7 +62,7 @@ func serializeNode(n mflow.Node) *flowv1.Node {
 		Kind:     converter.ToAPINodeKind(n.NodeKind),
 		Name:     n.Name,
 		Position: position,
-		State:    flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED,
+		State:    flowv1.FlowItemState(n.State),
 	}
 }
 

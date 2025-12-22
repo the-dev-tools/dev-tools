@@ -588,6 +588,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowEdgeStmt, err = db.PrepareContext(ctx, updateFlowEdge); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowEdge: %w", err)
 	}
+	if q.updateFlowEdgeStateStmt, err = db.PrepareContext(ctx, updateFlowEdgeState); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowEdgeState: %w", err)
+	}
 	if q.updateFlowNodeStmt, err = db.PrepareContext(ctx, updateFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNode: %w", err)
 	}
@@ -605,6 +608,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateFlowNodeJsStmt, err = db.PrepareContext(ctx, updateFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeJs: %w", err)
+	}
+	if q.updateFlowNodeStateStmt, err = db.PrepareContext(ctx, updateFlowNodeState); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeState: %w", err)
 	}
 	if q.updateFlowVariableStmt, err = db.PrepareContext(ctx, updateFlowVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowVariable: %w", err)
@@ -1644,6 +1650,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowEdgeStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowEdgeStateStmt != nil {
+		if cerr := q.updateFlowEdgeStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowEdgeStateStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowNodeStmt != nil {
 		if cerr := q.updateFlowNodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeStmt: %w", cerr)
@@ -1672,6 +1683,11 @@ func (q *Queries) Close() error {
 	if q.updateFlowNodeJsStmt != nil {
 		if cerr := q.updateFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeJsStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeStateStmt != nil {
+		if cerr := q.updateFlowNodeStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeStateStmt: %w", cerr)
 		}
 	}
 	if q.updateFlowVariableStmt != nil {
@@ -2056,12 +2072,14 @@ type Queries struct {
 	updateFileStmt                             *sql.Stmt
 	updateFlowStmt                             *sql.Stmt
 	updateFlowEdgeStmt                         *sql.Stmt
+	updateFlowEdgeStateStmt                    *sql.Stmt
 	updateFlowNodeStmt                         *sql.Stmt
 	updateFlowNodeConditionStmt                *sql.Stmt
 	updateFlowNodeForStmt                      *sql.Stmt
 	updateFlowNodeForEachStmt                  *sql.Stmt
 	updateFlowNodeHTTPStmt                     *sql.Stmt
 	updateFlowNodeJsStmt                       *sql.Stmt
+	updateFlowNodeStateStmt                    *sql.Stmt
 	updateFlowVariableStmt                     *sql.Stmt
 	updateFlowVariableOrderStmt                *sql.Stmt
 	updateHTTPStmt                             *sql.Stmt
@@ -2287,12 +2305,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFileStmt:                             q.updateFileStmt,
 		updateFlowStmt:                             q.updateFlowStmt,
 		updateFlowEdgeStmt:                         q.updateFlowEdgeStmt,
+		updateFlowEdgeStateStmt:                    q.updateFlowEdgeStateStmt,
 		updateFlowNodeStmt:                         q.updateFlowNodeStmt,
 		updateFlowNodeConditionStmt:                q.updateFlowNodeConditionStmt,
 		updateFlowNodeForStmt:                      q.updateFlowNodeForStmt,
 		updateFlowNodeForEachStmt:                  q.updateFlowNodeForEachStmt,
 		updateFlowNodeHTTPStmt:                     q.updateFlowNodeHTTPStmt,
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
+		updateFlowNodeStateStmt:                    q.updateFlowNodeStateStmt,
 		updateFlowVariableStmt:                     q.updateFlowVariableStmt,
 		updateFlowVariableOrderStmt:                q.updateFlowVariableOrderStmt,
 		updateHTTPStmt:                             q.updateHTTPStmt,

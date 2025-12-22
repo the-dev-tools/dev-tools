@@ -132,3 +132,10 @@ func (w *NodeWriter) UpdateNode(ctx context.Context, n mflow.Node) error {
 func (w *NodeWriter) DeleteNode(ctx context.Context, id idwrap.IDWrap) error {
 	return w.queries.DeleteFlowNode(ctx, id)
 }
+
+func (w *NodeWriter) UpdateNodeState(ctx context.Context, id idwrap.IDWrap, state mflow.NodeState) error {
+	return w.queries.UpdateFlowNodeState(ctx, gen.UpdateFlowNodeStateParams{
+		ID:    id,
+		State: int8(state),
+	})
+}

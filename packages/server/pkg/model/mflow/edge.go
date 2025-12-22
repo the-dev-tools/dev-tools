@@ -31,6 +31,7 @@ type Edge struct {
         SourceID      idwrap.IDWrap
         TargetID      idwrap.IDWrap
         SourceHandler EdgeHandle
+        State         NodeState
 }
 
 type (

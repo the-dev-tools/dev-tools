@@ -21,7 +21,13 @@ func NewEdgeWriterFromQueries(queries *gen.Queries) *EdgeWriter {
 
 func (w *EdgeWriter) CreateEdge(ctx context.Context, e mflow.Edge) error {
 	edge := ConvertToDBEdge(e)
-	return w.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams(edge))
+	return w.queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
+		ID:           edge.ID,
+		FlowID:       edge.FlowID,
+		SourceID:     edge.SourceID,
+		TargetID:     edge.TargetID,
+		SourceHandle: edge.SourceHandle,
+	})
 }
 
 func (w *EdgeWriter) CreateEdgeBulk(ctx context.Context, edges []mflow.Edge) error {
@@ -49,4 +55,11 @@ func (w *EdgeWriter) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {
 		return err
 	}
 	return nil
+}
+
+func (w *EdgeWriter) UpdateEdgeState(ctx context.Context, id idwrap.IDWrap, state mflow.NodeState) error {
+	return w.queries.UpdateFlowEdgeState(ctx, gen.UpdateFlowEdgeStateParams{
+		ID:    id,
+		State: int8(state),
+	})
 }
