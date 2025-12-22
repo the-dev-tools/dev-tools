@@ -11,7 +11,6 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -205,40 +204,6 @@ func (s *FlowServiceV2RPC) streamEdgeSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[EdgeTopic, EdgeEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[EdgeTopic, EdgeEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			edges, err := s.es.GetEdgesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, edgeModel := range edges {
-				events = append(events, eventstream.Event[EdgeTopic, EdgeEvent]{
-					Topic: EdgeTopic{FlowID: flow.ID},
-					Payload: EdgeEvent{
-						Type:   edgeEventInsert,
-						FlowID: flow.ID,
-						Edge:   serializeEdge(edgeModel),
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic EdgeTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -250,7 +215,7 @@ func (s *FlowServiceV2RPC) streamEdgeSync(
 		return true
 	}
 
-	events, err := s.edgeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.edgeStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
