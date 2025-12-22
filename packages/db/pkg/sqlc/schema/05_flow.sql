@@ -9,7 +9,7 @@ CREATE TABLE flow (
   FOREIGN KEY (version_parent_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
-CREATE index flow_idx1 ON flow (workspace_id, workspace_id, version_parent_id);
+CREATE index flow_idx1 ON flow (workspace_id, version_parent_id);
 
 CREATE TABLE tag (
   id BLOB NOT NULL PRIMARY KEY,

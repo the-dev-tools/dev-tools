@@ -2,6 +2,8 @@ package sflow
 
 import (
 	"context"
+	"fmt"
+
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -134,8 +136,12 @@ func (w *NodeWriter) DeleteNode(ctx context.Context, id idwrap.IDWrap) error {
 }
 
 func (w *NodeWriter) UpdateNodeState(ctx context.Context, id idwrap.IDWrap, state mflow.NodeState) error {
+	// Validate state is within valid range [0,4]
+	if state < mflow.NODE_STATE_UNSPECIFIED || state > mflow.NODE_STATE_CANCELED {
+		return fmt.Errorf("invalid node state: %d", state)
+	}
 	return w.queries.UpdateFlowNodeState(ctx, gen.UpdateFlowNodeStateParams{
 		ID:    id,
-		State: int8(state),
+		State: state,
 	})
 }

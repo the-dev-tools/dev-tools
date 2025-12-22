@@ -2,6 +2,8 @@ package sflow
 
 import (
 	"context"
+	"fmt"
+
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -58,8 +60,12 @@ func (w *EdgeWriter) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {
 }
 
 func (w *EdgeWriter) UpdateEdgeState(ctx context.Context, id idwrap.IDWrap, state mflow.NodeState) error {
+	// Validate state is within valid range [0,4]
+	if state < mflow.NODE_STATE_UNSPECIFIED || state > mflow.NODE_STATE_CANCELED {
+		return fmt.Errorf("invalid edge state: %d", state)
+	}
 	return w.queries.UpdateFlowEdgeState(ctx, gen.UpdateFlowEdgeStateParams{
 		ID:    id,
-		State: int8(state),
+		State: state,
 	})
 }

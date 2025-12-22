@@ -57,6 +57,7 @@ func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle) E
                 SourceID:      sourceID,
                 TargetID:      targetID,
                 SourceHandler: sourceHandlerID,
+                State:         NODE_STATE_UNSPECIFIED,
         }
 }
 func NewEdges(edges ...Edge) []Edge {

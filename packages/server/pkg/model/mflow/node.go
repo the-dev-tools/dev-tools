@@ -27,11 +27,37 @@ const (
 )
 
 func StringNodeState(a NodeState) string {
-	return [...]string{"Unspecified", "Running", "Success", "Failure", "Canceled"}[a]
+	switch a {
+	case NODE_STATE_UNSPECIFIED:
+		return "Unspecified"
+	case NODE_STATE_RUNNING:
+		return "Running"
+	case NODE_STATE_SUCCESS:
+		return "Success"
+	case NODE_STATE_FAILURE:
+		return "Failure"
+	case NODE_STATE_CANCELED:
+		return "Canceled"
+	default:
+		return "Unknown"
+	}
 }
 
 func StringNodeStateWithIcons(a NodeState) string {
-	return [...]string{"🔄 Starting", "⏳ Running", "✅ Success", "❌ Failed", "Canceled"}[a]
+	switch a {
+	case NODE_STATE_UNSPECIFIED:
+		return "🔄 Starting"
+	case NODE_STATE_RUNNING:
+		return "⏳ Running"
+	case NODE_STATE_SUCCESS:
+		return "✅ Success"
+	case NODE_STATE_FAILURE:
+		return "❌ Failed"
+	case NODE_STATE_CANCELED:
+		return "Canceled"
+	default:
+		return "❓ Unknown"
+	}
 }
 
 type Node struct {

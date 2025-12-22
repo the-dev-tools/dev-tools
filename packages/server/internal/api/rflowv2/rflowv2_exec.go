@@ -195,6 +195,11 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 	sharedHTTPClient := httpclient.New()
 	edgeMap := mflow.NewEdgesMap(edges)
+	// Build edgesBySource map for O(1) edge lookup by source node ID
+	edgesBySource := make(map[idwrap.IDWrap][]mflow.Edge, len(edges))
+	for _, edge := range edges {
+		edgesBySource[edge.SourceID] = append(edgesBySource[edge.SourceID], edge)
+	}
 
 	const defaultNodeTimeout = 60 // seconds
 	timeoutDuration := time.Duration(defaultNodeTimeout) * time.Second
@@ -315,16 +320,20 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 			// Update edge states based on node execution state
 			if status.State == mflow.NODE_STATE_SUCCESS || status.State == mflow.NODE_STATE_FAILURE {
-				// Find edges that start from this node
-				for _, edge := range edges {
-					if edge.SourceID == status.NodeID {
-						edgeState := mflow.NODE_STATE_SUCCESS
-						if status.State == mflow.NODE_STATE_FAILURE {
-							edgeState = mflow.NODE_STATE_FAILURE
-						}
-						if err := s.es.UpdateEdgeState(ctx, edge.ID, edgeState); err != nil {
-							s.logger.Error("failed to update edge state", "edge_id", edge.ID.String(), "error", err)
-						}
+				// Find edges that start from this node using O(1) map lookup
+				edgesFromNode := edgesBySource[status.NodeID]
+				edgeState := mflow.NODE_STATE_SUCCESS
+				if status.State == mflow.NODE_STATE_FAILURE {
+					edgeState = mflow.NODE_STATE_FAILURE
+				}
+				for _, edge := range edgesFromNode {
+					if err := s.es.UpdateEdgeState(ctx, edge.ID, edgeState); err != nil {
+						s.logger.Error("failed to update edge state", "edge_id", edge.ID.String(), "error", err)
+					} else {
+						// Publish edge state update event for real-time sync
+						updatedEdge := edge
+						updatedEdge.State = edgeState
+						s.publishEdgeEvent(edgeEventUpdate, updatedEdge)
 					}
 				}
 			}

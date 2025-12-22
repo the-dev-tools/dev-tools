@@ -13,7 +13,7 @@ func ConvertNodeToDB(n mflow.Node) *gen.FlowNode {
 		NodeKind:  n.NodeKind,
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
-		State:     int8(n.State),
+		State:     n.State,
 	}
 }
 
@@ -25,6 +25,6 @@ func ConvertNodeToModel(n gen.FlowNode) *mflow.Node {
 		NodeKind:  n.NodeKind,
 		PositionX: n.PositionX,
 		PositionY: n.PositionY,
-		State:     mflow.NodeState(n.State),
+		State:     n.State,
 	}
 }
