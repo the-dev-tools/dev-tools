@@ -16,8 +16,8 @@ func TestReorganizeNodePositions_Sequential(t *testing.T) {
 	// Scenario: Start -> Login -> Profile (Sequential, horizontal flow)
 	// Expectation (horizontal layout):
 	// Start: Level 0, X=0
-	// Login: Level 1, X=400
-	// Profile: Level 2, X=800
+	// Login: Level 1, X=200
+	// Profile: Level 2, X=400
 
 	entries := []harv2.Entry{
 		{
@@ -70,8 +70,8 @@ func TestReorganizeNodePositions_Sequential(t *testing.T) {
 
 	// Verify X Positions (Depth - horizontal flow)
 	require.Equal(t, 0.0, start.PositionX, "Start should be at X=0")
-	require.Equal(t, 400.0, req1.PositionX, "Request 1 should be at X=400")
-	require.Equal(t, 800.0, req2.PositionX, "Request 2 should be at X=800")
+	require.Equal(t, 200.0, req1.PositionX, "Request 1 should be at X=200")
+	require.Equal(t, 400.0, req2.PositionX, "Request 2 should be at X=400")
 
 	// Verify Y Positions (should be centered, so 0 if single node per level)
 	require.Equal(t, 0.0, start.PositionY)
@@ -136,11 +136,11 @@ func TestReorganizeNodePositions_Parallel(t *testing.T) {
 
 	// Expectation (horizontal layout):
 	// Level 0: Start (X=0)
-	// Level 1: Req1, Req2 (X=400, stacked vertically on Y axis)
+	// Level 1: Req1, Req2 (X=200, stacked vertically on Y axis)
 
 	require.Equal(t, 0.0, start.PositionX)
-	require.Equal(t, 400.0, req1.PositionX)
-	require.Equal(t, 400.0, req2.PositionX) // Same X level (horizontal)
+	require.Equal(t, 200.0, req1.PositionX)
+	require.Equal(t, 200.0, req2.PositionX) // Same X level (horizontal)
 
 	// Y Positions should differ (parallel nodes stacked vertically)
 	require.NotEqual(t, req1.PositionY, req2.PositionY)
