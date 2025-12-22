@@ -42,8 +42,8 @@ func TestForNode_RunSync_true(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen, mflow.EdgeKindUnspecified)
-	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse, mflow.EdgeKindUnspecified)
+	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen)
+	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse)
 	edges := []mflow.Edge{edge1, edge2}
 	edgesMap := mflow.NewEdgesMap(edges)
 
@@ -86,8 +86,8 @@ func TestForNode_RunSync_false(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen, mflow.EdgeKindUnspecified)
-	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse, mflow.EdgeKindUnspecified)
+	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen)
+	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse)
 	edges := []mflow.Edge{edge1, edge2}
 	edgesMap := mflow.NewEdgesMap(edges)
 
@@ -127,7 +127,7 @@ func TestForNode_RunSync_ThenOnlyTrue(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen, mflow.EdgeKindUnspecified)
+	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen)
 	edgesMap := mflow.NewEdgesMap([]mflow.Edge{edge1})
 
 	req := &node.FlowNodeRequest{
@@ -166,7 +166,7 @@ func TestForNode_RunSync_ThenOnlyFalse(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen, mflow.EdgeKindUnspecified)
+	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen)
 	edgesMap := mflow.NewEdgesMap([]mflow.Edge{edge1})
 
 	req := &node.FlowNodeRequest{
@@ -205,7 +205,7 @@ func TestForNode_RunSync_ElseOnlyTrue(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edgeElse := mflow.NewEdge(idwrap.NewNow(), id, mockElseID, mflow.HandleElse, mflow.EdgeKindUnspecified)
+	edgeElse := mflow.NewEdge(idwrap.NewNow(), id, mockElseID, mflow.HandleElse)
 	edgesMap := mflow.NewEdgesMap([]mflow.Edge{edgeElse})
 
 	req := &node.FlowNodeRequest{
@@ -244,7 +244,7 @@ func TestForNode_RunSync_ElseOnlyFalse(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edgeElse := mflow.NewEdge(idwrap.NewNow(), id, mockElseID, mflow.HandleElse, mflow.EdgeKindUnspecified)
+	edgeElse := mflow.NewEdge(idwrap.NewNow(), id, mockElseID, mflow.HandleElse)
 	edgesMap := mflow.NewEdgesMap([]mflow.Edge{edgeElse})
 
 	req := &node.FlowNodeRequest{
@@ -286,8 +286,8 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen, mflow.EdgeKindUnspecified)
-	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse, mflow.EdgeKindUnspecified)
+	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen)
+	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse)
 	edges := []mflow.Edge{edge1, edge2}
 	edgesMap := mflow.NewEdgesMap(edges)
 
@@ -332,8 +332,8 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen, mflow.EdgeKindUnspecified)
-	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse, mflow.EdgeKindUnspecified)
+	edge1 := mflow.NewEdge(idwrap.NewNow(), id, mockNode1ID, mflow.HandleThen)
+	edge2 := mflow.NewEdge(idwrap.NewNow(), id, mockNode2ID, mflow.HandleElse)
 	edges := []mflow.Edge{edge1, edge2}
 	edgesMap := mflow.NewEdgesMap(edges)
 

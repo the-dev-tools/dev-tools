@@ -97,10 +97,7 @@ func TestNodeHttpCRUD(t *testing.T) {
 			Items: []*flowv1.NodeHttpUpdate{
 				{
 					NodeId: nodeID.Bytes(),
-					HttpId: &flowv1.NodeHttpUpdate_HttpIdUnion{
-						Kind:  flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE,
-						Value: newHttpID.Bytes(),
-					},
+					HttpId: newHttpID.Bytes(),
 					// Not updating DeltaHttpId, should result in nil/empty in DB because of overwrite logic
 				},
 			},
@@ -216,10 +213,7 @@ func TestNodeHttpErrors(t *testing.T) {
 			Items: []*flowv1.NodeHttpUpdate{
 				{
 					NodeId: nodeID.Bytes(),
-					HttpId: &flowv1.NodeHttpUpdate_HttpIdUnion{
-						Kind:  flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE,
-						Value: []byte("invalid-uuid"),
-					},
+					HttpId: []byte("invalid-uuid"),
 				},
 			},
 		})

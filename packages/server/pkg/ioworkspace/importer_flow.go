@@ -172,24 +172,6 @@ func (s *IOWorkspaceService) importFlowConditionNodes(ctx context.Context, nodeI
 	return nil
 }
 
-// importFlowNoopNodes imports flow noop nodes from the bundle.
-func (s *IOWorkspaceService) importFlowNoopNodes(ctx context.Context, nodeNoopService sflow.NodeNoopService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
-	for _, noopNode := range bundle.FlowNoopNodes {
-		// Remap flow node ID
-		if newNodeID, ok := result.NodeIDMap[noopNode.FlowNodeID]; ok {
-			noopNode.FlowNodeID = newNodeID
-		}
-
-		// Create noop node
-		if err := nodeNoopService.CreateNodeNoop(ctx, noopNode); err != nil {
-			return fmt.Errorf("failed to create flow noop node: %w", err)
-		}
-
-		result.FlowNoopNodesCreated++
-	}
-	return nil
-}
-
 // importFlowForNodes imports flow for nodes from the bundle.
 func (s *IOWorkspaceService) importFlowForNodes(ctx context.Context, nodeForService sflow.NodeForService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, forNode := range bundle.FlowForNodes {

@@ -225,13 +225,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		for _, n := range data.FlowNodes {
 			if n.FlowID == flow.ID {
 				flowNodes = append(flowNodes, n)
-				if n.NodeKind == mflow.NODE_KIND_NO_OP {
-					for _, noop := range data.FlowNoopNodes {
-						if noop.FlowNodeID == n.ID && noop.Type == mflow.NODE_NO_OP_KIND_START {
-							startNodeID = n.ID
-							break
-						}
-					}
+				if n.NodeKind == mflow.NODE_KIND_MANUAL_START {
+					startNodeID = n.ID
 				}
 			}
 		}
@@ -344,13 +339,9 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 				stepWrapper.JS = jsStep
 
-			case mflow.NODE_KIND_NO_OP:
+			case mflow.NODE_KIND_MANUAL_START:
 				if node.ID == startNodeID {
-					noopStep := &YamlStepNoop{
-						YamlStepCommon: common,
-						Type:           "start",
-					}
-					stepWrapper.Noop = noopStep
+					stepWrapper.ManualStart = &common
 				} else {
 					continue
 				}
@@ -359,7 +350,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			// Add to flow
 			// Because stepWrapper has pointer fields, "empty" fields are nil
 			// Checking if any field is set (simplified check, assume one set if we got here)
-			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil || stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.Noop != nil
+			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil || stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.ManualStart != nil
 			if isValid {
 				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}

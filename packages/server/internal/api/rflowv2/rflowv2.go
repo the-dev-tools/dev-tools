@@ -85,18 +85,6 @@ type FlowVariableEvent struct {
 	Variable mflow.FlowVariable
 }
 
-// NoOpTopic identifies the flow whose NoOp nodes are being published.
-type NoOpTopic struct {
-	FlowID idwrap.IDWrap
-}
-
-// NoOpEvent describes a NoOp node change for sync streaming.
-type NoOpEvent struct {
-	Type   string
-	FlowID idwrap.IDWrap
-	Node   *flowv1.NodeNoOp
-}
-
 // ForTopic identifies the flow whose For nodes are being published.
 type ForTopic struct {
 	FlowID idwrap.IDWrap
@@ -178,10 +166,6 @@ const (
 	flowVersionEventUpdate = "update"
 	flowVersionEventDelete = "delete"
 
-	noopEventInsert = "insert"
-	noopEventUpdate = "update"
-	noopEventDelete = "delete"
-
 	forEventInsert = "insert"
 	forEventUpdate = "update"
 	forEventDelete = "delete"
@@ -210,31 +194,29 @@ type FlowServiceV2RPC struct {
 	ns       *sflow.NodeService
 	nrs      *sflow.NodeRequestService
 	nfs      *sflow.NodeForService
-	nfes     *sflow.NodeForEachService
-	nifs     *sflow.NodeIfService
-	nnos     *sflow.NodeNoopService
-	njss     *sflow.NodeJsService
-	nes      *sflow.NodeExecutionService
-	fvs      *sflow.FlowVariableService
-	envs     *senv.EnvironmentService
-	vs       *senv.VariableService
-	hs       *shttp.HTTPService
-	hbr      *shttp.HttpBodyRawService
-	resolver resolver.RequestResolver
-	logger   *slog.Logger
-	// V2 import services
-	workspaceImportService   WorkspaceImporter
-	httpResponseService      shttp.HttpResponseService
-	flowStream               eventstream.SyncStreamer[FlowTopic, FlowEvent]
-	nodeStream               eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream               eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream                eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-	versionStream            eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-	noopStream               eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
-	forStream                eventstream.SyncStreamer[ForTopic, ForEvent]
-	conditionStream          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
-	forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
-	jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
+		nfes                     *sflow.NodeForEachService
+		nifs                     *sflow.NodeIfService
+		njss                     *sflow.NodeJsService
+		nes                      *sflow.NodeExecutionService
+		fvs                      *sflow.FlowVariableService
+		envs                     *senv.EnvironmentService
+		vs                       *senv.VariableService
+		hs                       *shttp.HTTPService
+		hbr                      *shttp.HttpBodyRawService
+		resolver resolver.RequestResolver
+		logger   *slog.Logger
+		// V2 import services
+		workspaceImportService   WorkspaceImporter
+		httpResponseService      shttp.HttpResponseService
+		flowStream               eventstream.SyncStreamer[FlowTopic, FlowEvent]
+		nodeStream               eventstream.SyncStreamer[NodeTopic, NodeEvent]
+		edgeStream               eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+		varStream                eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+		versionStream            eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+		forStream                eventstream.SyncStreamer[ForTopic, ForEvent]
+		conditionStream          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+		forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+		jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
@@ -267,7 +249,6 @@ func New(
 	nfs *sflow.NodeForService,
 	nfes *sflow.NodeForEachService,
 	nifs *sflow.NodeIfService,
-	nnos *sflow.NodeNoopService,
 	njss *sflow.NodeJsService,
 	nes *sflow.NodeExecutionService,
 	fvs *sflow.FlowVariableService,
@@ -284,7 +265,6 @@ func New(
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
 	varStream eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent],
 	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent],
-	noopStream eventstream.SyncStreamer[NoOpTopic, NoOpEvent],
 	forStream eventstream.SyncStreamer[ForTopic, ForEvent],
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent],
 	forEachStream eventstream.SyncStreamer[ForEachTopic, ForEachEvent],
@@ -297,7 +277,7 @@ func New(
 	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient,
 ) *FlowServiceV2RPC {
 	builder := flowbuilder.New(
-		ns, nrs, nfs, nfes, nifs, nnos, njss,
+		ns, nrs, nfs, nfes, nifs, njss,
 		ws, vs, fvs, resolver, logger,
 	)
 
@@ -316,7 +296,6 @@ func New(
 		nfs:                      nfs,
 		nfes:                     nfes,
 		nifs:                     nifs,
-		nnos:                     nnos,
 		njss:                     njss,
 		nes:                      nes,
 		fvs:                      fvs,
@@ -333,7 +312,6 @@ func New(
 		edgeStream:               edgeStream,
 		varStream:                varStream,
 		versionStream:            versionStream,
-		noopStream:               noopStream,
 		forStream:                forStream,
 		conditionStream:          conditionStream,
 		forEachStream:            forEachStream,

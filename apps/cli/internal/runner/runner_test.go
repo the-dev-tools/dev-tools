@@ -73,7 +73,6 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 	nodeService := sflow.NewNodeService(queries)
 	nodeRequestService := sflow.NewNodeRequestService(queries)
 	nodeIfService := sflow.NewNodeIfService(queries)
-	nodeNoopService := sflow.NewNodeNoopService(queries)
 	flowVariableService := sflow.NewFlowVariableService(queries)
 	nodeForService := sflow.NewNodeForService(queries)
 	nodeForEachService := sflow.NewNodeForEachService(queries)
@@ -110,7 +109,6 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		&nodeForService,
 		&nodeForEachService,
 		nodeIfService,
-		&nodeNoopService,
 		&nodeJSService,
 		&workspaceService,
 		&varService,
@@ -134,7 +132,6 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		NodeRequest:        nodeRequestService,
 		NodeFor:            nodeForService,
 		NodeForEach:        nodeForEachService,
-		NodeNoop:           nodeNoopService,
 		NodeIf:             *nodeIfService,
 		NodeJS:             nodeJSService,
 		HTTP:               httpService,
@@ -265,9 +262,8 @@ func TestFlowRun_SimpleYAML(t *testing.T) {
 flows:
   - name: SimpleFlow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Request1
           method: GET
@@ -337,9 +333,8 @@ run:
 flows:
   - name: FlowA
     steps:
-      - noop:
+      - manual_start:
           name: StartA
-          type: start
       - request:
           name: RequestA
           method: GET
@@ -347,9 +342,8 @@ flows:
           depends_on: StartA
   - name: FlowB
     steps:
-      - noop:
+      - manual_start:
           name: StartB
-          type: start
       - request:
           name: RequestB
           method: GET
@@ -416,9 +410,8 @@ func TestFlowRun_RequestNode(t *testing.T) {
 flows:
   - name: RequestFlow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Req1
           method: GET
@@ -467,9 +460,8 @@ func TestFlowRun_FlowNotFound(t *testing.T) {
 flows:
   - name: ExistingFlow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Req1
           method: GET
@@ -530,9 +522,8 @@ func TestFlowRun_HTTPMethods(t *testing.T) {
 flows:
   - name: HTTPMethodsFlow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: GetRequest
           method: GET
@@ -610,9 +601,8 @@ flows:
       - name: inputValue
         value: 10
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - js:
           name: ComputeResult
           code: |

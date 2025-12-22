@@ -66,11 +66,11 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 		if i == 0 {
 			// Edge from start to first request node
 			edgeID := idwrap.NewNow()
-			edges = append(edges, mflow.NewEdge(edgeID, startNodeID, nodeID, mflow.HandleThen, mflow.EdgeKindNoOp))
+			edges = append(edges, mflow.NewEdge(edgeID, startNodeID, nodeID, mflow.HandleThen))
 		} else {
 			// Edge from previous request node to this one
 			edgeID := idwrap.NewNow()
-			edges = append(edges, mflow.NewEdge(edgeID, nodeIDs[currentIndex-1], nodeID, mflow.HandleThen, mflow.EdgeKindNoOp))
+			edges = append(edges, mflow.NewEdge(edgeID, nodeIDs[currentIndex-1], nodeID, mflow.HandleThen))
 		}
 
 		currentIndex++
@@ -100,7 +100,7 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 		}
 
 		edgeID := idwrap.NewNow()
-		edges = append(edges, mflow.NewEdge(edgeID, sourceID, nodeID, mflow.HandleThen, mflow.EdgeKindNoOp))
+		edges = append(edges, mflow.NewEdge(edgeID, sourceID, nodeID, mflow.HandleThen))
 
 		currentIndex++
 	}

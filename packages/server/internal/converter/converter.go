@@ -353,8 +353,8 @@ func ToAPIFileKind(kind mfile.ContentType) filev1.FileKind {
 // ToAPINodeKind converts model NodeKind to API NodeKind
 func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 	switch kind {
-	case mflow.NODE_KIND_NO_OP:
-		return flowv1.NodeKind_NODE_KIND_NO_OP
+	case mflow.NODE_KIND_MANUAL_START:
+		return flowv1.NodeKind_NODE_KIND_MANUAL_START
 	case mflow.NODE_KIND_REQUEST:
 		return flowv1.NodeKind_NODE_KIND_HTTP
 	case mflow.NODE_KIND_CONDITION:
@@ -366,25 +366,7 @@ func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 	case mflow.NODE_KIND_JS:
 		return flowv1.NodeKind_NODE_KIND_JS
 	default:
-		return flowv1.NodeKind_NODE_KIND_NO_OP
-	}
-}
-
-// ToAPINodeNoOpKind converts model NoopTypes to API NodeNoOpKind
-func ToAPINodeNoOpKind(kind mflow.NoopTypes) flowv1.NodeNoOpKind {
-	switch kind {
-	case mflow.NODE_NO_OP_KIND_START:
-		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START
-	case mflow.NODE_NO_OP_KIND_CREATE:
-		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_CREATE
-	case mflow.NODE_NO_OP_KIND_THEN:
-		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_THEN
-	case mflow.NODE_NO_OP_KIND_ELSE:
-		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_ELSE
-	case mflow.NODE_NO_OP_KIND_LOOP:
-		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_LOOP
-	default:
-		return flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START
+		return flowv1.NodeKind_NODE_KIND_UNSPECIFIED
 	}
 }
 

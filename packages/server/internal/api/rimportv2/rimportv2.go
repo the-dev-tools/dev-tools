@@ -43,7 +43,6 @@ type ImportServices struct {
 	HttpAssert         *shttp.HttpAssertService
 	Node               *sflow.NodeService
 	NodeRequest        *sflow.NodeRequestService
-	NodeNoop           *sflow.NodeNoopService
 	Edge               *sflow.EdgeService
 }
 
@@ -52,7 +51,6 @@ type ImportStreamers struct {
 	Flow               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 	Node               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
 	Edge               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
-	Noop               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
 	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	HttpHeader         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 	HttpSearchParam    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
@@ -78,7 +76,6 @@ type ImportV2RPC struct {
 	FlowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 	NodeStream               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
 	EdgeStream               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
-	NoopStream               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
 	HttpStream               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	HttpHeaderStream         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 	HttpSearchParamStream    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
@@ -102,7 +99,6 @@ type ImportV2RPC struct {
 	HttpAssertService         *shttp.HttpAssertService
 	NodeService               *sflow.NodeService
 	NodeRequestService        *sflow.NodeRequestService
-	NodeNoopService           *sflow.NodeNoopService
 	EdgeService               *sflow.EdgeService
 	EnvService                senv.EnvironmentService
 	VarService                senv.VariableService
@@ -119,7 +115,7 @@ func NewImportV2RPC(
 	importer := NewImporter(db,
 		services.Http, services.Flow, services.File,
 		services.HttpHeader, services.HttpSearchParam, services.HttpBodyForm, services.HttpBodyUrlEncoded, services.HttpBodyRaw,
-		services.HttpAssert, services.Node, services.NodeRequest, services.NodeNoop, services.Edge,
+		services.HttpAssert, services.Node, services.NodeRequest, services.Edge,
 		services.Env, services.Var)
 
 	// Create the validator for input validation
@@ -141,7 +137,6 @@ func NewImportV2RPC(
 		FlowStream:               streamers.Flow,
 		NodeStream:               streamers.Node,
 		EdgeStream:               streamers.Edge,
-		NoopStream:               streamers.Noop,
 		HttpStream:               streamers.Http,
 		HttpHeaderStream:         streamers.HttpHeader,
 		HttpSearchParamStream:    streamers.HttpSearchParam,
@@ -165,7 +160,6 @@ func NewImportV2RPC(
 		HttpAssertService:         services.HttpAssert,
 		NodeService:               services.Node,
 		NodeRequestService:        services.NodeRequest,
-		NodeNoopService:           services.NodeNoop,
 		EdgeService:               services.Edge,
 		EnvService:                services.Env,
 		VarService:                services.Var,

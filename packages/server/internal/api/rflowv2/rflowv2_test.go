@@ -43,7 +43,6 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -69,7 +68,6 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -88,8 +86,12 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 		ns:           &nodeService,
 		nes:          &nodeExecService,
 		es:           &edgeService,
-		nnos:         &noopService,
 		fvs:          &flowVarService,
+		nrs:          &reqService,
+		nfs:          &forService,
+		nfes:         &forEachService,
+		nifs:         ifService,
+		njss:         &jsService,
 		logger:       logger,
 		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
@@ -133,23 +135,17 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	err = flowService.CreateFlow(ctx, flow)
 	require.NoError(t, err)
 
-	// Create Start Node (NoOp)
+	// Create Start Node (ManualStart)
 	startNodeID := idwrap.NewNow()
 	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
-	require.NoError(t, err)
-
-	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 	require.NoError(t, err)
 
 	// Run Multiple Times
@@ -279,17 +275,9 @@ CREATE TABLE flow_edge (
   source_id BLOB NOT NULL,
   target_id BLOB NOT NULL,
   source_handle INT NOT NULL,
-  edge_kind INT NOT NULL DEFAULT 0,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
   FOREIGN KEY (source_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (target_id) REFERENCES flow_node (id) ON DELETE CASCADE
-);
-
--- FLOW NODE NOOP
-CREATE TABLE flow_node_noop (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  node_type TINYINT NOT NULL,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
 -- FLOW VARIABLE
@@ -340,7 +328,6 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -366,7 +353,6 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -385,8 +371,12 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		ns:           &nodeService,
 		nes:          &nodeExecService,
 		es:           &edgeService,
-		nnos:         &noopService,
 		fvs:          &flowVarService,
+		nrs:          &reqService,
+		nfs:          &forService,
+		nfes:         &forEachService,
+		nifs:         ifService,
+		njss:         &jsService,
 		logger:       logger,
 		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
@@ -431,35 +421,36 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	err = flowService.CreateFlow(ctx, flow)
 	require.NoError(t, err)
 
-	// Test: Insert NoOp sub-node WITHOUT base node existing
+	// Test: Insert HTTP sub-node WITHOUT base node existing
 	// This should succeed now that we removed ensureNodeAccess check
 	nodeID := idwrap.NewNow()
+	httpID := idwrap.NewNow()
 
-	req := connect.NewRequest(&flowv1.NodeNoOpInsertRequest{
-		Items: []*flowv1.NodeNoOpInsert{{
+	req := connect.NewRequest(&flowv1.NodeHttpInsertRequest{
+		Items: []*flowv1.NodeHttpInsert{{
 			NodeId: nodeID.Bytes(),
-			Kind:   flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START,
+			HttpId: httpID.Bytes(),
 		}},
 	})
 
-	_, err = svc.NodeNoOpInsert(ctx, req)
-	require.NoError(t, err, "NodeNoOpInsert should succeed without base node")
+	_, err = svc.NodeHttpInsert(ctx, req)
+	require.NoError(t, err, "NodeHttpInsert should succeed without base node")
 
 	// Verify the sub-node was created
-	noopNode, err := noopService.GetNodeNoop(ctx, nodeID)
+	nodeReq, err := reqService.GetNodeRequest(ctx, nodeID)
 	require.NoError(t, err)
-	assert.Equal(t, mflow.NODE_NO_OP_KIND_START, noopNode.Type)
+	assert.Equal(t, httpID, *nodeReq.HttpID)
 
-	// Now create the base node (simulating out-of-order arrival)
-	baseNode := mflow.Node{
-		ID:        nodeID,
-		FlowID:    flowID,
-		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
-		PositionX: 0,
-		PositionY: 0,
-	}
-	err = nodeService.CreateNode(ctx, baseNode)
+	    // Now create the base node (simulating out-of-order arrival)
+	    baseNode := mflow.Node{
+	        ID:        nodeID,
+	        FlowID:    flowID,
+	        Name:      "Start",
+	        NodeKind:  mflow.NODE_KIND_REQUEST,
+	        PositionX: 0,
+	        		PositionY: 0,
+	        	}
+	        	err = nodeService.CreateNode(ctx, baseNode)
 	require.NoError(t, err, "Base node should be created after sub-node")
 
 	t.Log("Successfully inserted sub-node before base node - decoupled insert works!")
@@ -480,7 +471,6 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -506,7 +496,6 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -525,8 +514,12 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 		ns:           &nodeService,
 		nes:          &nodeExecService,
 		es:           &edgeService,
-		nnos:         &noopService,
 		fvs:          &flowVarService,
+		nrs:          &reqService,
+		nfs:          &forService,
+		nfes:         &forEachService,
+		nifs:         ifService,
+		njss:         &jsService,
 		logger:       logger,
 		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
@@ -570,23 +563,17 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	err = flowService.CreateFlow(ctx, flow)
 	require.NoError(t, err)
 
-	// Create Start Node (NoOp)
+	// Create Start Node (ManualStart)
 	startNodeID := idwrap.NewNow()
 	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
-	require.NoError(t, err)
-
-	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 	require.NoError(t, err)
 
 	// Run the flow multiple times
@@ -633,7 +620,6 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -659,7 +645,6 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -678,8 +663,12 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 		ns:           &nodeService,
 		nes:          &nodeExecService,
 		es:           &edgeService,
-		nnos:         &noopService,
 		fvs:          &flowVarService,
+		nrs:          &reqService,
+		nfs:          &forService,
+		nfes:         &forEachService,
+		nifs:         ifService,
+		njss:         &jsService,
 		logger:       logger,
 		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
@@ -723,23 +712,17 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	err = flowService.CreateFlow(ctx, flow)
 	require.NoError(t, err)
 
-	// Create Start Node (NoOp)
+	// Create Start Node (ManualStart)
 	startNodeID := idwrap.NewNow()
 	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
-	require.NoError(t, err)
-
-	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 	require.NoError(t, err)
 
 	// Run the flow once

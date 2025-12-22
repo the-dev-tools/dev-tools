@@ -53,12 +53,12 @@ type YamlFlowFlowV2 struct {
 // YamlStepWrapper handles the polymorphic step list
 // A step is a map with a single key that identifies the type
 type YamlStepWrapper struct {
-	Request *YamlStepRequest `yaml:"request,omitempty"`
-	If      *YamlStepIf      `yaml:"if,omitempty"`
-	For     *YamlStepFor     `yaml:"for,omitempty"`
-	ForEach *YamlStepForEach `yaml:"for_each,omitempty"`
-	JS      *YamlStepJS      `yaml:"js,omitempty"`
-	Noop    *YamlStepNoop    `yaml:"noop,omitempty"`
+	Request      *YamlStepRequest `yaml:"request,omitempty"`
+	If           *YamlStepIf      `yaml:"if,omitempty"`
+	For          *YamlStepFor     `yaml:"for,omitempty"`
+	ForEach      *YamlStepForEach `yaml:"for_each,omitempty"`
+	JS           *YamlStepJS      `yaml:"js,omitempty"`
+	ManualStart  *YamlStepCommon  `yaml:"manual_start,omitempty"`
 }
 
 // Common fields for all step types
@@ -100,11 +100,6 @@ type YamlStepForEach struct {
 type YamlStepJS struct {
 	YamlStepCommon `yaml:",inline"`
 	Code           string `yaml:"code"`
-}
-
-type YamlStepNoop struct {
-	YamlStepCommon `yaml:",inline"`
-	Type           string `yaml:"type"`
 }
 
 // YamlFlowVariableV2 represents a flow variable
@@ -342,14 +337,12 @@ type YamlFlowDataV2 struct {
 	HTTPRequests []YamlHTTPRequestV2
 
 	// Flow node implementations
-	NoopNodes      []mflow.NodeNoop
 	RequestNodes   []mflow.NodeRequest
 	ConditionNodes []mflow.NodeIf
 	ForNodes       []mflow.NodeFor
 	ForEachNodes   []mflow.NodeForEach
 	JSNodes        []mflow.NodeJS
 }
-
 // YamlVariableV2 represents a variable during parsing
 type YamlVariableV2 struct {
 	VarKey string

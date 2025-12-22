@@ -12,7 +12,6 @@ func ConvertToDBEdge(e mflow.Edge) gen.FlowEdge {
 		SourceID:     e.SourceID,
 		TargetID:     e.TargetID,
 		SourceHandle: e.SourceHandler,
-		EdgeKind:     e.Kind,
 	}
 }
 
@@ -23,6 +22,5 @@ func ConvertToModelEdge(e gen.FlowEdge) *mflow.Edge {
 		SourceID:      e.SourceID,
 		TargetID:      e.TargetID,
 		SourceHandler: e.SourceHandle,
-		Kind:          e.EdgeKind,
 	}
 }

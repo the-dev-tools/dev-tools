@@ -45,7 +45,6 @@ func TestFlowRun_Logging(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 
 	// Missing services for builder
@@ -77,7 +76,6 @@ func TestFlowRun_Logging(t *testing.T) {
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -96,7 +94,6 @@ func TestFlowRun_Logging(t *testing.T) {
 		ns:           &nodeService,
 		nes:          &nodeExecService,
 		es:           &edgeService,
-		nnos:         &noopService,
 		fvs:          &flowVarService,
 		logger:       logger,
 		logStream:    logStreamer,
@@ -142,23 +139,17 @@ func TestFlowRun_Logging(t *testing.T) {
 	err = flowService.CreateFlow(ctx, flow)
 	require.NoError(t, err)
 
-	// Create Start Node (NoOp)
+	// Create Start Node (ManualStart)
 	startNodeID := idwrap.NewNow()
 	startNode := mflow.Node{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
-	require.NoError(t, err)
-
-	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 	require.NoError(t, err)
 
 	// Subscribe to logs

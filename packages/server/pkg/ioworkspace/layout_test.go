@@ -33,14 +33,15 @@ func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
 		t.Errorf("Expected 2 nodes, got %d", len(bundle.FlowNodes))
 	}
 
-	// Should have 1 noop node (start)
-	if len(bundle.FlowNoopNodes) != 1 {
-		t.Errorf("Expected 1 noop node, got %d", len(bundle.FlowNoopNodes))
+	// Should have 1 manual start node
+	var startNodeCount int
+	for _, node := range bundle.FlowNodes {
+		if node.NodeKind == mflow.NODE_KIND_MANUAL_START {
+			startNodeCount++
+		}
 	}
-
-	// Should have start node type
-	if bundle.FlowNoopNodes[0].Type != mflow.NODE_NO_OP_KIND_START {
-		t.Errorf("Expected start node type, got %d", bundle.FlowNoopNodes[0].Type)
+	if startNodeCount != 1 {
+		t.Errorf("Expected 1 manual start node, got %d", startNodeCount)
 	}
 
 	// Should NOT have any edges - orphan nodes are intentionally left disconnected
@@ -60,11 +61,8 @@ func TestEnsureFlowStructure_DoesNotDuplicateStartNode(t *testing.T) {
 			{ID: flowID, Name: "Test Flow"},
 		},
 		FlowNodes: []mflow.Node{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
 			{ID: requestNodeID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: requestNodeID},
@@ -82,9 +80,15 @@ func TestEnsureFlowStructure_DoesNotDuplicateStartNode(t *testing.T) {
 		t.Errorf("Expected 2 nodes, got %d", len(bundle.FlowNodes))
 	}
 
-	// Should still have 1 noop node
-	if len(bundle.FlowNoopNodes) != 1 {
-		t.Errorf("Expected 1 noop node, got %d", len(bundle.FlowNoopNodes))
+	// Should still have 1 manual start node
+	var startNodeCount int
+	for _, node := range bundle.FlowNodes {
+		if node.NodeKind == mflow.NODE_KIND_MANUAL_START {
+			startNodeCount++
+		}
+	}
+	if startNodeCount != 1 {
+		t.Errorf("Expected 1 manual start node, got %d", startNodeCount)
 	}
 
 	// Should still have 1 edge
@@ -104,12 +108,9 @@ func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
 			{ID: flowID, Name: "Test Flow"},
 		},
 		FlowNodes: []mflow.Node{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
 			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
 			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mflow.NODE_KIND_REQUEST},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: node1ID},
@@ -161,12 +162,9 @@ func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
 			{ID: flowID, Name: "Test Flow"},
 		},
 		FlowNodes: []mflow.Node{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
 			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mflow.NODE_KIND_REQUEST},
 			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mflow.NODE_KIND_REQUEST},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
 			{FlowNodeID: node1ID},

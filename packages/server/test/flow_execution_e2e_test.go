@@ -126,7 +126,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	})
@@ -207,8 +207,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 		FlowID:        flowID,
 		SourceID:      startNodeID,
 		TargetID:      reqNodeAID,
-		Kind:          int32(mflow.EdgeKindNoOp), // Use correct enum cast
-		SourceHandler: mflow.EdgeHandle(0),
+		SourceHandler: mflow.HandleUnspecified,
 	})
 	require.NoError(t, err)
 
@@ -219,8 +218,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 		FlowID:        flowID,
 		SourceID:      reqNodeAID,
 		TargetID:      reqNodeBID,
-		Kind:          int32(mflow.EdgeKindNoOp), // Use correct enum cast
-		SourceHandler: mflow.EdgeHandle(0),
+		SourceHandler: mflow.HandleUnspecified,
 	})
 	require.NoError(t, err)
 

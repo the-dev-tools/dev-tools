@@ -21,15 +21,9 @@ func createStartNodeWithID(nodeID, flowID idwrap.IDWrap, result *ioworkspace.Wor
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     "Start",
-		NodeKind: mflow.NODE_KIND_NO_OP,
+		NodeKind: mflow.NODE_KIND_MANUAL_START,
 	}
 	result.FlowNodes = append(result.FlowNodes, startNode)
-
-	noopNode := mflow.NodeNoop{
-		FlowNodeID: nodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	}
-	result.FlowNoopNodes = append(result.FlowNoopNodes, noopNode)
 }
 
 // processSteps processes all steps in a flow
@@ -61,9 +55,9 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.JS != nil:
 			nodeName = stepWrapper.JS.Name
 			dependsOn = stepWrapper.JS.DependsOn
-		case stepWrapper.Noop != nil:
-			nodeName = stepWrapper.Noop.Name
-			dependsOn = stepWrapper.Noop.DependsOn
+		case stepWrapper.ManualStart != nil:
+			nodeName = stepWrapper.ManualStart.Name
+			dependsOn = stepWrapper.ManualStart.DependsOn
 		default:
 			return nil, NewYamlFlowErrorV2("empty step definition", "step", i)
 		}
@@ -117,17 +111,15 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			if err := processJSStructStep(stepWrapper.JS, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
-		case stepWrapper.Noop != nil:
-			if stepWrapper.Noop.Type == "start" {
-				info.id = startNodeID
-				createStartNodeWithID(startNodeID, flowID, result)
-				lastIdx := len(result.FlowNodes) - 1
-				result.FlowNodes[lastIdx].Name = nodeName
-				startNodeFound = true
-				nodeInfoMap[nodeName] = info
-				nodeList = append(nodeList, info)
-				continue
-			}
+		case stepWrapper.ManualStart != nil:
+			info.id = startNodeID
+			createStartNodeWithID(startNodeID, flowID, result)
+			lastIdx := len(result.FlowNodes) - 1
+			result.FlowNodes[lastIdx].Name = nodeName
+			startNodeFound = true
+			nodeInfoMap[nodeName] = info
+			nodeList = append(nodeList, info)
+			continue
 		}
 
 		nodeInfoMap[nodeName] = info
@@ -140,7 +132,6 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		StartNodeFound: startNodeFound,
 	}, nil
 }
-
 // processRequestStep processes a request step using struct
 func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, step *YamlStepRequest, templates map[string]YamlRequestDefV2, varMap varsystem.VarMap, opts ConvertOptionsV2) (*mhttp.HTTP, *HTTPAssociatedData, error) {
 	method := "GET"

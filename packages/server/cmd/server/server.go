@@ -153,7 +153,6 @@ func run() error {
 	flowNodeForService := sflow.NewNodeForService(queries)
 	flowNodeForeachService := sflow.NewNodeForEachService(queries)
 	flowNodeConditionService := sflow.NewNodeIfService(queries)
-	flowNodeNoOpService := sflow.NewNodeNoopService(queries)
 	flowNodeNodeJsService := sflow.NewNodeJsService(queries)
 	nodeExecutionService := sflow.NewNodeExecutionService(queries)
 
@@ -254,14 +253,12 @@ func run() error {
 			HttpAssert:         httpAssertService,
 			Node:               &flowNodeService,
 			NodeRequest:        &flowNodeRequestSevice,
-			NodeNoop:           &flowNodeNoOpService,
 			Edge:               &flowEdgeService,
 		},
 		rimportv2.ImportStreamers{
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,
 			Edge:               streamers.Edge,
-			Noop:               streamers.NoOp,
 			Http:               streamers.Http,
 			HttpHeader:         streamers.HttpHeader,
 			HttpSearchParam:    streamers.HttpSearchParam,
@@ -354,7 +351,6 @@ func run() error {
 		&flowNodeForService,
 		&flowNodeForeachService,
 		flowNodeConditionService,
-		&flowNodeNoOpService,
 		&flowNodeNodeJsService,
 		&nodeExecutionService,
 		&flowVariableService,
@@ -371,7 +367,6 @@ func run() error {
 		streamers.Edge,
 		streamers.FlowVariable,
 		streamers.FlowVersion,
-		streamers.NoOp,
 		streamers.For,
 		streamers.Condition,
 		streamers.ForEach,
@@ -541,7 +536,6 @@ type Streamers struct {
 	Edge                eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
 	FlowVariable        eventstream.SyncStreamer[rflowv2.FlowVariableTopic, rflowv2.FlowVariableEvent]
 	FlowVersion         eventstream.SyncStreamer[rflowv2.FlowVersionTopic, rflowv2.FlowVersionEvent]
-	NoOp                eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
 	For                 eventstream.SyncStreamer[rflowv2.ForTopic, rflowv2.ForEvent]
 	Condition           eventstream.SyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent]
 	ForEach             eventstream.SyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent]
@@ -572,7 +566,6 @@ func NewStreamers() *Streamers {
 		Edge:                memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
 		FlowVariable:        memory.NewInMemorySyncStreamer[rflowv2.FlowVariableTopic, rflowv2.FlowVariableEvent](),
 		FlowVersion:         memory.NewInMemorySyncStreamer[rflowv2.FlowVersionTopic, rflowv2.FlowVersionEvent](),
-		NoOp:                memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent](),
 		For:                 memory.NewInMemorySyncStreamer[rflowv2.ForTopic, rflowv2.ForEvent](),
 		Condition:           memory.NewInMemorySyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent](),
 		ForEach:             memory.NewInMemorySyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent](),
@@ -603,7 +596,6 @@ func (s *Streamers) Shutdown() {
 	s.Edge.Shutdown()
 	s.FlowVariable.Shutdown()
 	s.FlowVersion.Shutdown()
-	s.NoOp.Shutdown()
 	s.For.Shutdown()
 	s.Condition.Shutdown()
 	s.ForEach.Shutdown()

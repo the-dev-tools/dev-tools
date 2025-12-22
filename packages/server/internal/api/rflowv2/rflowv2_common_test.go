@@ -119,11 +119,10 @@ func TestSerializeEdge(t *testing.T) {
 		expected *flowv1.Edge
 	}{
 		{
-			name: "NoOp Edge",
+			name: "Basic Edge",
 			input: mflow.Edge{
 				ID:            edgeID,
 				FlowID:        flowID,
-				Kind:          int32(mflow.EdgeKindNoOp),
 				SourceID:      sourceID,
 				TargetID:      targetID,
 				SourceHandler: mflow.HandleThen,
@@ -131,7 +130,6 @@ func TestSerializeEdge(t *testing.T) {
 			expected: &flowv1.Edge{
 				EdgeId:       edgeID.Bytes(),
 				FlowId:       flowID.Bytes(),
-				Kind:         flowv1.EdgeKind(mflow.EdgeKindNoOp),
 				SourceId:     sourceID.Bytes(),
 				TargetId:     targetID.Bytes(),
 				SourceHandle: flowv1.HandleKind(mflow.HandleThen),
@@ -200,45 +198,6 @@ func TestSerializeFlow(t *testing.T) {
 
 func ptr[T any](v T) *T {
 	return &v
-}
-
-func TestSerializeNodeNoop(t *testing.T) {
-	nodeID := idwrap.NewNow()
-	tests := []struct {
-		name     string
-		input    mflow.NodeNoop
-		expected *flowv1.NodeNoOp
-	}{
-		{
-			name: "NoOp Start",
-			input: mflow.NodeNoop{
-				FlowNodeID: nodeID,
-				Type:       mflow.NODE_NO_OP_KIND_START,
-			},
-			expected: &flowv1.NodeNoOp{
-				NodeId: nodeID.Bytes(),
-				Kind:   flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START,
-			},
-		},
-		{
-			name: "NoOp Loop",
-			input: mflow.NodeNoop{
-				FlowNodeID: nodeID,
-				Type:       mflow.NODE_NO_OP_KIND_LOOP,
-			},
-			expected: &flowv1.NodeNoOp{
-				NodeId: nodeID.Bytes(),
-				Kind:   flowv1.NodeNoOpKind_NODE_NO_OP_KIND_LOOP,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := serializeNodeNoop(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestSerializeNodeFor(t *testing.T) {
@@ -489,29 +448,13 @@ func TestIsStartNode(t *testing.T) {
 		{
 			name: "Start Node",
 			input: mflow.Node{
-				NodeKind: mflow.NODE_KIND_NO_OP,
+				NodeKind: mflow.NODE_KIND_MANUAL_START,
 				Name:     "Start",
 			},
 			expected: true,
 		},
 		{
-			name: "Start Node Lowercase",
-			input: mflow.Node{
-				NodeKind: mflow.NODE_KIND_NO_OP,
-				Name:     "start",
-			},
-			expected: true,
-		},
-		{
 			name: "Not Start Node",
-			input: mflow.Node{
-				NodeKind: mflow.NODE_KIND_NO_OP,
-				Name:     "End",
-			},
-			expected: false,
-		},
-		{
-			name: "Not NoOp Node",
 			input: mflow.Node{
 				NodeKind: mflow.NODE_KIND_REQUEST,
 				Name:     "Start",

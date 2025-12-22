@@ -14,8 +14,8 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nforeach"
 	"the-dev-tools/server/pkg/flow/node/nif"
 	"the-dev-tools/server/pkg/flow/node/njs"
-	"the-dev-tools/server/pkg/flow/node/nnoop"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
+	"the-dev-tools/server/pkg/flow/node/nstart"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
@@ -32,7 +32,6 @@ type Builder struct {
 	NodeFor     *sflow.NodeForService
 	NodeForEach *sflow.NodeForEachService
 	NodeIf      *sflow.NodeIfService
-	NodeNoop    *sflow.NodeNoopService
 	NodeJS      *sflow.NodeJsService
 
 	Workspace    *sworkspace.WorkspaceService
@@ -49,7 +48,6 @@ func New(
 	nfs *sflow.NodeForService,
 	nfes *sflow.NodeForEachService,
 	nifs *sflow.NodeIfService,
-	nnos *sflow.NodeNoopService,
 	njss *sflow.NodeJsService,
 	ws *sworkspace.WorkspaceService,
 	vs *senv.VariableService,
@@ -63,7 +61,6 @@ func New(
 		NodeFor:      nfs,
 		NodeForEach:  nfes,
 		NodeIf:       nifs,
-		NodeNoop:     nnos,
 		NodeJS:       njss,
 		Workspace:    ws,
 		Variable:     vs,
@@ -87,15 +84,9 @@ func (b *Builder) BuildNodes(
 
 	for _, nodeModel := range nodes {
 		switch nodeModel.NodeKind {
-		case mflow.NODE_KIND_NO_OP:
-			noopModel, err := b.NodeNoop.GetNodeNoop(ctx, nodeModel.ID)
-			if err != nil {
-				return nil, idwrap.IDWrap{}, err
-			}
-			flowNodeMap[nodeModel.ID] = nnoop.New(nodeModel.ID, nodeModel.Name)
-			if noopModel.Type == mflow.NODE_NO_OP_KIND_START {
-				startNodeID = nodeModel.ID
-			}
+		case mflow.NODE_KIND_MANUAL_START:
+			flowNodeMap[nodeModel.ID] = nstart.New(nodeModel.ID, nodeModel.Name)
+			startNodeID = nodeModel.ID
 		case mflow.NODE_KIND_REQUEST:
 			requestCfg, err := b.NodeRequest.GetNodeRequest(ctx, nodeModel.ID)
 			if err != nil {

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -23,10 +22,7 @@ import (
 )
 
 func isStartNode(node mflow.Node) bool {
-	if node.NodeKind != mflow.NODE_KIND_NO_OP {
-		return false
-	}
-	return strings.EqualFold(node.Name, "start")
+	return node.NodeKind == mflow.NODE_KIND_MANUAL_START
 }
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {
@@ -47,7 +43,6 @@ func serializeEdge(e mflow.Edge) *flowv1.Edge {
 	return &flowv1.Edge{
 		EdgeId:       e.ID.Bytes(),
 		FlowId:       e.FlowID.Bytes(),
-		Kind:         flowv1.EdgeKind(e.Kind),
 		SourceId:     e.SourceID.Bytes(),
 		TargetId:     e.TargetID.Bytes(),
 		SourceHandle: flowv1.HandleKind(e.SourceHandler),
@@ -84,13 +79,6 @@ func serializeNodeHTTP(n mflow.NodeRequest) *flowv1.NodeHttp {
 		msg.DeltaHttpId = n.DeltaHttpID.Bytes()
 	}
 	return msg
-}
-
-func serializeNodeNoop(n mflow.NodeNoop) *flowv1.NodeNoOp {
-	return &flowv1.NodeNoOp{
-		NodeId: n.FlowNodeID.Bytes(),
-		Kind:   converter.ToAPINodeNoOpKind(n.Type),
-	}
 }
 
 func serializeNodeFor(n mflow.NodeFor) *flowv1.NodeFor {

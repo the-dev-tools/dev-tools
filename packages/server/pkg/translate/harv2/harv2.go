@@ -120,7 +120,6 @@ type HarResolved struct {
 	Flow         mflow.Flow          `json:"flow"`
 	Nodes        []mflow.Node        `json:"nodes"`
 	RequestNodes []mflow.NodeRequest `json:"request_nodes"`
-	NoOpNodes    []mflow.NodeNoop    `json:"no_op_nodes"`
 	Edges        []mflow.Edge        `json:"edges"`
 }
 
@@ -273,7 +272,6 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		HTTPAsserts:        make([]mhttp.HTTPAssert, 0),
 		Nodes:              make([]mflow.Node, 0),
 		RequestNodes:       make([]mflow.NodeRequest, 0),
-		NoOpNodes:          make([]mflow.NodeNoop, 0),
 		Edges:              make([]mflow.Edge, 0),
 	}
 
@@ -292,15 +290,11 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	result.Nodes = append(result.Nodes, startNode)
-	result.NoOpNodes = append(result.NoOpNodes, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 
 	// Tracking variables for dependency rules
 	var previousNodeID *idwrap.IDWrap
@@ -519,7 +513,6 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		HTTPAsserts:        make([]mhttp.HTTPAssert, 0),
 		Nodes:              make([]mflow.Node, 0),
 		RequestNodes:       make([]mflow.NodeRequest, 0),
-		NoOpNodes:          make([]mflow.NodeNoop, 0),
 		Edges:              make([]mflow.Edge, 0),
 	}
 
@@ -538,15 +531,11 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 0,
 		PositionY: 0,
 	}
 	result.Nodes = append(result.Nodes, startNode)
-	result.NoOpNodes = append(result.NoOpNodes, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 
 	// Tracking variables for dependency rules
 	var previousNodeID *idwrap.IDWrap
@@ -1020,9 +1009,9 @@ func ReorganizeNodePositions(result *HarResolved) error {
 
 	// Find start node
 	var startNode *mflow.Node
-	for i := range result.NoOpNodes {
-		if result.NoOpNodes[i].Type == mflow.NODE_NO_OP_KIND_START {
-			startNode = nodeMap[result.NoOpNodes[i].FlowNodeID]
+	for i := range result.Nodes {
+		if result.Nodes[i].NodeKind == mflow.NODE_KIND_MANUAL_START {
+			startNode = &result.Nodes[i]
 			break
 		}
 	}

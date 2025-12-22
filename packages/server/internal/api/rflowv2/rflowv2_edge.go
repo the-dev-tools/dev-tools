@@ -94,7 +94,6 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 			SourceID:      sourceID,
 			TargetID:      targetID,
 			SourceHandler: convertHandle(item.GetSourceHandle()),
-			Kind:          int32(item.GetKind()),
 		}
 
 		if err := s.es.CreateEdge(ctx, model); err != nil {
@@ -147,10 +146,6 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 
 		if item.SourceHandle != nil {
 			existing.SourceHandler = convertHandle(item.GetSourceHandle())
-		}
-
-		if item.Kind != nil {
-			existing.Kind = int32(item.GetKind())
 		}
 
 		if err := s.es.UpdateEdge(ctx, *existing); err != nil {
@@ -303,7 +298,6 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 		insert := &flowv1.EdgeSyncInsert{
 			EdgeId:       edgePB.GetEdgeId(),
 			FlowId:       edgePB.GetFlowId(),
-			Kind:         edgePB.GetKind(),
 			SourceId:     edgePB.GetSourceId(),
 			TargetId:     edgePB.GetTargetId(),
 			SourceHandle: edgePB.GetSourceHandle(),
@@ -322,10 +316,6 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 		}
 		if flowID := edgePB.GetFlowId(); len(flowID) > 0 {
 			update.FlowId = flowID
-		}
-		if kind := edgePB.GetKind(); kind != flowv1.EdgeKind_EDGE_KIND_UNSPECIFIED {
-			k := kind
-			update.Kind = &k
 		}
 		if sourceID := edgePB.GetSourceId(); len(sourceID) > 0 {
 			update.SourceId = sourceID

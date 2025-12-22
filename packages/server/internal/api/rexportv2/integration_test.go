@@ -62,7 +62,6 @@ type BaseTestServices struct {
 	// Flow related services
 	NodeService        *sflow.NodeService
 	NodeRequestService *sflow.NodeRequestService
-	NodeNoopService    *sflow.NodeNoopService
 	EdgeService        *sflow.EdgeService
 	EnvService         senv.EnvironmentService
 	VarService         senv.VariableService
@@ -94,7 +93,6 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	nodeService := sflow.NewNodeService(base.Queries)
 	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
-	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
 	edgeService := sflow.NewEdgeService(base.Queries)
 	envService := senv.NewEnvironmentService(base.Queries, logger)
 	varService := senv.NewVariableService(base.Queries, logger)
@@ -159,7 +157,6 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		HttpAssertService:         httpAssertService,
 		NodeService:               &nodeService,
 		NodeRequestService:        &nodeRequestService,
-		NodeNoopService:           &nodeNoopService,
 		EdgeService:               &edgeService,
 		EnvService:                envService,
 		VarService:                varService,
@@ -586,7 +583,6 @@ func createImportService(t *testing.T, fixture *integrationTestFixture) *rimport
 		fixture.services.HttpAssertService,
 		fixture.services.NodeService,
 		fixture.services.NodeRequestService,
-		fixture.services.NodeNoopService,
 		fixture.services.EdgeService,
 		fixture.services.EnvService,
 		fixture.services.VarService,

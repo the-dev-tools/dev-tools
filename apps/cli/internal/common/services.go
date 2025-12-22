@@ -34,7 +34,6 @@ type Services struct {
 	NodeRequest sflow.NodeRequestService
 	NodeFor     sflow.NodeForService
 	NodeForEach sflow.NodeForEachService
-	NodeNoop    sflow.NodeNoopService
 	NodeIf      sflow.NodeIfService
 	NodeJS      sflow.NodeJsService
 
@@ -76,7 +75,6 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		NodeRequest: sflow.NewNodeRequestService(queries),
 		NodeFor:     sflow.NewNodeForService(queries),
 		NodeForEach: sflow.NewNodeForEachService(queries),
-		NodeNoop:    sflow.NewNodeNoopService(queries),
 		NodeIf:      *sflow.NewNodeIfService(queries),
 		NodeJS:      sflow.NewNodeJsService(queries),
 

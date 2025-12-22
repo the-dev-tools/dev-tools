@@ -23,9 +23,8 @@ flows:
       - name: timeout
         value: "60"
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: API Test
           method: GET
@@ -74,7 +73,6 @@ flows:
 	require.Equal(t, 0, flow.WorkspaceID.Compare(workspaceID))
 
 	// Verify Start Node exists
-	require.Len(t, result.FlowNoopNodes, 1)
 	require.Equal(t, "Start", result.FlowNodes[0].Name)
 
 	// Verify HTTP request
@@ -162,9 +160,8 @@ request_templates:
 flows:
   - name: Template Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Step 1
           use_request: "base_api"
@@ -214,9 +211,8 @@ workspace_name: Control Flow Test
 flows:
   - name: Control Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Initial Request
           method: GET
@@ -268,9 +264,8 @@ workspace_name: Loop Test
 flows:
   - name: Loop Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Setup Request
           method: POST
@@ -316,9 +311,8 @@ workspace_name: ForEach Test
 flows:
   - name: ForEach Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Get Items
           method: GET
@@ -358,9 +352,8 @@ workspace_name: JS Test
 flows:
   - name: JS Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - js:
           name: Transform Data
           code: |
@@ -486,9 +479,8 @@ workspace_name: Body Test
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Test Request
           method: POST
@@ -514,9 +506,8 @@ workspace_name: Compression Test
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Large Request
           method: POST
@@ -584,9 +575,8 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - invalid_step:
           name: Invalid Step`,
 			expectErr: true,
@@ -599,9 +589,8 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Test Request
           method: GET`,
@@ -615,9 +604,8 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - if:
           name: Test Condition`,
 			expectErr: true,
@@ -630,9 +618,8 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - for:
           name: Test Loop`,
 			expectErr: false, // Should default to 1
@@ -644,9 +631,8 @@ workspace_name: Test Workspace
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - js:
           name: Test Script`,
 			expectErr: true,
@@ -764,9 +750,8 @@ environments:
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
 `
 
 	opts := GetDefaultOptions(workspaceID)
@@ -805,9 +790,8 @@ environments:
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
 `
 
 	opts := GetDefaultOptions(workspaceID)
@@ -838,9 +822,8 @@ environments:
 flows:
   - name: Test Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
 `
 
 	opts := GetDefaultOptions(workspaceID)

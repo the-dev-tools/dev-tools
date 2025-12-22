@@ -236,7 +236,6 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 	fsWriter := sflow.NewFlowWriter(tx)
 	nsWriter := sflow.NewNodeWriter(tx)
-	nnosWriter := sflow.NewNodeNoopWriter(tx)
 
 	var createdFlows []mflow.Flow
 
@@ -266,19 +265,11 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			ID:        startNodeID,
 			FlowID:    flowID,
 			Name:      "Start",
-			NodeKind:  mflow.NODE_KIND_NO_OP,
+			NodeKind:  mflow.NODE_KIND_MANUAL_START,
 			PositionX: 0,
 			PositionY: 0,
 		}
 		if err := nsWriter.CreateNode(ctx, startNode); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		startNoop := mflow.NodeNoop{
-			FlowNodeID: startNodeID,
-			Type:       mflow.NODE_NO_OP_KIND_START,
-		}
-		if err := nnosWriter.CreateNodeNoop(ctx, startNoop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -509,7 +500,6 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	// Collect node details outside TX
 	type nodeDetail struct {
 		node    mflow.Node
-		noop    *mflow.NodeNoop
 		request *mflow.NodeRequest
 		http    *mhttp.HTTP
 		forNode *mflow.NodeFor
@@ -521,10 +511,6 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	for _, n := range sourceNodes {
 		detail := nodeDetail{node: n}
 		switch n.NodeKind {
-		case mflow.NODE_KIND_NO_OP:
-			if d, err := s.nnos.GetNodeNoop(ctx, n.ID); err == nil {
-				detail.noop = d
-			}
 		case mflow.NODE_KIND_REQUEST:
 			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil {
 				detail.request = d
@@ -574,7 +560,6 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	fsWriter := sflow.NewFlowWriter(tx)
 	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 	nsWriter := sflow.NewNodeWriter(tx)
-	nnosWriter := sflow.NewNodeNoopWriter(tx)
 	nrsWriter := sflow.NewNodeRequestWriter(tx)
 	hsWriter := shttp.NewWriter(tx)
 	nfsWriter := sflow.NewNodeForWriter(tx)
@@ -606,13 +591,6 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if d.noop != nil {
-			node := *d.noop
-			node.FlowNodeID = newNodeID
-			if err := nnosWriter.CreateNodeNoop(ctx, node); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
 		if d.request != nil {
 			newHttpID := idwrap.IDWrap{}
 			if d.http != nil {
@@ -678,7 +656,6 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			SourceID:      newSourceID,
 			TargetID:      newTargetID,
 			SourceHandler: e.SourceHandler,
-			Kind:          e.Kind,
 		}
 		if err := esWriter.CreateEdge(ctx, newEdge); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)

@@ -234,7 +234,6 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 	result.FlowForNodes = append(result.FlowForNodes, flowData.FlowForNodes...)
 	result.FlowForEachNodes = append(result.FlowForEachNodes, flowData.FlowForEachNodes...)
 	result.FlowJSNodes = append(result.FlowJSNodes, flowData.FlowJSNodes...)
-	result.FlowNoopNodes = append(result.FlowNoopNodes, flowData.FlowNoopNodes...)
 	result.FlowRequestNodes = append(result.FlowRequestNodes, flowData.FlowRequestNodes...)
 }
 

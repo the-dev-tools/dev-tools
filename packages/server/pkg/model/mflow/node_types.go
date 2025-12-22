@@ -26,26 +26,13 @@ type NodeJS struct {
 	CodeCompressType compress.CompressType
 }
 
-// --- NoOp Node ---
+// --- ManualStart Node ---
 
-type NoopTypes int16
-
-const (
-	NODE_NO_OP_KIND_UNSPECIFIED NoopTypes = iota
-	NODE_NO_OP_KIND_START
-	NODE_NO_OP_KIND_CREATE
-	NODE_NO_OP_KIND_THEN
-	NODE_NO_OP_KIND_ELSE
-	NODE_NO_OP_KIND_LOOP
-)
-
-type NodeNoop struct {
-	FlowNodeID idwrap.IDWrap
-	Type       NoopTypes
+type NodeManualStart struct {
+        FlowNodeID idwrap.IDWrap
 }
 
 // --- If/Condition Node ---
-
 type NodeIf struct {
 	FlowNodeID idwrap.IDWrap
 	Condition  mcondition.Condition

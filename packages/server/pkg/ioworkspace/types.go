@@ -37,7 +37,6 @@ type WorkspaceBundle struct {
 	// Flow node implementations by type
 	FlowRequestNodes   []mflow.NodeRequest
 	FlowConditionNodes []mflow.NodeIf
-	FlowNoopNodes      []mflow.NodeNoop
 	FlowForNodes       []mflow.NodeFor
 	FlowForEachNodes   []mflow.NodeForEach
 	FlowJSNodes        []mflow.NodeJS
@@ -65,7 +64,6 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"flow_edges":           len(wb.FlowEdges),
 		"flow_request_nodes":   len(wb.FlowRequestNodes),
 		"flow_condition_nodes": len(wb.FlowConditionNodes),
-		"flow_noop_nodes":      len(wb.FlowNoopNodes),
 		"flow_for_nodes":       len(wb.FlowForNodes),
 		"flow_foreach_nodes":   len(wb.FlowForEachNodes),
 		"flow_js_nodes":        len(wb.FlowJSNodes),

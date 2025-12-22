@@ -16,7 +16,8 @@ Steps A and B run simultaneously.
 
 ```yaml
 steps:
-  - noop: Start
+  - manual_start:
+      name: Start
   - js:
       name: A
       # No depends_on -> Depends on Start
@@ -31,7 +32,8 @@ Step B waits for Step A.
 
 ```yaml
 steps:
-  - noop: Start
+  - manual_start:
+      name: Start
   - js:
       name: A
       depends_on: [Start]
@@ -76,8 +78,8 @@ steps:
 
 ## Supported Steps
 
+- `manual_start`: Entry point for flow execution.
 - `request`: Execute an HTTP request.
 - `js`: Execute JavaScript code.
 - `if`: Conditional branching.
 - `for` / `for_each`: Iteration.
-- `noop`: No operation (useful for grouping or Start).

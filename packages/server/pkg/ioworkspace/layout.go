@@ -36,18 +36,10 @@ func (wb *WorkspaceBundle) EnsureFlowStructure() error {
 func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 	// Check if start node already exists for this flow
 	var startNodeID *idwrap.IDWrap
-	for i := range wb.FlowNoopNodes {
-		if wb.FlowNoopNodes[i].Type == mflow.NODE_NO_OP_KIND_START {
-			// Find the corresponding flow node
-			for j := range wb.FlowNodes {
-				if wb.FlowNodes[j].ID.Compare(wb.FlowNoopNodes[i].FlowNodeID) == 0 &&
-					wb.FlowNodes[j].FlowID.Compare(flowID) == 0 {
-					startNodeID = &wb.FlowNodes[j].ID
-					break
-				}
-			}
-		}
-		if startNodeID != nil {
+	for j := range wb.FlowNodes {
+		if wb.FlowNodes[j].NodeKind == mflow.NODE_KIND_MANUAL_START &&
+			wb.FlowNodes[j].FlowID.Compare(flowID) == 0 {
+			startNodeID = &wb.FlowNodes[j].ID
 			break
 		}
 	}
@@ -59,17 +51,11 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 			ID:        newStartNodeID,
 			FlowID:    flowID,
 			Name:      "Start",
-			NodeKind:  mflow.NODE_KIND_NO_OP,
+			NodeKind:  mflow.NODE_KIND_MANUAL_START,
 			PositionX: StartX,
 			PositionY: StartY,
 		}
 		wb.FlowNodes = append(wb.FlowNodes, startNode)
-
-		noopNode := mflow.NodeNoop{
-			FlowNodeID: newStartNodeID,
-			Type:       mflow.NODE_NO_OP_KIND_START,
-		}
-		wb.FlowNoopNodes = append(wb.FlowNoopNodes, noopNode)
 	}
 
 	// Note: We intentionally do NOT auto-connect orphan nodes to start.
@@ -96,12 +82,11 @@ func (wb *WorkspaceBundle) layoutFlowNodes(flowID idwrap.IDWrap) error {
 
 	// Find start node for this flow
 	var startNode *mflow.Node
-	for i := range wb.FlowNoopNodes {
-		if wb.FlowNoopNodes[i].Type == mflow.NODE_NO_OP_KIND_START {
-			if node := nodeMap[wb.FlowNoopNodes[i].FlowNodeID]; node != nil {
-				startNode = node
-				break
-			}
+	for i := range wb.FlowNodes {
+		if wb.FlowNodes[i].NodeKind == mflow.NODE_KIND_MANUAL_START &&
+			wb.FlowNodes[i].FlowID.Compare(flowID) == 0 {
+			startNode = &wb.FlowNodes[i]
+			break
 		}
 	}
 

@@ -28,6 +28,10 @@ func (nr *NodeStart) SetID(id idwrap.IDWrap) {
 	nr.FlowNodeID = id
 }
 
+func (nr *NodeStart) GetName() string {
+	return nr.Name
+}
+
 func (nr *NodeStart) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleUnspecified)
 

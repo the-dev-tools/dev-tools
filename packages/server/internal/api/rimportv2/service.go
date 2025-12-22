@@ -150,7 +150,6 @@ type ImportResults struct {
 	// Flow-specific entities
 	Nodes        []mflow.Node
 	RequestNodes []mflow.NodeRequest
-	NoOpNodes    []mflow.NodeNoop
 	Edges        []mflow.Edge
 
 	// Environment variables created during import (for domain-to-variable mappings)
@@ -373,7 +372,6 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResult
 		HTTPAsserts:        assertsPtr,
 		Nodes:              harResolved.Nodes,
 		RequestNodes:       harResolved.RequestNodes,
-		NoOpNodes:          harResolved.NoOpNodes,
 		Edges:              harResolved.Edges,
 		Domains:            domains,
 		WorkspaceID:        req.WorkspaceID,
@@ -656,7 +654,6 @@ func buildImportResults(tr *TranslationResult, workspaceID idwrap.IDWrap) *Impor
 		HTTPAsserts:        assertsPtr,
 		Nodes:              tr.Nodes,
 		RequestNodes:       tr.RequestNodes,
-		NoOpNodes:          tr.NoOpNodes,
 		Edges:              tr.Edges,
 		Domains:            tr.Domains,
 		WorkspaceID:        workspaceID,

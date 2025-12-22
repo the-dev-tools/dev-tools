@@ -55,53 +55,29 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			}
 		}
 
-		// Publish Edges events
-		if len(results.Edges) > 0 {
-			grouped := make(map[rflowv2.EdgeTopic][]rflowv2.EdgeEvent)
-			for _, edge := range results.Edges {
-				edgePB := &flowv1.Edge{
-					EdgeId:       edge.ID.Bytes(),
-					FlowId:       edge.FlowID.Bytes(),
-					SourceId:     edge.SourceID.Bytes(),
-					TargetId:     edge.TargetID.Bytes(),
-					SourceHandle: flowv1.HandleKind(edge.SourceHandler),
-					Kind:         flowv1.EdgeKind(edge.Kind),
-				}
-				topic := rflowv2.EdgeTopic{FlowID: edge.FlowID}
-				grouped[topic] = append(grouped[topic], rflowv2.EdgeEvent{
-					Type: "insert",
-					Edge: edgePB,
-				})
-			}
-			for topic, events := range grouped {
-				h.EdgeStream.Publish(topic, events...)
-			}
-		}
+                				// Publish Edges events
+                				if len(results.Edges) > 0 {
+                					grouped := make(map[rflowv2.EdgeTopic][]rflowv2.EdgeEvent)
+                					for _, edge := range results.Edges {
+                						edgePB := &flowv1.Edge{
+                							EdgeId:       edge.ID.Bytes(),
+                							FlowId:       edge.FlowID.Bytes(),
+                							SourceId:     edge.SourceID.Bytes(),
+                							TargetId:     edge.TargetID.Bytes(),
+                							SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+                						}
+                						topic := rflowv2.EdgeTopic{FlowID: edge.FlowID}
+                						grouped[topic] = append(grouped[topic], rflowv2.EdgeEvent{
+                							Type: "insert",
+                							Edge: edgePB,
+                						})
+                					}
+                					for topic, events := range grouped {
+                						h.EdgeStream.Publish(topic, events...)
+                					}
+                				}            }
 
-		// Publish NoOpNodes events
-		if len(results.NoOpNodes) > 0 {
-			// NoOp nodes are typically scoped to a flow, but let's be safe and group
-			// Note: The original code assumed results.Flow.ID, but NoOpNode has FlowNodeID which implies it belongs to a flow.
-			// However, mflow.NoOpNode doesn't explicitly store FlowID in the struct passed here usually?
-			// Let's look at the struct definition if needed.
-			// Assuming they belong to results.Flow since they are part of the import results for that flow.
-			events := make([]rflowv2.NoOpEvent, len(results.NoOpNodes))
-			for i, noOpNode := range results.NoOpNodes {
-				noOpPB := &flowv1.NodeNoOp{
-					NodeId: noOpNode.FlowNodeID.Bytes(),
-					Kind:   converter.ToAPINodeNoOpKind(noOpNode.Type),
-				}
-				events[i] = rflowv2.NoOpEvent{
-					Type:   "insert",
-					FlowID: results.Flow.ID,
-					Node:   noOpPB,
-				}
-			}
-			h.NoopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, events...)
-		}
-	}
-
-	// Publish HTTP events
+            // Publish HTTP events
 	if len(results.HTTPReqs) > 0 {
 		grouped := make(map[rhttp.HttpTopic][]rhttp.HttpEvent)
 		for _, httpReq := range results.HTTPReqs {

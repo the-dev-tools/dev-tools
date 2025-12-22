@@ -41,10 +41,8 @@ func (w *EdgeWriter) UpdateEdge(ctx context.Context, e mflow.Edge) error {
 		SourceID:     edge.SourceID,
 		TargetID:     edge.TargetID,
 		SourceHandle: edge.SourceHandle,
-		EdgeKind:     edge.EdgeKind,
 	})
 }
-
 func (w *EdgeWriter) DeleteEdge(ctx context.Context, id idwrap.IDWrap) error {
 	err := w.queries.DeleteFlowEdge(ctx, id)
 	if err != nil {

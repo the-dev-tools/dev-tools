@@ -34,7 +34,6 @@ func setupNodeTest(t *testing.T) (*FlowServiceV2RPC, context.Context, *testutil.
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -60,7 +59,6 @@ func setupNodeTest(t *testing.T) (*FlowServiceV2RPC, context.Context, *testutil.
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -79,7 +77,6 @@ func setupNodeTest(t *testing.T) (*FlowServiceV2RPC, context.Context, *testutil.
 		ns:       &nodeService,
 		nes:      &nodeExecService,
 		es:       &edgeService,
-		nnos:     &noopService,
 		fvs:      &flowVarService,
 		logger:   logger,
 		builder:  builder,
@@ -184,7 +181,7 @@ func TestNodeUpdate(t *testing.T) {
 	assert.Equal(t, 60.0, node.PositionY)
 
 	// 2. Unsupported Update: Kind
-	kind := flowv1.NodeKind_NODE_KIND_NO_OP
+	kind := flowv1.NodeKind_NODE_KIND_HTTP
 	reqKind := connect.NewRequest(&flowv1.NodeUpdateRequest{
 		Items: []*flowv1.NodeUpdate{{
 			NodeId: nodeID.Bytes(),

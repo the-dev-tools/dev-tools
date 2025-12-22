@@ -23,9 +23,8 @@ flows:
       - name: baseURL
         value: https://api.example.com
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - request:
           name: Get Users
           method: GET
@@ -170,13 +169,7 @@ func TestMarshalSimplifiedYAML_WithStartNode(t *testing.T) {
 				ID:       startNodeID,
 				FlowID:   flowID,
 				Name:     "Custom Start", // Renamed from "Start"
-				NodeKind: mflow.NODE_KIND_NO_OP,
-			},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{
-				FlowNodeID: startNodeID,
-				Type:       mflow.NODE_NO_OP_KIND_START,
+				NodeKind: mflow.NODE_KIND_MANUAL_START,
 			},
 		},
 	}
@@ -190,9 +183,8 @@ func TestMarshalSimplifiedYAML_WithStartNode(t *testing.T) {
 
 	// Check that the custom name appears
 	require.Contains(t, yamlStr, "name: Custom Start")
-	// Check that it is exported as a noop with type start
-	require.Contains(t, yamlStr, "type: start")
-	require.Contains(t, yamlStr, "noop:")
+	// Check that it is exported as a manual_start
+	require.Contains(t, yamlStr, "manual_start:")
 
 	// Re-import to check round-trip compatibility
 	opts := GetDefaultOptions(workspaceID)
@@ -204,8 +196,7 @@ func TestMarshalSimplifiedYAML_WithStartNode(t *testing.T) {
 	// Verify the name is preserved
 	require.Equal(t, "Custom Start", reImportedData.FlowNodes[0].Name)
 	// Verify it is a start node
-	require.Equal(t, 1, len(reImportedData.FlowNoopNodes))
-	require.Equal(t, mflow.NODE_NO_OP_KIND_START, reImportedData.FlowNoopNodes[0].Type)
+	require.Equal(t, mflow.NODE_KIND_MANUAL_START, reImportedData.FlowNodes[0].NodeKind)
 }
 
 func TestMarshalSimplifiedYAML_WithDeltaOverrides(t *testing.T) {
@@ -282,19 +273,13 @@ func TestMarshalSimplifiedYAML_WithDeltaOverrides(t *testing.T) {
 				ID:       startNodeID,
 				FlowID:   flowID,
 				Name:     "Start",
-				NodeKind: mflow.NODE_KIND_NO_OP,
+				NodeKind: mflow.NODE_KIND_MANUAL_START,
 			},
 			{
 				ID:       requestNodeID,
 				FlowID:   flowID,
 				Name:     "Get User",
 				NodeKind: mflow.NODE_KIND_REQUEST,
-			},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{
-				FlowNodeID: startNodeID,
-				Type:       mflow.NODE_NO_OP_KIND_START,
 			},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
@@ -400,19 +385,13 @@ func TestMarshalSimplifiedYAML_WithDeltaRawBody(t *testing.T) {
 				ID:       startNodeID,
 				FlowID:   flowID,
 				Name:     "Start",
-				NodeKind: mflow.NODE_KIND_NO_OP,
+				NodeKind: mflow.NODE_KIND_MANUAL_START,
 			},
 			{
 				ID:       requestNodeID,
 				FlowID:   flowID,
 				Name:     "Create Product",
 				NodeKind: mflow.NODE_KIND_REQUEST,
-			},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{
-				FlowNodeID: startNodeID,
-				Type:       mflow.NODE_NO_OP_KIND_START,
 			},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
@@ -519,19 +498,13 @@ func TestMarshalSimplifiedYAML_WithDeltaDisabledHeader(t *testing.T) {
 				ID:       startNodeID,
 				FlowID:   flowID,
 				Name:     "Start",
-				NodeKind: mflow.NODE_KIND_NO_OP,
+				NodeKind: mflow.NODE_KIND_MANUAL_START,
 			},
 			{
 				ID:       requestNodeID,
 				FlowID:   flowID,
 				Name:     "Test Request",
 				NodeKind: mflow.NODE_KIND_REQUEST,
-			},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{
-				FlowNodeID: startNodeID,
-				Type:       mflow.NODE_NO_OP_KIND_START,
 			},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
@@ -620,19 +593,13 @@ func TestMarshalSimplifiedYAML_WithNewDeltaHeader(t *testing.T) {
 				ID:       startNodeID,
 				FlowID:   flowID,
 				Name:     "Start",
-				NodeKind: mflow.NODE_KIND_NO_OP,
+				NodeKind: mflow.NODE_KIND_MANUAL_START,
 			},
 			{
 				ID:       requestNodeID,
 				FlowID:   flowID,
 				Name:     "Test Request",
 				NodeKind: mflow.NODE_KIND_REQUEST,
-			},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{
-				FlowNodeID: startNodeID,
-				Type:       mflow.NODE_NO_OP_KIND_START,
 			},
 		},
 		FlowRequestNodes: []mflow.NodeRequest{
@@ -682,12 +649,9 @@ func TestParallelStartDependency(t *testing.T) {
 			{ID: flowID, WorkspaceID: workspaceID, Name: "Flow"},
 		},
 		FlowNodes: []mflow.Node{
-			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
 			{ID: nodeAID, FlowID: flowID, Name: "A", NodeKind: mflow.NODE_KIND_JS},
 			{ID: nodeBID, FlowID: flowID, Name: "B", NodeKind: mflow.NODE_KIND_JS},
-		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START},
 		},
 		FlowJSNodes: []mflow.NodeJS{
 			{FlowNodeID: nodeAID, Code: []byte("console.log('A')")},
@@ -773,9 +737,8 @@ run:
 flows:
   - name: Flow
     steps:
-      - noop:
+      - manual_start:
           name: Start
-          type: start
       - js:
           name: A
           code: log('A')
@@ -833,11 +796,10 @@ func TestExplicitSerial_Export(t *testing.T) {
 		Workspace: mworkspace.Workspace{ID: wsID, Name: "Serial Export"},
 		Flows:     []mflow.Flow{{ID: flowID, WorkspaceID: wsID, Name: "Flow"}},
 		FlowNodes: []mflow.Node{
-			{ID: nStart, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: nStart, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
 			{ID: nA, FlowID: flowID, Name: "A", NodeKind: mflow.NODE_KIND_JS},
 			{ID: nB, FlowID: flowID, Name: "B", NodeKind: mflow.NODE_KIND_JS},
 		},
-		FlowNoopNodes: []mflow.NodeNoop{{FlowNodeID: nStart, Type: mflow.NODE_NO_OP_KIND_START}},
 		FlowJSNodes: []mflow.NodeJS{
 			{FlowNodeID: nA, Code: []byte("log('A')")},
 			{FlowNodeID: nB, Code: []byte("log('B')")},

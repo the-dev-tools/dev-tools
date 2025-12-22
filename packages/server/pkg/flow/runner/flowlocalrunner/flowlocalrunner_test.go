@@ -14,7 +14,7 @@ import (
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/mocknode"
 	"the-dev-tools/server/pkg/flow/node/nfor"
-	"the-dev-tools/server/pkg/flow/node/nnoop"
+	"the-dev-tools/server/pkg/flow/node/nstart"
 	"the-dev-tools/server/pkg/flow/runner"
 	flowlocalrunner "the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/httpclient"
@@ -52,7 +52,7 @@ func buildDenseEdges(nodeCount int, fanout int) mflow.EdgesMap {
 	for i := 0; i < nodeCount; i++ {
 		for j := 1; j <= fanout; j++ {
 			targetIndex := (i + j) % nodeCount
-			edges = append(edges, mflow.NewEdge(idwrap.NewNow(), nodes[i], nodes[targetIndex], mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)))
+			edges = append(edges, mflow.NewEdge(idwrap.NewNow(), nodes[i], nodes[targetIndex], mflow.HandleUnspecified))
 		}
 	}
 
@@ -453,7 +453,7 @@ func buildLoopFlow(iterations int64, client httpclient.HttpClient) (idwrap.IDWra
 	loopID := idwrap.NewNow()
 	requestID := idwrap.NewNow()
 
-	startNode := nnoop.New(startID, "start")
+	startNode := nstart.New(startID, "start")
 	loopNode := nfor.New(loopID, "loop", iterations, time.Millisecond, mflow.ErrorHandling_ERROR_HANDLING_IGNORE)
 	requestNode := &benchRequestNode{id: requestID, name: "request", client: client}
 

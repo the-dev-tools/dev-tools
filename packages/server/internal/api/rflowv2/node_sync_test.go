@@ -15,11 +15,11 @@ func TestNodeEventToSyncResponse_StartNode(t *testing.T) {
 	flowID := idwrap.NewNow()
 
 	// Construct a Node protobuf that mimics a StartNode
-	// StartNode is typically a NO_OP node with name "Start"
+	// StartNode is now a MANUAL_START node
 	startNodePB := &flowv1.Node{
 		NodeId: nodeID.Bytes(),
 		FlowId: flowID.Bytes(),
-		Kind:   flowv1.NodeKind_NODE_KIND_NO_OP,
+		Kind:   flowv1.NodeKind_NODE_KIND_MANUAL_START,
 		Name:   "Start",
 		Position: &flowv1.Position{
 			X: 0,

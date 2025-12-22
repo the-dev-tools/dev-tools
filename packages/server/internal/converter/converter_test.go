@@ -620,38 +620,18 @@ func TestToAPINodeKind(t *testing.T) {
 		input    mflow.NodeKind
 		expected flowv1.NodeKind
 	}{
-		{mflow.NODE_KIND_NO_OP, flowv1.NodeKind_NODE_KIND_NO_OP},
+		{mflow.NODE_KIND_MANUAL_START, flowv1.NodeKind_NODE_KIND_MANUAL_START},
 		{mflow.NODE_KIND_REQUEST, flowv1.NodeKind_NODE_KIND_HTTP},
 		{mflow.NODE_KIND_CONDITION, flowv1.NodeKind_NODE_KIND_CONDITION},
 		{mflow.NODE_KIND_FOR, flowv1.NodeKind_NODE_KIND_FOR},
 		{mflow.NODE_KIND_FOR_EACH, flowv1.NodeKind_NODE_KIND_FOR_EACH},
 		{mflow.NODE_KIND_JS, flowv1.NodeKind_NODE_KIND_JS},
-		{mflow.NodeKind(-1), flowv1.NodeKind_NODE_KIND_NO_OP},
+		{mflow.NodeKind(-1), flowv1.NodeKind_NODE_KIND_UNSPECIFIED},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%d", tt.input), func(t *testing.T) {
 			assert.Equal(t, tt.expected, ToAPINodeKind(tt.input))
-		})
-	}
-}
-
-func TestToAPINodeNoOpKind(t *testing.T) {
-	tests := []struct {
-		input    mflow.NoopTypes
-		expected flowv1.NodeNoOpKind
-	}{
-		{mflow.NODE_NO_OP_KIND_START, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START},
-		{mflow.NODE_NO_OP_KIND_CREATE, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_CREATE},
-		{mflow.NODE_NO_OP_KIND_THEN, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_THEN},
-		{mflow.NODE_NO_OP_KIND_ELSE, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_ELSE},
-		{mflow.NODE_NO_OP_KIND_LOOP, flowv1.NodeNoOpKind_NODE_NO_OP_KIND_LOOP},
-		{mflow.NoopTypes(-1), flowv1.NodeNoOpKind_NODE_NO_OP_KIND_START},
-	}
-
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%d", tt.input), func(t *testing.T) {
-			assert.Equal(t, tt.expected, ToAPINodeNoOpKind(tt.input))
 		})
 	}
 }

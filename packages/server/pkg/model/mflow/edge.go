@@ -16,58 +16,48 @@ type EdgeHandle = int32
 */
 
 const (
-	HandleUnspecified EdgeHandle = iota
-	HandleThen
-	HandleElse
-	HandleLoop
-	HandleLength
-)
-
-type EdgeKind = int32
-
-const (
-	EdgeKindUnspecified EdgeKind = 0
-	EdgeKindNoOp        EdgeKind = 1
+        HandleUnspecified EdgeHandle = iota
+        HandleThen
+        HandleElse
+        HandleLoop
+        HandleLength
 )
 
 var ErrEdgeNotFound = errors.New("edge not found")
 
 type Edge struct {
-	ID            idwrap.IDWrap
-	FlowID        idwrap.IDWrap
-	SourceID      idwrap.IDWrap
-	TargetID      idwrap.IDWrap
-	SourceHandler EdgeHandle
-	Kind          int32
+        ID            idwrap.IDWrap
+        FlowID        idwrap.IDWrap
+        SourceID      idwrap.IDWrap
+        TargetID      idwrap.IDWrap
+        SourceHandler EdgeHandle
 }
 
 type (
-	EdgesMap map[idwrap.IDWrap]map[EdgeHandle][]idwrap.IDWrap
+        EdgesMap map[idwrap.IDWrap]map[EdgeHandle][]idwrap.IDWrap
 )
 
 func GetNextNodeID(edgesMap EdgesMap, sourceID idwrap.IDWrap, handle EdgeHandle) []idwrap.IDWrap {
-	edges, ok := edgesMap[sourceID]
-	if !ok {
-		return nil
-	}
-	edge, ok := edges[handle]
-	if !ok {
-		return nil
-	}
+        edges, ok := edgesMap[sourceID]
+        if !ok {
+                return nil
+        }
+        edge, ok := edges[handle]
+        if !ok {
+                return nil
+        }
 
-	return edge
+        return edge
 }
 
-func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle, kind int32) Edge {
-	return Edge{
-		ID:            id,
-		SourceID:      sourceID,
-		TargetID:      targetID,
-		SourceHandler: sourceHandlerID,
-		Kind:          kind,
-	}
+func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle) Edge {
+        return Edge{
+                ID:            id,
+                SourceID:      sourceID,
+                TargetID:      targetID,
+                SourceHandler: sourceHandlerID,
+        }
 }
-
 func NewEdges(edges ...Edge) []Edge {
 	return edges
 }

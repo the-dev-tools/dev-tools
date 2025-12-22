@@ -41,7 +41,6 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	nodeRequestService := sflow.NewNodeRequestService(queries)
 	nodeForService := sflow.NewNodeForService(queries)
@@ -67,7 +66,6 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 		ns:         &nodeService,
 		nes:        &nodeExecService,
 		es:         &edgeService,
-		nnos:       &noopService,
 		fvs:        &flowVarService,
 		nrs:        &nodeRequestService,
 		nfs:        &nodeForService,
@@ -189,10 +187,7 @@ func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeHttpUpdateRequest{
 			Items: []*flowv1.NodeHttpUpdate{{
 				NodeId: nodeID.Bytes(),
-				HttpId: &flowv1.NodeHttpUpdate_HttpIdUnion{
-					Kind:  flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE,
-					Value: newHttpID.Bytes(),
-				},
+				HttpId: newHttpID.Bytes(),
 			}},
 		})
 

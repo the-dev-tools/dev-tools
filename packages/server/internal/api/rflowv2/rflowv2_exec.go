@@ -547,7 +547,6 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 	// Events collections for bulk publishing
 	nodeEvents := make([]NodeEvent, 0, len(sourceNodes))
-	noOpEvents := make([]NoOpEvent, 0)
 	jsEvents := make([]JsEvent, 0)
 	forEvents := make([]ForEvent, 0)
 
@@ -572,23 +571,6 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		// Duplicate node-type specific data and collect events
 		switch sourceNode.NodeKind {
-		case mflow.NODE_KIND_NO_OP:
-			noopData, err := s.nnos.GetNodeNoop(ctx, sourceNode.ID)
-			if err == nil {
-				newNoopData := mflow.NodeNoop{
-					FlowNodeID: newNodeID,
-					Type:       noopData.Type,
-				}
-				if err := s.nnos.CreateNodeNoop(ctx, newNoopData); err != nil {
-					return mflow.Flow{}, nil, fmt.Errorf("create noop node: %w", err)
-				}
-				noOpEvents = append(noOpEvents, NoOpEvent{
-					Type:   noopEventInsert,
-					FlowID: versionFlowID,
-					Node:   serializeNodeNoop(newNoopData),
-				})
-			}
-
 		case mflow.NODE_KIND_REQUEST:
 			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
 			if err == nil {
@@ -680,9 +662,6 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	}
 
 	// Bulk publish sub-node events first
-	if len(noOpEvents) > 0 && s.noopStream != nil {
-		s.noopStream.Publish(NoOpTopic{FlowID: versionFlowID}, noOpEvents...)
-	}
 	if len(jsEvents) > 0 && s.jsStream != nil {
 		s.jsStream.Publish(JsTopic{FlowID: versionFlowID}, jsEvents...)
 	}
@@ -711,7 +690,6 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			SourceID:      newSourceID,
 			TargetID:      newTargetID,
 			SourceHandler: sourceEdge.SourceHandler,
-			Kind:          sourceEdge.Kind,
 		}
 
 		if err := s.es.CreateEdge(ctx, newEdge); err != nil {

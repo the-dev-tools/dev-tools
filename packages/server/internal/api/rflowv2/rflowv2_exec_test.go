@@ -41,7 +41,6 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -67,7 +66,6 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -86,7 +84,6 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		ns:           &nodeService,
 		nes:          &nodeExecService,
 		es:           &edgeService,
-		nnos:         &noopService,
 		fvs:          &flowVarService,
 		nrs:          &reqService, // Added missing services to struct
 		nfs:          &forService,
@@ -229,17 +226,11 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		ID:        node1ID,
 		FlowID:    flowID,
 		Name:      "Node 1",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 10,
 		PositionY: 20,
 	}
 	err = svc.ns.CreateNode(ctx, node1)
-	require.NoError(t, err)
-
-	err = svc.nnos.CreateNodeNoop(ctx, mflow.NodeNoop{
-		FlowNodeID: node1ID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 	require.NoError(t, err)
 
 	node2ID := idwrap.NewNow()
@@ -247,16 +238,17 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		ID:        node2ID,
 		FlowID:    flowID,
 		Name:      "Node 2",
-		NodeKind:  mflow.NODE_KIND_NO_OP,
+		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 100,
 		PositionY: 200,
 	}
 	err = svc.ns.CreateNode(ctx, node2)
 	require.NoError(t, err)
 
-	err = svc.nnos.CreateNodeNoop(ctx, mflow.NodeNoop{
+	httpID := idwrap.NewNow()
+	err = svc.nrs.CreateNodeRequest(ctx, mflow.NodeRequest{
 		FlowNodeID: node2ID,
-		Type:       mflow.NODE_NO_OP_KIND_THEN,
+		HttpID:     &httpID,
 	})
 	require.NoError(t, err)
 
@@ -268,7 +260,6 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		SourceID:      node1ID,
 		TargetID:      node2ID,
 		SourceHandler: 0,
-		Kind:          mflow.EdgeKindUnspecified,
 	}
 	err = svc.es.CreateEdge(ctx, sourceEdge)
 	require.NoError(t, err)
@@ -345,10 +336,10 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 	assert.Equal(t, sourceVar.Name, versionVars[0].Name)
 	assert.Equal(t, sourceVar.Value, versionVars[0].Value)
 
-	// Verify sub-node data (NoOp)
-	noop1, err := svc.nnos.GetNodeNoop(ctx, mappedNode1ID)
+	// Verify sub-node data (Request)
+	req2, err := svc.nrs.GetNodeRequest(ctx, mappedNode2ID)
 	require.NoError(t, err)
-	assert.Equal(t, mflow.NODE_NO_OP_KIND_START, noop1.Type)
+	assert.Equal(t, httpID, *req2.HttpID)
 }
 
 func TestCreateFlowVersionSnapshot_ErrorHandling(t *testing.T) {

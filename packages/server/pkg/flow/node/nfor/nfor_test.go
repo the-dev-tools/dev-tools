@@ -216,10 +216,10 @@ func TestNodeForSkipsDuplicateLoopEntryTargets(t *testing.T) {
 	nodeC := recordingNode{id: nodeCID, name: "C", runCount: &nodeCRuns}
 
 	edges := mflow.NewEdgesMap(mflow.NewEdges(
-		mflow.NewEdge(idwrap.NewNow(), loopID, nodeAID, mflow.HandleLoop, 0),
-		mflow.NewEdge(idwrap.NewNow(), loopID, nodeCID, mflow.HandleLoop, 0),
-		mflow.NewEdge(idwrap.NewNow(), nodeAID, nodeBID, mflow.HandleThen, 0),
-		mflow.NewEdge(idwrap.NewNow(), nodeBID, nodeCID, mflow.HandleThen, 0),
+		mflow.NewEdge(idwrap.NewNow(), loopID, nodeAID, mflow.HandleLoop),
+		mflow.NewEdge(idwrap.NewNow(), loopID, nodeCID, mflow.HandleLoop),
+		mflow.NewEdge(idwrap.NewNow(), nodeAID, nodeBID, mflow.HandleThen),
+		mflow.NewEdge(idwrap.NewNow(), nodeBID, nodeCID, mflow.HandleThen),
 	))
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(

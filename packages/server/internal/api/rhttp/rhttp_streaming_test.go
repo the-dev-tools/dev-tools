@@ -204,7 +204,7 @@ func collectHttpSyncStreamingItems(t *testing.T, ch <-chan *httpv1.HttpSyncRespo
 				}
 			}
 		case <-timeout:
-			require.FailNow(t, "timeout waiting for %d items, collected %d", count, len(items))
+			require.FailNow(t, fmt.Sprintf("timeout waiting for %d items, collected %d", count, len(items)))
 		}
 	}
 
@@ -376,7 +376,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspacesStreaming(t *testing.T) {
 
 	select {
 	case resp := <-msgCh:
-		require.FailNow(t, "unexpected event for unauthorized workspace: %+v", resp)
+		require.FailNow(t, fmt.Sprintf("unexpected event for unauthorized workspace: %+v", resp))
 	case <-time.After(150 * time.Millisecond):
 	}
 

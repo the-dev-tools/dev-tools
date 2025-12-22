@@ -62,7 +62,6 @@ func TestChaos_EventOrdering(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	nodeRequestService := sflow.NewNodeRequestService(queries)
 
@@ -113,7 +112,6 @@ func TestChaos_EventOrdering(t *testing.T) {
 		&nodeForService,
 		&nodeForEachService,
 		nodeIfService,
-		&noopService,
 		&nodeNodeJsService,
 		&nodeExecService,
 		&flowVarService,
@@ -125,7 +123,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 		logger,
 		nil,
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		executionStream,
 		responseStream,
 		nil, nil, nil, nil,
@@ -147,8 +145,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 	require.NoError(t, httpService.Create(ctx, &mhttp.HTTP{ID: httpID, WorkspaceID: workspaceID, Name: "Chaos Req", Method: "POST", Url: ts.URL}))
 
 	startNodeID := idwrap.NewNow()
-	require.NoError(t, nodeService.CreateNode(ctx, mflow.Node{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP}))
-	require.NoError(t, noopService.CreateNodeNoop(ctx, mflow.NodeNoop{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START}))
+	require.NoError(t, nodeService.CreateNode(ctx, mflow.Node{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START}))
 
 	requestNodeID := idwrap.NewNow()
 	require.NoError(t, nodeService.CreateNode(ctx, mflow.Node{ID: requestNodeID, FlowID: flowID, Name: "Request", NodeKind: mflow.NODE_KIND_REQUEST}))

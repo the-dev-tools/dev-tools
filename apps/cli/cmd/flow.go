@@ -150,7 +150,6 @@ var yamlflowRunCmd = &cobra.Command{
 			&services.NodeFor,
 			&services.NodeForEach,
 			&services.NodeIf,
-			&services.NodeNoop,
 			&services.NodeJS,
 			&services.Workspace,
 			&services.Variable,

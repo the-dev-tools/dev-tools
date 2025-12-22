@@ -210,7 +210,6 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	edgeService := sflow.NewEdgeService(s.queries)
 	nodeRequestService := sflow.NewNodeRequestService(s.queries)
 	nodeIfService := sflow.NewNodeIfService(s.queries)
-	nodeNoopService := sflow.NewNodeNoopService(s.queries)
 	nodeForService := sflow.NewNodeForService(s.queries)
 	nodeForEachService := sflow.NewNodeForEachService(s.queries)
 	nodeJSService := sflow.NewNodeJsService(s.queries)
@@ -267,7 +266,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
-			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeNoopService, nodeForService, nodeForEachService, nodeJSService); err != nil {
+			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService); err != nil {
 				return fmt.Errorf("failed to export node implementation for node %s: %w", node.ID.String(), err)
 			}
 		}
@@ -279,7 +278,6 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 		"edges", len(bundle.FlowEdges),
 		"request_nodes", len(bundle.FlowRequestNodes),
 		"condition_nodes", len(bundle.FlowConditionNodes),
-		"noop_nodes", len(bundle.FlowNoopNodes),
 		"for_nodes", len(bundle.FlowForNodes),
 		"foreach_nodes", len(bundle.FlowForEachNodes),
 		"js_nodes", len(bundle.FlowJSNodes))
@@ -294,7 +292,6 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	bundle *WorkspaceBundle,
 	nodeRequestService sflow.NodeRequestService,
 	nodeIfService *sflow.NodeIfService,
-	nodeNoopService sflow.NodeNoopService,
 	nodeForService sflow.NodeForService,
 	nodeForEachService sflow.NodeForEachService,
 	nodeJSService sflow.NodeJsService,
@@ -316,15 +313,6 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 		}
 		if nodeIf != nil {
 			bundle.FlowConditionNodes = append(bundle.FlowConditionNodes, *nodeIf)
-		}
-
-	case mflow.NODE_KIND_NO_OP:
-		nodeNoop, err := nodeNoopService.GetNodeNoop(ctx, node.ID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("failed to get noop node: %w", err)
-		}
-		if nodeNoop != nil {
-			bundle.FlowNoopNodes = append(bundle.FlowNoopNodes, *nodeNoop)
 		}
 
 	case mflow.NODE_KIND_FOR:

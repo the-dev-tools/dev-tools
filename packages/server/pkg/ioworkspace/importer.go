@@ -29,7 +29,6 @@ type ImportResult struct {
 	FlowEdgesCreated          int
 	FlowRequestNodesCreated   int
 	FlowConditionNodesCreated int
-	FlowNoopNodesCreated      int
 	FlowForNodesCreated       int
 	FlowForEachNodesCreated   int
 	FlowJSNodesCreated        int
@@ -77,7 +76,6 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 
 	nodeRequestService := sflow.NewNodeRequestService(s.queries).TX(tx)
 	nodeIfService := sflow.NewNodeIfService(s.queries).TX(tx)
-	nodeNoopService := sflow.NewNodeNoopService(s.queries).TX(tx)
 	nodeForService := sflow.NewNodeForService(s.queries).TX(tx)
 	nodeForEachService := sflow.NewNodeForEachService(s.queries).TX(tx)
 	nodeJSService := sflow.NewNodeJsService(s.queries).TX(tx)
@@ -189,12 +187,6 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		if len(bundle.FlowConditionNodes) > 0 {
 			if err := s.importFlowConditionNodes(ctx, nodeIfService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow condition nodes: %w", err)
-			}
-		}
-
-		if len(bundle.FlowNoopNodes) > 0 {
-			if err := s.importFlowNoopNodes(ctx, nodeNoopService, bundle, opts, result); err != nil {
-				return nil, fmt.Errorf("failed to import flow noop nodes: %w", err)
 			}
 		}
 

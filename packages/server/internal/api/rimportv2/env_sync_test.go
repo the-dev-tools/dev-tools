@@ -69,7 +69,6 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 	nodeService := sflow.NewNodeService(base.Queries)
 	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
-	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
 	edgeService := sflow.NewEdgeService(base.Queries)
 	envService := senv.NewEnvironmentService(base.Queries, logger)
 	varService := senv.NewVariableService(base.Queries, logger)
@@ -80,7 +79,6 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 			Flow:               memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
 			Node:               memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
 			Edge:               memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
-			NoOp:               memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent](),
 			Http:               memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
 			HttpHeader:         memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
 			HttpSearchParam:    memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
@@ -141,14 +139,12 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 			HttpAssert:         httpAssertService,
 			Node:               &nodeService,
 			NodeRequest:        &nodeRequestService,
-			NodeNoop:           &nodeNoopService,
 			Edge:               &edgeService,
 		},
 		ImportStreamers{
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,
 			Edge:               streamers.Edge,
-			Noop:               streamers.NoOp,
 			Http:               streamers.Http,
 			HttpHeader:         streamers.HttpHeader,
 			HttpSearchParam:    streamers.HttpSearchParam,

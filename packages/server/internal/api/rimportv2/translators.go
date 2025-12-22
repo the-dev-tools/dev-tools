@@ -39,7 +39,6 @@ type TranslationResult struct {
 	// Flow-specific entities
 	Nodes        []mflow.Node
 	RequestNodes []mflow.NodeRequest
-	NoOpNodes    []mflow.NodeNoop
 	Edges        []mflow.Edge
 
 	// Metadata
@@ -191,7 +190,6 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		Asserts:        resolved.HTTPAsserts,
 		Nodes:          resolved.Nodes,
 		RequestNodes:   resolved.RequestNodes,
-		NoOpNodes:      resolved.NoOpNodes,
 		Edges:          resolved.Edges,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
@@ -255,7 +253,6 @@ func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 		BodyRaw:        resolved.HTTPBodyRaw,
 		Nodes:          resolved.FlowNodes,
 		RequestNodes:   resolved.FlowRequestNodes,
-		NoOpNodes:      resolved.FlowNoopNodes,
 		Edges:          resolved.FlowEdges,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}

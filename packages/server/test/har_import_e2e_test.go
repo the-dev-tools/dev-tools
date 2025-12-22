@@ -76,7 +76,6 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	// Create node services
 	nodeService := sflow.NewNodeService(baseDB.Queries)
 	nodeRequestService := sflow.NewNodeRequestService(baseDB.Queries)
-	nodeNoopService := sflow.NewNodeNoopService(baseDB.Queries)
 	edgeService := sflow.NewEdgeService(baseDB.Queries)
 
 	// Create environment and variable services
@@ -87,7 +86,6 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	flowStream := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()
 	nodeStream := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
 	edgeStream := memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]()
-	noopStream := memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]()
 	stream := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
 	httpHeaderStream := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
 	httpSearchParamStream := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
@@ -117,14 +115,12 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			HttpAssert:         httpAssertService,
 			Node:               &nodeService,
 			NodeRequest:        &nodeRequestService,
-			NodeNoop:           &nodeNoopService,
 			Edge:               &edgeService,
 		},
 		rimportv2.ImportStreamers{
 			Flow:               flowStream,
 			Node:               nodeStream,
 			Edge:               edgeStream,
-			Noop:               noopStream,
 			Http:               stream,
 			HttpHeader:         httpHeaderStream,
 			HttpSearchParam:    httpSearchParamStream,

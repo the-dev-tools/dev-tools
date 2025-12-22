@@ -82,7 +82,7 @@ func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 
 	edgeID := idwrap.NewNow()
 	edges := []mflow.Edge{
-		mflow.NewEdge(edgeID, startID, targetID, mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)),
+		mflow.NewEdge(edgeID, startID, targetID, mflow.HandleUnspecified),
 	}
 	edgesMap := mflow.NewEdgesMap(edges)
 
@@ -219,7 +219,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 	}
 
 	edges := []mflow.Edge{
-		mflow.NewEdge(idwrap.NewNow(), startID, requestNodeID, mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)),
+		mflow.NewEdge(idwrap.NewNow(), startID, requestNodeID, mflow.HandleUnspecified),
 	}
 	edgesMap := mflow.NewEdgesMap(edges)
 
@@ -366,7 +366,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables(t *testing
 	}
 
 	edges := []mflow.Edge{
-		mflow.NewEdge(idwrap.NewNow(), startID, requestNodeID, mflow.HandleUnspecified, int32(mflow.EdgeKindNoOp)),
+		mflow.NewEdge(idwrap.NewNow(), startID, requestNodeID, mflow.HandleUnspecified),
 	}
 	edgesMap := mflow.NewEdgesMap(edges)
 

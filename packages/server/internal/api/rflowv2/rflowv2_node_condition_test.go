@@ -44,7 +44,6 @@ func TestNodeCondition_CRUD(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -70,7 +69,6 @@ func TestNodeCondition_CRUD(t *testing.T) {
 		&forService,
 		&forEachService,
 		ifService,
-		&noopService,
 		&jsService,
 		&wsService,
 		&varService,
@@ -90,7 +88,6 @@ func TestNodeCondition_CRUD(t *testing.T) {
 		nifs:     ifService,
 		nes:      &nodeExecService,
 		es:       &edgeService,
-		nnos:     &noopService,
 		fvs:      &flowVarService,
 		logger:   logger,
 		builder:  builder,

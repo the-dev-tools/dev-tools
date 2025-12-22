@@ -31,7 +31,6 @@ type DefaultConfig struct {
 	// Sub nodes (kept as-is)
 	FlowRequestNodes   []mflow.NodeRequest
 	FlowConditionNodes []mflow.NodeIf
-	FlowNoopNodes      []mflow.NodeNoop
 	FlowForNodes       []mflow.NodeFor
 	FlowForEachNodes   []mflow.NodeForEach
 	FlowJSNodes        []mflow.NodeJS

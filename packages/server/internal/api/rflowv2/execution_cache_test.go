@@ -56,7 +56,6 @@ func TestExecutionCache(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 	nodeRequestService := sflow.NewNodeRequestService(queries)
 
@@ -107,7 +106,6 @@ func TestExecutionCache(t *testing.T) {
 		&nodeForService,
 		&nodeForEachService,
 		nodeIfService,
-		&noopService,
 		&nodeNodeJsService,
 		&nodeExecService,
 		&flowVarService,
@@ -119,11 +117,11 @@ func TestExecutionCache(t *testing.T) {
 		logger,
 		nil, // workspaceImportService
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // 1-10
-		executionStream, // 11
-		nil, nil,        // 12-13
-		assertStream, // 14
-		nil,          // 15 (logStream)
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, // 1-9 (removed NoOp)
+		executionStream, // 10
+		nil, nil,        // 11-12
+		assertStream, // 13
+		nil,          // 14 (logStream)
 		nil,          // jsClient
 	)
 
@@ -146,9 +144,7 @@ func TestExecutionCache(t *testing.T) {
 	require.NoError(t, err)
 
 	startNodeID := idwrap.NewNow()
-	err = nodeService.CreateNode(ctx, mflow.Node{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_NO_OP})
-	require.NoError(t, err)
-	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{FlowNodeID: startNodeID, Type: mflow.NODE_NO_OP_KIND_START})
+	err = nodeService.CreateNode(ctx, mflow.Node{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START})
 	require.NoError(t, err)
 
 	// 5. Capture Events to verify ID stability

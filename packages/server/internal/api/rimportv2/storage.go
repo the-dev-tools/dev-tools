@@ -37,7 +37,6 @@ type DefaultImporter struct {
 	httpAssertService         *shttp.HttpAssertService
 	nodeService               *sflow.NodeService
 	nodeRequestService        *sflow.NodeRequestService
-	nodeNoopService           *sflow.NodeNoopService
 	edgeService               *sflow.EdgeService
 	envService                senv.EnvironmentService
 	varService                senv.VariableService
@@ -59,7 +58,6 @@ func NewImporter(
 	httpAssertService *shttp.HttpAssertService,
 	nodeService *sflow.NodeService,
 	nodeRequestService *sflow.NodeRequestService,
-	nodeNoopService *sflow.NodeNoopService,
 	edgeService *sflow.EdgeService,
 	envService senv.EnvironmentService,
 	varService senv.VariableService,
@@ -77,7 +75,6 @@ func NewImporter(
 		httpAssertService:         httpAssertService,
 		nodeService:               nodeService,
 		nodeRequestService:        nodeRequestService,
-		nodeNoopService:           nodeNoopService,
 		edgeService:               edgeService,
 		envService:                envService,
 		varService:                varService,
@@ -357,7 +354,6 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txBodyRawWriter := shttp.NewBodyRawWriter(tx)
 	txNodeService := imp.nodeService.TX(tx)
 	txNodeRequestService := imp.nodeRequestService.TX(tx)
-	txNodeNoopService := imp.nodeNoopService.TX(tx)
 	txEdgeService := imp.edgeService.TX(tx)
 
 	txDedup := NewDeduplicator(txHttpService, *txFileService, imp.dedup.globalMu)
@@ -531,13 +527,6 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for _, reqNode := range results.RequestNodes {
 			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
 				return nil, nil, fmt.Errorf("failed to store request node: %w", err)
-			}
-		}
-	}
-	if len(results.NoOpNodes) > 0 {
-		for _, noopNode := range results.NoOpNodes {
-			if err := txNodeNoopService.CreateNodeNoop(ctx, noopNode); err != nil {
-				return nil, nil, fmt.Errorf("failed to store no-op node: %w", err)
 			}
 		}
 	}

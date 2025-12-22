@@ -266,7 +266,6 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		cli.NodeFor,
 		cli.NodeForEach,
 		cli.NodeIf,
-		cli.NodeNoop,
 		cli.NodeJS,
 		cli.Workspace,
 		cli.Variable,
@@ -356,7 +355,6 @@ type cliServices struct {
 	NodeFor      *sflow.NodeForService
 	NodeForEach  *sflow.NodeForEachService
 	NodeIf       *sflow.NodeIfService
-	NodeNoop     *sflow.NodeNoopService
 	NodeJS       *sflow.NodeJsService
 	Environment  *senv.EnvironmentService
 	Variable     *senv.VariableService
@@ -389,7 +387,6 @@ func initializeCLIServices(ctx context.Context, t *testing.T, db *sql.DB) (*cliS
 	nfs := sflow.NewNodeForService(q)
 	nfes := sflow.NewNodeForEachService(q)
 	nif := sflow.NewNodeIfService(q)
-	nnos := sflow.NewNodeNoopService(q)
 	njs := sflow.NewNodeJsService(q)
 	env := senv.NewEnvironmentService(q, logger)
 	vs := senv.NewVariableService(q, logger)
@@ -415,7 +412,6 @@ func initializeCLIServices(ctx context.Context, t *testing.T, db *sql.DB) (*cliS
 		NodeFor:      &nfs,
 		NodeForEach:  &nfes,
 		NodeIf:       nif, // Already a pointer
-		NodeNoop:     &nnos,
 		NodeJS:       &njs,
 		Environment:  &env,
 		Variable:     &vs,
@@ -539,7 +535,6 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 	// Node services
 	nodeService := sflow.NewNodeService(baseDB.Queries)
 	nodeRequestService := sflow.NewNodeRequestService(baseDB.Queries)
-	nodeNoopService := sflow.NewNodeNoopService(baseDB.Queries)
 	edgeService := sflow.NewEdgeService(baseDB.Queries)
 
 	// Environment and variable services
@@ -551,7 +546,6 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 	flowStream := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()
 	nodeStream := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
 	edgeStream := memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]()
-	noopStream := memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]()
 	stream := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
 	httpHeaderStream := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
 	httpSearchParamStream := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
@@ -581,14 +575,12 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 			HttpAssert:         httpAssertService,
 			Node:               &nodeService,
 			NodeRequest:        &nodeRequestService,
-			NodeNoop:           &nodeNoopService,
 			Edge:               &edgeService,
 		},
 		rimportv2.ImportStreamers{
 			Flow:               flowStream,
 			Node:               nodeStream,
 			Edge:               edgeStream,
-			Noop:               noopStream,
 			Http:               stream,
 			HttpHeader:         httpHeaderStream,
 			HttpSearchParam:    httpSearchParamStream,

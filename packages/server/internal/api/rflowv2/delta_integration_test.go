@@ -59,7 +59,6 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	nodeService := sflow.NewNodeService(queries)
 	nodeExecService := sflow.NewNodeExecutionService(queries)
 	edgeService := sflow.NewEdgeService(queries)
-	noopService := sflow.NewNodeNoopService(queries)
 	flowVarService := sflow.NewFlowVariableService(queries)
 
 	// shttp services (Used by FlowServiceV2RPC and for Data Creation)
@@ -115,7 +114,6 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		&nodeForService,
 		&nodeForEachService,
 		nodeIfService,
-		&noopService,
 		&nodeNodeJsService,
 		&nodeExecService,
 		&flowVarService,
@@ -127,7 +125,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		logger,
 		nil, // workspaceImportService
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // streams
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // 14 streamers
 		nil, // jsClient
 	)
 
@@ -236,14 +234,9 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		ID:       startNodeID,
 		FlowID:   flowID,
 		Name:     "Start",
-		NodeKind: mflow.NODE_KIND_NO_OP,
+		NodeKind: mflow.NODE_KIND_MANUAL_START,
 	}
 	err = nodeService.CreateNode(ctx, startNode)
-	require.NoError(t, err)
-	err = noopService.CreateNodeNoop(ctx, mflow.NodeNoop{
-		FlowNodeID: startNodeID,
-		Type:       mflow.NODE_NO_OP_KIND_START,
-	})
 	require.NoError(t, err)
 
 	// HTTP Request Node

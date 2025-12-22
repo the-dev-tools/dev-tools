@@ -35,7 +35,6 @@ func TestCountEntities_Empty(t *testing.T) {
 		"flow_edges",
 		"flow_request_nodes",
 		"flow_condition_nodes",
-		"flow_noop_nodes",
 		"flow_for_nodes",
 		"flow_foreach_nodes",
 		"flow_js_nodes",
@@ -209,7 +208,7 @@ func TestGetNodeByID(t *testing.T) {
 
 	bundle := &WorkspaceBundle{
 		FlowNodes: []mflow.Node{
-			{ID: nodeID1, FlowID: flowID, Name: "Start Node", NodeKind: mflow.NODE_KIND_NO_OP},
+			{ID: nodeID1, FlowID: flowID, Name: "Start Node", NodeKind: mflow.NODE_KIND_MANUAL_START},
 			{ID: nodeID2, FlowID: flowID, Name: "Request Node", NodeKind: mflow.NODE_KIND_REQUEST},
 		},
 	}
@@ -422,9 +421,6 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 		FlowConditionNodes: []mflow.NodeIf{
 			{FlowNodeID: idwrap.NewNow(), Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 200"}}},
 		},
-		FlowNoopNodes: []mflow.NodeNoop{
-			{FlowNodeID: idwrap.NewNow(), Type: mflow.NODE_NO_OP_KIND_START},
-		},
 		FlowForNodes: []mflow.NodeFor{
 			{FlowNodeID: idwrap.NewNow(), IterCount: 5},
 		},
@@ -460,7 +456,6 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 		"flow_edges":           1,
 		"flow_request_nodes":   1,
 		"flow_condition_nodes": 1,
-		"flow_noop_nodes":      1,
 		"flow_for_nodes":       1,
 		"flow_foreach_nodes":   1,
 		"flow_js_nodes":        1,

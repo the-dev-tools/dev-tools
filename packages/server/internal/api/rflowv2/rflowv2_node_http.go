@@ -117,9 +117,8 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 		}
 
 		var httpID *idwrap.IDWrap
-		httpUnion := item.GetHttpId()
-		if httpUnion != nil && httpUnion.Kind == flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE {
-			parsedID, err := idwrap.NewFromBytes(httpUnion.GetValue())
+		if httpBytes := item.GetHttpId(); len(httpBytes) > 0 {
+			parsedID, err := idwrap.NewFromBytes(httpBytes)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
 			}
@@ -327,10 +326,7 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 			NodeId: nodeID.Bytes(),
 		}
 		if nodeReq != nil && nodeReq.HttpID != nil && !isZeroID(*nodeReq.HttpID) {
-			update.HttpId = &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
-				Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_VALUE,
-				Value: nodeReq.HttpID.Bytes(),
-			}
+			update.HttpId = nodeReq.HttpID.Bytes()
 		}
 		if nodeReq != nil && nodeReq.DeltaHttpID != nil && !isZeroID(*nodeReq.DeltaHttpID) {
 			update.DeltaHttpId = &flowv1.NodeHttpSyncUpdate_DeltaHttpIdUnion{

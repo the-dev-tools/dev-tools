@@ -275,23 +275,6 @@ func (v *Verifier) ExpectEdge(
 	return v
 }
 
-// ExpectNoop adds an expectation for noop node events.
-func (v *Verifier) ExpectNoop(
-	stream eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent],
-	eventType EventType,
-	count CountConstraint,
-	matcher func(rflowv2.NoOpEvent) bool,
-) *Verifier {
-	if matcher == nil {
-		matcher = MatchAny[rflowv2.NoOpEvent]()
-	}
-	Expect(v, "NoOp", stream, eventType, count,
-		func(e rflowv2.NoOpEvent) string { return e.Type },
-		matcher,
-	)
-	return v
-}
-
 // --- File helpers ---
 
 // ExpectFile adds an expectation for file events.

@@ -53,206 +53,393 @@ type integrationTestFixture struct {
 }
 
 type IntegrationTestStreamers struct {
+
 	Flow       eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+
 	Node       eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+
 	Edge       eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
-	NoOp       eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
+
 	Http       eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+
 	HttpHeader eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
+
+
 
 	HttpSearchParam eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
 
+
+
 	HttpBodyForm eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
+
+
 
 	HttpBodyUrlEncoded eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
 
+
+
 	HttpBodyRaw eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+
+
 
 	HttpAssert eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
 
+
+
 	File eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+
 }
+
+
 
 // BaseTestServices wraps the testutil services for easier access
 
+
+
 type BaseTestServices struct {
+
 	Us suser.UserService
+
+
 
 	Ws sworkspace.WorkspaceService
 
+
+
 	Wus sworkspace.UserService
+
+
 
 	Hs shttp.HTTPService
 
+
+
 	Fs sfile.FileService
 
+
+
 	Fls sflow.FlowService
+
 }
+
+
 
 // newIntegrationTestFixture creates a complete test environment for integration tests
 
+
+
 func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
+
+
 
 	t.Helper()
 
+
+
 	ctx := context.Background()
+
+
 
 	base := testutil.CreateBaseDB(ctx, t)
 
+
+
 	t.Cleanup(base.Close)
+
+
 
 	// Get base services
 
+
+
 	baseServices := base.GetBaseServices()
+
+
 
 	logger := base.Logger()
 
+
+
 	// Create additional services needed for import
+
+
 
 	httpService := shttp.New(base.Queries, logger)
 
+
+
 	flowService := sflow.NewFlowService(base.Queries)
+
+
 
 	fileService := sfile.New(base.Queries, logger)
 
+
+
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
+
+
 
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 
+
+
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
+
+
 
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
 
+
+
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
+
+
 
 	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 
+
+
 	nodeService := sflow.NewNodeService(base.Queries)
+
+
 
 	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
 
-	nodeNoopService := sflow.NewNodeNoopService(base.Queries)
+
 
 	edgeService := sflow.NewEdgeService(base.Queries)
 
+
+
 	envService := senv.NewEnvironmentService(base.Queries, logger)
+
+
 
 	varService := senv.NewVariableService(base.Queries, logger)
 
+
+
 	// Create streamers
+
+
 
 	streamers := IntegrationTestStreamers{
 
+
+
 		Flow: memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
+
+
 
 		Node: memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
 
+
+
 		Edge: memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
 
-		NoOp: memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent](),
+
 
 		Http:       memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
+
 		HttpHeader: memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
+
+
 
 		HttpSearchParam: memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
 
+
+
 		HttpBodyForm: memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent](),
+
+
 
 		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
 
+
+
 		HttpBodyRaw: memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
+
+
 
 		HttpAssert: memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent](),
 
+
+
 		File: memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
+
 	}
+
+
 
 	// Create user and workspace
 
+
+
 	userID := idwrap.NewNow()
+
+
 
 	workspaceID := idwrap.NewNow()
 
+
+
 	// Create test user
+
+
 
 	err := baseServices.Us.CreateUser(ctx, &muser.User{
 
+
+
 		ID: userID,
+
+
 
 		Email: "test@example.com",
 
+
+
 		Password: []byte("password"),
+
+
 
 		ProviderType: muser.MagicLink,
 
-		Status: muser.Active,
+
+
+		Status:       muser.Active,
+
 	})
 
+
+
 	require.NoError(t, err)
+
+
 
 	// Create test workspace
 
+
+
 	err = baseServices.Ws.Create(ctx, &mworkspace.Workspace{
+
+
 
 		ID: workspaceID,
 
+
+
 		Name: "Test Workspace",
+
 	})
 
+
+
 	require.NoError(t, err)
+
+
 
 	// Create workspace-user relationship
 
+
+
 	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+
+
 
 		ID: idwrap.NewNow(),
 
+
+
 		WorkspaceID: workspaceID,
 
-		UserID: userID,
 
-		Role: mworkspace.RoleOwner,
+
+		UserID:      userID,
+
+
+
+		Role:        mworkspace.RoleOwner,
+
 	})
+
+
 
 	require.NoError(t, err)
 
+
+
 	// Create RPC handler
+
 	rpc := NewImportV2RPC(
+
 		base.DB,
+
 		logger,
+
 		ImportServices{
+
 			Workspace:          baseServices.Ws,
+
 			User:               baseServices.Us,
+
 			Http:               &httpService,
+
 			Flow:               &flowService,
+
 			File:               fileService,
+
 			Env:                envService,
+
 			Var:                varService,
+
 			HttpHeader:         httpHeaderService,
+
 			HttpSearchParam:    httpSearchParamService,
+
 			HttpBodyForm:       httpBodyFormService,
+
 			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
+
 			HttpBodyRaw:        bodyService,
+
 			HttpAssert:         httpAssertService,
+
 			Node:               &nodeService,
+
 			NodeRequest:        &nodeRequestService,
-			NodeNoop:           &nodeNoopService,
+
 			Edge:               &edgeService,
+
 		},
+
 		ImportStreamers{
+
 			Flow:               streamers.Flow,
+
 			Node:               streamers.Node,
+
 			Edge:               streamers.Edge,
-			Noop:               streamers.NoOp,
+
 			Http:               streamers.Http,
+
 			HttpHeader:         streamers.HttpHeader,
+
 			HttpSearchParam:    streamers.HttpSearchParam,
+
 			HttpBodyForm:       streamers.HttpBodyForm,
+
 			HttpBodyUrlEncoded: streamers.HttpBodyUrlEncoded,
+
 			HttpBodyRaw:        streamers.HttpBodyRaw,
+
 			HttpAssert:         streamers.HttpAssert,
+
 			File:               streamers.File,
+
 		},
+
 	)
 
 	services := BaseTestServices{
