@@ -49,7 +49,6 @@ CREATE TABLE flow_edge (
   source_id BLOB NOT NULL,
   target_id BLOB NOT NULL,
   source_handle INT NOT NULL,
-  edge_kind INT NOT NULL DEFAULT 0,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
@@ -84,11 +83,6 @@ CREATE TABLE flow_node_http (
 CREATE TABLE flow_node_condition (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   expression TEXT NOT NULL
-);
-
-CREATE TABLE flow_node_noop (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  node_type TINYINT NOT NULL
 );
 
 CREATE TABLE flow_node_js (

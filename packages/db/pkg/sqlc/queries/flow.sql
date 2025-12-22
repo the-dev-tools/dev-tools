@@ -238,8 +238,7 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle,
-  edge_kind
+  source_handle
 FROM
   flow_edge
 WHERE
@@ -252,8 +251,7 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle,
-  edge_kind
+  source_handle
 FROM
   flow_edge
 WHERE
@@ -261,17 +259,16 @@ WHERE
 
 -- name: CreateFlowEdge :exec
 INSERT INTO
-  flow_edge (id, flow_id, source_id, target_id, source_handle, edge_kind)
+  flow_edge (id, flow_id, source_id, target_id, source_handle)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateFlowEdge :exec
 UPDATE flow_edge
 SET
   source_id = ?,
   target_id = ?,
-  source_handle = ?,
-  edge_kind = ?
+  source_handle = ?
 WHERE
   id = ?;
 
@@ -411,27 +408,6 @@ DELETE FROM flow_node_condition
 WHERE
   flow_node_id = ?;
 
-
--- name: GetFlowNodeNoop :one
-SELECT
-  flow_node_id,
-  node_type
-FROM
-  flow_node_noop
-where
-  flow_node_id = ?
-LIMIT 1;
-
--- name: CreateFlowNodeNoop :exec
-INSERT INTO
-  flow_node_noop (flow_node_id, node_type)
-VALUES
-  (?, ?);
-
--- name: DeleteFlowNodeNoop :exec
-DELETE from flow_node_noop
-WHERE
-  flow_node_id = ?;
 
 -- name: GetFlowNodeJs :one
 SELECT
@@ -671,9 +647,6 @@ DELETE FROM flow_node_http WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
 
 -- name: CleanupOrphanedFlowNodeCondition :exec
 DELETE FROM flow_node_condition WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
-
--- name: CleanupOrphanedFlowNodeNoop :exec
-DELETE FROM flow_node_noop WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
 
 -- name: CleanupOrphanedFlowNodeJs :exec
 DELETE FROM flow_node_js WHERE flow_node_id NOT IN (SELECT id FROM flow_node);

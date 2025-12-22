@@ -47,7 +47,6 @@ type FlowEdge struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
-	EdgeKind     int32
 }
 
 type FlowNode struct {
@@ -88,11 +87,6 @@ type FlowNodeJ struct {
 	FlowNodeID       idwrap.IDWrap
 	Code             []byte
 	CodeCompressType int8
-}
-
-type FlowNodeNoop struct {
-	FlowNodeID idwrap.IDWrap
-	NodeType   int16
 }
 
 type FlowTag struct {

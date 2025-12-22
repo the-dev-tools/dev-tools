@@ -70,15 +70,6 @@ func (q *Queries) CleanupOrphanedFlowNodeJs(ctx context.Context) error {
 	return err
 }
 
-const cleanupOrphanedFlowNodeNoop = `-- name: CleanupOrphanedFlowNodeNoop :exec
-DELETE FROM flow_node_noop WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
-`
-
-func (q *Queries) CleanupOrphanedFlowNodeNoop(ctx context.Context) error {
-	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeNoopStmt, cleanupOrphanedFlowNodeNoop)
-	return err
-}
-
 const cleanupOrphanedNodeExecutions = `-- name: CleanupOrphanedNodeExecutions :exec
 DELETE FROM node_execution WHERE node_id NOT IN (SELECT id FROM flow_node)
 `
@@ -118,9 +109,9 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 
 const createFlowEdge = `-- name: CreateFlowEdge :exec
 INSERT INTO
-  flow_edge (id, flow_id, source_id, target_id, source_handle, edge_kind)
+  flow_edge (id, flow_id, source_id, target_id, source_handle)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateFlowEdgeParams struct {
@@ -129,7 +120,6 @@ type CreateFlowEdgeParams struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
-	EdgeKind     int32
 }
 
 func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) error {
@@ -139,7 +129,6 @@ func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) 
 		arg.SourceID,
 		arg.TargetID,
 		arg.SourceHandle,
-		arg.EdgeKind,
 	)
 	return err
 }
@@ -274,23 +263,6 @@ type CreateFlowNodeJsParams struct {
 
 func (q *Queries) CreateFlowNodeJs(ctx context.Context, arg CreateFlowNodeJsParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeJsStmt, createFlowNodeJs, arg.FlowNodeID, arg.Code, arg.CodeCompressType)
-	return err
-}
-
-const createFlowNodeNoop = `-- name: CreateFlowNodeNoop :exec
-INSERT INTO
-  flow_node_noop (flow_node_id, node_type)
-VALUES
-  (?, ?)
-`
-
-type CreateFlowNodeNoopParams struct {
-	FlowNodeID idwrap.IDWrap
-	NodeType   int16
-}
-
-func (q *Queries) CreateFlowNodeNoop(ctx context.Context, arg CreateFlowNodeNoopParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeNoopStmt, createFlowNodeNoop, arg.FlowNodeID, arg.NodeType)
 	return err
 }
 
@@ -988,17 +960,6 @@ func (q *Queries) DeleteFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap
 	return err
 }
 
-const deleteFlowNodeNoop = `-- name: DeleteFlowNodeNoop :exec
-DELETE from flow_node_noop
-WHERE
-  flow_node_id = ?
-`
-
-func (q *Queries) DeleteFlowNodeNoop(ctx context.Context, flowNodeID idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteFlowNodeNoopStmt, deleteFlowNodeNoop, flowNodeID)
-	return err
-}
-
 const deleteFlowTag = `-- name: DeleteFlowTag :exec
 DELETE FROM flow_tag
 WHERE
@@ -1151,8 +1112,7 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle,
-  edge_kind
+  source_handle
 FROM
   flow_edge
 WHERE
@@ -1169,7 +1129,6 @@ func (q *Queries) GetFlowEdge(ctx context.Context, id idwrap.IDWrap) (FlowEdge, 
 		&i.SourceID,
 		&i.TargetID,
 		&i.SourceHandle,
-		&i.EdgeKind,
 	)
 	return i, err
 }
@@ -1180,8 +1139,7 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle,
-  edge_kind
+  source_handle
 FROM
   flow_edge
 WHERE
@@ -1203,7 +1161,6 @@ func (q *Queries) GetFlowEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 			&i.SourceID,
 			&i.TargetID,
 			&i.SourceHandle,
-			&i.EdgeKind,
 		); err != nil {
 			return nil, err
 		}
@@ -1350,24 +1307,6 @@ func (q *Queries) GetFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap) (
 	row := q.queryRow(ctx, q.getFlowNodeJsStmt, getFlowNodeJs, flowNodeID)
 	var i FlowNodeJ
 	err := row.Scan(&i.FlowNodeID, &i.Code, &i.CodeCompressType)
-	return i, err
-}
-
-const getFlowNodeNoop = `-- name: GetFlowNodeNoop :one
-SELECT
-  flow_node_id,
-  node_type
-FROM
-  flow_node_noop
-where
-  flow_node_id = ?
-LIMIT 1
-`
-
-func (q *Queries) GetFlowNodeNoop(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeNoop, error) {
-	row := q.queryRow(ctx, q.getFlowNodeNoopStmt, getFlowNodeNoop, flowNodeID)
-	var i FlowNodeNoop
-	err := row.Scan(&i.FlowNodeID, &i.NodeType)
 	return i, err
 }
 
@@ -2112,8 +2051,7 @@ UPDATE flow_edge
 SET
   source_id = ?,
   target_id = ?,
-  source_handle = ?,
-  edge_kind = ?
+  source_handle = ?
 WHERE
   id = ?
 `
@@ -2122,7 +2060,6 @@ type UpdateFlowEdgeParams struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
-	EdgeKind     int32
 	ID           idwrap.IDWrap
 }
 
@@ -2131,7 +2068,6 @@ func (q *Queries) UpdateFlowEdge(ctx context.Context, arg UpdateFlowEdgeParams) 
 		arg.SourceID,
 		arg.TargetID,
 		arg.SourceHandle,
-		arg.EdgeKind,
 		arg.ID,
 	)
 	return err

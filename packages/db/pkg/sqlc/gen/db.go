@@ -45,9 +45,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.cleanupOrphanedFlowNodeJsStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeJs: %w", err)
 	}
-	if q.cleanupOrphanedFlowNodeNoopStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeNoop); err != nil {
-		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeNoop: %w", err)
-	}
 	if q.cleanupOrphanedNodeExecutionsStmt, err = db.PrepareContext(ctx, cleanupOrphanedNodeExecutions); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedNodeExecutions: %w", err)
 	}
@@ -80,9 +77,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createFlowNodeJsStmt, err = db.PrepareContext(ctx, createFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeJs: %w", err)
-	}
-	if q.createFlowNodeNoopStmt, err = db.PrepareContext(ctx, createFlowNodeNoop); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateFlowNodeNoop: %w", err)
 	}
 	if q.createFlowNodesBulkStmt, err = db.PrepareContext(ctx, createFlowNodesBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodesBulk: %w", err)
@@ -200,9 +194,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowNodeJsStmt, err = db.PrepareContext(ctx, deleteFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeJs: %w", err)
-	}
-	if q.deleteFlowNodeNoopStmt, err = db.PrepareContext(ctx, deleteFlowNodeNoop); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteFlowNodeNoop: %w", err)
 	}
 	if q.deleteFlowTagStmt, err = db.PrepareContext(ctx, deleteFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowTag: %w", err)
@@ -341,9 +332,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowNodeJsStmt, err = db.PrepareContext(ctx, getFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeJs: %w", err)
-	}
-	if q.getFlowNodeNoopStmt, err = db.PrepareContext(ctx, getFlowNodeNoop); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFlowNodeNoop: %w", err)
 	}
 	if q.getFlowNodesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowNodesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodesByFlowID: %w", err)
@@ -751,11 +739,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeJsStmt: %w", cerr)
 		}
 	}
-	if q.cleanupOrphanedFlowNodeNoopStmt != nil {
-		if cerr := q.cleanupOrphanedFlowNodeNoopStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeNoopStmt: %w", cerr)
-		}
-	}
 	if q.cleanupOrphanedNodeExecutionsStmt != nil {
 		if cerr := q.cleanupOrphanedNodeExecutionsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing cleanupOrphanedNodeExecutionsStmt: %w", cerr)
@@ -809,11 +792,6 @@ func (q *Queries) Close() error {
 	if q.createFlowNodeJsStmt != nil {
 		if cerr := q.createFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeJsStmt: %w", cerr)
-		}
-	}
-	if q.createFlowNodeNoopStmt != nil {
-		if cerr := q.createFlowNodeNoopStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createFlowNodeNoopStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodesBulkStmt != nil {
@@ -1009,11 +987,6 @@ func (q *Queries) Close() error {
 	if q.deleteFlowNodeJsStmt != nil {
 		if cerr := q.deleteFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeJsStmt: %w", cerr)
-		}
-	}
-	if q.deleteFlowNodeNoopStmt != nil {
-		if cerr := q.deleteFlowNodeNoopStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteFlowNodeNoopStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowTagStmt != nil {
@@ -1244,11 +1217,6 @@ func (q *Queries) Close() error {
 	if q.getFlowNodeJsStmt != nil {
 		if cerr := q.getFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeJsStmt: %w", cerr)
-		}
-	}
-	if q.getFlowNodeNoopStmt != nil {
-		if cerr := q.getFlowNodeNoopStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFlowNodeNoopStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodesByFlowIDStmt != nil {
@@ -1907,7 +1875,6 @@ type Queries struct {
 	cleanupOrphanedFlowNodeForEachStmt         *sql.Stmt
 	cleanupOrphanedFlowNodeHttpStmt            *sql.Stmt
 	cleanupOrphanedFlowNodeJsStmt              *sql.Stmt
-	cleanupOrphanedFlowNodeNoopStmt            *sql.Stmt
 	cleanupOrphanedNodeExecutionsStmt          *sql.Stmt
 	createEnvironmentStmt                      *sql.Stmt
 	createFileStmt                             *sql.Stmt
@@ -1919,7 +1886,6 @@ type Queries struct {
 	createFlowNodeForEachStmt                  *sql.Stmt
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
-	createFlowNodeNoopStmt                     *sql.Stmt
 	createFlowNodesBulkStmt                    *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createFlowVariableStmt                     *sql.Stmt
@@ -1959,7 +1925,6 @@ type Queries struct {
 	deleteFlowNodeForEachStmt                  *sql.Stmt
 	deleteFlowNodeHTTPStmt                     *sql.Stmt
 	deleteFlowNodeJsStmt                       *sql.Stmt
-	deleteFlowNodeNoopStmt                     *sql.Stmt
 	deleteFlowTagStmt                          *sql.Stmt
 	deleteFlowVariableStmt                     *sql.Stmt
 	deleteHTTPStmt                             *sql.Stmt
@@ -2006,7 +1971,6 @@ type Queries struct {
 	getFlowNodeForEachStmt                     *sql.Stmt
 	getFlowNodeHTTPStmt                        *sql.Stmt
 	getFlowNodeJsStmt                          *sql.Stmt
-	getFlowNodeNoopStmt                        *sql.Stmt
 	getFlowNodesByFlowIDStmt                   *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
 	getFlowTagsByFlowIDStmt                    *sql.Stmt
@@ -2142,7 +2106,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		cleanupOrphanedFlowNodeForEachStmt:         q.cleanupOrphanedFlowNodeForEachStmt,
 		cleanupOrphanedFlowNodeHttpStmt:            q.cleanupOrphanedFlowNodeHttpStmt,
 		cleanupOrphanedFlowNodeJsStmt:              q.cleanupOrphanedFlowNodeJsStmt,
-		cleanupOrphanedFlowNodeNoopStmt:            q.cleanupOrphanedFlowNodeNoopStmt,
 		cleanupOrphanedNodeExecutionsStmt:          q.cleanupOrphanedNodeExecutionsStmt,
 		createEnvironmentStmt:                      q.createEnvironmentStmt,
 		createFileStmt:                             q.createFileStmt,
@@ -2154,7 +2117,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowNodeForEachStmt:                  q.createFlowNodeForEachStmt,
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
-		createFlowNodeNoopStmt:                     q.createFlowNodeNoopStmt,
 		createFlowNodesBulkStmt:                    q.createFlowNodesBulkStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createFlowVariableStmt:                     q.createFlowVariableStmt,
@@ -2194,7 +2156,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteFlowNodeForEachStmt:                  q.deleteFlowNodeForEachStmt,
 		deleteFlowNodeHTTPStmt:                     q.deleteFlowNodeHTTPStmt,
 		deleteFlowNodeJsStmt:                       q.deleteFlowNodeJsStmt,
-		deleteFlowNodeNoopStmt:                     q.deleteFlowNodeNoopStmt,
 		deleteFlowTagStmt:                          q.deleteFlowTagStmt,
 		deleteFlowVariableStmt:                     q.deleteFlowVariableStmt,
 		deleteHTTPStmt:                             q.deleteHTTPStmt,
@@ -2241,7 +2202,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowNodeForEachStmt:                     q.getFlowNodeForEachStmt,
 		getFlowNodeHTTPStmt:                        q.getFlowNodeHTTPStmt,
 		getFlowNodeJsStmt:                          q.getFlowNodeJsStmt,
-		getFlowNodeNoopStmt:                        q.getFlowNodeNoopStmt,
 		getFlowNodesByFlowIDStmt:                   q.getFlowNodesByFlowIDStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
 		getFlowTagsByFlowIDStmt:                    q.getFlowTagsByFlowIDStmt,
