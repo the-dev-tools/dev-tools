@@ -5,6 +5,7 @@ CREATE TABLE flow (
   name TEXT NOT NULL,
   duration INT NOT NULL DEFAULT 0,
   running BOOLEAN NOT NULL DEFAULT FALSE,
+  node_id_mapping BLOB DEFAULT NULL,
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
   FOREIGN KEY (version_parent_id) REFERENCES flow (id) ON DELETE CASCADE
 );

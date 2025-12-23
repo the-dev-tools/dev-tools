@@ -65,10 +65,31 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Move existing parent node executions to the previous version before creating a new one
+	if err := s.moveParentExecutionsToPreviousVersion(ctx, flow); err != nil {
+		s.logger.Error("failed to move parent executions to previous version", "error", err)
+		// Continue anyway - not a critical failure
+	}
+
 	// Create a new flow version for this run (snapshot of the flow with all nodes, edges, etc.)
 	version, nodeIDMapping, err := s.createFlowVersionSnapshot(ctx, flow, nodes, edges, flowVars)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create flow version: %w", err))
+	}
+
+	// Save the nodeIDMapping to the version flow for future execution moves
+	// Convert to string map for JSON serialization
+	if len(nodeIDMapping) > 0 {
+		stringMapping := make(map[string]string, len(nodeIDMapping))
+		for k, v := range nodeIDMapping {
+			stringMapping[k] = v.String()
+		}
+		mappingJSON, err := json.Marshal(stringMapping)
+		if err != nil {
+			s.logger.Error("failed to marshal nodeIDMapping", "error", err)
+		} else if err := s.fs.UpdateFlowNodeIDMapping(ctx, version.ID, mappingJSON); err != nil {
+			s.logger.Error("failed to save nodeIDMapping", "error", err)
+		}
 	}
 
 	// Publish flow insert event so clients receive the version in FlowSync
@@ -382,49 +403,8 @@ func (s *FlowServiceV2RPC) executeFlow(
 			// Publish execution event for original node
 			s.publishExecutionEvent(eventType, model, flow.ID)
 
-			// Also create execution for the version node so history shows correct state
-			if versionNodeID, ok := nodeIDMapping[status.NodeID.String()]; ok {
-				versionModel := mflow.NodeExecution{
-					ID:                     idwrap.NewNow(),
-					NodeID:                 versionNodeID,
-					Name:                   model.Name,
-					State:                  model.State,
-					Error:                  model.Error,
-					InputData:              model.InputData,
-					InputDataCompressType:  model.InputDataCompressType,
-					OutputData:             model.OutputData,
-					OutputDataCompressType: model.OutputDataCompressType,
-					ResponseID:             model.ResponseID,
-					CompletedAt:            model.CompletedAt,
-				}
-				if err := s.nes.UpsertNodeExecution(ctx, versionModel); err != nil {
-					s.logger.Error("failed to persist version node execution", "error", err)
-				}
-				// Publish execution event for version node - always INSERT since these are new records
-				// (the frontend needs INSERT before any UPDATE can be applied)
-				s.publishExecutionEvent(executionEventInsert, versionModel, versionFlowID)
-
-				// Also publish node state update for version node
-				if s.nodeStream != nil {
-					var info string
-					if status.Error != nil {
-						info = status.Error.Error()
-					}
-					versionNodePB := &flowv1.Node{
-						NodeId: versionNodeID.Bytes(),
-						FlowId: versionFlowID.Bytes(),
-						State:  flowv1.FlowItemState(status.State),
-					}
-					if info != "" {
-						versionNodePB.Info = &info
-					}
-					s.nodeStream.Publish(NodeTopic{FlowID: versionFlowID}, NodeEvent{
-						Type:   nodeEventUpdate,
-						FlowID: versionFlowID,
-						Node:   versionNodePB,
-					})
-				}
-			}
+			// Note: Version node executions are no longer created here.
+			// Executions are moved from parent nodes to version nodes at the start of the next run.
 
 			if s.nodeStream != nil {
 				var info string
@@ -827,4 +807,76 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	}
 
 	return version, nodeIDMapping, nil
+}
+
+// moveParentExecutionsToPreviousVersion moves existing parent node executions
+// to the previous version's corresponding nodes. This ensures parent nodes always
+// show only the current/latest run's executions.
+func (s *FlowServiceV2RPC) moveParentExecutionsToPreviousVersion(
+	ctx context.Context,
+	flow mflow.Flow,
+) error {
+	// Get the most recent version of this flow (will have the mapping we need)
+	prevVersion, err := s.fs.GetLatestVersionByParentID(ctx, flow.ID)
+	if err != nil {
+		return fmt.Errorf("get latest version: %w", err)
+	}
+	if prevVersion == nil {
+		// No previous version exists, nothing to move (first run)
+		return nil
+	}
+
+	// Parse the stored nodeIDMapping from the previous version
+	if len(prevVersion.NodeIDMapping) == 0 {
+		// No mapping stored, nothing to move
+		return nil
+	}
+
+	var nodeIDMapping map[string]string
+	if err := json.Unmarshal(prevVersion.NodeIDMapping, &nodeIDMapping); err != nil {
+		return fmt.Errorf("unmarshal nodeIDMapping: %w", err)
+	}
+
+	// Move each parent node's executions to the previous version's corresponding node
+	for parentNodeIDStr, versionNodeIDStr := range nodeIDMapping {
+		parentNodeID, err := idwrap.NewText(parentNodeIDStr)
+		if err != nil {
+			s.logger.Warn("invalid parent node ID in mapping", "id", parentNodeIDStr, "error", err)
+			continue
+		}
+		versionNodeID, err := idwrap.NewText(versionNodeIDStr)
+		if err != nil {
+			s.logger.Warn("invalid version node ID in mapping", "id", versionNodeIDStr, "error", err)
+			continue
+		}
+
+		// Get existing executions for this parent node
+		executions, err := s.nes.ListNodeExecutionsByNodeID(ctx, parentNodeID)
+		if err != nil {
+			s.logger.Warn("failed to list node executions", "node_id", parentNodeIDStr, "error", err)
+			continue
+		}
+		if len(executions) == 0 {
+			continue
+		}
+
+		// Move each execution to the version node
+		for _, exec := range executions {
+			if err := s.nes.UpdateNodeExecutionNodeID(ctx, exec.ID, versionNodeID); err != nil {
+				s.logger.Error("failed to move execution to version node",
+					"exec_id", exec.ID.String(),
+					"from_node", parentNodeIDStr,
+					"to_node", versionNodeIDStr,
+					"error", err)
+				continue
+			}
+
+			// Publish sync events: DELETE from parent flow, INSERT into version flow
+			s.publishExecutionEvent(executionEventDelete, exec, flow.ID)
+			exec.NodeID = versionNodeID
+			s.publishExecutionEvent(executionEventInsert, exec, prevVersion.ID)
+		}
+	}
+
+	return nil
 }

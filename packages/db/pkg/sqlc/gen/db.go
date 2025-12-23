@@ -492,6 +492,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getLatestNodeExecutionByNodeIDStmt, err = db.PrepareContext(ctx, getLatestNodeExecutionByNodeID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetLatestNodeExecutionByNodeID: %w", err)
 	}
+	if q.getLatestVersionByParentIDStmt, err = db.PrepareContext(ctx, getLatestVersionByParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestVersionByParentID: %w", err)
+	}
 	if q.getMigrationStmt, err = db.PrepareContext(ctx, getMigration); err != nil {
 		return nil, fmt.Errorf("error preparing query GetMigration: %w", err)
 	}
@@ -606,6 +609,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeHTTPStmt, err = db.PrepareContext(ctx, updateFlowNodeHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeHTTP: %w", err)
 	}
+	if q.updateFlowNodeIDMappingStmt, err = db.PrepareContext(ctx, updateFlowNodeIDMapping); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeIDMapping: %w", err)
+	}
 	if q.updateFlowNodeJsStmt, err = db.PrepareContext(ctx, updateFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeJs: %w", err)
 	}
@@ -680,6 +686,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateNodeExecutionStmt, err = db.PrepareContext(ctx, updateNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateNodeExecution: %w", err)
+	}
+	if q.updateNodeExecutionNodeIDStmt, err = db.PrepareContext(ctx, updateNodeExecutionNodeID); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateNodeExecutionNodeID: %w", err)
 	}
 	if q.updateTagStmt, err = db.PrepareContext(ctx, updateTag); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateTag: %w", err)
@@ -1490,6 +1499,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getLatestNodeExecutionByNodeIDStmt: %w", cerr)
 		}
 	}
+	if q.getLatestVersionByParentIDStmt != nil {
+		if cerr := q.getLatestVersionByParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestVersionByParentIDStmt: %w", cerr)
+		}
+	}
 	if q.getMigrationStmt != nil {
 		if cerr := q.getMigrationStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getMigrationStmt: %w", cerr)
@@ -1680,6 +1694,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeHTTPStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowNodeIDMappingStmt != nil {
+		if cerr := q.updateFlowNodeIDMappingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeIDMappingStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowNodeJsStmt != nil {
 		if cerr := q.updateFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeJsStmt: %w", cerr)
@@ -1803,6 +1822,11 @@ func (q *Queries) Close() error {
 	if q.updateNodeExecutionStmt != nil {
 		if cerr := q.updateNodeExecutionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateNodeExecutionStmt: %w", cerr)
+		}
+	}
+	if q.updateNodeExecutionNodeIDStmt != nil {
+		if cerr := q.updateNodeExecutionNodeIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateNodeExecutionNodeIDStmt: %w", cerr)
 		}
 	}
 	if q.updateTagStmt != nil {
@@ -2040,6 +2064,7 @@ type Queries struct {
 	getHTTPsByWorkspaceIDStmt                  *sql.Stmt
 	getHttpVersionsByHttpIDStmt                *sql.Stmt
 	getLatestNodeExecutionByNodeIDStmt         *sql.Stmt
+	getLatestVersionByParentIDStmt             *sql.Stmt
 	getMigrationStmt                           *sql.Stmt
 	getMigrationsStmt                          *sql.Stmt
 	getNodeExecutionStmt                       *sql.Stmt
@@ -2078,6 +2103,7 @@ type Queries struct {
 	updateFlowNodeForStmt                      *sql.Stmt
 	updateFlowNodeForEachStmt                  *sql.Stmt
 	updateFlowNodeHTTPStmt                     *sql.Stmt
+	updateFlowNodeIDMappingStmt                *sql.Stmt
 	updateFlowNodeJsStmt                       *sql.Stmt
 	updateFlowNodeStateStmt                    *sql.Stmt
 	updateFlowVariableStmt                     *sql.Stmt
@@ -2103,6 +2129,7 @@ type Queries struct {
 	updateHTTPSearchParamDeltaStmt             *sql.Stmt
 	updateHTTPSearchParamOrderStmt             *sql.Stmt
 	updateNodeExecutionStmt                    *sql.Stmt
+	updateNodeExecutionNodeIDStmt              *sql.Stmt
 	updateTagStmt                              *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
@@ -2273,6 +2300,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPsByWorkspaceIDStmt:                  q.getHTTPsByWorkspaceIDStmt,
 		getHttpVersionsByHttpIDStmt:                q.getHttpVersionsByHttpIDStmt,
 		getLatestNodeExecutionByNodeIDStmt:         q.getLatestNodeExecutionByNodeIDStmt,
+		getLatestVersionByParentIDStmt:             q.getLatestVersionByParentIDStmt,
 		getMigrationStmt:                           q.getMigrationStmt,
 		getMigrationsStmt:                          q.getMigrationsStmt,
 		getNodeExecutionStmt:                       q.getNodeExecutionStmt,
@@ -2311,6 +2339,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeForStmt:                      q.updateFlowNodeForStmt,
 		updateFlowNodeForEachStmt:                  q.updateFlowNodeForEachStmt,
 		updateFlowNodeHTTPStmt:                     q.updateFlowNodeHTTPStmt,
+		updateFlowNodeIDMappingStmt:                q.updateFlowNodeIDMappingStmt,
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
 		updateFlowNodeStateStmt:                    q.updateFlowNodeStateStmt,
 		updateFlowVariableStmt:                     q.updateFlowVariableStmt,
@@ -2336,6 +2365,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateHTTPSearchParamDeltaStmt:             q.updateHTTPSearchParamDeltaStmt,
 		updateHTTPSearchParamOrderStmt:             q.updateHTTPSearchParamOrderStmt,
 		updateNodeExecutionStmt:                    q.updateNodeExecutionStmt,
+		updateNodeExecutionNodeIDStmt:              q.updateNodeExecutionNodeIDStmt,
 		updateTagStmt:                              q.updateTagStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,

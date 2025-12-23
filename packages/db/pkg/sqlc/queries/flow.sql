@@ -5,7 +5,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -19,7 +20,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -34,7 +36,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -47,7 +50,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -55,24 +59,24 @@ WHERE
 
 -- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running)
+  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateFlowsBulk :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running)
+  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlow :exec
 UPDATE flow
@@ -674,3 +678,29 @@ DELETE FROM flow_edge WHERE source_id NOT IN (SELECT id FROM flow_node) OR targe
 
 -- name: CleanupOrphanedNodeExecutions :exec
 DELETE FROM node_execution WHERE node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: GetLatestVersionByParentID :one
+SELECT
+  id,
+  workspace_id,
+  version_parent_id,
+  name,
+  duration,
+  running,
+  node_id_mapping
+FROM
+  flow
+WHERE
+  version_parent_id = ?
+ORDER BY id DESC
+LIMIT 1;
+
+-- name: UpdateFlowNodeIDMapping :exec
+UPDATE flow
+SET node_id_mapping = ?
+WHERE id = ?;
+
+-- name: UpdateNodeExecutionNodeID :exec
+UPDATE node_execution
+SET node_id = ?
+WHERE id = ?;

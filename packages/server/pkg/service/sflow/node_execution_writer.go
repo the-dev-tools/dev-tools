@@ -125,3 +125,12 @@ func (w *NodeExecutionWriter) DeleteNodeExecutionsByNodeID(ctx context.Context, 
 func (w *NodeExecutionWriter) DeleteNodeExecutionsByNodeIDs(ctx context.Context, nodeIDs []idwrap.IDWrap) error {
 	return w.queries.DeleteNodeExecutionsByNodeIDs(ctx, nodeIDs)
 }
+
+// UpdateNodeExecutionNodeID updates the node_id of a node execution
+// This is used to move executions from parent nodes to version nodes
+func (w *NodeExecutionWriter) UpdateNodeExecutionNodeID(ctx context.Context, execID, newNodeID idwrap.IDWrap) error {
+	return w.queries.UpdateNodeExecutionNodeID(ctx, gen.UpdateNodeExecutionNodeIDParams{
+		ID:     execID,
+		NodeID: newNodeID,
+	})
+}

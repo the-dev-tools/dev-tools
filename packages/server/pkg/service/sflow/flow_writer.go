@@ -45,60 +45,70 @@ func (w *FlowWriter) CreateFlowBulk(ctx context.Context, flows []mflow.Flow) err
 				Name:               batch[0].Name,
 				Duration:           batch[0].Duration,
 				Running:            batch[0].Running,
+				NodeIDMapping:      batch[0].NodeIDMapping,
 				ID_2:               batch[1].ID,
 				WorkspaceID_2:      batch[1].WorkspaceID,
 				VersionParentID_2:  batch[1].VersionParentID,
 				Name_2:             batch[1].Name,
 				Duration_2:         batch[1].Duration,
 				Running_2:          batch[1].Running,
+				NodeIDMapping_2:    batch[1].NodeIDMapping,
 				ID_3:               batch[2].ID,
 				WorkspaceID_3:      batch[2].WorkspaceID,
 				VersionParentID_3:  batch[2].VersionParentID,
 				Name_3:             batch[2].Name,
 				Duration_3:         batch[2].Duration,
 				Running_3:          batch[2].Running,
+				NodeIDMapping_3:    batch[2].NodeIDMapping,
 				ID_4:               batch[3].ID,
 				WorkspaceID_4:      batch[3].WorkspaceID,
 				VersionParentID_4:  batch[3].VersionParentID,
 				Name_4:             batch[3].Name,
 				Duration_4:         batch[3].Duration,
 				Running_4:          batch[3].Running,
+				NodeIDMapping_4:    batch[3].NodeIDMapping,
 				ID_5:               batch[4].ID,
 				WorkspaceID_5:      batch[4].WorkspaceID,
 				VersionParentID_5:  batch[4].VersionParentID,
 				Name_5:             batch[4].Name,
 				Duration_5:         batch[4].Duration,
 				Running_5:          batch[4].Running,
+				NodeIDMapping_5:    batch[4].NodeIDMapping,
 				ID_6:               batch[5].ID,
 				WorkspaceID_6:      batch[5].WorkspaceID,
 				VersionParentID_6:  batch[5].VersionParentID,
 				Name_6:             batch[5].Name,
 				Duration_6:         batch[5].Duration,
 				Running_6:          batch[5].Running,
+				NodeIDMapping_6:    batch[5].NodeIDMapping,
 				ID_7:               batch[6].ID,
 				WorkspaceID_7:      batch[6].WorkspaceID,
 				VersionParentID_7:  batch[6].VersionParentID,
 				Name_7:             batch[6].Name,
 				Duration_7:         batch[6].Duration,
 				Running_7:          batch[6].Running,
+				NodeIDMapping_7:    batch[6].NodeIDMapping,
 				ID_8:               batch[7].ID,
 				WorkspaceID_8:      batch[7].WorkspaceID,
 				VersionParentID_8:  batch[7].VersionParentID,
 				Name_8:             batch[7].Name,
 				Duration_8:         batch[7].Duration,
 				Running_8:          batch[7].Running,
+				NodeIDMapping_8:    batch[7].NodeIDMapping,
 				ID_9:               batch[8].ID,
 				WorkspaceID_9:      batch[8].WorkspaceID,
 				VersionParentID_9:  batch[8].VersionParentID,
 				Name_9:             batch[8].Name,
 				Duration_9:         batch[8].Duration,
 				Running_9:          batch[8].Running,
+				NodeIDMapping_9:    batch[8].NodeIDMapping,
 				ID_10:              batch[9].ID,
 				WorkspaceID_10:     batch[9].WorkspaceID,
 				VersionParentID_10: batch[9].VersionParentID,
 				Name_10:            batch[9].Name,
 				Duration_10:        batch[9].Duration,
 				Running_10:         batch[9].Running,
+				NodeIDMapping_10:   batch[9].NodeIDMapping,
 			}
 			err := w.queries.CreateFlowsBulk(ctx, arg)
 			if err != nil {
@@ -153,10 +163,20 @@ func (w *FlowWriter) CreateFlowVersion(ctx context.Context, parentFlow mflow.Flo
 		Name:            version.Name,
 		Duration:        version.Duration,
 		Running:         version.Running,
+		NodeIDMapping:   nil, // Will be set later via UpdateFlowNodeIDMapping
 	})
 	if err != nil {
 		return mflow.Flow{}, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 	}
 
 	return version, nil
+}
+
+// UpdateFlowNodeIDMapping updates the node ID mapping for a flow version
+func (w *FlowWriter) UpdateFlowNodeIDMapping(ctx context.Context, flowID idwrap.IDWrap, mapping []byte) error {
+	err := w.queries.UpdateFlowNodeIDMapping(ctx, gen.UpdateFlowNodeIDMappingParams{
+		ID:            flowID,
+		NodeIDMapping: mapping,
+	})
+	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 }

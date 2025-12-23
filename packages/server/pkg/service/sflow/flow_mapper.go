@@ -13,6 +13,7 @@ func ConvertFlowToDB(item mflow.Flow) gen.Flow {
 		Name:            item.Name,
 		Duration:        item.Duration,
 		Running:         item.Running,
+		NodeIDMapping:   item.NodeIDMapping,
 	}
 }
 
@@ -24,5 +25,6 @@ func ConvertDBToFlow(item gen.Flow) mflow.Flow {
 		Name:            item.Name,
 		Duration:        item.Duration,
 		Running:         item.Running,
+		NodeIDMapping:   item.NodeIDMapping,
 	}
 }

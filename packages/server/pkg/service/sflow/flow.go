@@ -81,4 +81,14 @@ func (s *FlowService) CreateFlowVersion(ctx context.Context, parentFlow mflow.Fl
 	return NewFlowWriterFromQueries(s.queries).CreateFlowVersion(ctx, parentFlow)
 }
 
+// GetLatestVersionByParentID returns the most recent version of a flow
+func (s *FlowService) GetLatestVersionByParentID(ctx context.Context, parentID idwrap.IDWrap) (*mflow.Flow, error) {
+	return s.reader.GetLatestVersionByParentID(ctx, parentID)
+}
+
+// UpdateFlowNodeIDMapping updates the node ID mapping for a flow version
+func (s *FlowService) UpdateFlowNodeIDMapping(ctx context.Context, flowID idwrap.IDWrap, mapping []byte) error {
+	return NewFlowWriterFromQueries(s.queries).UpdateFlowNodeIDMapping(ctx, flowID, mapping)
+}
+
 func (s FlowService) Reader() *FlowReader { return s.reader }

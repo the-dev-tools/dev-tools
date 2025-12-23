@@ -81,9 +81,9 @@ func (q *Queries) CleanupOrphanedNodeExecutions(ctx context.Context) error {
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running)
+  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowParams struct {
@@ -93,6 +93,7 @@ type CreateFlowParams struct {
 	Name            string
 	Duration        int32
 	Running         bool
+	NodeIDMapping   []byte
 }
 
 func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
@@ -103,6 +104,7 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 		arg.Name,
 		arg.Duration,
 		arg.Running,
+		arg.NodeIDMapping,
 	)
 	return err
 }
@@ -626,18 +628,18 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 
 const createFlowsBulk = `-- name: CreateFlowsBulk :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running)
+  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowsBulkParams struct {
@@ -647,60 +649,70 @@ type CreateFlowsBulkParams struct {
 	Name               string
 	Duration           int32
 	Running            bool
+	NodeIDMapping      []byte
 	ID_2               idwrap.IDWrap
 	WorkspaceID_2      idwrap.IDWrap
 	VersionParentID_2  *idwrap.IDWrap
 	Name_2             string
 	Duration_2         int32
 	Running_2          bool
+	NodeIDMapping_2    []byte
 	ID_3               idwrap.IDWrap
 	WorkspaceID_3      idwrap.IDWrap
 	VersionParentID_3  *idwrap.IDWrap
 	Name_3             string
 	Duration_3         int32
 	Running_3          bool
+	NodeIDMapping_3    []byte
 	ID_4               idwrap.IDWrap
 	WorkspaceID_4      idwrap.IDWrap
 	VersionParentID_4  *idwrap.IDWrap
 	Name_4             string
 	Duration_4         int32
 	Running_4          bool
+	NodeIDMapping_4    []byte
 	ID_5               idwrap.IDWrap
 	WorkspaceID_5      idwrap.IDWrap
 	VersionParentID_5  *idwrap.IDWrap
 	Name_5             string
 	Duration_5         int32
 	Running_5          bool
+	NodeIDMapping_5    []byte
 	ID_6               idwrap.IDWrap
 	WorkspaceID_6      idwrap.IDWrap
 	VersionParentID_6  *idwrap.IDWrap
 	Name_6             string
 	Duration_6         int32
 	Running_6          bool
+	NodeIDMapping_6    []byte
 	ID_7               idwrap.IDWrap
 	WorkspaceID_7      idwrap.IDWrap
 	VersionParentID_7  *idwrap.IDWrap
 	Name_7             string
 	Duration_7         int32
 	Running_7          bool
+	NodeIDMapping_7    []byte
 	ID_8               idwrap.IDWrap
 	WorkspaceID_8      idwrap.IDWrap
 	VersionParentID_8  *idwrap.IDWrap
 	Name_8             string
 	Duration_8         int32
 	Running_8          bool
+	NodeIDMapping_8    []byte
 	ID_9               idwrap.IDWrap
 	WorkspaceID_9      idwrap.IDWrap
 	VersionParentID_9  *idwrap.IDWrap
 	Name_9             string
 	Duration_9         int32
 	Running_9          bool
+	NodeIDMapping_9    []byte
 	ID_10              idwrap.IDWrap
 	WorkspaceID_10     idwrap.IDWrap
 	VersionParentID_10 *idwrap.IDWrap
 	Name_10            string
 	Duration_10        int32
 	Running_10         bool
+	NodeIDMapping_10   []byte
 }
 
 func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams) error {
@@ -711,60 +723,70 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name,
 		arg.Duration,
 		arg.Running,
+		arg.NodeIDMapping,
 		arg.ID_2,
 		arg.WorkspaceID_2,
 		arg.VersionParentID_2,
 		arg.Name_2,
 		arg.Duration_2,
 		arg.Running_2,
+		arg.NodeIDMapping_2,
 		arg.ID_3,
 		arg.WorkspaceID_3,
 		arg.VersionParentID_3,
 		arg.Name_3,
 		arg.Duration_3,
 		arg.Running_3,
+		arg.NodeIDMapping_3,
 		arg.ID_4,
 		arg.WorkspaceID_4,
 		arg.VersionParentID_4,
 		arg.Name_4,
 		arg.Duration_4,
 		arg.Running_4,
+		arg.NodeIDMapping_4,
 		arg.ID_5,
 		arg.WorkspaceID_5,
 		arg.VersionParentID_5,
 		arg.Name_5,
 		arg.Duration_5,
 		arg.Running_5,
+		arg.NodeIDMapping_5,
 		arg.ID_6,
 		arg.WorkspaceID_6,
 		arg.VersionParentID_6,
 		arg.Name_6,
 		arg.Duration_6,
 		arg.Running_6,
+		arg.NodeIDMapping_6,
 		arg.ID_7,
 		arg.WorkspaceID_7,
 		arg.VersionParentID_7,
 		arg.Name_7,
 		arg.Duration_7,
 		arg.Running_7,
+		arg.NodeIDMapping_7,
 		arg.ID_8,
 		arg.WorkspaceID_8,
 		arg.VersionParentID_8,
 		arg.Name_8,
 		arg.Duration_8,
 		arg.Running_8,
+		arg.NodeIDMapping_8,
 		arg.ID_9,
 		arg.WorkspaceID_9,
 		arg.VersionParentID_9,
 		arg.Name_9,
 		arg.Duration_9,
 		arg.Running_9,
+		arg.NodeIDMapping_9,
 		arg.ID_10,
 		arg.WorkspaceID_10,
 		arg.VersionParentID_10,
 		arg.Name_10,
 		arg.Duration_10,
 		arg.Running_10,
+		arg.NodeIDMapping_10,
 	)
 	return err
 }
@@ -1039,7 +1061,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -1063,6 +1086,7 @@ func (q *Queries) GetAllFlowsByWorkspaceID(ctx context.Context, workspaceID idwr
 			&i.Name,
 			&i.Duration,
 			&i.Running,
+			&i.NodeIDMapping,
 		); err != nil {
 			return nil, err
 		}
@@ -1084,7 +1108,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -1102,6 +1127,7 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 		&i.Name,
 		&i.Duration,
 		&i.Running,
+		&i.NodeIDMapping,
 	)
 	return i, err
 }
@@ -1579,7 +1605,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -1602,6 +1629,7 @@ func (q *Queries) GetFlowsByVersionParentID(ctx context.Context, versionParentID
 			&i.Name,
 			&i.Duration,
 			&i.Running,
+			&i.NodeIDMapping,
 		); err != nil {
 			return nil, err
 		}
@@ -1623,7 +1651,8 @@ SELECT
   version_parent_id,
   name,
   duration,
-  running
+  running,
+  node_id_mapping
 FROM
   flow
 WHERE
@@ -1647,6 +1676,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.Name,
 			&i.Duration,
 			&i.Running,
+			&i.NodeIDMapping,
 		); err != nil {
 			return nil, err
 		}
@@ -1684,6 +1714,38 @@ func (q *Queries) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idw
 		&i.OutputDataCompressType,
 		&i.HttpResponseID,
 		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const getLatestVersionByParentID = `-- name: GetLatestVersionByParentID :one
+SELECT
+  id,
+  workspace_id,
+  version_parent_id,
+  name,
+  duration,
+  running,
+  node_id_mapping
+FROM
+  flow
+WHERE
+  version_parent_id = ?
+ORDER BY id DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestVersionByParentID(ctx context.Context, versionParentID *idwrap.IDWrap) (Flow, error) {
+	row := q.queryRow(ctx, q.getLatestVersionByParentIDStmt, getLatestVersionByParentID, versionParentID)
+	var i Flow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.VersionParentID,
+		&i.Name,
+		&i.Duration,
+		&i.Running,
+		&i.NodeIDMapping,
 	)
 	return i, err
 }
@@ -2222,6 +2284,22 @@ func (q *Queries) UpdateFlowNodeHTTP(ctx context.Context, arg UpdateFlowNodeHTTP
 	return err
 }
 
+const updateFlowNodeIDMapping = `-- name: UpdateFlowNodeIDMapping :exec
+UPDATE flow
+SET node_id_mapping = ?
+WHERE id = ?
+`
+
+type UpdateFlowNodeIDMappingParams struct {
+	NodeIDMapping []byte
+	ID            idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeIDMapping(ctx context.Context, arg UpdateFlowNodeIDMappingParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeIDMappingStmt, updateFlowNodeIDMapping, arg.NodeIDMapping, arg.ID)
+	return err
+}
+
 const updateFlowNodeJs = `-- name: UpdateFlowNodeJs :exec
 UPDATE flow_node_js
 SET
@@ -2351,6 +2429,22 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 		&i.CompletedAt,
 	)
 	return i, err
+}
+
+const updateNodeExecutionNodeID = `-- name: UpdateNodeExecutionNodeID :exec
+UPDATE node_execution
+SET node_id = ?
+WHERE id = ?
+`
+
+type UpdateNodeExecutionNodeIDParams struct {
+	NodeID idwrap.IDWrap
+	ID     idwrap.IDWrap
+}
+
+func (q *Queries) UpdateNodeExecutionNodeID(ctx context.Context, arg UpdateNodeExecutionNodeIDParams) error {
+	_, err := q.exec(ctx, q.updateNodeExecutionNodeIDStmt, updateNodeExecutionNodeID, arg.NodeID, arg.ID)
+	return err
 }
 
 const updateTag = `-- name: UpdateTag :exec

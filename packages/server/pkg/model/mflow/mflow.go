@@ -10,4 +10,5 @@ type Flow struct {
 	Name            string
 	Duration        int32
 	Running         bool
+	NodeIDMapping   []byte // JSON map of parent node ID -> version node ID
 }

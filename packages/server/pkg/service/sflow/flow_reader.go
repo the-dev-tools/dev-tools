@@ -3,6 +3,8 @@ package sflow
 import (
 	"context"
 	"database/sql"
+	"errors"
+
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -52,4 +54,17 @@ func (r *FlowReader) GetFlowsByVersionParentID(ctx context.Context, versionParen
 		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
 	}
 	return tgeneric.MassConvert(item, ConvertDBToFlow), nil
+}
+
+// GetLatestVersionByParentID returns the most recent version of a flow
+func (r *FlowReader) GetLatestVersionByParentID(ctx context.Context, parentID idwrap.IDWrap) (*mflow.Flow, error) {
+	item, err := r.queries.GetLatestVersionByParentID(ctx, &parentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No version exists yet
+		}
+		return nil, err
+	}
+	flow := ConvertDBToFlow(item)
+	return &flow, nil
 }

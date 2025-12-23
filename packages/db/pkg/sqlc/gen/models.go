@@ -39,6 +39,7 @@ type Flow struct {
 	Name            string
 	Duration        int32
 	Running         bool
+	NodeIDMapping   []byte
 }
 
 type FlowEdge struct {

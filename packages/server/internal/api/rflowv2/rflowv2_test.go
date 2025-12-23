@@ -745,59 +745,84 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	require.Len(t, versionNodes, 1, "Version should have 1 node")
 	versionNodeID := versionNodes[0].ID
 
-	// TEST 1: Verify NodeCollection returns version node with SUCCESS state
+	// TEST 1: Verify NodeCollection returns PARENT node with SUCCESS state
 	collReq := connect.NewRequest(&emptypb.Empty{})
 	var nodeCollResp *connect.Response[flowv1.NodeCollectionResponse]
 
-	// Poll until we see SUCCESS state
+	// Poll until we see SUCCESS state on parent node
 	for i := 0; i < 20; i++ {
 		nodeCollResp, err = svc.NodeCollection(ctx, collReq)
 		require.NoError(t, err)
 
-		// Find the version node
-		var versionNode *flowv1.Node
+		// Find the parent node
+		var parentNode *flowv1.Node
 		for _, item := range nodeCollResp.Msg.Items {
-			if bytes.Equal(item.NodeId, versionNodeID.Bytes()) {
-				versionNode = item
+			if bytes.Equal(item.NodeId, startNodeID.Bytes()) {
+				parentNode = item
 				break
 			}
 		}
-		if versionNode != nil && versionNode.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
+		if parentNode != nil && parentNode.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// Verify version node has SUCCESS state
-	var versionNode *flowv1.Node
+	// Verify parent node has SUCCESS state
+	var parentNode *flowv1.Node
 	for _, item := range nodeCollResp.Msg.Items {
-		if bytes.Equal(item.NodeId, versionNodeID.Bytes()) {
-			versionNode = item
+		if bytes.Equal(item.NodeId, startNodeID.Bytes()) {
+			parentNode = item
 			break
 		}
 	}
-	require.NotNil(t, versionNode, "Version node should be in NodeCollection")
-	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, versionNode.State,
-		"Version node should have SUCCESS state")
+	require.NotNil(t, parentNode, "Parent node should be in NodeCollection")
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, parentNode.State,
+		"Parent node should have SUCCESS state")
 
-	// TEST 2: Verify NodeExecutionCollection has executions for version node
+	// TEST 2: Verify NodeExecutionCollection has executions for PARENT node (not version node)
+	// With the new buffer behavior, executions are created on parent nodes during execution,
+	// and only moved to version nodes at the start of the next run.
 	execCollResp, err := svc.NodeExecutionCollection(ctx, collReq)
 	require.NoError(t, err)
 
-	// Find executions for the version node
+	// Find executions for the parent node
+	var parentNodeExecutions []*flowv1.NodeExecution
+	for _, exec := range execCollResp.Msg.Items {
+		if bytes.Equal(exec.NodeId, startNodeID.Bytes()) {
+			parentNodeExecutions = append(parentNodeExecutions, exec)
+		}
+	}
+	require.NotEmpty(t, parentNodeExecutions, "Parent node should have execution records after first run")
+
+	// Verify the execution has SUCCESS state
+	latestExec := parentNodeExecutions[0]
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, latestExec.State,
+		"Parent node execution should have SUCCESS state")
+
+	t.Logf("Parent node %s has state=%v with %d execution(s)",
+		startNodeID.String(), parentNode.State, len(parentNodeExecutions))
+
+	// TEST 3: Run the flow again and verify executions are moved to the first version
+	_, err = svc.FlowRun(ctx, req)
+	require.NoError(t, err)
+
+	// Wait for async execution to complete
+	time.Sleep(200 * time.Millisecond)
+
+	// Now the first version's nodes should have the moved executions
+	execCollResp, err = svc.NodeExecutionCollection(ctx, collReq)
+	require.NoError(t, err)
+
+	// Find executions for the first version node
 	var versionNodeExecutions []*flowv1.NodeExecution
 	for _, exec := range execCollResp.Msg.Items {
 		if bytes.Equal(exec.NodeId, versionNodeID.Bytes()) {
 			versionNodeExecutions = append(versionNodeExecutions, exec)
 		}
 	}
-	require.NotEmpty(t, versionNodeExecutions, "Version node should have execution records")
+	require.NotEmpty(t, versionNodeExecutions, "Version node should have execution records after second run moves them")
 
-	// Verify the execution has SUCCESS state
-	latestExec := versionNodeExecutions[0]
-	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, latestExec.State,
-		"Version node execution should have SUCCESS state")
-
-	t.Logf("Version node %s has state=%v with %d execution(s)",
-		versionNodeID.String(), versionNode.State, len(versionNodeExecutions))
+	t.Logf("After second run, version node %s has %d execution(s)",
+		versionNodeID.String(), len(versionNodeExecutions))
 }
