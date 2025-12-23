@@ -42,7 +42,7 @@ func TestEdgeEventToSyncResponse_StateField(t *testing.T) {
 		assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, *update.State)
 	})
 
-	t.Run("Edge event UPDATE excludes State field when UNSPECIFIED", func(t *testing.T) {
+	t.Run("Edge event UPDATE includes State field even when UNSPECIFIED", func(t *testing.T) {
 		edgeEvent := EdgeEvent{
 			Type:   edgeEventUpdate,
 			FlowID: flowID,
@@ -63,7 +63,9 @@ func TestEdgeEventToSyncResponse_StateField(t *testing.T) {
 		update := resp.Items[0].Value.GetUpdate()
 		require.NotNil(t, update)
 
-		assert.Nil(t, update.State, "State field should be excluded when UNSPECIFIED")
+		// State should always be included to support resetting to UNSPECIFIED
+		assert.NotNil(t, update.State, "State field should always be included")
+		assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED, *update.State)
 	})
 
 	t.Run("Edge event UPDATE includes State for FAILURE", func(t *testing.T) {

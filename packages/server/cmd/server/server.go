@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/db/pkg/tursolocal"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/middleware/mwcodec"
 	"the-dev-tools/server/internal/api/middleware/mwcompress"
 	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/rexportv2"
@@ -161,6 +162,7 @@ func run() error {
 	defer streamers.Shutdown()
 
 	var optionsCompress, optionsAuth, optionsAll []connect.HandlerOption
+	optionsCompress = append(optionsCompress, mwcodec.WithJSONCodec()) // Custom JSON codec that emits zero values
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
 	_, err = userService.GetUser(ctx, mwauth.LocalDummyID)

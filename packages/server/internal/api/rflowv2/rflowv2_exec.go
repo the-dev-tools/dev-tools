@@ -213,17 +213,43 @@ func (s *FlowServiceV2RPC) executeFlow(
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
 
 	// Reset all node states to UNSPECIFIED before flow execution
+	nodeResetEvents := make([]NodeEvent, 0, len(nodes))
 	for _, node := range nodes {
 		if err := s.ns.UpdateNodeState(ctx, node.ID, mflow.NODE_STATE_UNSPECIFIED); err != nil {
 			s.logger.Error("failed to reset node state", "node_id", node.ID.String(), "error", err)
+		} else {
+			resetNode := node
+			resetNode.State = mflow.NODE_STATE_UNSPECIFIED
+			nodeResetEvents = append(nodeResetEvents, NodeEvent{
+				Type:   nodeEventUpdate,
+				FlowID: flow.ID,
+				Node:   serializeNode(resetNode),
+			})
 		}
+	}
+	// Bulk publish node reset events for real-time sync
+	if len(nodeResetEvents) > 0 && s.nodeStream != nil {
+		s.nodeStream.Publish(NodeTopic{FlowID: flow.ID}, nodeResetEvents...)
 	}
 
 	// Reset all edge states to UNSPECIFIED before flow execution
+	edgeResetEvents := make([]EdgeEvent, 0, len(edges))
 	for _, edge := range edges {
 		if err := s.es.UpdateEdgeState(ctx, edge.ID, mflow.NODE_STATE_UNSPECIFIED); err != nil {
 			s.logger.Error("failed to reset edge state", "edge_id", edge.ID.String(), "error", err)
+		} else {
+			resetEdge := edge
+			resetEdge.State = mflow.NODE_STATE_UNSPECIFIED
+			edgeResetEvents = append(edgeResetEvents, EdgeEvent{
+				Type:   edgeEventUpdate,
+				FlowID: flow.ID,
+				Edge:   serializeEdge(resetEdge),
+			})
 		}
+	}
+	// Bulk publish edge reset events for real-time sync
+	if len(edgeResetEvents) > 0 && s.edgeStream != nil {
+		s.edgeStream.Publish(EdgeTopic{FlowID: flow.ID}, edgeResetEvents...)
 	}
 
 	nodeStateChan := make(chan runner.FlowNodeStatus, len(nodes)*2+1)

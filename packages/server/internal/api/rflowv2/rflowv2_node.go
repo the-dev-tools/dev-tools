@@ -389,10 +389,9 @@ func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
 		if pos := node.GetPosition(); pos != nil {
 			update.Position = pos
 		}
-		if state := node.GetState(); state != flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED {
-			st := state
-			update.State = &st
-		}
+		// Always include state to support resetting to UNSPECIFIED
+		st := node.GetState()
+		update.State = &st
 		if info := node.GetInfo(); info != "" {
 			update.Info = &flowv1.NodeSyncUpdate_InfoUnion{
 				Kind:  flowv1.NodeSyncUpdate_InfoUnion_KIND_VALUE,

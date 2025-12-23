@@ -288,10 +288,9 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 			h := handle
 			update.SourceHandle = &h
 		}
-		if state := edgePB.GetState(); state != flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED {
-			s := state
-			update.State = &s
-		}
+		// Always include state to support resetting to UNSPECIFIED
+		s := edgePB.GetState()
+		update.State = &s
 		return &flowv1.EdgeSyncResponse{
 			Items: []*flowv1.EdgeSync{{
 				Value: &flowv1.EdgeSync_ValueUnion{
