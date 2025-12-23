@@ -79,7 +79,7 @@ export const Handle = (props: HandleProps) => {
                   `,
                 })}
                 onPress={() => {
-                  const box = ref.current?.parentElement?.getBoundingClientRect();
+                  const box = ref.current?.parentElement?.parentElement?.getBoundingClientRect();
                   let nodePosition: undefined | XF.XYPosition;
 
                   if (box) {
