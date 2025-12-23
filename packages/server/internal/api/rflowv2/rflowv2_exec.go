@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/sflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -651,69 +652,96 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			}
 
 		case mflow.NODE_KIND_FOR:
-			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
-			if err == nil && forData != nil {
-				newForData := mflow.NodeFor{
-					FlowNodeID:    newNodeID,
-					IterCount:     forData.IterCount,
-					Condition:     forData.Condition,
-					ErrorHandling: forData.ErrorHandling,
-				}
-				if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
-					return mflow.Flow{}, nil, fmt.Errorf("create for node: %w", err)
-				}
-				forEvents = append(forEvents, ForEvent{
-					Type:   forEventInsert,
-					FlowID: versionFlowID,
-					Node:   serializeNodeFor(newForData),
-				})
+			// Always create For node config with defaults, override with actual data if available
+			newForData := mflow.NodeFor{
+				FlowNodeID:    newNodeID,
+				IterCount:     1,                                          // default
+				Condition:     mcondition.Condition{},                     // default empty
+				ErrorHandling: mflow.ErrorHandling_ERROR_HANDLING_BREAK,   // default
 			}
+			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get for node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if forData != nil {
+				// Override with actual values, but keep default of 1 if IterCount is 0
+				if forData.IterCount > 0 {
+					newForData.IterCount = forData.IterCount
+				}
+				newForData.Condition = forData.Condition
+				newForData.ErrorHandling = forData.ErrorHandling
+			}
+			if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
+				return mflow.Flow{}, nil, fmt.Errorf("create for node: %w", err)
+			}
+			forEvents = append(forEvents, ForEvent{
+				Type:   forEventInsert,
+				FlowID: versionFlowID,
+				Node:   serializeNodeFor(newForData),
+			})
 
 		case mflow.NODE_KIND_FOR_EACH:
-			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
-			if err == nil && forEachData != nil {
-				newForEachData := mflow.NodeForEach{
-					FlowNodeID:     newNodeID,
-					IterExpression: forEachData.IterExpression,
-					Condition:      forEachData.Condition,
-					ErrorHandling:  forEachData.ErrorHandling,
-				}
-				if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
-					return mflow.Flow{}, nil, fmt.Errorf("create foreach node: %w", err)
-				}
-				// ForEach node events are handled through nodeStream subscription
+			// Always create ForEach node config with defaults, override with actual data if available
+			newForEachData := mflow.NodeForEach{
+				FlowNodeID:     newNodeID,
+				IterExpression: "",                                        // default empty
+				Condition:      mcondition.Condition{},                    // default empty
+				ErrorHandling:  mflow.ErrorHandling_ERROR_HANDLING_BREAK,  // default
 			}
+			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get foreach node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if forEachData != nil {
+				// Override with actual values
+				newForEachData.IterExpression = forEachData.IterExpression
+				newForEachData.Condition = forEachData.Condition
+				newForEachData.ErrorHandling = forEachData.ErrorHandling
+			}
+			if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
+				return mflow.Flow{}, nil, fmt.Errorf("create foreach node: %w", err)
+			}
+			// ForEach node events are handled through nodeStream subscription
 
 		case mflow.NODE_KIND_CONDITION:
-			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
-			if err == nil && conditionData != nil {
-				newConditionData := mflow.NodeIf{
-					FlowNodeID: newNodeID,
-					Condition:  conditionData.Condition,
-				}
-				if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
-					return mflow.Flow{}, nil, fmt.Errorf("create condition node: %w", err)
-				}
-				// Condition node events are handled through nodeStream subscription
+			// Always create Condition node config with defaults, override with actual data if available
+			newConditionData := mflow.NodeIf{
+				FlowNodeID: newNodeID,
+				Condition:  mcondition.Condition{}, // default empty
 			}
+			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get condition node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if conditionData != nil {
+				// Override with actual values
+				newConditionData.Condition = conditionData.Condition
+			}
+			if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
+				return mflow.Flow{}, nil, fmt.Errorf("create condition node: %w", err)
+			}
+			// Condition node events are handled through nodeStream subscription
 
 		case mflow.NODE_KIND_JS:
-			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
-			if err == nil && jsData != nil {
-				newJsData := mflow.NodeJS{
-					FlowNodeID:       newNodeID,
-					Code:             jsData.Code,
-					CodeCompressType: jsData.CodeCompressType,
-				}
-				if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
-					return mflow.Flow{}, nil, fmt.Errorf("create js node: %w", err)
-				}
-				jsEvents = append(jsEvents, JsEvent{
-					Type:   jsEventInsert,
-					FlowID: versionFlowID,
-					Node:   serializeNodeJs(newJsData),
-				})
+			// Always create JS node config with defaults, override with actual data if available
+			newJsData := mflow.NodeJS{
+				FlowNodeID:       newNodeID,
+				Code:             nil, // default empty
+				CodeCompressType: 0,   // default none
 			}
+			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get js node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if jsData != nil {
+				// Override with actual values
+				newJsData.Code = jsData.Code
+				newJsData.CodeCompressType = jsData.CodeCompressType
+			}
+			if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
+				return mflow.Flow{}, nil, fmt.Errorf("create js node: %w", err)
+			}
+			jsEvents = append(jsEvents, JsEvent{
+				Type:   jsEventInsert,
+				FlowID: versionFlowID,
+				Node:   serializeNodeJs(newJsData),
+			})
 		}
 
 		// Collect base node event

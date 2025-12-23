@@ -126,10 +126,17 @@ func (b *Builder) BuildNodes(
 			if forCfg == nil {
 				// Default configuration if missing
 				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, 1, timeout, mflow.ErrorHandling_ERROR_HANDLING_BREAK)
-			} else if forCfg.Condition.Comparisons.Expression != "" {
-				flowNodeMap[nodeModel.ID] = nfor.NewWithCondition(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeout, forCfg.ErrorHandling, forCfg.Condition)
 			} else {
-				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeout, forCfg.ErrorHandling)
+				// Use IterCount from config, but default to 1 if not set (0 means unconfigured)
+				iterCount := forCfg.IterCount
+				if iterCount <= 0 {
+					iterCount = 1
+				}
+				if forCfg.Condition.Comparisons.Expression != "" {
+					flowNodeMap[nodeModel.ID] = nfor.NewWithCondition(nodeModel.ID, nodeModel.Name, iterCount, timeout, forCfg.ErrorHandling, forCfg.Condition)
+				} else {
+					flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, iterCount, timeout, forCfg.ErrorHandling)
+				}
 			}
 		case mflow.NODE_KIND_FOR_EACH:
 			forEachCfg, err := b.NodeForEach.GetNodeForEach(ctx, nodeModel.ID)

@@ -100,6 +100,17 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOR config", nodeID.String()))
 		}
 
+		// Update iterations if provided
+		if item.Iterations != nil {
+			existing.IterCount = int64(item.GetIterations())
+		}
+
+		// Update condition if provided
+		if item.Condition != nil {
+			existing.Condition = buildCondition(item.GetCondition())
+		}
+
+		// Update error handling if provided
 		if item.ErrorHandling != nil {
 			existing.ErrorHandling = mflow.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
 		}
