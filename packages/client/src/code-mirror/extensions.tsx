@@ -17,7 +17,7 @@ import {
   syntaxHighlighting,
 } from '@codemirror/language';
 import { ChangeSpec, EditorSelection, EditorState, Extension, Prec, Text } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView, keymap, tooltips } from '@codemirror/view';
 import { Client } from '@connectrpc/connect';
 import { styleTags, tags } from '@lezer/highlight';
 import { useQuery } from '@tanstack/react-query';
@@ -395,6 +395,10 @@ const jsonStringCompletionHandler = EditorView.updateListener.of((update) => {
 
 export const baseCodeMirrorExtensions = ({ singleLineMode, ...props }: BaseCodeMirrorExtensionProps): Extension[] => {
   const extensions = [
+    tooltips({
+      parent: document.getElementById('cm-label-layer')!,
+      position: 'fixed',
+    }),
     keymaps,
     history(),
     closeBrackets(),

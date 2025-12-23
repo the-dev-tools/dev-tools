@@ -8,6 +8,7 @@ import { ErrorComponent } from './error';
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: () => (
     <>
+      <div data-react-aria-top-layer id='cm-label-layer' />
       <ToastRegion />
       <Outlet />
 
