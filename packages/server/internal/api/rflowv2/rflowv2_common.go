@@ -3,6 +3,7 @@ package rflowv2
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -130,8 +131,19 @@ func serializeNodeExecution(execution mflow.NodeExecution) *flowv1.NodeExecution
 	// Handle input data - decompress if needed
 	if execution.InputData != nil {
 		if inputDataJSON, err := execution.GetInputJSON(); err == nil && len(inputDataJSON) > 0 {
-			if inputValue, err := structpb.NewValue(string(inputDataJSON)); err == nil {
-				result.Input = inputValue
+			var v interface{}
+			if err := json.Unmarshal(inputDataJSON, &v); err == nil {
+				// Defensive: If v is a string (e.g. double-encoded JSON), try to unmarshal it again
+				if s, ok := v.(string); ok {
+					var v2 interface{}
+					if err := json.Unmarshal([]byte(s), &v2); err == nil {
+						v = v2
+					}
+				}
+
+				if inputValue, err := structpb.NewValue(v); err == nil {
+					result.Input = inputValue
+				}
 			}
 		}
 	}
@@ -139,8 +151,19 @@ func serializeNodeExecution(execution mflow.NodeExecution) *flowv1.NodeExecution
 	// Handle output data - decompress if needed
 	if execution.OutputData != nil {
 		if outputDataJSON, err := execution.GetOutputJSON(); err == nil && len(outputDataJSON) > 0 {
-			if outputValue, err := structpb.NewValue(string(outputDataJSON)); err == nil {
-				result.Output = outputValue
+			var v interface{}
+			if err := json.Unmarshal(outputDataJSON, &v); err == nil {
+				// Defensive: If v is a string (e.g. double-encoded JSON), try to unmarshal it again
+				if s, ok := v.(string); ok {
+					var v2 interface{}
+					if err := json.Unmarshal([]byte(s), &v2); err == nil {
+						v = v2
+					}
+				}
+
+				if outputValue, err := structpb.NewValue(v); err == nil {
+					result.Output = outputValue
+				}
 			}
 		}
 	}

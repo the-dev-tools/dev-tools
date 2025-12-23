@@ -389,13 +389,16 @@ func TestSerializeNodeExecution(t *testing.T) {
 
 		res := serializeNodeExecution(input)
 
-		// Note: structpb.NewValue(string(json)) creates a StringValue, not a StructValue.
+		// Note: We now unmarshal JSON to create a proper StructValue
 		require.NotNil(t, res.Input)
-		// Based on my analysis, the code puts the raw string into the value
-		assert.Equal(t, string(`{"foo":"bar"}`), res.Input.GetStringValue())
+		s := res.Input.GetStructValue()
+		require.NotNil(t, s)
+		assert.Equal(t, "bar", s.Fields["foo"].GetStringValue())
 
 		require.NotNil(t, res.Output)
-		assert.Equal(t, string(`{"baz":"qux"}`), res.Output.GetStringValue())
+		sOut := res.Output.GetStructValue()
+		require.NotNil(t, sOut)
+		assert.Equal(t, "qux", sOut.Fields["baz"].GetStringValue())
 	})
 }
 
