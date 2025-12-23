@@ -365,8 +365,48 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	// 1. Resolve Files
 	if len(results.Files) > 0 {
+		// Build full paths for all files recursively to ensure correct deduplication
+		filesMap := make(map[idwrap.IDWrap]*mfile.File)
+		for i := range results.Files {
+			filesMap[results.Files[i].ID] = &results.Files[i]
+		}
+
+		oldIDToLogicalPath := make(map[idwrap.IDWrap]string)
+		var buildPath func(id idwrap.IDWrap) string
+		buildPath = func(id idwrap.IDWrap) string {
+			if p, ok := oldIDToLogicalPath[id]; ok {
+				return p
+			}
+			f := filesMap[id]
+			if f == nil {
+				return "imported"
+			}
+			if f.ParentID == nil {
+				oldIDToLogicalPath[id] = f.Name
+				return f.Name
+			}
+			p := buildPath(*f.ParentID) + "/" + f.Name
+			oldIDToLogicalPath[id] = p
+			return p
+		}
+		for i := range results.Files {
+			buildPath(results.Files[i].ID)
+		}
+
+		// Sort by path depth to ensure parents are processed before children
 		sort.SliceStable(results.Files, func(i, j int) bool {
-			return results.Files[i].ContentType == mfile.ContentTypeFolder && results.Files[j].ContentType != mfile.ContentTypeFolder
+			pathI := oldIDToLogicalPath[results.Files[i].ID]
+			pathJ := oldIDToLogicalPath[results.Files[j].ID]
+			depthI := strings.Count(pathI, "/")
+			depthJ := strings.Count(pathJ, "/")
+			if depthI != depthJ {
+				return depthI < depthJ
+			}
+			// If same depth, folders first
+			if results.Files[i].ContentType != results.Files[j].ContentType {
+				return results.Files[i].ContentType == mfile.ContentTypeFolder
+			}
+			return false
 		})
 
 		for i := range results.Files {
@@ -379,10 +419,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				}
 			}
 
-			logicalPath := file.Name
-			if file.ParentID != nil {
-				logicalPath = fmt.Sprintf("imported/%s", file.Name)
-			}
+			logicalPath := oldIDToLogicalPath[oldID]
 
 			newID, isNew, err := txDedup.ResolveFile(ctx, file, logicalPath)
 			if err != nil {
