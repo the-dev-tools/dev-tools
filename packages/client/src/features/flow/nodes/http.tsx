@@ -5,47 +5,73 @@ import { Ulid } from 'id128';
 import { use } from 'react';
 import { FiExternalLink } from 'react-icons/fi';
 import { NodeHttpSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { NodeExecutionCollectionSchema, NodeHttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
+import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { HttpRequest, HttpResponse, HttpUrl } from '~/features/http';
 import { ReferenceContext } from '~/reference';
 import { httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
+import { useDeltaState } from '~/utils/delta';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import {
-  NodeBodyNew,
-  NodeExecutionOutputProps,
-  NodeName,
-  NodePanelProps,
-  NodeSettings,
-  NodeStateIndicator,
-  NodeTitle,
-} from '../node';
+import { NodeSettingsBody, NodeSettingsOutputProps, NodeSettingsProps, SimpleNode } from '../node';
 
 export const HttpNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
+  const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
+
+  const { deltaHttpId, httpId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: nodeHttpCollection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
+          .findOne(),
+      [nodeHttpCollection, nodeId],
+    ).data ?? create(NodeHttpSchema);
+
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId,
+    originSchema: HttpCollectionSchema,
+  };
+
+  const [name] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
+  const [method] = useDeltaState({ ...deltaOptions, valueKey: 'method' });
+
   return (
-    <div className={tw`pointer-events-none flex flex-col items-center`}>
-      <div className={tw`pointer-events-auto relative`}>
-        <NodeBodyNew className={tw`text-violet-600`} icon={<SendRequestIcon />} nodeId={nodeId} selected={selected} />
+    <SimpleNode
+      className={tw`w-48 text-violet-600`}
+      handles={
+        <>
+          <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
+          <Handle nodeId={nodeId} position={XF.Position.Right} type='source' />
+        </>
+      }
+      icon={<SendRequestIcon />}
+      nodeId={nodeId}
+      selected={selected}
+      title='HTTP Request'
+    >
+      <div className={tw`min-w-0 flex-1`}>
+        <MethodBadge className={tw`border`} method={method ?? HttpMethod.UNSPECIFIED} />
 
-        <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
-        <Handle nodeId={nodeId} position={XF.Position.Right} type='source' />
+        <div className={tw`truncate text-xs tracking-tight text-slate-500`}>{name}</div>
       </div>
-
-      <NodeTitle className={tw`mt-1`}>HTTP request</NodeTitle>
-      <NodeName nodeId={nodeId} />
-      <NodeStateIndicator nodeId={nodeId} />
-    </div>
+    </SimpleNode>
   );
 };
 
-export const HttpSettings = ({ nodeId }: NodePanelProps) => {
+export const HttpSettings = ({ nodeId }: NodeSettingsProps) => {
   const { isReadOnly = false } = use(FlowContext);
 
   const { workspaceId } = workspaceRouteApi.useLoaderData();
@@ -64,7 +90,7 @@ export const HttpSettings = ({ nodeId }: NodePanelProps) => {
     ).data ?? create(NodeHttpSchema);
 
   return (
-    <NodeSettings
+    <NodeSettingsBody
       nodeId={nodeId}
       output={(_) => <Output nodeExecutionId={_} />}
       settingsHeader={
@@ -99,11 +125,11 @@ export const HttpSettings = ({ nodeId }: NodePanelProps) => {
       <ReferenceContext value={{ flowNodeId: nodeId, httpId, workspaceId, ...(deltaHttpId && { deltaHttpId }) }}>
         <HttpRequest className={tw`px-0`} deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
       </ReferenceContext>
-    </NodeSettings>
+    </NodeSettingsBody>
   );
 };
 
-const Output = ({ nodeExecutionId }: NodeExecutionOutputProps) => {
+const Output = ({ nodeExecutionId }: NodeSettingsOutputProps) => {
   const collection = useApiCollection(NodeExecutionCollectionSchema);
 
   const { httpResponseId } =

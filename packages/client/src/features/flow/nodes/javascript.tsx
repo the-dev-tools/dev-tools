@@ -13,28 +13,29 @@ import { useCodeMirrorLanguageExtensions } from '~/code-mirror/extensions';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBodyNew, NodeName, NodePanelProps, NodeSettings, NodeStateIndicator, NodeTitle } from '../node';
+import { NodeSettingsBody, NodeSettingsProps, SimpleNode } from '../node';
 
 export const JavaScriptNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
   return (
-    <div className={tw`pointer-events-none flex flex-col items-center`}>
-      <div className={tw`pointer-events-auto relative`}>
-        <NodeBodyNew className={tw`text-amber-500`} icon={<FiTerminal />} nodeId={nodeId} selected={selected} />
-
-        <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
-        <Handle nodeId={nodeId} position={XF.Position.Right} type='source' />
-      </div>
-
-      <NodeTitle className={tw`mt-1`}>JavaScript</NodeTitle>
-      <NodeName nodeId={nodeId} />
-      <NodeStateIndicator nodeId={nodeId} />
-    </div>
+    <SimpleNode
+      className={tw`text-amber-500`}
+      handles={
+        <>
+          <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
+          <Handle nodeId={nodeId} position={XF.Position.Right} type='source' />
+        </>
+      }
+      icon={<FiTerminal />}
+      nodeId={nodeId}
+      selected={selected}
+      title='JavaScript'
+    />
   );
 };
 
-export const JavaScriptSettings = ({ nodeId }: NodePanelProps) => {
+export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
   const collection = useApiCollection(NodeJsCollectionSchema);
 
   const { code } =
@@ -54,7 +55,7 @@ export const JavaScriptSettings = ({ nodeId }: NodePanelProps) => {
   const extensions = useCodeMirrorLanguageExtensions('javascript');
 
   return (
-    <NodeSettings nodeId={nodeId} title='JavaScript'>
+    <NodeSettingsBody nodeId={nodeId} title='JavaScript'>
       <CodeMirror
         extensions={extensions}
         height='100%'
@@ -63,6 +64,6 @@ export const JavaScriptSettings = ({ nodeId }: NodePanelProps) => {
         readOnly={isReadOnly}
         value={value}
       />
-    </NodeSettings>
+    </NodeSettingsBody>
   );
 };

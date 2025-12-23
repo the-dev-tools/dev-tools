@@ -4,17 +4,7 @@ import * as XF from '@xyflow/react';
 import { Array, HashMap, HashSet, Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
-import {
-  Button as AriaButton,
-  Key,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Tooltip,
-  TooltipTrigger,
-  Tree,
-} from 'react-aria-components';
+import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
@@ -151,15 +141,15 @@ const nodeBodyStyles = tv({
   },
 });
 
-interface NodeBodyNewProps {
+interface NodeBodyProps {
   children?: ReactNode;
-  className?: string;
+  className?: string | undefined;
   icon: ReactNode;
   nodeId: Uint8Array;
   selected: boolean;
 }
 
-export const NodeBodyNew = ({ children, className, icon, nodeId, selected }: NodeBodyNewProps) => {
+export const NodeBody = ({ children, className, icon, nodeId, selected }: NodeBodyProps) => {
   const collection = useApiCollection(NodeCollectionSchema);
 
   const { state } =
@@ -174,10 +164,14 @@ export const NodeBodyNew = ({ children, className, icon, nodeId, selected }: Nod
 
   return (
     <div className={nodeBodyStyles({ className, selected, state })}>
-      <div className={tw`absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-30 blur-lg`} />
+      <div className={tw`absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-20 blur-lg`} />
 
       <div className={tw`flex size-full items-center gap-1 p-2.5`}>
         <div className={tw`text-[2.5rem]`}>{icon}</div>
+
+        <div className={tw`absolute right-0 bottom-0`}>
+          <NodeStateIndicator nodeId={nodeId} />
+        </div>
 
         {children}
       </div>
@@ -193,7 +187,7 @@ interface NodeStateIndicatorProps {
 export const NodeStateIndicator = ({ children, nodeId }: NodeStateIndicatorProps) => {
   const collection = useApiCollection(NodeCollectionSchema);
 
-  const { info = 'testing', state = FlowItemState.CANCELED } =
+  const { info, state } =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
@@ -288,168 +282,37 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
   );
 };
 
-export interface NodePanelProps {
+interface SimpleNodeProps {
+  children?: ReactNode;
+  className?: string;
+  handles?: ReactNode;
+  icon: ReactNode;
   nodeId: Uint8Array;
+  selected: boolean;
+  title?: ReactNode;
 }
 
-export interface NodeExecutionOutputProps {
-  nodeExecutionId: Uint8Array;
-}
+export const SimpleNode = ({ children, className, handles, icon, nodeId, selected, title }: SimpleNodeProps) => (
+  <div className={tw`pointer-events-none flex flex-col items-center`}>
+    <NodeName className={tw`mb-1`} nodeId={nodeId} />
 
-interface NodeExecutionPanelProps {
-  nodeId: Uint8Array;
-  Output?: (props: NodeExecutionOutputProps) => ReactNode;
-}
+    <div className={tw`pointer-events-auto relative`}>
+      <NodeBody className={className} icon={icon} nodeId={nodeId} selected={selected}>
+        {children}
+      </NodeBody>
 
-export const NodeExecutionPanel = ({ nodeId, Output }: NodeExecutionPanelProps) => {
-  const collection = useApiCollection(NodeExecutionCollectionSchema);
-
-  const { data: items } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'nodeExecutionId', 'name'))
-        .orderBy((_) => _.item.nodeExecutionId, 'desc'),
-    [collection, nodeId],
-  );
-
-  const firstItem = pipe(
-    Array.head(items),
-    Option.map((_) => collection.utils.getKey(_)),
-    Option.getOrNull,
-  );
-
-  const [prevFirstItem, setPrevFirstItem] = useState<Key | null>(firstItem);
-  const [selectedKey, setSelectedKey] = useState<Key | null>(firstItem);
-
-  if (prevFirstItem !== firstItem) {
-    setSelectedKey(firstItem);
-    setPrevFirstItem(firstItem);
-  }
-
-  // Fix React Aria over-rendering non-visible components
-  // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825
-  // TODO: move the workaround to an improved select component
-  const [isOpen, setIsOpen] = useState(false);
-  const listBoxItems = isOpen ? items : items.filter((_) => collection.utils.getKey(_) === selectedKey);
-
-  return (
-    <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
-      <div
-        className={tw`
-          flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2 text-md leading-5
-          font-medium tracking-tight text-slate-800
-        `}
-      >
-        <div>Execution data</div>
-
-        {items.length > 1 && (
-          <Select
-            aria-label='Node execution'
-            isOpen={isOpen}
-            items={listBoxItems}
-            onOpenChange={setIsOpen}
-            onSelectionChange={setSelectedKey}
-            selectedKey={selectedKey}
-          >
-            {(_) => <SelectItem id={collection.utils.getKey(_)}>{_.name}</SelectItem>}
-          </Select>
-        )}
-      </div>
-
-      <div className={tw`px-5 py-3`}>
-        {typeof selectedKey !== 'string' ? (
-          <div className={tw`text-sm`}>This node has not been executed yet</div>
-        ) : (
-          <NodeExecutionTabs
-            key={selectedKey}
-            nodeExecutionId={collection.utils.parseKeyUnsafe(selectedKey).nodeExecutionId}
-            Output={Output}
-          />
-        )}
-      </div>
+      {handles}
     </div>
-  );
-};
 
-interface NodeExecutionTabsProps {
-  nodeExecutionId: Uint8Array;
-  Output?: ((props: NodeExecutionOutputProps) => ReactNode) | undefined;
+    {title && <NodeTitle className={tw`mt-1`}>{title}</NodeTitle>}
+  </div>
+);
+
+export interface NodeSettingsProps {
+  nodeId: Uint8Array;
 }
 
-const NodeExecutionTabs = ({ nodeExecutionId, Output }: NodeExecutionTabsProps) => {
-  const collection = useApiCollection(NodeExecutionCollectionSchema);
-
-  const { input, output } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: collection })
-          .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
-          .select((_) => pick(_.item, 'input', 'output'))
-          .findOne(),
-      [collection, nodeExecutionId],
-    ).data ?? create(NodeExecutionSchema);
-
-  return (
-    <Tabs className={tw`flex h-full flex-col pb-4`} defaultSelectedKey='output'>
-      <TabList className={tw`flex items-center gap-3 border-b border-slate-200 text-md`}>
-        <Tab
-          className={({ isSelected }) =>
-            twMerge(
-              tw`
-                -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
-              `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
-            )
-          }
-          id='input'
-        >
-          Input
-        </Tab>
-
-        <Tab
-          className={({ isSelected }) =>
-            twMerge(
-              tw`
-                -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
-              `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
-            )
-          }
-          id='output'
-        >
-          Output
-        </Tab>
-      </TabList>
-
-      <div className={tw`flex-1 pt-4`}>
-        <TabPanel id='input'>
-          {input && (
-            <Tree aria-label='Input values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(input)!}>
-              {(_) => <JsonTreeItem {..._} />}
-            </Tree>
-          )}
-        </TabPanel>
-
-        <TabPanel id='output'>
-          {Output ? (
-            <Output nodeExecutionId={nodeExecutionId} />
-          ) : (
-            output && (
-              <Tree aria-label='Output values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(output)!}>
-                {(_) => <JsonTreeItem {..._} />}
-              </Tree>
-            )
-          )}
-        </TabPanel>
-      </div>
-    </Tabs>
-  );
-};
-
-interface NodeSettingsProps {
+interface NodeSettingsBodyProps {
   children: ReactNode;
   input?: (nodeExecutionId: Uint8Array) => ReactNode;
   nodeId: Uint8Array;
@@ -458,7 +321,7 @@ interface NodeSettingsProps {
   title: string;
 }
 
-export const NodeSettings = ({ children, input, nodeId, output, settingsHeader, title }: NodeSettingsProps) => {
+export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHeader, title }: NodeSettingsBodyProps) => {
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
 
@@ -559,7 +422,7 @@ export const NodeSettings = ({ children, input, nodeId, output, settingsHeader, 
             ) : input ? (
               input(nodeExecutionId)
             ) : (
-              <NodeEditBasicInput nodeExecutionId={nodeExecutionId} />
+              <NodeSettingsBasicInput nodeExecutionId={nodeExecutionId} />
             )}
           </div>
         </div>
@@ -599,7 +462,7 @@ export const NodeSettings = ({ children, input, nodeId, output, settingsHeader, 
             ) : output ? (
               output(nodeExecutionId)
             ) : (
-              <NodeEditBasicOutput nodeExecutionId={nodeExecutionId} />
+              <NodeSettingsBasicOutput nodeExecutionId={nodeExecutionId} />
             )}
           </div>
         </div>
@@ -608,11 +471,11 @@ export const NodeSettings = ({ children, input, nodeId, output, settingsHeader, 
   );
 };
 
-interface NodeEditBasicInputProps {
+export interface NodeSettingsInputProps {
   nodeExecutionId: Uint8Array;
 }
 
-const NodeEditBasicInput = ({ nodeExecutionId }: NodeEditBasicInputProps) => {
+const NodeSettingsBasicInput = ({ nodeExecutionId }: NodeSettingsInputProps) => {
   const collection = useApiCollection(NodeExecutionCollectionSchema);
 
   const { input } =
@@ -632,11 +495,11 @@ const NodeEditBasicInput = ({ nodeExecutionId }: NodeEditBasicInputProps) => {
   );
 };
 
-interface NodeEditBasicOutputProps {
+export interface NodeSettingsOutputProps {
   nodeExecutionId: Uint8Array;
 }
 
-const NodeEditBasicOutput = ({ nodeExecutionId }: NodeEditBasicOutputProps) => {
+const NodeSettingsBasicOutput = ({ nodeExecutionId }: NodeSettingsOutputProps) => {
   const collection = useApiCollection(NodeExecutionCollectionSchema);
 
   const { output } =

@@ -16,32 +16,31 @@ import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBodyNew, NodeName, NodePanelProps, NodeSettings, NodeStateIndicator, NodeTitle } from '../node';
+import { NodeSettingsBody, NodeSettingsProps, NodeTitle, SimpleNode } from '../node';
 
 export const ForEachNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
   return (
-    <div className={tw`flex flex-col items-center`}>
-      <div className={tw`relative`}>
-        <NodeBodyNew className={tw`w-48 text-teal-500`} icon={<ForIcon />} nodeId={nodeId} selected={selected}>
-          <div className={tw`flex-1`}>
-            <NodeTitle className={tw`text-left`}>For Each</NodeTitle>
-            <NodeName className={tw`ml-0 text-left`} nodeId={nodeId} />
-          </div>
-
-          <NodeStateIndicator nodeId={nodeId} />
-        </NodeBodyNew>
-
-        <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
-        <Handle kind={HandleKind.THEN} nodeId={nodeId} position={XF.Position.Right} type='source' />
-        <Handle kind={HandleKind.LOOP} nodeId={nodeId} position={XF.Position.Bottom} type='source' />
-      </div>
-    </div>
+    <SimpleNode
+      className={tw`w-28 text-teal-500`}
+      handles={
+        <>
+          <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
+          <Handle kind={HandleKind.THEN} nodeId={nodeId} position={XF.Position.Right} type='source' />
+          <Handle kind={HandleKind.LOOP} nodeId={nodeId} position={XF.Position.Bottom} type='source' />
+        </>
+      }
+      icon={<ForIcon />}
+      nodeId={nodeId}
+      selected={selected}
+    >
+      <NodeTitle className={tw`text-left`}>For Each</NodeTitle>
+    </SimpleNode>
   );
 };
 
-export const ForEachSettings = ({ nodeId }: NodePanelProps) => {
+export const ForEachSettings = ({ nodeId }: NodeSettingsProps) => {
   const collection = useApiCollection(NodeForEachCollectionSchema);
 
   const data =
@@ -74,7 +73,7 @@ export const ForEachSettings = ({ nodeId }: NodePanelProps) => {
   }, [update, watch]);
 
   return (
-    <NodeSettings nodeId={nodeId} title='For each loop'>
+    <NodeSettingsBody nodeId={nodeId} title='For each loop'>
       <div className={tw`grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
         <FieldLabel>Array to Loop</FieldLabel>
         <ReferenceFieldRHF
@@ -105,6 +104,6 @@ export const ForEachSettings = ({ nodeId }: NodePanelProps) => {
           <SelectItem id={ErrorHandling.BREAK}>Break</SelectItem>
         </SelectRHF>
       </div>
-    </NodeSettings>
+    </NodeSettingsBody>
   );
 };

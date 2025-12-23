@@ -14,32 +14,31 @@ import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBodyNew, NodeName, NodePanelProps, NodeSettings, NodeStateIndicator, NodeTitle } from '../node';
+import { NodeSettingsBody, NodeSettingsProps, NodeTitle, SimpleNode } from '../node';
 
 export const ConditionNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
   return (
-    <div className={tw`flex flex-col items-center`}>
-      <div className={tw`relative`}>
-        <NodeBodyNew className={tw`w-48 text-sky-500`} icon={<IfIcon />} nodeId={nodeId} selected={selected}>
-          <div className={tw`flex-1`}>
-            <NodeTitle className={tw`text-left`}>If</NodeTitle>
-            <NodeName className={tw`ml-0 text-left`} nodeId={nodeId} />
-          </div>
-
-          <NodeStateIndicator nodeId={nodeId} />
-        </NodeBodyNew>
-
-        <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
-        <Handle kind={HandleKind.THEN} nodeId={nodeId} position={XF.Position.Right} type='source' />
-        <Handle kind={HandleKind.ELSE} nodeId={nodeId} position={XF.Position.Bottom} type='source' />
-      </div>
-    </div>
+    <SimpleNode
+      className={tw`w-28 text-sky-500`}
+      handles={
+        <>
+          <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />
+          <Handle kind={HandleKind.THEN} nodeId={nodeId} position={XF.Position.Right} type='source' />
+          <Handle kind={HandleKind.ELSE} nodeId={nodeId} position={XF.Position.Bottom} type='source' />
+        </>
+      }
+      icon={<IfIcon />}
+      nodeId={nodeId}
+      selected={selected}
+    >
+      <NodeTitle className={tw`text-left`}>If</NodeTitle>
+    </SimpleNode>
   );
 };
 
-export const ConditionSettings = ({ nodeId }: NodePanelProps) => {
+export const ConditionSettings = ({ nodeId }: NodeSettingsProps) => {
   const collection = useApiCollection(NodeConditionCollectionSchema);
 
   const { condition } =
@@ -72,8 +71,8 @@ export const ConditionSettings = ({ nodeId }: NodePanelProps) => {
   }, [update, watch]);
 
   return (
-    <NodeSettings nodeId={nodeId} title='If'>
+    <NodeSettingsBody nodeId={nodeId} title='If'>
       <ReferenceFieldRHF control={control} name={'condition'} readOnly={isReadOnly} />
-    </NodeSettings>
+    </NodeSettingsBody>
   );
 };
