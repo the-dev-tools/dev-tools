@@ -15,7 +15,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -78,11 +77,6 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	// Publish version insert event for real-time sync
 	s.publishFlowVersionEvent(flowVersionEventInsert, version)
 
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
 	// Run execution asynchronously
 	go func() {
 		// Create a background context for execution with cancellation support
@@ -101,7 +95,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			cancel()
 		}()
 
-		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping, userID); err != nil {
+		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping); err != nil {
 			// Check if error is due to cancellation
 			if errors.Is(err, context.Canceled) {
 				s.logger.Info("flow execution canceled", "flow_id", flowID.String())
@@ -122,7 +116,6 @@ func (s *FlowServiceV2RPC) executeFlow(
 	flowVars []mflow.FlowVariable,
 	versionFlowID idwrap.IDWrap,
 	nodeIDMapping map[string]idwrap.IDWrap,
-	userID idwrap.IDWrap,
 ) error {
 	flow.Running = true
 	if err := s.fs.UpdateFlow(ctx, flow); err != nil {
@@ -504,7 +497,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 					s.logger.Error("failed to create log value", "error", err)
 				}
 
-				s.logStream.Publish(rlog.LogTopic{UserID: userID}, rlog.LogEvent{
+				s.logStream.Publish(rlog.LogTopic{}, rlog.LogEvent{
 					Type: rlog.EventTypeInsert,
 					Log: &logv1.Log{
 						LogId: idwrap.NewNow().Bytes(),
@@ -617,7 +610,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		switch sourceNode.NodeKind {
 		case mflow.NODE_KIND_REQUEST:
 			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
-			if err == nil {
+			if err == nil && requestData != nil {
 				// Copy the request node config (referencing same HTTP, not duplicating)
 				newRequestData := mflow.NodeRequest{
 					FlowNodeID:       newNodeID,
@@ -633,7 +626,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		case mflow.NODE_KIND_FOR:
 			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
-			if err == nil {
+			if err == nil && forData != nil {
 				newForData := mflow.NodeFor{
 					FlowNodeID:    newNodeID,
 					IterCount:     forData.IterCount,
@@ -652,7 +645,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		case mflow.NODE_KIND_FOR_EACH:
 			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
-			if err == nil {
+			if err == nil && forEachData != nil {
 				newForEachData := mflow.NodeForEach{
 					FlowNodeID:     newNodeID,
 					IterExpression: forEachData.IterExpression,
@@ -667,7 +660,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		case mflow.NODE_KIND_CONDITION:
 			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
-			if err == nil {
+			if err == nil && conditionData != nil {
 				newConditionData := mflow.NodeIf{
 					FlowNodeID: newNodeID,
 					Condition:  conditionData.Condition,
@@ -680,7 +673,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		case mflow.NODE_KIND_JS:
 			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
-			if err == nil {
+			if err == nil && jsData != nil {
 				newJsData := mflow.NodeJS{
 					FlowNodeID:       newNodeID,
 					Code:             jsData.Code,

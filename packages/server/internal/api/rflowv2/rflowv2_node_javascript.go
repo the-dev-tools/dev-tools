@@ -42,12 +42,12 @@ func (s *FlowServiceV2RPC) NodeJsCollection(
 			}
 			nodeJs, err := s.njss.GetNodeJS(ctx, n.ID)
 			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			items = append(items, serializeNodeJs(nodeJs))
+			if nodeJs == nil {
+				continue
+			}
+			items = append(items, serializeNodeJs(*nodeJs))
 		}
 	}
 
@@ -99,17 +99,17 @@ func (s *FlowServiceV2RPC) NodeJsUpdate(ctx context.Context, req *connect.Reques
 
 		existing, err := s.njss.GetNodeJS(ctx, nodeID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have JS config", nodeID.String()))
-			}
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if existing == nil {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have JS config", nodeID.String()))
 		}
 
 		if item.Code != nil {
 			existing.Code = []byte(item.GetCode())
 		}
 
-		if err := s.njss.UpdateNodeJS(ctx, existing); err != nil {
+		if err := s.njss.UpdateNodeJS(ctx, *existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -193,10 +193,10 @@ func (s *FlowServiceV2RPC) streamNodeJsSync(
 
 				nodeJs, err := s.njss.GetNodeJS(ctx, nodeModel.ID)
 				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						continue
-					}
 					return nil, err
+				}
+				if nodeJs == nil {
+					continue
 				}
 
 				// Create a custom NodeEvent that includes JS node data
@@ -276,11 +276,10 @@ func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 	// Fetch the JavaScript configuration for this node
 	nodeJs, err := s.njss.GetNodeJS(ctx, nodeID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Node exists but doesn't have JS config, skip
-			return nil, nil
-		}
 		return nil, err
+	}
+	if nodeJs == nil {
+		return nil, nil
 	}
 
 	var syncEvent *flowv1.NodeJsSync

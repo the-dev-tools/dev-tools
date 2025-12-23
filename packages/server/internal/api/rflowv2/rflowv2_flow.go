@@ -534,7 +534,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			}
 		case mflow.NODE_KIND_JS:
 			if d, err := s.njss.GetNodeJS(ctx, n.ID); err == nil {
-				detail.jsNode = &d
+				detail.jsNode = d
 			}
 		}
 		details = append(details, detail)

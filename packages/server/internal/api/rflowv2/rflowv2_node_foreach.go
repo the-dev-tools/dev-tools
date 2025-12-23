@@ -42,9 +42,6 @@ func (s *FlowServiceV2RPC) NodeForEachCollection(
 			}
 			nodeForEach, err := s.nfes.GetNodeForEach(ctx, n.ID)
 			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			if nodeForEach == nil {
@@ -103,10 +100,10 @@ func (s *FlowServiceV2RPC) NodeForEachUpdate(ctx context.Context, req *connect.R
 
 		existing, err := s.nfes.GetNodeForEach(ctx, nodeID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOREACH config", nodeID.String()))
-			}
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if existing == nil {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOREACH config", nodeID.String()))
 		}
 
 		if item.Path != nil {
@@ -203,9 +200,6 @@ func (s *FlowServiceV2RPC) streamNodeForEachSync(
 
 				nodeForEach, err := s.nfes.GetNodeForEach(ctx, nodeModel.ID)
 				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						continue
-					}
 					return nil, err
 				}
 				if nodeForEach == nil {
@@ -289,10 +283,6 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 	// Fetch the ForEach configuration for this node
 	nodeForEach, err := s.nfes.GetNodeForEach(ctx, nodeID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Node exists but doesn't have ForEach config, skip
-			return nil, nil
-		}
 		return nil, err
 	}
 	if nodeForEach == nil {

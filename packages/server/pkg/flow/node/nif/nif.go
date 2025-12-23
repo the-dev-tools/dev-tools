@@ -58,7 +58,9 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 
 	// Evaluate the condition expression using tracking if available
 	var ok bool
-	if req.VariableTracker != nil {
+	if normalizedExpression == "" {
+		ok = false
+	} else if req.VariableTracker != nil {
 		ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
 	} else {
 		ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
@@ -115,7 +117,9 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 
 	// Evaluate the condition expression using tracking if available
 	var ok bool
-	if req.VariableTracker != nil {
+	if normalizedExpression == "" {
+		ok = false
+	} else if req.VariableTracker != nil {
 		ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
 	} else {
 		ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)

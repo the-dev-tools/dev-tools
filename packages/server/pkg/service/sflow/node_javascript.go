@@ -42,7 +42,7 @@ func NewNodeJsServiceTX(ctx context.Context, tx *sql.Tx) (*NodeJsService, error)
 	}, nil
 }
 
-func (nfs NodeJsService) GetNodeJS(ctx context.Context, id idwrap.IDWrap) (mflow.NodeJS, error) {
+func (nfs NodeJsService) GetNodeJS(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeJS, error) {
 	return nfs.reader.GetNodeJS(ctx, id)
 }
 

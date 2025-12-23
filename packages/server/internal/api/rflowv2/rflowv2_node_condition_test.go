@@ -3,8 +3,6 @@ package rflowv2
 import (
 	"bytes"
 	"context"
-	"database/sql"
-	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -15,7 +13,7 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/flowbuilder"
@@ -200,9 +198,9 @@ func TestNodeCondition_CRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify deletion
-	_, err = ifService.GetNodeIf(ctx, nodeID)
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	nodeIf, err = ifService.GetNodeIf(ctx, nodeID)
+	require.NoError(t, err)
+	assert.Nil(t, nodeIf)
 
 	// Collection should be empty
 	collResp, err = svc.NodeConditionCollection(ctx, collReq)

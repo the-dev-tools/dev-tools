@@ -41,9 +41,6 @@ func (s *FlowServiceV2RPC) NodeForCollection(
 			}
 			nodeFor, err := s.nfs.GetNodeFor(ctx, n.ID)
 			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			if nodeFor == nil {
@@ -97,10 +94,10 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 
 		existing, err := s.nfs.GetNodeFor(ctx, nodeID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOR config", nodeID.String()))
-			}
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if existing == nil {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOR config", nodeID.String()))
 		}
 
 		if item.ErrorHandling != nil {
@@ -132,7 +129,7 @@ func (s *FlowServiceV2RPC) NodeForDelete(ctx context.Context, req *connect.Reque
 
 		// Get existing For node to publish delete event
 		existingFor, err := s.nfs.GetNodeFor(ctx, nodeID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -206,9 +203,6 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 				// Get the For configuration for this node
 				forNode, err := s.nfs.GetNodeFor(ctx, node.ID)
 				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						continue
-					}
 					return nil, err
 				}
 

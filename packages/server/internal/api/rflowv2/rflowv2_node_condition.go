@@ -41,9 +41,6 @@ func (s *FlowServiceV2RPC) NodeConditionCollection(
 			}
 			nodeCondition, err := s.nifs.GetNodeIf(ctx, n.ID)
 			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 			if nodeCondition == nil {
@@ -100,10 +97,10 @@ func (s *FlowServiceV2RPC) NodeConditionUpdate(ctx context.Context, req *connect
 
 		existing, err := s.nifs.GetNodeIf(ctx, nodeID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have CONDITION config", nodeID.String()))
-			}
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if existing == nil {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have CONDITION config", nodeID.String()))
 		}
 
 		if item.Condition != nil {
@@ -194,9 +191,6 @@ func (s *FlowServiceV2RPC) streamNodeConditionSync(
 
 				nodeCondition, err := s.nifs.GetNodeIf(ctx, nodeModel.ID)
 				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						continue
-					}
 					return nil, err
 				}
 				if nodeCondition == nil {
@@ -280,10 +274,6 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 	// Fetch the Condition configuration for this node
 	nodeCondition, err := s.nifs.GetNodeIf(ctx, nodeID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Node exists but doesn't have Condition config, skip
-			return nil, nil
-		}
 		return nil, err
 	}
 	if nodeCondition == nil {

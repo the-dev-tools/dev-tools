@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -122,7 +123,10 @@ func (b *Builder) BuildNodes(
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
-			if forCfg.Condition.Comparisons.Expression != "" {
+			if forCfg == nil {
+				// Default configuration if missing
+				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, 1, timeout, mflow.ErrorHandling_ERROR_HANDLING_BREAK)
+			} else if forCfg.Condition.Comparisons.Expression != "" {
 				flowNodeMap[nodeModel.ID] = nfor.NewWithCondition(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeout, forCfg.ErrorHandling, forCfg.Condition)
 			} else {
 				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeout, forCfg.ErrorHandling)
@@ -132,26 +136,42 @@ func (b *Builder) BuildNodes(
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
-			flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, forEachCfg.IterExpression, timeout, forEachCfg.Condition, forEachCfg.ErrorHandling)
+			if forEachCfg == nil {
+				// Default configuration if missing
+				flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, "", timeout, mcondition.Condition{}, mflow.ErrorHandling_ERROR_HANDLING_BREAK)
+			} else {
+				flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, forEachCfg.IterExpression, timeout, forEachCfg.Condition, forEachCfg.ErrorHandling)
+			}
 		case mflow.NODE_KIND_CONDITION:
 			condCfg, err := b.NodeIf.GetNodeIf(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
-			flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, condCfg.Condition)
+			if condCfg == nil {
+				// Default to "true" or "false"? Usually better to default to something safe or empty.
+				// If empty, it might fail evaluation. Let's use an empty condition.
+				flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, mcondition.Condition{})
+			} else {
+				flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, condCfg.Condition)
+			}
 		case mflow.NODE_KIND_JS:
 			jsCfg, err := b.NodeJS.GetNodeJS(ctx, nodeModel.ID)
 			if err != nil {
 				return nil, idwrap.IDWrap{}, err
 			}
-			codeBytes := jsCfg.Code
-			if jsCfg.CodeCompressType != compress.CompressTypeNone {
-				codeBytes, err = compress.Decompress(jsCfg.Code, jsCfg.CodeCompressType)
-				if err != nil {
-					return nil, idwrap.IDWrap{}, fmt.Errorf("decompress js code: %w", err)
+			if jsCfg == nil {
+				// Default empty JS
+				flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, "", jsClient)
+			} else {
+				codeBytes := jsCfg.Code
+				if jsCfg.CodeCompressType != compress.CompressTypeNone {
+					codeBytes, err = compress.Decompress(jsCfg.Code, jsCfg.CodeCompressType)
+					if err != nil {
+						return nil, idwrap.IDWrap{}, fmt.Errorf("decompress js code: %w", err)
+					}
 				}
+				flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), jsClient)
 			}
-			flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), jsClient)
 		default:
 			return nil, idwrap.IDWrap{}, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)
 		}

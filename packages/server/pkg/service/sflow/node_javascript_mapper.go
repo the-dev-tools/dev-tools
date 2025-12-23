@@ -6,8 +6,8 @@ import (
 )
 
 // INFO: for some reason sqlc generate `Js` as `J`, will check later why it is not working
-func ConvertDBToNodeJs(nf gen.FlowNodeJ) mflow.NodeJS {
-	return mflow.NodeJS{
+func ConvertDBToNodeJs(nf gen.FlowNodeJ) *mflow.NodeJS {
+	return &mflow.NodeJS{
 		FlowNodeID:       nf.FlowNodeID,
 		Code:             nf.Code,
 		CodeCompressType: nf.CodeCompressType,
