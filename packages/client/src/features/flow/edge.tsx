@@ -165,6 +165,6 @@ export const ConnectionLine = ({
 };
 
 const getConnectionPath = (params: XF.GetBezierPathParams) => {
-  const [path, labelX, labelY, offsetX, offsetY] = XF.getBezierPath({ curvature: 1, ...params});
+  const [path, labelX, labelY, offsetX, offsetY] = XF.getBezierPath({ curvature: 1, ...params });
   return { labelX, labelY, offsetX, offsetY, path };
 };

@@ -49,60 +49,55 @@ export const Handle = (props: HandleProps) => {
         <>
           <HandleHalo />
 
-          <div
-            className={twJoin(
-              tw`absolute flex -translate-1/2 items-center`,
-              position === XF.Position.Right && tw`translate-x-0 flex-row`,
-              position === XF.Position.Left && tw`-translate-x-full flex-row-reverse`,
-              position === XF.Position.Bottom && tw`translate-y-0 flex-col`,
-              position === XF.Position.Top && tw`-translate-y-full flex-col-reverse`,
-            )}
-          >
+          {type === 'source' && (
             <div
               className={twJoin(
-                tw`h-12 w-20 bg-slate-800`,
-                (position === XF.Position.Right || position === XF.Position.Left) && tw`h-px`,
-                (position === XF.Position.Top || position === XF.Position.Bottom) && tw`w-px`,
+                tw`absolute flex -translate-1/2 items-center`,
+                position === XF.Position.Right && tw`translate-x-0 flex-row`,
+                position === XF.Position.Left && tw`-translate-x-full flex-row-reverse`,
+                position === XF.Position.Bottom && tw`translate-y-0 flex-col`,
+                position === XF.Position.Top && tw`-translate-y-full flex-col-reverse`,
               )}
-            />
-
-            <div className={tw`size-0`}>
-              <div className={tw`pointer-events-none size-1.5 -translate-1/2 rounded-full bg-slate-800`} />
-            </div>
-
-            <RAC.Button
-              className={focusVisibleRingStyles({
-                className: tw`
-                  pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-full border
-                  border-slate-800 bg-white
-                `,
-              })}
-              onPress={() => {
-                const box = ref.current?.parentElement?.getBoundingClientRect();
-                let nodePosition: undefined | XF.XYPosition;
-
-                if (box) {
-                  nodePosition = screenToFlowPosition({ x: box.x + box.width / 2, y: box.y });
-                  if (position === XF.Position.Right) nodePosition.x += 250;
-                  if (position === XF.Position.Left) nodePosition.x -= 250;
-                  if (position === XF.Position.Bottom) nodePosition.y += 150;
-                  if (position === XF.Position.Top) nodePosition.y -= 150;
-                  if (position === XF.Position.Bottom || position === XF.Position.Top) nodePosition.x += 150;
-                }
-
-                setSidebar?.(
-                  <AddNodeSidebar
-                    handleKind={kind}
-                    position={nodePosition}
-                    sourceId={type === 'source' ? nodeId : undefined}
-                    targetId={type === 'target' ? nodeId : undefined}
-                  />,
-                );
-              }}
             >
-              <FiPlus className={tw`size-3 text-slate-800`} />
-            </RAC.Button>
-          </div>
+              <div
+                className={twJoin(
+                  tw`h-12 w-16 bg-slate-800`,
+                  (position === XF.Position.Right || position === XF.Position.Left) && tw`h-px`,
+                  (position === XF.Position.Top || position === XF.Position.Bottom) && tw`w-px`,
+                )}
+              />
+
+              <div className={tw`size-0`}>
+                <div className={tw`pointer-events-none size-1.5 -translate-1/2 rounded-full bg-slate-800`} />
+              </div>
+
+              <RAC.Button
+                className={focusVisibleRingStyles({
+                  className: tw`
+                    pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-full border
+                    border-slate-800 bg-white
+                  `,
+                })}
+                onPress={() => {
+                  const box = ref.current?.parentElement?.getBoundingClientRect();
+                  let nodePosition: undefined | XF.XYPosition;
+
+                  if (box) {
+                    nodePosition = screenToFlowPosition({ x: box.x + box.width / 2, y: box.y });
+                    if (position === XF.Position.Right) nodePosition.x += 250;
+                    if (position === XF.Position.Left) nodePosition.x -= 250;
+                    if (position === XF.Position.Bottom) nodePosition.y += 150;
+                    if (position === XF.Position.Top) nodePosition.y -= 150;
+                    if (position === XF.Position.Bottom || position === XF.Position.Top) nodePosition.x += 150;
+                  }
+
+                  setSidebar?.(<AddNodeSidebar handleKind={kind} position={nodePosition} sourceId={nodeId} />);
+                }}
+              >
+                <FiPlus className={tw`size-3 text-slate-800`} />
+              </RAC.Button>
+            </div>
+          )}
         </>
       )}
 
@@ -124,7 +119,13 @@ export const Handle = (props: HandleProps) => {
 
       <XF.Handle className={tw`absolute size-0 min-h-0 min-w-0 border-none bg-transparent`} id={id} {...props}>
         <div className={tw`size-10 -translate-1/2 rounded-full`}>
-          <div className={tw`absolute inset-0 m-auto size-2 rounded-full bg-slate-800`} />
+          <div
+            className={twJoin(
+              tw`absolute inset-0 m-auto bg-slate-800`,
+              type === 'source' && tw`size-2 rounded-full`,
+              type === 'target' && tw`size-2.5`,
+            )}
+          />
         </div>
       </XF.Handle>
     </div>
