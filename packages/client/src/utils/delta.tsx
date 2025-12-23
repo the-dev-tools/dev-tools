@@ -188,7 +188,7 @@ export const DeltaResetButton = <Schema extends ApiCollectionSchema, Key extends
   return (
     <TooltipTrigger delay={750}>
       <Button
-        className={tw`p-1 text-slate-500`}
+        className={tw`shrink-0 p-1 text-slate-500`}
         isDisabled={!deltaId || !hasDelta}
         onPress={() =>
           void collection.utils.update?.({

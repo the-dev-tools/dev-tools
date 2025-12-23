@@ -1,7 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { count, eq, useLiveQuery } from '@tanstack/react-db';
 import { Duration, pipe } from 'effect';
-import { Suspense } from 'react';
+import { ReactNode, Suspense } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { HttpResponseSchema } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
@@ -20,13 +20,12 @@ import { AssertTable } from './assert';
 import { BodyPanel } from './body';
 import { HeaderTable } from './header';
 
-export interface ResponsePanelProps {
+interface ResponseInfoProps {
   className?: string;
-  fullWidth?: boolean;
   httpResponseId: Uint8Array;
 }
 
-export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: ResponsePanelProps) => {
+export const ResponseInfo = ({ className, httpResponseId }: ResponseInfoProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
   const { duration, size, status } =
@@ -39,6 +38,43 @@ export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: 
       [responseCollection, httpResponseId],
     ).data ?? create(HttpResponseSchema);
 
+  return (
+    <div
+      className={twMerge(
+        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-slate-800`,
+        className,
+      )}
+    >
+      <div className={tw`flex gap-1 p-2`}>
+        <span>Status:</span>
+        <span className={tw`text-green-600`}>{status}</span>
+      </div>
+
+      <Separator className={tw`h-4`} orientation='vertical' />
+
+      <div className={tw`flex gap-1 p-2`}>
+        <span>Time:</span>
+        <span className={tw`text-green-600`}>{pipe(duration, Duration.millis, Duration.format)}</span>
+      </div>
+
+      <Separator className={tw`h-4`} orientation='vertical' />
+
+      <div className={tw`flex gap-1 p-2`}>
+        <span>Size:</span>
+        <span>{formatSize(size)}</span>
+      </div>
+    </div>
+  );
+};
+
+export interface ResponsePanelProps {
+  children?: ReactNode;
+  className?: string;
+  fullWidth?: boolean;
+  httpResponseId: Uint8Array;
+}
+
+export const ResponsePanel = ({ children, className, fullWidth = false, httpResponseId }: ResponsePanelProps) => {
   const headerCollection = useApiCollection(HttpResponseHeaderCollectionSchema);
 
   const { headerCount = 0 } =
@@ -117,26 +153,7 @@ export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: 
 
         <div className={tw`flex-1`} />
 
-        <div className={tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-slate-800`}>
-          <div className={tw`flex gap-1 p-2`}>
-            <span>Status:</span>
-            <span className={tw`text-green-600`}>{status}</span>
-          </div>
-
-          <Separator className={tw`h-4`} orientation='vertical' />
-
-          <div className={tw`flex gap-1 p-2`}>
-            <span>Time:</span>
-            <span className={tw`text-green-600`}>{pipe(duration, Duration.millis, Duration.format)}</span>
-          </div>
-
-          <Separator className={tw`h-4`} orientation='vertical' />
-
-          <div className={tw`flex gap-1 p-2`}>
-            <span>Size:</span>
-            <span>{formatSize(size)}</span>
-          </div>
-        </div>
+        {children}
       </div>
 
       <div className={twJoin(tw`flex-1 overflow-auto pt-4`, fullWidth && tw`px-4`)}>

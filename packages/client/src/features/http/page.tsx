@@ -7,7 +7,7 @@ import { ReferenceContext } from '~/reference';
 import { httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';
 import { HttpRequestPanel, HttpTopBar } from './request';
-import { ResponsePanel } from './response';
+import { ResponseInfo, ResponsePanel } from './response';
 
 export const HttpPage = () => {
   const { httpId } = httpRouteApi.useRouteContext();
@@ -56,7 +56,9 @@ const Page = ({ deltaHttpId, httpId }: PageProps) => {
           <PanelResizeHandle direction='vertical' />
 
           <Panel defaultSize={40} id='response' order={2}>
-            <ResponsePanel fullWidth httpResponseId={httpResponseId} />
+            <ResponsePanel fullWidth httpResponseId={httpResponseId}>
+              <ResponseInfo httpResponseId={httpResponseId} />
+            </ResponsePanel>
           </Panel>
         </>
       )}

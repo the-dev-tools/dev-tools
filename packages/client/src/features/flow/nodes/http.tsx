@@ -13,7 +13,7 @@ import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
-import { HttpRequest, HttpResponse, HttpUrl } from '~/features/http';
+import { HttpRequest, HttpResponseInfo, HttpResponsePanel, HttpUrl } from '~/features/http';
 import { ReferenceContext } from '~/reference';
 import { httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { useDeltaState } from '~/utils/delta';
@@ -144,5 +144,10 @@ const Output = ({ nodeExecutionId }: NodeSettingsOutputProps) => {
 
   if (!httpResponseId) return null;
 
-  return <HttpResponse httpResponseId={httpResponseId} />;
+  return (
+    <div className={tw`flex h-full flex-col`}>
+      <HttpResponseInfo className={tw`-m-2`} httpResponseId={httpResponseId} />
+      <HttpResponsePanel className={tw`flex-1`} httpResponseId={httpResponseId} />
+    </div>
+  );
 };

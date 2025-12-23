@@ -401,14 +401,14 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         </Button>
       </div>
 
-      <div className={tw`grid flex-1 grid-cols-3 divide-x divide-slate-200`}>
-        <div>
+      <div className={tw`grid min-h-0 flex-1 grid-cols-3 divide-x divide-slate-200`}>
+        <div className={tw`flex min-h-0 flex-col`}>
           <div
             className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
           >
             Input
           </div>
-          <div className={tw`p-5`}>
+          <div className={tw`flex-1 overflow-auto p-5`}>
             {!nodeExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
@@ -427,7 +427,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
           </div>
         </div>
 
-        <div>
+        <div className={tw`flex min-h-0 flex-col`}>
           <div
             className={tw`
               flex items-center justify-between border-b border-slate-200 p-5 text-base leading-5 font-semibold
@@ -438,17 +438,17 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             {settingsHeader}
           </div>
 
-          <div className={tw`p-5`}>{children}</div>
+          <div className={tw`flex-1 overflow-auto p-5`}>{children}</div>
         </div>
 
-        <div>
+        <div className={tw`flex min-h-0 flex-col`}>
           <div
             className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
           >
             Output
           </div>
 
-          <div className={tw`p-5`}>
+          <div className={tw`flex-1 overflow-auto p-5`}>
             {!nodeExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />

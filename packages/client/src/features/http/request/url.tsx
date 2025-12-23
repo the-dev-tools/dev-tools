@@ -159,11 +159,11 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
 
       <DeltaResetButton {...deltaOptions} valueKey='method' />
 
-      <Separator className={tw`h-7`} orientation='vertical' />
+      <Separator className={tw`h-7 shrink-0`} orientation='vertical' />
 
       <ReferenceFieldRHF
         aria-label='URL'
-        className={tw`flex-1 border-none font-medium tracking-tight`}
+        className={tw`min-w-0 flex-1 border-none font-medium tracking-tight`}
         control={form.control}
         kind='StringExpression'
         name='urlString'

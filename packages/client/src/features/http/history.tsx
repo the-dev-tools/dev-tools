@@ -13,7 +13,7 @@ import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { HttpRequestPanel } from './request/panel';
 import { HttpUrl } from './request/url';
-import { ResponsePanel } from './response';
+import { ResponseInfo, ResponsePanel } from './response';
 
 export interface HistoryModalProps {
   deltaHttpId: Uint8Array | undefined;
@@ -146,7 +146,9 @@ const Version = ({ deltaHttpId, httpId }: VersionProps) => {
           <PanelResizeHandle direction='vertical' />
 
           <Panel defaultSize={40} id='response' order={2}>
-            <ResponsePanel fullWidth httpResponseId={httpResponseId} />
+            <ResponsePanel fullWidth httpResponseId={httpResponseId}>
+              <ResponseInfo httpResponseId={httpResponseId} />
+            </ResponsePanel>
           </Panel>
         </>
       )}
