@@ -304,12 +304,23 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 			},
 		}
 	case nodeEventUpdate:
+		update := &flowv1.NodeForEachSyncUpdate{
+			NodeId: nodeForEach.FlowNodeID.Bytes(),
+		}
+		// Include all fields in the update
+		if path := nodeForEach.IterExpression; path != "" {
+			update.Path = &path
+		}
+		if condition := nodeForEach.Condition.Comparisons.Expression; condition != "" {
+			update.Condition = &condition
+		}
+		if errorHandling := converter.ToAPIErrorHandling(nodeForEach.ErrorHandling); errorHandling != flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
+			update.ErrorHandling = &errorHandling
+		}
 		syncEvent = &flowv1.NodeForEachSync{
 			Value: &flowv1.NodeForEachSync_ValueUnion{
-				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_UPDATE,
-				Update: &flowv1.NodeForEachSyncUpdate{
-					NodeId: nodeForEach.FlowNodeID.Bytes(),
-				},
+				Kind:   flowv1.NodeForEachSync_ValueUnion_KIND_UPDATE,
+				Update: update,
 			},
 		}
 	case nodeEventDelete:
