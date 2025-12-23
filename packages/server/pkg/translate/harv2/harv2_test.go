@@ -234,37 +234,37 @@ func TestRequestNameGeneration(t *testing.T) {
 			name:     "Simple GET",
 			method:   "GET",
 			url:      "https://api.example.com/users",
-			expected: "GET Users",
+			expected: "Users",
 		},
 		{
 			name:     "POST with nested path",
 			method:   "POST",
 			url:      "https://api.example.com/v1/users/create",
-			expected: "POST V1 Users Create",
+			expected: "V1 Users Create",
 		},
 		{
 			name:     "PUT with ID parameter",
 			method:   "PUT",
 			url:      "https://api.example.com/users/12345",
-			expected: "PUT Users",
+			expected: "Users",
 		},
 		{
 			name:     "DELETE with ID",
 			method:   "DELETE",
 			url:      "https://api.example.com/posts/67890",
-			expected: "DELETE Posts",
+			expected: "Posts",
 		},
 		{
 			name:     "Complex API path",
 			method:   "GET",
 			url:      "https://service.api.example.com/v1/data/reports/daily",
-			expected: "GET Data Reports Daily",
+			expected: "Data Reports Daily",
 		},
 		{
 			name:     "Root path with hostname only",
 			method:   "GET",
 			url:      "https://api.test.com/",
-			expected: "GET Api Test Com",
+			expected: "Api Test Com",
 		},
 	}
 
@@ -809,15 +809,15 @@ func TestFileNamingSanitization(t *testing.T) {
 	}{
 		{
 			url:      "https://api.example.com/users?id=123&name=John%20Doe",
-			expected: "GET_Users.request",
+			expected: "Users.request",
 		},
 		{
 			url:      "https://api.example.com/users/john.doe/profile",
-			expected: "GET_Users_John.doe_Profile.request",
+			expected: "Users_John.doe_Profile.request",
 		},
 		{
 			url:      "https://api.example.com/path-with-dashes/another_path",
-			expected: "GET_Path_With_Dashes_Another_path.request",
+			expected: "Path_With_Dashes_Another_path.request",
 		},
 	}
 

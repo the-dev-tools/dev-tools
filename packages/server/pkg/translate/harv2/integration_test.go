@@ -93,13 +93,13 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	firstOriginal := originalRequests[0]
 	require.Equal(t, "GET", firstOriginal.Method)
 	require.Equal(t, "https://api.example.com/users", firstOriginal.Url)
-	require.Equal(t, "GET Users", firstOriginal.Name)
+	require.Equal(t, "Users", firstOriginal.Name)
 	require.False(t, firstOriginal.IsDelta)
 	require.Equal(t, workspaceID, firstOriginal.WorkspaceID)
 
 	// Verify delta request structure
 	firstDelta := deltaRequests[0]
-	require.Equal(t, "GET Users (Delta)", firstDelta.Name)
+	require.Equal(t, "Users (Delta)", firstDelta.Name)
 	require.True(t, firstDelta.IsDelta)
 	require.NotNil(t, firstDelta.ParentHttpID)
 	require.Equal(t, firstOriginal.ID, *firstDelta.ParentHttpID)
@@ -273,19 +273,19 @@ func TestIntegrationURLMapping(t *testing.T) {
 			name:           "Simple API",
 			url:            "https://api.example.com/users",
 			expectedFolder: "/com/example/api",
-			expectedName:   "GET Users.request",
+			expectedName:   "Users.request",
 		},
 		{
 			name:           "Complex nested path",
 			url:            "https://service.api.example.com/v1/data/reports/daily",
 			expectedFolder: "/com/example/service/api/v1/data/reports",
-			expectedName:   "GET Data Reports Daily.request",
+			expectedName:   "Data Reports Daily.request",
 		},
 		{
 			name:           "PUT with ID",
 			url:            "https://api.example.com/posts/12345",
 			expectedFolder: "/com/example/api/posts",
-			expectedName:   "PUT Posts.request",
+			expectedName:   "Posts.request",
 		},
 	}
 

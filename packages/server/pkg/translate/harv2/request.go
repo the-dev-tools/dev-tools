@@ -247,12 +247,12 @@ func generateRequestName(method string, parsedURL *url.URL) string {
 	if len(meaningfulSegments) == 0 {
 		host := strings.Replace(parsedURL.Hostname(), "www.", "", 1)
 		host = strings.ReplaceAll(host, ".", " ")
-		return fmt.Sprintf("%s %s", method, cases.Title(language.English).String(host))
+		return cases.Title(language.English).String(host)
 	}
 
 	// Build final name
 	pathName := strings.Join(meaningfulSegments, " ")
-	return fmt.Sprintf("%s %s", method, cases.Title(language.English).String(strings.ReplaceAll(pathName, "-", " ")))
+	return cases.Title(language.English).String(strings.ReplaceAll(pathName, "-", " "))
 }
 
 // isNumericSegment checks if a URL segment is purely numeric (likely an ID)
