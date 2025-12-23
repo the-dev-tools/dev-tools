@@ -227,7 +227,7 @@ interface NodeTitleProps {
 export const NodeTitle = ({ children, className }: NodeTitleProps) => (
   <div
     className={twMerge(
-      tw`flex items-center gap-1 text-center text-xs leading-4 font-semibold tracking-tight text-slate-800`,
+      tw`flex items-center gap-1 text-xs leading-4 font-semibold tracking-tight text-slate-800`,
       className,
     )}
   >
@@ -262,7 +262,7 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
     <div className={tw`relative`}>
       <AriaButton
         className={twMerge(
-          tw`pointer-events-auto mx-auto block cursor-text text-center text-xs tracking-tight text-slate-500`,
+          tw`pointer-events-auto block cursor-text text-xs tracking-tight text-slate-500`,
           isEditing && tw`opacity-0`,
           className,
         )}
@@ -274,7 +274,7 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
       {isEditing && (
         <TextInputField
           aria-label='New node name'
-          inputClassName={tw`absolute top-0 left-1/2 w-24 -translate-x-1/2 bg-white px-1 py-0 text-xs`}
+          inputClassName={tw`absolute top-0 left-0 w-24 bg-white px-1 py-0 text-xs`}
           {...textFieldProps}
         />
       )}
@@ -293,7 +293,7 @@ interface SimpleNodeProps {
 }
 
 export const SimpleNode = ({ children, className, handles, icon, nodeId, selected, title }: SimpleNodeProps) => (
-  <div className={tw`pointer-events-none flex flex-col items-center`}>
+  <div className={tw`pointer-events-none flex flex-col`}>
     <NodeName className={tw`mb-1`} nodeId={nodeId} />
 
     <div className={tw`pointer-events-auto relative`}>
