@@ -164,17 +164,7 @@ export const ConnectionLine = ({
   return <path className={connectionLineStyles({ state })} d={path} strokeDasharray={connected ? undefined : 4} />;
 };
 
-const getConnectionPath = (
-  params: Pick<
-    XF.GetSmoothStepPathParams,
-    'sourcePosition' | 'sourceX' | 'sourceY' | 'targetPosition' | 'targetX' | 'targetY'
-  >,
-) => {
-  const [path, labelX, labelY, offsetX, offsetY] = XF.getSmoothStepPath({
-    borderRadius: 8,
-    offset: 64,
-    ...params,
-  });
-
+const getConnectionPath = (params: XF.GetBezierPathParams) => {
+  const [path, labelX, labelY, offsetX, offsetY] = XF.getBezierPath({ curvature: 1, ...params});
   return { labelX, labelY, offsetX, offsetY, path };
 };
