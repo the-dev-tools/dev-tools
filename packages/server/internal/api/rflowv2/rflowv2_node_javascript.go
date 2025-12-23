@@ -62,10 +62,9 @@ func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Reques
 		}
 
 		// Get node model to publish event later
-		nodeModel, err := s.ns.GetNode(ctx, nodeID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get node: %w", err))
-		}
+		// We don't fail if the node doesn't exist yet (it might be created in parallel),
+		// we just skip the event publishing.
+		nodeModel, _ := s.ns.GetNode(ctx, nodeID)
 
 		model := mflow.NodeJS{
 			FlowNodeID:       nodeID,

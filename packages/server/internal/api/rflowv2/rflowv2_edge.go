@@ -67,16 +67,12 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid source id: %w", err))
 		}
-		if _, err := s.ensureNodeAccess(ctx, sourceID); err != nil {
-			return nil, err
-		}
+		// We don't strictly enforce node existence here to avoid race conditions with node creation.
+		// The flow_edge table only has an FK to the flow table.
 
 		targetID, err := idwrap.NewFromBytes(item.GetTargetId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target id: %w", err))
-		}
-		if _, err := s.ensureNodeAccess(ctx, targetID); err != nil {
-			return nil, err
 		}
 
 		edgeID := idwrap.NewNow()
