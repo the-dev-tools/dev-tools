@@ -1,6 +1,5 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { ReactFlowProvider } from '@xyflow/react';
-import { Option } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useRef } from 'react';
 import { useTab, useTabList, useTabPanel } from 'react-aria';
@@ -15,10 +14,10 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { flowLayoutRouteApi } from '~/routes';
 import { FlowContext } from './context';
-import { EditPanel, Flow, TopBar, TopBarWithControls } from './edit';
+import { Flow, TopBar, TopBarWithControls } from './edit';
 
 export const FlowHistoryPage = () => {
-  const { flowId, nodeId } = flowLayoutRouteApi.useLoaderData();
+  const { flowId } = flowLayoutRouteApi.useLoaderData();
 
   const collection = useApiCollection(FlowVersionCollectionSchema);
 
@@ -31,40 +30,26 @@ export const FlowHistoryPage = () => {
   );
 
   const state = useTabListState({
-    children: ({ flowVersionId }) => {
-      const flow = <Flow key={Ulid.construct(flowVersionId).toCanonical()} />;
-
-      return (
-        <Item key={Ulid.construct(flowVersionId).toCanonical()}>
-          <Suspense
-            fallback={
-              <div className={tw`flex h-full items-center justify-center`}>
-                <Spinner size='xl' />
+    children: ({ flowVersionId }) => (
+      <Item key={Ulid.construct(flowVersionId).toCanonical()}>
+        <Suspense
+          fallback={
+            <div className={tw`flex h-full items-center justify-center`}>
+              <Spinner size='xl' />
+            </div>
+          }
+        >
+          <FlowContext.Provider value={{ flowId: flowVersionId, isReadOnly: true }}>
+            <ReactFlowProvider>
+              <div className={tw`flex h-full flex-col`}>
+                <TopBarWithControls />
+                <Flow key={Ulid.construct(flowVersionId).toCanonical()} />
               </div>
-            }
-          >
-            <FlowContext.Provider value={{ flowId: flowVersionId, isReadOnly: true }}>
-              <ReactFlowProvider>
-                {Option.isNone(nodeId) ? (
-                  <div className={tw`flex h-full flex-col`}>
-                    <TopBarWithControls />
-                    {flow}
-                  </div>
-                ) : (
-                  <PanelGroup autoSaveId='flow-edit' direction='vertical'>
-                    <TopBarWithControls />
-                    <Panel className={tw`flex h-full flex-col`} defaultSize={60} id='flow' order={1}>
-                      {flow}
-                    </Panel>
-                    <EditPanel nodeId={nodeId.value} />
-                  </PanelGroup>
-                )}
-              </ReactFlowProvider>
-            </FlowContext.Provider>
-          </Suspense>
-        </Item>
-      );
-    },
+            </ReactFlowProvider>
+          </FlowContext.Provider>
+        </Suspense>
+      </Item>
+    ),
     items: versions,
   });
 

@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
   Tree,
 } from 'react-aria-components';
+import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
@@ -25,7 +26,9 @@ import {
   NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeCollectionSchema, NodeExecutionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
+import { SearchEmptyIllustration } from '@the-dev-tools/ui/illustrations';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -251,7 +254,7 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
       (_) =>
         _.from({ item: collection })
           .where((_) => eq(_.item.nodeId, nodeId))
-          .select((_) => pick(_.item, 'state', 'name', 'info'))
+          .select((_) => pick(_.item, 'name'))
           .findOne(),
       [collection, nodeId],
     ).data ?? create(NodeSchema);
@@ -443,5 +446,212 @@ const NodeExecutionTabs = ({ nodeExecutionId, Output }: NodeExecutionTabsProps) 
         </TabPanel>
       </div>
     </Tabs>
+  );
+};
+
+interface NodeSettingsProps {
+  children: ReactNode;
+  input?: (nodeExecutionId: Uint8Array) => ReactNode;
+  nodeId: Uint8Array;
+  output?: (nodeExecutionId: Uint8Array) => ReactNode;
+  settingsHeader?: ReactNode;
+  title: string;
+}
+
+export const NodeSettings = ({ children, input, nodeId, output, settingsHeader, title }: NodeSettingsProps) => {
+  const nodeCollection = useApiCollection(NodeCollectionSchema);
+  const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
+
+  const { name } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: nodeCollection })
+          .where((_) => eq(_.item.nodeId, nodeId))
+          .select((_) => pick(_.item, 'name'))
+          .findOne(),
+      [nodeCollection, nodeId],
+    ).data ?? create(NodeSchema);
+
+  const { data: executions } = useLiveQuery(
+    (_) =>
+      _.from({ item: executionCollection })
+        .where((_) => eq(_.item.nodeId, nodeId))
+        .select((_) => pick(_.item, 'nodeExecutionId', 'name'))
+        .orderBy((_) => _.item.nodeExecutionId, 'desc'),
+    [executionCollection, nodeId],
+  );
+
+  const firstExec = pipe(
+    Array.head(executions),
+    Option.map((_) => executionCollection.utils.getKey(_)),
+    Option.getOrNull,
+  );
+
+  const [prevFirstExec, setPrevFirstExec] = useState<Key | null>(firstExec);
+  const [selectedExecKey, setSelectedExecKey] = useState<Key | null>(firstExec);
+
+  if (prevFirstExec !== firstExec) {
+    setSelectedExecKey(firstExec);
+    setPrevFirstExec(firstExec);
+  }
+
+  // Fix React Aria over-rendering non-visible components
+  // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825
+  // TODO: move the workaround to an improved select component
+  const [isExecListOpen, setIsExecListOpen] = useState(false);
+  const execItems = isExecListOpen
+    ? executions
+    : executions.filter((_) => executionCollection.utils.getKey(_) === selectedExecKey);
+
+  const nodeExecutionId =
+    typeof selectedExecKey === 'string'
+      ? executionCollection.utils.parseKeyUnsafe(selectedExecKey).nodeExecutionId
+      : undefined;
+
+  return (
+    <div className={tw`flex h-full flex-col`}>
+      <div className={tw`flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
+        <div className='min-w-0'>
+          <div className={tw`text-md leading-5 text-slate-400`}>{name}</div>
+          <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>{title}</div>
+        </div>
+
+        <div className={tw`flex-1`} />
+
+        {executions.length > 1 && (
+          <Select
+            aria-label='Node execution'
+            isOpen={isExecListOpen}
+            items={execItems}
+            onOpenChange={setIsExecListOpen}
+            onSelectionChange={setSelectedExecKey}
+            selectedKey={selectedExecKey}
+          >
+            {(_) => <SelectItem id={executionCollection.utils.getKey(_)}>{_.name}</SelectItem>}
+          </Select>
+        )}
+
+        <div className={tw`w-4`} />
+
+        <Button className={tw`p-1`} slot='close' variant='ghost'>
+          <FiX className={tw`size-5 text-slate-500`} />
+        </Button>
+      </div>
+
+      <div className={tw`grid flex-1 grid-cols-3 divide-x divide-slate-200`}>
+        <div>
+          <div
+            className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
+          >
+            Input
+          </div>
+          <div className={tw`p-5`}>
+            {!nodeExecutionId ? (
+              <div className={tw`flex flex-col items-center py-14 text-center`}>
+                <SearchEmptyIllustration />
+                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-slate-800`}>
+                  No input data yet
+                </div>
+                <div className={tw`w-48 text-md leading-4 tracking-tight text-slate-500`}>
+                  The executed result from previous nodes will appear here
+                </div>
+              </div>
+            ) : input ? (
+              input(nodeExecutionId)
+            ) : (
+              <NodeEditBasicInput nodeExecutionId={nodeExecutionId} />
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div
+            className={tw`
+              flex items-center justify-between border-b border-slate-200 p-5 text-base leading-5 font-semibold
+              tracking-tight text-slate-800
+            `}
+          >
+            <span>Settings</span>
+            {settingsHeader}
+          </div>
+
+          <div className={tw`p-5`}>{children}</div>
+        </div>
+
+        <div>
+          <div
+            className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
+          >
+            Output
+          </div>
+
+          <div className={tw`p-5`}>
+            {!nodeExecutionId ? (
+              <div className={tw`flex flex-col items-center py-14 text-center`}>
+                <SearchEmptyIllustration />
+                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-slate-800`}>
+                  No output data yet
+                </div>
+                <div className={tw`w-48 text-md leading-4 tracking-tight text-slate-500`}>
+                  The executed result from this node will appear here
+                </div>
+              </div>
+            ) : output ? (
+              output(nodeExecutionId)
+            ) : (
+              <NodeEditBasicOutput nodeExecutionId={nodeExecutionId} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface NodeEditBasicInputProps {
+  nodeExecutionId: Uint8Array;
+}
+
+const NodeEditBasicInput = ({ nodeExecutionId }: NodeEditBasicInputProps) => {
+  const collection = useApiCollection(NodeExecutionCollectionSchema);
+
+  const { input } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
+          .select((_) => pick(_.item, 'input'))
+          .findOne(),
+      [collection, nodeExecutionId],
+    ).data ?? create(NodeExecutionSchema);
+
+  return (
+    <Tree aria-label='Input values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(input)!}>
+      {(_) => <JsonTreeItem {..._} />}
+    </Tree>
+  );
+};
+
+interface NodeEditBasicOutputProps {
+  nodeExecutionId: Uint8Array;
+}
+
+const NodeEditBasicOutput = ({ nodeExecutionId }: NodeEditBasicOutputProps) => {
+  const collection = useApiCollection(NodeExecutionCollectionSchema);
+
+  const { output } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: collection })
+          .where((_) => eq(_.item.nodeExecutionId, nodeExecutionId))
+          .select((_) => pick(_.item, 'output'))
+          .findOne(),
+      [collection, nodeExecutionId],
+    ).data ?? create(NodeExecutionSchema);
+
+  return (
+    <Tree aria-label='Output values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(output)!}>
+      {(_) => <JsonTreeItem {..._} />}
+    </Tree>
   );
 };

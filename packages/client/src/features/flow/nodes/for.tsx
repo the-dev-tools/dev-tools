@@ -4,11 +4,9 @@ import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 import { ErrorHandling, HandleKind, NodeForSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeForCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { ForIcon } from '@the-dev-tools/ui/icons';
 import { NumberFieldRHF } from '@the-dev-tools/ui/number-field';
@@ -19,7 +17,7 @@ import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBodyNew, NodeExecutionPanel, NodeName, NodePanelProps, NodeStateIndicator, NodeTitle } from '../node';
+import { NodeBodyNew, NodeName, NodePanelProps, NodeSettings, NodeStateIndicator, NodeTitle } from '../node';
 
 export const ForNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
@@ -44,7 +42,7 @@ export const ForNode = ({ id, selected }: XF.NodeProps) => {
   );
 };
 
-export const ForPanel = ({ nodeId }: NodePanelProps) => {
+export const ForSettings = ({ nodeId }: NodePanelProps) => {
   const collection = useApiCollection(NodeForCollectionSchema);
 
   const data =
@@ -77,21 +75,8 @@ export const ForPanel = ({ nodeId }: NodePanelProps) => {
   }, [update, watch]);
 
   return (
-    <>
-      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div>
-          <div className={tw`text-md leading-5 text-slate-400`}>For Loop</div>
-          <div className={tw`text-sm leading-5 font-medium text-slate-800`}>Node Name</div>
-        </div>
-
-        <div className={tw`flex-1`} />
-
-        <ButtonAsLink className={tw`p-1`} search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
-          <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
-      </div>
-
-      <div className={tw`m-5 grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
+    <NodeSettings nodeId={nodeId} title='For loop'>
+      <div className={tw`grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
         <NumberFieldRHF
           className={tw`contents`}
           control={control}
@@ -122,8 +107,6 @@ export const ForPanel = ({ nodeId }: NodePanelProps) => {
           <SelectItem id={ErrorHandling.BREAK}>Break</SelectItem>
         </SelectRHF>
       </div>
-
-      <NodeExecutionPanel nodeId={nodeId} />
-    </>
+    </NodeSettings>
   );
 };

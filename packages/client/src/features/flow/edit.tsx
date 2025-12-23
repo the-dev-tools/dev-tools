@@ -1,15 +1,14 @@
 import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMatchRoute, useNavigate } from '@tanstack/react-router';
+import { useMatchRoute } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
-import { Duration, Match, Option, pipe } from 'effect';
+import { Duration, Match, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { PropsWithChildren, ReactNode, use, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
-import { Button as AriaButton, MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { createPortal } from 'react-dom';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
-import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
@@ -31,8 +30,8 @@ import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
+import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
-import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
@@ -48,16 +47,16 @@ import {
 import { ReferenceContext } from '~/reference';
 import { flowHistoryRouteApi, flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
-import { pick } from '~/utils/tanstack-db';
+import { pick, queryCollection } from '~/utils/tanstack-db';
 import { AddNodeSidebar } from './add-node';
 import { FlowContext } from './context';
 import { ConnectionLine, edgeTypes, useEdgeState } from './edge';
 import { NodeStateContext, useNodesState } from './node';
-import { ConditionNode, ConditionPanel } from './nodes/condition';
-import { ForNode, ForPanel } from './nodes/for';
-import { ForEachNode, ForEachPanel } from './nodes/for-each';
-import { HttpNode, HttpPanel } from './nodes/http';
-import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
+import { ConditionNode, ConditionSettings } from './nodes/condition';
+import { ForNode, ForSettings } from './nodes/for';
+import { ForEachNode, ForEachSettings } from './nodes/for-each';
+import { HttpNode, HttpSettings } from './nodes/http';
+import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
@@ -72,43 +71,25 @@ export const nodeTypes: XF.NodeTypes = {
 };
 
 export const FlowEditPage = () => {
-  const { flowId, nodeId } = flowLayoutRouteApi.useLoaderData();
+  const { flowId } = flowLayoutRouteApi.useLoaderData();
 
   const [sidebar, setSidebar] = useState<ReactNode>(null);
-
-  const flow = (
-    <Flow key={Ulid.construct(flowId).toCanonical()}>
-      <ActionBar />
-
-      {sidebar && (
-        <XF.Panel className={tw`inset-y-0 w-80 border-l border-slate-200 bg-white`} position='top-right'>
-          {sidebar}
-        </XF.Panel>
-      )}
-    </Flow>
-  );
 
   return (
     <FlowContext.Provider value={{ flowId, setSidebar }}>
       <XF.ReactFlowProvider>
-        {Option.isNone(nodeId) ? (
-          <PanelGroup direction='vertical'>
-            <TopBarWithControls />
-            <Panel className={tw`flex h-full flex-col`} defaultSize={100} id='flow' minSize={100} order={1}>
-              {flow}
-            </Panel>
-            <PanelResizeHandle direction='vertical' />
-            <Panel defaultSize={0} id='node' maxSize={0} order={2} />
-          </PanelGroup>
-        ) : (
-          <PanelGroup autoSaveId='flow-edit-node' direction='vertical'>
-            <TopBarWithControls />
-            <Panel className={tw`flex h-full flex-col`} defaultSize={60} id='flow' order={1}>
-              {flow}
-            </Panel>
-            <EditPanel nodeId={nodeId.value} />
-          </PanelGroup>
-        )}
+        <div className={tw`flex h-full flex-col`}>
+          <TopBarWithControls />
+          <Flow key={Ulid.construct(flowId).toCanonical()}>
+            <ActionBar />
+
+            {sidebar && (
+              <XF.Panel className={tw`inset-y-0 w-80 border-l border-slate-200 bg-white`} position='top-right'>
+                {sidebar}
+              </XF.Panel>
+            )}
+          </Flow>
+        </div>
       </XF.ReactFlowProvider>
     </FlowContext.Provider>
   );
@@ -120,6 +101,8 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const edgeCollection = useApiCollection(EdgeCollectionSchema);
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
+
+  const nodeEditDialog = useNodeEditDialog();
 
   const { getNodes, screenToFlowPosition } = XF.useReactFlow();
 
@@ -136,8 +119,6 @@ export const Flow = ({ children }: PropsWithChildren) => {
     ).data ?? create(FlowSchema);
 
   const ref = useRef<HTMLDivElement>(null);
-
-  const navigate = useNavigate();
 
   const { nodes, onNodesChange, setNodeSelection } = useNodesState();
   const { edges, onEdgesChange } = useEdgeState();
@@ -213,6 +194,8 @@ export const Flow = ({ children }: PropsWithChildren) => {
           statusBarEndSlot,
         )}
 
+      {nodeEditDialog.render}
+
       <XF.ReactFlow
         {...(dropProps as object)}
         colorMode='light'
@@ -228,7 +211,10 @@ export const Flow = ({ children }: PropsWithChildren) => {
         nodeTypes={nodeTypes}
         onConnect={onConnect}
         onEdgesChange={onEdgesChange}
-        onNodeDoubleClick={(_, node) => void navigate({ search: (_) => ({ ..._, node: node.id }), to: '.' })}
+        onNodeDoubleClick={(_, node) => {
+          const nodeId = Ulid.fromCanonical(node.id);
+          void nodeEditDialog.open(nodeId.bytes);
+        }}
         onNodesChange={onNodesChange}
         onViewportChange={onViewportChange}
         panOnDrag={[1, 2]}
@@ -418,7 +404,7 @@ const ActionBar = () => {
   );
 };
 
-const SettingsPanel = () => {
+const FlowSettings = () => {
   const { flowId } = use(FlowContext);
 
   const collection = useApiCollection(FlowVariableCollectionSchema);
@@ -476,9 +462,9 @@ const SettingsPanel = () => {
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink className={tw`p-1`} search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
+        <Button className={tw`p-1`} slot='close' variant='ghost'>
           <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
+        </Button>
       </div>
 
       <div className={tw`m-5`}>
@@ -494,44 +480,44 @@ const SettingsPanel = () => {
   );
 };
 
-interface EditPanelProps {
-  nodeId: Uint8Array;
-}
-
-export const EditPanel = ({ nodeId }: EditPanelProps) => {
+const useNodeEditDialog = () => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const nodeCollection = useApiCollection(NodeCollectionSchema);
 
-  const { kind } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: nodeCollection })
-          .where((_) => eq(_.item.nodeId, nodeId))
-          .select((_) => pick(_.item, 'kind'))
-          .findOne(),
-      [nodeCollection, nodeId],
-    ).data ?? create(NodeSchema);
+  const modal = useProgrammaticModal();
 
-  const view = pipe(
-    Match.value({ kind }),
-    Match.when({ kind: NodeKind.MANUAL_START }, () => <SettingsPanel />),
-    Match.when({ kind: NodeKind.CONDITION }, () => <ConditionPanel nodeId={nodeId} />),
-    Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachPanel nodeId={nodeId} />),
-    Match.when({ kind: NodeKind.FOR }, (_) => <ForPanel nodeId={nodeId} />),
-    Match.when({ kind: NodeKind.JS }, (_) => <JavaScriptPanel nodeId={nodeId} />),
-    Match.when({ kind: NodeKind.HTTP }, (_) => <HttpPanel nodeId={nodeId} />),
-    Match.orElse(() => null),
+  const open = async (nodeId: Uint8Array) => {
+    const [{ kind } = create(NodeSchema)] = await queryCollection((_) =>
+      _.from({ item: nodeCollection })
+        .where((_) => eq(_.item.nodeId, nodeId))
+        .select((_) => pick(_.item, 'kind'))
+        .findOne(),
+    );
+
+    const view = pipe(
+      Match.value({ kind }),
+      Match.when({ kind: NodeKind.MANUAL_START }, () => <FlowSettings />),
+      Match.when({ kind: NodeKind.CONDITION }, () => <ConditionSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.FOR }, (_) => <ForSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.JS }, (_) => <JavaScriptSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.HTTP }, (_) => <HttpSettings nodeId={nodeId} />),
+      Match.orElse(() => null),
+    );
+
+    if (!view) return;
+
+    modal.onOpenChange(true, <ReferenceContext value={{ flowNodeId: nodeId, workspaceId }}>{view}</ReferenceContext>);
+  };
+
+  const render: ReactNode = modal.children && (
+    <Modal {...modal} className={tw`max-h-[85vh] max-w-[90vw]`}>
+      <Dialog aria-label='Node settings' className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
+        {modal.children}
+      </Dialog>
+    </Modal>
   );
 
-  if (!view) return null;
-
-  return (
-    <ReferenceContext value={{ flowNodeId: nodeId, workspaceId }}>
-      <PanelResizeHandle direction='vertical' />
-      <Panel className={tw`!overflow-auto`} defaultSize={40} id='node' order={2}>
-        {view}
-      </Panel>
-    </ReferenceContext>
-  );
+  return { open, render };
 };

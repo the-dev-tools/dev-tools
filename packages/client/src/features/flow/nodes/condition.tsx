@@ -4,11 +4,9 @@ import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
 import { HandleKind, NodeConditionSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
@@ -16,7 +14,7 @@ import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
-import { NodeBodyNew, NodeExecutionPanel, NodeName, NodePanelProps, NodeStateIndicator, NodeTitle } from '../node';
+import { NodeBodyNew, NodeName, NodePanelProps, NodeSettings, NodeStateIndicator, NodeTitle } from '../node';
 
 export const ConditionNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
@@ -41,7 +39,7 @@ export const ConditionNode = ({ id, selected }: XF.NodeProps) => {
   );
 };
 
-export const ConditionPanel = ({ nodeId }: NodePanelProps) => {
+export const ConditionSettings = ({ nodeId }: NodePanelProps) => {
   const collection = useApiCollection(NodeConditionCollectionSchema);
 
   const { condition } =
@@ -74,25 +72,8 @@ export const ConditionPanel = ({ nodeId }: NodePanelProps) => {
   }, [update, watch]);
 
   return (
-    <>
-      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div>
-          <div className={tw`text-md leading-5 text-slate-400`}>If Condition</div>
-          <div className={tw`text-sm leading-5 font-medium text-slate-800`}>Node Name</div>
-        </div>
-
-        <div className={tw`flex-1`} />
-
-        <ButtonAsLink className={tw`p-1`} search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
-          <FiX className={tw`size-5 text-slate-500`} />
-        </ButtonAsLink>
-      </div>
-
-      <div className={tw`m-5`}>
-        <ReferenceFieldRHF control={control} name={'condition'} readOnly={isReadOnly} />
-      </div>
-
-      <NodeExecutionPanel nodeId={nodeId} />
-    </>
+    <NodeSettings nodeId={nodeId} title='If'>
+      <ReferenceFieldRHF control={control} name={'condition'} readOnly={isReadOnly} />
+    </NodeSettings>
   );
 };
