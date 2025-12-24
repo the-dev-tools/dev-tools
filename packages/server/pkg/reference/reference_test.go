@@ -277,3 +277,24 @@ func TestNewReferenceFromInterface(t *testing.T) {
 		t.Errorf("expected %v, got %v", expected, result)
 	}
 }
+
+func TestNewReferenceFromInterface_InvalidValues(t *testing.T) {
+	// Test case 1: nil interface
+	ref := reference.NewReferenceFromInterface(nil, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "nil"})
+	if ref.Value == "<invalid reflect.Value>" {
+		t.Errorf("expected empty string or null representation for nil, got '<invalid reflect.Value>'")
+	}
+
+	// Test case 2: nil pointer
+	var nilPtr *string = nil
+	// This should NOT panic
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("NewReferenceFromInterface panicked with nil pointer: %v", r)
+		}
+	}()
+	ref = reference.NewReferenceFromInterface(nilPtr, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: "nilPtr"})
+	if ref.Value == "<invalid reflect.Value>" {
+		t.Errorf("expected empty string or null representation for nil pointer, got '<invalid reflect.Value>'")
+	}
+}

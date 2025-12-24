@@ -539,3 +539,35 @@ func TestParsePath(t *testing.T) {
 		})
 	}
 }
+func TestReferenceCompletionLookUp_Add_InvalidReflectValue(t *testing.T) {
+	lookup := referencecompletion.NewReferenceCompletionLookup()
+
+	// Test case 1: nil interface
+	var nilInterface interface{} = nil
+	lookup.AddWithKey("nilInterface", nilInterface)
+
+	val, err := lookup.GetValue("nilInterface")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val == "<invalid reflect.Value>" {
+		t.Errorf("expected empty string or null representation, got '<invalid reflect.Value>'")
+	}
+
+	// Test case 2: Map with nil value
+	m := map[string]interface{}{
+		"nilVal": nil,
+	}
+	lookup.AddWithKey("mapWithNil", m)
+
+	val, err = lookup.GetValue("mapWithNil.nilVal")
+	if err != nil {
+		// If map keys with nil values are not added, this is also a finding.
+		// Let's check if it exists.
+		t.Logf("mapWithNil.nilVal not found: %v", err)
+	} else {
+		if val == "<invalid reflect.Value>" {
+			t.Errorf("expected empty string or null representation for map nil value, got '<invalid reflect.Value>'")
+		}
+	}
+}

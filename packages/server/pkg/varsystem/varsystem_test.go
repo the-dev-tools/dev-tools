@@ -287,3 +287,55 @@ func TestEnvReferenceMissing(t *testing.T) {
 		t.Fatalf("expected ErrKeyNotFound, got %v", err)
 	}
 }
+
+func TestNewVarMapFromAnyMap_InvalidReflect(t *testing.T) {
+	// Test case 1: Map with nil value (should be empty string)
+	input := map[string]any{
+		"nilVal": nil,
+	}
+	vm := varsystem.NewVarMapFromAnyMap(input)
+	if val, ok := vm.Get("nilVal"); !ok {
+		t.Error("nilVal not found in map")
+	} else if val.Value != "" {
+		t.Errorf("expected empty string for nilVal, got %q", val.Value)
+	}
+
+	// Test case 2: Map with Struct (should be ignored by current implementation)
+	type TestStruct struct {
+		Field string
+	}
+	input2 := map[string]any{
+		"struct": TestStruct{Field: "val"},
+	}
+	vm2 := varsystem.NewVarMapFromAnyMap(input2)
+	if _, ok := vm2.Get("struct"); ok {
+		// It should NOT be there because switch doesn't cover struct
+	}
+
+	// Test case 3: Pointer to nil
+	var nilPtr *string = nil
+	input4 := map[string]any{
+		"nilPtr": nilPtr,
+	}
+	vm4 := varsystem.NewVarMapFromAnyMap(input4)
+	if val, ok := vm4.Get("nilPtr"); !ok {
+		t.Error("nilPtr not found in map")
+	} else if val.Value != "" {
+		t.Errorf("expected empty string for nilPtr, got %q", val.Value)
+	}
+
+	// Test case 4: Map with interface{} keys containing nil
+	input5 := map[string]any{
+		"nested": map[any]any{
+			nil: "nilKey",
+		},
+	}
+	vm5 := varsystem.NewVarMapFromAnyMap(input5)
+
+	// Check if any key contains <invalid reflect.Value>
+	for k := range vm5 {
+		if k == "nested.<invalid reflect.Value>" {
+			t.Errorf("Got key 'nested.<invalid reflect.Value>'")
+		}
+	}
+}

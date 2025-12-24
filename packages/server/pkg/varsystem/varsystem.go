@@ -59,6 +59,10 @@ func MergeVarMap(varMap1, varMap2 VarMap) VarMap {
 func HelperNewAny(vars *[]menv.Variable, target any, prefix string) {
 	prefix = strings.TrimSpace(prefix)
 	if target == nil {
+		*vars = append(*vars, menv.Variable{
+			VarKey: prefix,
+			Value:  "",
+		})
 		return
 	}
 	reflectType := reflect.TypeOf(target)
@@ -67,6 +71,9 @@ func HelperNewAny(vars *[]menv.Variable, target any, prefix string) {
 		val := reflect.ValueOf(target)
 		if val.Kind() == reflect.Map {
 			for _, key := range val.MapKeys() {
+				if !key.IsValid() {
+					continue
+				}
 				// Convert key to string for the variable name
 				keyStr := fmt.Sprintf("%v", key.Interface())
 				value := val.MapIndex(key).Interface()
@@ -80,6 +87,16 @@ func HelperNewAny(vars *[]menv.Variable, target any, prefix string) {
 				HelperNewAny(vars, val.Index(i).Interface(), fmt.Sprintf("%s[%d]", prefix, i))
 			}
 		}
+	case reflect.Ptr:
+		val := reflect.ValueOf(target)
+		if val.IsNil() {
+			*vars = append(*vars, menv.Variable{
+				VarKey: prefix,
+				Value:  "",
+			})
+			return
+		}
+		HelperNewAny(vars, val.Elem().Interface(), prefix)
 	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
 		*vars = append(*vars, menv.Variable{
 			VarKey: prefix,

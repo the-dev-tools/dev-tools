@@ -362,6 +362,10 @@ func NewReferenceFromInterfaceWithKey(value any, key string) ReferenceTreeItem {
 
 func NewReferenceFromInterface(value any, key ReferenceKey) ReferenceTreeItem {
 	val := reflect.ValueOf(value)
+	if !val.IsValid() {
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: ""}
+	}
+
 	switch val.Kind() {
 	case reflect.Map:
 		mapRefs := make([]ReferenceTreeItem, 0, val.Len())
@@ -399,10 +403,18 @@ func NewReferenceFromInterface(value any, key ReferenceKey) ReferenceTreeItem {
 	case reflect.Int, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.Bool:
 		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
 	case reflect.Ptr:
+		if val.IsNil() {
+			return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: ""}
+		}
 		return NewReferenceFromInterface(val.Elem().Interface(), key)
 	case reflect.Int8:
 		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: fmt.Sprintf("%v", val.Interface())}
+	case reflect.Interface:
+		if val.IsNil() {
+			return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: ""}
+		}
+		return NewReferenceFromInterface(val.Elem().Interface(), key)
 	default:
-		return ReferenceTreeItem{}
+		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_VALUE, Value: ""}
 	}
 }

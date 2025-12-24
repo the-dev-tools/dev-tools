@@ -347,7 +347,11 @@ func addPathsWithValues(currentPath string, value any, lookupMap map[string]stri
 			}
 		}
 	default:
-		strValue = fmt.Sprint(v)
+		if !v.IsValid() {
+			strValue = ""
+		} else {
+			strValue = fmt.Sprint(v)
+		}
 	}
 	lookupMap[currentPath] = strValue
 }
