@@ -336,11 +336,16 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
     ).data ?? create(NodeSchema);
 
   const { data: executions } = useLiveQuery(
-    (_) =>
-      _.from({ item: executionCollection })
+    (_) => {
+      const item = _.from({ item: executionCollection })
         .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'nodeExecutionId', 'name'))
-        .orderBy((_) => _.item.nodeExecutionId, 'desc'),
+        .fn.select((_) => ({
+          ...pick(_.item, 'nodeExecutionId', 'name'),
+          order: Ulid.construct(_.item.nodeExecutionId).time,
+        }));
+
+      return _.from({ item }).orderBy((_) => _.item.order, 'desc');
+    },
     [executionCollection, nodeId],
   );
 
