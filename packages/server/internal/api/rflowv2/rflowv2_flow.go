@@ -238,6 +238,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 	nsWriter := sflow.NewNodeWriter(tx)
 
 	var createdFlows []mflow.Flow
+	var createdStartNodes []mflow.Node
 
 	for _, item := range req.Msg.GetItems() {
 		workspaceID, _ := idwrap.NewFromBytes(item.GetWorkspaceId())
@@ -274,6 +275,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		}
 
 		createdFlows = append(createdFlows, flow)
+		createdStartNodes = append(createdStartNodes, startNode)
 		workspace.FlowCount++
 	}
 
@@ -293,8 +295,9 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 	for _, flow := range createdFlows {
 		// Re-fetch to get any auto-populated fields if needed, or just use what we have
 		s.publishFlowEvent(flowEventInsert, flow)
-		// We skipped seeding sync events for start node in TX for brevity,
-		// but ideally we should notify about it too.
+	}
+	for _, node := range createdStartNodes {
+		s.publishNodeEvent(nodeEventInsert, node)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
