@@ -363,7 +363,80 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	deduplicatedHttpIDs := make(map[idwrap.IDWrap]bool)
 	deduplicatedFileIDs := make(map[idwrap.IDWrap]bool)
 
-	// 1. Resolve Files
+	// 1. Resolve HTTP Requests FIRST
+	// This is critical: we need the HTTP ID mapping before resolving files,
+	// so that file ContentIDs can be updated to point to deduplicated HTTP IDs.
+	if len(results.HTTPRequests) > 0 {
+		for i := range results.HTTPRequests {
+			req := &results.HTTPRequests[i]
+			oldID := req.ID
+
+			var parentContentHash string
+			if req.ParentHttpID != nil {
+				if newParentID, ok := httpIDMap[*req.ParentHttpID]; ok {
+					parentContentHash = httpContentHashMap[*req.ParentHttpID]
+					req.ParentHttpID = &newParentID
+				}
+			}
+
+			var reqHeaders []mhttp.HTTPHeader
+			for _, h := range results.Headers {
+				if h.HttpID == oldID {
+					reqHeaders = append(reqHeaders, h)
+				}
+			}
+			var reqParams []mhttp.HTTPSearchParam
+			for _, p := range results.SearchParams {
+				if p.HttpID == oldID {
+					reqParams = append(reqParams, p)
+				}
+			}
+			var reqBodyRaw *mhttp.HTTPBodyRaw
+			for _, r := range results.BodyRaw {
+				if r.HttpID == oldID {
+					reqBodyRaw = &r
+					break
+				}
+			}
+			var reqBodyForms []mhttp.HTTPBodyForm
+			for _, f := range results.BodyForms {
+				if f.HttpID == oldID {
+					reqBodyForms = append(reqBodyForms, f)
+				}
+			}
+			var reqBodyUrlEncoded []mhttp.HTTPBodyUrlencoded
+			for _, u := range results.BodyUrlencoded {
+				if u.HttpID == oldID {
+					reqBodyUrlEncoded = append(reqBodyUrlEncoded, u)
+				}
+			}
+
+			newID, isNew, contentHash, err := txDedup.ResolveHTTP(ctx, req, reqHeaders, reqParams, reqBodyRaw, reqBodyForms, reqBodyUrlEncoded, parentContentHash)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to resolve HTTP request %s: %w", req.Name, err)
+			}
+
+			req.ID = newID
+			httpIDMap[oldID] = newID
+			httpContentHashMap[oldID] = contentHash
+			if !isNew {
+				deduplicatedHttpIDs[newID] = true
+			}
+		}
+	}
+
+	// 2. Update File ContentIDs BEFORE resolving files
+	// This ensures files are created/deduplicated with the correct HTTP reference.
+	for i := range results.Files {
+		file := &results.Files[i]
+		if file.ContentID != nil {
+			if newID, ok := httpIDMap[*file.ContentID]; ok {
+				file.ContentID = &newID
+			}
+		}
+	}
+
+	// 3. Resolve Files (now with correct ContentIDs)
 	if len(results.Files) > 0 {
 		// Build full paths for all files recursively to ensure correct deduplication
 		filesMap := make(map[idwrap.IDWrap]*mfile.File)
@@ -434,73 +507,17 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		}
 	}
 
-	// 2. Resolve HTTP Requests
-	if len(results.HTTPRequests) > 0 {
-		for i := range results.HTTPRequests {
-			req := &results.HTTPRequests[i]
-			oldID := req.ID
-
-			if req.FolderID != nil {
-				if newFolderID, ok := fileIDMap[*req.FolderID]; ok {
-					req.FolderID = &newFolderID
-				}
-			}
-
-			var parentContentHash string
-			if req.ParentHttpID != nil {
-				if newParentID, ok := httpIDMap[*req.ParentHttpID]; ok {
-					parentContentHash = httpContentHashMap[*req.ParentHttpID]
-					req.ParentHttpID = &newParentID
-				}
-			}
-
-			var reqHeaders []mhttp.HTTPHeader
-			for _, h := range results.Headers {
-				if h.HttpID == oldID {
-					reqHeaders = append(reqHeaders, h)
-				}
-			}
-			var reqParams []mhttp.HTTPSearchParam
-			for _, p := range results.SearchParams {
-				if p.HttpID == oldID {
-					reqParams = append(reqParams, p)
-				}
-			}
-			var reqBodyRaw *mhttp.HTTPBodyRaw
-			for _, r := range results.BodyRaw {
-				if r.HttpID == oldID {
-					reqBodyRaw = &r
-					break
-				}
-			}
-			var reqBodyForms []mhttp.HTTPBodyForm
-			for _, f := range results.BodyForms {
-				if f.HttpID == oldID {
-					reqBodyForms = append(reqBodyForms, f)
-				}
-			}
-			var reqBodyUrlEncoded []mhttp.HTTPBodyUrlencoded
-			for _, u := range results.BodyUrlencoded {
-				if u.HttpID == oldID {
-					reqBodyUrlEncoded = append(reqBodyUrlEncoded, u)
-				}
-			}
-
-			newID, isNew, contentHash, err := txDedup.ResolveHTTP(ctx, req, reqHeaders, reqParams, reqBodyRaw, reqBodyForms, reqBodyUrlEncoded, parentContentHash)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to resolve HTTP request %s: %w", req.Name, err)
-			}
-
-			req.ID = newID
-			httpIDMap[oldID] = newID
-			httpContentHashMap[oldID] = contentHash
-			if !isNew {
-				deduplicatedHttpIDs[newID] = true
+	// 4. Update HTTP FolderIDs to point to resolved file IDs
+	for i := range results.HTTPRequests {
+		req := &results.HTTPRequests[i]
+		if req.FolderID != nil {
+			if newFolderID, ok := fileIDMap[*req.FolderID]; ok {
+				req.FolderID = &newFolderID
 			}
 		}
 	}
 
-	// 3. Update IDs in Child Entities and Store
+	// 5. Update IDs in Child Entities and Store
 	for i := range results.Headers {
 		if newID, ok := httpIDMap[results.Headers[i].HttpID]; ok {
 			results.Headers[i].HttpID = newID

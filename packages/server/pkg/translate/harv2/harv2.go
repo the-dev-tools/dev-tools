@@ -304,6 +304,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 	fileMap := make(map[string]mfile.File)
 	folderMap := make(map[string]idwrap.IDWrap)
 	folderFileMap := make(map[string]mfile.File)
+	usedPaths := make(map[string]idwrap.IDWrap) // map[fullPath]contentID to avoid collisions
 
 	// Layout parameters
 	const nodeSpacingX = 300
@@ -400,20 +401,40 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		}
 
 		// File System
-		file, _, err := createFileStructure(baseReq, workspaceID, folderMap, folderFileMap)
+		file, folderPath, err := createFileStructure(baseReq, workspaceID, folderMap, folderFileMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
 		}
+
+		// Ensure unique name for base request if content is different
+		fullPath := folderPath + "/" + file.Name
+		if val, ok := usedPaths[fullPath]; ok && val != baseReq.ID {
+			suffix := 1
+			originalName := file.Name
+			for {
+				ext := path.Ext(originalName)
+				base := strings.TrimSuffix(originalName, ext)
+				newName := fmt.Sprintf("%s (%d)%s", base, suffix, ext)
+				if v, ok := usedPaths[folderPath+"/"+newName]; !ok || v == baseReq.ID {
+					file.Name = newName
+					fullPath = folderPath + "/" + newName
+					break
+				}
+				suffix++
+			}
+		}
+		usedPaths[fullPath] = baseReq.ID
 		fileMap[baseReq.ID.String()] = *file
 
 		// Create File for Delta
+		deltaName := fmt.Sprintf("%s (Delta %d)", baseReq.Name, nodeCounter)
 		deltaFile := mfile.File{
 			ID:          deltaReq.ID,
 			WorkspaceID: workspaceID,
 			ParentID:    &file.ID,
 			ContentID:   &deltaReq.ID,
 			ContentType: mfile.ContentTypeHTTPDelta,
-			Name:        deltaReq.Name,
+			Name:        deltaName,
 			Order:       file.Order,
 			UpdatedAt:   time.Now(),
 		}
@@ -545,6 +566,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 	fileMap := make(map[string]mfile.File)
 	folderMap := make(map[string]idwrap.IDWrap)
 	folderFileMap := make(map[string]mfile.File)
+	usedPaths := make(map[string]idwrap.IDWrap) // map[fullPath]contentID
 
 	// Layout parameters
 	const nodeSpacingX = 300
@@ -753,20 +775,40 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		result.RequestNodes = append(result.RequestNodes, reqNode)
 
 		// File System
-		file, _, err := createFileStructure(baseRequest, workspaceID, folderMap, folderFileMap)
+		file, folderPath, err := createFileStructure(baseRequest, workspaceID, folderMap, folderFileMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
 		}
+
+		// Ensure unique name for base request if content is different
+		fullPath := folderPath + "/" + file.Name
+		if val, ok := usedPaths[fullPath]; ok && val != baseRequest.ID {
+			suffix := 1
+			originalName := file.Name
+			for {
+				ext := path.Ext(originalName)
+				base := strings.TrimSuffix(originalName, ext)
+				newName := fmt.Sprintf("%s (%d)%s", base, suffix, ext)
+				if v, ok := usedPaths[folderPath+"/"+newName]; !ok || v == baseRequest.ID {
+					file.Name = newName
+					fullPath = folderPath + "/" + newName
+					break
+				}
+				suffix++
+			}
+		}
+		usedPaths[fullPath] = baseRequest.ID
 		fileMap[baseRequest.ID.String()] = *file
 
 		// Create File for Delta
+		deltaName := fmt.Sprintf("%s (Delta %d)", baseRequest.Name, nodeCounter)
 		deltaFile := mfile.File{
 			ID:          deltaReq.ID,
 			WorkspaceID: workspaceID,
 			ParentID:    &file.ID,
 			ContentID:   &deltaReq.ID,
 			ContentType: mfile.ContentTypeHTTPDelta,
-			Name:        deltaReq.Name,
+			Name:        deltaName,
 			Order:       file.Order,
 			UpdatedAt:   time.Now(),
 		}
