@@ -1037,7 +1037,7 @@ func sanitizeFileName(name string) string {
 // Sequential nodes flow left-to-right, parallel nodes are stacked vertically.
 func ReorganizeNodePositions(result *HarResolved) error {
 	const (
-		nodeSpacingX = 200 // Horizontal spacing between sequential levels
+		nodeSpacingX = 300 // Horizontal spacing between sequential levels
 		nodeSpacingY = 150 // Vertical spacing between parallel nodes
 		startX       = 0   // Starting X position
 		startY       = 0   // Starting Y position
