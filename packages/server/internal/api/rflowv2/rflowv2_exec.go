@@ -274,6 +274,13 @@ func (s *FlowServiceV2RPC) executeFlow(
 		s.edgeStream.Publish(EdgeTopic{FlowID: flow.ID}, edgeResetEvents...)
 	}
 
+	// Build nodeKindMap for O(1) lookup of node kinds
+	// Used to skip NodeExecution creation for loop coordinator wrapper statuses
+	nodeKindMap := make(map[idwrap.IDWrap]mflow.NodeKind, len(nodes))
+	for _, node := range nodes {
+		nodeKindMap[node.ID] = node.NodeKind
+	}
+
 	nodeStateChan := make(chan runner.FlowNodeStatus, len(nodes)*2+1)
 	var stateDrain sync.WaitGroup
 	stateDrain.Add(1)
@@ -285,75 +292,107 @@ func (s *FlowServiceV2RPC) executeFlow(
 		executionCache := make(map[string]idwrap.IDWrap)
 
 		for status := range nodeStateChan {
-			// Persist execution state
-			execID := status.ExecutionID
-			isNewExecution := false
+			// Check if this is a loop coordinator (For/ForEach) wrapper status
+			// Skip NodeExecution creation for these, but still update node visual state
+			nodeKind := nodeKindMap[status.NodeID]
+			isLoopNode := nodeKind == mflow.NODE_KIND_FOR || nodeKind == mflow.NODE_KIND_FOR_EACH
+			skipExecution := isLoopNode && !status.IterationEvent
 
-			if isZeroID(execID) {
-				// Construct cache key based on node and iteration context
-				cacheKey := status.NodeID.String()
-				if status.IterationContext != nil {
-					// Use iteration path and index for uniqueness in loops
-					cacheKey = fmt.Sprintf("%s:%v:%d", cacheKey, status.IterationContext.IterationPath, status.IterationContext.ExecutionIndex)
-				} else if status.IterationIndex >= 0 {
-					cacheKey = fmt.Sprintf("%s:%d", cacheKey, status.IterationIndex)
+			// Persist execution state (skip for loop node wrapper statuses)
+			if !skipExecution {
+				execID := status.ExecutionID
+				isNewExecution := false
+
+				if isZeroID(execID) {
+					// Construct cache key based on node and iteration context
+					cacheKey := status.NodeID.String()
+					if status.IterationContext != nil {
+						// Use iteration path and index for uniqueness in loops
+						cacheKey = fmt.Sprintf("%s:%v:%d", cacheKey, status.IterationContext.IterationPath, status.IterationContext.ExecutionIndex)
+					} else if status.IterationIndex >= 0 {
+						cacheKey = fmt.Sprintf("%s:%d", cacheKey, status.IterationIndex)
+					}
+
+					if cachedID, ok := executionCache[cacheKey]; ok {
+						execID = cachedID
+					} else {
+						execID = idwrap.NewNow()
+						executionCache[cacheKey] = execID
+						isNewExecution = true
+					}
 				}
 
-				if cachedID, ok := executionCache[cacheKey]; ok {
-					execID = cachedID
-				} else {
-					execID = idwrap.NewNow()
-					executionCache[cacheKey] = execID
-					isNewExecution = true
+				// Include timestamp in execution name for easy identification
+				executionName := fmt.Sprintf("%s - %s", status.Name, time.Now().Format("2006-01-02 15:04"))
+				model := mflow.NodeExecution{
+					ID:         execID,
+					NodeID:     status.NodeID,
+					Name:       executionName,
+					State:      status.State,
+					ResponseID: status.AuxiliaryID,
 				}
-			}
 
-			// Include timestamp in execution name for easy identification
-			executionName := fmt.Sprintf("%s - %s", status.Name, time.Now().Format("2006-01-02 15:04"))
-			model := mflow.NodeExecution{
-				ID:         execID,
-				NodeID:     status.NodeID,
-				Name:       executionName,
-				State:      status.State,
-				ResponseID: status.AuxiliaryID,
-			}
-
-			if status.Error != nil {
-				errStr := status.Error.Error()
-				model.Error = &errStr
-			}
-
-			if status.InputData != nil {
-				if b, err := json.Marshal(status.InputData); err == nil {
-					_ = model.SetInputJSON(b)
+				if status.Error != nil {
+					errStr := status.Error.Error()
+					model.Error = &errStr
 				}
-			}
-			if status.OutputData != nil {
-				if b, err := json.Marshal(status.OutputData); err == nil {
-					_ = model.SetOutputJSON(b)
+
+				if status.InputData != nil {
+					if b, err := json.Marshal(status.InputData); err == nil {
+						_ = model.SetInputJSON(b)
+					}
 				}
-			}
+				if status.OutputData != nil {
+					if b, err := json.Marshal(status.OutputData); err == nil {
+						_ = model.SetOutputJSON(b)
+					}
+				}
 
-			// Set CompletedAt for terminal states
-			if status.State == mflow.NODE_STATE_SUCCESS ||
-				status.State == mflow.NODE_STATE_FAILURE ||
-				status.State == mflow.NODE_STATE_CANCELED {
-				now := time.Now().Unix()
-				model.CompletedAt = &now
-			}
+				// Set CompletedAt for terminal states
+				if status.State == mflow.NODE_STATE_SUCCESS ||
+					status.State == mflow.NODE_STATE_FAILURE ||
+					status.State == mflow.NODE_STATE_CANCELED {
+					now := time.Now().Unix()
+					model.CompletedAt = &now
+				}
 
-			eventType := executionEventInsert
-			// Only use UPDATE if it's NOT a new execution AND the state is terminal.
-			// If it's a new execution (first time seeing this node run), we MUST send INSERT,
-			// even if the state is already SUCCESS/FAILURE (instant execution).
-			if !isNewExecution && (status.State == mflow.NODE_STATE_SUCCESS ||
-				status.State == mflow.NODE_STATE_FAILURE ||
-				status.State == mflow.NODE_STATE_CANCELED) {
-				eventType = executionEventUpdate
-			}
+				eventType := executionEventInsert
+				// Only use UPDATE if it's NOT a new execution AND the state is terminal.
+				// If it's a new execution (first time seeing this node run), we MUST send INSERT,
+				// even if the state is already SUCCESS/FAILURE (instant execution).
+				if !isNewExecution && (status.State == mflow.NODE_STATE_SUCCESS ||
+					status.State == mflow.NODE_STATE_FAILURE ||
+					status.State == mflow.NODE_STATE_CANCELED) {
+					eventType = executionEventUpdate
+				}
 
-			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
-				s.logger.Error("failed to persist node execution", "error", err)
+				if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
+					s.logger.Error("failed to persist node execution", "error", err)
+				}
+
+				// If this execution has a ResponseID, wait for the response to be published first
+				// This ensures frontend receives HttpResponse before NodeExecution
+				if status.AuxiliaryID != nil {
+					respIDStr := status.AuxiliaryID.String()
+					responsePublishedMu.Lock()
+					publishedChan, ok := responsePublished[respIDStr]
+					responsePublishedMu.Unlock()
+					if ok {
+						select {
+						case <-publishedChan:
+							// Response published, safe to continue
+						case <-ctx.Done():
+							// Context cancelled, continue anyway
+						}
+						// Clean up map entry to prevent memory leak
+						responsePublishedMu.Lock()
+						delete(responsePublished, respIDStr)
+						responsePublishedMu.Unlock()
+					}
+				}
+
+				// Publish execution event
+				s.publishExecutionEvent(eventType, model, flow.ID)
 			}
 
 			// Update node state in database
@@ -380,30 +419,6 @@ func (s *FlowServiceV2RPC) executeFlow(
 					}
 				}
 			}
-
-			// If this execution has a ResponseID, wait for the response to be published first
-			// This ensures frontend receives HttpResponse before NodeExecution
-			if status.AuxiliaryID != nil {
-				respIDStr := status.AuxiliaryID.String()
-				responsePublishedMu.Lock()
-				publishedChan, ok := responsePublished[respIDStr]
-				responsePublishedMu.Unlock()
-				if ok {
-					select {
-					case <-publishedChan:
-						// Response published, safe to continue
-					case <-ctx.Done():
-						// Context cancelled, continue anyway
-					}
-					// Clean up map entry to prevent memory leak
-					responsePublishedMu.Lock()
-					delete(responsePublished, respIDStr)
-					responsePublishedMu.Unlock()
-				}
-			}
-
-			// Publish execution event for original node
-			s.publishExecutionEvent(eventType, model, flow.ID)
 
 			// Note: Version node executions are no longer created here.
 			// Executions are moved from parent nodes to version nodes at the start of the next run.
@@ -637,9 +652,9 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			// Always create For node config with defaults, override with actual data if available
 			newForData := mflow.NodeFor{
 				FlowNodeID:    newNodeID,
-				IterCount:     1,                                          // default
-				Condition:     mcondition.Condition{},                     // default empty
-				ErrorHandling: mflow.ErrorHandling_ERROR_HANDLING_BREAK,   // default
+				IterCount:     1,                                        // default
+				Condition:     mcondition.Condition{},                   // default empty
+				ErrorHandling: mflow.ErrorHandling_ERROR_HANDLING_BREAK, // default
 			}
 			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
 			if err != nil {
@@ -665,9 +680,9 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			// Always create ForEach node config with defaults, override with actual data if available
 			newForEachData := mflow.NodeForEach{
 				FlowNodeID:     newNodeID,
-				IterExpression: "",                                        // default empty
-				Condition:      mcondition.Condition{},                    // default empty
-				ErrorHandling:  mflow.ErrorHandling_ERROR_HANDLING_BREAK,  // default
+				IterExpression: "",                                       // default empty
+				Condition:      mcondition.Condition{},                   // default empty
+				ErrorHandling:  mflow.ErrorHandling_ERROR_HANDLING_BREAK, // default
 			}
 			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
 			if err != nil {
