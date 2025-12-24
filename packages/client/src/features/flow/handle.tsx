@@ -15,8 +15,8 @@ interface HandleProps extends Omit<XF.HandleProps, 'children' | 'className' | 'i
   nodeId: Uint8Array;
 }
 
-export const Handle = (props: HandleProps) => {
-  const { kind = HandleKind.UNSPECIFIED, nodeId, position, type } = props;
+export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }: HandleProps) => {
+  const { position, type } = handleProps;
   const { setSidebar } = use(FlowContext);
   const { screenToFlowPosition } = XF.useReactFlow();
 
@@ -117,7 +117,7 @@ export const Handle = (props: HandleProps) => {
         </div>
       )}
 
-      <XF.Handle className={tw`absolute size-0 min-h-0 min-w-0 border-none bg-transparent`} id={id} {...props}>
+      <XF.Handle className={tw`absolute size-0 min-h-0 min-w-0 border-none bg-transparent`} id={id} {...handleProps}>
         <div className={tw`size-10 -translate-1/2 rounded-full`}>
           <div
             className={twJoin(
