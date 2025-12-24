@@ -1948,7 +1948,7 @@ func (q *Queries) GetTagsByWorkspaceID(ctx context.Context, workspaceID idwrap.I
 const listNodeExecutions = `-- name: ListNodeExecutions :many
 SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
 WHERE node_id = ?
-ORDER BY completed_at DESC
+ORDER BY completed_at DESC, id DESC
 LIMIT ? OFFSET ?
 `
 
@@ -1997,7 +1997,7 @@ const listNodeExecutionsByFlowRun = `-- name: ListNodeExecutionsByFlowRun :many
 SELECT ne.id, ne.node_id, ne.name, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.http_response_id, ne.completed_at FROM node_execution ne
 JOIN flow_node fn ON ne.node_id = fn.id
 WHERE fn.flow_id = ?
-ORDER BY ne.completed_at DESC
+ORDER BY ne.completed_at DESC, ne.id DESC
 `
 
 func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap.IDWrap) ([]NodeExecution, error) {
@@ -2038,7 +2038,7 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 const listNodeExecutionsByState = `-- name: ListNodeExecutionsByState :many
 SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
 WHERE node_id = ? AND state = ?
-ORDER BY completed_at DESC
+ORDER BY completed_at DESC, id DESC
 LIMIT ? OFFSET ?
 `
 

@@ -589,20 +589,20 @@ WHERE id = ?;
 -- name: ListNodeExecutions :many
 SELECT * FROM node_execution
 WHERE node_id = ?
-ORDER BY completed_at DESC
+ORDER BY completed_at DESC, id DESC
 LIMIT ? OFFSET ?;
 
 -- name: ListNodeExecutionsByState :many
 SELECT * FROM node_execution
 WHERE node_id = ? AND state = ?
-ORDER BY completed_at DESC
+ORDER BY completed_at DESC, id DESC
 LIMIT ? OFFSET ?;
 
 -- name: ListNodeExecutionsByFlowRun :many
 SELECT ne.* FROM node_execution ne
 JOIN flow_node fn ON ne.node_id = fn.id
 WHERE fn.flow_id = ?
-ORDER BY ne.completed_at DESC;
+ORDER BY ne.completed_at DESC, ne.id DESC;
 
 -- name: CreateNodeExecution :one
 INSERT INTO node_execution (
