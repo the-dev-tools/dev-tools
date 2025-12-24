@@ -311,9 +311,9 @@ func forEventToSyncResponse(evt ForEvent) *flowv1.NodeForSyncResponse {
 		update := &flowv1.NodeForSyncUpdate{
 			NodeId: node.GetNodeId(),
 		}
-		if iterations := node.GetIterations(); iterations != 0 {
-			update.Iterations = &iterations
-		}
+		// Always include iterations - zero is a valid value
+		iterations := node.GetIterations()
+		update.Iterations = &iterations
 		if condition := node.GetCondition(); condition != "" {
 			update.Condition = &condition
 		}
