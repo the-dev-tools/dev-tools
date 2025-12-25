@@ -120,7 +120,7 @@ func TestLogSync(t *testing.T) {
 		t.Logf("Received message successfully")
 	case err := <-errCh:
 		t.Fatalf("unexpected error: %v", err)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(1 * time.Second): // Wait longer than the 500ms batch timeout
 		t.Fatal("timeout waiting for log message")
 	}
 
@@ -153,6 +153,84 @@ func TestLogSync(t *testing.T) {
 
 	cancel() // Stop the stream
 	<-errCh  // Wait for goroutine to finish
+}
+
+func TestLogSyncBatching(t *testing.T) {
+	t.Parallel()
+
+	streamer := memory.NewInMemorySyncStreamer[LogTopic, LogEvent]()
+	defer streamer.Shutdown()
+
+	service := New(streamer)
+
+	userID := idwrap.NewNow()
+	baseCtx := mwauth.CreateAuthedContext(context.Background(), userID)
+	ctx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.LogSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	// Start the sync in a goroutine
+	go func() {
+		err := service.streamLogSync(ctx, userID, func(resp *apiv1.LogSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	// Give the subscriber time to set up
+	time.Sleep(50 * time.Millisecond)
+
+	// Publish 105 log events
+	// The first 100 should trigger an immediate flush
+	// The remaining 5 should flush after ~500ms
+	topic := LogTopic{UserID: userID}
+	for i := 0; i < 105; i++ {
+		logID := idwrap.NewNow()
+		testLog := &apiv1.Log{
+			LogId: logID.Bytes(),
+			Name:  "test-log",
+			Level: apiv1.LogLevel_LOG_LEVEL_WARNING,
+			Value: structpb.NewStringValue("test message"),
+		}
+		event := LogEvent{
+			Type: EventTypeInsert,
+			Log:  testLog,
+		}
+		streamer.Publish(topic, event)
+	}
+
+	// 1. Expect the first batch of 100 immediately
+	select {
+	case msg := <-msgCh:
+		if len(msg.Items) != 100 {
+			t.Fatalf("expected 100 items in first batch, got %d", len(msg.Items))
+		}
+		t.Logf("Received first batch of %d items", len(msg.Items))
+	case err := <-errCh:
+		t.Fatalf("unexpected error: %v", err)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timeout waiting for first batch (should be immediate)")
+	}
+
+	// 2. Expect the second batch of 5 after the timeout (approx 500ms)
+	select {
+	case msg := <-msgCh:
+		if len(msg.Items) != 5 {
+			t.Fatalf("expected 5 items in second batch, got %d", len(msg.Items))
+		}
+		t.Logf("Received second batch of %d items", len(msg.Items))
+	case err := <-errCh:
+		t.Fatalf("unexpected error: %v", err)
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for second batch")
+	}
+
+	cancel()
+	<-errCh
 }
 
 func TestNewLogValue(t *testing.T) {

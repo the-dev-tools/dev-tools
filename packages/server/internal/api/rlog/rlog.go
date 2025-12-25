@@ -4,6 +4,7 @@ package rlog
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -90,14 +91,14 @@ func CreateService(srv LogServiceRPC, options []connect.HandlerOption) (*api.Ser
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
+func logSyncFrom(evt LogEvent) *apiv1.LogSync {
 	if evt.Log == nil {
 		return nil
 	}
 
 	switch evt.Type {
 	case EventTypeInsert:
-		msg := &apiv1.LogSync{
+		return &apiv1.LogSync{
 			Value: &apiv1.LogSync_ValueUnion{
 				Kind: apiv1.LogSync_ValueUnion_KIND_INSERT,
 				Insert: &apiv1.LogSyncInsert{
@@ -108,7 +109,6 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 				},
 			},
 		}
-		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
 	case EventTypeUpdate:
 		update := &apiv1.LogSyncUpdate{
 			LogId: evt.Log.LogId,
@@ -125,15 +125,14 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 				Value: evt.Log.Value,
 			}
 		}
-		msg := &apiv1.LogSync{
+		return &apiv1.LogSync{
 			Value: &apiv1.LogSync_ValueUnion{
 				Kind:   apiv1.LogSync_ValueUnion_KIND_UPDATE,
 				Update: update,
 			},
 		}
-		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
 	case EventTypeDelete:
-		msg := &apiv1.LogSync{
+		return &apiv1.LogSync{
 			Value: &apiv1.LogSync_ValueUnion{
 				Kind: apiv1.LogSync_ValueUnion_KIND_DELETE,
 				Delete: &apiv1.LogSyncDelete{
@@ -141,7 +140,6 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 				},
 			},
 		}
-		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
 	default:
 		return nil
 	}
@@ -184,17 +182,43 @@ func (c *LogServiceRPC) streamLogSync(ctx context.Context, userID idwrap.IDWrap,
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
+	const (
+		batchSize    = 100
+		batchTimeout = 500 * time.Millisecond
+	)
+
+	buffer := make([]*apiv1.LogSync, 0, batchSize)
+	ticker := time.NewTicker(batchTimeout)
+	defer ticker.Stop()
+
+	flush := func() error {
+		if len(buffer) == 0 {
+			return nil
+		}
+		if err := send(&apiv1.LogSyncResponse{Items: buffer}); err != nil {
+			return err
+		}
+		buffer = make([]*apiv1.LogSync, 0, batchSize)
+		return nil
+	}
+
 	for {
 		select {
 		case evt, ok := <-events:
 			if !ok {
-				return nil
+				return flush()
 			}
-			resp := logSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
+			if item := logSyncFrom(evt.Payload); item != nil {
+				buffer = append(buffer, item)
+				if len(buffer) >= batchSize {
+					if err := flush(); err != nil {
+						return err
+					}
+					ticker.Reset(batchTimeout)
+				}
 			}
-			if err := send(resp); err != nil {
+		case <-ticker.C:
+			if err := flush(); err != nil {
 				return err
 			}
 		case <-ctx.Done():
