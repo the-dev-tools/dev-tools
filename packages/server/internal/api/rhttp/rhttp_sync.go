@@ -25,10 +25,11 @@ func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 }
 
 // publishUpdateEvent publishes an update event for real-time sync
-func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP) {
+func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP, patch DeltaPatch) {
 	h.streamers.Http.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
 		Type:    eventTypeUpdate,
 		IsDelta: http.IsDelta,
+		Patch:   patch,
 		Http:    converter.ToAPIHttp(http),
 	})
 }

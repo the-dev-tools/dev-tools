@@ -192,41 +192,50 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 		deltaEnabled *bool
 		deltaOrder   *float32
 	}
+	var patches []DeltaPatch
 
 	for _, data := range updateData {
 		item := data.item
 		var deltaValue *string
 		var deltaEnabled *bool
 		var deltaOrder *float32
+		patch := make(DeltaPatch)
 
 		if item.Value != nil {
 			switch item.Value.GetKind() {
 			case apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
+				patch["value"] = nil
 			case apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_VALUE:
 				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
+				patch["value"] = &valueStr
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
 			case apiv1.HttpAssertDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
+				patch["enabled"] = nil
 			case apiv1.HttpAssertDeltaUpdate_EnabledUnion_KIND_VALUE:
 				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
+				patch["enabled"] = &enabledBool
 			}
 		}
 		if item.Order != nil {
 			switch item.Order.GetKind() {
 			case apiv1.HttpAssertDeltaUpdate_OrderUnion_KIND_UNSET:
 				deltaOrder = nil
+				patch["order"] = nil
 			case apiv1.HttpAssertDeltaUpdate_OrderUnion_KIND_VALUE:
 				orderFloat := item.Order.GetValue()
 				deltaOrder = &orderFloat
+				patch["order"] = &orderFloat
 			}
 		}
 
+		patches = append(patches, patch)
 		preparedUpdates = append(preparedUpdates, struct {
 			deltaID      idwrap.IDWrap
 			deltaValue   *string
@@ -268,7 +277,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 	}
 
 	// Publish update events for real-time sync after successful commit
-	for _, assert := range updatedAsserts {
+	for i, assert := range updatedAsserts {
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, assert.HttpID)
 		if err != nil {
@@ -277,6 +286,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeUpdate,
 			IsDelta:    assert.IsDelta,
+			Patch:      patches[i],
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}

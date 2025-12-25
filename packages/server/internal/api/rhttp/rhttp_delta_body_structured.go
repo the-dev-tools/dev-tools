@@ -200,59 +200,72 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 		deltaDescription *string
 		deltaOrder       *float32
 	}
+	var patches []DeltaPatch
 
 	for _, data := range updateData {
 		item := data.item
 		var deltaKey, deltaValue, deltaDescription *string
 		var deltaEnabled *bool
 		var deltaOrder *float32
+		patch := make(DeltaPatch)
 
 		if item.Key != nil {
 			switch item.Key.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_UNSET:
 				deltaKey = nil
+				patch["key"] = nil
 			case apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_VALUE:
 				keyStr := item.Key.GetValue()
 				deltaKey = &keyStr
+				patch["key"] = &keyStr
 			}
 		}
 		if item.Value != nil {
 			switch item.Value.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
+				patch["value"] = nil
 			case apiv1.HttpBodyFormDataDeltaUpdate_ValueUnion_KIND_VALUE:
 				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
+				patch["value"] = &valueStr
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
+				patch["enabled"] = nil
 			case apiv1.HttpBodyFormDataDeltaUpdate_EnabledUnion_KIND_VALUE:
 				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
+				patch["enabled"] = &enabledBool
 			}
 		}
 		if item.Description != nil {
 			switch item.Description.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_DescriptionUnion_KIND_UNSET:
 				deltaDescription = nil
+				patch["description"] = nil
 			case apiv1.HttpBodyFormDataDeltaUpdate_DescriptionUnion_KIND_VALUE:
 				descStr := item.Description.GetValue()
 				deltaDescription = &descStr
+				patch["description"] = &descStr
 			}
 		}
 		if item.Order != nil {
 			switch item.Order.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_OrderUnion_KIND_UNSET:
 				deltaOrder = nil
+				patch["order"] = nil
 			case apiv1.HttpBodyFormDataDeltaUpdate_OrderUnion_KIND_VALUE:
 				orderVal := item.Order.GetValue()
 				deltaOrder = &orderVal
+				patch["order"] = &orderVal
 			}
 		}
 
+		patches = append(patches, patch)
 		preparedUpdates = append(preparedUpdates, struct {
 			deltaID          idwrap.IDWrap
 			deltaKey         *string
@@ -298,7 +311,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 	}
 
 	// Publish update events for real-time sync after successful commit
-	for _, bodyForm := range updatedBodyForms {
+	for i, bodyForm := range updatedBodyForms {
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, bodyForm.HttpID)
 		if err != nil {
@@ -306,6 +319,8 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 		}
 		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeUpdate,
+			IsDelta:      true,
+			Patch:        patches[i],
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}

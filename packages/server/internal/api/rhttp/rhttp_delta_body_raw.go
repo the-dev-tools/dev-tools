@@ -15,6 +15,7 @@ import (
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	globalv1 "the-dev-tools/spec/dist/buf/go/global/v1"
 )
 
 // streamHttpBodyUrlEncodedSync streams HTTP body URL encoded events to the client
@@ -164,13 +165,17 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 
 		// Prepare update
 		var deltaData []byte
+		patch := make(DeltaPatch)
 
 		if item.Data != nil {
 			switch item.Data.GetKind() {
 			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_UNSET:
 				deltaData = nil
+				patch["data"] = nil
 			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_VALUE:
-				deltaData = []byte(item.Data.GetValue())
+				strVal := item.Data.GetValue()
+				deltaData = []byte(strVal)
+				patch["data"] = &strVal
 			}
 		}
 
@@ -183,6 +188,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
 			Type:        eventTypeUpdate,
 			IsDelta:     true,
+			Patch:       patch,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*updatedBody),
 		})
 	}
@@ -299,20 +305,40 @@ func (h *HttpServiceRPC) streamHttpBodyRawDeltaSync(ctx context.Context, userID 
 					},
 				}
 			case eventTypeUpdate:
-				data := evt.Payload.HttpBodyRaw.Data
 				syncItem = &apiv1.HttpBodyRawDeltaSync{
 					Value: &apiv1.HttpBodyRawDeltaSync_ValueUnion{
 						Kind: apiv1.HttpBodyRawDeltaSync_ValueUnion_KIND_UPDATE,
 						Update: &apiv1.HttpBodyRawDeltaSyncUpdate{
 							DeltaHttpId: evt.Payload.HttpBodyRaw.HttpId,
 							HttpId:      evt.Payload.HttpBodyRaw.HttpId,
-							Data: &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
-								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_VALUE,
-								Value: &data,
-							},
 						},
 					},
 				}
+
+				// Populate Data based on Patch if available, else Full State
+				if evt.Payload.Patch != nil {
+					if val, ok := evt.Payload.Patch["data"]; ok {
+						if strPtr, ok := val.(*string); ok && strPtr != nil {
+							syncItem.Value.Update.Data = &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
+								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_VALUE,
+								Value: strPtr,
+							}
+						} else {
+							syncItem.Value.Update.Data = &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
+								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_UNSET,
+								Unset: globalv1.Unset_UNSET.Enum(),
+							}
+						}
+					}
+				} else {
+					// Fallback to existing behavior (Always Value)
+					data := evt.Payload.HttpBodyRaw.Data
+					syncItem.Value.Update.Data = &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
+						Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_VALUE,
+						Value: &data,
+					}
+				}
+
 			case eventTypeDelete:
 				syncItem = &apiv1.HttpBodyRawDeltaSync{
 					Value: &apiv1.HttpBodyRawDeltaSync_ValueUnion{

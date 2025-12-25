@@ -503,42 +503,91 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 		if http.ParentHttpID != nil {
 			delta.HttpId = http.ParentHttpID.Bytes()
 		}
-		if http.DeltaName != nil {
-			nameStr := *http.DeltaName
-			delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
-				Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_VALUE,
-				Value: &nameStr,
+
+		if event.Patch != nil {
+			// Sparse Patch Mode
+			if val, ok := event.Patch["name"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["method"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					method := converter.ToAPIHttpMethod(*strPtr)
+					delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_VALUE,
+						Value: &method,
+					}
+				} else {
+					delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["url"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
 			}
 		} else {
-			delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
-				Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			// Full State Mode (Legacy/Fallback)
+			if http.DeltaName != nil {
+				nameStr := *http.DeltaName
+				delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
+					Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_VALUE,
+					Value: &nameStr,
+				}
+			} else {
+				delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
+					Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if http.DeltaMethod != nil {
+				method := converter.ToAPIHttpMethod(*http.DeltaMethod)
+				delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
+					Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_VALUE,
+					Value: &method,
+				}
+			} else {
+				delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
+					Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if http.DeltaUrl != nil {
+				urlStr := *http.DeltaUrl
+				delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
+					Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_VALUE,
+					Value: &urlStr,
+				}
+			} else {
+				delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
+					Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
 		}
-		if http.DeltaMethod != nil {
-			method := converter.ToAPIHttpMethod(*http.DeltaMethod)
-			delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
-				Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_VALUE,
-				Value: &method,
-			}
-		} else {
-			delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
-				Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if http.DeltaUrl != nil {
-			urlStr := *http.DeltaUrl
-			delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
-				Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_VALUE,
-				Value: &urlStr,
-			}
-		} else {
-			delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
-				Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
+
 		// Note: BodyKind delta not implemented yet
 		value = &apiv1.HttpDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpDeltaSync_ValueUnion_KIND_UPDATE,
@@ -721,66 +770,142 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			delta.HttpSearchParamId = param.ParentHttpSearchParamID.Bytes()
 		}
 		delta.HttpId = param.HttpID.Bytes()
-		if param.DeltaKey != nil {
-			keyStr := *param.DeltaKey
-			delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-				Value: &keyStr,
+
+		if event.Patch != nil {
+			// Sparse Patch Mode
+			if val, ok := event.Patch["key"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["value"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["enabled"]; ok {
+				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
+					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: boolPtr,
+					}
+				} else {
+					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["description"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["order"]; ok {
+				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
+					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: floatPtr,
+					}
+				} else {
+					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
 			}
 		} else {
-			delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			// Full State Mode (Legacy)
+			if param.DeltaKey != nil {
+				keyStr := *param.DeltaKey
+				delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+					Value: &keyStr,
+				}
+			} else {
+				delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if param.DeltaValue != nil {
+				valueStr := *param.DeltaValue
+				delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+					Value: &valueStr,
+				}
+			} else {
+				delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if param.DeltaEnabled != nil {
+				enabledBool := *param.DeltaEnabled
+				delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+					Value: &enabledBool,
+				}
+			} else {
+				delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if param.DeltaDescription != nil {
+				descStr := *param.DeltaDescription
+				delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+					Value: &descStr,
+				}
+			} else {
+				delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if param.DeltaDisplayOrder != nil {
+				orderFloat := float32(*param.DeltaDisplayOrder)
+				delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+					Value: &orderFloat,
+				}
+			} else {
+				delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
 		}
-		if param.DeltaValue != nil {
-			valueStr := *param.DeltaValue
-			delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-				Value: &valueStr,
-			}
-		} else {
-			delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if param.DeltaEnabled != nil {
-			enabledBool := *param.DeltaEnabled
-			delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-				Value: &enabledBool,
-			}
-		} else {
-			delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if param.DeltaDescription != nil {
-			descStr := *param.DeltaDescription
-			delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-				Value: &descStr,
-			}
-		} else {
-			delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if param.DeltaDisplayOrder != nil {
-			orderFloat := float32(*param.DeltaDisplayOrder)
-			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-				Value: &orderFloat,
-			}
-		} else {
-			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
+
 		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,
@@ -843,66 +968,142 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 			delta.HttpHeaderId = header.ParentHttpHeaderID.Bytes()
 		}
 		delta.HttpId = header.HttpID.Bytes()
-		if header.DeltaKey != nil {
-			keyStr := *header.DeltaKey
-			delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-				Value: &keyStr,
+
+		if event.Patch != nil {
+			// Sparse Patch Mode
+			if val, ok := event.Patch["key"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["value"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["enabled"]; ok {
+				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
+					delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: boolPtr,
+					}
+				} else {
+					delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["description"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["order"]; ok {
+				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
+					delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: floatPtr,
+					}
+				} else {
+					delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
 			}
 		} else {
-			delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			// Full State Mode (Legacy)
+			if header.DeltaKey != nil {
+				keyStr := *header.DeltaKey
+				delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+					Value: &keyStr,
+				}
+			} else {
+				delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if header.DeltaValue != nil {
+				valueStr := *header.DeltaValue
+				delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+					Value: &valueStr,
+				}
+			} else {
+				delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if header.DeltaEnabled != nil {
+				enabledBool := *header.DeltaEnabled
+				delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+					Value: &enabledBool,
+				}
+			} else {
+				delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if header.DeltaDescription != nil {
+				descStr := *header.DeltaDescription
+				delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+					Value: &descStr,
+				}
+			} else {
+				delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if header.DeltaDisplayOrder != nil {
+				orderFloat := *header.DeltaDisplayOrder
+				delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+					Value: &orderFloat,
+				}
+			} else {
+				delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
 		}
-		if header.DeltaValue != nil {
-			valueStr := *header.DeltaValue
-			delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-				Value: &valueStr,
-			}
-		} else {
-			delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if header.DeltaEnabled != nil {
-			enabledBool := *header.DeltaEnabled
-			delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-				Value: &enabledBool,
-			}
-		} else {
-			delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if header.DeltaDescription != nil {
-			descStr := *header.DeltaDescription
-			delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-				Value: &descStr,
-			}
-		} else {
-			delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if header.DeltaDisplayOrder != nil {
-			orderFloat := *header.DeltaDisplayOrder
-			delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-				Value: &orderFloat,
-			}
-		} else {
-			delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
+
 		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,
@@ -1081,42 +1282,90 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttp.HTTPAss
 			delta.HttpAssertId = assert.ParentHttpAssertID.Bytes()
 		}
 		delta.HttpId = assert.HttpID.Bytes()
-		if assert.DeltaValue != nil {
-			valueStr := *assert.DeltaValue
-			delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-				Value: &valueStr,
+
+		if event.Patch != nil {
+			// Sparse Patch Mode
+			if val, ok := event.Patch["value"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["enabled"]; ok {
+				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
+					delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: boolPtr,
+					}
+				} else {
+					delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["order"]; ok {
+				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
+					delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: floatPtr,
+					}
+				} else {
+					delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
 			}
 		} else {
-			delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			// Full State Mode (Legacy)
+			if assert.DeltaValue != nil {
+				valueStr := *assert.DeltaValue
+				delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+					Value: &valueStr,
+				}
+			} else {
+				delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if assert.DeltaEnabled != nil {
+				enabledBool := *assert.DeltaEnabled
+				delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+					Value: &enabledBool,
+				}
+			} else {
+				delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if assert.DeltaDisplayOrder != nil {
+				orderFloat := *assert.DeltaDisplayOrder
+				delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+					Value: &orderFloat,
+				}
+			} else {
+				delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
 		}
-		if assert.DeltaEnabled != nil {
-			enabledBool := *assert.DeltaEnabled
-			delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-				Value: &enabledBool,
-			}
-		} else {
-			delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if assert.DeltaDisplayOrder != nil {
-			orderFloat := *assert.DeltaDisplayOrder
-			delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-				Value: &orderFloat,
-			}
-		} else {
-			delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
+
 		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpAssertDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,
@@ -1179,66 +1428,142 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			delta.HttpBodyUrlEncodedId = body.ParentHttpBodyUrlEncodedID.Bytes()
 		}
 		delta.HttpId = body.HttpID.Bytes()
-		if body.DeltaKey != nil {
-			keyStr := *body.DeltaKey
-			delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-				Value: &keyStr,
+
+		if event.Patch != nil {
+			// Sparse Patch Mode
+			if val, ok := event.Patch["key"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["value"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["enabled"]; ok {
+				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
+					delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: boolPtr,
+					}
+				} else {
+					delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["description"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["order"]; ok {
+				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
+					delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: floatPtr,
+					}
+				} else {
+					delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
 			}
 		} else {
-			delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			// Full State Mode (Legacy)
+			if body.DeltaKey != nil {
+				keyStr := *body.DeltaKey
+				delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+					Value: &keyStr,
+				}
+			} else {
+				delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if body.DeltaValue != nil {
+				valueStr := *body.DeltaValue
+				delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+					Value: &valueStr,
+				}
+			} else {
+				delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if body.DeltaEnabled != nil {
+				enabledBool := *body.DeltaEnabled
+				delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+					Value: &enabledBool,
+				}
+			} else {
+				delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if body.DeltaDescription != nil {
+				descStr := *body.DeltaDescription
+				delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+					Value: &descStr,
+				}
+			} else {
+				delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
+			}
+			if body.DeltaDisplayOrder != nil {
+				orderFloat := *body.DeltaDisplayOrder
+				delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+					Value: &orderFloat,
+				}
+			} else {
+				delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
 		}
-		if body.DeltaValue != nil {
-			valueStr := *body.DeltaValue
-			delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-				Value: &valueStr,
-			}
-		} else {
-			delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if body.DeltaEnabled != nil {
-			enabledBool := *body.DeltaEnabled
-			delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-				Value: &enabledBool,
-			}
-		} else {
-			delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if body.DeltaDescription != nil {
-			descStr := *body.DeltaDescription
-			delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-				Value: &descStr,
-			}
-		} else {
-			delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if body.DeltaDisplayOrder != nil {
-			orderFloat := *body.DeltaDisplayOrder
-			delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-				Value: &orderFloat,
-			}
-		} else {
-			delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
+
 		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,

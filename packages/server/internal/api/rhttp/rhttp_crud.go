@@ -286,7 +286,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 
 	// Publish update events for real-time sync after successful commit
 	for _, http := range updatedHTTPs {
-		h.publishUpdateEvent(http)
+		h.publishUpdateEvent(http, nil)
 	}
 
 	// Publish version insert events

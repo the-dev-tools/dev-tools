@@ -318,7 +318,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to commit transaction: %w", err))
 	}
 
-	h.publishUpdateEvent(*httpEntry)
+	h.publishUpdateEvent(*httpEntry, nil)
 	h.publishVersionInsertEvent(*version, httpEntry.WorkspaceID)
 	h.logExecution(userID, httpEntry, nil)
 

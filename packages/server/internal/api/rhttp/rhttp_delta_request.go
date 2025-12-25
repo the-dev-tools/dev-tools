@@ -200,37 +200,47 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 	}
 
 	// Step 2: Prepare updates (in memory modifications)
+	var patches []DeltaPatch
+
 	for _, data := range updateData {
 		item := data.item
 		existingDelta := data.existingDelta
+		patch := make(DeltaPatch)
 
 		if item.Name != nil {
 			switch item.Name.GetKind() {
 			case apiv1.HttpDeltaUpdate_NameUnion_KIND_UNSET:
 				existingDelta.DeltaName = nil
+				patch["name"] = nil
 			case apiv1.HttpDeltaUpdate_NameUnion_KIND_VALUE:
 				nameStr := item.Name.GetValue()
 				existingDelta.DeltaName = &nameStr
+				patch["name"] = &nameStr
 			}
 		}
 		if item.Method != nil {
 			switch item.Method.GetKind() {
 			case apiv1.HttpDeltaUpdate_MethodUnion_KIND_UNSET:
 				existingDelta.DeltaMethod = nil
+				patch["method"] = nil
 			case apiv1.HttpDeltaUpdate_MethodUnion_KIND_VALUE:
 				method := item.Method.GetValue()
 				existingDelta.DeltaMethod = httpMethodToString(&method)
+				patch["method"] = existingDelta.DeltaMethod
 			}
 		}
 		if item.Url != nil {
 			switch item.Url.GetKind() {
 			case apiv1.HttpDeltaUpdate_UrlUnion_KIND_UNSET:
 				existingDelta.DeltaUrl = nil
+				patch["url"] = nil
 			case apiv1.HttpDeltaUpdate_UrlUnion_KIND_VALUE:
 				urlStr := item.Url.GetValue()
 				existingDelta.DeltaUrl = &urlStr
+				patch["url"] = &urlStr
 			}
 		}
+		patches = append(patches, patch)
 	}
 
 	// Step 3: Execute updates in transaction
@@ -255,10 +265,11 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 	}
 
 	// Publish update events for real-time sync after successful commit
-	for _, delta := range updatedDeltas {
+	for i, delta := range updatedDeltas {
 		h.streamers.Http.Publish(HttpTopic{WorkspaceID: delta.WorkspaceID}, HttpEvent{
 			Type:    eventTypeUpdate,
 			IsDelta: true,
+			Patch:   patches[i],
 			Http:    converter.ToAPIHttp(delta),
 		})
 	}

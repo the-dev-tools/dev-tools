@@ -207,49 +207,60 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		deltaEnabled     *bool
 		deltaDescription *string
 	}
+	var patches []DeltaPatch
 
 	for _, data := range updateData {
 		item := data.item
 		var deltaKey, deltaValue, deltaDescription *string
 		var deltaEnabled *bool
+		patch := make(DeltaPatch)
 
 		if item.Key != nil {
 			switch item.Key.GetKind() {
 			case apiv1.HttpSearchParamDeltaUpdate_KeyUnion_KIND_UNSET:
 				deltaKey = nil
+				patch["key"] = nil
 			case apiv1.HttpSearchParamDeltaUpdate_KeyUnion_KIND_VALUE:
 				keyStr := item.Key.GetValue()
 				deltaKey = &keyStr
+				patch["key"] = &keyStr
 			}
 		}
 		if item.Value != nil {
 			switch item.Value.GetKind() {
 			case apiv1.HttpSearchParamDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
+				patch["value"] = nil
 			case apiv1.HttpSearchParamDeltaUpdate_ValueUnion_KIND_VALUE:
 				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
+				patch["value"] = &valueStr
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
 			case apiv1.HttpSearchParamDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
+				patch["enabled"] = nil
 			case apiv1.HttpSearchParamDeltaUpdate_EnabledUnion_KIND_VALUE:
 				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
+				patch["enabled"] = &enabledBool
 			}
 		}
 		if item.Description != nil {
 			switch item.Description.GetKind() {
 			case apiv1.HttpSearchParamDeltaUpdate_DescriptionUnion_KIND_UNSET:
 				deltaDescription = nil
+				patch["description"] = nil
 			case apiv1.HttpSearchParamDeltaUpdate_DescriptionUnion_KIND_VALUE:
 				descStr := item.Description.GetValue()
 				deltaDescription = &descStr
+				patch["description"] = &descStr
 			}
 		}
 
+		patches = append(patches, patch)
 		preparedUpdates = append(preparedUpdates, struct {
 			deltaID          idwrap.IDWrap
 			deltaKey         *string
@@ -293,7 +304,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 	}
 
 	// Publish update events for real-time sync after successful commit
-	for _, param := range updatedParams {
+	for i, param := range updatedParams {
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, param.HttpID)
 		if err != nil {
@@ -301,6 +312,8 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		}
 		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeUpdate,
+			IsDelta:         true,
+			Patch:           patches[i],
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}

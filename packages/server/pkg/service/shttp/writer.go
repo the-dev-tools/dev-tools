@@ -41,6 +41,22 @@ func (w *Writer) Update(ctx context.Context, http *mhttp.HTTP) error {
 	http.UpdatedAt = dbtime.DBNow().Unix()
 
 	dbHttp := ConvertToDBHTTP(*http)
+
+	if http.IsDelta {
+		// Update delta fields
+		if err := w.queries.UpdateHTTPDelta(ctx, gen.UpdateHTTPDeltaParams{
+			ID:               dbHttp.ID,
+			DeltaName:        dbHttp.DeltaName,
+			DeltaUrl:         dbHttp.DeltaUrl,
+			DeltaMethod:      dbHttp.DeltaMethod,
+			DeltaBodyKind:    dbHttp.DeltaBodyKind,
+			DeltaDescription: dbHttp.DeltaDescription,
+		}); err != nil {
+			return err
+		}
+		// Fallthrough to update common fields (like LastRunAt)
+	}
+
 	return w.queries.UpdateHTTP(ctx, gen.UpdateHTTPParams{
 		ID:          dbHttp.ID,
 		FolderID:    dbHttp.FolderID,
