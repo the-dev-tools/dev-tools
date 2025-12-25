@@ -41,7 +41,7 @@ func makeProtoCompatible(v any) any {
 	case reflect.Slice, reflect.Array:
 		// Convert slices/arrays to []any
 		result := make([]any, val.Len())
-		for i := 0; i < val.Len(); i++ {
+		for i := range val.Len() {
 			result[i] = makeProtoCompatible(val.Index(i).Interface())
 		}
 		return result

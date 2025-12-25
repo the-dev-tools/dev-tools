@@ -105,8 +105,9 @@ func ValidateImportIntegrity(
 				report.AddError("file", file.ID, "ContentID", *file.ContentID,
 					fmt.Sprintf("file references non-existent HTTP (type=%s)", file.ContentType))
 			}
-		case mfile.ContentTypeFlow:
+		case mfile.ContentTypeFlow, mfile.ContentTypeFolder:
 			// Flow files reference flow IDs - we could validate these too
+			// Folders don't have ContentID
 			continue
 		}
 	}
@@ -171,6 +172,8 @@ func ValidateTranslationResult(result *TranslationResult) *IntegrityReport {
 				report.AddError("file", file.ID, "ContentID", *file.ContentID,
 					fmt.Sprintf("file references HTTP not in translation result (type=%s)", file.ContentType))
 			}
+		case mfile.ContentTypeFlow, mfile.ContentTypeFolder:
+			continue
 		}
 	}
 
