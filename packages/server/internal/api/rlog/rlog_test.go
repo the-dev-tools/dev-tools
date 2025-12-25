@@ -154,3 +154,177 @@ func TestLogSync(t *testing.T) {
 	cancel() // Stop the stream
 	<-errCh  // Wait for goroutine to finish
 }
+
+func TestNewLogValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   any
+		wantErr bool
+	}{
+		{
+			name:    "int slice (original bug case)",
+			input:   map[string]any{"iteration_path": []int{1, 2, 3}},
+			wantErr: false,
+		},
+		{
+			name:    "string slice",
+			input:   map[string]any{"tags": []string{"tag1", "tag2"}},
+			wantErr: false,
+		},
+		{
+			name:    "nested structure",
+			input:   map[string]any{"nested": map[string]any{"inner": []int{1, 2}}},
+			wantErr: false,
+		},
+		{
+			name:    "nil value",
+			input:   map[string]any{"value": nil},
+			wantErr: false,
+		},
+		{
+			name:    "already compatible types",
+			input:   map[string]any{"str": "hello", "num": 42, "bool": true},
+			wantErr: false,
+		},
+		{
+			name:    "mixed types",
+			input:   map[string]any{"int_slice": []int{1, 2}, "str": "test", "num": 123},
+			wantErr: false,
+		},
+		{
+			name:    "empty slice",
+			input:   map[string]any{"empty": []int{}},
+			wantErr: false,
+		},
+		{
+			name:    "array of ints",
+			input:   map[string]any{"arr": [3]int{1, 2, 3}},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := NewLogValue(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewLogValue() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && val == nil {
+				t.Error("NewLogValue() returned nil value without error")
+			}
+		})
+	}
+}
+
+func TestMakeProtoCompatible(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    any
+		validate func(t *testing.T, result any)
+	}{
+		{
+			name:  "converts []int to []any",
+			input: []int{1, 2, 3},
+			validate: func(t *testing.T, result any) {
+				slice, ok := result.([]any)
+				if !ok {
+					t.Fatalf("expected []any, got %T", result)
+				}
+				if len(slice) != 3 {
+					t.Fatalf("expected length 3, got %d", len(slice))
+				}
+				if slice[0] != 1 || slice[1] != 2 || slice[2] != 3 {
+					t.Errorf("unexpected values: %v", slice)
+				}
+			},
+		},
+		{
+			name:  "converts nested []int",
+			input: map[string]any{"outer": []int{1, 2}},
+			validate: func(t *testing.T, result any) {
+				m, ok := result.(map[string]any)
+				if !ok {
+					t.Fatalf("expected map[string]any, got %T", result)
+				}
+				inner, ok := m["outer"].([]any)
+				if !ok {
+					t.Fatalf("expected []any for 'outer', got %T", m["outer"])
+				}
+				if len(inner) != 2 {
+					t.Fatalf("expected length 2, got %d", len(inner))
+				}
+			},
+		},
+		{
+			name:  "handles nil",
+			input: nil,
+			validate: func(t *testing.T, result any) {
+				if result != nil {
+					t.Errorf("expected nil, got %v", result)
+				}
+			},
+		},
+		{
+			name:  "preserves strings",
+			input: "hello",
+			validate: func(t *testing.T, result any) {
+				if result != "hello" {
+					t.Errorf("expected 'hello', got %v", result)
+				}
+			},
+		},
+		{
+			name:  "preserves numbers",
+			input: 42,
+			validate: func(t *testing.T, result any) {
+				if result != 42 {
+					t.Errorf("expected 42, got %v", result)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := makeProtoCompatible(tt.input)
+			tt.validate(t, result)
+		})
+	}
+}
+
+// TestNewLogValueRealWorldCase tests the exact scenario from the bug
+func TestNewLogValueRealWorldCase(t *testing.T) {
+	t.Parallel()
+
+	// Simulate the exact data structure that was causing the error
+	logData := map[string]any{
+		"node_id":     "test-node-123",
+		"node_name":   "Test Node",
+		"state":       "SUCCESS",
+		"flow_id":     "test-flow-456",
+		"duration_ms": int64(150),
+		// This was causing the error: proto: invalid type: []int
+		"iteration_path":  []int{1, 2, 3},
+		"iteration_index": 2,
+	}
+
+	// This should not error anymore
+	val, err := NewLogValue(logData)
+	if err != nil {
+		t.Fatalf("NewLogValue() failed with error: %v", err)
+	}
+
+	if val == nil {
+		t.Fatal("NewLogValue() returned nil value")
+	}
+
+	// Verify it's actually a valid structpb.Value
+	if val.GetStructValue() == nil {
+		t.Error("expected struct value, got nil")
+	}
+}

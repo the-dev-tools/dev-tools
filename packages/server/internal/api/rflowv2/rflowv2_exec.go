@@ -13,7 +13,6 @@ import (
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
@@ -516,7 +515,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 					logData["iteration_path"] = status.IterationContext.IterationPath
 				}
 
-				val, err := structpb.NewValue(logData)
+				val, err := rlog.NewLogValue(logData)
 				if err != nil {
 					s.logger.Error("failed to create log value", "error", err)
 				}

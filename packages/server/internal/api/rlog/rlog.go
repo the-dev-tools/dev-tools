@@ -3,9 +3,11 @@ package rlog
 
 import (
 	"context"
+	"reflect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
@@ -20,6 +22,49 @@ const (
 	EventTypeUpdate = "update"
 	EventTypeDelete = "delete"
 )
+
+// NewLogValue converts a Go value to a protobuf-compatible structpb.Value.
+// It handles types that structpb.NewValue doesn't support natively, like []int.
+func NewLogValue(v any) (*structpb.Value, error) {
+	v = makeProtoCompatible(v)
+	return structpb.NewValue(v)
+}
+
+// makeProtoCompatible recursively converts Go values to protobuf-compatible types.
+func makeProtoCompatible(v any) any {
+	if v == nil {
+		return nil
+	}
+
+	val := reflect.ValueOf(v)
+	switch val.Kind() {
+	case reflect.Slice, reflect.Array:
+		// Convert slices/arrays to []any
+		result := make([]any, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			result[i] = makeProtoCompatible(val.Index(i).Interface())
+		}
+		return result
+
+	case reflect.Map:
+		// Convert maps to map[string]any
+		result := make(map[string]any)
+		iter := val.MapRange()
+		for iter.Next() {
+			key := iter.Key().Interface()
+			// Convert key to string if it isn't already
+			keyStr, ok := key.(string)
+			if !ok {
+				keyStr = reflect.ValueOf(key).String()
+			}
+			result[keyStr] = makeProtoCompatible(iter.Value().Interface())
+		}
+		return result
+
+	default:
+		return v
+	}
+}
 
 type LogTopic struct {
 	UserID idwrap.IDWrap
