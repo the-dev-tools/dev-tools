@@ -74,13 +74,14 @@ func (w *HeaderWriter) Update(ctx context.Context, header *mhttp.HTTPHeader) err
 	})
 }
 
-func (w *HeaderWriter) UpdateDelta(ctx context.Context, headerID idwrap.IDWrap, deltaKey, deltaValue, deltaDescription *string, deltaEnabled *bool) error {
+func (w *HeaderWriter) UpdateDelta(ctx context.Context, headerID idwrap.IDWrap, deltaKey, deltaValue, deltaDescription *string, deltaEnabled *bool, deltaOrder *float32) error {
 	return w.queries.UpdateHTTPHeaderDelta(ctx, gen.UpdateHTTPHeaderDeltaParams{
-		DeltaHeaderKey:   deltaKey,
-		DeltaHeaderValue: deltaValue,
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               headerID,
+		DeltaHeaderKey:    deltaKey,
+		DeltaHeaderValue:  deltaValue,
+		DeltaDescription:  deltaDescription,
+		DeltaEnabled:      deltaEnabled,
+		DeltaDisplayOrder: float32ToNullFloat64Header(deltaOrder),
+		ID:                headerID,
 	})
 }
 

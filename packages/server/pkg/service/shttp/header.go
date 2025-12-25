@@ -129,8 +129,8 @@ func (h HttpHeaderService) Update(ctx context.Context, header *mhttp.HTTPHeader)
 	return NewHeaderWriterFromQueries(h.queries).Update(ctx, header)
 }
 
-func (h HttpHeaderService) UpdateDelta(ctx context.Context, headerID idwrap.IDWrap, deltaKey, deltaValue, deltaDescription *string, deltaEnabled *bool) error {
-	return NewHeaderWriterFromQueries(h.queries).UpdateDelta(ctx, headerID, deltaKey, deltaValue, deltaDescription, deltaEnabled)
+func (h HttpHeaderService) UpdateDelta(ctx context.Context, headerID idwrap.IDWrap, deltaKey, deltaValue, deltaDescription *string, deltaEnabled *bool, deltaOrder *float32) error {
+	return NewHeaderWriterFromQueries(h.queries).UpdateDelta(ctx, headerID, deltaKey, deltaValue, deltaDescription, deltaEnabled, deltaOrder)
 }
 
 func (h HttpHeaderService) Delete(ctx context.Context, headerID idwrap.IDWrap) error {
@@ -143,4 +143,11 @@ func (h HttpHeaderService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDW
 
 func (h HttpHeaderService) UpdateOrder(ctx context.Context, headerID idwrap.IDWrap, displayOrder float64) error {
 	return NewHeaderWriterFromQueries(h.queries).UpdateOrder(ctx, headerID, displayOrder)
+}
+
+func float32ToNullFloat64Header(f *float32) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{Valid: false}
+	}
+	return sql.NullFloat64{Float64: float64(*f), Valid: true}
 }

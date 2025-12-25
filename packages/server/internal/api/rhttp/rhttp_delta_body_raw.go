@@ -164,7 +164,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 		}
 
 		// Prepare update
-		var deltaData []byte
+		deltaData := bodyRaw.DeltaRawData
 		patch := make(DeltaPatch)
 
 		if item.Data != nil {

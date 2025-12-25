@@ -85,11 +85,12 @@ func (w *SearchParamWriter) Update(ctx context.Context, param *mhttp.HTTPSearchP
 
 func (w *SearchParamWriter) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float64) error {
 	return w.queries.UpdateHTTPSearchParamDelta(ctx, gen.UpdateHTTPSearchParamDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               id,
+		DeltaKey:          stringToNull(deltaKey),
+		DeltaValue:        stringToNull(deltaValue),
+		DeltaDescription:  deltaDescription,
+		DeltaEnabled:      deltaEnabled,
+		DeltaDisplayOrder: float64ToNullFloat64SearchParam(deltaOrder),
+		ID:                id,
 	})
 }
 

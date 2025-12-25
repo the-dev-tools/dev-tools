@@ -123,7 +123,11 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 		}
 
 		// Update delta fields
-		err = h.httpHeaderService.UpdateDelta(ctx, headerID, item.Key, item.Value, item.Description, item.Enabled)
+		var deltaOrder *float32
+		if item.Order != nil {
+			deltaOrder = item.Order
+		}
+		err = h.httpHeaderService.UpdateDelta(ctx, headerID, item.Key, item.Value, item.Description, item.Enabled, deltaOrder)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -197,13 +201,17 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 		deltaValue       *string
 		deltaEnabled     *bool
 		deltaDescription *string
+		deltaOrder       *float32
 	}
 	var patches []DeltaPatch
 
 	for _, data := range updateData {
 		item := data.item
-		var deltaKey, deltaValue, deltaDescription *string
-		var deltaEnabled *bool
+		deltaKey := data.existingHeader.DeltaKey
+		deltaValue := data.existingHeader.DeltaValue
+		deltaDescription := data.existingHeader.DeltaDescription
+		deltaEnabled := data.existingHeader.DeltaEnabled
+		deltaOrder := data.existingHeader.DeltaDisplayOrder
 		patch := make(DeltaPatch)
 
 		if item.Key != nil {
@@ -250,6 +258,17 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 				patch["description"] = &descStr
 			}
 		}
+		if item.Order != nil {
+			switch item.Order.GetKind() {
+			case apiv1.HttpHeaderDeltaUpdate_OrderUnion_KIND_UNSET:
+				deltaOrder = nil
+				patch["order"] = nil
+			case apiv1.HttpHeaderDeltaUpdate_OrderUnion_KIND_VALUE:
+				orderFloat := item.Order.GetValue()
+				deltaOrder = &orderFloat
+				patch["order"] = &orderFloat
+			}
+		}
 
 		patches = append(patches, patch)
 		preparedUpdates = append(preparedUpdates, struct {
@@ -258,12 +277,14 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			deltaValue       *string
 			deltaEnabled     *bool
 			deltaDescription *string
+			deltaOrder       *float32
 		}{
 			deltaID:          data.deltaID,
 			deltaKey:         deltaKey,
 			deltaValue:       deltaValue,
 			deltaEnabled:     deltaEnabled,
 			deltaDescription: deltaDescription,
+			deltaOrder:       deltaOrder,
 		})
 	}
 
@@ -278,7 +299,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 	var updatedHeaders []mhttp.HTTPHeader
 
 	for _, update := range preparedUpdates {
-		if err := httpHeaderService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaDescription, update.deltaEnabled); err != nil {
+		if err := httpHeaderService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaDescription, update.deltaEnabled, update.deltaOrder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

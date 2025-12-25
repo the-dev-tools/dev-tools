@@ -110,11 +110,12 @@ func (w *BodyFormWriter) UpdateOrder(ctx context.Context, id idwrap.IDWrap, http
 
 func (w *BodyFormWriter) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
 	return w.queries.UpdateHTTPBodyFormDelta(ctx, gen.UpdateHTTPBodyFormDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               id,
+		DeltaKey:          stringToNull(deltaKey),
+		DeltaValue:        stringToNull(deltaValue),
+		DeltaDescription:  deltaDescription,
+		DeltaEnabled:      deltaEnabled,
+		DeltaDisplayOrder: float32ToNullFloat64(deltaOrder),
+		ID:                id,
 	})
 }
 

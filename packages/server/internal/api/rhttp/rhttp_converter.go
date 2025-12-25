@@ -1166,64 +1166,139 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 			delta.HttpBodyFormDataId = form.ParentHttpBodyFormID.Bytes()
 		}
 		delta.HttpId = form.HttpID.Bytes()
-		if form.DeltaKey != nil {
-			keyStr := *form.DeltaKey
-			delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-				Value: &keyStr,
+
+		// Patch Mode: Only include fields that were explicitly changed
+		if len(event.Patch) > 0 {
+			if val, ok := event.Patch["key"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["value"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["enabled"]; ok {
+				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
+					delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: boolPtr,
+					}
+				} else {
+					delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["description"]; ok {
+				if strPtr, ok := val.(*string); ok && strPtr != nil {
+					delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: strPtr,
+					}
+				} else {
+					delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
+			}
+
+			if val, ok := event.Patch["order"]; ok {
+				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
+					delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: floatPtr,
+					}
+				} else {
+					delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				}
 			}
 		} else {
-			delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			// Full State Mode (Legacy): Include all fields
+			if form.DeltaKey != nil {
+				keyStr := *form.DeltaKey
+				delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+					Value: &keyStr,
+				}
+			} else {
+				delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
-		}
-		if form.DeltaValue != nil {
-			valueStr := *form.DeltaValue
-			delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-				Value: &valueStr,
+			if form.DeltaValue != nil {
+				valueStr := *form.DeltaValue
+				delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+					Value: &valueStr,
+				}
+			} else {
+				delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
-		} else {
-			delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			if form.DeltaEnabled != nil {
+				enabledBool := *form.DeltaEnabled
+				delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+					Value: &enabledBool,
+				}
+			} else {
+				delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
-		}
-		if form.DeltaEnabled != nil {
-			enabledBool := *form.DeltaEnabled
-			delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-				Value: &enabledBool,
+			if form.DeltaDescription != nil {
+				descStr := *form.DeltaDescription
+				delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+					Value: &descStr,
+				}
+			} else {
+				delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
-		} else {
-			delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if form.DeltaDescription != nil {
-			descStr := *form.DeltaDescription
-			delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-				Value: &descStr,
-			}
-		} else {
-			delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
-			}
-		}
-		if form.DeltaDisplayOrder != nil {
-			orderFloat := *form.DeltaDisplayOrder
-			delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-				Value: &orderFloat,
-			}
-		} else {
-			delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
-				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_UNSET,
-				Unset: globalv1.Unset_UNSET.Enum(),
+			if form.DeltaDisplayOrder != nil {
+				orderFloat := *form.DeltaDisplayOrder
+				delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+					Value: &orderFloat,
+				}
+			} else {
+				delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
+					Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+					Unset: globalv1.Unset_UNSET.Enum(),
+				}
 			}
 		}
 		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{

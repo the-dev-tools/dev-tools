@@ -4777,16 +4777,18 @@ SET
   delta_value = ?,
   delta_description = ?,
   delta_enabled = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPBodyFormDeltaParams struct {
-	DeltaKey         sql.NullString
-	DeltaValue       sql.NullString
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	ID               idwrap.IDWrap
+	DeltaKey          sql.NullString
+	DeltaValue        sql.NullString
+	DeltaDescription  *string
+	DeltaEnabled      *bool
+	DeltaDisplayOrder sql.NullFloat64
+	ID                idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyFormDelta(ctx context.Context, arg UpdateHTTPBodyFormDeltaParams) error {
@@ -4795,6 +4797,7 @@ func (q *Queries) UpdateHTTPBodyFormDelta(ctx context.Context, arg UpdateHTTPBod
 		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
 		arg.ID,
 	)
 	return err
@@ -5160,16 +5163,18 @@ SET
   delta_value = ?,
   delta_description = ?,
   delta_enabled = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPSearchParamDeltaParams struct {
-	DeltaKey         sql.NullString
-	DeltaValue       sql.NullString
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	ID               idwrap.IDWrap
+	DeltaKey          sql.NullString
+	DeltaValue        sql.NullString
+	DeltaDescription  *string
+	DeltaEnabled      *bool
+	DeltaDisplayOrder sql.NullFloat64
+	ID                idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPSearchParamDelta(ctx context.Context, arg UpdateHTTPSearchParamDeltaParams) error {
@@ -5178,6 +5183,7 @@ func (q *Queries) UpdateHTTPSearchParamDelta(ctx context.Context, arg UpdateHTTP
 		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
 		arg.ID,
 	)
 	return err

@@ -317,6 +317,7 @@ SET
   delta_value = ?,
   delta_description = ?,
   delta_enabled = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
@@ -488,6 +489,7 @@ SET
   delta_value = ?,
   delta_description = ?,
   delta_enabled = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 

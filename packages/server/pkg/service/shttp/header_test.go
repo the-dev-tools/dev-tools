@@ -117,7 +117,7 @@ func TestHttpHeaderService_Delta(t *testing.T) {
 
 	// Update Delta
 	newVal := "New Delta"
-	err = service.UpdateDelta(ctx, headerID, nil, &newVal, nil, nil)
+	err = service.UpdateDelta(ctx, headerID, nil, &newVal, nil, nil, nil)
 	require.NoError(t, err)
 
 	updated, err := service.GetByID(ctx, headerID)

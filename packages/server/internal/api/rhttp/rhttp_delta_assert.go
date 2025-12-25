@@ -196,9 +196,9 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 
 	for _, data := range updateData {
 		item := data.item
-		var deltaValue *string
-		var deltaEnabled *bool
-		var deltaOrder *float32
+		deltaValue := data.existingAssert.DeltaValue
+		deltaEnabled := data.existingAssert.DeltaEnabled
+		deltaOrder := data.existingAssert.DeltaDisplayOrder
 		patch := make(DeltaPatch)
 
 		if item.Value != nil {

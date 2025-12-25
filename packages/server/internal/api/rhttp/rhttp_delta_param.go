@@ -206,13 +206,17 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		deltaValue       *string
 		deltaEnabled     *bool
 		deltaDescription *string
+		deltaOrder       *float64
 	}
 	var patches []DeltaPatch
 
 	for _, data := range updateData {
 		item := data.item
-		var deltaKey, deltaValue, deltaDescription *string
-		var deltaEnabled *bool
+		deltaKey := data.existingParam.DeltaKey
+		deltaValue := data.existingParam.DeltaValue
+		deltaDescription := data.existingParam.DeltaDescription
+		deltaEnabled := data.existingParam.DeltaEnabled
+		deltaOrder := data.existingParam.DeltaDisplayOrder
 		patch := make(DeltaPatch)
 
 		if item.Key != nil {
@@ -259,6 +263,19 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 				patch["description"] = &descStr
 			}
 		}
+		if item.Order != nil {
+			switch item.Order.GetKind() {
+			case apiv1.HttpSearchParamDeltaUpdate_OrderUnion_KIND_UNSET:
+				deltaOrder = nil
+				patch["order"] = nil
+			case apiv1.HttpSearchParamDeltaUpdate_OrderUnion_KIND_VALUE:
+				orderFloat := float64(item.Order.GetValue())
+				deltaOrder = &orderFloat
+				// Store as float32 in patch for sync converter compatibility
+				orderFloat32 := float32(orderFloat)
+				patch["order"] = &orderFloat32
+			}
+		}
 
 		patches = append(patches, patch)
 		preparedUpdates = append(preparedUpdates, struct {
@@ -267,12 +284,14 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			deltaValue       *string
 			deltaEnabled     *bool
 			deltaDescription *string
+			deltaOrder       *float64
 		}{
 			deltaID:          data.deltaID,
 			deltaKey:         deltaKey,
 			deltaValue:       deltaValue,
 			deltaEnabled:     deltaEnabled,
 			deltaDescription: deltaDescription,
+			deltaOrder:       deltaOrder,
 		})
 	}
 
@@ -287,7 +306,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 	var updatedParams []mhttp.HTTPSearchParam
 
 	for _, update := range preparedUpdates {
-		if err := httpSearchParamService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, nil); err != nil {
+		if err := httpSearchParamService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

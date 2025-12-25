@@ -68,11 +68,12 @@ func (w *BodyUrlEncodedWriter) Update(ctx context.Context, body *mhttp.HTTPBodyU
 
 func (w *BodyUrlEncodedWriter) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
 	return w.queries.UpdateHTTPBodyUrlEncodedDelta(ctx, gen.UpdateHTTPBodyUrlEncodedDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
-		DeltaValue:       stringToNull(deltaValue),
-		DeltaDescription: deltaDescription,
-		DeltaEnabled:     deltaEnabled,
-		ID:               id,
+		DeltaKey:          stringToNull(deltaKey),
+		DeltaValue:        stringToNull(deltaValue),
+		DeltaDescription:  deltaDescription,
+		DeltaEnabled:      deltaEnabled,
+		DeltaDisplayOrder: float32ToNullFloat64(deltaOrder),
+		ID:                id,
 	})
 }
 
