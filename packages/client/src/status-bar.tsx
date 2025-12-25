@@ -1,26 +1,28 @@
+import { create } from '@bufbuild/protobuf';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
-import { Tree as AriaTree } from 'react-aria-components';
+import { useMemo, useState } from 'react';
+import * as RAC from 'react-aria-components';
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { LogLevel } from '@the-dev-tools/spec/buf/api/log/v1/log_pb';
+import { LogLevel, LogSchema } from '@the-dev-tools/spec/buf/api/log/v1/log_pb';
 import { LogCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/log';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
-import { useApiCollection } from '~api';
-import { workspaceRouteApi } from '~routes';
+import { useApiCollection } from '~/api';
+import { workspaceRouteApi } from '~/routes';
+import { eqStruct, pick } from '~/utils/tanstack-db';
 
 const logTextStyles = tv({
   base: tw`font-mono text-sm`,
   variants: {
     level: {
       [LogLevel.ERROR]: tw`text-red-600`,
-      [LogLevel.INFO]: tw`text-slate-800`,
       [LogLevel.UNSPECIFIED]: tw`text-slate-800`,
       [LogLevel.WARNING]: tw`text-yellow-600`,
     } satisfies Record<LogLevel, string>,
@@ -29,7 +31,6 @@ const logTextStyles = tv({
 
 export const StatusBar = () => {
   const logCollection = useApiCollection(LogCollectionSchema);
-  const { data: logs } = useLiveQuery((_) => _.from({ log: logCollection }), [logCollection]);
 
   const { showLogs } = workspaceRouteApi.useSearch();
 
@@ -89,28 +90,69 @@ export const StatusBar = () => {
 
       {showLogs && (
         <Panel>
-          <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
-            <AriaTree aria-label='Logs' items={logs}>
-              {(_) => {
-                const ulid = Ulid.construct(_.logId);
-                const id = ulid.toCanonical();
-                return (
-                  <TreeItem
-                    id={id}
-                    item={(_) => <JsonTreeItem {..._} id={`${id}.${_.id ?? 'root'}`} />}
-                    items={jsonTreeItemProps(_.value)!}
-                    textValue={_.name}
-                  >
-                    <div className={logTextStyles({ level: _.level })}>
-                      {ulid.time.toLocaleTimeString()}: {_.name}
-                    </div>
-                  </TreeItem>
-                );
-              }}
-            </AriaTree>
-          </div>
+          <Logs />
         </Panel>
       )}
     </>
+  );
+};
+
+const Logs = () => {
+  const logCollection = useApiCollection(LogCollectionSchema);
+
+  const { data: logs } = useLiveQuery(
+    (_) =>
+      _.from({ item: logCollection })
+        .orderBy((_) => _.item.logId, 'desc')
+        .limit(50)
+        .select((_) => pick(_.item, 'logId')),
+    [logCollection],
+  );
+
+  return (
+    <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
+      <RAC.Tree aria-label='Logs' items={logs.toReversed()}>
+        {(_) => <LogItem id={Ulid.construct(_.logId).toCanonical()} />}
+      </RAC.Tree>
+    </div>
+  );
+};
+
+interface LogItemProps {
+  id: string;
+}
+
+const LogItem = ({ id }: LogItemProps) => {
+  const logCollection = useApiCollection(LogCollectionSchema);
+
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const logId = useMemo(() => Ulid.fromCanonical(id).bytes, [id]);
+
+  const { data: { level, name, value } = create(LogSchema) } = useLiveQuery(
+    (_) =>
+      _.from({ item: logCollection })
+        .where(eqStruct({ logId }))
+        .select(({ item: { value, ...data } }) => ({
+          ...data,
+          value: isExpanded ? value : undefined,
+        }))
+        .findOne(),
+    [isExpanded, logCollection, logId],
+  );
+
+  return (
+    <TreeItem
+      id={id}
+      isExpanded={isExpanded}
+      item={(_) => <JsonTreeItem {..._} id={`${id}.${_.id ?? 'root'}`} />}
+      items={value ? jsonTreeItemProps(value)! : []}
+      setIsExpanded={setIsExpanded}
+      textValue={name}
+    >
+      <div className={logTextStyles({ level })}>
+        {Ulid.fromCanonical(id).time.toLocaleTimeString()}: {name}
+      </div>
+    </TreeItem>
   );
 };

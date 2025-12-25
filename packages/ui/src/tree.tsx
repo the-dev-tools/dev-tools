@@ -14,30 +14,38 @@ import { composeTailwindRenderProps } from './utils';
 export interface TreeItemProps<T extends object>
   extends Omit<RAC.TreeItemProps, 'children' | 'textValue'>,
     RefAttributes<HTMLDivElement> {
+  childItems?: ReactNode;
   children: RAC.TreeItemContentProps['children'];
+  isExpanded?: boolean;
   isLoading?: boolean;
   item?: CollectionProps<T>['children'];
   items?: T[];
   onContextMenu?: ComponentProps<'div'>['onContextMenu'];
   onExpand?: () => void;
+  setIsExpanded?: (value: boolean) => void;
   textValue?: RAC.TreeItemProps['textValue'];
 }
 
 export const TreeItem = <T extends object>({
+  childItems: childItemsProps,
   children,
   className,
+  isExpanded: controlledIsExpanded,
   isLoading,
   item,
   items,
   onContextMenu,
   onExpand,
   ref,
+  setIsExpanded: controlledSetIsExpanded,
   textValue,
   ...props
 }: TreeItemProps<T>) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [defaultIsExpanded, defaultSetIsExpanded] = useState(false);
+  const isExpanded = controlledIsExpanded ?? defaultIsExpanded;
+  const setIsExpanded = controlledSetIsExpanded ?? defaultSetIsExpanded;
 
-  let childItems: ReactNode;
+  let childItems = childItemsProps;
   if (item && !items) childItems = <RAC.Collection>{isExpanded ? item : null}</RAC.Collection>;
   if (item && items) childItems = <RAC.Collection items={isExpanded ? items : []}>{item}</RAC.Collection>;
   if (childItems)
