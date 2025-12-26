@@ -13,10 +13,77 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
+
+// paramWithWorkspace is a context carrier that pairs a search param with its workspace ID.
+// This is needed because HTTPSearchParam doesn't store WorkspaceID directly, but we need it
+// for topic extraction during bulk sync event publishing.
+type paramWithWorkspace struct {
+	param       mhttp.HTTPSearchParam
+	workspaceID idwrap.IDWrap
+}
+
+// publishBulkSearchParamInsert publishes multiple search param insert events in bulk.
+// Items are already grouped by HttpSearchParamTopic by the BulkSyncTxInsert wrapper.
+func (h *HttpServiceRPC) publishBulkSearchParamInsert(
+	topic HttpSearchParamTopic,
+	items []paramWithWorkspace,
+) {
+	// Convert to event slice for variadic publish
+	events := make([]HttpSearchParamEvent, len(items))
+	for i, item := range items {
+		events[i] = HttpSearchParamEvent{
+			Type:            eventTypeInsert,
+			IsDelta:         item.param.IsDelta,
+			HttpSearchParam: converter.ToAPIHttpSearchParam(item.param),
+		}
+	}
+
+	// Single bulk publish for entire batch
+	h.streamers.HttpSearchParam.Publish(topic, events...)
+}
+
+// publishBulkSearchParamUpdate publishes multiple search param update events in bulk.
+// Items are already grouped by HttpSearchParamTopic by the BulkSyncTxUpdate wrapper.
+func (h *HttpServiceRPC) publishBulkSearchParamUpdate(
+	topic HttpSearchParamTopic,
+	events []txutil.UpdateEvent[paramWithWorkspace, patch.HTTPSearchParamPatch],
+) {
+	paramEvents := make([]HttpSearchParamEvent, len(events))
+	for i, evt := range events {
+		paramEvents[i] = HttpSearchParamEvent{
+			Type:            eventTypeUpdate,
+			IsDelta:         evt.Item.param.IsDelta,
+			HttpSearchParam: converter.ToAPIHttpSearchParam(evt.Item.param),
+			Patch:           evt.Patch, // Partial updates preserved!
+		}
+	}
+	h.streamers.HttpSearchParam.Publish(topic, paramEvents...)
+}
+
+// publishBulkSearchParamDelete publishes multiple search param delete events in bulk.
+// Items are already grouped by HttpSearchParamTopic by the BulkSyncTxDelete wrapper.
+func (h *HttpServiceRPC) publishBulkSearchParamDelete(
+	topic HttpSearchParamTopic,
+	events []txutil.DeleteEvent[idwrap.IDWrap],
+) {
+	paramEvents := make([]HttpSearchParamEvent, len(events))
+	for i, evt := range events {
+		paramEvents[i] = HttpSearchParamEvent{
+			Type:    eventTypeDelete,
+			IsDelta: evt.IsDelta,
+			HttpSearchParam: &apiv1.HttpSearchParam{
+				HttpSearchParamId: evt.ID.Bytes(),
+			},
+		}
+	}
+	h.streamers.HttpSearchParam.Publish(topic, paramEvents...)
+}
 
 func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpSearchParamCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -66,7 +133,8 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		paramModel *mhttp.HTTPSearchParam
+		paramModel  *mhttp.HTTPSearchParam
+		workspaceID idwrap.IDWrap
 	}
 
 	for _, item := range req.Msg.Items {
@@ -113,46 +181,46 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 		}
 
 		insertData = append(insertData, struct {
-			paramModel *mhttp.HTTPSearchParam
+			paramModel  *mhttp.HTTPSearchParam
+			workspaceID idwrap.IDWrap
 		}{
-			paramModel: paramModel,
+			paramModel:  paramModel,
+			workspaceID: httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Execute inserts in transaction
+	// Step 2: Minimal write transaction
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkInsertTx[paramWithWorkspace, HttpSearchParamTopic](
+		tx,
+		func(pww paramWithWorkspace) HttpSearchParamTopic {
+			return HttpSearchParamTopic{WorkspaceID: pww.workspaceID}
+		},
+	)
+
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var createdParams []mhttp.HTTPSearchParam
 
 	for _, data := range insertData {
 		if err := httpSearchParamService.Create(ctx, data.paramModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		createdParams = append(createdParams, *data.paramModel)
-	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish create events for real-time sync
-	for _, param := range createdParams {
-		// Get workspace ID for the HTTP entry (we can reuse pool read here as it's after commit)
-		httpEntry, err := h.hs.Get(ctx, param.HttpID)
-		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
-			continue
-		}
-		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
-			Type:            eventTypeInsert,
-			IsDelta:         param.IsDelta,
-			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
+		// Track with workspace context for bulk sync
+		syncTx.Track(paramWithWorkspace{
+			param:       *data.paramModel,
+			workspaceID: data.workspaceID,
 		})
+	}
+
+	// Step 3: Commit and bulk publish sync events (grouped by topic)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkSearchParamInsert); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -163,11 +231,15 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param must be provided"))
 	}
 
-	// Step 1: Pre-process and check permissions OUTSIDE transaction
+	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
 	var updateData []struct {
-		paramID       idwrap.IDWrap
 		existingParam *mhttp.HTTPSearchParam
-		item          *apiv1.HttpSearchParamUpdate
+		key           *string
+		value         *string
+		enabled       *bool
+		description   *string
+		order         *float32
+		workspaceID   idwrap.IDWrap
 	}
 
 	for _, item := range req.Msg.Items {
@@ -201,78 +273,93 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		}
 
 		updateData = append(updateData, struct {
-			paramID       idwrap.IDWrap
 			existingParam *mhttp.HTTPSearchParam
-			item          *apiv1.HttpSearchParamUpdate
+			key           *string
+			value         *string
+			enabled       *bool
+			description   *string
+			order         *float32
+			workspaceID   idwrap.IDWrap
 		}{
-			paramID:       paramID,
 			existingParam: existingParam,
-			item:          item,
+			key:           item.Key,
+			value:         item.Value,
+			enabled:       item.Enabled,
+			description:   item.Description,
+			order:         item.Order,
+			workspaceID:   httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Prepare updates (in memory)
-	for _, data := range updateData {
-		item := data.item
-		existingParam := data.existingParam
-
-		if item.Key != nil {
-			existingParam.Key = *item.Key
-		}
-		if item.Value != nil {
-			existingParam.Value = *item.Value
-		}
-		if item.Enabled != nil {
-			existingParam.Enabled = *item.Enabled
-		}
-		if item.Description != nil {
-			existingParam.Description = *item.Description
-		}
-		if item.Order != nil {
-			existingParam.DisplayOrder = float64(*item.Order)
-		}
-	}
-
-	// Step 3: Execute updates in transaction
+	// Step 2: Minimal write transaction
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkUpdateTx[paramWithWorkspace, patch.HTTPSearchParamPatch, HttpSearchParamTopic](
+		tx,
+		func(pww paramWithWorkspace) HttpSearchParamTopic {
+			return HttpSearchParamTopic{WorkspaceID: pww.workspaceID}
+		},
+	)
+
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var updatedParams []mhttp.HTTPSearchParam
 
 	for _, data := range updateData {
-		if err := httpSearchParamService.Update(ctx, data.existingParam); err != nil {
+		param := *data.existingParam
+
+		// Build patch with only changed fields
+		paramPatch := patch.HTTPSearchParamPatch{}
+
+		// Update fields if provided and track in patch
+		if data.key != nil {
+			param.Key = *data.key
+			paramPatch.Key = patch.NewOptional(*data.key)
+		}
+		if data.value != nil {
+			param.Value = *data.value
+			paramPatch.Value = patch.NewOptional(*data.value)
+		}
+		if data.enabled != nil {
+			param.Enabled = *data.enabled
+			paramPatch.Enabled = patch.NewOptional(*data.enabled)
+		}
+		if data.description != nil {
+			param.Description = *data.description
+			paramPatch.Description = patch.NewOptional(*data.description)
+		}
+		if data.order != nil {
+			param.DisplayOrder = float64(*data.order)
+			paramPatch.Order = patch.NewOptional(*data.order)
+		}
+
+		if err := httpSearchParamService.Update(ctx, &param); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if data.item.Order != nil {
-			if err := httpSearchParamService.UpdateOrder(ctx, data.existingParam.ID, data.existingParam.HttpID, data.existingParam.DisplayOrder); err != nil {
+		// Update order if changed
+		if data.order != nil {
+			if err := httpSearchParamService.UpdateOrder(ctx, param.ID, param.HttpID, param.DisplayOrder); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
 
-		updatedParams = append(updatedParams, *data.existingParam)
+		// Track with workspace context and patch
+		syncTx.Track(
+			paramWithWorkspace{
+				param:       param,
+				workspaceID: data.workspaceID,
+			},
+			paramPatch,
+		)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Step 3: Commit and bulk publish (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkSearchParamUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish update events for real-time sync
-	for _, param := range updatedParams {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, param.HttpID)
-		if err != nil {
-			continue
-		}
-		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
-			Type:            eventTypeUpdate,
-			IsDelta:         param.IsDelta,
-			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -331,38 +418,33 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 		})
 	}
 
-	// Step 2: Execute deletes in transaction
+	// Step 2: Minimal write transaction
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpSearchParamTopic](
+		tx,
+		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpSearchParamTopic {
+			return HttpSearchParamTopic{WorkspaceID: evt.WorkspaceID}
+		},
+	)
+
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var deletedParams []mhttp.HTTPSearchParam
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
-		// Delete the param
 		if err := httpSearchParamService.Delete(ctx, data.paramID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedParams = append(deletedParams, *data.existingParam)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
+		syncTx.Track(data.paramID, data.workspaceID, data.existingParam.IsDelta)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Step 3: Commit and bulk publish (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkSearchParamDelete); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync
-	for i, param := range deletedParams {
-		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
-			Type:            eventTypeDelete,
-			IsDelta:         param.IsDelta,
-			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
