@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -25,11 +26,11 @@ func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 }
 
 // publishUpdateEvent publishes an update event for real-time sync
-func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP, patch DeltaPatch) {
+func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP, p patch.HTTPDeltaPatch) {
 	h.streamers.Http.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
 		Type:    eventTypeUpdate,
 		IsDelta: http.IsDelta,
-		Patch:   patch,
+		Patch:   p,
 		Http:    converter.ToAPIHttp(http),
 	})
 }

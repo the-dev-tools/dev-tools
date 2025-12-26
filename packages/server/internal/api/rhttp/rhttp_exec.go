@@ -25,6 +25,7 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/service/senv"
@@ -318,7 +319,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to commit transaction: %w", err))
 	}
 
-	h.publishUpdateEvent(*httpEntry, nil)
+	h.publishUpdateEvent(*httpEntry, patch.HTTPDeltaPatch{})
 	h.publishVersionInsertEvent(*version, httpEntry.WorkspaceID)
 	h.logExecution(userID, httpEntry, nil)
 

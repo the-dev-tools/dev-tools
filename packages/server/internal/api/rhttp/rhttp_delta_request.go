@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -200,47 +201,48 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 	}
 
 	// Step 2: Prepare updates (in memory modifications)
-	var patches []DeltaPatch
+	var patches []patch.HTTPDeltaPatch
 
 	for _, data := range updateData {
 		item := data.item
 		existingDelta := data.existingDelta
-		patch := make(DeltaPatch)
+		var patchData patch.HTTPDeltaPatch
 
 		if item.Name != nil {
 			switch item.Name.GetKind() {
 			case apiv1.HttpDeltaUpdate_NameUnion_KIND_UNSET:
 				existingDelta.DeltaName = nil
-				patch["name"] = nil
+				patchData.Name = patch.Unset[string]()
 			case apiv1.HttpDeltaUpdate_NameUnion_KIND_VALUE:
 				nameStr := item.Name.GetValue()
 				existingDelta.DeltaName = &nameStr
-				patch["name"] = &nameStr
+				patchData.Name = patch.NewOptional(nameStr)
 			}
 		}
 		if item.Method != nil {
 			switch item.Method.GetKind() {
 			case apiv1.HttpDeltaUpdate_MethodUnion_KIND_UNSET:
 				existingDelta.DeltaMethod = nil
-				patch["method"] = nil
+				patchData.Method = patch.Unset[string]()
 			case apiv1.HttpDeltaUpdate_MethodUnion_KIND_VALUE:
 				method := item.Method.GetValue()
 				existingDelta.DeltaMethod = httpMethodToString(&method)
-				patch["method"] = existingDelta.DeltaMethod
+				patchData.Method = patch.NewOptional(*existingDelta.DeltaMethod)
 			}
 		}
 		if item.Url != nil {
 			switch item.Url.GetKind() {
 			case apiv1.HttpDeltaUpdate_UrlUnion_KIND_UNSET:
 				existingDelta.DeltaUrl = nil
-				patch["url"] = nil
+				patchData.Url = patch.Unset[string]()
 			case apiv1.HttpDeltaUpdate_UrlUnion_KIND_VALUE:
 				urlStr := item.Url.GetValue()
 				existingDelta.DeltaUrl = &urlStr
-				patch["url"] = &urlStr
+				patchData.Url = patch.NewOptional(urlStr)
 			}
 		}
-		patches = append(patches, patch)
+
+		patches = append(patches, patchData)
 	}
 
 	// Step 3: Execute updates in transaction

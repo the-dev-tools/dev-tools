@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -286,7 +287,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 
 	// Publish update events for real-time sync after successful commit
 	for _, http := range updatedHTTPs {
-		h.publishUpdateEvent(http, nil)
+		h.publishUpdateEvent(http, patch.HTTPDeltaPatch{})
 	}
 
 	// Publish version insert events

@@ -504,47 +504,47 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 			delta.HttpId = http.ParentHttpID.Bytes()
 		}
 
-		if event.Patch != nil {
+		if event.Patch.HasChanges() {
 			// Sparse Patch Mode
-			if val, ok := event.Patch["name"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
-						Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Name.IsSet() {
+				if event.Patch.Name.IsUnset() {
 					delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
 						Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_VALUE,
+						Value: event.Patch.Name.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["method"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					method := converter.ToAPIHttpMethod(*strPtr)
-					delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
-						Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_VALUE,
-						Value: &method,
-					}
-				} else {
+			if event.Patch.Method.IsSet() {
+				if event.Patch.Method.IsUnset() {
 					delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
 						Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					method := converter.ToAPIHttpMethod(*event.Patch.Method.Value())
+					delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_VALUE,
+						Value: &method,
+					}
 				}
 			}
 
-			if val, ok := event.Patch["url"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
-						Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Url.IsSet() {
+				if event.Patch.Url.IsUnset() {
 					delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
 						Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				} else {
+					delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
+						Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_VALUE,
+						Value: event.Patch.Url.Value(),
 					}
 				}
 			}

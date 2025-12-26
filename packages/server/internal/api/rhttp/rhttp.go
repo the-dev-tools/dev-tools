@@ -27,10 +27,6 @@ const (
 	eventTypeDelete = "delete"
 )
 
-// DeltaPatch defines a sparse map of fields that have been explicitly changed.
-// It is used to propagate patch-style updates in the sync stream without "nuking" other fields.
-type DeltaPatch map[string]any
-
 // HttpTopic defines the streaming topic for HTTP events
 type HttpTopic struct {
 	WorkspaceID idwrap.IDWrap
@@ -40,7 +36,7 @@ type HttpTopic struct {
 type HttpEvent struct {
 	Type    string
 	IsDelta bool
-	Patch   DeltaPatch
+	Patch   patch.HTTPDeltaPatch
 	Http    *apiv1.Http
 }
 

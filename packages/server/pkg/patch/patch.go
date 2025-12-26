@@ -92,3 +92,20 @@ func (p HTTPBodyUrlEncodedPatch) HasChanges() bool {
 	return p.Key.IsSet() || p.Value.IsSet() || p.Enabled.IsSet() ||
 		p.Description.IsSet() || p.Order.IsSet()
 }
+
+// HTTPDeltaPatch represents sparse updates to HTTP delta fields.
+//
+// Semantics:
+//   - Field.IsSet() == false = field not changed (omitted from update)
+//   - Field.IsUnset() == true = field explicitly UNSET/cleared
+//   - Field.HasValue() == true = field set to that value
+type HTTPDeltaPatch struct {
+	Name   Optional[string]
+	Method Optional[string]
+	Url    Optional[string]
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p HTTPDeltaPatch) HasChanges() bool {
+	return p.Name.IsSet() || p.Method.IsSet() || p.Url.IsSet()
+}
