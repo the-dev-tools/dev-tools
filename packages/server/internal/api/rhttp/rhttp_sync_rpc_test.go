@@ -153,6 +153,29 @@ func collectHttpAssertSyncItems(t *testing.T, ch <-chan *httpv1.HttpAssertSyncRe
 	return items
 }
 
+func collectHttpVersionSyncItems(t *testing.T, ch <-chan *httpv1.HttpVersionSyncResponse, count int) []*httpv1.HttpVersionSync {
+	t.Helper()
+	var items []*httpv1.HttpVersionSync
+	timeout := time.After(2 * time.Second)
+	for len(items) < count {
+		select {
+		case resp, ok := <-ch:
+			require.True(t, ok, "channel closed")
+			for _, item := range resp.GetItems() {
+				if item != nil {
+					items = append(items, item)
+					if len(items) == count {
+						break
+					}
+				}
+			}
+		case <-timeout:
+			require.FailNow(t, "timeout waiting for items")
+		}
+	}
+	return items
+}
+
 // ========== TESTS ==========
 
 func TestHttpSearchParamSync_Streaming(t *testing.T) {
@@ -688,3 +711,494 @@ func TestHttpAssertSync_Streaming(t *testing.T) {
 		require.True(t, errors.Is(err, context.Canceled))
 	}
 }
+
+func TestHttpUpdateSync_SingleItem(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws := f.createWorkspace(t, "test-workspace")
+	httpID := f.createHttp(t, ws, "original-name", "https://original.com", "GET")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	// Wait for stream to be active (no snapshot expected)
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Update HTTP name
+	newName := "updated-name"
+	req := connect.NewRequest(&httpv1.HttpUpdateRequest{
+		Items: []*httpv1.HttpUpdate{
+			{HttpId: httpID.Bytes(), Name: &newName},
+		},
+	})
+	_, err := f.handler.HttpUpdate(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify sync event
+	items := collectHttpSyncStreamingItems(t, msgCh, 1)
+	updateVal := items[0].GetValue()
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, updateVal.GetKind())
+	require.Equal(t, newName, updateVal.GetUpdate().GetName())
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpUpdateSync_BulkSameWorkspace(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws := f.createWorkspace(t, "test-workspace")
+	httpID1 := f.createHttp(t, ws, "http-1", "https://api1.com", "GET")
+	httpID2 := f.createHttp(t, ws, "http-2", "https://api2.com", "POST")
+	httpID3 := f.createHttp(t, ws, "http-3", "https://api3.com", "PUT")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Bulk update - 3 items in same workspace
+	name1 := "updated-http-1"
+	name2 := "updated-http-2"
+	name3 := "updated-http-3"
+	req := connect.NewRequest(&httpv1.HttpUpdateRequest{
+		Items: []*httpv1.HttpUpdate{
+			{HttpId: httpID1.Bytes(), Name: &name1},
+			{HttpId: httpID2.Bytes(), Name: &name2},
+			{HttpId: httpID3.Bytes(), Name: &name3},
+		},
+	})
+	_, err := f.handler.HttpUpdate(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify all 3 update events (may be batched)
+	items := collectHttpSyncStreamingItems(t, msgCh, 3)
+	names := make(map[string]bool)
+	for _, item := range items {
+		v := item.GetValue()
+		require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, v.GetKind())
+		names[v.GetUpdate().GetName()] = true
+	}
+	require.True(t, names[name1], "expected updated-http-1")
+	require.True(t, names[name2], "expected updated-http-2")
+	require.True(t, names[name3], "expected updated-http-3")
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpUpdateSync_MultiWorkspace(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws1 := f.createWorkspace(t, "workspace-1")
+	ws2 := f.createWorkspace(t, "workspace-2")
+	httpID1 := f.createHttp(t, ws1, "http-ws1", "https://ws1.com", "GET")
+	httpID2 := f.createHttp(t, ws2, "http-ws2", "https://ws2.com", "POST")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Update HTTP entries from different workspaces
+	name1 := "updated-ws1"
+	name2 := "updated-ws2"
+	req := connect.NewRequest(&httpv1.HttpUpdateRequest{
+		Items: []*httpv1.HttpUpdate{
+			{HttpId: httpID1.Bytes(), Name: &name1},
+			{HttpId: httpID2.Bytes(), Name: &name2},
+		},
+	})
+	_, err := f.handler.HttpUpdate(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify both updates received (may arrive in separate batches)
+	items := collectHttpSyncStreamingItems(t, msgCh, 2)
+	names := make(map[string]bool)
+	for _, item := range items {
+		v := item.GetValue()
+		require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, v.GetKind())
+		names[v.GetUpdate().GetName()] = true
+	}
+	require.True(t, names[name1], "expected updated-ws1")
+	require.True(t, names[name2], "expected updated-ws2")
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpUpdateSync_PartialFields(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws := f.createWorkspace(t, "test-workspace")
+	httpID := f.createHttp(t, ws, "original-name", "https://original.com", "GET")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Partial update - only name changed
+	newName := "updated-name-only"
+	req := connect.NewRequest(&httpv1.HttpUpdateRequest{
+		Items: []*httpv1.HttpUpdate{
+			{HttpId: httpID.Bytes(), Name: &newName},
+		},
+	})
+	_, err := f.handler.HttpUpdate(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify update event with full state
+	items := collectHttpSyncStreamingItems(t, msgCh, 1)
+	updateVal := items[0].GetValue()
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, updateVal.GetKind())
+	require.Equal(t, newName, updateVal.GetUpdate().GetName())
+	// Full state sent (converter sends complete object)
+	require.Equal(t, "https://original.com", updateVal.GetUpdate().GetUrl())
+	require.Equal(t, httpv1.HttpMethod_HTTP_METHOD_GET, updateVal.GetUpdate().GetMethod())
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpUpdateSync_VersionCreation(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws := f.createWorkspace(t, "test-workspace")
+	httpID := f.createHttp(t, ws, "original-name", "https://original.com", "GET")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	// Setup both HTTP and HttpVersion streams
+	httpMsgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	httpErrCh := make(chan error, 1)
+	versionMsgCh := make(chan *httpv1.HttpVersionSyncResponse, 10)
+	versionErrCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			httpMsgCh <- resp
+			return nil
+		})
+		httpErrCh <- err
+		close(httpMsgCh)
+	}()
+
+	go func() {
+		err := f.handler.streamHttpVersionSync(ctx, f.userID, func(resp *httpv1.HttpVersionSyncResponse) error {
+			versionMsgCh <- resp
+			return nil
+		})
+		versionErrCh <- err
+		close(versionMsgCh)
+	}()
+
+	// Wait for streams to be active
+	select {
+	case <-httpMsgCh:
+		require.FailNow(t, "Received unexpected HTTP snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+	select {
+	case <-versionMsgCh:
+		require.FailNow(t, "Received unexpected version snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Update HTTP - should create version
+	newName := "updated-with-version"
+	req := connect.NewRequest(&httpv1.HttpUpdateRequest{
+		Items: []*httpv1.HttpUpdate{
+			{HttpId: httpID.Bytes(), Name: &newName},
+		},
+	})
+	_, err := f.handler.HttpUpdate(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify HTTP update event
+	httpItems := collectHttpSyncStreamingItems(t, httpMsgCh, 1)
+	httpVal := httpItems[0].GetValue()
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, httpVal.GetKind())
+	require.Equal(t, newName, httpVal.GetUpdate().GetName())
+
+	// Verify HttpVersion insert event
+	versionItems := collectHttpVersionSyncItems(t, versionMsgCh, 1)
+	versionVal := versionItems[0].GetValue()
+	require.Equal(t, httpv1.HttpVersionSync_ValueUnion_KIND_INSERT, versionVal.GetKind())
+	// Version should have auto-generated name (format: v<timestamp>)
+	require.NotEmpty(t, versionVal.GetInsert().GetName())
+	require.Contains(t, versionVal.GetInsert().GetName(), "v")
+	// Version description should be "Auto-saved version"
+	require.Equal(t, "Auto-saved version", versionVal.GetInsert().GetDescription())
+	// Version linked to correct HTTP ID
+	require.Equal(t, httpID.Bytes(), versionVal.GetInsert().GetHttpId())
+
+	cancel()
+	err = <-httpErrCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+	err = <-versionErrCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpDeleteSync_SingleItem(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws := f.createWorkspace(t, "test-workspace")
+	httpID := f.createHttp(t, ws, "to-delete", "https://delete.com", "DELETE")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Delete HTTP entry
+	req := connect.NewRequest(&httpv1.HttpDeleteRequest{
+		Items: []*httpv1.HttpDelete{
+			{HttpId: httpID.Bytes()},
+		},
+	})
+	_, err := f.handler.HttpDelete(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify delete event
+	items := collectHttpSyncStreamingItems(t, msgCh, 1)
+	deleteVal := items[0].GetValue()
+	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_DELETE, deleteVal.GetKind())
+	require.Equal(t, httpID.Bytes(), deleteVal.GetDelete().GetHttpId())
+
+	// Verify item actually deleted from database
+	_, err = f.hs.Get(f.ctx, httpID)
+	require.Error(t, err, "HTTP should be deleted from database")
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpDeleteSync_BulkSameWorkspace(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws := f.createWorkspace(t, "test-workspace")
+	httpID1 := f.createHttp(t, ws, "delete-1", "https://delete1.com", "DELETE")
+	httpID2 := f.createHttp(t, ws, "delete-2", "https://delete2.com", "DELETE")
+	httpID3 := f.createHttp(t, ws, "delete-3", "https://delete3.com", "DELETE")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Bulk delete - 3 items in same workspace
+	req := connect.NewRequest(&httpv1.HttpDeleteRequest{
+		Items: []*httpv1.HttpDelete{
+			{HttpId: httpID1.Bytes()},
+			{HttpId: httpID2.Bytes()},
+			{HttpId: httpID3.Bytes()},
+		},
+	})
+	_, err := f.handler.HttpDelete(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify all 3 delete events
+	items := collectHttpSyncStreamingItems(t, msgCh, 3)
+	deletedIDs := make(map[string]bool)
+	for _, item := range items {
+		v := item.GetValue()
+		require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_DELETE, v.GetKind())
+		id, err := idwrap.NewFromBytes(v.GetDelete().GetHttpId())
+		require.NoError(t, err)
+		deletedIDs[id.String()] = true
+	}
+	require.True(t, deletedIDs[httpID1.String()], "expected httpID1 deleted")
+	require.True(t, deletedIDs[httpID2.String()], "expected httpID2 deleted")
+	require.True(t, deletedIDs[httpID3.String()], "expected httpID3 deleted")
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+
+func TestHttpDeleteSync_MultiWorkspace(t *testing.T) {
+	t.Parallel()
+
+	f := newHttpStreamingFixture(t)
+	ws1 := f.createWorkspace(t, "workspace-1")
+	ws2 := f.createWorkspace(t, "workspace-2")
+	httpID1 := f.createHttp(t, ws1, "delete-ws1", "https://delete-ws1.com", "DELETE")
+	httpID2 := f.createHttp(t, ws2, "delete-ws2", "https://delete-ws2.com", "DELETE")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *httpv1.HttpSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	select {
+	case <-msgCh:
+		require.FailNow(t, "Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Delete HTTP entries from different workspaces
+	req := connect.NewRequest(&httpv1.HttpDeleteRequest{
+		Items: []*httpv1.HttpDelete{
+			{HttpId: httpID1.Bytes()},
+			{HttpId: httpID2.Bytes()},
+		},
+	})
+	_, err := f.handler.HttpDelete(f.ctx, req)
+	require.NoError(t, err)
+
+	// Verify both deletes received (may arrive in separate batches)
+	items := collectHttpSyncStreamingItems(t, msgCh, 2)
+	deletedIDs := make(map[string]bool)
+	for _, item := range items {
+		v := item.GetValue()
+		require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_DELETE, v.GetKind())
+		id, err := idwrap.NewFromBytes(v.GetDelete().GetHttpId())
+		require.NoError(t, err)
+		deletedIDs[id.String()] = true
+	}
+	require.True(t, deletedIDs[httpID1.String()], "expected httpID1 deleted")
+	require.True(t, deletedIDs[httpID2.String()], "expected httpID2 deleted")
+
+	cancel()
+	err = <-errCh
+	if err != nil {
+		require.True(t, errors.Is(err, context.Canceled))
+	}
+}
+

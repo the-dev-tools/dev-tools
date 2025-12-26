@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/txutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -35,23 +36,65 @@ func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP, p patch.HTTPDeltaPa
 	})
 }
 
-// publishDeleteEvent publishes a delete event for real-time sync
-func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap, isDelta bool) {
-	h.streamers.Http.Publish(HttpTopic{WorkspaceID: workspaceID}, HttpEvent{
-		Type:    eventTypeDelete,
-		IsDelta: isDelta,
-		Http: &apiv1.Http{
-			HttpId: httpID.Bytes(),
-		},
-	})
-}
-
 // publishVersionInsertEvent publishes an insert event for real-time sync
 func (h *HttpServiceRPC) publishVersionInsertEvent(version mhttp.HttpVersion, workspaceID idwrap.IDWrap) {
 	h.streamers.HttpVersion.Publish(HttpVersionTopic{WorkspaceID: workspaceID}, HttpVersionEvent{
 		Type:        eventTypeInsert,
 		HttpVersion: converter.ToAPIHttpVersion(version),
 	})
+}
+
+// publishBulkHttpUpdate publishes multiple HTTP update events in bulk.
+// Items are already grouped by HttpTopic by the BulkSyncTxUpdate wrapper.
+func (h *HttpServiceRPC) publishBulkHttpUpdate(
+	topic HttpTopic,
+	events []txutil.UpdateEvent[mhttp.HTTP, patch.HTTPDeltaPatch],
+) {
+	httpEvents := make([]HttpEvent, len(events))
+	for i, evt := range events {
+		httpEvents[i] = HttpEvent{
+			Type:    eventTypeUpdate,
+			IsDelta: evt.Item.IsDelta,
+			Patch:   evt.Patch, // Partial updates preserved!
+			Http:    converter.ToAPIHttp(evt.Item),
+		}
+	}
+	h.streamers.Http.Publish(topic, httpEvents...)
+}
+
+// publishBulkVersionInsert publishes multiple version insert events in bulk.
+// Items are already grouped by HttpVersionTopic by the BulkSyncTxInsert wrapper.
+func (h *HttpServiceRPC) publishBulkVersionInsert(
+	topic HttpVersionTopic,
+	items []versionWithWorkspace,
+) {
+	versionEvents := make([]HttpVersionEvent, len(items))
+	for i, item := range items {
+		versionEvents[i] = HttpVersionEvent{
+			Type:        eventTypeInsert,
+			HttpVersion: converter.ToAPIHttpVersion(item.version),
+		}
+	}
+	h.streamers.HttpVersion.Publish(topic, versionEvents...)
+}
+
+// publishBulkHttpDelete publishes multiple HTTP delete events in bulk.
+// Items are already grouped by HttpTopic by the BulkSyncTxDelete wrapper.
+func (h *HttpServiceRPC) publishBulkHttpDelete(
+	topic HttpTopic,
+	events []txutil.DeleteEvent[idwrap.IDWrap],
+) {
+	httpEvents := make([]HttpEvent, len(events))
+	for i, evt := range events {
+		httpEvents[i] = HttpEvent{
+			Type:    eventTypeDelete,
+			IsDelta: evt.IsDelta,
+			Http: &apiv1.Http{
+				HttpId: evt.ID.Bytes(),
+			},
+		}
+	}
+	h.streamers.Http.Publish(topic, httpEvents...)
 }
 
 // listUserHttp retrieves all HTTP entries accessible to the user

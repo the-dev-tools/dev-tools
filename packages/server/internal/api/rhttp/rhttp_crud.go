@@ -150,6 +150,14 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// versionWithWorkspace is a context carrier that pairs a version with its workspace ID.
+// This is needed because HttpVersion doesn't store WorkspaceID directly, but we need it
+// for topic extraction during bulk sync event publishing.
+type versionWithWorkspace struct {
+	version     mhttp.HttpVersion
+	workspaceID idwrap.IDWrap
+}
+
 func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[apiv1.HttpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP entry must be provided"))
@@ -225,45 +233,62 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		updateData[i].httpModel = existingHttp
 	}
 
-	// Step 3: Apply updates to models OUTSIDE transaction
-	for i := range updateData {
-		if updateData[i].name != nil {
-			updateData[i].httpModel.Name = *updateData[i].name
-		}
-		if updateData[i].url != nil {
-			updateData[i].httpModel.Url = *updateData[i].url
-		}
-		if updateData[i].method != nil {
-			updateData[i].httpModel.Method = *updateData[i].method
-		}
-		if updateData[i].bodyKind != nil {
-			updateData[i].httpModel.BodyKind = *updateData[i].bodyKind
-		}
-	}
-
-	// Step 4: Minimal write transaction for fast updates only
+	// Step 3: Minimal write transaction for fast updates only
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	hsWriter := shttp.NewWriter(tx)
+	// Create bulk sync wrapper for HTTP updates with topic extractor
+	httpSyncTx := txutil.NewBulkUpdateTx[mhttp.HTTP, patch.HTTPDeltaPatch, HttpTopic](
+		tx,
+		func(http mhttp.HTTP) HttpTopic {
+			return HttpTopic{WorkspaceID: http.WorkspaceID}
+		},
+	)
 
-	var updatedHTTPs []mhttp.HTTP
-	var newVersions []mhttp.HttpVersion
+	hsWriter := shttp.NewWriter(tx)
 
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
+	// Track versions for bulk publishing after commit
+	var versionsToPublish []versionWithWorkspace
+
 	// Fast updates inside minimal transaction
 	for _, data := range updateData {
-		if err := hsWriter.Update(ctx, data.httpModel); err != nil {
+		http := *data.httpModel
+
+		// Build patch with only changed fields
+		httpPatch := patch.HTTPDeltaPatch{}
+
+		// Apply updates and track in patch
+		if data.name != nil {
+			http.Name = *data.name
+			httpPatch.Name = patch.NewOptional(*data.name)
+		}
+		if data.url != nil {
+			http.Url = *data.url
+			httpPatch.Url = patch.NewOptional(*data.url)
+		}
+		if data.method != nil {
+			http.Method = *data.method
+			httpPatch.Method = patch.NewOptional(*data.method)
+		}
+		if data.bodyKind != nil {
+			http.BodyKind = *data.bodyKind
+			// Note: BodyKind is not in HTTPDeltaPatch, so we can't track it
+		}
+
+		if err := hsWriter.Update(ctx, &http); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		updatedHTTPs = append(updatedHTTPs, *data.httpModel)
+
+		// Track with patch for bulk sync
+		httpSyncTx.Track(http, httpPatch)
 
 		// Create a new version for this update
 		// Use Nano to ensure uniqueness during rapid updates
@@ -272,36 +297,31 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 
 		version, err := hsWriter.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
 		if err != nil {
-			// Log error but don't fail the update?
 			// Strict mode: fail the update if version creation fails
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		newVersions = append(newVersions, *version)
+
+		// Track version with workspace context for later bulk publishing
+		versionsToPublish = append(versionsToPublish, versionWithWorkspace{
+			version:     *version,
+			workspaceID: http.WorkspaceID,
+		})
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Commit and bulk publish HTTP updates (grouped by workspace)
+	if err := httpSyncTx.CommitAndPublish(ctx, h.publishBulkHttpUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Publish update events for real-time sync after successful commit
-	for _, http := range updatedHTTPs {
-		h.publishUpdateEvent(http, patch.HTTPDeltaPatch{})
+	// Bulk publish version inserts (grouped by workspace)
+	// Group versions by topic and publish
+	versionsByTopic := make(map[HttpVersionTopic][]versionWithWorkspace)
+	for _, vww := range versionsToPublish {
+		topic := HttpVersionTopic{WorkspaceID: vww.workspaceID}
+		versionsByTopic[topic] = append(versionsByTopic[topic], vww)
 	}
-
-	// Publish version insert events
-	for _, version := range newVersions {
-		workspaceID := idwrap.IDWrap{} // Need workspace ID, get from http model or lookup
-		// Efficient lookup: we have updatedHTTPs which correspond to newVersions by index
-		// Find corresponding HTTP to get workspaceID
-		for _, http := range updatedHTTPs {
-			if http.ID == version.HttpID {
-				workspaceID = http.WorkspaceID
-				break
-			}
-		}
-		if workspaceID != (idwrap.IDWrap{}) {
-			h.publishVersionInsertEvent(version, workspaceID)
-		}
+	for topic, items := range versionsByTopic {
+		h.publishBulkVersionInsert(topic, items)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -363,11 +383,15 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	hsWriter := shttp.NewWriter(tx)
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpTopic](
+		tx,
+		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpTopic {
+			return HttpTopic{WorkspaceID: evt.WorkspaceID}
+		},
+	)
 
-	var deletedIDs []idwrap.IDWrap
-	var deletedWorkspaceIDs []idwrap.IDWrap
-	var deletedIsDeltas []bool
+	hsWriter := shttp.NewWriter(tx)
 
 	// Fast deletes inside minimal transaction
 	for _, data := range deleteData {
@@ -383,18 +407,13 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedIDs = append(deletedIDs, data.httpID)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
-		deletedIsDeltas = append(deletedIsDeltas, data.existingHttp.IsDelta)
+		// Track deletion with workspace context and delta flag
+		syncTx.Track(data.httpID, data.workspaceID, data.existingHttp.IsDelta)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Commit and bulk publish (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHttpDelete); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync after successful commit
-	for i, httpID := range deletedIDs {
-		h.publishDeleteEvent(httpID, deletedWorkspaceIDs[i], deletedIsDeltas[i])
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
