@@ -458,7 +458,11 @@ func (s *FlowServiceV2RPC) executeFlow(
 			if s.logStream != nil && status.State != mflow.NODE_STATE_RUNNING {
 				idStr := status.NodeID.String()
 				stateStr := mflow.StringNodeState(status.State)
-				msg := fmt.Sprintf("Node %s: %s", idStr, stateStr)
+				nodeName := status.Name
+				if nodeName == "" {
+					nodeName = idStr
+				}
+				msg := fmt.Sprintf("Node %s: %s", nodeName, stateStr)
 
 				var logLevel logv1.LogLevel
 				switch status.State {

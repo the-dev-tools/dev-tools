@@ -176,7 +176,7 @@ Loop:
 			// Break if we have received logs and the last one is SUCCESS/FAILURE
 			if len(logs) > 0 {
 				lastLog := logs[len(logs)-1]
-				if lastLog.Log != nil && (lastLog.Log.Name == "Node "+startNodeID.String()+": Success" || lastLog.Log.Name == "Node "+startNodeID.String()+": Failure") {
+				if lastLog.Log != nil && (lastLog.Log.Name == "Node Start: Success" || lastLog.Log.Name == "Node Start: Failure") {
 					break Loop
 				}
 			}
@@ -207,7 +207,7 @@ Loop:
 		nodeIDStr := fields["node_id"].GetStringValue()
 		assert.Equal(t, startNodeID.String(), nodeIDStr)
 
-		if l.Log.Name == "Node "+startNodeID.String()+": Success" {
+		if l.Log.Name == "Node Start: Success" {
 			foundStart = true
 		}
 	}
