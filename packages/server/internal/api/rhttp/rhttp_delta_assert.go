@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -192,50 +193,50 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 		deltaEnabled *bool
 		deltaOrder   *float32
 	}
-	var patches []DeltaPatch
+	var patches []patch.HTTPAssertPatch
 
 	for _, data := range updateData {
 		item := data.item
 		deltaValue := data.existingAssert.DeltaValue
 		deltaEnabled := data.existingAssert.DeltaEnabled
 		deltaOrder := data.existingAssert.DeltaDisplayOrder
-		patch := make(DeltaPatch)
+		var patchData patch.HTTPAssertPatch
 
 		if item.Value != nil {
 			switch item.Value.GetKind() {
 			case apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
-				patch["value"] = nil
+				patchData.Value = patch.Unset[string]()
 			case apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_VALUE:
 				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
-				patch["value"] = &valueStr
+				patchData.Value = patch.NewOptional(valueStr)
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
 			case apiv1.HttpAssertDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
-				patch["enabled"] = nil
+				patchData.Enabled = patch.Unset[bool]()
 			case apiv1.HttpAssertDeltaUpdate_EnabledUnion_KIND_VALUE:
 				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
-				patch["enabled"] = &enabledBool
+				patchData.Enabled = patch.NewOptional(enabledBool)
 			}
 		}
 		if item.Order != nil {
 			switch item.Order.GetKind() {
 			case apiv1.HttpAssertDeltaUpdate_OrderUnion_KIND_UNSET:
 				deltaOrder = nil
-				patch["order"] = nil
+				patchData.Order = patch.Unset[float32]()
 			case apiv1.HttpAssertDeltaUpdate_OrderUnion_KIND_VALUE:
 				orderFloat := item.Order.GetValue()
 				deltaOrder = &orderFloat
-				patch["order"] = &orderFloat
+				patchData.Order = patch.NewOptional(orderFloat)
 			}
 		}
 
-		patches = append(patches, patch)
+		patches = append(patches, patchData)
 		preparedUpdates = append(preparedUpdates, struct {
 			deltaID      idwrap.IDWrap
 			deltaValue   *string

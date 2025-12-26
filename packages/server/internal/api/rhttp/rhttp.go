@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
@@ -52,7 +53,7 @@ type HttpHeaderTopic struct {
 type HttpHeaderEvent struct {
 	Type       string
 	IsDelta    bool
-	Patch      DeltaPatch
+	Patch      patch.HTTPHeaderPatch
 	HttpHeader *apiv1.HttpHeader
 }
 
@@ -65,7 +66,7 @@ type HttpSearchParamTopic struct {
 type HttpSearchParamEvent struct {
 	Type            string
 	IsDelta         bool
-	Patch           DeltaPatch
+	Patch           patch.HTTPSearchParamPatch
 	HttpSearchParam *apiv1.HttpSearchParam
 }
 
@@ -78,7 +79,7 @@ type HttpBodyFormTopic struct {
 type HttpBodyFormEvent struct {
 	Type         string
 	IsDelta      bool
-	Patch        DeltaPatch
+	Patch        patch.HTTPBodyFormPatch
 	HttpBodyForm *apiv1.HttpBodyFormData
 }
 
@@ -91,7 +92,7 @@ type HttpBodyUrlEncodedTopic struct {
 type HttpBodyUrlEncodedEvent struct {
 	Type               string
 	IsDelta            bool
-	Patch              DeltaPatch
+	Patch              patch.HTTPBodyUrlEncodedPatch
 	HttpBodyUrlEncoded *apiv1.HttpBodyUrlEncoded
 }
 
@@ -104,7 +105,7 @@ type HttpAssertTopic struct {
 type HttpAssertEvent struct {
 	Type       string
 	IsDelta    bool
-	Patch      DeltaPatch
+	Patch      patch.HTTPAssertPatch
 	HttpAssert *apiv1.HttpAssert
 }
 
@@ -161,7 +162,7 @@ type HttpBodyRawTopic struct {
 type HttpBodyRawEvent struct {
 	Type        string
 	IsDelta     bool
-	Patch       DeltaPatch
+	Patch       patch.HTTPBodyRawPatch
 	HttpBodyRaw *apiv1.HttpBodyRaw
 }
 

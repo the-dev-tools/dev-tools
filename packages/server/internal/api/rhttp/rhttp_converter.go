@@ -771,74 +771,74 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 		}
 		delta.HttpId = param.HttpID.Bytes()
 
-		if event.Patch != nil {
+		if event.Patch.HasChanges() {
 			// Sparse Patch Mode
-			if val, ok := event.Patch["key"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Key.IsSet() {
+				if event.Patch.Key.IsUnset() {
 					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
 						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: event.Patch.Key.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["value"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Value.IsSet() {
+				if event.Patch.Value.IsUnset() {
 					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
 						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: event.Patch.Value.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["enabled"]; ok {
-				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
-					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-						Value: boolPtr,
-					}
-				} else {
+			if event.Patch.Enabled.IsSet() {
+				if event.Patch.Enabled.IsUnset() {
 					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
 						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: event.Patch.Enabled.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["description"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Description.IsSet() {
+				if event.Patch.Description.IsUnset() {
 					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
 						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: event.Patch.Description.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["order"]; ok {
-				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
-					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-						Value: floatPtr,
-					}
-				} else {
+			if event.Patch.Order.IsSet() {
+				if event.Patch.Order.IsUnset() {
 					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
 						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				} else {
+					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: event.Patch.Order.Value(),
 					}
 				}
 			}
@@ -969,74 +969,74 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 		}
 		delta.HttpId = header.HttpID.Bytes()
 
-		if event.Patch != nil {
+		if event.Patch.HasChanges() {
 			// Sparse Patch Mode
-			if val, ok := event.Patch["key"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
-						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Key.IsSet() {
+				if event.Patch.Key.IsUnset() {
 					delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
 						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: event.Patch.Key.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["value"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
-						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Value.IsSet() {
+				if event.Patch.Value.IsUnset() {
 					delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
 						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: event.Patch.Value.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["enabled"]; ok {
-				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
-					delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
-						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-						Value: boolPtr,
-					}
-				} else {
+			if event.Patch.Enabled.IsSet() {
+				if event.Patch.Enabled.IsUnset() {
 					delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
 						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: event.Patch.Enabled.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["description"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
-						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Description.IsSet() {
+				if event.Patch.Description.IsUnset() {
 					delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
 						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: event.Patch.Description.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["order"]; ok {
-				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
-					delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
-						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-						Value: floatPtr,
-					}
-				} else {
+			if event.Patch.Order.IsSet() {
+				if event.Patch.Order.IsUnset() {
 					delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
 						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				} else {
+					delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: event.Patch.Order.Value(),
 					}
 				}
 			}
@@ -1168,73 +1168,73 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 		delta.HttpId = form.HttpID.Bytes()
 
 		// Patch Mode: Only include fields that were explicitly changed
-		if len(event.Patch) > 0 {
-			if val, ok := event.Patch["key"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
-						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+		if event.Patch.HasChanges() {
+			if event.Patch.Key.IsSet() {
+				if event.Patch.Key.IsUnset() {
 					delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
 						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: event.Patch.Key.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["value"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
-						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Value.IsSet() {
+				if event.Patch.Value.IsUnset() {
 					delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
 						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: event.Patch.Value.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["enabled"]; ok {
-				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
-					delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
-						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-						Value: boolPtr,
-					}
-				} else {
+			if event.Patch.Enabled.IsSet() {
+				if event.Patch.Enabled.IsUnset() {
 					delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
 						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: event.Patch.Enabled.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["description"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
-						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Description.IsSet() {
+				if event.Patch.Description.IsUnset() {
 					delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
 						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: event.Patch.Description.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["order"]; ok {
-				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
-					delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
-						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-						Value: floatPtr,
-					}
-				} else {
+			if event.Patch.Order.IsSet() {
+				if event.Patch.Order.IsUnset() {
 					delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
 						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				} else {
+					delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: event.Patch.Order.Value(),
 					}
 				}
 			}
@@ -1358,46 +1358,46 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttp.HTTPAss
 		}
 		delta.HttpId = assert.HttpID.Bytes()
 
-		if event.Patch != nil {
+		if event.Patch.HasChanges() {
 			// Sparse Patch Mode
-			if val, ok := event.Patch["value"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
-						Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Value.IsSet() {
+				if event.Patch.Value.IsUnset() {
 					delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
 						Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: event.Patch.Value.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["enabled"]; ok {
-				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
-					delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
-						Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-						Value: boolPtr,
-					}
-				} else {
+			if event.Patch.Enabled.IsSet() {
+				if event.Patch.Enabled.IsUnset() {
 					delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
 						Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Enabled = &apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: event.Patch.Enabled.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["order"]; ok {
-				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
-					delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
-						Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-						Value: floatPtr,
-					}
-				} else {
+			if event.Patch.Order.IsSet() {
+				if event.Patch.Order.IsUnset() {
 					delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
 						Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				} else {
+					delta.Order = &apiv1.HttpAssertDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: event.Patch.Order.Value(),
 					}
 				}
 			}
@@ -1504,74 +1504,74 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 		}
 		delta.HttpId = body.HttpID.Bytes()
 
-		if event.Patch != nil {
+		if event.Patch.HasChanges() {
 			// Sparse Patch Mode
-			if val, ok := event.Patch["key"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
-						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Key.IsSet() {
+				if event.Patch.Key.IsUnset() {
 					delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
 						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: event.Patch.Key.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["value"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
-						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Value.IsSet() {
+				if event.Patch.Value.IsUnset() {
 					delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
 						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: event.Patch.Value.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["enabled"]; ok {
-				if boolPtr, ok := val.(*bool); ok && boolPtr != nil {
-					delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
-						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-						Value: boolPtr,
-					}
-				} else {
+			if event.Patch.Enabled.IsSet() {
+				if event.Patch.Enabled.IsUnset() {
 					delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
 						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: event.Patch.Enabled.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["description"]; ok {
-				if strPtr, ok := val.(*string); ok && strPtr != nil {
-					delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
-						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-						Value: strPtr,
-					}
-				} else {
+			if event.Patch.Description.IsSet() {
+				if event.Patch.Description.IsUnset() {
 					delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
 						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
 					}
+				} else {
+					delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: event.Patch.Description.Value(),
+					}
 				}
 			}
 
-			if val, ok := event.Patch["order"]; ok {
-				if floatPtr, ok := val.(*float32); ok && floatPtr != nil {
-					delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
-						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-						Value: floatPtr,
-					}
-				} else {
+			if event.Patch.Order.IsSet() {
+				if event.Patch.Order.IsUnset() {
 					delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
 						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_UNSET,
 						Unset: globalv1.Unset_UNSET.Enum(),
+					}
+				} else {
+					delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: event.Patch.Order.Value(),
 					}
 				}
 			}

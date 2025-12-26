@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -165,17 +166,17 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 
 		// Prepare update
 		deltaData := bodyRaw.DeltaRawData
-		patch := make(DeltaPatch)
+		var patchData patch.HTTPBodyRawPatch
 
 		if item.Data != nil {
 			switch item.Data.GetKind() {
 			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_UNSET:
 				deltaData = nil
-				patch["data"] = nil
+				patchData.Data = patch.Unset[string]()
 			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_VALUE:
 				strVal := item.Data.GetValue()
 				deltaData = []byte(strVal)
-				patch["data"] = &strVal
+				patchData.Data = patch.NewOptional(strVal)
 			}
 		}
 
@@ -188,7 +189,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
 			Type:        eventTypeUpdate,
 			IsDelta:     true,
-			Patch:       patch,
+			Patch:       patchData,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*updatedBody),
 		})
 	}
@@ -316,17 +317,17 @@ func (h *HttpServiceRPC) streamHttpBodyRawDeltaSync(ctx context.Context, userID 
 				}
 
 				// Populate Data based on Patch if available, else Full State
-				if evt.Payload.Patch != nil {
-					if val, ok := evt.Payload.Patch["data"]; ok {
-						if strPtr, ok := val.(*string); ok && strPtr != nil {
-							syncItem.Value.Update.Data = &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
-								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_VALUE,
-								Value: strPtr,
-							}
-						} else {
+				if evt.Payload.Patch.HasChanges() {
+					if evt.Payload.Patch.Data.IsSet() {
+						if evt.Payload.Patch.Data.IsUnset() {
 							syncItem.Value.Update.Data = &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
 								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_UNSET,
 								Unset: globalv1.Unset_UNSET.Enum(),
+							}
+						} else {
+							syncItem.Value.Update.Data = &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
+								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_VALUE,
+								Value: evt.Payload.Patch.Data.Value(),
 							}
 						}
 					}

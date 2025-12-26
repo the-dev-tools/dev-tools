@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -200,7 +201,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 		deltaDescription *string
 		deltaOrder       *float32
 	}
-	var patches []DeltaPatch
+	var patches []patch.HTTPBodyFormPatch
 
 	for _, data := range updateData {
 		item := data.item
@@ -209,65 +210,65 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 		deltaDescription := data.existingBodyForm.DeltaDescription
 		deltaEnabled := data.existingBodyForm.DeltaEnabled
 		deltaOrder := data.existingBodyForm.DeltaDisplayOrder
-		patch := make(DeltaPatch)
+		var patchData patch.HTTPBodyFormPatch
 
 		if item.Key != nil {
 			switch item.Key.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_UNSET:
 				deltaKey = nil
-				patch["key"] = nil
+				patchData.Key = patch.Unset[string]()
 			case apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_VALUE:
 				keyStr := item.Key.GetValue()
 				deltaKey = &keyStr
-				patch["key"] = &keyStr
+				patchData.Key = patch.NewOptional(keyStr)
 			}
 		}
 		if item.Value != nil {
 			switch item.Value.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
-				patch["value"] = nil
+				patchData.Value = patch.Unset[string]()
 			case apiv1.HttpBodyFormDataDeltaUpdate_ValueUnion_KIND_VALUE:
 				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
-				patch["value"] = &valueStr
+				patchData.Value = patch.NewOptional(valueStr)
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
-				patch["enabled"] = nil
+				patchData.Enabled = patch.Unset[bool]()
 			case apiv1.HttpBodyFormDataDeltaUpdate_EnabledUnion_KIND_VALUE:
 				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
-				patch["enabled"] = &enabledBool
+				patchData.Enabled = patch.NewOptional(enabledBool)
 			}
 		}
 		if item.Description != nil {
 			switch item.Description.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_DescriptionUnion_KIND_UNSET:
 				deltaDescription = nil
-				patch["description"] = nil
+				patchData.Description = patch.Unset[string]()
 			case apiv1.HttpBodyFormDataDeltaUpdate_DescriptionUnion_KIND_VALUE:
 				descStr := item.Description.GetValue()
 				deltaDescription = &descStr
-				patch["description"] = &descStr
+				patchData.Description = patch.NewOptional(descStr)
 			}
 		}
 		if item.Order != nil {
 			switch item.Order.GetKind() {
 			case apiv1.HttpBodyFormDataDeltaUpdate_OrderUnion_KIND_UNSET:
 				deltaOrder = nil
-				patch["order"] = nil
+				patchData.Order = patch.Unset[float32]()
 			case apiv1.HttpBodyFormDataDeltaUpdate_OrderUnion_KIND_VALUE:
 				orderVal := item.Order.GetValue()
 				deltaOrder = &orderVal
-				patch["order"] = &orderVal
+				patchData.Order = patch.NewOptional(orderVal)
 			}
 		}
 
-		patches = append(patches, patch)
+		patches = append(patches, patchData)
 		preparedUpdates = append(preparedUpdates, struct {
 			deltaID          idwrap.IDWrap
 			deltaKey         *string
@@ -668,7 +669,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 		deltaDescription *string
 		deltaOrder       *float32
 	}
-	var patches []DeltaPatch
+	var patches []patch.HTTPBodyUrlEncodedPatch
 
 	for _, data := range updateData {
 		item := data.item
@@ -677,65 +678,65 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 		deltaDescription := data.existingBodyUrlEncoded.DeltaDescription
 		deltaEnabled := data.existingBodyUrlEncoded.DeltaEnabled
 		deltaOrder := data.existingBodyUrlEncoded.DeltaDisplayOrder
-		patch := make(DeltaPatch)
+		var patchData patch.HTTPBodyUrlEncodedPatch
 
 		if item.Key != nil {
 			switch item.Key.GetKind() {
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_KeyUnion_KIND_UNSET:
 				deltaKey = nil
-				patch["key"] = nil
+				patchData.Key = patch.Unset[string]()
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_KeyUnion_KIND_VALUE:
 				keyStr := item.Key.GetValue()
 				deltaKey = &keyStr
-				patch["key"] = &keyStr
+				patchData.Key = patch.NewOptional(keyStr)
 			}
 		}
 		if item.Value != nil {
 			switch item.Value.GetKind() {
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
-				patch["value"] = nil
+				patchData.Value = patch.Unset[string]()
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion_KIND_VALUE:
 				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
-				patch["value"] = &valueStr
+				patchData.Value = patch.NewOptional(valueStr)
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
-				patch["enabled"] = nil
+				patchData.Enabled = patch.Unset[bool]()
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_EnabledUnion_KIND_VALUE:
 				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
-				patch["enabled"] = &enabledBool
+				patchData.Enabled = patch.NewOptional(enabledBool)
 			}
 		}
 		if item.Description != nil {
 			switch item.Description.GetKind() {
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_DescriptionUnion_KIND_UNSET:
 				deltaDescription = nil
-				patch["description"] = nil
+				patchData.Description = patch.Unset[string]()
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_DescriptionUnion_KIND_VALUE:
 				descStr := item.Description.GetValue()
 				deltaDescription = &descStr
-				patch["description"] = &descStr
+				patchData.Description = patch.NewOptional(descStr)
 			}
 		}
 		if item.Order != nil {
 			switch item.Order.GetKind() {
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_OrderUnion_KIND_UNSET:
 				deltaOrder = nil
-				patch["order"] = nil
+				patchData.Order = patch.Unset[float32]()
 			case apiv1.HttpBodyUrlEncodedDeltaUpdate_OrderUnion_KIND_VALUE:
 				orderVal := item.Order.GetValue()
 				deltaOrder = &orderVal
-				patch["order"] = &orderVal
+				patchData.Order = patch.NewOptional(orderVal)
 			}
 		}
 
-		patches = append(patches, patch)
+		patches = append(patches, patchData)
 		preparedUpdates = append(preparedUpdates, struct {
 			deltaID          idwrap.IDWrap
 			deltaKey         *string
