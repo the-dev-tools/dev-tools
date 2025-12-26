@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -45,6 +46,43 @@ func (h *HttpServiceRPC) publishBulkHeaderInsert(
 
 	// Single bulk publish for entire batch
 	h.streamers.HttpHeader.Publish(topic, events...)
+}
+
+// publishBulkHeaderUpdate publishes multiple header update events in bulk.
+// Items are already grouped by HttpHeaderTopic by the BulkSyncTxUpdate wrapper.
+func (h *HttpServiceRPC) publishBulkHeaderUpdate(
+	topic HttpHeaderTopic,
+	events []txutil.UpdateEvent[headerWithWorkspace, patch.HTTPHeaderPatch],
+) {
+	headerEvents := make([]HttpHeaderEvent, len(events))
+	for i, evt := range events {
+		headerEvents[i] = HttpHeaderEvent{
+			Type:       eventTypeUpdate,
+			IsDelta:    evt.Item.header.IsDelta,
+			HttpHeader: converter.ToAPIHttpHeader(evt.Item.header),
+			Patch:      evt.Patch, // Partial updates preserved!
+		}
+	}
+	h.streamers.HttpHeader.Publish(topic, headerEvents...)
+}
+
+// publishBulkHeaderDelete publishes multiple header delete events in bulk.
+// Items are already grouped by HttpHeaderTopic by the BulkSyncTxDelete wrapper.
+func (h *HttpServiceRPC) publishBulkHeaderDelete(
+	topic HttpHeaderTopic,
+	events []txutil.DeleteEvent[idwrap.IDWrap],
+) {
+	headerEvents := make([]HttpHeaderEvent, len(events))
+	for i, evt := range events {
+		headerEvents[i] = HttpHeaderEvent{
+			Type:    eventTypeDelete,
+			IsDelta: evt.IsDelta,
+			HttpHeader: &apiv1.HttpHeader{
+				HttpHeaderId: evt.ID.Bytes(),
+			},
+		}
+	}
+	h.streamers.HttpHeader.Publish(topic, headerEvents...)
 }
 
 func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpHeaderCollectionResponse], error) {
@@ -275,48 +313,61 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	httpHeaderService := h.httpHeaderService.TX(tx)
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkUpdateTx[headerWithWorkspace, patch.HTTPHeaderPatch, HttpHeaderTopic](
+		tx,
+		func(hww headerWithWorkspace) HttpHeaderTopic {
+			return HttpHeaderTopic{WorkspaceID: hww.workspaceID}
+		},
+	)
 
-	var updatedHeaders []mhttp.HTTPHeader
+	httpHeaderService := h.httpHeaderService.TX(tx)
 
 	for _, data := range updateData {
 		header := data.existingHeader
 
-		// Update fields if provided
+		// Build patch with only changed fields
+		headerPatch := patch.HTTPHeaderPatch{}
+
+		// Update fields if provided and track in patch
 		if data.key != nil {
 			header.Key = *data.key
+			headerPatch.Key = patch.NewOptional(*data.key)
 		}
 		if data.value != nil {
 			header.Value = *data.value
+			headerPatch.Value = patch.NewOptional(*data.value)
 		}
 		if data.enabled != nil {
 			header.Enabled = *data.enabled
+			headerPatch.Enabled = patch.NewOptional(*data.enabled)
 		}
 		if data.description != nil {
 			header.Description = *data.description
+			headerPatch.Description = patch.NewOptional(*data.description)
 		}
 		if data.order != nil {
 			header.DisplayOrder = *data.order
+			headerPatch.Order = patch.NewOptional(*data.order)
 		}
 
 		if err := httpHeaderService.Update(ctx, &header); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updatedHeaders = append(updatedHeaders, header)
+		// Track with workspace context and patch
+		syncTx.Track(
+			headerWithWorkspace{
+				header:      header,
+				workspaceID: data.workspaceID,
+			},
+			headerPatch,
+		)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Step 3: Commit and bulk publish (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHeaderUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: Publish update events for real-time sync
-	for i, header := range updatedHeaders {
-		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: updateData[i].workspaceID}, HttpHeaderEvent{
-			Type:       eventTypeUpdate,
-			IsDelta:    header.IsDelta,
-			HttpHeader: converter.ToAPIHttpHeader(header),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -382,30 +433,26 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	httpHeaderService := h.httpHeaderService.TX(tx)
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpHeaderTopic](
+		tx,
+		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpHeaderTopic {
+			return HttpHeaderTopic{WorkspaceID: evt.WorkspaceID}
+		},
+	)
 
-	var deletedHeaders []idwrap.IDWrap
+	httpHeaderService := h.httpHeaderService.TX(tx)
 
 	for _, data := range deleteData {
 		if err := httpHeaderService.Delete(ctx, data.headerID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		deletedHeaders = append(deletedHeaders, data.headerID)
+		syncTx.Track(data.headerID, data.workspaceID, data.isDelta)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Step 3: Commit and bulk publish (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHeaderDelete); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: Publish delete events for real-time sync
-	for i, headerID := range deletedHeaders {
-		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: deleteData[i].workspaceID}, HttpHeaderEvent{
-			Type:    eventTypeDelete,
-			IsDelta: deleteData[i].isDelta,
-			HttpHeader: &apiv1.HttpHeader{
-				HttpHeaderId: headerID.Bytes(),
-			},
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

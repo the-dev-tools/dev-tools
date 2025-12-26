@@ -27,6 +27,7 @@ for _, item := range createdItems {
 ```
 
 **Issues:**
+
 - ❌ Manual tracking of created/updated/deleted items
 - ❌ Manual loop to publish events one-by-one
 - ❌ Easy to forget or accidentally delete
@@ -51,6 +52,7 @@ syncTx.CommitAndPublish(ctx, publishBulkInsert)
 ```
 
 **Benefits:**
+
 - ✅ Automatic tracking via `Track()`
 - ✅ Automatic grouping by topic
 - ✅ Automatic bulk publishing (1 call per topic)
@@ -86,6 +88,7 @@ type TopicExtractor[T any, Topic any] func(item T) Topic
 ```
 
 **Why functions over interfaces?**
+
 - Different models store workspace IDs differently
 - Some models don't have direct access to workspace ID
 - Allows for computed topics
@@ -150,6 +153,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *Request) (*R
 ```
 
 **Publish handler:**
+
 ```go
 func (h *HttpServiceRPC) publishBulkHeaderInsert(
     topic HttpHeaderTopic,
@@ -238,27 +242,30 @@ syncTx := txutil.NewBulkInsertTx[headerWithWorkspace, HttpHeaderTopic](
 
 ### Publish Call Reduction
 
-| Scenario | Items | Topics | Before | After | Improvement |
-|----------|-------|--------|--------|-------|-------------|
-| Small batch, single workspace | 10 | 1 | 10 calls | 1 call | 10x |
-| Large batch, single workspace | 100 | 1 | 100 calls | 1 call | 100x |
-| Bulk import, 5 workspaces | 500 | 5 | 500 calls | 5 calls | 100x |
-| Massive import, 10 workspaces | 1000 | 10 | 1000 calls | 10 calls | 100x |
+| Scenario                      | Items | Topics | Before     | After    | Improvement |
+| ----------------------------- | ----- | ------ | ---------- | -------- | ----------- |
+| Small batch, single workspace | 10    | 1      | 10 calls   | 1 call   | 10x         |
+| Large batch, single workspace | 100   | 1      | 100 calls  | 1 call   | 100x        |
+| Bulk import, 5 workspaces     | 500   | 5      | 500 calls  | 5 calls  | 100x        |
+| Massive import, 10 workspaces | 1000  | 10     | 1000 calls | 10 calls | 100x        |
 
 ### Memory Impact
 
 **Minimal overhead:**
+
 - Grouping map: ~O(M) where M = number of unique topics
 - Tracked items: O(N) where N = number of items (same as before)
 - Pre-allocated slices reused
 
 **Example:**
+
 - 100 items, 1 workspace: ~1KB overhead (negligible)
 - 1000 items, 10 workspaces: ~10KB overhead (negligible)
 
 ### Timing: Immediate Publishing
 
 **No delay or buffering:**
+
 ```
 Timeline:
 1. Begin transaction          [0ms]
@@ -270,6 +277,7 @@ Timeline:
 ```
 
 **Not like log sync batching:**
+
 - ❌ NO timeout waiting (500ms)
 - ❌ NO buffer accumulation
 - ✅ Synchronous, immediate publish after commit
@@ -281,6 +289,7 @@ Timeline:
 ### Backend → EventStream
 
 **Before:**
+
 ```go
 for _, item := range items {
     streamer.Publish(topic, event1)  // Call 1
@@ -290,6 +299,7 @@ for _, item := range items {
 ```
 
 **After:**
+
 ```go
 // Variadic publish (supported by eventstream)
 streamer.Publish(topic, event1, event2, ..., eventN)  // 1 call
@@ -306,6 +316,7 @@ FlushInterval: 50ms
 ```
 
 **Frontend receives events in batches:**
+
 - Events 1-100: Batch 1 (sent when buffer reaches 100 OR 50ms timeout)
 - Events 101-200: Batch 2
 - etc.
@@ -330,6 +341,7 @@ type UpdateEvent[T any, P any] struct {
 ### What Gets Sent Over the Wire
 
 **Insert events (full object):**
+
 ```json
 {
   "type": "insert",
@@ -343,11 +355,12 @@ type UpdateEvent[T any, P any] struct {
 ```
 
 **Update events (patch only):**
+
 ```json
 {
   "type": "update",
   "patch": {
-    "name": "New Name"  // ← Only changed field!
+    "name": "New Name" // ← Only changed field!
   },
   "http": {
     "httpId": "..."
@@ -356,11 +369,12 @@ type UpdateEvent[T any, P any] struct {
 ```
 
 **Delete events (minimal):**
+
 ```json
 {
   "type": "delete",
   "http": {
-    "httpId": "..."  // ← Only ID
+    "httpId": "..." // ← Only ID
   }
 }
 ```
@@ -394,6 +408,7 @@ syncTx.CommitAndPublish(ctx, publishFn)
 ```
 
 **Why?**
+
 - SQLite locks during transactions
 - Reads BEFORE transactions minimize lock duration
 - Shorter transactions = less contention
@@ -428,6 +443,7 @@ syncTx.CommitAndPublish(ctx, publishFn)
 ### Step 1: Identify Candidate Operations
 
 Look for this pattern:
+
 ```go
 tx.Commit()
 
@@ -437,6 +453,7 @@ for _, item := range items {
 ```
 
 **Priority targets:**
+
 1. HTTP CRUD operations (headers, params, body, asserts)
 2. Flow node/edge operations
 3. Any bulk insert/update/delete
@@ -510,6 +527,7 @@ func TestItemInsert_BulkPublish(t *testing.T) {
 ### Unit Tests (pkg/txutil/)
 
 **Coverage:**
+
 - Topic grouping correctness
 - Commit failure handling (no publish)
 - Empty tracked items
@@ -517,6 +535,7 @@ func TestItemInsert_BulkPublish(t *testing.T) {
 - Single topic with many items
 
 **Example:**
+
 ```go
 func TestBulkSyncTxInsert_GroupsByTopic(t *testing.T) {
     // Track items with different topics
@@ -532,12 +551,14 @@ func TestBulkSyncTxInsert_GroupsByTopic(t *testing.T) {
 ### Integration Tests (internal/api/rhttp/)
 
 **Coverage:**
+
 - RPC handler with bulk wrapper
 - Events published correctly
 - Patches preserved for updates
 - Frontend sync receives events
 
 **Example:**
+
 ```go
 func TestHttpHeaderInsert_BulkPublish(t *testing.T) {
     // Insert 10 headers across 2 workspaces
@@ -647,6 +668,7 @@ type DeleteEvent[ID any] struct {
 ### Migration Roadmap
 
 **Phase 1: HTTP Operations** (current)
+
 - ✅ HttpHeaderInsert (completed)
 - ⏳ HttpHeaderUpdate/Delete
 - ⏳ HttpSearchParam CRUD
@@ -655,11 +677,13 @@ type DeleteEvent[ID any] struct {
 - ⏳ HttpAssert CRUD
 
 **Phase 2: Flow Operations**
+
 - FlowNodeInsert/Update/Delete
 - FlowEdgeInsert/Update/Delete
 - FlowVariableInsert/Update/Delete
 
 **Phase 3: Other Resources**
+
 - Environment CRUD
 - File CRUD
 - Reference CRUD
@@ -676,6 +700,6 @@ type DeleteEvent[ID any] struct {
 
 ## Change History
 
-| Date | Version | Changes |
-|------|---------|---------|
-| 2025-12-26 | 1.0.0 | Initial implementation with HttpHeaderInsert proof of concept |
+| Date       | Version | Changes                                                       |
+| ---------- | ------- | ------------------------------------------------------------- |
+| 2025-12-26 | 1.0.0   | Initial implementation with HttpHeaderInsert proof of concept |
