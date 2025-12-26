@@ -13,10 +13,39 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
+
+// headerWithWorkspace is a context carrier that pairs a header with its workspace ID.
+// This is needed because HTTPHeader doesn't store WorkspaceID directly, but we need it
+// for topic extraction during bulk sync event publishing.
+type headerWithWorkspace struct {
+	header      mhttp.HTTPHeader
+	workspaceID idwrap.IDWrap
+}
+
+// publishBulkHeaderInsert publishes multiple header insert events in bulk.
+// Items are already grouped by HttpHeaderTopic by the BulkSyncTxInsert wrapper.
+func (h *HttpServiceRPC) publishBulkHeaderInsert(
+	topic HttpHeaderTopic,
+	items []headerWithWorkspace,
+) {
+	// Convert to event slice for variadic publish
+	events := make([]HttpHeaderEvent, len(items))
+	for i, item := range items {
+		events[i] = HttpHeaderEvent{
+			Type:       eventTypeInsert,
+			IsDelta:    item.header.IsDelta,
+			HttpHeader: converter.ToAPIHttpHeader(item.header),
+		}
+	}
+
+	// Single bulk publish for entire batch
+	h.streamers.HttpHeader.Publish(topic, events...)
+}
 
 func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpHeaderCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -133,9 +162,15 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	httpHeaderService := h.httpHeaderService.TX(tx)
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkInsertTx[headerWithWorkspace, HttpHeaderTopic](
+		tx,
+		func(hww headerWithWorkspace) HttpHeaderTopic {
+			return HttpHeaderTopic{WorkspaceID: hww.workspaceID}
+		},
+	)
 
-	var createdHeaders []mhttp.HTTPHeader
+	httpHeaderService := h.httpHeaderService.TX(tx)
 
 	for _, data := range insertData {
 		// Create the header
@@ -153,20 +188,16 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		createdHeaders = append(createdHeaders, *headerModel)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: Publish create events for real-time sync
-	for i, header := range createdHeaders {
-		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: insertData[i].workspaceID}, HttpHeaderEvent{
-			Type:       eventTypeInsert,
-			IsDelta:    header.IsDelta,
-			HttpHeader: converter.ToAPIHttpHeader(header),
+		// Track with workspace context for bulk sync
+		syncTx.Track(headerWithWorkspace{
+			header:      *headerModel,
+			workspaceID: data.workspaceID,
 		})
+	}
+
+	// Step 3: Commit and bulk publish sync events (grouped by topic)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHeaderInsert); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

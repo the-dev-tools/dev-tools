@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -128,25 +129,22 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	// Create sync transaction wrapper to auto-publish events
+	syncTx := txutil.NewInsertTx[mhttp.HTTP](tx)
 	hsWriter := shttp.NewWriter(tx)
-
-	var createdHTTPs []mhttp.HTTP
 
 	// Fast writes inside minimal transaction
 	for _, httpModel := range httpModels {
 		if err := hsWriter.Create(ctx, httpModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		createdHTTPs = append(createdHTTPs, *httpModel)
+		// Track for automatic sync event publishing
+		syncTx.Track(*httpModel)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Commit and auto-publish sync events atomically
+	if err := syncTx.CommitAndPublish(ctx, h.publishInsertEvent); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish create events for real-time sync after successful commit
-	for _, http := range createdHTTPs {
-		h.publishInsertEvent(http)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
