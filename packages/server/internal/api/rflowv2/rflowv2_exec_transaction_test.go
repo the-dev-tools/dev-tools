@@ -433,9 +433,9 @@ func TestFlowVersionSnapshot_Concurrency_Simple(t *testing.T) {
 	varService := sflow.NewFlowVariableService(queries)
 	nrsService := sflow.NewNodeRequestService(queries)
 	nfsService := sflow.NewNodeForService(queries)
-	nfesService := sflow.NewNodeForeachService(queries)
+	nfesService := sflow.NewNodeForEachService(queries)
 	nifsService := sflow.NewNodeIfService(queries)
-	njssService := sflow.NewNodeJavaScriptService(queries)
+	njssService := sflow.NewNodeJsService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
@@ -542,9 +542,9 @@ func TestFlowVersionSnapshot_Concurrency_WithNodes(t *testing.T) {
 	varService := sflow.NewFlowVariableService(queries)
 	nrsService := sflow.NewNodeRequestService(queries)
 	nfsService := sflow.NewNodeForService(queries)
-	nfesService := sflow.NewNodeForeachService(queries)
+	nfesService := sflow.NewNodeForEachService(queries)
 	nifsService := sflow.NewNodeIfService(queries)
-	njssService := sflow.NewNodeJavaScriptService(queries)
+	njssService := sflow.NewNodeJsService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
@@ -670,9 +670,9 @@ func TestFlowVersionSnapshot_Concurrency_Complex(t *testing.T) {
 	varService := sflow.NewFlowVariableService(queries)
 	nrsService := sflow.NewNodeRequestService(queries)
 	nfsService := sflow.NewNodeForService(queries)
-	nfesService := sflow.NewNodeForeachService(queries)
+	nfesService := sflow.NewNodeForEachService(queries)
 	nifsService := sflow.NewNodeIfService(queries)
-	njssService := sflow.NewNodeJavaScriptService(queries)
+	njssService := sflow.NewNodeJsService(queries)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{

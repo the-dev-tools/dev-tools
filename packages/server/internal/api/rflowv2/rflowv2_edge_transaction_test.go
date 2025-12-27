@@ -714,10 +714,10 @@ func TestEdgeUpdate_Concurrency(t *testing.T) {
 
 		// Create initial edge
 		err = edgeService.CreateEdge(ctx, mflow.Edge{
-			ID:              edgeIDs[i],
-			FlowID:          flowID,
-			SourceFlowNodeID: sourceNodeIDs[i],
-			TargetFlowNodeID: oldTargetNodeIDs[i],
+			ID:       edgeIDs[i],
+			FlowID:   flowID,
+			SourceID: sourceNodeIDs[i],
+			TargetID: oldTargetNodeIDs[i],
 		})
 		require.NoError(t, err)
 	}
@@ -765,7 +765,7 @@ func TestEdgeUpdate_Concurrency(t *testing.T) {
 	for i, edgeID := range edgeIDs {
 		edge, err := edgeService.GetEdge(ctx, edgeID)
 		assert.NoError(t, err)
-		assert.Equal(t, newTargetNodeIDs[i], edge.TargetFlowNodeID, "Edge should point to new target")
+		assert.Equal(t, newTargetNodeIDs[i], edge.TargetID, "Edge should point to new target")
 	}
 }
 
@@ -872,10 +872,10 @@ func TestEdgeDelete_Concurrency(t *testing.T) {
 
 		// Create edge to delete
 		err = edgeService.CreateEdge(ctx, mflow.Edge{
-			ID:              edgeIDs[i],
-			FlowID:          flowID,
-			SourceFlowNodeID: sourceNodeIDs[i],
-			TargetFlowNodeID: targetNodeIDs[i],
+			ID:       edgeIDs[i],
+			FlowID:   flowID,
+			SourceID: sourceNodeIDs[i],
+			TargetID: targetNodeIDs[i],
 		})
 		require.NoError(t, err)
 	}
