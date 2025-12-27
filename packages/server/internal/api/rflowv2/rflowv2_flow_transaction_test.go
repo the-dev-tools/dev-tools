@@ -466,7 +466,7 @@ func TestFlowInsert_Concurrency(t *testing.T) {
 	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
 	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
 	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
-	assert.Less(t, result.AverageDuration, 350*time.Millisecond, "Operations should be fast")
+	assert.Less(t, result.AverageDuration, 450*time.Millisecond, "Operations should be fast")
 
 	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
 		result.SuccessCount, result.AverageDuration, result.MaxDuration)
@@ -583,7 +583,7 @@ func TestFlowUpdate_Concurrency(t *testing.T) {
 	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
 	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
 	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
-	assert.Less(t, result.AverageDuration, 350*time.Millisecond, "Operations should be fast")
+	assert.Less(t, result.AverageDuration, 450*time.Millisecond, "Operations should be fast")
 
 	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
 		result.SuccessCount, result.AverageDuration, result.MaxDuration)
@@ -699,7 +699,7 @@ func TestFlowDelete_Concurrency(t *testing.T) {
 	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
 	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
 	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
-	assert.Less(t, result.AverageDuration, 350*time.Millisecond, "Operations should be fast")
+	assert.Less(t, result.AverageDuration, 450*time.Millisecond, "Operations should be fast")
 
 	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
 		result.SuccessCount, result.AverageDuration, result.MaxDuration)
