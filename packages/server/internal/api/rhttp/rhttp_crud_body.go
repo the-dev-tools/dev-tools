@@ -900,8 +900,9 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		httpID idwrap.IDWrap
-		data   []byte
+		httpID      idwrap.IDWrap
+		data        []byte
+		workspaceID idwrap.IDWrap
 	}
 
 	for _, item := range req.Msg.Items {
@@ -929,32 +930,49 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 		}
 
 		insertData = append(insertData, struct {
-			httpID idwrap.IDWrap
-			data   []byte
+			httpID      idwrap.IDWrap
+			data        []byte
+			workspaceID idwrap.IDWrap
 		}{
-			httpID: httpID,
-			data:   []byte(item.Data),
+			httpID:      httpID,
+			data:        []byte(item.Data),
+			workspaceID: httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Execute inserts in transaction
+	// Step 2: Execute inserts in transaction with bulk sync
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkInsertTx[bodyRawWithWorkspace, HttpBodyRawTopic](
+		tx,
+		func(brww bodyRawWithWorkspace) HttpBodyRawTopic {
+			return HttpBodyRawTopic{WorkspaceID: brww.workspaceID}
+		},
+	)
+
 	bodyRawWriter := shttp.NewBodyRawWriter(tx)
 
 	for _, data := range insertData {
 		// Create the body raw using the new service
-		_, err = bodyRawWriter.Create(ctx, data.httpID, data.data)
+		bodyRaw, err := bodyRawWriter.Create(ctx, data.httpID, data.data)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Track with workspace context for bulk sync
+		syncTx.Track(bodyRawWithWorkspace{
+			bodyRaw:     *bodyRaw,
+			workspaceID: data.workspaceID,
+		})
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Step 3: Commit and bulk publish sync events (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyRawInsert); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -968,8 +986,9 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
-		existingBodyID idwrap.IDWrap
-		data           []byte
+		existingBodyRaw mhttp.HTTPBodyRaw
+		data            *string
+		workspaceID     idwrap.IDWrap
 	}
 
 	for _, item := range req.Msg.Items {
@@ -996,7 +1015,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, err
 		}
 
-		// Get existing body raw to get its ID - use pool service
+		// Get existing body raw - use pool service
 		existingBodyRaw, err := h.bodyService.GetByHttpID(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
@@ -1005,36 +1024,64 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Prepare update data if provided
-		if item.Data != nil {
-			updateData = append(updateData, struct {
-				existingBodyID idwrap.IDWrap
-				data           []byte
-			}{
-				existingBodyID: existingBodyRaw.ID,
-				data:           []byte(*item.Data),
-			})
-		}
+		updateData = append(updateData, struct {
+			existingBodyRaw mhttp.HTTPBodyRaw
+			data            *string
+			workspaceID     idwrap.IDWrap
+		}{
+			existingBodyRaw: *existingBodyRaw,
+			data:            item.Data,
+			workspaceID:     httpEntry.WorkspaceID,
+		})
 	}
 
-	// Step 2: Execute updates in transaction
+	// Step 2: Execute updates in transaction with bulk sync
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	// Create bulk sync wrapper with topic extractor
+	syncTx := txutil.NewBulkUpdateTx[bodyRawWithWorkspace, patch.HTTPBodyRawPatch, HttpBodyRawTopic](
+		tx,
+		func(brww bodyRawWithWorkspace) HttpBodyRawTopic {
+			return HttpBodyRawTopic{WorkspaceID: brww.workspaceID}
+		},
+	)
+
 	bodyRawWriter := shttp.NewBodyRawWriter(tx)
 
 	for _, data := range updateData {
+		bodyRaw := data.existingBodyRaw
+
+		// Build patch with only changed fields
+		bodyRawPatch := patch.HTTPBodyRawPatch{}
+
+		// Update data if provided and track in patch
+		if data.data != nil {
+			bodyRaw.RawData = []byte(*data.data)
+			bodyRawPatch.Data = patch.NewOptional(*data.data)
+		}
+
 		// Update using the new service
-		_, err := bodyRawWriter.Update(ctx, data.existingBodyID, data.data)
+		updated, err := bodyRawWriter.Update(ctx, bodyRaw.ID, bodyRaw.RawData)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Track with workspace context and patch
+		syncTx.Track(
+			bodyRawWithWorkspace{
+				bodyRaw:     *updated,
+				workspaceID: data.workspaceID,
+			},
+			bodyRawPatch,
+		)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Step 3: Commit and bulk publish sync events (grouped by workspace)
+	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyRawUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
