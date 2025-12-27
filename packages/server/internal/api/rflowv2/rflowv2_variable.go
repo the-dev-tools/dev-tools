@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -46,6 +47,9 @@ func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *conn
 }
 
 func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.Request[flowv1.FlowVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	var validatedVariables []mflow.FlowVariable
+
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
@@ -83,10 +87,35 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 			Order:       float64(item.GetOrder()),
 		}
 
-		if err := s.fvs.CreateFlowVariable(ctx, variable); err != nil {
+		validatedVariables = append(validatedVariables, variable)
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	varWriter := s.fvs.TX(tx)
+	var insertedVariables []mflow.FlowVariable
+
+	// 3. Execute all inserts in transaction
+	for _, variable := range validatedVariables {
+		if err := varWriter.CreateFlowVariable(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		insertedVariables = append(insertedVariables, variable)
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, variable := range insertedVariables {
 		s.publishFlowVariableEvent(flowVarEventInsert, variable)
 	}
 
@@ -94,6 +123,13 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 }
 
 func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.Request[flowv1.FlowVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type updateData struct {
+		variable    mflow.FlowVariable
+		updateOrder bool
+	}
+	var validatedUpdates []updateData
+
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowVariableId()) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable id is required"))
@@ -140,17 +176,50 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			variable.Description = item.GetDescription()
 		}
 
+		updateOrder := false
 		if item.Order != nil {
 			variable.Order = float64(item.GetOrder())
-			if err := s.fvs.UpdateFlowVariableOrder(ctx, variable.ID, variable.Order); err != nil {
+			updateOrder = true
+		}
+
+		validatedUpdates = append(validatedUpdates, updateData{
+			variable:    variable,
+			updateOrder: updateOrder,
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	varWriter := s.fvs.TX(tx)
+	var updatedVariables []mflow.FlowVariable
+
+	// 3. Execute all updates in transaction
+	for _, data := range validatedUpdates {
+		if data.updateOrder {
+			if err := varWriter.UpdateFlowVariableOrder(ctx, data.variable.ID, data.variable.Order); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
 
-		if err := s.fvs.UpdateFlowVariable(ctx, variable); err != nil {
+		if err := varWriter.UpdateFlowVariable(ctx, data.variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		updatedVariables = append(updatedVariables, data.variable)
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, variable := range updatedVariables {
 		s.publishFlowVariableEvent(flowVarEventUpdate, variable)
 	}
 
@@ -158,6 +227,13 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 }
 
 func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.Request[flowv1.FlowVariableDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type deleteData struct {
+		variableID idwrap.IDWrap
+		variable   mflow.FlowVariable
+	}
+	var validatedDeletes []deleteData
+
 	for _, item := range req.Msg.GetItems() {
 		variableID, err := idwrap.NewFromBytes(item.GetFlowVariableId())
 		if err != nil {
@@ -176,10 +252,38 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 			return nil, err
 		}
 
-		if err := s.fvs.DeleteFlowVariable(ctx, variableID); err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
+		validatedDeletes = append(validatedDeletes, deleteData{
+			variableID: variableID,
+			variable:   variable,
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	varWriter := s.fvs.TX(tx)
+	var deletedVariables []mflow.FlowVariable
+
+	// 3. Execute all deletes in transaction
+	for _, data := range validatedDeletes {
+		if err := varWriter.DeleteFlowVariable(ctx, data.variableID); err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		deletedVariables = append(deletedVariables, data.variable)
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, variable := range deletedVariables {
 		s.publishFlowVariableEvent(flowVarEventDelete, variable)
 	}
 

@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -44,6 +45,16 @@ func (s *FlowServiceV2RPC) EdgeCollection(
 }
 
 func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[flowv1.EdgeInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type insertData struct {
+		edgeID       idwrap.IDWrap
+		flowID       idwrap.IDWrap
+		sourceID     idwrap.IDWrap
+		targetID     idwrap.IDWrap
+		sourceHandle mflow.EdgeHandle
+	}
+	var validatedItems []insertData
+
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
@@ -83,25 +94,59 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 			}
 		}
 
+		validatedItems = append(validatedItems, insertData{
+			edgeID:       edgeID,
+			flowID:       flowID,
+			sourceID:     sourceID,
+			targetID:     targetID,
+			sourceHandle: convertHandle(item.GetSourceHandle()),
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	edgeWriter := s.es.TX(tx)
+	var insertedEdges []mflow.Edge
+
+	// 3. Execute all inserts in transaction
+	for _, data := range validatedItems {
 		model := mflow.Edge{
-			ID:            edgeID,
-			FlowID:        flowID,
-			SourceID:      sourceID,
-			TargetID:      targetID,
-			SourceHandler: convertHandle(item.GetSourceHandle()),
+			ID:            data.edgeID,
+			FlowID:        data.flowID,
+			SourceID:      data.sourceID,
+			TargetID:      data.targetID,
+			SourceHandler: data.sourceHandle,
 		}
 
-		if err := s.es.CreateEdge(ctx, model); err != nil {
+		if err := edgeWriter.CreateEdge(ctx, model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		s.publishEdgeEvent(edgeEventInsert, model)
+		insertedEdges = append(insertedEdges, model)
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, edge := range insertedEdges {
+		s.publishEdgeEvent(edgeEventInsert, edge)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[flowv1.EdgeUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	var validatedEdges []mflow.Edge
+
 	for _, item := range req.Msg.GetItems() {
 		edgeID, err := idwrap.NewFromBytes(item.GetEdgeId())
 		if err != nil {
@@ -143,17 +188,49 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			existing.SourceHandler = convertHandle(item.GetSourceHandle())
 		}
 
-		if err := s.es.UpdateEdge(ctx, *existing); err != nil {
+		validatedEdges = append(validatedEdges, *existing)
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	edgeWriter := s.es.TX(tx)
+	var updatedEdges []mflow.Edge
+
+	// 3. Execute all updates in transaction
+	for _, edge := range validatedEdges {
+		if err := edgeWriter.UpdateEdge(ctx, edge); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		s.publishEdgeEvent(edgeEventUpdate, *existing)
+		updatedEdges = append(updatedEdges, edge)
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, edge := range updatedEdges {
+		s.publishEdgeEvent(edgeEventUpdate, edge)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[flowv1.EdgeDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type deleteData struct {
+		edgeID   idwrap.IDWrap
+		existing *mflow.Edge
+	}
+	var validatedItems []deleteData
+
 	for _, item := range req.Msg.GetItems() {
 		edgeID, err := idwrap.NewFromBytes(item.GetEdgeId())
 		if err != nil {
@@ -165,13 +242,41 @@ func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[
 			return nil, err
 		}
 
-		if err := s.es.DeleteEdge(ctx, edgeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		validatedItems = append(validatedItems, deleteData{
+			edgeID:   edgeID,
+			existing: existing,
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	edgeWriter := s.es.TX(tx)
+	var deletedEdges []mflow.Edge
+
+	// 3. Execute all deletes in transaction
+	for _, data := range validatedItems {
+		if err := edgeWriter.DeleteEdge(ctx, data.edgeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if existing != nil {
-			s.publishEdgeEvent(edgeEventDelete, *existing)
+		if data.existing != nil {
+			deletedEdges = append(deletedEdges, *data.existing)
 		}
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, edge := range deletedEdges {
+		s.publishEdgeEvent(edgeEventDelete, edge)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
