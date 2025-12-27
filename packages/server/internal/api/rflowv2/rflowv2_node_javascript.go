@@ -11,10 +11,12 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -55,16 +57,18 @@ func (s *FlowServiceV2RPC) NodeJsCollection(
 }
 
 func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Request[flowv1.NodeJsInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type insertData struct {
+		nodeID idwrap.IDWrap
+		model  mflow.NodeJS
+	}
+	var validatedItems []insertData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
-
-		// Get node model to publish event later
-		// We don't fail if the node doesn't exist yet (it might be created in parallel),
-		// we just skip the event publishing.
-		nodeModel, _ := s.ns.GetNode(ctx, nodeID)
 
 		model := mflow.NodeJS{
 			FlowNodeID:       nodeID,
@@ -72,27 +76,70 @@ func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Reques
 			CodeCompressType: compress.CompressTypeNone,
 		}
 
-		if err := s.njss.CreateNodeJS(ctx, model); err != nil {
+		validatedItems = append(validatedItems, insertData{
+			nodeID: nodeID,
+			model:  model,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkInsertTx[nodeJsWithFlow, NodeTopic](
+		tx,
+		func(njwf nodeJsWithFlow) NodeTopic {
+			return NodeTopic{FlowID: njwf.flowID}
+		},
+	)
+
+	njssWriter := s.njss.TX(tx)
+
+	// 3. Execute all inserts in transaction
+	for _, data := range validatedItems {
+		if err := njssWriter.CreateNodeJS(ctx, data.model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish node event so NodeJsSync can pick up the code
-		if nodeModel != nil {
-			s.publishNodeEvent(nodeEventUpdate, *nodeModel)
+		// Get base node to extract FlowID for topic grouping
+		// Note: We don't fail if node not found to avoid race conditions with parallel node creation
+		baseNode, err := s.ns.GetNode(ctx, data.nodeID)
+		if err == nil && baseNode != nil {
+			syncTx.Track(nodeJsWithFlow{
+				nodeJS:   data.model,
+				flowID:   baseNode.FlowID,
+				baseNode: baseNode,
+			})
 		}
+	}
+
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeJsInsert); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeJsUpdate(ctx context.Context, req *connect.Request[flowv1.NodeJsUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type updateData struct {
+		nodeID   idwrap.IDWrap
+		updated  mflow.NodeJS
+		baseNode *mflow.Node
+	}
+	var validatedItems []updateData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -109,35 +156,105 @@ func (s *FlowServiceV2RPC) NodeJsUpdate(ctx context.Context, req *connect.Reques
 			existing.Code = []byte(item.GetCode())
 		}
 
-		if err := s.njss.UpdateNodeJS(ctx, *existing); err != nil {
+		validatedItems = append(validatedItems, updateData{
+			nodeID:   nodeID,
+			updated:  *existing,
+			baseNode: baseNode,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkUpdateTx[nodeJsWithFlow, nodeJsPatch, NodeTopic](
+		tx,
+		func(njwf nodeJsWithFlow) NodeTopic {
+			return NodeTopic{FlowID: njwf.flowID}
+		},
+	)
+
+	njssWriter := s.njss.TX(tx)
+
+	// 3. Execute all updates in transaction
+	for _, data := range validatedItems {
+		if err := njssWriter.UpdateNodeJS(ctx, data.updated); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish node event so NodeJsSync can pick up the updated code
-		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
+		syncTx.Track(
+			nodeJsWithFlow{
+				nodeJS:   data.updated,
+				flowID:   data.baseNode.FlowID,
+				baseNode: data.baseNode,
+			},
+			nodeJsPatch{}, // Empty patch - not used for NodeJS
+		)
+	}
+
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeJsUpdate); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeJsDelete(ctx context.Context, req *connect.Request[flowv1.NodeJsDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type deleteData struct {
+		nodeID   idwrap.IDWrap
+		baseNode *mflow.Node
+	}
+	var validatedItems []deleteData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := s.njss.DeleteNodeJS(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		validatedItems = append(validatedItems, deleteData{
+			nodeID:   nodeID,
+			baseNode: baseNode,
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	njssWriter := s.njss.TX(tx)
+	var deletedNodes []*mflow.Node
+
+	// 3. Execute all deletes in transaction
+	for _, data := range validatedItems {
+		if err := njssWriter.DeleteNodeJS(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish node event so NodeJsSync can pick up the deletion
-		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
+		deletedNodes = append(deletedNodes, data.baseNode)
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, node := range deletedNodes {
+		s.publishNodeEvent(nodeEventUpdate, *node)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
