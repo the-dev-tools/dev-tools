@@ -70,6 +70,8 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 		nodeID      idwrap.IDWrap
 		httpID      *idwrap.IDWrap
 		deltaHttpID *idwrap.IDWrap
+		baseNode    *mflow.Node
+		flowID      idwrap.IDWrap
 	}
 	var validatedItems []insertData
 
@@ -101,10 +103,21 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			}
 		}
 
+		// CRITICAL FIX: Get base node BEFORE transaction to avoid SQLite deadlock
+		// Allow nil baseNode to support out-of-order message arrival
+		baseNode, _ := s.ns.GetNode(ctx, nodeID)
+
+		var flowID idwrap.IDWrap
+		if baseNode != nil {
+			flowID = baseNode.FlowID
+		}
+
 		validatedItems = append(validatedItems, insertData{
 			nodeID:      nodeID,
 			httpID:      httpID,
 			deltaHttpID: deltaHttpID,
+			baseNode:    baseNode,
+			flowID:      flowID,
 		})
 	}
 
@@ -137,15 +150,10 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get base node to extract FlowID for topic grouping
-		// Note: We don't fail if node not found to avoid race conditions with parallel node creation
-		baseNode, err := s.ns.GetNode(ctx, data.nodeID)
-		if err == nil && baseNode != nil {
-			syncTx.Track(nodeHttpWithFlow{
-				nodeRequest: nodeRequest,
-				flowID:      baseNode.FlowID,
-			})
-		}
+		syncTx.Track(nodeHttpWithFlow{
+			nodeRequest: nodeRequest,
+			flowID:      data.flowID,
+		})
 	}
 
 	// 4. Commit transaction and publish events in bulk

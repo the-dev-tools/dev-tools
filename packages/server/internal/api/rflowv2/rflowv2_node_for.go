@@ -58,8 +58,10 @@ func (s *FlowServiceV2RPC) NodeForCollection(
 func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Request[flowv1.NodeForInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type insertData struct {
-		nodeID idwrap.IDWrap
-		model  mflow.NodeFor
+		nodeID   idwrap.IDWrap
+		model    mflow.NodeFor
+		baseNode *mflow.Node
+		flowID   idwrap.IDWrap
 	}
 	var validatedItems []insertData
 
@@ -76,9 +78,20 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			ErrorHandling: mflow.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
 		}
 
+		// CRITICAL FIX: Get base node BEFORE transaction to avoid SQLite deadlock
+		// Allow nil baseNode to support out-of-order message arrival
+		baseNode, _ := s.ns.GetNode(ctx, nodeID)
+
+		var flowID idwrap.IDWrap
+		if baseNode != nil {
+			flowID = baseNode.FlowID
+		}
+
 		validatedItems = append(validatedItems, insertData{
-			nodeID: nodeID,
-			model:  model,
+			nodeID:   nodeID,
+			model:    model,
+			baseNode: baseNode,
+			flowID:   flowID,
 		})
 	}
 
@@ -104,13 +117,11 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get base node to extract FlowID for topic grouping
-		// Note: We don't fail if node not found to avoid race conditions with parallel node creation
-		baseNode, err := s.ns.GetNode(ctx, data.nodeID)
-		if err == nil && baseNode != nil {
+		// Only track for event publishing if base node exists
+		if data.baseNode != nil {
 			syncTx.Track(nodeForWithFlow{
 				nodeFor: data.model,
-				flowID:  baseNode.FlowID,
+				flowID:  data.flowID,
 			})
 		}
 	}
