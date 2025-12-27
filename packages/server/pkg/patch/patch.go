@@ -109,3 +109,30 @@ type HTTPDeltaPatch struct {
 func (p HTTPDeltaPatch) HasChanges() bool {
 	return p.Name.IsSet() || p.Method.IsSet() || p.Url.IsSet()
 }
+
+// EdgePatch represents partial updates to an Edge
+type EdgePatch struct {
+	SourceID      Optional[string] // ID stored as base64 string for JSON compatibility
+	TargetID      Optional[string] // ID stored as base64 string for JSON compatibility
+	SourceHandler Optional[int32]  // EdgeHandle type
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p EdgePatch) HasChanges() bool {
+	return p.SourceID.IsSet() || p.TargetID.IsSet() || p.SourceHandler.IsSet()
+}
+
+// FlowVariablePatch represents partial updates to a FlowVariable
+type FlowVariablePatch struct {
+	Name        Optional[string]
+	Value       Optional[string]
+	Enabled     Optional[bool]
+	Description Optional[string]
+	Order       Optional[float64]
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p FlowVariablePatch) HasChanges() bool {
+	return p.Name.IsSet() || p.Value.IsSet() || p.Enabled.IsSet() ||
+		p.Description.IsSet() || p.Order.IsSet()
+}

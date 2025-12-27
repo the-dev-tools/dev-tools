@@ -14,6 +14,8 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -103,15 +105,21 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 		})
 	}
 
-	// 2. Begin transaction
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkInsertTx[edgeWithFlow, EdgeTopic](
+		tx,
+		func(ewf edgeWithFlow) EdgeTopic {
+			return EdgeTopic{FlowID: ewf.flowID}
+		},
+	)
+
 	edgeWriter := s.es.TX(tx)
-	var insertedEdges []mflow.Edge
 
 	// 3. Execute all inserts in transaction
 	for _, data := range validatedItems {
@@ -127,17 +135,15 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		insertedEdges = append(insertedEdges, model)
+		syncTx.Track(edgeWithFlow{
+			edge:   model,
+			flowID: data.flowID,
+		})
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkEdgeInsert); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, edge := range insertedEdges {
-		s.publishEdgeEvent(edgeEventInsert, edge)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -145,7 +151,11 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 
 func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[flowv1.EdgeUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
-	var validatedEdges []mflow.Edge
+	type updateData struct {
+		edge      mflow.Edge
+		edgePatch patch.EdgePatch
+	}
+	var validatedUpdates []updateData
 
 	for _, item := range req.Msg.GetItems() {
 		edgeID, err := idwrap.NewFromBytes(item.GetEdgeId())
@@ -162,6 +172,8 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow reassignment is not supported"))
 		}
 
+		edgePatch := patch.EdgePatch{}
+
 		if len(item.GetSourceId()) != 0 {
 			sourceID, err := idwrap.NewFromBytes(item.GetSourceId())
 			if err != nil {
@@ -171,6 +183,7 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 				return nil, err
 			}
 			existing.SourceID = sourceID
+			edgePatch.SourceID = patch.NewOptional(sourceID.String())
 		}
 
 		if len(item.GetTargetId()) != 0 {
@@ -182,42 +195,54 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 				return nil, err
 			}
 			existing.TargetID = targetID
+			edgePatch.TargetID = patch.NewOptional(targetID.String())
 		}
 
 		if item.SourceHandle != nil {
 			existing.SourceHandler = convertHandle(item.GetSourceHandle())
+			edgePatch.SourceHandler = patch.NewOptional(int32(existing.SourceHandler))
 		}
 
-		validatedEdges = append(validatedEdges, *existing)
+		validatedUpdates = append(validatedUpdates, updateData{
+			edge:      *existing,
+			edgePatch: edgePatch,
+		})
 	}
 
-	// 2. Begin transaction
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkUpdateTx[edgeWithFlow, patch.EdgePatch, EdgeTopic](
+		tx,
+		func(ewf edgeWithFlow) EdgeTopic {
+			return EdgeTopic{FlowID: ewf.flowID}
+		},
+	)
+
 	edgeWriter := s.es.TX(tx)
-	var updatedEdges []mflow.Edge
 
 	// 3. Execute all updates in transaction
-	for _, edge := range validatedEdges {
-		if err := edgeWriter.UpdateEdge(ctx, edge); err != nil {
+	for _, data := range validatedUpdates {
+		if err := edgeWriter.UpdateEdge(ctx, data.edge); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updatedEdges = append(updatedEdges, edge)
+		syncTx.Track(
+			edgeWithFlow{
+				edge:   data.edge,
+				flowID: data.edge.FlowID,
+			},
+			data.edgePatch,
+		)
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkEdgeUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, edge := range updatedEdges {
-		s.publishEdgeEvent(edgeEventUpdate, edge)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

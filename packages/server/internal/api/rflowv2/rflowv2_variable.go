@@ -15,7 +15,9 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -90,15 +92,21 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 		validatedVariables = append(validatedVariables, variable)
 	}
 
-	// 2. Begin transaction
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkInsertTx[variableWithFlow, FlowVariableTopic](
+		tx,
+		func(vwf variableWithFlow) FlowVariableTopic {
+			return FlowVariableTopic{FlowID: vwf.flowID}
+		},
+	)
+
 	varWriter := s.fvs.TX(tx)
-	var insertedVariables []mflow.FlowVariable
 
 	// 3. Execute all inserts in transaction
 	for _, variable := range validatedVariables {
@@ -106,17 +114,15 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		insertedVariables = append(insertedVariables, variable)
+		syncTx.Track(variableWithFlow{
+			variable: variable,
+			flowID:   variable.FlowID,
+		})
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowVariableInsert); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, variable := range insertedVariables {
-		s.publishFlowVariableEvent(flowVarEventInsert, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -125,8 +131,9 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.Request[flowv1.FlowVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type updateData struct {
-		variable    mflow.FlowVariable
-		updateOrder bool
+		variable      mflow.FlowVariable
+		variablePatch patch.FlowVariablePatch
+		updateOrder   bool
 	}
 	var validatedUpdates []updateData
 
@@ -156,47 +163,61 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow reassignment is not supported"))
 		}
 
+		variablePatch := patch.FlowVariablePatch{}
+
 		if item.Key != nil {
 			key := strings.TrimSpace(item.GetKey())
 			if key == "" {
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable key cannot be empty"))
 			}
 			variable.Name = key
+			variablePatch.Name = patch.NewOptional(key)
 		}
 
 		if item.Value != nil {
 			variable.Value = item.GetValue()
+			variablePatch.Value = patch.NewOptional(item.GetValue())
 		}
 
 		if item.Enabled != nil {
 			variable.Enabled = item.GetEnabled()
+			variablePatch.Enabled = patch.NewOptional(item.GetEnabled())
 		}
 
 		if item.Description != nil {
 			variable.Description = item.GetDescription()
+			variablePatch.Description = patch.NewOptional(item.GetDescription())
 		}
 
 		updateOrder := false
 		if item.Order != nil {
 			variable.Order = float64(item.GetOrder())
+			variablePatch.Order = patch.NewOptional(variable.Order)
 			updateOrder = true
 		}
 
 		validatedUpdates = append(validatedUpdates, updateData{
-			variable:    variable,
-			updateOrder: updateOrder,
+			variable:      variable,
+			variablePatch: variablePatch,
+			updateOrder:   updateOrder,
 		})
 	}
 
-	// 2. Begin transaction
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkUpdateTx[variableWithFlow, patch.FlowVariablePatch, FlowVariableTopic](
+		tx,
+		func(vwf variableWithFlow) FlowVariableTopic {
+			return FlowVariableTopic{FlowID: vwf.flowID}
+		},
+	)
+
 	varWriter := s.fvs.TX(tx)
-	var updatedVariables []mflow.FlowVariable
 
 	// 3. Execute all updates in transaction
 	for _, data := range validatedUpdates {
@@ -210,17 +231,18 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updatedVariables = append(updatedVariables, data.variable)
+		syncTx.Track(
+			variableWithFlow{
+				variable: data.variable,
+				flowID:   data.variable.FlowID,
+			},
+			data.variablePatch,
+		)
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowVariableUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, variable := range updatedVariables {
-		s.publishFlowVariableEvent(flowVarEventUpdate, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
