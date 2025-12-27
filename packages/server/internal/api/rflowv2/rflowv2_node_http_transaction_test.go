@@ -2,9 +2,12 @@ package rflowv2
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/db/pkg/dbtest"
@@ -16,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/testutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -495,4 +499,438 @@ func TestNodeHttpDelete_TransactionAtomicity(t *testing.T) {
 	nodeReq2, err := nrsService.GetNodeRequest(ctx, node2ID)
 	require.NoError(t, err)
 	require.Nil(t, nodeReq2, "Node 2 HTTP config should be deleted")
+}
+
+// TestNodeHttpInsert_Concurrency verifies that concurrent NodeHttpInsert operations
+// complete successfully without SQLite deadlocks.
+//
+// This test verifies the fix from commit f5f11fab which moved GetNode() calls outside
+// of transactions to prevent SQLite lock contention.
+func TestNodeHttpInsert_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nrsService := sflow.NewNodeRequestService(queries)
+
+	// Readers
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nrs:      &nrsService,
+	}
+
+	// Create test data
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 base nodes BEFORE concurrency test (critical!)
+	nodeIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		nodeIDs[i] = idwrap.NewNow()
+		err = nodeService.CreateNode(ctx, mflow.Node{
+			ID:        nodeIDs[i],
+			FlowID:    flowID,
+			Name:      fmt.Sprintf("Request Node %d", i),
+			NodeKind:  mflow.NODE_KIND_REQUEST,
+			PositionX: float64(i * 100),
+			PositionY: 0,
+		})
+		require.NoError(t, err)
+	}
+
+	// Define test data structure
+	type httpInsertData struct {
+		NodeID idwrap.IDWrap
+		HttpID idwrap.IDWrap
+	}
+
+	// Run concurrent node http inserts
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentInserts(ctx, t, config,
+		func(i int) *httpInsertData {
+			return &httpInsertData{
+				NodeID: nodeIDs[i],
+				HttpID: idwrap.NewNow(),
+			}
+		},
+		func(opCtx context.Context, data *httpInsertData) error {
+			req := connect.NewRequest(&flowv1.NodeHttpInsertRequest{
+				Items: []*flowv1.NodeHttpInsert{
+					{
+						NodeId: data.NodeID.Bytes(),
+						HttpId: data.HttpID.Bytes(),
+					},
+				},
+			})
+			_, err := svc.NodeHttpInsert(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+
+	// Verify all http configs were created
+	for _, nodeID := range nodeIDs {
+		nodeReq, err := nrsService.GetNodeRequest(ctx, nodeID)
+		assert.NoError(t, err)
+		assert.NotNil(t, nodeReq)
+		assert.NotNil(t, nodeReq.HttpID)
+	}
+}
+
+// TestNodeHttpUpdate_Concurrency verifies that concurrent NodeHttpUpdate operations
+// complete successfully without SQLite deadlocks.
+func TestNodeHttpUpdate_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nrsService := sflow.NewNodeRequestService(queries)
+
+	// Readers
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nrs:      &nrsService,
+	}
+
+	// Create test data
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 base nodes with http configs BEFORE concurrency test
+	nodeIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		nodeIDs[i] = idwrap.NewNow()
+		err = nodeService.CreateNode(ctx, mflow.Node{
+			ID:        nodeIDs[i],
+			FlowID:    flowID,
+			Name:      fmt.Sprintf("Request Node %d", i),
+			NodeKind:  mflow.NODE_KIND_REQUEST,
+			PositionX: float64(i * 100),
+			PositionY: 0,
+		})
+		require.NoError(t, err)
+
+		// Create initial http config
+		httpID := idwrap.NewNow()
+		err = nrsService.CreateNodeRequest(ctx, mflow.NodeRequest{
+			FlowNodeID:       nodeIDs[i],
+			HttpID:           &httpID,
+			HasRequestConfig: true,
+		})
+		require.NoError(t, err)
+	}
+
+	// Define test data structure
+	type httpUpdateData struct {
+		NodeID idwrap.IDWrap
+		HttpID idwrap.IDWrap
+	}
+
+	// Run concurrent node http updates
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentUpdates(ctx, t, config,
+		func(i int) *httpUpdateData {
+			return &httpUpdateData{
+				NodeID: nodeIDs[i],
+				HttpID: idwrap.NewNow(),
+			}
+		},
+		func(opCtx context.Context, data *httpUpdateData) error {
+			req := connect.NewRequest(&flowv1.NodeHttpUpdateRequest{
+				Items: []*flowv1.NodeHttpUpdate{
+					{
+						NodeId: data.NodeID.Bytes(),
+						HttpId: data.HttpID.Bytes(),
+					},
+				},
+			})
+			_, err := svc.NodeHttpUpdate(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+
+	// Verify all http IDs were updated
+	for _, nodeID := range nodeIDs {
+		nodeReq, err := nrsService.GetNodeRequest(ctx, nodeID)
+		assert.NoError(t, err)
+		assert.NotNil(t, nodeReq)
+		assert.NotNil(t, nodeReq.HttpID)
+	}
+}
+
+// TestNodeHttpDelete_Concurrency verifies that concurrent NodeHttpDelete operations
+// complete successfully without SQLite deadlocks.
+func TestNodeHttpDelete_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nrsService := sflow.NewNodeRequestService(queries)
+
+	// Readers
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nrs:      &nrsService,
+	}
+
+	// Create test data
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 base nodes with http configs BEFORE concurrency test
+	nodeIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		nodeIDs[i] = idwrap.NewNow()
+		err = nodeService.CreateNode(ctx, mflow.Node{
+			ID:        nodeIDs[i],
+			FlowID:    flowID,
+			Name:      fmt.Sprintf("Request Node %d", i),
+			NodeKind:  mflow.NODE_KIND_REQUEST,
+			PositionX: float64(i * 100),
+			PositionY: 0,
+		})
+		require.NoError(t, err)
+
+		// Create http config to delete
+		httpID := idwrap.NewNow()
+		err = nrsService.CreateNodeRequest(ctx, mflow.NodeRequest{
+			FlowNodeID:       nodeIDs[i],
+			HttpID:           &httpID,
+			HasRequestConfig: true,
+		})
+		require.NoError(t, err)
+	}
+
+	// Define test data structure
+	type httpDeleteData struct {
+		NodeID idwrap.IDWrap
+	}
+
+	// Run concurrent node http deletes
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentDeletes(ctx, t, config,
+		func(i int) *httpDeleteData {
+			return &httpDeleteData{
+				NodeID: nodeIDs[i],
+			}
+		},
+		func(opCtx context.Context, data *httpDeleteData) error {
+			req := connect.NewRequest(&flowv1.NodeHttpDeleteRequest{
+				Items: []*flowv1.NodeHttpDelete{
+					{
+						NodeId: data.NodeID.Bytes(),
+					},
+				},
+			})
+			_, err := svc.NodeHttpDelete(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+
+	// Verify all http configs were deleted
+	for _, nodeID := range nodeIDs {
+		nodeReq, err := nrsService.GetNodeRequest(ctx, nodeID)
+		assert.NoError(t, err)
+		assert.Nil(t, nodeReq, "HTTP config should be deleted")
+	}
 }

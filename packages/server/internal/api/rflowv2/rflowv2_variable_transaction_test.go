@@ -2,11 +2,14 @@ package rflowv2
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/db/pkg/dbtest"
@@ -18,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/testutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -566,4 +570,399 @@ func TestFlowVariableDelete_TransactionRollback(t *testing.T) {
 	var2, err := flowVarService.GetFlowVariable(otherCtx, var2ID)
 	require.NoError(t, err)
 	require.Equal(t, "var2", var2.Name, "Variable 2 should still exist")
+}
+
+// TestFlowVariableInsert_Concurrency verifies that concurrent FlowVariableInsert operations
+// complete successfully without SQLite deadlocks.
+func TestFlowVariableInsert_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		fvs:      &flowVarService,
+		logger:   logger,
+	}
+
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow BEFORE concurrency test
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Define test data structure
+	type varInsertData struct {
+		VarID idwrap.IDWrap
+		Key   string
+		Value string
+	}
+
+	// Run concurrent flow variable inserts
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentInserts(ctx, t, config,
+		func(i int) *varInsertData {
+			return &varInsertData{
+				VarID: idwrap.NewNow(),
+				Key:   fmt.Sprintf("var%d", i),
+				Value: fmt.Sprintf("value%d", i),
+			}
+		},
+		func(opCtx context.Context, data *varInsertData) error {
+			req := connect.NewRequest(&flowv1.FlowVariableInsertRequest{
+				Items: []*flowv1.FlowVariableInsert{
+					{
+						FlowVariableId: data.VarID.Bytes(),
+						FlowId:         flowID.Bytes(),
+						Key:            data.Key,
+						Value:          data.Value,
+						Enabled:        true,
+					},
+				},
+			})
+			_, err := svc.FlowVariableInsert(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+
+	// Verify all variables were created
+	vars, err := flowVarService.GetFlowVariablesByFlowID(ctx, flowID)
+	assert.NoError(t, err)
+	assert.Equal(t, 20, len(vars), "All 20 variables should be created")
+}
+
+// TestFlowVariableUpdate_Concurrency verifies that concurrent FlowVariableUpdate operations
+// complete successfully without SQLite deadlocks.
+func TestFlowVariableUpdate_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		fvs:      &flowVarService,
+		logger:   logger,
+	}
+
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow BEFORE concurrency test
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 variables BEFORE concurrency test
+	varIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		varIDs[i] = idwrap.NewNow()
+		err = flowVarService.CreateFlowVariable(ctx, mflow.FlowVariable{
+			ID:      varIDs[i],
+			FlowID:  flowID,
+			Name:    fmt.Sprintf("var%d", i),
+			Value:   fmt.Sprintf("old_value%d", i),
+			Enabled: true,
+		})
+		require.NoError(t, err)
+	}
+
+	// Define test data structure
+	type varUpdateData struct {
+		VarID idwrap.IDWrap
+		Key   string
+		Value string
+	}
+
+	// Run concurrent flow variable updates
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentUpdates(ctx, t, config,
+		func(i int) *varUpdateData {
+			return &varUpdateData{
+				VarID: varIDs[i],
+				Key:   fmt.Sprintf("updated_var%d", i),
+				Value: fmt.Sprintf("updated_value%d", i),
+			}
+		},
+		func(opCtx context.Context, data *varUpdateData) error {
+			req := connect.NewRequest(&flowv1.FlowVariableUpdateRequest{
+				Items: []*flowv1.FlowVariableUpdate{
+					{
+						FlowVariableId: data.VarID.Bytes(),
+						Key:            &data.Key,
+						Value:          &data.Value,
+						Enabled:        boolPtr(true),
+					},
+				},
+			})
+			_, err := svc.FlowVariableUpdate(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+
+	// Verify all variables were updated
+	for i, varID := range varIDs {
+		v, err := flowVarService.GetFlowVariable(ctx, varID)
+		assert.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("updated_var%d", i), v.Name)
+		assert.Equal(t, fmt.Sprintf("updated_value%d", i), v.Value)
+	}
+}
+
+// TestFlowVariableDelete_Concurrency verifies that concurrent FlowVariableDelete operations
+// complete successfully without SQLite deadlocks.
+func TestFlowVariableDelete_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	flowVarService := sflow.NewFlowVariableService(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		fvs:      &flowVarService,
+		logger:   logger,
+	}
+
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow BEFORE concurrency test
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 variables BEFORE concurrency test
+	varIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		varIDs[i] = idwrap.NewNow()
+		err = flowVarService.CreateFlowVariable(ctx, mflow.FlowVariable{
+			ID:      varIDs[i],
+			FlowID:  flowID,
+			Name:    fmt.Sprintf("var%d", i),
+			Value:   fmt.Sprintf("value%d", i),
+			Enabled: true,
+		})
+		require.NoError(t, err)
+	}
+
+	// Define test data structure
+	type varDeleteData struct {
+		VarID idwrap.IDWrap
+	}
+
+	// Run concurrent flow variable deletes
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentDeletes(ctx, t, config,
+		func(i int) *varDeleteData {
+			return &varDeleteData{
+				VarID: varIDs[i],
+			}
+		},
+		func(opCtx context.Context, data *varDeleteData) error {
+			req := connect.NewRequest(&flowv1.FlowVariableDeleteRequest{
+				Items: []*flowv1.FlowVariableDelete{
+					{
+						FlowVariableId: data.VarID.Bytes(),
+					},
+				},
+			})
+			_, err := svc.FlowVariableDelete(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+
+	// Verify all variables were deleted
+	vars, err := flowVarService.GetFlowVariablesByFlowID(ctx, flowID)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(vars), "All variables should be deleted")
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }

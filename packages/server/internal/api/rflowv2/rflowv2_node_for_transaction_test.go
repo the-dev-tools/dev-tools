@@ -2,9 +2,12 @@ package rflowv2
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/db/pkg/dbtest"
@@ -16,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/testutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -483,4 +487,394 @@ func TestNodeForDelete_TransactionAtomicity(t *testing.T) {
 // Helper function to create int pointers
 func intPtr(i int32) *int32 {
 	return &i
+}
+
+// TestNodeForInsert_Concurrency verifies that concurrent insert operations
+// complete successfully without SQLite deadlocks.
+func TestNodeForInsert_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nfsService := sflow.NewNodeForService(queries)
+
+	// Readers
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nfs:      &nfsService,
+	}
+
+	// Create test data
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 base nodes BEFORE concurrency test
+	nodeIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		nodeIDs[i] = idwrap.NewNow()
+		err = nodeService.CreateNode(ctx, mflow.Node{
+			ID:       nodeIDs[i],
+			FlowID:   flowID,
+			Name:     fmt.Sprintf("For Node %d", i),
+			NodeKind: mflow.NODE_KIND_FOR,
+		})
+		require.NoError(t, err)
+	}
+
+	// Run concurrent For config inserts
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	type forInsertData struct {
+		NodeID     idwrap.IDWrap
+		Iterations int32
+	}
+
+	result := testutil.RunConcurrentInserts(ctx, t, config,
+		func(i int) *forInsertData {
+			return &forInsertData{
+				NodeID:     nodeIDs[i],
+				Iterations: int32(i + 1),
+			}
+		},
+		func(opCtx context.Context, data *forInsertData) error {
+			req := connect.NewRequest(&flowv1.NodeForInsertRequest{
+				Items: []*flowv1.NodeForInsert{{
+					NodeId:     data.NodeID.Bytes(),
+					Iterations: data.Iterations,
+				}},
+			})
+			_, err := svc.NodeForInsert(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Equal(t, 0, result.ErrorCount, "No errors expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Fast operations expected")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+
+// TestNodeForUpdate_Concurrency verifies that concurrent update operations
+// complete successfully without SQLite deadlocks.
+func TestNodeForUpdate_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nfsService := sflow.NewNodeForService(queries)
+
+	// Readers
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nfs:      &nfsService,
+	}
+
+	// Create test data
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 For nodes with configs
+	nodeIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		nodeIDs[i] = idwrap.NewNow()
+		err = nodeService.CreateNode(ctx, mflow.Node{
+			ID:       nodeIDs[i],
+			FlowID:   flowID,
+			Name:     fmt.Sprintf("For Node %d", i),
+			NodeKind: mflow.NODE_KIND_FOR,
+		})
+		require.NoError(t, err)
+
+		// Insert initial For config
+		req := connect.NewRequest(&flowv1.NodeForInsertRequest{
+			Items: []*flowv1.NodeForInsert{{
+				NodeId:     nodeIDs[i].Bytes(),
+				Iterations: int32(i + 1),
+			}},
+		})
+		_, err = svc.NodeForInsert(ctx, req)
+		require.NoError(t, err)
+	}
+
+	// Run concurrent For config updates
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	type forUpdateData struct {
+		NodeID     idwrap.IDWrap
+		Iterations int32
+	}
+
+	result := testutil.RunConcurrentUpdates(ctx, t, config,
+		func(i int) *forUpdateData {
+			return &forUpdateData{
+				NodeID:     nodeIDs[i],
+				Iterations: int32((i + 1) * 10), // Update to 10x
+			}
+		},
+		func(opCtx context.Context, data *forUpdateData) error {
+			iterations := data.Iterations
+			req := connect.NewRequest(&flowv1.NodeForUpdateRequest{
+				Items: []*flowv1.NodeForUpdate{{
+					NodeId:     data.NodeID.Bytes(),
+					Iterations: &iterations,
+				}},
+			})
+			_, err := svc.NodeForUpdate(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Equal(t, 0, result.ErrorCount, "No errors expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Fast operations expected")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+
+// TestNodeForDelete_Concurrency verifies that concurrent delete operations
+// complete successfully without SQLite deadlocks.
+func TestNodeForDelete_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	nfsService := sflow.NewNodeForService(queries)
+
+	// Readers
+	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
+	fsReader := sflow.NewFlowReaderFromQueries(queries)
+	nsReader := sflow.NewNodeReaderFromQueries(queries)
+
+	svc := &FlowServiceV2RPC{
+		DB:       db,
+		wsReader: wsReader,
+		fsReader: fsReader,
+		nsReader: nsReader,
+		ws:       &wsService,
+		fs:       &flowService,
+		ns:       &nodeService,
+		nfs:      &nfsService,
+	}
+
+	// Create test data
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Create flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Pre-create 20 For nodes with configs
+	nodeIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		nodeIDs[i] = idwrap.NewNow()
+		err = nodeService.CreateNode(ctx, mflow.Node{
+			ID:       nodeIDs[i],
+			FlowID:   flowID,
+			Name:     fmt.Sprintf("For Node %d", i),
+			NodeKind: mflow.NODE_KIND_FOR,
+		})
+		require.NoError(t, err)
+
+		// Insert initial For config
+		req := connect.NewRequest(&flowv1.NodeForInsertRequest{
+			Items: []*flowv1.NodeForInsert{{
+				NodeId:     nodeIDs[i].Bytes(),
+				Iterations: int32(i + 1),
+			}},
+		})
+		_, err = svc.NodeForInsert(ctx, req)
+		require.NoError(t, err)
+	}
+
+	// Run concurrent For config deletes
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentDeletes(ctx, t, config,
+		func(i int) idwrap.IDWrap {
+			return nodeIDs[i]
+		},
+		func(opCtx context.Context, nodeID idwrap.IDWrap) error {
+			req := connect.NewRequest(&flowv1.NodeForDeleteRequest{
+				Items: []*flowv1.NodeForDelete{{
+					NodeId: nodeID.Bytes(),
+				}},
+			})
+			_, err := svc.NodeForDelete(opCtx, req)
+			return err
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Equal(t, 0, result.ErrorCount, "No errors expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Fast operations expected")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
 }
