@@ -11,9 +11,11 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -54,6 +56,13 @@ func (s *FlowServiceV2RPC) NodeForCollection(
 }
 
 func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Request[flowv1.NodeForInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type insertData struct {
+		nodeID idwrap.IDWrap
+		model  mflow.NodeFor
+	}
+	var validatedItems []insertData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -67,20 +76,62 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			ErrorHandling: mflow.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
 		}
 
-		if err := s.nfs.CreateNodeFor(ctx, model); err != nil {
+		validatedItems = append(validatedItems, insertData{
+			nodeID: nodeID,
+			model:  model,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkInsertTx[nodeForWithFlow, ForTopic](
+		tx,
+		func(nfwf nodeForWithFlow) ForTopic {
+			return ForTopic{FlowID: nfwf.flowID}
+		},
+	)
+
+	nfsWriter := s.nfs.TX(tx)
+
+	// 3. Execute all inserts in transaction
+	for _, data := range validatedItems {
+		if err := nfsWriter.CreateNodeFor(ctx, data.model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish insert event if base node exists
-		if baseNode, err := s.ns.GetNode(ctx, nodeID); err == nil {
-			s.publishForEvent(forEventInsert, baseNode.FlowID, model)
+		// Get base node to extract FlowID for topic grouping
+		// Note: We don't fail if node not found to avoid race conditions with parallel node creation
+		baseNode, err := s.ns.GetNode(ctx, data.nodeID)
+		if err == nil && baseNode != nil {
+			syncTx.Track(nodeForWithFlow{
+				nodeFor: data.model,
+				flowID:  baseNode.FlowID,
+			})
 		}
+	}
+
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeForInsert); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Request[flowv1.NodeForUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type updateData struct {
+		nodeID   idwrap.IDWrap
+		updated  mflow.NodeFor
+		baseNode *mflow.Node
+	}
+	var validatedItems []updateData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -115,18 +166,61 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 			existing.ErrorHandling = mflow.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
 		}
 
-		if err := s.nfs.UpdateNodeFor(ctx, *existing); err != nil {
+		validatedItems = append(validatedItems, updateData{
+			nodeID:   nodeID,
+			updated:  *existing,
+			baseNode: baseNode,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkUpdateTx[nodeForWithFlow, nodeForPatch, ForTopic](
+		tx,
+		func(nfwf nodeForWithFlow) ForTopic {
+			return ForTopic{FlowID: nfwf.flowID}
+		},
+	)
+
+	nfsWriter := s.nfs.TX(tx)
+
+	// 3. Execute all updates in transaction
+	for _, data := range validatedItems {
+		if err := nfsWriter.UpdateNodeFor(ctx, data.updated); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish update event
-		s.publishForEvent(forEventUpdate, baseNode.FlowID, *existing)
+		syncTx.Track(
+			nodeForWithFlow{
+				nodeFor: data.updated,
+				flowID:  data.baseNode.FlowID,
+			},
+			nodeForPatch{}, // Empty patch - not used for NodeFor
+		)
+	}
+
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeForUpdate); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeForDelete(ctx context.Context, req *connect.Request[flowv1.NodeForDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type deleteData struct {
+		nodeID      idwrap.IDWrap
+		existingFor *mflow.NodeFor
+		baseNode    *mflow.Node
+	}
+	var validatedItems []deleteData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -144,14 +238,45 @@ func (s *FlowServiceV2RPC) NodeForDelete(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := s.nfs.DeleteNodeFor(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		validatedItems = append(validatedItems, deleteData{
+			nodeID:      nodeID,
+			existingFor: existingFor,
+			baseNode:    baseNode,
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	nfsWriter := s.nfs.TX(tx)
+	var deletedNodes []nodeForWithFlow
+
+	// 3. Execute all deletes in transaction
+	for _, data := range validatedItems {
+		if err := nfsWriter.DeleteNodeFor(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish delete event
-		if existingFor != nil {
-			s.publishForEvent(forEventDelete, baseNode.FlowID, *existingFor)
+		if data.existingFor != nil {
+			deletedNodes = append(deletedNodes, nodeForWithFlow{
+				nodeFor: *data.existingFor,
+				flowID:  data.baseNode.FlowID,
+			})
 		}
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, node := range deletedNodes {
+		s.publishForEvent(forEventDelete, node.flowID, node.nodeFor)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
