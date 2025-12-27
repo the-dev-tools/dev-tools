@@ -3,10 +3,13 @@ package rflowv2
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/db/pkg/dbtest"
@@ -19,6 +22,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/testutil"
 )
 
 // TestFlowVersionSnapshot_TransactionAtomicity verifies that createFlowVersionSnapshot
@@ -408,4 +412,400 @@ func TestFlowVersionSnapshot_EmptyFlow(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.Empty(t, versionVars, "Empty flow should have no variables")
+}
+
+// TestFlowVersionSnapshot_Concurrency_Simple verifies that concurrent simple
+// flow version snapshot operations complete successfully without SQLite deadlocks.
+func TestFlowVersionSnapshot_Concurrency_Simple(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	varService := sflow.NewFlowVariableService(queries)
+	nrsService := sflow.NewNodeRequestService(queries)
+	nfsService := sflow.NewNodeForService(queries)
+	nfesService := sflow.NewNodeForeachService(queries)
+	nifsService := sflow.NewNodeIfService(queries)
+	njssService := sflow.NewNodeJavaScriptService(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	svc := &FlowServiceV2RPC{
+		DB:     db,
+		ws:     &wsService,
+		fs:     &flowService,
+		ns:     &nodeService,
+		es:     &edgeService,
+		nrs:    &nrsService,
+		nfs:    &nfsService,
+		nfes:   &nfesService,
+		nifs:   nifsService,
+		njss:   &njssService,
+		fvs:    &varService,
+		logger: logger,
+	}
+
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Pre-create 20 simple flows BEFORE concurrency test
+	flows := make([]mflow.Flow, 20)
+	for i := 0; i < 20; i++ {
+		flows[i] = mflow.Flow{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			Name:        fmt.Sprintf("Flow %d", i),
+		}
+		err = flowService.CreateFlow(ctx, flows[i])
+		require.NoError(t, err)
+	}
+
+	type snapshotData struct {
+		Flow mflow.Flow
+	}
+
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentInserts(ctx, t, config,
+		func(i int) *snapshotData {
+			return &snapshotData{
+				Flow: flows[i],
+			}
+		},
+		func(opCtx context.Context, data *snapshotData) error {
+			_, _, err := svc.createFlowVersionSnapshot(opCtx, data.Flow, []mflow.Node{}, []mflow.Edge{}, []mflow.FlowVariable{})
+			return err
+		},
+	)
+
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 100*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+
+// TestFlowVersionSnapshot_Concurrency_WithNodes verifies that concurrent
+// flow version snapshot operations with nodes complete without deadlocks.
+func TestFlowVersionSnapshot_Concurrency_WithNodes(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	varService := sflow.NewFlowVariableService(queries)
+	nrsService := sflow.NewNodeRequestService(queries)
+	nfsService := sflow.NewNodeForService(queries)
+	nfesService := sflow.NewNodeForeachService(queries)
+	nifsService := sflow.NewNodeIfService(queries)
+	njssService := sflow.NewNodeJavaScriptService(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	svc := &FlowServiceV2RPC{
+		DB:     db,
+		ws:     &wsService,
+		fs:     &flowService,
+		ns:     &nodeService,
+		es:     &edgeService,
+		nrs:    &nrsService,
+		nfs:    &nfsService,
+		nfes:   &nfesService,
+		nifs:   nifsService,
+		njss:   &njssService,
+		fvs:    &varService,
+		logger: logger,
+	}
+
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Pre-create 20 flows with nodes BEFORE concurrency test
+	type flowWithNodes struct {
+		Flow  mflow.Flow
+		Nodes []mflow.Node
+	}
+
+	flowsWithNodes := make([]flowWithNodes, 20)
+	for i := 0; i < 20; i++ {
+		flow := mflow.Flow{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			Name:        fmt.Sprintf("Flow %d", i),
+		}
+		err = flowService.CreateFlow(ctx, flow)
+		require.NoError(t, err)
+
+		// Create 3 nodes per flow
+		nodes := make([]mflow.Node, 3)
+		for j := 0; j < 3; j++ {
+			nodes[j] = mflow.Node{
+				ID:        idwrap.NewNow(),
+				FlowID:    flow.ID,
+				Name:      fmt.Sprintf("Node %d-%d", i, j),
+				NodeKind:  mflow.NODE_KIND_REQUEST,
+				PositionX: float64(j * 100),
+				PositionY: 0,
+			}
+			err = nodeService.CreateNode(ctx, nodes[j])
+			require.NoError(t, err)
+		}
+
+		flowsWithNodes[i] = flowWithNodes{
+			Flow:  flow,
+			Nodes: nodes,
+		}
+	}
+
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentInserts(ctx, t, config,
+		func(i int) *flowWithNodes {
+			return &flowsWithNodes[i]
+		},
+		func(opCtx context.Context, data *flowWithNodes) error {
+			_, _, err := svc.createFlowVersionSnapshot(opCtx, data.Flow, data.Nodes, []mflow.Edge{}, []mflow.FlowVariable{})
+			return err
+		},
+	)
+
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 150*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+
+// TestFlowVersionSnapshot_Concurrency_Complex verifies that concurrent
+// complex flow version snapshot operations complete without deadlocks.
+func TestFlowVersionSnapshot_Concurrency_Complex(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db, err := dbtest.GetTestDB(ctx)
+	require.NoError(t, err)
+	defer db.Close()
+
+	queries := gen.New(db)
+
+	wsService := sworkspace.NewWorkspaceService(queries)
+	flowService := sflow.NewFlowService(queries)
+	nodeService := sflow.NewNodeService(queries)
+	edgeService := sflow.NewEdgeService(queries)
+	varService := sflow.NewFlowVariableService(queries)
+	nrsService := sflow.NewNodeRequestService(queries)
+	nfsService := sflow.NewNodeForService(queries)
+	nfesService := sflow.NewNodeForeachService(queries)
+	nifsService := sflow.NewNodeIfService(queries)
+	njssService := sflow.NewNodeJavaScriptService(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	svc := &FlowServiceV2RPC{
+		DB:     db,
+		ws:     &wsService,
+		fs:     &flowService,
+		ns:     &nodeService,
+		es:     &edgeService,
+		nrs:    &nrsService,
+		nfs:    &nfsService,
+		nfes:   &nfesService,
+		nifs:   nifsService,
+		njss:   &njssService,
+		fvs:    &varService,
+		logger: logger,
+	}
+
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
+	require.NoError(t, err)
+
+	// Pre-create 20 complex flows with nodes, edges, and variables
+	type complexFlow struct {
+		Flow      mflow.Flow
+		Nodes     []mflow.Node
+		Edges     []mflow.Edge
+		Variables []mflow.FlowVariable
+	}
+
+	complexFlows := make([]complexFlow, 20)
+	for i := 0; i < 20; i++ {
+		flow := mflow.Flow{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			Name:        fmt.Sprintf("Complex Flow %d", i),
+		}
+		err = flowService.CreateFlow(ctx, flow)
+		require.NoError(t, err)
+
+		// Create 5 nodes
+		nodes := make([]mflow.Node, 5)
+		for j := 0; j < 5; j++ {
+			nodes[j] = mflow.Node{
+				ID:        idwrap.NewNow(),
+				FlowID:    flow.ID,
+				Name:      fmt.Sprintf("Node %d-%d", i, j),
+				NodeKind:  mflow.NODE_KIND_REQUEST,
+				PositionX: float64(j * 100),
+				PositionY: 0,
+			}
+			err = nodeService.CreateNode(ctx, nodes[j])
+			require.NoError(t, err)
+		}
+
+		// Create 4 edges connecting nodes
+		edges := make([]mflow.Edge, 4)
+		for j := 0; j < 4; j++ {
+			edges[j] = mflow.Edge{
+				ID:              idwrap.NewNow(),
+				FlowID:          flow.ID,
+				SourceFlowNodeID: nodes[j].ID,
+				TargetFlowNodeID: nodes[j+1].ID,
+			}
+			err = edgeService.CreateEdge(ctx, edges[j])
+			require.NoError(t, err)
+		}
+
+		// Create 3 flow variables
+		variables := make([]mflow.FlowVariable, 3)
+		for j := 0; j < 3; j++ {
+			variables[j] = mflow.FlowVariable{
+				ID:      idwrap.NewNow(),
+				FlowID:  flow.ID,
+				Name:    fmt.Sprintf("var%d-%d", i, j),
+				Value:   fmt.Sprintf("value%d-%d", i, j),
+				Enabled: true,
+			}
+			err = varService.CreateFlowVariable(ctx, variables[j])
+			require.NoError(t, err)
+		}
+
+		complexFlows[i] = complexFlow{
+			Flow:      flow,
+			Nodes:     nodes,
+			Edges:     edges,
+			Variables: variables,
+		}
+	}
+
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentInserts(ctx, t, config,
+		func(i int) *complexFlow {
+			return &complexFlows[i]
+		},
+		func(opCtx context.Context, data *complexFlow) error {
+			_, _, err := svc.createFlowVersionSnapshot(opCtx, data.Flow, data.Nodes, data.Edges, data.Variables)
+			return err
+		},
+	)
+
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.ErrorCount, "No operations should fail")
+	assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks expected")
+	assert.Less(t, result.AverageDuration, 200*time.Millisecond, "Operations should be fast")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
 }
