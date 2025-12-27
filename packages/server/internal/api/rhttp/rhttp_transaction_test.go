@@ -25,6 +25,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/testutil"
 )
 
 // testServiceSetup creates a minimal service setup for testing transaction patterns
@@ -538,4 +539,209 @@ func BenchmarkHttpInsertOptimizedPattern(b *testing.B) {
 			b.StopTimer()
 		}
 	})
+}
+
+// TestHttpInsert_Concurrency verifies that concurrent insert operations
+// complete successfully without SQLite deadlocks using the shared helper.
+func TestHttpInsert_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	setup := createTestServiceSetup(t)
+
+	// Pre-fetch workspace data BEFORE concurrency test (critical!)
+	workspaces, err := setup.ws.GetWorkspacesByUserIDOrdered(setup.ctx, setup.userID)
+	require.NoError(t, err)
+	require.Len(t, workspaces, 1)
+	workspaceID := workspaces[0].ID
+
+	// Run concurrent insert operations
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	type httpInsertData struct {
+		ID          idwrap.IDWrap
+		WorkspaceID idwrap.IDWrap
+		Name        string
+	}
+
+	result := testutil.RunConcurrentInserts(setup.ctx, t, config,
+		func(i int) *httpInsertData {
+			return &httpInsertData{
+				ID:          idwrap.NewNow(),
+				WorkspaceID: workspaceID,
+				Name:        fmt.Sprintf("Concurrent HTTP %d", i),
+			}
+		},
+		func(ctx context.Context, data *httpInsertData) error {
+			// Minimal transaction - writes only!
+			tx, err := setup.db.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer devtoolsdb.TxnRollback(tx)
+
+			hsTx := setup.hs.TX(tx)
+			err = hsTx.Create(ctx, &mhttp.HTTP{
+				ID:          data.ID,
+				WorkspaceID: data.WorkspaceID,
+				Name:        data.Name,
+				Url:         "https://example.com",
+				Method:      "GET",
+			})
+			if err != nil {
+				return err
+			}
+			return tx.Commit()
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.TimeoutCount, "No deadlocks expected")
+	assert.Equal(t, 0, result.ErrorCount, "No errors expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Fast operations expected")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+
+// TestHttpUpdate_Concurrency verifies that concurrent update operations
+// complete successfully without SQLite deadlocks.
+func TestHttpUpdate_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	setup := createTestServiceSetup(t)
+
+	// Pre-create 20 HTTP records to update
+	workspaces, err := setup.ws.GetWorkspacesByUserIDOrdered(setup.ctx, setup.userID)
+	require.NoError(t, err)
+	require.Len(t, workspaces, 1)
+	workspaceID := workspaces[0].ID
+
+	httpIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		httpID := idwrap.NewNow()
+		httpIDs[i] = httpID
+		err = setup.hs.Create(setup.ctx, &mhttp.HTTP{
+			ID:          httpID,
+			WorkspaceID: workspaceID,
+			Name:        fmt.Sprintf("HTTP %d", i),
+			Url:         "https://example.com",
+			Method:      "GET",
+		})
+		require.NoError(t, err)
+	}
+
+	// Run concurrent update operations
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	// Pre-fetch all HTTP records to update
+	httpRecords := make([]*mhttp.HTTP, 20)
+	for i := 0; i < 20; i++ {
+		record, err := setup.hs.Get(setup.ctx, httpIDs[i])
+		require.NoError(t, err)
+		httpRecords[i] = record
+	}
+
+	result := testutil.RunConcurrentUpdates(setup.ctx, t, config,
+		func(i int) *mhttp.HTTP {
+			// Modify the HTTP record
+			record := *httpRecords[i] // copy
+			record.Name = fmt.Sprintf("Updated HTTP %d", i)
+			return &record
+		},
+		func(ctx context.Context, http *mhttp.HTTP) error {
+			// Minimal transaction - writes only!
+			tx, err := setup.db.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer devtoolsdb.TxnRollback(tx)
+
+			hsTx := setup.hs.TX(tx)
+			err = hsTx.Update(ctx, http)
+			if err != nil {
+				return err
+			}
+			return tx.Commit()
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.TimeoutCount, "No deadlocks expected")
+	assert.Equal(t, 0, result.ErrorCount, "No errors expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Fast operations expected")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+
+// TestHttpDelete_Concurrency verifies that concurrent delete operations
+// complete successfully without SQLite deadlocks.
+func TestHttpDelete_Concurrency(t *testing.T) {
+	t.Parallel()
+
+	setup := createTestServiceSetup(t)
+
+	// Pre-create 20 HTTP records to delete
+	workspaces, err := setup.ws.GetWorkspacesByUserIDOrdered(setup.ctx, setup.userID)
+	require.NoError(t, err)
+	require.Len(t, workspaces, 1)
+	workspaceID := workspaces[0].ID
+
+	httpIDs := make([]idwrap.IDWrap, 20)
+	for i := 0; i < 20; i++ {
+		httpID := idwrap.NewNow()
+		httpIDs[i] = httpID
+		err = setup.hs.Create(setup.ctx, &mhttp.HTTP{
+			ID:          httpID,
+			WorkspaceID: workspaceID,
+			Name:        fmt.Sprintf("HTTP %d", i),
+			Url:         "https://example.com",
+			Method:      "GET",
+		})
+		require.NoError(t, err)
+	}
+
+	// Run concurrent delete operations
+	config := testutil.ConcurrencyTestConfig{
+		NumGoroutines: 20,
+		Timeout:       3 * time.Second,
+	}
+
+	result := testutil.RunConcurrentDeletes(setup.ctx, t, config,
+		func(i int) idwrap.IDWrap {
+			return httpIDs[i]
+		},
+		func(ctx context.Context, httpID idwrap.IDWrap) error {
+			// Minimal transaction - writes only!
+			tx, err := setup.db.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer devtoolsdb.TxnRollback(tx)
+
+			hsTx := setup.hs.TX(tx)
+			err = hsTx.Delete(ctx, httpID)
+			if err != nil {
+				return err
+			}
+			return tx.Commit()
+		},
+	)
+
+	// Assertions
+	assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+	assert.Equal(t, 0, result.TimeoutCount, "No deadlocks expected")
+	assert.Equal(t, 0, result.ErrorCount, "No errors expected")
+	assert.Less(t, result.AverageDuration, 50*time.Millisecond, "Fast operations expected")
+
+	t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+		result.SuccessCount, result.AverageDuration, result.MaxDuration)
 }
