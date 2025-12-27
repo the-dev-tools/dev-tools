@@ -798,6 +798,21 @@ FROM http_response
 WHERE id IN (sqlc.slice('ids'))
 ORDER BY time DESC;
 
+-- name: GetHTTPResponsesByWorkspaceID :many
+SELECT
+  hr.id,
+  hr.http_id,
+  hr.status,
+  hr.body,
+  hr.time,
+  hr.duration,
+  hr.size,
+  hr.created_at
+FROM http_response hr
+INNER JOIN http h ON hr.http_id = h.id
+WHERE h.workspace_id = ?
+ORDER BY hr.time DESC;
+
 -- name: CreateHTTPResponse :exec
 INSERT INTO http_response (
   id, http_id, status, body, time, duration, size, created_at
@@ -870,6 +885,19 @@ FROM http_response_header
 WHERE id IN (sqlc.slice('ids'))
 ORDER BY response_id, key;
 
+-- name: GetHTTPResponseHeadersByWorkspaceID :many
+SELECT
+  hrh.id,
+  hrh.response_id,
+  hrh.key,
+  hrh.value,
+  hrh.created_at
+FROM http_response_header hrh
+INNER JOIN http_response hr ON hrh.response_id = hr.id
+INNER JOIN http h ON hr.http_id = h.id
+WHERE h.workspace_id = ?
+ORDER BY hr.time DESC, hrh.key;
+
 -- name: CreateHTTPResponseHeader :exec
 INSERT INTO http_response_header (
   id, response_id, key, value, created_at
@@ -938,6 +966,19 @@ SELECT
 FROM http_response_assert
 WHERE id IN (sqlc.slice('ids'))
 ORDER BY created_at DESC;
+
+-- name: GetHTTPResponseAssertsByWorkspaceID :many
+SELECT
+  hra.id,
+  hra.response_id,
+  hra.value,
+  hra.success,
+  hra.created_at
+FROM http_response_assert hra
+INNER JOIN http_response hr ON hra.response_id = hr.id
+INNER JOIN http h ON hr.http_id = h.id
+WHERE h.workspace_id = ?
+ORDER BY hr.time DESC, hra.created_at DESC;
 
 -- name: CreateHTTPResponseAssert :exec
 INSERT INTO http_response_assert (

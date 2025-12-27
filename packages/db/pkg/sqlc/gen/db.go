@@ -435,6 +435,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPResponseAssertsByResponseIDStmt, err = db.PrepareContext(ctx, getHTTPResponseAssertsByResponseID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssertsByResponseID: %w", err)
 	}
+	if q.getHTTPResponseAssertsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPResponseAssertsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssertsByWorkspaceID: %w", err)
+	}
 	if q.getHTTPResponseHeaderStmt, err = db.PrepareContext(ctx, getHTTPResponseHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeader: %w", err)
 	}
@@ -447,11 +450,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPResponseHeadersByResponseIDStmt, err = db.PrepareContext(ctx, getHTTPResponseHeadersByResponseID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeadersByResponseID: %w", err)
 	}
+	if q.getHTTPResponseHeadersByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPResponseHeadersByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeadersByWorkspaceID: %w", err)
+	}
 	if q.getHTTPResponsesByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPResponsesByHttpID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponsesByHttpID: %w", err)
 	}
 	if q.getHTTPResponsesByIDsStmt, err = db.PrepareContext(ctx, getHTTPResponsesByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponsesByIDs: %w", err)
+	}
+	if q.getHTTPResponsesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPResponsesByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponsesByWorkspaceID: %w", err)
 	}
 	if q.getHTTPSearchParamsStmt, err = db.PrepareContext(ctx, getHTTPSearchParams); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSearchParams: %w", err)
@@ -1404,6 +1413,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPResponseAssertsByResponseIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPResponseAssertsByWorkspaceIDStmt != nil {
+		if cerr := q.getHTTPResponseAssertsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseAssertsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPResponseHeaderStmt != nil {
 		if cerr := q.getHTTPResponseHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPResponseHeaderStmt: %w", cerr)
@@ -1424,6 +1438,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPResponseHeadersByResponseIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPResponseHeadersByWorkspaceIDStmt != nil {
+		if cerr := q.getHTTPResponseHeadersByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseHeadersByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPResponsesByHttpIDStmt != nil {
 		if cerr := q.getHTTPResponsesByHttpIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPResponsesByHttpIDStmt: %w", cerr)
@@ -1432,6 +1451,11 @@ func (q *Queries) Close() error {
 	if q.getHTTPResponsesByIDsStmt != nil {
 		if cerr := q.getHTTPResponsesByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPResponsesByIDsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponsesByWorkspaceIDStmt != nil {
+		if cerr := q.getHTTPResponsesByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponsesByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPSearchParamsStmt != nil {
@@ -2045,12 +2069,15 @@ type Queries struct {
 	getHTTPResponseAssertsByHttpIDStmt         *sql.Stmt
 	getHTTPResponseAssertsByIDsStmt            *sql.Stmt
 	getHTTPResponseAssertsByResponseIDStmt     *sql.Stmt
+	getHTTPResponseAssertsByWorkspaceIDStmt    *sql.Stmt
 	getHTTPResponseHeaderStmt                  *sql.Stmt
 	getHTTPResponseHeadersByHttpIDStmt         *sql.Stmt
 	getHTTPResponseHeadersByIDsStmt            *sql.Stmt
 	getHTTPResponseHeadersByResponseIDStmt     *sql.Stmt
+	getHTTPResponseHeadersByWorkspaceIDStmt    *sql.Stmt
 	getHTTPResponsesByHttpIDStmt               *sql.Stmt
 	getHTTPResponsesByIDsStmt                  *sql.Stmt
+	getHTTPResponsesByWorkspaceIDStmt          *sql.Stmt
 	getHTTPSearchParamsStmt                    *sql.Stmt
 	getHTTPSearchParamsByIDsStmt               *sql.Stmt
 	getHTTPSearchParamsStreamingStmt           *sql.Stmt
@@ -2281,12 +2308,15 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPResponseAssertsByHttpIDStmt:         q.getHTTPResponseAssertsByHttpIDStmt,
 		getHTTPResponseAssertsByIDsStmt:            q.getHTTPResponseAssertsByIDsStmt,
 		getHTTPResponseAssertsByResponseIDStmt:     q.getHTTPResponseAssertsByResponseIDStmt,
+		getHTTPResponseAssertsByWorkspaceIDStmt:    q.getHTTPResponseAssertsByWorkspaceIDStmt,
 		getHTTPResponseHeaderStmt:                  q.getHTTPResponseHeaderStmt,
 		getHTTPResponseHeadersByHttpIDStmt:         q.getHTTPResponseHeadersByHttpIDStmt,
 		getHTTPResponseHeadersByIDsStmt:            q.getHTTPResponseHeadersByIDsStmt,
 		getHTTPResponseHeadersByResponseIDStmt:     q.getHTTPResponseHeadersByResponseIDStmt,
+		getHTTPResponseHeadersByWorkspaceIDStmt:    q.getHTTPResponseHeadersByWorkspaceIDStmt,
 		getHTTPResponsesByHttpIDStmt:               q.getHTTPResponsesByHttpIDStmt,
 		getHTTPResponsesByIDsStmt:                  q.getHTTPResponsesByIDsStmt,
+		getHTTPResponsesByWorkspaceIDStmt:          q.getHTTPResponsesByWorkspaceIDStmt,
 		getHTTPSearchParamsStmt:                    q.getHTTPSearchParamsStmt,
 		getHTTPSearchParamsByIDsStmt:               q.getHTTPSearchParamsByIDsStmt,
 		getHTTPSearchParamsStreamingStmt:           q.getHTTPSearchParamsStreamingStmt,

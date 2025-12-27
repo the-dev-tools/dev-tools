@@ -3414,6 +3414,49 @@ func (q *Queries) GetHTTPResponseAssertsByResponseID(ctx context.Context, respon
 	return items, nil
 }
 
+const getHTTPResponseAssertsByWorkspaceID = `-- name: GetHTTPResponseAssertsByWorkspaceID :many
+SELECT
+  hra.id,
+  hra.response_id,
+  hra.value,
+  hra.success,
+  hra.created_at
+FROM http_response_assert hra
+INNER JOIN http_response hr ON hra.response_id = hr.id
+INNER JOIN http h ON hr.http_id = h.id
+WHERE h.workspace_id = ?
+ORDER BY hr.time DESC, hra.created_at DESC
+`
+
+func (q *Queries) GetHTTPResponseAssertsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]HttpResponseAssert, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseAssertsByWorkspaceIDStmt, getHTTPResponseAssertsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseAssert{}
+	for rows.Next() {
+		var i HttpResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPResponseHeader = `-- name: GetHTTPResponseHeader :one
 
 SELECT
@@ -3570,6 +3613,49 @@ func (q *Queries) GetHTTPResponseHeadersByResponseID(ctx context.Context, respon
 	return items, nil
 }
 
+const getHTTPResponseHeadersByWorkspaceID = `-- name: GetHTTPResponseHeadersByWorkspaceID :many
+SELECT
+  hrh.id,
+  hrh.response_id,
+  hrh.key,
+  hrh.value,
+  hrh.created_at
+FROM http_response_header hrh
+INNER JOIN http_response hr ON hrh.response_id = hr.id
+INNER JOIN http h ON hr.http_id = h.id
+WHERE h.workspace_id = ?
+ORDER BY hr.time DESC, hrh.key
+`
+
+func (q *Queries) GetHTTPResponseHeadersByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]HttpResponseHeader, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseHeadersByWorkspaceIDStmt, getHTTPResponseHeadersByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseHeader{}
+	for rows.Next() {
+		var i HttpResponseHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.Key,
+			&i.Value,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPResponsesByHttpID = `-- name: GetHTTPResponsesByHttpID :many
 SELECT
   id,
@@ -3644,6 +3730,54 @@ func (q *Queries) GetHTTPResponsesByIDs(ctx context.Context, ids []idwrap.IDWrap
 		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
 	}
 	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponse{}
+	for rows.Next() {
+		var i HttpResponse
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.Status,
+			&i.Body,
+			&i.Time,
+			&i.Duration,
+			&i.Size,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponsesByWorkspaceID = `-- name: GetHTTPResponsesByWorkspaceID :many
+SELECT
+  hr.id,
+  hr.http_id,
+  hr.status,
+  hr.body,
+  hr.time,
+  hr.duration,
+  hr.size,
+  hr.created_at
+FROM http_response hr
+INNER JOIN http h ON hr.http_id = h.id
+WHERE h.workspace_id = ?
+ORDER BY hr.time DESC
+`
+
+func (q *Queries) GetHTTPResponsesByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]HttpResponse, error) {
+	rows, err := q.query(ctx, q.getHTTPResponsesByWorkspaceIDStmt, getHTTPResponsesByWorkspaceID, workspaceID)
 	if err != nil {
 		return nil, err
 	}

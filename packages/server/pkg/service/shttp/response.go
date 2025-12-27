@@ -105,4 +105,16 @@ func (hrs HttpResponseService) CreateAssert(ctx context.Context, assert mhttp.HT
 	return NewHttpResponseWriterFromQueries(hrs.queries).CreateAssert(ctx, assert)
 }
 
+func (hrs HttpResponseService) GetByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTPResponse, error) {
+	return hrs.reader.GetByWorkspaceID(ctx, workspaceID)
+}
+
+func (hrs HttpResponseService) GetHeadersByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
+	return hrs.reader.GetHeadersByWorkspaceID(ctx, workspaceID)
+}
+
+func (hrs HttpResponseService) GetAssertsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {
+	return hrs.reader.GetAssertsByWorkspaceID(ctx, workspaceID)
+}
+
 func (s HttpResponseService) Reader() *HttpResponseReader { return s.reader }
