@@ -193,7 +193,7 @@ type TopicExtractor[T any, Topic any] func(item T) Topic
 
 ## Single-Topic vs Multi-Topic Wrappers
 
-### When to Use Single-Topic (SyncTx*)
+### When to Use Single-Topic (SyncTx\*)
 
 **Scenario:** All items in a single request belong to the same workspace
 
@@ -228,7 +228,7 @@ syncTx.CommitAndPublish(ctx, func(http mhttp.HTTP) {
 })
 ```
 
-### When to Use Multi-Topic (BulkSyncTx*)
+### When to Use Multi-Topic (BulkSyncTx\*)
 
 **Scenario:** Items in a single request can belong to different workspaces
 
@@ -541,6 +541,7 @@ type UpdateEvent[T, P any] struct {
 ```
 
 The patch is preserved through the entire flow:
+
 1. Built during update loop
 2. Tracked with `syncTx.Track(item, patch)`
 3. Passed to publish handler as `UpdateEvent`
@@ -705,14 +706,14 @@ type HttpHeaderEvent struct {
   "type": "update",
   "isDelta": false,
   "patch": {
-    "value": {"value": "text/html", "set": true},     // ✅ Changed
-    "enabled": {"set": false},                         // ❌ Unchanged
-    "description": {"set": false}                      // ❌ Unchanged
+    "value": { "value": "text/html", "set": true }, // ✅ Changed
+    "enabled": { "set": false }, // ❌ Unchanged
+    "description": { "set": false } // ❌ Unchanged
   },
   "httpHeader": {
     "httpHeaderId": "abc123",
     "key": "Content-Type",
-    "value": "text/html",          // Updated
+    "value": "text/html", // Updated
     "enabled": true,
     "description": "API header",
     "order": 1.0
@@ -721,10 +722,12 @@ type HttpHeaderEvent struct {
 ```
 
 **Frontend action:**
+
 - **Smart clients:** Apply only changed fields from `patch` (efficient)
 - **Simple clients:** Replace with full `httpHeader` (works but less efficient)
 
 **Why send both?**
+
 - `Patch` - For efficient updates (only changed fields)
 - `HttpHeader` - For backwards compatibility (simple clients)
 
@@ -746,7 +749,7 @@ type HttpHeaderEvent struct {
   "type": "delete",
   "isDelta": false,
   "httpHeader": {
-    "httpHeaderId": "abc123"  // Only ID
+    "httpHeaderId": "abc123" // Only ID
   }
 }
 ```
@@ -774,6 +777,7 @@ FlushInterval: 50ms
 ```
 
 Frontend receives events in incremental batches:
+
 - Events 1-100: Batch 1 (sent when buffer reaches 100 OR 50ms timeout)
 - Events 101-200: Batch 2
 - etc.
@@ -892,6 +896,7 @@ syncTx.Track(item, headerPatch)  // Patch contains only changed fields
 **Scenario:** User changes only `Value` field on 50 headers
 
 **Without patches (old way):**
+
 ```json
 // 50 full objects × ~200 bytes = ~10KB
 [
@@ -902,11 +907,12 @@ syncTx.Track(item, headerPatch)  // Patch contains only changed fields
 ```
 
 **With patches (new way):**
+
 ```json
 // 50 patches × ~30 bytes = ~1.5KB (plus full objects for compatibility)
 [
-  {"patch": {"value": {"value": "NEW", "set": true}}},
-  {"patch": {"value": {"value": "NEW", "set": true}}},
+  { "patch": { "value": { "value": "NEW", "set": true } } },
+  { "patch": { "value": { "value": "NEW", "set": true } } }
   // ... 48 more
 ]
 ```
@@ -919,13 +925,13 @@ syncTx.Track(item, headerPatch)  // Patch contains only changed fields
 
 ### Publish Call Reduction
 
-| Scenario                      | Items | Workspaces | Before       | After      | Improvement |
-| ----------------------------- | ----- | ---------- | ------------ | ---------- | ----------- |
-| Small batch, single workspace | 10    | 1          | 10 calls     | 1 call     | 10x         |
-| Medium batch, 3 workspaces    | 50    | 3          | 50 calls     | 3 calls    | 16x         |
-| Large batch, single workspace | 100   | 1          | 100 calls    | 1 call     | 100x        |
-| Bulk import, 5 workspaces     | 500   | 5          | 500 calls    | 5 calls    | 100x        |
-| Massive import, 10 workspaces | 1000  | 10         | 1000 calls   | 10 calls   | 100x        |
+| Scenario                      | Items | Workspaces | Before     | After    | Improvement |
+| ----------------------------- | ----- | ---------- | ---------- | -------- | ----------- |
+| Small batch, single workspace | 10    | 1          | 10 calls   | 1 call   | 10x         |
+| Medium batch, 3 workspaces    | 50    | 3          | 50 calls   | 3 calls  | 16x         |
+| Large batch, single workspace | 100   | 1          | 100 calls  | 1 call   | 100x        |
+| Bulk import, 5 workspaces     | 500   | 5          | 500 calls  | 5 calls  | 100x        |
+| Massive import, 10 workspaces | 1000  | 10         | 1000 calls | 10 calls | 100x        |
 
 ### Extra Query Elimination
 
@@ -961,18 +967,21 @@ syncTx.Track(headerWithWorkspace{header, workspaceID})
 **Operation:** Update 50 headers across 3 workspaces
 
 **Before:**
+
 - 50 database updates (transaction)
 - 50 HTTP lookups (after commit) ❌
 - 50 publish calls ❌
 - **Total: 100 database operations**
 
 **After:**
+
 - 50 HTTP lookups (during validation) ✅
 - 50 database updates (transaction)
 - 3 publish calls (auto-grouped) ✅
 - **Total: 53 database operations (47% reduction)**
 
 Plus:
+
 - 16x fewer publish calls (50 → 3)
 - Compile-time safety (impossible to forget sync)
 - Patch preservation (85% less data for partial updates)
@@ -986,6 +995,7 @@ Plus:
 - Pre-allocated slices reused
 
 **Example:**
+
 - 100 items, 1 workspace: ~1KB overhead
 - 1000 items, 10 workspaces: ~10KB overhead
 
@@ -1005,6 +1015,7 @@ Plus:
 ```
 
 **NOT like log batching systems:**
+
 - ❌ NO timeout waiting (e.g., 500ms)
 - ❌ NO buffer accumulation
 - ✅ Synchronous, immediate publish after commit
@@ -1601,7 +1612,7 @@ for _, item := range req.Items {
 | ---------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | 2025-12-26 | 1.0.0   | Initial implementation with HttpHeaderInsert proof of concept                                                                |
 | 2025-12-26 | 2.0.0   | Completed Phase 3 migration: All HTTP child entity CRUD operations (Batches 1-5, 14 operations)                              |
-| 2025-12-27 | 2.1.0   | Comprehensive spec rewrite with examples, troubleshooting, and real-world usage from completed work                           |
+| 2025-12-27 | 2.1.0   | Comprehensive spec rewrite with examples, troubleshooting, and real-world usage from completed work                          |
 | 2025-12-27 | 3.0.0   | Completed HttpBodyRaw (Batch 7) and Flow operations (Batches 8-9): Added transaction safety + bulk sync to Edge/FlowVariable |
 
 ---
@@ -1611,56 +1622,67 @@ for _, item := range req.Items {
 ### ✅ Completed
 
 **Phase 1: Foundation**
+
 - ✅ `bulk_sync_tx.go` implementation
 - ✅ Comprehensive unit tests
 - ✅ Documentation
 
 **Phase 2: Proof of Concept**
+
 - ✅ HttpHeaderInsert (first migration)
 
 **Phase 3: Gradual Rollout**
 
 **Batch 1: HTTP Headers**
+
 - ✅ HttpHeaderUpdate
 - ✅ HttpHeaderDelete
 
 **Batch 2: HTTP Search Params**
+
 - ✅ HttpSearchParamInsert
 - ✅ HttpSearchParamUpdate
 - ✅ HttpSearchParamDelete
 
 **Batch 3: HTTP Asserts**
+
 - ✅ HttpAssertInsert
 - ✅ HttpAssertUpdate
 - ✅ HttpAssertDelete
 
 **Batch 4: HTTP Body Form Data**
+
 - ✅ HttpBodyFormDataInsert
 - ✅ HttpBodyFormDataUpdate
 - ✅ HttpBodyFormDataDelete
 
 **Batch 5: HTTP Body URL Encoded**
+
 - ✅ HttpBodyUrlEncodedInsert
 - ✅ HttpBodyUrlEncodedUpdate
 - ✅ HttpBodyUrlEncodedDelete
 
 **Batch 6: Main HTTP Entry**
+
 - ✅ HttpUpdate (refactored to bulk sync wrapper)
 - ✅ HttpDelete (refactored to bulk sync wrapper)
 - ✅ HttpInsert (already uses SyncTxInsert - single-topic wrapper)
 
 **Batch 7: HTTP Body Raw**
+
 - ✅ HttpBodyRawInsert (refactored to bulk sync wrapper)
 - ✅ HttpBodyRawUpdate (refactored to bulk sync wrapper with patch tracking)
 - Note: HttpBodyRaw is singleton (one per HTTP entry), migrated for pattern consistency
 
 **Batch 8: Flow Edge Operations**
+
 - ✅ EdgeInsert (CRITICAL: Added transaction safety + bulk sync wrapper)
 - ✅ EdgeUpdate (CRITICAL: Added transaction safety + bulk sync wrapper with patch tracking)
 - ✅ EdgeDelete (CRITICAL: Added transaction safety, manual publish kept)
 - Note: Phase 1 fixed critical data corruption bug (partial commits on failure)
 
 **Batch 9: Flow Variable Operations**
+
 - ✅ FlowVariableInsert (CRITICAL: Added transaction safety + bulk sync wrapper)
 - ✅ FlowVariableUpdate (CRITICAL: Added transaction safety + bulk sync wrapper with patch tracking)
 - ✅ FlowVariableDelete (CRITICAL: Added transaction safety, manual publish kept)
@@ -1671,9 +1693,11 @@ for _, item := range req.Items {
 ### ⏳ Remaining
 
 **Phase 4: Flow Nodes** (future)
+
 - FlowNodeInsert/Update/Delete
 
 **Phase 5: Other Resources** (future)
+
 - Environment CRUD
 - File CRUD
 - Reference CRUD

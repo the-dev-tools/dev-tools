@@ -110,10 +110,7 @@ func (s *FlowServiceV2RPC) NodeInsert(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		syncTx.Track(nodeWithFlow{
-			node:   data.node,
-			flowID: data.flowID,
-		})
+		syncTx.Track(nodeWithFlow(data))
 	}
 
 	// 4. Commit transaction and publish events in bulk

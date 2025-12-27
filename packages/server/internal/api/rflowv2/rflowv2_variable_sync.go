@@ -35,14 +35,3 @@ func (s *FlowServiceV2RPC) publishBulkFlowVariableUpdate(
 		s.publishFlowVariableEvent(flowVarEventUpdate, evt.Item.variable)
 	}
 }
-
-// publishBulkFlowVariableDelete publishes multiple flow variable delete events in bulk.
-// Groups variables by flow ID and publishes all deletions for that flow in a single event batch.
-func (s *FlowServiceV2RPC) publishBulkFlowVariableDelete(
-	topic FlowVariableTopic,
-	items []variableWithFlow,
-) {
-	for _, item := range items {
-		s.publishFlowVariableEvent(flowVarEventDelete, item.variable)
-	}
-}

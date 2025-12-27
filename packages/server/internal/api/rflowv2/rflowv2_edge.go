@@ -200,7 +200,7 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 
 		if item.SourceHandle != nil {
 			existing.SourceHandler = convertHandle(item.GetSourceHandle())
-			edgePatch.SourceHandler = patch.NewOptional(int32(existing.SourceHandler))
+			edgePatch.SourceHandler = patch.NewOptional(existing.SourceHandler)
 		}
 
 		validatedUpdates = append(validatedUpdates, updateData{

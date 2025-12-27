@@ -292,11 +292,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		}
 
 		// Track for bulk event publishing
-		syncTx.Track(flowNodePair{
-			flow:        data.flow,
-			startNode:   data.startNode,
-			workspaceID: data.workspaceID,
-		})
+		syncTx.Track(flowNodePair(data))
 
 		// Increment workspace flow count
 		workspaceUpdates[data.workspaceID].FlowCount++
@@ -371,7 +367,8 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 				flowPatch.Duration = patch.NewOptional(uint64(0))
 			case flowv1.FlowUpdate_DurationUnion_KIND_VALUE:
 				flow.Duration = du.GetValue()
-				flowPatch.Duration = patch.NewOptional(uint64(du.GetValue()))
+				durVal := max(0, int64(du.GetValue()))
+				flowPatch.Duration = patch.NewOptional(uint64(durVal)) //nolint:gosec // G115: Safe conversion - value is clamped to non-negative
 			}
 		}
 
@@ -493,10 +490,7 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			workspace.FlowCount--
 		}
 
-		deletedFlows = append(deletedFlows, flowWithWorkspace{
-			flow:        data.flow,
-			workspaceID: data.workspaceID,
-		})
+		deletedFlows = append(deletedFlows, flowWithWorkspace(data))
 	}
 
 	// Update all workspaces

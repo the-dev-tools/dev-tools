@@ -99,7 +99,7 @@ func RunConcurrentInserts[T any](
 	var wg sync.WaitGroup
 
 	// Launch concurrent operations
-	for i := 0; i < config.NumGoroutines; i++ {
+	for i := range config.NumGoroutines {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
@@ -160,12 +160,13 @@ func RunConcurrentInserts[T any](
 	)
 
 	for result := range resultChan {
-		if result.timeout {
+		switch {
+		case result.timeout:
 			timeoutCount++
 			t.Logf("⚠️  Operation timed out after %v (potential deadlock)", result.duration)
-		} else if result.success {
+		case result.success:
 			successCount++
-		} else {
+		default:
 			errorCount++
 			t.Logf("❌ Operation failed: %v", result.err)
 		}

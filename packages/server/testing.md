@@ -217,24 +217,26 @@ func TestBulkInsert_Concurrency(t *testing.T) {
 
 ### Test Parameters
 
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| **NumGoroutines** | 20 | High enough to trigger SQLite lock contention |
-| **Timeout** | 3 seconds | Detect issues before SQLite busy_timeout (5s) |
-| **Expected Avg Duration** | < 200ms | Optimized pattern should be very fast |
-| **Expected Success Rate** | 100% | All operations must succeed |
-| **Expected Timeout Rate** | 0% | Any timeout indicates a deadlock |
+| Parameter                 | Value     | Rationale                                     |
+| ------------------------- | --------- | --------------------------------------------- |
+| **NumGoroutines**         | 20        | High enough to trigger SQLite lock contention |
+| **Timeout**               | 3 seconds | Detect issues before SQLite busy_timeout (5s) |
+| **Expected Avg Duration** | < 200ms   | Optimized pattern should be very fast         |
+| **Expected Success Rate** | 100%      | All operations must succeed                   |
+| **Expected Timeout Rate** | 0%        | Any timeout indicates a deadlock              |
 
 ### Test Coverage
 
 Concurrency tests exist for all bulk transaction operations:
 
 **rhttp:**
+
 - `TestHttpInsert_Concurrency`
 - `TestHttpUpdate_Concurrency`
 - `TestHttpDelete_Concurrency`
 
 **rflowv2 (nodes):**
+
 - `TestNodeJsInsert/Update/Delete_Concurrency`
 - `TestNodeForInsert/Update/Delete_Concurrency`
 - `TestNodeForEachInsert/Update/Delete_Concurrency`
@@ -242,11 +244,13 @@ Concurrency tests exist for all bulk transaction operations:
 - `TestNodeHttpInsert/Update/Delete_Concurrency`
 
 **rflowv2 (core):**
+
 - `TestFlowInsert/Update/Delete_Concurrency`
 - `TestEdgeInsert/Update/Delete_Concurrency`
 - `TestFlowVariableInsert/Update/Delete_Concurrency`
 
 **rflowv2 (exec):**
+
 - `TestFlowVersionSnapshot_Concurrency_Simple`
 - `TestFlowVersionSnapshot_Concurrency_WithNodes`
 - `TestFlowVersionSnapshot_Concurrency_Complex`
