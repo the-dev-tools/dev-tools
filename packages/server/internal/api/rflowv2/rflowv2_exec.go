@@ -14,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -591,6 +592,10 @@ func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[fl
 // createFlowVersionSnapshot creates a complete snapshot of the flow including all nodes, edges, sub-nodes, and variables.
 // It also publishes sync events for all created entities so clients receive the full flow data.
 // Returns the created version flow and a mapping from original node IDs to version node IDs.
+//
+// CRITICAL: This function uses a single transaction to ensure atomicity. If any creation fails,
+// all changes are rolled back and no sync events are published. This prevents partial/corrupted
+// flow version snapshots from being created.
 func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	ctx context.Context,
 	sourceFlow mflow.Flow,
@@ -598,8 +603,87 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	sourceEdges []mflow.Edge,
 	sourceVars []mflow.FlowVariable,
 ) (mflow.Flow, map[string]idwrap.IDWrap, error) {
+	// === PREPARATION PHASE (BEFORE TRANSACTION) ===
+	// Read all sub-node configurations before starting the transaction to minimize transaction duration.
+	// This follows SQLite best practices of keeping transactions short and doing reads outside when possible.
+
+	type nodeConfig struct {
+		sourceNode   mflow.Node
+		requestData  *mflow.NodeRequest
+		forData      *mflow.NodeFor
+		forEachData  *mflow.NodeForEach
+		conditionData *mflow.NodeIf
+		jsData       *mflow.NodeJS
+	}
+
+	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))
+
+	for _, sourceNode := range sourceNodes {
+		config := nodeConfig{sourceNode: sourceNode}
+
+		switch sourceNode.NodeKind {
+		case mflow.NODE_KIND_REQUEST:
+			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
+			if err == nil && requestData != nil {
+				config.requestData = requestData
+			}
+
+		case mflow.NODE_KIND_FOR:
+			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get for node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if forData != nil {
+				config.forData = forData
+			}
+
+		case mflow.NODE_KIND_FOR_EACH:
+			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get foreach node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if forEachData != nil {
+				config.forEachData = forEachData
+			}
+
+		case mflow.NODE_KIND_CONDITION:
+			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get condition node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if conditionData != nil {
+				config.conditionData = conditionData
+			}
+
+		case mflow.NODE_KIND_JS:
+			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get js node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if jsData != nil {
+				config.jsData = jsData
+			}
+		}
+
+		nodeConfigs = append(nodeConfigs, config)
+	}
+
+	// === BEGIN TRANSACTION ===
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return mflow.Flow{}, nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	// Get TX-bound service writers
+	flowWriter := s.fs.TX(tx)
+	nodeWriter := s.ns.TX(tx)
+	nrsWriter := s.nrs.TX(tx)
+	nfsWriter := s.nfs.TX(tx)
+	nfesWriter := s.nfes.TX(tx)
+	nifsWriter := s.nifs.TX(tx)
+	njssWriter := s.njss.TX(tx)
+	edgeWriter := s.es.TX(tx)
+	varWriter := s.fvs.TX(tx)
+
 	// Create the version flow record
-	version, err := s.fs.CreateFlowVersion(ctx, sourceFlow)
+	version, err := flowWriter.CreateFlowVersion(ctx, sourceFlow)
 	if err != nil {
 		return mflow.Flow{}, nil, fmt.Errorf("create flow version: %w", err)
 	}
@@ -609,13 +693,14 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// Create a mapping from old node IDs to new node IDs for edge remapping
 	nodeIDMapping := make(map[string]idwrap.IDWrap, len(sourceNodes))
 
-	// Events collections for bulk publishing
+	// Events collections for bulk publishing (after commit)
 	nodeEvents := make([]NodeEvent, 0, len(sourceNodes))
 	jsEvents := make([]JsEvent, 0)
 	forEvents := make([]ForEvent, 0)
 
 	// Duplicate all nodes and their sub-node data
-	for _, sourceNode := range sourceNodes {
+	for _, config := range nodeConfigs {
+		sourceNode := config.sourceNode
 		newNodeID := idwrap.NewNow()
 		nodeIDMapping[sourceNode.ID.String()] = newNodeID
 
@@ -629,48 +714,44 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			PositionY: sourceNode.PositionY,
 		}
 
-		if err := s.ns.CreateNode(ctx, newNode); err != nil {
+		if err := nodeWriter.CreateNode(ctx, newNode); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
 		}
 
-		// Duplicate node-type specific data and collect events
+		// Duplicate node-type specific data
 		switch sourceNode.NodeKind {
 		case mflow.NODE_KIND_REQUEST:
-			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
-			if err == nil && requestData != nil {
+			if config.requestData != nil {
 				// Copy the request node config (referencing same HTTP, not duplicating)
 				newRequestData := mflow.NodeRequest{
 					FlowNodeID:       newNodeID,
-					HttpID:           requestData.HttpID,
-					DeltaHttpID:      requestData.DeltaHttpID,
-					HasRequestConfig: requestData.HasRequestConfig,
+					HttpID:           config.requestData.HttpID,
+					DeltaHttpID:      config.requestData.DeltaHttpID,
+					HasRequestConfig: config.requestData.HasRequestConfig,
 				}
-				if err := s.nrs.CreateNodeRequest(ctx, newRequestData); err != nil {
+				if err := nrsWriter.CreateNodeRequest(ctx, newRequestData); err != nil {
 					return mflow.Flow{}, nil, fmt.Errorf("create request node: %w", err)
 				}
 				// Request node events are handled through nodeStream subscription
 			}
 
 		case mflow.NODE_KIND_FOR:
-			// Always create For node config with defaults, override with actual data if available
+			// Always create For node config with defaults
 			newForData := mflow.NodeFor{
 				FlowNodeID:    newNodeID,
 				IterCount:     1,                                        // default
 				Condition:     mcondition.Condition{},                   // default empty
 				ErrorHandling: mflow.ErrorHandling_ERROR_HANDLING_BREAK, // default
 			}
-			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
-			if err != nil {
-				s.logger.Warn("failed to get for node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
-			} else if forData != nil {
+			if config.forData != nil {
 				// Override with actual values, but keep default of 1 if IterCount is 0
-				if forData.IterCount > 0 {
-					newForData.IterCount = forData.IterCount
+				if config.forData.IterCount > 0 {
+					newForData.IterCount = config.forData.IterCount
 				}
-				newForData.Condition = forData.Condition
-				newForData.ErrorHandling = forData.ErrorHandling
+				newForData.Condition = config.forData.Condition
+				newForData.ErrorHandling = config.forData.ErrorHandling
 			}
-			if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
+			if err := nfsWriter.CreateNodeFor(ctx, newForData); err != nil {
 				return mflow.Flow{}, nil, fmt.Errorf("create for node: %w", err)
 			}
 			forEvents = append(forEvents, ForEvent{
@@ -680,61 +761,52 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			})
 
 		case mflow.NODE_KIND_FOR_EACH:
-			// Always create ForEach node config with defaults, override with actual data if available
+			// Always create ForEach node config with defaults
 			newForEachData := mflow.NodeForEach{
 				FlowNodeID:     newNodeID,
 				IterExpression: "",                                       // default empty
 				Condition:      mcondition.Condition{},                   // default empty
 				ErrorHandling:  mflow.ErrorHandling_ERROR_HANDLING_BREAK, // default
 			}
-			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
-			if err != nil {
-				s.logger.Warn("failed to get foreach node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
-			} else if forEachData != nil {
+			if config.forEachData != nil {
 				// Override with actual values
-				newForEachData.IterExpression = forEachData.IterExpression
-				newForEachData.Condition = forEachData.Condition
-				newForEachData.ErrorHandling = forEachData.ErrorHandling
+				newForEachData.IterExpression = config.forEachData.IterExpression
+				newForEachData.Condition = config.forEachData.Condition
+				newForEachData.ErrorHandling = config.forEachData.ErrorHandling
 			}
-			if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
+			if err := nfesWriter.CreateNodeForEach(ctx, newForEachData); err != nil {
 				return mflow.Flow{}, nil, fmt.Errorf("create foreach node: %w", err)
 			}
 			// ForEach node events are handled through nodeStream subscription
 
 		case mflow.NODE_KIND_CONDITION:
-			// Always create Condition node config with defaults, override with actual data if available
+			// Always create Condition node config with defaults
 			newConditionData := mflow.NodeIf{
 				FlowNodeID: newNodeID,
 				Condition:  mcondition.Condition{}, // default empty
 			}
-			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
-			if err != nil {
-				s.logger.Warn("failed to get condition node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
-			} else if conditionData != nil {
+			if config.conditionData != nil {
 				// Override with actual values
-				newConditionData.Condition = conditionData.Condition
+				newConditionData.Condition = config.conditionData.Condition
 			}
-			if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
+			if err := nifsWriter.CreateNodeIf(ctx, newConditionData); err != nil {
 				return mflow.Flow{}, nil, fmt.Errorf("create condition node: %w", err)
 			}
 			// Condition node events are handled through nodeStream subscription
 
 		case mflow.NODE_KIND_JS:
-			// Always create JS node config with defaults, override with actual data if available
+			// Always create JS node config with defaults
 			newJsData := mflow.NodeJS{
 				FlowNodeID:       newNodeID,
 				Code:             nil, // default empty
 				CodeCompressType: 0,   // default none
 			}
-			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
-			if err != nil {
-				s.logger.Warn("failed to get js node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
-			} else if jsData != nil {
+			if config.jsData != nil {
 				// Override with actual values
-				newJsData.Code = jsData.Code
-				newJsData.CodeCompressType = jsData.CodeCompressType
+				newJsData.Code = config.jsData.Code
+				newJsData.CodeCompressType = config.jsData.CodeCompressType
 			}
-			if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
+			if err := njssWriter.CreateNodeJS(ctx, newJsData); err != nil {
 				return mflow.Flow{}, nil, fmt.Errorf("create js node: %w", err)
 			}
 			jsEvents = append(jsEvents, JsEvent{
@@ -750,19 +822,6 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			FlowID: versionFlowID,
 			Node:   serializeNode(newNode),
 		})
-	}
-
-	// Bulk publish sub-node events first
-	if len(jsEvents) > 0 && s.jsStream != nil {
-		s.jsStream.Publish(JsTopic{FlowID: versionFlowID}, jsEvents...)
-	}
-	if len(forEvents) > 0 && s.forStream != nil {
-		s.forStream.Publish(ForTopic{FlowID: versionFlowID}, forEvents...)
-	}
-
-	// Bulk publish base node events
-	if len(nodeEvents) > 0 && s.nodeStream != nil {
-		s.nodeStream.Publish(NodeTopic{FlowID: versionFlowID}, nodeEvents...)
 	}
 
 	// Duplicate all edges with remapped node IDs
@@ -783,7 +842,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			SourceHandler: sourceEdge.SourceHandler,
 		}
 
-		if err := s.es.CreateEdge(ctx, newEdge); err != nil {
+		if err := edgeWriter.CreateEdge(ctx, newEdge); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create edge: %w", err)
 		}
 		edgeEvents = append(edgeEvents, EdgeEvent{
@@ -791,11 +850,6 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			FlowID: versionFlowID,
 			Edge:   serializeEdge(newEdge),
 		})
-	}
-
-	// Bulk publish edge events
-	if len(edgeEvents) > 0 && s.edgeStream != nil {
-		s.edgeStream.Publish(EdgeTopic{FlowID: versionFlowID}, edgeEvents...)
 	}
 
 	// Duplicate all flow variables
@@ -811,7 +865,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			Order:       sourceVar.Order,
 		}
 
-		if err := s.fvs.CreateFlowVariable(ctx, newVar); err != nil {
+		if err := varWriter.CreateFlowVariable(ctx, newVar); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create flow variable: %w", err)
 		}
 		varEvents = append(varEvents, FlowVariableEvent{
@@ -819,6 +873,30 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			FlowID:   versionFlowID,
 			Variable: newVar,
 		})
+	}
+
+	// === COMMIT TRANSACTION ===
+	if err := tx.Commit(); err != nil {
+		return mflow.Flow{}, nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	// === PUBLISH EVENTS (AFTER SUCCESSFUL COMMIT) ===
+	// Bulk publish sub-node events first
+	if len(jsEvents) > 0 && s.jsStream != nil {
+		s.jsStream.Publish(JsTopic{FlowID: versionFlowID}, jsEvents...)
+	}
+	if len(forEvents) > 0 && s.forStream != nil {
+		s.forStream.Publish(ForTopic{FlowID: versionFlowID}, forEvents...)
+	}
+
+	// Bulk publish base node events
+	if len(nodeEvents) > 0 && s.nodeStream != nil {
+		s.nodeStream.Publish(NodeTopic{FlowID: versionFlowID}, nodeEvents...)
+	}
+
+	// Bulk publish edge events
+	if len(edgeEvents) > 0 && s.edgeStream != nil {
+		s.edgeStream.Publish(EdgeTopic{FlowID: versionFlowID}, edgeEvents...)
 	}
 
 	// Bulk publish variable events
