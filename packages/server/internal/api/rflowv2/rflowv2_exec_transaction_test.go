@@ -755,10 +755,10 @@ func TestFlowVersionSnapshot_Concurrency_Complex(t *testing.T) {
 		edges := make([]mflow.Edge, 4)
 		for j := 0; j < 4; j++ {
 			edges[j] = mflow.Edge{
-				ID:              idwrap.NewNow(),
-				FlowID:          flow.ID,
-				SourceFlowNodeID: nodes[j].ID,
-				TargetFlowNodeID: nodes[j+1].ID,
+				ID:       idwrap.NewNow(),
+				FlowID:   flow.ID,
+				SourceID: nodes[j].ID,
+				TargetID: nodes[j+1].ID,
 			}
 			err = edgeService.CreateEdge(ctx, edges[j])
 			require.NoError(t, err)
