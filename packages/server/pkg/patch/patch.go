@@ -136,3 +136,14 @@ func (p FlowVariablePatch) HasChanges() bool {
 	return p.Name.IsSet() || p.Value.IsSet() || p.Enabled.IsSet() ||
 		p.Description.IsSet() || p.Order.IsSet()
 }
+
+// FlowPatch represents partial updates to a Flow
+type FlowPatch struct {
+	Name     Optional[string]
+	Duration Optional[uint64]
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p FlowPatch) HasChanges() bool {
+	return p.Name.IsSet() || p.Duration.IsSet()
+}

@@ -20,9 +20,11 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -205,7 +207,14 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Step 1: FETCH (outside transaction)
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type insertData struct {
+		flow        mflow.Flow
+		startNode   mflow.Node
+		workspaceID idwrap.IDWrap
+	}
+	var validatedItems []insertData
+
 	workspaceUpdates := make(map[idwrap.IDWrap]*mworkspace.Workspace)
 	for _, item := range req.Msg.GetItems() {
 		workspaceID, err := idwrap.NewFromBytes(item.GetWorkspaceId())
@@ -217,6 +226,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			return nil, err
 		}
 
+		// Fetch workspace if not already loaded
 		if _, exists := workspaceUpdates[workspaceID]; !exists {
 			workspace, err := s.wsReader.Get(ctx, workspaceID)
 			if err != nil {
@@ -224,25 +234,6 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			}
 			workspaceUpdates[workspaceID] = workspace
 		}
-	}
-
-	// Step 2: ACT (Inside transaction)
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	wsWriter := sworkspace.NewWorkspaceWriter(tx)
-	fsWriter := sflow.NewFlowWriter(tx)
-	nsWriter := sflow.NewNodeWriter(tx)
-
-	var createdFlows []mflow.Flow
-	var createdStartNodes []mflow.Node
-
-	for _, item := range req.Msg.GetItems() {
-		workspaceID, _ := idwrap.NewFromBytes(item.GetWorkspaceId())
-		workspace := workspaceUpdates[workspaceID]
 
 		name := strings.TrimSpace(item.GetName())
 		flowID := idwrap.NewNow()
@@ -256,27 +247,59 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			Name:        name,
 		}
 
-		if err := fsWriter.CreateFlow(ctx, flow); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Seed start node
-		startNodeID := idwrap.NewNow()
 		startNode := mflow.Node{
-			ID:        startNodeID,
+			ID:        idwrap.NewNow(),
 			FlowID:    flowID,
 			Name:      "Start",
 			NodeKind:  mflow.NODE_KIND_MANUAL_START,
 			PositionX: 0,
 			PositionY: 0,
 		}
-		if err := nsWriter.CreateNode(ctx, startNode); err != nil {
+
+		validatedItems = append(validatedItems, insertData{
+			flow:        flow,
+			startNode:   startNode,
+			workspaceID: workspaceID,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkInsertTx[flowNodePair, FlowTopic](
+		tx,
+		func(fnp flowNodePair) FlowTopic {
+			return FlowTopic{WorkspaceID: fnp.workspaceID}
+		},
+	)
+
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
+	fsWriter := sflow.NewFlowWriter(tx)
+	nsWriter := sflow.NewNodeWriter(tx)
+
+	// 3. Execute all inserts in transaction
+	for _, data := range validatedItems {
+		if err := fsWriter.CreateFlow(ctx, data.flow); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		createdFlows = append(createdFlows, flow)
-		createdStartNodes = append(createdStartNodes, startNode)
-		workspace.FlowCount++
+		if err := nsWriter.CreateNode(ctx, data.startNode); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Track for bulk event publishing
+		syncTx.Track(flowNodePair{
+			flow:        data.flow,
+			startNode:   data.startNode,
+			workspaceID: data.workspaceID,
+		})
+
+		// Increment workspace flow count
+		workspaceUpdates[data.workspaceID].FlowCount++
 	}
 
 	// Update all workspaces flow counts
@@ -287,17 +310,9 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowInsert); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: NOTIFY (Outside transaction)
-	for _, flow := range createdFlows {
-		// Re-fetch to get any auto-populated fields if needed, or just use what we have
-		s.publishFlowEvent(flowEventInsert, flow)
-	}
-	for _, node := range createdStartNodes {
-		s.publishNodeEvent(nodeEventInsert, node)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -308,11 +323,13 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
 	}
 
-	// Step 1: FETCH/CHECK (Outside transaction)
-	var updateData []struct {
-		flow mflow.Flow
-		item *flowv1.FlowUpdate
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type updateData struct {
+		flow        mflow.Flow
+		flowPatch   patch.FlowPatch
+		workspaceID idwrap.IDWrap
 	}
+	var validatedUpdates []updateData
 
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
@@ -336,53 +353,69 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		flowPatch := patch.FlowPatch{}
+
 		if item.Name != nil {
-			flow.Name = strings.TrimSpace(item.GetName())
-			if flow.Name == "" {
+			name := strings.TrimSpace(item.GetName())
+			if name == "" {
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow name cannot be empty"))
 			}
+			flow.Name = name
+			flowPatch.Name = patch.NewOptional(name)
 		}
 
 		if du := item.GetDuration(); du != nil {
 			switch du.GetKind() {
 			case flowv1.FlowUpdate_DurationUnion_KIND_UNSET:
 				flow.Duration = 0
+				flowPatch.Duration = patch.NewOptional(uint64(0))
 			case flowv1.FlowUpdate_DurationUnion_KIND_VALUE:
 				flow.Duration = du.GetValue()
+				flowPatch.Duration = patch.NewOptional(uint64(du.GetValue()))
 			}
 		}
 
-		updateData = append(updateData, struct {
-			flow mflow.Flow
-			item *flowv1.FlowUpdate
-		}{flow: flow, item: item})
+		validatedUpdates = append(validatedUpdates, updateData{
+			flow:        flow,
+			flowPatch:   flowPatch,
+			workspaceID: flow.WorkspaceID,
+		})
 	}
 
-	// Step 2: ACT (Inside transaction)
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkUpdateTx[flowWithWorkspace, patch.FlowPatch, FlowTopic](
+		tx,
+		func(fww flowWithWorkspace) FlowTopic {
+			return FlowTopic{WorkspaceID: fww.workspaceID}
+		},
+	)
+
 	fsWriter := sflow.NewFlowWriter(tx)
 
-	for _, data := range updateData {
+	// 3. Execute all updates in transaction
+	for _, data := range validatedUpdates {
 		if err := fsWriter.UpdateFlow(ctx, data.flow); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		syncTx.Track(
+			flowWithWorkspace{
+				flow:        data.flow,
+				workspaceID: data.workspaceID,
+			},
+			data.flowPatch,
+		)
 	}
 
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowUpdate); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: NOTIFY (Outside transaction)
-	for _, data := range updateData {
-		s.publishFlowEvent(flowEventUpdate, data.flow)
-		if data.flow.VersionParentID != nil {
-			s.publishFlowVersionEvent(flowVersionEventUpdate, data.flow)
-		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -393,10 +426,15 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
 	}
 
-	// Step 1: FETCH/CHECK (Outside transaction)
-	var deleteData []struct {
-		flow mflow.Flow
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type deleteData struct {
+		flow        mflow.Flow
+		workspaceID idwrap.IDWrap
 	}
+	var validatedDeletes []deleteData
+
+	// Track workspace updates needed (aggregated by workspace ID)
+	workspaceUpdates := make(map[idwrap.IDWrap]*mworkspace.Workspace)
 
 	for _, item := range req.Msg.GetItems() {
 		flowID, err := idwrap.NewFromBytes(item.GetFlowId())
@@ -416,10 +454,22 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct{ flow mflow.Flow }{flow: flow})
+		// Fetch workspace OUTSIDE transaction (fix for SQLite best practices)
+		if _, exists := workspaceUpdates[flow.WorkspaceID]; !exists {
+			workspace, err := s.wsReader.Get(ctx, flow.WorkspaceID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			workspaceUpdates[flow.WorkspaceID] = workspace
+		}
+
+		validatedDeletes = append(validatedDeletes, deleteData{
+			flow:        flow,
+			workspaceID: flow.WorkspaceID,
+		})
 	}
 
-	// Step 2: ACT (Inside transaction)
+	// 2. Begin transaction
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -429,35 +479,49 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 	fsWriter := sflow.NewFlowWriter(tx)
 	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 
-	for _, data := range deleteData {
-		flow := data.flow
-		if err := fsWriter.DeleteFlow(ctx, flow.ID); err != nil {
+	var deletedFlows []flowWithWorkspace
+
+	// 3. Execute all deletes in transaction
+	for _, data := range validatedDeletes {
+		if err := fsWriter.DeleteFlow(ctx, data.flow.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		workspace, err := s.wsReader.Get(ctx, flow.WorkspaceID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		// Decrement workspace flow count
+		workspace := workspaceUpdates[data.workspaceID]
 		if workspace.FlowCount > 0 {
 			workspace.FlowCount--
 		}
+
+		deletedFlows = append(deletedFlows, flowWithWorkspace{
+			flow:        data.flow,
+			workspaceID: data.workspaceID,
+		})
+	}
+
+	// Update all workspaces
+	for _, workspace := range workspaceUpdates {
 		workspace.Updated = dbtime.DBNow()
 		if err := wsWriter.Update(ctx, workspace); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
+	// 4. Commit transaction
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Step 3: NOTIFY (Outside transaction)
-	for _, data := range deleteData {
-		s.publishFlowEvent(flowEventDelete, data.flow)
-		if data.flow.VersionParentID != nil {
-			s.publishFlowVersionEvent(flowVersionEventDelete, data.flow)
-		}
+	// 5. Publish events AFTER successful commit (group by workspace)
+	// Group by workspace ID for bulk publishing
+	grouped := make(map[idwrap.IDWrap][]flowWithWorkspace)
+	for _, fww := range deletedFlows {
+		grouped[fww.workspaceID] = append(grouped[fww.workspaceID], fww)
+	}
+
+	// Publish bulk delete events per workspace
+	for workspaceID, items := range grouped {
+		s.publishBulkFlowDelete(FlowTopic{WorkspaceID: workspaceID}, items)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -682,6 +746,46 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY (Outside transaction) - Publish events for all created entities
+	s.publishFlowEvent(flowEventInsert, newFlow)
+
+	// Publish node events for all duplicated nodes
+	for _, d := range details {
+		newNodeID, ok := nodeIDMapping[d.node.ID.String()]
+		if !ok {
+			continue
+		}
+		duplicatedNode := d.node
+		duplicatedNode.ID = newNodeID
+		duplicatedNode.FlowID = newFlowID
+		s.publishNodeEvent(nodeEventInsert, duplicatedNode)
+	}
+
+	// Publish edge events for all duplicated edges
+	for _, e := range sourceEdges {
+		newSourceID, sourceOK := nodeIDMapping[e.SourceID.String()]
+		newTargetID, targetOK := nodeIDMapping[e.TargetID.String()]
+		if !sourceOK || !targetOK {
+			continue
+		}
+		duplicatedEdge := mflow.Edge{
+			ID:            idwrap.NewNow(), // Event system will handle ID reconciliation
+			FlowID:        newFlowID,
+			SourceID:      newSourceID,
+			TargetID:      newTargetID,
+			SourceHandler: e.SourceHandler,
+		}
+		s.publishEdgeEvent(edgeEventInsert, duplicatedEdge)
+	}
+
+	// Publish variable events for all duplicated variables
+	for _, v := range sourceVariables {
+		duplicatedVar := v
+		duplicatedVar.ID = idwrap.NewNow() // Event system will handle ID reconciliation
+		duplicatedVar.FlowID = newFlowID
+		s.publishFlowVariableEvent(flowVarEventInsert, duplicatedVar)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
