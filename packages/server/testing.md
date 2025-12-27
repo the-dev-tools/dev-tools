@@ -111,12 +111,165 @@ require.NoError(t, err)
 - It’s safe to use `t.Parallel()` when each test constructs its own DB (`sqlitemem.NewSQLiteMem` or `testutil.CreateBaseDB`).
 - Avoid sharing the same `*sql.DB` across `t.Parallel()` subtests unless each subtest creates its own DB instance.
 
-## Avoiding “database is locked”
+## Avoiding "database is locked"
 
 - Keep transactions short; do writes in TX then commit; avoid long‑running concurrent writes.
 - Use one DB per test (no cross‑test sharing).
 - `sqlitemem` sets `MaxOpenConns(1)` to eliminate multi‑writer contention inside a test.
 - With `dbtest.GetTestDB`, the shared in‑memory DSN supports multiple connections; keep concurrent writes minimal. If needed, we can tune the DSN (e.g., `_busy_timeout=5000`, `_foreign_keys=true`) in `dbtest`.
+
+## Concurrency Testing
+
+### Purpose
+
+Concurrency tests verify that bulk operations handle concurrent requests without SQLite deadlocks or excessive lock contention. These tests are critical for detecting the **"read inside transaction" anti-pattern** that causes SQLite to deadlock under concurrent load.
+
+### The Anti-Pattern We Prevent
+
+```go
+// ❌ DEADLOCK PATTERN (what concurrency tests catch):
+tx, _ := db.BeginTx(ctx, nil)
+baseNode, _ := service.GetNode(ctx, nodeID)  // Read INSIDE transaction → SQLite deadlock
+tx.Commit()
+
+// ✅ CORRECT PATTERN (what concurrency tests enforce):
+baseNode, _ := service.GetNode(ctx, nodeID)  // Read BEFORE transaction
+tx, _ := db.BeginTx(ctx, nil)
+// ... minimal writes only ...
+tx.Commit()
+```
+
+### Test Helper Usage
+
+Use the shared helpers from `pkg/testutil/concurrency.go`:
+
+```go
+import "the-dev-tools/server/pkg/testutil"
+
+func TestBulkInsert_Concurrency(t *testing.T) {
+    t.Parallel()
+
+    // 1. Setup: db, services, user, workspace, flow
+    ctx := context.Background()
+    db, err := dbtest.GetTestDB(ctx)
+    require.NoError(t, err)
+    defer db.Close()
+
+    // 2. Pre-create test entities BEFORE concurrency test
+    // This is CRITICAL - avoids reads inside the concurrent transactions
+    nodeIDs := make([]idwrap.IDWrap, 20)
+    for i := 0; i < 20; i++ {
+        nodeIDs[i] = idwrap.NewNow()
+        err = nodeService.CreateNode(ctx, mflow.Node{
+            ID:       nodeIDs[i],
+            FlowID:   flowID,
+            Name:     fmt.Sprintf("Node %d", i),
+            NodeKind: mflow.NODE_KIND_JS,
+        })
+        require.NoError(t, err)
+    }
+
+    // 3. Run concurrent operations
+    config := testutil.ConcurrencyTestConfig{
+        NumGoroutines: 20,
+        Timeout:       3 * time.Second,  // Detects deadlocks
+    }
+
+    result := testutil.RunConcurrentInserts(ctx, t, config,
+        // Setup data for each goroutine
+        func(i int) *insertData {
+            return &insertData{
+                NodeID: nodeIDs[i],
+                Code:   fmt.Sprintf("console.log(%d);", i),
+            }
+        },
+        // Execute insert operation
+        func(opCtx context.Context, data *insertData) error {
+            req := connect.NewRequest(&flowv1.NodeJsInsertRequest{
+                Items: []*flowv1.NodeJsInsert{{
+                    NodeId: data.NodeID.Bytes(),
+                    Code:   data.Code,
+                }},
+            })
+            _, err := svc.NodeJsInsert(opCtx, req)
+            return err
+        },
+    )
+
+    // 4. Assert: All operations succeeded, no deadlocks
+    assert.Equal(t, 20, result.SuccessCount, "All operations should succeed")
+    assert.Equal(t, 0, result.TimeoutCount, "No SQLite deadlocks")
+    assert.Equal(t, 0, result.ErrorCount, "No errors")
+    assert.Less(t, result.AverageDuration, 200*time.Millisecond, "Operations should be fast")
+
+    t.Logf("✅ Concurrency test passed: %d ops, avg: %v, max: %v",
+        result.SuccessCount, result.AverageDuration, result.MaxDuration)
+}
+```
+
+### Key Concurrency Test Principles
+
+1. **Pre-fetch Everything**: All database reads (GetNode, GetFlow, etc.) must happen BEFORE launching goroutines
+2. **Minimal Transactions**: Only writes inside `BeginTx()` → `Commit()`
+3. **Timeout Detection**: 3-second timeout catches operations that would deadlock (SQLite busy_timeout is 5s)
+4. **Context Propagation**: Pass authenticated context through helper to preserve auth in goroutines
+5. **Performance Validation**: Assert average duration < 200ms for complex operations, < 100ms for simple ones
+
+### Test Parameters
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| **NumGoroutines** | 20 | High enough to trigger SQLite lock contention |
+| **Timeout** | 3 seconds | Detect issues before SQLite busy_timeout (5s) |
+| **Expected Avg Duration** | < 200ms | Optimized pattern should be very fast |
+| **Expected Success Rate** | 100% | All operations must succeed |
+| **Expected Timeout Rate** | 0% | Any timeout indicates a deadlock |
+
+### Test Coverage
+
+Concurrency tests exist for all bulk transaction operations:
+
+**rhttp:**
+- `TestHttpInsert_Concurrency`
+- `TestHttpUpdate_Concurrency`
+- `TestHttpDelete_Concurrency`
+
+**rflowv2 (nodes):**
+- `TestNodeJsInsert/Update/Delete_Concurrency`
+- `TestNodeForInsert/Update/Delete_Concurrency`
+- `TestNodeForEachInsert/Update/Delete_Concurrency`
+- `TestNodeConditionInsert/Update/Delete_Concurrency`
+- `TestNodeHttpInsert/Update/Delete_Concurrency`
+
+**rflowv2 (core):**
+- `TestFlowInsert/Update/Delete_Concurrency`
+- `TestEdgeInsert/Update/Delete_Concurrency`
+- `TestFlowVariableInsert/Update/Delete_Concurrency`
+
+**rflowv2 (exec):**
+- `TestFlowVersionSnapshot_Concurrency_Simple`
+- `TestFlowVersionSnapshot_Concurrency_WithNodes`
+- `TestFlowVersionSnapshot_Concurrency_Complex`
+
+### Running Concurrency Tests
+
+```bash
+# Run all concurrency tests
+direnv exec . go test ./internal/api/... -run ".*Concurrency" -v
+
+# Run with race detector (recommended)
+direnv exec . go test -race ./internal/api/... -run ".*Concurrency" -v
+
+# Run multiple times to catch flakes
+direnv exec . go test -count=10 ./internal/api/... -run ".*Concurrency"
+```
+
+### Why These Tests Matter
+
+1. **Prevent Regressions**: Catch if someone adds database reads inside transactions
+2. **Document Correct Pattern**: Show developers the right way to structure operations
+3. **Performance Validation**: Ensure operations complete quickly under load
+4. **CI Safety**: Catch deadlocks before production
 
 ## Seeding & Auth
 
