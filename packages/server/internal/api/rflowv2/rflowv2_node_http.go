@@ -11,9 +11,11 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -63,6 +65,14 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 }
 
 func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Request[flowv1.NodeHttpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type insertData struct {
+		nodeID      idwrap.IDWrap
+		httpID      *idwrap.IDWrap
+		deltaHttpID *idwrap.IDWrap
+	}
+	var validatedItems []insertData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -91,20 +101,72 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			}
 		}
 
-		if err := s.nrs.CreateNodeRequest(ctx, mflow.NodeRequest{
-			FlowNodeID:       nodeID,
-			HttpID:           httpID,
-			DeltaHttpID:      deltaHttpID,
-			HasRequestConfig: httpID != nil,
-		}); err != nil {
+		validatedItems = append(validatedItems, insertData{
+			nodeID:      nodeID,
+			httpID:      httpID,
+			deltaHttpID: deltaHttpID,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkInsertTx[nodeHttpWithFlow, NodeTopic](
+		tx,
+		func(nhwf nodeHttpWithFlow) NodeTopic {
+			return NodeTopic{FlowID: nhwf.flowID}
+		},
+	)
+
+	nrsWriter := s.nrs.TX(tx)
+
+	// 3. Execute all inserts in transaction
+	for _, data := range validatedItems {
+		nodeRequest := mflow.NodeRequest{
+			FlowNodeID:       data.nodeID,
+			HttpID:           data.httpID,
+			DeltaHttpID:      data.deltaHttpID,
+			HasRequestConfig: data.httpID != nil,
+		}
+
+		if err := nrsWriter.CreateNodeRequest(ctx, nodeRequest); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Get base node to extract FlowID for topic grouping
+		// Note: We don't fail if node not found to avoid race conditions with parallel node creation
+		baseNode, err := s.ns.GetNode(ctx, data.nodeID)
+		if err == nil && baseNode != nil {
+			syncTx.Track(nodeHttpWithFlow{
+				nodeRequest: nodeRequest,
+				flowID:      baseNode.FlowID,
+			})
+		}
+	}
+
+	// 4. Commit transaction and publish events in bulk
+	// Note: NodeHttp insert does NOT publish events (intentional - base node events are used)
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Request[flowv1.NodeHttpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type updateData struct {
+		nodeID      idwrap.IDWrap
+		httpID      *idwrap.IDWrap
+		deltaHttpID *idwrap.IDWrap
+		baseNode    *mflow.Node
+	}
+	var validatedItems []updateData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -139,23 +201,69 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 			}
 		}
 
-		if err := s.nrs.UpdateNodeRequest(ctx, mflow.NodeRequest{
-			FlowNodeID:       nodeID,
-			HttpID:           httpID,
-			DeltaHttpID:      deltaHttpID,
-			HasRequestConfig: httpID != nil,
-		}); err != nil {
+		validatedItems = append(validatedItems, updateData{
+			nodeID:      nodeID,
+			httpID:      httpID,
+			deltaHttpID: deltaHttpID,
+			baseNode:    nodeModel,
+		})
+	}
+
+	// 2. Begin transaction with bulk sync wrapper
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	syncTx := txutil.NewBulkUpdateTx[nodeHttpWithFlow, nodeHttpPatch, NodeTopic](
+		tx,
+		func(nhwf nodeHttpWithFlow) NodeTopic {
+			return NodeTopic{FlowID: nhwf.flowID}
+		},
+	)
+
+	nrsWriter := s.nrs.TX(tx)
+
+	// 3. Execute all updates in transaction
+	for _, data := range validatedItems {
+		nodeRequest := mflow.NodeRequest{
+			FlowNodeID:       data.nodeID,
+			HttpID:           data.httpID,
+			DeltaHttpID:      data.deltaHttpID,
+			HasRequestConfig: data.httpID != nil,
+		}
+
+		if err := nrsWriter.UpdateNodeRequest(ctx, nodeRequest); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish node event so NodeHttpSync can pick up the updated httpId/deltaHttpId
-		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
+		syncTx.Track(
+			nodeHttpWithFlow{
+				nodeRequest: nodeRequest,
+				flowID:      data.baseNode.FlowID,
+				baseNode:    data.baseNode,
+			},
+			nodeHttpPatch{}, // Empty patch - not used for NodeHttp
+		)
+	}
+
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeHttpUpdate); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeHttpDelete(ctx context.Context, req *connect.Request[flowv1.NodeHttpDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// 1. Move validation OUTSIDE transaction (before BeginTx)
+	type deleteData struct {
+		nodeID   idwrap.IDWrap
+		baseNode *mflow.Node
+	}
+	var validatedItems []deleteData
+
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -167,12 +275,44 @@ func (s *FlowServiceV2RPC) NodeHttpDelete(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		if err := s.nrs.DeleteNodeRequest(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		validatedItems = append(validatedItems, deleteData{
+			nodeID:   nodeID,
+			baseNode: nodeModel,
+		})
+	}
+
+	// 2. Begin transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	nrsWriter := s.nrs.TX(tx)
+	var deletedNodes []nodeHttpWithFlow
+
+	// 3. Execute all deletes in transaction
+	for _, data := range validatedItems {
+		if err := nrsWriter.DeleteNodeRequest(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		deletedNodes = append(deletedNodes, nodeHttpWithFlow{
+			nodeRequest: mflow.NodeRequest{FlowNodeID: data.nodeID},
+			flowID:      data.baseNode.FlowID,
+			baseNode:    data.baseNode,
+		})
+	}
+
+	// 4. Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 5. Publish events AFTER successful commit
+	for _, node := range deletedNodes {
 		// Publish node event so NodeHttpSync can pick up the deletion of httpId/deltaHttpId
-		s.publishNodeEvent(nodeEventUpdate, *nodeModel)
+		s.publishNodeEvent(nodeEventUpdate, *node.baseNode)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
