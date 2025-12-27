@@ -147,3 +147,15 @@ type FlowPatch struct {
 func (p FlowPatch) HasChanges() bool {
 	return p.Name.IsSet() || p.Duration.IsSet()
 }
+
+// NodePatch represents partial updates to a Node (base node properties)
+type NodePatch struct {
+	Name      Optional[string]
+	PositionX Optional[float64]
+	PositionY Optional[float64]
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p NodePatch) HasChanges() bool {
+	return p.Name.IsSet() || p.PositionX.IsSet() || p.PositionY.IsSet()
+}
