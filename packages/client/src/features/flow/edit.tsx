@@ -207,7 +207,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         minZoom={VIEWPORT_MIN_ZOOM}
         nodes={nodes}
         nodesConnectable={!isReadOnly}
-        nodesDraggable={!isReadOnly}
+        nodesDraggable
         nodeTypes={nodeTypes}
         onConnect={onConnect}
         onEdgesChange={onEdgesChange}
