@@ -60,13 +60,13 @@ func TestReorganizeNodePositions_Sequential(t *testing.T) {
 	start, ok := nodes["Start"]
 	require.True(t, ok)
 
-	// harv2 generates names like "request_1", "request_2" for Node Name field in processEntries.
+	// harv2 generates names like "http_1", "http_2" for Node Name field in processEntries.
 	// "Start" is explicit.
 
-	req1, ok := nodes["request_1"]
-	require.True(t, ok, "request_1 not found")
-	req2, ok := nodes["request_2"]
-	require.True(t, ok, "request_2 not found")
+	req1, ok := nodes["http_1"]
+	require.True(t, ok, "http_1 not found")
+	req2, ok := nodes["http_2"]
+	require.True(t, ok, "http_2 not found")
 
 	// Verify X Positions (Depth - horizontal flow)
 	require.Equal(t, 0.0, start.PositionX, "Start should be at X=0")
@@ -131,8 +131,8 @@ func TestReorganizeNodePositions_Parallel(t *testing.T) {
 	}
 
 	start := nodes["Start"]
-	req1 := nodes["request_1"]
-	req2 := nodes["request_2"]
+	req1 := nodes["http_1"]
+	req2 := nodes["http_2"]
 
 	// Expectation (horizontal layout):
 	// Level 0: Start (X=0)

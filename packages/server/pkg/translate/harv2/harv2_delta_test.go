@@ -154,7 +154,7 @@ func TestConvertHAR_DeltaDependencies(t *testing.T) {
 	}
 
 	// Verify dependencies in the Delta Header
-	require.Contains(t, deltaHeader, "{{ request_1.response.body.token }}", "Delta header should contain template")
+	require.Contains(t, deltaHeader, "{{ http_1.response.body.token }}", "Delta header should contain template")
 
 	// Base header should contain the raw secret
 	require.Contains(t, baseHeader, "SECRET_TOKEN_123", "Base header should contain raw secret")

@@ -333,7 +333,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		node := mflow.Node{
 			ID:        nodeID,
 			FlowID:    flowID,
-			Name:      fmt.Sprintf("request_%d", nodeCounter),
+			Name:      fmt.Sprintf("http_%d", nodeCounter),
 			NodeKind:  mflow.NODE_KIND_REQUEST,
 			PositionX: currentX,
 			PositionY: 0, // Will be refined later if we implement sophisticated layout, currently horizontal
@@ -756,7 +756,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		node := mflow.Node{
 			ID:        nodeID,
 			FlowID:    flowID,
-			Name:      fmt.Sprintf("request_%d", nodeCounter),
+			Name:      fmt.Sprintf("http_%d", nodeCounter),
 			NodeKind:  mflow.NODE_KIND_REQUEST,
 			PositionX: currentX,
 			PositionY: 0,

@@ -134,7 +134,7 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	// Verify nodes (only for original requests, not deltas)
 	require.Len(t, result.Nodes, 3, "Should have 3 nodes (Start + 2 for original requests)")
 
-	// Verify node naming convention (request_1, request_2)
+	// Verify node naming convention (http_1, http_2)
 	var requestNodes []mflow.Node
 	for _, node := range result.Nodes {
 		if node.NodeKind == mflow.NODE_KIND_REQUEST {
@@ -143,16 +143,16 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	}
 	require.Len(t, requestNodes, 2)
 	// Nodes order is not guaranteed by map iteration but here slice order is preserved from append
-	// First request node should be request_1
+	// First request node should be http_1
 	// (Assuming result.Nodes order preserves insertion order which it does)
 	// We need to find the one corresponding to first original request
-	// Actually simpler: check that we have request_1 and request_2 names
+	// Actually simpler: check that we have http_1 and http_2 names
 	nodeNames := make(map[string]bool)
 	for _, n := range requestNodes {
 		nodeNames[n.Name] = true
 	}
-	require.True(t, nodeNames["request_1"], "Should contain node named request_1")
-	require.True(t, nodeNames["request_2"], "Should contain node named request_2")
+	require.True(t, nodeNames["http_1"], "Should contain node named http_1")
+	require.True(t, nodeNames["http_2"], "Should contain node named http_2")
 
 	require.Len(t, result.RequestNodes, 2, "Should have 2 request node data structures")
 
