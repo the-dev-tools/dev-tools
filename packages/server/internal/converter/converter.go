@@ -377,7 +377,9 @@ func ToAPIErrorHandling(eh mflow.ErrorHandling) flowv1.ErrorHandling {
 		return flowv1.ErrorHandling_ERROR_HANDLING_IGNORE
 	case mflow.ErrorHandling_ERROR_HANDLING_BREAK:
 		return flowv1.ErrorHandling_ERROR_HANDLING_BREAK
+	case mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+		return flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED
 	default:
-		return flowv1.ErrorHandling_ERROR_HANDLING_IGNORE
+		return flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED
 	}
 }

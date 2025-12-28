@@ -641,9 +641,10 @@ func TestToAPIErrorHandling(t *testing.T) {
 		input    mflow.ErrorHandling
 		expected flowv1.ErrorHandling
 	}{
+		{mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED, flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED},
 		{mflow.ErrorHandling_ERROR_HANDLING_IGNORE, flowv1.ErrorHandling_ERROR_HANDLING_IGNORE},
 		{mflow.ErrorHandling_ERROR_HANDLING_BREAK, flowv1.ErrorHandling_ERROR_HANDLING_BREAK},
-		{mflow.ErrorHandling(-1), flowv1.ErrorHandling_ERROR_HANDLING_IGNORE},
+		{mflow.ErrorHandling(-1), flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED},
 	}
 
 	for _, tt := range tests {
