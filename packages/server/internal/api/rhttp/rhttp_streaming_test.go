@@ -116,7 +116,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 
 	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.Wus)
 
-	handler := New(base.DB, httpReader, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamers)
+	handler := New(base.DB, httpReader, services.Hs, services.Us, services.Ws, services.Wus, services.Wus.Reader(), services.Ws.Reader(), envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamers)
 
 	t.Cleanup(base.Close)
 

@@ -142,7 +142,7 @@ func TestValidationErrorScenarios(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validator := NewValidator(nil)
+			validator := NewValidator(nil, nil)
 			ctx := context.Background()
 			err := validator.ValidateImportRequest(ctx, tt.request)
 

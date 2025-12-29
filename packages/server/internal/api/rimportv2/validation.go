@@ -3,24 +3,28 @@ package rimportv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/permcheck"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
 // DefaultValidator implements the Validator interface
 type DefaultValidator struct {
-	us *suser.UserService
+	us         *suser.UserService
+	userReader *sworkspace.UserReader
 }
 
 // NewValidator creates a new DefaultValidator with user service dependency
-func NewValidator(us *suser.UserService) *DefaultValidator {
+func NewValidator(us *suser.UserService, userReader *sworkspace.UserReader) *DefaultValidator {
 	return &DefaultValidator{
-		us: us,
+		us:         us,
+		userReader: userReader,
 	}
 }
 
@@ -47,18 +51,31 @@ func (v *DefaultValidator) ValidateImportRequest(ctx context.Context, req *Impor
 
 // ValidateWorkspaceAccess validates that the user has access to the workspace
 func (v *DefaultValidator) ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
-	// Check if user service is available (for testing scenarios)
-	if v.us == nil {
+	// Check if user reader is available (for testing scenarios)
+	if v.userReader == nil {
 		// In tests or when user service is not available, skip auth check
 		// This should not happen in production
 		return nil
 	}
 
 	// Check workspace ownership using existing auth middleware pattern
-	// This follows the same pattern as rimport: permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, c.us, wsUlid))
-	if rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, *v.us, workspaceID)); rpcErr != nil {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	wsUser, err := v.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
+			return ErrPermissionDenied
+		}
+		return err
+	}
+
+	if wsUser.Role < mworkspace.RoleUser {
 		return ErrPermissionDenied
 	}
+
 	return nil
 }
 

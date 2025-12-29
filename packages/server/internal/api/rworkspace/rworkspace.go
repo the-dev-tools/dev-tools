@@ -53,6 +53,9 @@ type WorkspaceServiceRPC struct {
 	us  suser.UserService
 	es  senv.EnvService
 
+	wsReader  *sworkspace.WorkspaceReader
+	userReader *sworkspace.UserReader
+
 	stream    eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
 	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 }
@@ -63,17 +66,21 @@ func New(
 	wus sworkspace.UserService,
 	us suser.UserService,
 	es senv.EnvService,
+	wsReader *sworkspace.WorkspaceReader,
+	userReader *sworkspace.UserReader,
 	stream eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent],
 	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent],
 ) WorkspaceServiceRPC {
 	return WorkspaceServiceRPC{
-		DB:        db,
-		ws:        ws,
-		wus:       wus,
-		us:        us,
-		es:        es,
-		stream:    stream,
-		envStream: envStream,
+		DB:         db,
+		ws:         ws,
+		wus:        wus,
+		us:         us,
+		es:         es,
+		wsReader:   wsReader,
+		userReader: userReader,
+		stream:     stream,
+		envStream:  envStream,
 	}
 }
 
@@ -162,7 +169,7 @@ func workspaceSyncResponseFrom(evt WorkspaceEvent) *apiv1.WorkspaceSyncResponse 
 }
 
 func (c *WorkspaceServiceRPC) listUserWorkspaces(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
-	workspaces, err := c.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	workspaces, err := c.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 			return nil, nil
@@ -278,7 +285,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 	}
 
 	for _, workspaceID := range createdIDs {
-		ws, err := c.ws.Get(ctx, workspaceID)
+		ws, err := c.wsReader.Get(ctx, workspaceID)
 		if err != nil {
 			continue
 		}
@@ -308,15 +315,13 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: FETCH and CHECK (Outside transaction)
+	type updateData struct {
+		workspaceID idwrap.IDWrap
+		workspace   *mworkspace.Workspace
+		activeEnv   *idwrap.IDWrap
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	wsWriter := sworkspace.NewWorkspaceWriter(tx)
-
-	var updatedIDs []idwrap.IDWrap
+	var validatedUpdates []updateData
 
 	for _, item := range req.Msg.Items {
 		if len(item.WorkspaceId) == 0 {
@@ -328,7 +333,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		wsUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+		wsUser, err := c.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 		if err != nil {
 			if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -339,7 +344,7 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 
-		ws, err := c.ws.Get(ctx, workspaceID)
+		ws, err := c.wsReader.Get(ctx, workspaceID)
 		if err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -347,38 +352,68 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		var activeEnv *idwrap.IDWrap
 		if len(item.SelectedEnvironmentId) > 0 {
 			newEnvID, err := idwrap.NewFromBytes(item.SelectedEnvironmentId)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
-			ws.ActiveEnv = newEnvID
+			activeEnv = &newEnvID
 		}
 
-		if item.Name != nil {
-			ws.Name = *item.Name
+		validatedUpdates = append(validatedUpdates, updateData{
+			workspaceID: workspaceID,
+			workspace:   ws,
+			activeEnv:   activeEnv,
+		})
+	}
+
+	// Step 2: ACT (Inside transaction)
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
+	var updatedIDs []idwrap.IDWrap
+
+	for _, data := range validatedUpdates {
+		ws := data.workspace
+		if data.activeEnv != nil {
+			ws.ActiveEnv = *data.activeEnv
 		}
 
-		if item.Order != nil {
-			ws.Order = float64(*item.Order)
+		for _, item := range req.Msg.Items {
+			// Find the corresponding request item
+			wID, _ := idwrap.NewFromBytes(item.WorkspaceId)
+			if wID.Compare(data.workspaceID) != 0 {
+				continue
+			}
+
+			if item.Name != nil {
+				ws.Name = *item.Name
+			}
+			if item.Order != nil {
+				ws.Order = float64(*item.Order)
+			}
+			break
 		}
 
 		ws.Updated = dbtime.DBNow()
 
 		if err := wsWriter.Update(ctx, ws); err != nil {
-			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updatedIDs = append(updatedIDs, workspaceID)
+		updatedIDs = append(updatedIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Step 3: NOTIFY
 	for _, workspaceID := range updatedIDs {
 		ws, err := c.ws.Get(ctx, workspaceID)
 		if err != nil {
@@ -403,15 +438,8 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	wsWriter := sworkspace.NewWorkspaceWriter(tx)
-
-	var deletedIDs []idwrap.IDWrap
+	// Step 1: FETCH and CHECK
+	var validatedDeletes []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.WorkspaceId) == 0 {
@@ -423,7 +451,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		wsUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+		wsUser, err := c.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 		if err != nil {
 			if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -434,6 +462,20 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 
+		validatedDeletes = append(validatedDeletes, workspaceID)
+	}
+
+	// Step 2: ACT
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	wsWriter := sworkspace.NewWorkspaceWriter(tx)
+	var deletedIDs []idwrap.IDWrap
+
+	for _, workspaceID := range validatedDeletes {
 		if err := wsWriter.Delete(ctx, workspaceID); err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -448,6 +490,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Step 3: NOTIFY
 	for _, workspaceID := range deletedIDs {
 		c.stream.Publish(WorkspaceTopic{WorkspaceID: workspaceID}, WorkspaceEvent{
 			Type: eventTypeDelete,
@@ -473,7 +516,7 @@ func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID id
 	var workspaceSet sync.Map
 
 	snapshot := func(ctx context.Context) ([]eventstream.Event[WorkspaceTopic, WorkspaceEvent], error) {
-		ordered, err := c.listUserWorkspaces(ctx, userID)
+		ordered, err := c.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 		if err != nil {
 			return nil, err
 		}

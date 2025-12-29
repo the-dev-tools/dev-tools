@@ -338,34 +338,15 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		return nil, nil, nil
 	}
 
-	tx, err := imp.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	txFileService := imp.fileService.TX(tx)
-	txHttpService := imp.httpService.TX(tx)
-	txFlowService := imp.flowService.TX(tx)
-	txHeaderWriter := shttp.NewHeaderWriter(tx)
-	txSearchParamWriter := shttp.NewSearchParamWriter(tx)
-	txBodyFormWriter := shttp.NewBodyFormWriter(tx)
-	txBodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
-	txBodyRawWriter := shttp.NewBodyRawWriter(tx)
-	txNodeService := imp.nodeService.TX(tx)
-	txNodeRequestService := imp.nodeRequestService.TX(tx)
-	txEdgeService := imp.edgeService.TX(tx)
-
-	txDedup := NewDeduplicator(txHttpService, *txFileService, imp.dedup.globalMu)
-	fileIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	// PHASE 1: Pre-Resolution (Read-only)
+	// We perform all deduplication checks BEFORE starting the write transaction
+	// to keep the transaction as short as possible.
+	
 	httpIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
 	httpContentHashMap := make(map[idwrap.IDWrap]string)
 	deduplicatedHttpIDs := make(map[idwrap.IDWrap]bool)
-	deduplicatedFileIDs := make(map[idwrap.IDWrap]bool)
-
-	// 1. Resolve HTTP Requests FIRST
-	// This is critical: we need the HTTP ID mapping before resolving files,
-	// so that file ContentIDs can be updated to point to deduplicated HTTP IDs.
+	
+	// 1.1 Resolve HTTP Requests (Read-only lookup)
 	if len(results.HTTPRequests) > 0 {
 		for i := range results.HTTPRequests {
 			req := &results.HTTPRequests[i]
@@ -373,9 +354,8 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 			var parentContentHash string
 			if req.ParentHttpID != nil {
-				if newParentID, ok := httpIDMap[*req.ParentHttpID]; ok {
+				if _, ok := httpIDMap[*req.ParentHttpID]; ok {
 					parentContentHash = httpContentHashMap[*req.ParentHttpID]
-					req.ParentHttpID = &newParentID
 				}
 			}
 
@@ -411,34 +391,28 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				}
 			}
 
-			newID, isNew, contentHash, err := txDedup.ResolveHTTP(ctx, req, reqHeaders, reqParams, reqBodyRaw, reqBodyForms, reqBodyUrlEncoded, parentContentHash)
+			// Use FindHTTP instead of ResolveHTTP to avoid writes
+			existingID, contentHash, err := imp.dedup.FindHTTP(ctx, req, reqHeaders, reqParams, reqBodyRaw, reqBodyForms, reqBodyUrlEncoded, parentContentHash)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to resolve HTTP request %s: %w", req.Name, err)
+				return nil, nil, fmt.Errorf("failed to pre-resolve HTTP request %s: %w", req.Name, err)
 			}
 
-			req.ID = newID
-			httpIDMap[oldID] = newID
+			if existingID.Compare(idwrap.IDWrap{}) != 0 {
+				httpIDMap[oldID] = existingID
+				deduplicatedHttpIDs[existingID] = true
+			} else {
+				httpIDMap[oldID] = oldID
+			}
 			httpContentHashMap[oldID] = contentHash
-			if !isNew {
-				deduplicatedHttpIDs[newID] = true
-			}
 		}
 	}
 
-	// 2. Update File ContentIDs BEFORE resolving files
-	// This ensures files are created/deduplicated with the correct HTTP reference.
-	for i := range results.Files {
-		file := &results.Files[i]
-		if file.ContentID != nil {
-			if newID, ok := httpIDMap[*file.ContentID]; ok {
-				file.ContentID = &newID
-			}
-		}
-	}
-
-	// 3. Resolve Files (now with correct ContentIDs)
+	// 1.2 Resolve Files (Read-only lookup)
+	fileIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	deduplicatedFileIDs := make(map[idwrap.IDWrap]bool)
+	
 	if len(results.Files) > 0 {
-		// Build full paths for all files recursively to ensure correct deduplication
+		// Build full paths for all files recursively
 		filesMap := make(map[idwrap.IDWrap]*mfile.File)
 		for i := range results.Files {
 			filesMap[results.Files[i].ID] = &results.Files[i]
@@ -475,7 +449,6 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			if depthI != depthJ {
 				return depthI < depthJ
 			}
-			// If same depth, folders first
 			if results.Files[i].ContentType != results.Files[j].ContentType {
 				return results.Files[i].ContentType == mfile.ContentTypeFolder
 			}
@@ -485,29 +458,92 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for i := range results.Files {
 			file := &results.Files[i]
 			oldID := file.ID
-
-			if file.ParentID != nil {
-				if newParentID, ok := fileIDMap[*file.ParentID]; ok {
-					file.ParentID = &newParentID
-				}
-			}
-
 			logicalPath := oldIDToLogicalPath[oldID]
 
-			newID, isNew, err := txDedup.ResolveFile(ctx, file, logicalPath)
+			// Use FindFile instead of ResolveFile
+			existingID, _, err := imp.dedup.FindFile(ctx, file, logicalPath)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to resolve file %s: %w", file.Name, err)
+				return nil, nil, fmt.Errorf("failed to pre-resolve file %s: %w", file.Name, err)
 			}
 
-			file.ID = newID
-			fileIDMap[oldID] = newID
-			if !isNew {
-				deduplicatedFileIDs[newID] = true
+			if existingID.Compare(idwrap.IDWrap{}) != 0 {
+				fileIDMap[oldID] = existingID
+				deduplicatedFileIDs[existingID] = true
+			} else {
+				fileIDMap[oldID] = oldID
 			}
 		}
 	}
 
-	// 4. Update HTTP FolderIDs to point to resolved file IDs
+	// PHASE 2: Storage (Write)
+	// Now we start the transaction and perform only necessary inserts
+	
+	tx, err := imp.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	txFileService := imp.fileService.TX(tx)
+	txHttpService := imp.httpService.TX(tx)
+	txFlowService := imp.flowService.TX(tx)
+	txHeaderWriter := shttp.NewHeaderWriter(tx)
+	txSearchParamWriter := shttp.NewSearchParamWriter(tx)
+	txBodyFormWriter := shttp.NewBodyFormWriter(tx)
+	txBodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
+	txBodyRawWriter := shttp.NewBodyRawWriter(tx)
+	txNodeService := imp.nodeService.TX(tx)
+	txNodeRequestService := imp.nodeRequestService.TX(tx)
+	txEdgeService := imp.edgeService.TX(tx)
+
+	// 2.1 Update IDs and Store HTTP Requests
+	for i := range results.HTTPRequests {
+		req := &results.HTTPRequests[i]
+		oldID := req.ID
+		newID := httpIDMap[oldID]
+		hash := httpContentHashMap[oldID]
+		req.ContentHash = &hash
+
+		if req.ParentHttpID != nil {
+			if mappedParent, ok := httpIDMap[*req.ParentHttpID]; ok {
+				req.ParentHttpID = &mappedParent
+			}
+		}
+
+		if !deduplicatedHttpIDs[newID] {
+			if err := txHttpService.Create(ctx, req); err != nil {
+				return nil, nil, fmt.Errorf("failed to store HTTP request %s: %w", req.Name, err)
+			}
+		}
+		req.ID = newID
+	}
+
+	// 2.2 Update IDs and Store Files
+	for i := range results.Files {
+		file := &results.Files[i]
+		oldID := file.ID
+		newID := fileIDMap[oldID]
+
+		if file.ParentID != nil {
+			if mappedParent, ok := fileIDMap[*file.ParentID]; ok {
+				file.ParentID = &mappedParent
+			}
+		}
+		if file.ContentID != nil {
+			if mappedContent, ok := httpIDMap[*file.ContentID]; ok {
+				file.ContentID = &mappedContent
+			}
+		}
+
+		if !deduplicatedFileIDs[newID] {
+			if err := txFileService.CreateFile(ctx, file); err != nil {
+				return nil, nil, fmt.Errorf("failed to store file %s: %w", file.Name, err)
+			}
+		}
+		file.ID = newID
+	}
+
+	// 2.3 Update HTTP FolderIDs
 	for i := range results.HTTPRequests {
 		req := &results.HTTPRequests[i]
 		if req.FolderID != nil {
@@ -517,7 +553,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		}
 	}
 
-	// 5. Update IDs in Child Entities and Store
+	// 2.4 Update IDs in Child Entities and Store
 	for i := range results.Headers {
 		if newID, ok := httpIDMap[results.Headers[i].HttpID]; ok {
 			results.Headers[i].HttpID = newID
@@ -553,6 +589,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		return nil, nil, err
 	}
 
+	// 2.5 Update Flow Entities
 	for i := range results.RequestNodes {
 		rn := &results.RequestNodes[i]
 		if rn.HttpID != nil {

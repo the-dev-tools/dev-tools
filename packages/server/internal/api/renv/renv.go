@@ -32,6 +32,10 @@ type EnvRPC struct {
 	vs        senv.VariableService
 	us        suser.UserService
 	ws        sworkspace.WorkspaceService
+
+	envReader *senv.EnvReader
+	varReader *senv.VariableReader
+
 	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
 	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]
 }
@@ -67,6 +71,8 @@ func New(
 	vs senv.VariableService,
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
+	envReader *senv.EnvReader,
+	varReader *senv.VariableReader,
 	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent],
 	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent],
 ) EnvRPC {
@@ -76,6 +82,8 @@ func New(
 		vs:        vs,
 		us:        us,
 		ws:        ws,
+		envReader: envReader,
+		varReader: varReader,
 		envStream: envStream,
 		varStream: varStream,
 	}
@@ -212,7 +220,7 @@ func (e *EnvRPC) listUserEnvironments(ctx context.Context) ([]menv.Env, error) {
 
 	var environments []menv.Env
 	for _, workspace := range workspaces {
-		envs, err := e.es.ListEnvironments(ctx, workspace.ID)
+		envs, err := e.envReader.ListEnvironments(ctx, workspace.ID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				continue
@@ -319,87 +327,8 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
 
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	envWriter := senv.NewEnvWriter(tx)
-	// We need reader for checks within transaction if we want consistency,
-	// but service methods on Writer usually don't include Get.
-	// However, `envService` here was used for both read (CheckOwnerEnv, GetEnvironment) AND write (UpdateEnvironment).
-	// We need to be careful. `CheckOwnerEnv` uses `es.Get` (Reader).
-	// `envService.GetEnvironment` uses Reader logic.
-	// The pattern is: Read with Reader (outside or inside TX), Write with Writer (inside TX).
-	// Since we are inside a transaction `tx`, we should ideally use a transactional reader if we want snapshot isolation consistency,
-	// or just use the base reader if read-committed is fine and we trust the optimistic locking or simple update.
-	// But `envService := e.es.TX(tx)` provided both.
-	// The new `senv.NewWriter(tx)` ONLY provides writes.
-	// `senv.NewReader(tx)` isn't standard, we usually pass DB to Reader.
-	// However, `sql.Tx` implements the interface needed for queries.
-	// Let's see if we can use `senv.NewReader(tx)`? No, `NewReader` takes `*sql.DB`.
-	// But `NewReaderFromQueries` takes `*gen.Queries`.
-	// So we can construct a reader from the transaction if needed.
-	//
-	// Actually, `CheckOwnerEnv` takes `senv.EnvService` interface/struct.
-	// `envWriter` is `*senv.Writer`. It doesn't have `Get`.
-	//
-	// Strategy:
-	// 1. Create `envReader := senv.NewReaderFromQueries(gen.New(tx), e.es.logger)` (internal helper or exposed?)
-	//    The public API for `senv` doesn't expose `NewReaderFromQueries`.
-	//    But wait, `EnvService` struct (the bridge) has `TX(tx)` which returns a bridge bound to TX.
-	//    This bridge has both Reader (bound to TX) and Writer behavior.
-	//    So `e.es.TX(tx)` IS valid and safe IF `senv.EnvService` is correctly implemented as a bridge.
-	//    Let's check `packages/server/pkg/service/senv/senv.go`.
-	//
-	// Checking `senv.go`:
-	// func (s EnvironmentService) TX(tx *sql.Tx) EnvironmentService { ... return EnvironmentService{ reader: NewReaderFromQueries(newQueries, ...), ... } }
-	//
-	// So `e.es.TX(tx)` returns a valid Service object that uses the TX for both reads and writes.
-	// This is actually FINE and "Graceful".
-	//
-	// BUT, the goal was to "Explicitly use NewWriter(tx)" to enforce separation.
-	// If we use `NewWriter(tx)`, we lose the `Get` methods on that object.
-	//
-	// If the logic interleaves Reads and Writes on the SAME transaction object, we have two choices:
-	// A) Use the Bridge `TX()` (easiest, what we have).
-	// B) Instantiate both `envReaderTx` and `envWriterTx`.
-	//
-	// Given the instructions "Refactor ... to use NewWriter(tx)", implies we should separate them.
-	//
-	// For `EnvironmentUpdate`:
-	// We read `env` using `envService.GetEnvironment`.
-	// Then we update using `envService.UpdateEnvironment`.
-	//
-	// If we change `envService` to `envWriter`, we can't call `GetEnvironment`.
-	//
-	// Solution:
-	// Use `e.es.GetEnvironment` (Base Reader) for the reads?
-	// OR use a transactional reader?
-	//
-	// If we use base reader `e.es.GetEnvironment`, it uses `*sql.DB`.
-	// If we are in `tx`, we generally want to read from `tx` to see our own writes or maintain consistency level.
-	// However, `Get` here is before any write in this loop iteration.
-	//
-	// Let's look at `EnvironmentUpdate` logic:
-	// It iterates items. Inside loop:
-	// 1. CheckPerm (Reads)
-	// 2. GetEnvironment (Reads)
-	// 3. UpdateEnvironment (Writes)
-	//
-	// If we use `e.es` (Global Reader) for 1 and 2, and `envWriter` for 3, it is safe pattern "Fetch-Check-Act".
-	//
-	// So:
-	// `envService := e.es.TX(tx)` -> REMOVE.
-	// Use `e.es` for reads.
-	// Use `envWriter := senv.NewEnvWriter(tx)` for writes.
-	//
-	// Let's verify `CheckOwnerEnv`. It takes `senv.EnvService`.
-	// `e.es` satisfies this.
-	//
-	// So:
-	var updatedEnvs []*menv.Env
+	// Step 1: FETCH and CHECK (Outside transaction)
+	var validatedUpdates []*menv.Env
 
 	for _, envUpdate := range req.Msg.Items {
 		envID, err := idwrap.NewFromBytes(envUpdate.EnvironmentId)
@@ -414,7 +343,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 		}
 
 		// Use global service (Reader) for Fetch
-		env, err := e.es.GetEnvironment(ctx, envID)
+		env, err := e.envReader.GetEnvironment(ctx, envID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -449,18 +378,30 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 			env.Order = float64(*envUpdate.Order)
 		}
 
-		// Use Writer for Act
+		validatedUpdates = append(validatedUpdates, env)
+	}
+
+	// Step 2: ACT (Inside transaction)
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	envWriter := senv.NewEnvWriter(tx)
+
+	for _, env := range validatedUpdates {
 		if err := envWriter.UpdateEnvironment(ctx, env); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		updatedEnvs = append(updatedEnvs, env)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, env := range updatedEnvs {
+	// Step 3: NOTIFY
+	for _, env := range validatedUpdates {
 		if env == nil {
 			continue
 		}
@@ -479,14 +420,8 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
 
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	envWriter := senv.NewEnvWriter(tx)
-	var deletedEnvs []menv.Env
+	// Step 1: FETCH and CHECK
+	var validatedDeletes []menv.Env
 
 	for _, envDelete := range req.Msg.Items {
 		envID, err := idwrap.NewFromBytes(envDelete.EnvironmentId)
@@ -499,7 +434,7 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 			return nil, rpcErr
 		}
 
-		env, err := e.es.GetEnvironment(ctx, envID)
+		env, err := e.envReader.GetEnvironment(ctx, envID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -507,20 +442,33 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := envWriter.DeleteEnvironment(ctx, envID); err != nil {
+		validatedDeletes = append(validatedDeletes, *env)
+	}
+
+	// Step 2: ACT
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	envWriter := senv.NewEnvWriter(tx)
+
+	for _, env := range validatedDeletes {
+		if err := envWriter.DeleteEnvironment(ctx, env.ID); err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		deletedEnvs = append(deletedEnvs, *env)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	for _, env := range deletedEnvs {
+	// Step 3: NOTIFY
+	for _, env := range validatedDeletes {
 		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
 			Type: eventTypeDelete,
 			Environment: &apiv1.Environment{
@@ -660,17 +608,16 @@ func (e *EnvRPC) EnvironmentVariableCollection(ctx context.Context, req *connect
 		        }
 		
 		        // Build cache OUTSIDE transaction
-		        workspaceID := workspaceCache[envID.String()]
-		        if workspaceID == (idwrap.IDWrap{}) {
-		            env, err := e.es.GetEnvironment(ctx, envID)
-		            if err != nil {
-		                return nil, connect.NewError(connect.CodeInternal, err)
-		            }
-		            workspaceID = env.WorkspaceID
-		            workspaceCache[envID.String()] = workspaceID
-		        }
-		
-		        varID := idwrap.NewNow()
+		        		workspaceID := workspaceCache[envID.String()]
+		        		if workspaceID == (idwrap.IDWrap{}) {
+		        			env, err := e.envReader.GetEnvironment(ctx, envID)
+		        			if err != nil {
+		        				return nil, connect.NewError(connect.CodeInternal, err)
+		        			}
+		        			workspaceID = env.WorkspaceID
+		        			workspaceCache[envID.String()] = workspaceID
+		        		}
+		        		        varID := idwrap.NewNow()
 		        if len(item.EnvironmentVariableId) > 0 {
 		            varID, err = idwrap.NewFromBytes(item.EnvironmentVariableId)
 		            if err != nil {
@@ -743,6 +690,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
 	}
 
+	// Step 1: FETCH and CHECK (Outside transaction)
 	type varUpdateData struct {
 		variable    menv.Variable
 		workspaceID idwrap.IDWrap
@@ -762,7 +710,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			return nil, rpcErr
 		}
 
-		variable, err := e.vs.Get(ctx, varID)
+		variable, err := e.varReader.Get(ctx, varID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -816,6 +764,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 		})
 	}
 
+	// Step 2: ACT (Inside transaction)
 	tx, err := e.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -834,6 +783,7 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Step 3: NOTIFY
 	for _, data := range varModels {
 		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: data.workspaceID, EnvironmentID: data.variable.EnvID}, EnvironmentVariableEvent{
 			Type:     eventTypeUpdate,
@@ -850,6 +800,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
 	}
 
+	// Step 1: FETCH and CHECK
 	type varDeleteData struct {
 		varID       idwrap.IDWrap
 		variable    menv.Variable
@@ -870,7 +821,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			return nil, rpcErr
 		}
 
-		variable, err := e.vs.Get(ctx, varID)
+		variable, err := e.varReader.Get(ctx, varID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -880,7 +831,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 
 		workspaceID := workspaceCache[variable.EnvID.String()]
 		if workspaceID == (idwrap.IDWrap{}) {
-			env, err := e.es.GetEnvironment(ctx, variable.EnvID)
+			env, err := e.envReader.GetEnvironment(ctx, variable.EnvID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -895,6 +846,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 		})
 	}
 
+	// Step 2: ACT
 	tx, err := e.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -916,6 +868,7 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Step 3: NOTIFY
 	for _, data := range varModels {
 		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: data.workspaceID, EnvironmentID: data.variable.EnvID}, EnvironmentVariableEvent{
 			Type: eventTypeDelete,
@@ -951,7 +904,7 @@ func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwra
 		var events []eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent]
 		for _, env := range envs {
 			workspaceSet.Store(env.WorkspaceID.String(), struct{}{})
-			vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
+			vars, err := e.varReader.GetVariableByEnvID(ctx, env.ID)
 			if err != nil {
 				if errors.Is(err, senv.ErrNoVarFound) {
 					continue

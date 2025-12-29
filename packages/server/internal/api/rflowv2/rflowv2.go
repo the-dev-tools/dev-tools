@@ -187,6 +187,7 @@ type FlowServiceV2RPC struct {
 	nsReader *sflow.NodeReader
 	vsReader *senv.EnvReader
 	hsReader *shttp.Reader
+	flowEdgeReader *sflow.EdgeReader
 
 	ws       *sworkspace.WorkspaceService
 	fs       *sflow.FlowService
@@ -241,6 +242,7 @@ func New(
 	nsReader *sflow.NodeReader,
 	vsReader *senv.EnvReader,
 	hsReader *shttp.Reader,
+	flowEdgeReader *sflow.EdgeReader,
 	ws *sworkspace.WorkspaceService,
 	fs *sflow.FlowService,
 	es *sflow.EdgeService,
@@ -288,6 +290,7 @@ func New(
 		nsReader:                 nsReader,
 		vsReader:                 vsReader,
 		hsReader:                 hsReader,
+		flowEdgeReader:           flowEdgeReader,
 		ws:                       ws,
 		fs:                       fs,
 		es:                       es,

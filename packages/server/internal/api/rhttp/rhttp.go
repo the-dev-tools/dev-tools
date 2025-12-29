@@ -188,6 +188,9 @@ type HttpServiceRPC struct {
 	ws         sworkspace.WorkspaceService
 	wus        sworkspace.UserService
 
+	userReader *sworkspace.UserReader
+	wsReader   *sworkspace.WorkspaceReader
+
 	// Environment and variable services
 	es senv.EnvService
 	vs senv.VariableService
@@ -218,6 +221,8 @@ func New(
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
 	wus sworkspace.UserService,
+	userReader *sworkspace.UserReader,
+	wsReader *sworkspace.WorkspaceReader,
 	es senv.EnvService,
 	vs senv.VariableService,
 	bodyService *shttp.HttpBodyRawService,
@@ -237,6 +242,8 @@ func New(
 		us:                        us,
 		ws:                        ws,
 		wus:                       wus,
+		userReader:                userReader,
+		wsReader:                  wsReader,
 		es:                        es,
 		vs:                        vs,
 		bodyService:               bodyService,

@@ -28,60 +28,13 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
-func TestFlowRun_MultipleRuns(t *testing.T) {
-	// Setup DB
-	ctx := context.Background()
-	db, err := dbtest.GetTestDB(ctx)
-	require.NoError(t, err)
-	defer db.Close()
-
-	queries := gen.New(db)
-
-	// Setup Services
-	wsService := sworkspace.NewWorkspaceService(queries)
-	flowService := sflow.NewFlowService(queries)
-	nodeService := sflow.NewNodeService(queries)
-	nodeExecService := sflow.NewNodeExecutionService(queries)
-	edgeService := sflow.NewEdgeService(queries)
-	flowVarService := sflow.NewFlowVariableService(queries)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	// Missing services for builder
-	reqService := sflow.NewNodeRequestService(queries)
-	forService := sflow.NewNodeForService(queries)
-	forEachService := sflow.NewNodeForEachService(queries)
-	ifService := sflow.NewNodeIfService(queries)
-	jsService := sflow.NewNodeJsService(queries)
-	varService := senv.NewVariableService(queries, logger)
-
-	// Readers
-	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
-	fsReader := sflow.NewFlowReaderFromQueries(queries)
-	nsReader := sflow.NewNodeReaderFromQueries(queries)
-
-	// Mock resolver
-	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
-
-	builder := flowbuilder.New(
-		&nodeService,
-		&reqService,
-		&forService,
-		&forEachService,
-		ifService,
-		&jsService,
-		&wsService,
-		&varService,
-		&flowVarService,
-		res,
-		logger,
-	)
-
-	svc := &FlowServiceV2RPC{
-		DB:           db,
-		wsReader:     wsReader,
-		fsReader:     fsReader,
-		nsReader:     nsReader,
-		ws:           &wsService,
+svc := &FlowServiceV2RPC{
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: &edgeService,
+		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
 		nes:          &nodeExecService,
@@ -362,11 +315,12 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	)
 
 	svc := &FlowServiceV2RPC{
-		DB:           db,
-		wsReader:     wsReader,
-		fsReader:     fsReader,
-		nsReader:     nsReader,
-		ws:           &wsService,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: &edgeService,
+		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
 		nes:          &nodeExecService,
@@ -505,11 +459,12 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	)
 
 	svc := &FlowServiceV2RPC{
-		DB:           db,
-		wsReader:     wsReader,
-		fsReader:     fsReader,
-		nsReader:     nsReader,
-		ws:           &wsService,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: &edgeService,
+		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
 		nes:          &nodeExecService,
@@ -654,11 +609,12 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	)
 
 	svc := &FlowServiceV2RPC{
-		DB:           db,
-		wsReader:     wsReader,
-		fsReader:     fsReader,
-		nsReader:     nsReader,
-		ws:           &wsService,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: &edgeService,
+		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
 		nes:          &nodeExecService,

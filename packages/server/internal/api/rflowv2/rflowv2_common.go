@@ -297,7 +297,7 @@ func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.I
 }
 
 func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.IDWrap) (*mflow.Edge, error) {
-	edgeModel, err := s.es.GetEdge(ctx, edgeID)
+	edgeModel, err := s.flowEdgeReader.GetEdge(ctx, edgeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("edge %s not found", edgeID.String()))

@@ -72,6 +72,9 @@ type ImportV2RPC struct {
 	us       suser.UserService
 	importMu sync.Mutex
 
+	wsReader *sworkspace.WorkspaceReader
+	userReader *sworkspace.UserReader
+
 	// Streamers for real-time updates
 	FlowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 	NodeStream               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
@@ -109,6 +112,8 @@ func NewImportV2RPC(
 	db *sql.DB,
 	logger *slog.Logger,
 	services ImportServices,
+	wsReader *sworkspace.WorkspaceReader,
+	userReader *sworkspace.UserReader,
 	streamers ImportStreamers,
 ) *ImportV2RPC {
 	// Create the importer with modern service dependencies
@@ -119,7 +124,7 @@ func NewImportV2RPC(
 		services.Env, services.Var)
 
 	// Create the validator for input validation
-	validator := NewValidator(&services.User)
+	validator := NewValidator(&services.User, userReader)
 
 	// Create the main service with functional options
 	service := NewService(importer, validator,
@@ -134,6 +139,8 @@ func NewImportV2RPC(
 		Logger:                   logger,
 		ws:                       services.Workspace,
 		us:                       services.User,
+		wsReader:                 wsReader,
+		userReader:               userReader,
 		FlowStream:               streamers.Flow,
 		NodeStream:               streamers.Node,
 		EdgeStream:               streamers.Edge,

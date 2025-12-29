@@ -70,7 +70,7 @@ func (h *HttpServiceRPC) checkWorkspaceReadAccess(ctx context.Context, workspace
 		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	wsUser, err := h.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
@@ -93,7 +93,7 @@ func (h *HttpServiceRPC) checkWorkspaceWriteAccess(ctx context.Context, workspac
 		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	wsUser, err := h.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
@@ -116,7 +116,7 @@ func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspa
 		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	wsUser, err := h.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
 			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))

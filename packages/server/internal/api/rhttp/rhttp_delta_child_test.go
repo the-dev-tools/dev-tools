@@ -78,6 +78,8 @@ func TestHttpDelta_ChildEntities_SparsePatch(t *testing.T) {
 		us,
 		ws,
 		wus,
+		wus.Reader(),
+		ws.Reader(),
 		es,
 		vs,
 		bodyService,

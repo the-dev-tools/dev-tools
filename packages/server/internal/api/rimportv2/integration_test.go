@@ -414,6 +414,10 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 		},
 
+		baseServices.Ws.Reader(),
+
+		baseServices.Wus.Reader(),
+
 		ImportStreamers{
 
 			Flow:               streamers.Flow,

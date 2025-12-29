@@ -77,7 +77,7 @@ func newEnvFixture(t *testing.T) *envFixture {
 	require.NoError(t, err, "create workspace user")
 
 	authCtx := mwauth.CreateAuthedContext(context.Background(), userID)
-	handler := New(base.DB, envService, varService, services.Us, services.Ws, envStream, varStream)
+	handler := New(base.DB, envService, varService, services.Us, services.Ws, envService.Reader(), varService.Reader(), envStream, varStream)
 
 	t.Cleanup(base.Close)
 

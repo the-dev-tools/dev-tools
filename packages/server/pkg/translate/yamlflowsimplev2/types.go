@@ -201,33 +201,34 @@ type YamlBodyUnion struct {
 }
 
 func (b *YamlBodyUnion) UnmarshalYAML(value *yaml.Node) error {
-	// check if simple string (raw)
+	// 1. Check if simple string (raw)
 	var raw string
 	if err := value.Decode(&raw); err == nil {
 		b.Type = BodyTypeRaw
 		b.Raw = raw
 		return nil
 	}
-	// decode as struct
-	type alias YamlBodyUnion
-	var obj alias
-	if err := value.Decode(&obj); err == nil {
-		*b = YamlBodyUnion(obj)
-		// infer type if missing
-		if b.Type == "" {
-			switch {
-			case b.JSON != nil:
-				b.Type = BodyTypeJSON
-			case len(b.Form) > 0:
-				b.Type = BodyTypeFormData
-			case len(b.UrlEncoded) > 0:
-				b.Type = BodyTypeUrlEncoded
-			default:
-				b.Type = BodyTypeRaw
+
+	// 2. Try to decode as map first to catch flat fields
+	var m map[string]interface{}
+	if err := value.Decode(&m); err == nil {
+		// Check if it's a structured body definition (has 'type')
+		if _, ok := m["type"].(string); ok {
+			// Structured - decode as struct
+			type alias YamlBodyUnion
+			var obj alias
+			if err := value.Decode(&obj); err == nil {
+				*b = YamlBodyUnion(obj)
+				return nil
 			}
 		}
+
+		// Not structured or 'type' missing - treat entire map as JSON body
+		b.Type = BodyTypeJSON
+		b.JSON = m
 		return nil
 	}
+
 	return fmt.Errorf("invalid body format")
 }
 

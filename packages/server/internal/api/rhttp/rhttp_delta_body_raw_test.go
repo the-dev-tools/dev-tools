@@ -75,6 +75,8 @@ func TestHttpBodyRawDelta_Unset(t *testing.T) {
 		us,
 		ws,
 		wus,
+		wus.Reader(),
+		ws.Reader(),
 		es,
 		vs,
 		bodyService,

@@ -29,7 +29,7 @@ func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error)
 	}
 
 	// Get user's workspaces
-	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	workspaces, err := h.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 	}
 
 	// Step 1: Do ALL reads OUTSIDE transaction - get user's workspaces
-	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	workspaces, err := h.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -635,7 +635,7 @@ func (h *HttpServiceRPC) HttpVersionCollection(ctx context.Context, req *connect
 	}
 
 	// Get user's workspaces
-	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	workspaces, err := h.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

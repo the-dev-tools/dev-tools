@@ -111,51 +111,76 @@ func run() error {
 		return errors.New("HMAC_SECRET env var is required")
 	}
 
-	currentDB, dbCloseFunc, err := setupDB(ctx)
+	writeDB, readDB, dbCloseFunc, err := setupDB(ctx)
 	if err != nil {
 		return err
 	}
 	defer dbCloseFunc()
 
-	queries, err := gen.Prepare(ctx, currentDB)
-	if err != nil {
-		return err
-	}
+	// Initialize Readers (Read-Only)
+	readQueries := gen.New(readDB)
+	
+	// Initialize Writers (Write-Capable)
+	writeQueries := gen.New(writeDB)
 
 	// Initialize Services
-	workspaceService := sworkspace.NewWorkspaceService(queries)
-	workspaceUserService := sworkspace.NewUserService(queries)
-	userService := suser.New(queries)
-
-	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
-	variableService := senv.NewVariableService(queries, logger)
-	environmentService := senv.NewEnvironmentService(queries, logger)
-	httpService := shttp.New(queries, logger)
+	workspaceService := sworkspace.NewWorkspaceService(writeQueries)
+	workspaceReader := sworkspace.NewWorkspaceReader(readDB)
+	
+	workspaceUserService := sworkspace.NewUserService(writeQueries)
+	userReader := sworkspace.NewUserReader(readDB)
+	
+	userService := suser.New(writeQueries)
+	// No dedicated userReader service struct yet, we use the reader from userService or just pass queries
+	
+	httpBodyRawService := shttp.NewHttpBodyRawService(writeQueries)
+	
+	variableService := senv.NewVariableService(writeQueries, logger)
+	varReader := senv.NewVariableReader(readDB, logger)
+	
+	environmentService := senv.NewEnvironmentService(writeQueries, logger)
+	envReader := senv.NewEnvReader(readDB, logger)
+	
+	httpService := shttp.New(writeQueries, logger)
+	httpReader := shttp.NewReader(readDB, logger, &workspaceUserService)
 
 	// HTTP child entity services
-	httpHeaderService := shttp.NewHttpHeaderService(queries)
-	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-	httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
-	httpAssertService := shttp.NewHttpAssertService(queries)
-	httpResponseService := shttp.NewHttpResponseService(queries)
+	httpHeaderService := shttp.NewHttpHeaderService(writeQueries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(writeQueries)
+	httpBodyFormService := shttp.NewHttpBodyFormService(writeQueries)
+	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(writeQueries)
+	httpAssertService := shttp.NewHttpAssertService(writeQueries)
+	httpResponseService := shttp.NewHttpResponseService(writeQueries)
+	httpResponseReader := shttp.NewHttpResponseReader(readDB)
 
 	// File Service
-	fileService := sfile.New(queries, logger)
+	fileService := sfile.New(writeQueries, logger)
+	fileReader := sfile.NewReader(readDB, logger)
 
 	// Flow
-	flowService := sflow.NewFlowService(queries)
-	flowEdgeService := sflow.NewEdgeService(queries)
-	flowVariableService := sflow.NewFlowVariableService(queries)
+	flowService := sflow.NewFlowService(writeQueries)
+	flowReader := sflow.NewFlowReader(readDB)
+	
+	flowEdgeService := sflow.NewEdgeService(writeQueries)
+	flowEdgeReader := sflow.NewEdgeReader(readDB)
+	
+	flowVariableService := sflow.NewFlowVariableService(writeQueries)
+	flowVariableReader := sflow.NewFlowVariableReader(readDB)
 
 	// nodes
-	flowNodeService := sflow.NewNodeService(queries)
-	flowNodeRequestSevice := sflow.NewNodeRequestService(queries)
-	flowNodeForService := sflow.NewNodeForService(queries)
-	flowNodeForeachService := sflow.NewNodeForEachService(queries)
-	flowNodeConditionService := sflow.NewNodeIfService(queries)
-	flowNodeNodeJsService := sflow.NewNodeJsService(queries)
-	nodeExecutionService := sflow.NewNodeExecutionService(queries)
+	flowNodeService := sflow.NewNodeService(writeQueries)
+	nodeReader := sflow.NewNodeReader(readDB)
+	
+	flowNodeRequestSevice := sflow.NewNodeRequestService(writeQueries)
+	flowNodeRequestReader := sflow.NewNodeRequestReader(readDB)
+	
+	flowNodeForService := sflow.NewNodeForService(writeQueries)
+	flowNodeForeachService := sflow.NewNodeForEachService(writeQueries)
+	flowNodeConditionService := sflow.NewNodeIfService(writeQueries)
+	flowNodeNodeJsService := sflow.NewNodeJsService(writeQueries)
+	
+	nodeExecutionService := sflow.NewNodeExecutionService(writeQueries)
+	nodeExecutionReader := sflow.NewNodeExecutionReader(readDB)
 
 	// Initialize Streamers
 	streamers := NewStreamers()
@@ -193,13 +218,14 @@ func run() error {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, streamers.Workspace, streamers.Environment)
+	workspaceSrv := rworkspace.New(writeDB, workspaceService, workspaceUserService, userService, environmentService, workspaceReader, userReader, streamers.Workspace, streamers.Environment)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
-	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, streamers.Environment, streamers.EnvironmentVariable)
+	envSrv := renv.New(writeDB, environmentService, variableService, userService, workspaceService, envReader, varReader, streamers.Environment, streamers.EnvironmentVariable)
 	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
 
 	// Create request resolver for HTTP delta resolution (shared with flow service)
+	// IMPORTANT: Resolvers should use Read-Only services for lookups
 	requestResolver := resolver.NewStandardResolver(
 		&httpService,
 		&httpHeaderService,
@@ -225,10 +251,8 @@ func run() error {
 		Log:                streamers.Log,
 	}
 
-	httpReader := shttp.NewReader(currentDB, logger, &workspaceUserService)
-
 	httpSrv := rhttp.New(
-		currentDB, httpReader, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService,
+		writeDB, httpReader, httpService, userService, workspaceService, workspaceUserService, userReader, workspaceReader, environmentService, variableService,
 		httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService,
 		httpAssertService, httpResponseService, requestResolver,
 		httpStreamers,
@@ -237,7 +261,7 @@ func run() error {
 
 	// ImportV2 Service
 	importV2Srv := rimportv2.NewImportV2RPC(
-		currentDB,
+		writeDB,
 		logger,
 		rimportv2.ImportServices{
 			Workspace:          workspaceService,
@@ -257,6 +281,8 @@ func run() error {
 			NodeRequest:        &flowNodeRequestSevice,
 			Edge:               &flowEdgeService,
 		},
+		workspaceReader,
+		userReader,
 		rimportv2.ImportStreamers{
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,
@@ -345,6 +371,7 @@ func run() error {
 		nodeReader,
 		envReader,
 		httpReader,
+		flowEdgeReader,
 		&workspaceService,
 		&flowService,
 		&flowEdgeService,

@@ -141,6 +141,8 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 			NodeRequest:        &nodeRequestService,
 			Edge:               &edgeService,
 		},
+		baseServices.Ws.Reader(),
+		baseServices.Wus.Reader(),
 		ImportStreamers{
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,

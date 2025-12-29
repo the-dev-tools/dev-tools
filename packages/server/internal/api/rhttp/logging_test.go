@@ -84,6 +84,8 @@ func TestHttpRun_Logging(t *testing.T) {
 		services.Us,
 		services.Ws,
 		services.Wus,
+		services.Wus.Reader(),
+		services.Ws.Reader(),
 		envService,
 		varService,
 		httpBodyRawService,
