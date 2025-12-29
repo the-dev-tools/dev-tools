@@ -7,6 +7,7 @@ import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useStat
 import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
+import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import {
@@ -20,6 +21,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { SearchEmptyIllustration } from '@the-dev-tools/ui/illustrations';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
+import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
@@ -411,8 +413,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         </Button>
       </div>
 
-      <div className={tw`grid min-h-0 flex-1 grid-cols-3 divide-x divide-slate-200`}>
-        <div className={tw`flex min-h-0 flex-col`}>
+      <PanelGroup autoSaveId='node-settings' className={tw`flex-1`} direction='horizontal'>
+        <Panel className={tw`flex min-h-0 flex-col`} defaultSize={30} maxSize={40} minSize={10}>
           <div
             className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
           >
@@ -435,9 +437,11 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
               <NodeSettingsBasicInput nodeExecutionId={selectedExecutionId} />
             )}
           </div>
-        </div>
+        </Panel>
 
-        <div className={tw`flex min-h-0 flex-col`}>
+        <PanelResizeHandle direction='horizontal' />
+
+        <Panel className={tw`flex min-h-0 flex-col`} defaultSize={40} maxSize={60} minSize={10}>
           <div
             className={tw`
               flex items-center justify-between border-b border-slate-200 p-5 text-base leading-5 font-semibold
@@ -449,9 +453,11 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
           </div>
 
           <div className={tw`flex-1 overflow-auto p-5`}>{children}</div>
-        </div>
+        </Panel>
 
-        <div className={tw`flex min-h-0 flex-col`}>
+        <PanelResizeHandle direction='horizontal' />
+
+        <Panel className={tw`flex min-h-0 flex-col`} defaultSize={30} maxSize={40} minSize={10}>
           <div
             className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
           >
@@ -475,8 +481,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
               <NodeSettingsBasicOutput nodeExecutionId={selectedExecutionId} />
             )}
           </div>
-        </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 };
