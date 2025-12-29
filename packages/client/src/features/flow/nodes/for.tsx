@@ -79,7 +79,7 @@ export const ForSettings = ({ nodeId }: NodeSettingsProps) => {
         <NumberFieldRHF
           className={tw`contents`}
           control={control}
-          groupClassName={tw`min-w-[30%] justify-self-start`}
+          groupClassName={tw`w-full justify-self-start`}
           isReadOnly={isReadOnly}
           label='Iterations'
           name='iterations'
@@ -87,7 +87,7 @@ export const ForSettings = ({ nodeId }: NodeSettingsProps) => {
 
         <FieldLabel>Break If</FieldLabel>
         <ReferenceFieldRHF
-          className={tw`min-w-[30%] justify-self-start`}
+          className={tw`w-full justify-self-start`}
           control={control}
           name='condition'
           readOnly={isReadOnly}
@@ -99,7 +99,7 @@ export const ForSettings = ({ nodeId }: NodeSettingsProps) => {
           disabled={isReadOnly}
           label='On Error'
           name='errorHandling'
-          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
+          triggerClassName={tw`w-full justify-between justify-self-start`}
         >
           <SelectItem id={ErrorHandling.UNSPECIFIED}>Throw</SelectItem>
           <SelectItem id={ErrorHandling.IGNORE}>Ignore</SelectItem>

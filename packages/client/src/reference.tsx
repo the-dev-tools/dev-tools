@@ -166,10 +166,10 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
 };
 
 const fieldStyles = tv({
-  base: tw`rounded-md border border-slate-200 px-3 py-0.5 text-md text-slate-800`,
+  base: tw`min-w-0 rounded-md border border-slate-200 px-3 py-0.5 text-md text-slate-800`,
   variants: {
     variant: {
-      'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-0.5 -outline-offset-4`,
+      'table-cell': tw`w-full rounded-none border-transparent px-5 py-0.5 -outline-offset-4`,
     },
   },
 });

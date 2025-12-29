@@ -77,7 +77,7 @@ export const ForEachSettings = ({ nodeId }: NodeSettingsProps) => {
       <div className={tw`grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
         <FieldLabel>Array to Loop</FieldLabel>
         <ReferenceFieldRHF
-          className={tw`min-w-[30%] justify-self-start`}
+          className={tw`w-full justify-self-start`}
           control={control}
           name='path'
           readOnly={isReadOnly}
@@ -85,7 +85,7 @@ export const ForEachSettings = ({ nodeId }: NodeSettingsProps) => {
 
         <FieldLabel>Break If</FieldLabel>
         <ReferenceFieldRHF
-          className={tw`min-w-[30%] justify-self-start`}
+          className={tw`w-full justify-self-start`}
           control={control}
           name='condition'
           readOnly={isReadOnly}
@@ -97,7 +97,7 @@ export const ForEachSettings = ({ nodeId }: NodeSettingsProps) => {
           isDisabled={isReadOnly}
           label='On Error'
           name='errorHandling'
-          triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
+          triggerClassName={tw`w-full justify-between justify-self-start`}
         >
           <SelectItem id={ErrorHandling.UNSPECIFIED}>Throw</SelectItem>
           <SelectItem id={ErrorHandling.IGNORE}>Ignore</SelectItem>
