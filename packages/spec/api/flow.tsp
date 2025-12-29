@@ -45,6 +45,9 @@ enum HandleKind {
   Then,
   Else,
   Loop,
+  AiModel,
+  AiMemory,
+  AiTools,
 }
 
 @TanStackDB.collection
@@ -64,6 +67,7 @@ enum NodeKind {
   For,
   ForEach,
   Js,
+  Ai,
 }
 
 enum FlowItemState {
@@ -127,6 +131,12 @@ model NodeCondition {
 model NodeJs {
   @primaryKey nodeId: Id;
   code: string;
+}
+
+@TanStackDB.collection
+model NodeAi {
+  @primaryKey nodeId: Id;
+  prompt: string;
 }
 
 @TanStackDB.collection(#{ isReadOnly: true })
