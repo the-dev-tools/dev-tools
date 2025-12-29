@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { useDebouncedCallback } from 'use-debounce';
 import { HandleKind, NodeConditionSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { FieldLabel } from '@the-dev-tools/ui/field';
 import { IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
@@ -72,6 +73,7 @@ export const ConditionSettings = ({ nodeId }: NodeSettingsProps) => {
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='If'>
+      <FieldLabel>Condition</FieldLabel>
       <ReferenceFieldRHF control={control} name={'condition'} readOnly={isReadOnly} />
     </NodeSettingsBody>
   );
