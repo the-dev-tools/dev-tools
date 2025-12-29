@@ -341,7 +341,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         .where((_) => eq(_.item.nodeId, nodeId))
         .fn.select((_) => ({
           ...pick(_.item, 'nodeExecutionId', 'name'),
-          order: Ulid.construct(_.item.nodeExecutionId).time,
+          order: Ulid.construct(_.item.nodeExecutionId).toCanonical(),
         }));
 
       return _.from({ item }).orderBy((_) => _.item.order, 'desc');

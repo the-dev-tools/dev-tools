@@ -2,10 +2,17 @@
 package idwrap
 
 import (
+	"crypto/rand"
 	"database/sql/driver"
+	"sync"
 	"time"
 
 	"github.com/oklog/ulid/v2"
+)
+
+var (
+	monotonicEntropy   = ulid.Monotonic(rand.Reader, 10000)
+	monotonicEntropyMu sync.Mutex
 )
 
 type IDWrap struct {
@@ -18,6 +25,15 @@ func New(ulid ulid.ULID) IDWrap {
 
 func NewNow() IDWrap {
 	return IDWrap{ulid: ulid.Make()}
+}
+
+// NewMonotonic generates a ULID that is guaranteed to be greater than the previous one
+// if generated within the same monotonic horizon (1 second).
+func NewMonotonic() IDWrap {
+	monotonicEntropyMu.Lock()
+	defer monotonicEntropyMu.Unlock()
+	id := ulid.MustNew(ulid.Timestamp(time.Now()), monotonicEntropy)
+	return IDWrap{ulid: id}
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.

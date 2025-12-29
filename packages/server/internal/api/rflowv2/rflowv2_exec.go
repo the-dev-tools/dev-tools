@@ -232,7 +232,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 		return err
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewMonotonic(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
 
 	// Reset all node states to UNSPECIFIED before flow execution
 	nodeResetEvents := make([]NodeEvent, 0, len(nodes))
@@ -284,6 +284,13 @@ func (s *FlowServiceV2RPC) executeFlow(
 	nodeStateChan := make(chan runner.FlowNodeStatus, len(nodes)*2+1)
 	var stateDrain sync.WaitGroup
 	stateDrain.Add(1)
+
+	// Create inverse mapping to map versioned IDs back to original IDs for live sync
+	inverseNodeIDMapping := make(map[string]idwrap.IDWrap, len(nodeIDMapping))
+	for k, v := range nodeIDMapping {
+		inverseNodeIDMapping[v.String()] = idwrap.NewTextMust(k)
+	}
+
 	go func() {
 		defer stateDrain.Done()
 
@@ -292,6 +299,12 @@ func (s *FlowServiceV2RPC) executeFlow(
 		executionCache := make(map[string]idwrap.IDWrap)
 
 		for status := range nodeStateChan {
+			// Find the original node ID if this is a versioned ID
+			originalNodeID := status.NodeID
+			if origID, ok := inverseNodeIDMapping[status.NodeID.String()]; ok {
+				originalNodeID = origID
+			}
+
 			// Check if this is a loop coordinator (For/ForEach) wrapper status
 			// Skip NodeExecution creation for these, but still update node visual state
 			nodeKind := nodeKindMap[status.NodeID]
@@ -316,7 +329,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 					if cachedID, ok := executionCache[cacheKey]; ok {
 						execID = cachedID
 					} else {
-						execID = idwrap.NewNow()
+						execID = idwrap.NewMonotonic()
 						executionCache[cacheKey] = execID
 						isNewExecution = true
 					}
@@ -395,7 +408,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 				s.publishExecutionEvent(eventType, model, flow.ID)
 			}
 
-			// Update node state in database
+			// Update node state in database (always use versioned ID for state persistence)
 			if err := s.ns.UpdateNodeState(ctx, status.NodeID, status.State); err != nil {
 				s.logger.Error("failed to update node state", "node_id", status.NodeID.String(), "error", err)
 			}
@@ -440,8 +453,9 @@ func (s *FlowServiceV2RPC) executeFlow(
 					}
 				}
 
+				// Map versioned node ID back to original node ID for live sync on current view
 				nodePB := &flowv1.Node{
-					NodeId: status.NodeID.Bytes(),
+					NodeId: originalNodeID.Bytes(),
 					FlowId: flow.ID.Bytes(),
 					State:  flowv1.FlowItemState(status.State),
 				}
@@ -528,7 +542,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 				s.logStream.Publish(rlog.LogTopic{}, rlog.LogEvent{
 					Type: rlog.EventTypeInsert,
 					Log: &logv1.Log{
-						LogId: idwrap.NewNow().Bytes(),
+						LogId: idwrap.NewMonotonic().Bytes(),
 						Name:  msg,
 						Level: logLevel,
 						Value: val,
@@ -701,7 +715,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// Duplicate all nodes and their sub-node data
 	for _, config := range nodeConfigs {
 		sourceNode := config.sourceNode
-		newNodeID := idwrap.NewNow()
+		newNodeID := idwrap.NewMonotonic()
 		nodeIDMapping[sourceNode.ID.String()] = newNodeID
 
 		// Create the base node
@@ -835,7 +849,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		}
 
 		newEdge := mflow.Edge{
-			ID:            idwrap.NewNow(),
+			ID:            idwrap.NewMonotonic(),
 			FlowID:        versionFlowID,
 			SourceID:      newSourceID,
 			TargetID:      newTargetID,
@@ -856,7 +870,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	varEvents := make([]FlowVariableEvent, 0, len(sourceVars))
 	for _, sourceVar := range sourceVars {
 		newVar := mflow.FlowVariable{
-			ID:          idwrap.NewNow(),
+			ID:          idwrap.NewMonotonic(),
 			FlowID:      versionFlowID,
 			Name:        sourceVar.Name,
 			Value:       sourceVar.Value,

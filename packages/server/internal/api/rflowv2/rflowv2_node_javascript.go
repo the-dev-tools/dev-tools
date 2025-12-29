@@ -13,7 +13,6 @@ import (
 
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/txutil"
@@ -294,57 +293,6 @@ func (s *FlowServiceV2RPC) streamNodeJsSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, nodeModel := range nodes {
-				// Filter for JS nodes
-				if nodeModel.NodeKind != mflow.NODE_KIND_JS {
-					continue
-				}
-
-				nodeJs, err := s.njss.GetNodeJS(ctx, nodeModel.ID)
-				if err != nil {
-					return nil, err
-				}
-				if nodeJs == nil {
-					continue
-				}
-
-				// Create a custom NodeEvent that includes JS node data
-				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
-					Topic: NodeTopic{FlowID: flow.ID},
-					Payload: NodeEvent{
-						Type:   nodeEventInsert,
-						FlowID: flow.ID,
-						Node: &flowv1.Node{
-							NodeId: nodeJs.FlowNodeID.Bytes(),
-							Kind:   flowv1.NodeKind_NODE_KIND_JS,
-						},
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic NodeTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -356,7 +304,7 @@ func (s *FlowServiceV2RPC) streamNodeJsSync(
 		return true
 	}
 
-	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.nodeStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -403,16 +351,16 @@ func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 
 	// Fetch the JavaScript configuration for this node
 	nodeJs, err := s.njss.GetNodeJS(ctx, nodeID)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
-	}
-	if nodeJs == nil {
-		return nil, nil
 	}
 
 	var syncEvent *flowv1.NodeJsSync
 	switch evt.Type {
 	case nodeEventInsert:
+		if nodeJs == nil {
+			return nil, nil
+		}
 		syncEvent = &flowv1.NodeJsSync{
 			Value: &flowv1.NodeJsSync_ValueUnion{
 				Kind: flowv1.NodeJsSync_ValueUnion_KIND_INSERT,
@@ -423,12 +371,17 @@ func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 			},
 		}
 	case nodeEventUpdate:
+		update := &flowv1.NodeJsSyncUpdate{
+			NodeId: nodeID.Bytes(),
+		}
+		if nodeJs != nil {
+			code := string(nodeJs.Code)
+			update.Code = &code
+		}
 		syncEvent = &flowv1.NodeJsSync{
 			Value: &flowv1.NodeJsSync_ValueUnion{
-				Kind: flowv1.NodeJsSync_ValueUnion_KIND_UPDATE,
-				Update: &flowv1.NodeJsSyncUpdate{
-					NodeId: nodeJs.FlowNodeID.Bytes(),
-				},
+				Kind:   flowv1.NodeJsSync_ValueUnion_KIND_UPDATE,
+				Update: update,
 			},
 		}
 	case nodeEventDelete:
@@ -436,7 +389,7 @@ func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 			Value: &flowv1.NodeJsSync_ValueUnion{
 				Kind: flowv1.NodeJsSync_ValueUnion_KIND_DELETE,
 				Delete: &flowv1.NodeJsSyncDelete{
-					NodeId: nodeJs.FlowNodeID.Bytes(),
+					NodeId: nodeID.Bytes(),
 				},
 			},
 		}

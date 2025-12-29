@@ -273,15 +273,21 @@ func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[
 		})
 	}
 
-	// 2. Begin transaction
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, EdgeTopic](
+		tx,
+		func(evt txutil.DeleteEvent[idwrap.IDWrap]) EdgeTopic {
+			return EdgeTopic{FlowID: evt.WorkspaceID} // WorkspaceID field is reused for FlowID
+		},
+	)
+
 	edgeWriter := s.es.TX(tx)
-	var deletedEdges []mflow.Edge
 
 	// 3. Execute all deletes in transaction
 	for _, data := range validatedItems {
@@ -289,19 +295,12 @@ func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if data.existing != nil {
-			deletedEdges = append(deletedEdges, *data.existing)
-		}
+		syncTx.Track(data.edgeID, data.existing.FlowID, false)
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkEdgeDelete); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, edge := range deletedEdges {
-		s.publishEdgeEvent(edgeEventDelete, edge)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

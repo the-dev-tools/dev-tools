@@ -3,7 +3,6 @@ package rflowv2
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"sync"
 
@@ -77,54 +76,6 @@ func (s *FlowServiceV2RPC) streamNodeExecutionSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[ExecutionTopic, ExecutionEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[ExecutionTopic, ExecutionEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			// Get all nodes for this flow
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			// For each node, get its executions
-			for _, node := range nodes {
-				executions, err := s.nes.ListNodeExecutionsByNodeID(ctx, node.ID)
-				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						continue
-					}
-					return nil, err
-				}
-
-				// Create events for each execution
-				for _, execution := range executions {
-					serializedExecution := serializeNodeExecution(execution)
-					events = append(events, eventstream.Event[ExecutionTopic, ExecutionEvent]{
-						Topic: ExecutionTopic{FlowID: flow.ID},
-						Payload: ExecutionEvent{
-							Type:      executionEventInsert,
-							FlowID:    flow.ID,
-							Execution: serializedExecution,
-						},
-					})
-				}
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic ExecutionTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -157,7 +108,7 @@ func (s *FlowServiceV2RPC) streamNodeExecutionSync(
 	return eventstream.StreamToClient(
 		ctx,
 		s.executionStream,
-		eventstream.SnapshotProvider[ExecutionTopic, ExecutionEvent](snapshot),
+		nil,
 		filter,
 		converter,
 		send,

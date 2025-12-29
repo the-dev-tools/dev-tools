@@ -272,7 +272,7 @@ func sendQueuedCancellationStatuses(queue []idwrap.IDWrap, req *node.FlowNodeReq
 	for _, nodeID := range queue {
 		if nodeRef, ok := req.NodeMap[nodeID]; ok {
 			statusLogFunc(runner.FlowNodeStatus{
-				ExecutionID:      idwrap.NewNow(),
+				ExecutionID:      idwrap.NewMonotonic(),
 				NodeID:           nodeID,
 				Name:             nodeRef.GetName(),
 				State:            mflow.NODE_STATE_CANCELED,
@@ -308,7 +308,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 			inputData = gatherSingleModeInputData(req, predecessorMap[nodeID])
 		}
 
-		executionID := idwrap.NewNow()
+		executionID := idwrap.NewMonotonic()
 		runningStatus := runner.FlowNodeStatus{
 			ExecutionID:      executionID,
 			NodeID:           nodeID,
@@ -654,7 +654,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 		for _, nodeID := range queue {
 			if node, ok := req.NodeMap[nodeID]; ok {
 				canceledStatus := runner.FlowNodeStatus{
-					ExecutionID:      idwrap.NewNow(),
+					ExecutionID:      idwrap.NewMonotonic(),
 					NodeID:           nodeID,
 					Name:             node.GetName(),
 					State:            mflow.NODE_STATE_CANCELED,
@@ -717,7 +717,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 				}
 
 				// Generate execution ID right before processing
-				executionID := idwrap.NewNow()
+				executionID := idwrap.NewMonotonic()
 
 				// Log RUNNING status with execution ID
 				runningStatus := runner.FlowNodeStatus{
@@ -949,7 +949,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 		for _, nodeID := range queue {
 			if nodeRef, ok := req.NodeMap[nodeID]; ok {
 				statusLogFunc(runner.FlowNodeStatus{
-					ExecutionID:      idwrap.NewNow(),
+					ExecutionID:      idwrap.NewMonotonic(),
 					NodeID:           nodeID,
 					Name:             nodeRef.GetName(),
 					State:            mflow.NODE_STATE_CANCELED,
@@ -1006,7 +1006,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					}
 				}
 
-				executionID := idwrap.NewNow()
+				executionID := idwrap.NewMonotonic()
 
 				runningStatus := runner.FlowNodeStatus{
 					ExecutionID:      executionID,

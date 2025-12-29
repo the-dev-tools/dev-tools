@@ -143,7 +143,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 
 			// Generate unique execution ID for child node
-			childExecutionID := idwrap.NewNow()
+			childExecutionID := idwrap.NewMonotonic()
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
@@ -195,7 +195,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 
 			// Store execution ID for later update
-			executionID := idwrap.NewNow()
+			executionID := idwrap.NewMonotonic()
 
 			currentIndex := itemIndex
 
@@ -345,7 +345,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 
 			// Store execution ID for later update
-			executionID := idwrap.NewNow()
+			executionID := idwrap.NewMonotonic()
 
 			currentIndex := totalItems
 
@@ -608,7 +608,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			}
 
 			// Generate unique execution ID for child node
-			childExecutionID := idwrap.NewNow()
+			childExecutionID := idwrap.NewMonotonic()
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
@@ -673,7 +673,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 
 				// Store execution ID for later update
-				executionID := idwrap.NewNow()
+				executionID := idwrap.NewMonotonic()
 
 				currentIndex := itemIndex
 
@@ -816,7 +816,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 
 				// Store execution ID for later update
-				executionID := idwrap.NewNow()
+				executionID := idwrap.NewMonotonic()
 
 				currentIndex := totalItems
 

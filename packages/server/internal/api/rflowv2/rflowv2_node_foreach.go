@@ -13,7 +13,6 @@ import (
 
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/txutil"
@@ -301,57 +300,6 @@ func (s *FlowServiceV2RPC) streamNodeForEachSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, nodeModel := range nodes {
-				// Filter for ForEach nodes
-				if nodeModel.NodeKind != mflow.NODE_KIND_FOR_EACH {
-					continue
-				}
-
-				nodeForEach, err := s.nfes.GetNodeForEach(ctx, nodeModel.ID)
-				if err != nil {
-					return nil, err
-				}
-				if nodeForEach == nil {
-					continue
-				}
-
-				// Create a custom NodeEvent that includes ForEach node data
-				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
-					Topic: NodeTopic{FlowID: flow.ID},
-					Payload: NodeEvent{
-						Type:   nodeEventInsert,
-						FlowID: flow.ID,
-						Node: &flowv1.Node{
-							NodeId: nodeForEach.FlowNodeID.Bytes(),
-							Kind:   flowv1.NodeKind_NODE_KIND_FOR_EACH,
-						},
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic NodeTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -363,7 +311,7 @@ func (s *FlowServiceV2RPC) streamNodeForEachSync(
 		return true
 	}
 
-	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.nodeStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -410,16 +358,16 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 
 	// Fetch the ForEach configuration for this node
 	nodeForEach, err := s.nfes.GetNodeForEach(ctx, nodeID)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
-	}
-	if nodeForEach == nil {
-		return nil, nil
 	}
 
 	var syncEvent *flowv1.NodeForEachSync
 	switch evt.Type {
 	case nodeEventInsert:
+		if nodeForEach == nil {
+			return nil, nil
+		}
 		syncEvent = &flowv1.NodeForEachSync{
 			Value: &flowv1.NodeForEachSync_ValueUnion{
 				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_INSERT,
@@ -433,17 +381,19 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 		}
 	case nodeEventUpdate:
 		update := &flowv1.NodeForEachSyncUpdate{
-			NodeId: nodeForEach.FlowNodeID.Bytes(),
+			NodeId: nodeID.Bytes(),
 		}
-		// Include all fields in the update
-		if path := nodeForEach.IterExpression; path != "" {
-			update.Path = &path
-		}
-		if condition := nodeForEach.Condition.Comparisons.Expression; condition != "" {
-			update.Condition = &condition
-		}
-		if errorHandling := converter.ToAPIErrorHandling(nodeForEach.ErrorHandling); errorHandling != flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
-			update.ErrorHandling = &errorHandling
+		if nodeForEach != nil {
+			// Include all fields in the update
+			if path := nodeForEach.IterExpression; path != "" {
+				update.Path = &path
+			}
+			if condition := nodeForEach.Condition.Comparisons.Expression; condition != "" {
+				update.Condition = &condition
+			}
+			if errorHandling := converter.ToAPIErrorHandling(nodeForEach.ErrorHandling); errorHandling != flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
+				update.ErrorHandling = &errorHandling
+			}
 		}
 		syncEvent = &flowv1.NodeForEachSync{
 			Value: &flowv1.NodeForEachSync_ValueUnion{
@@ -456,7 +406,7 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 			Value: &flowv1.NodeForEachSync_ValueUnion{
 				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_DELETE,
 				Delete: &flowv1.NodeForEachSyncDelete{
-					NodeId: nodeForEach.FlowNodeID.Bytes(),
+					NodeId: nodeID.Bytes(),
 				},
 			},
 		}

@@ -137,7 +137,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		}
 
 		// Store execution ID and iteration context for later update
-		executionID := idwrap.NewNow()
+		executionID := idwrap.NewMonotonic()
 
 		// Create iteration context for this execution
 		var parentPath []int
@@ -195,7 +195,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			}
 
 			// Generate unique execution ID for child node
-			childExecutionID := idwrap.NewNow()
+			childExecutionID := idwrap.NewMonotonic()
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
@@ -329,7 +329,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		}
 
 		// Store execution ID and iteration context for later update
-		executionID := idwrap.NewNow()
+		executionID := idwrap.NewMonotonic()
 
 		// Create iteration context for this execution
 		var parentPath []int
@@ -387,7 +387,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			}
 
 			// Generate unique execution ID for child node
-			childExecutionID := idwrap.NewNow()
+			childExecutionID := idwrap.NewMonotonic()
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request

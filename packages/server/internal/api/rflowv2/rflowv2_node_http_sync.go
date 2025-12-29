@@ -20,6 +20,18 @@ type nodeHttpWithFlow struct {
 // the entire sub-node config struct.
 type nodeHttpPatch struct{}
 
+// publishBulkNodeHttpInsert publishes base node events for bulk NodeHttp inserts.
+func (s *FlowServiceV2RPC) publishBulkNodeHttpInsert(
+	topic NodeTopic,
+	items []nodeHttpWithFlow,
+) {
+	for _, item := range items {
+		if item.baseNode != nil {
+			s.publishNodeEvent(nodeEventUpdate, *item.baseNode)
+		}
+	}
+}
+
 // publishBulkNodeHttpUpdate publishes base node events for bulk NodeHttp updates.
 // NodeHttp sync relies on base node events (not NodeHttp-specific events).
 func (s *FlowServiceV2RPC) publishBulkNodeHttpUpdate(

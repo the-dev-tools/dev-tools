@@ -35,3 +35,18 @@ func (s *FlowServiceV2RPC) publishBulkFlowVariableUpdate(
 		s.publishFlowVariableEvent(flowVarEventUpdate, evt.Item.variable)
 	}
 }
+
+// publishBulkFlowVariableDelete publishes multiple flow variable delete events in bulk.
+// Groups variables by flow ID and publishes all deletions for that flow.
+func (s *FlowServiceV2RPC) publishBulkFlowVariableDelete(
+	topic FlowVariableTopic,
+	events []txutil.DeleteEvent[idwrap.IDWrap],
+) {
+	for _, evt := range events {
+		variable := mflow.FlowVariable{
+			ID:     evt.ID,
+			FlowID: evt.WorkspaceID, // WorkspaceID field is reused for FlowID
+		}
+		s.publishFlowVariableEvent(flowVarEventDelete, variable)
+	}
+}

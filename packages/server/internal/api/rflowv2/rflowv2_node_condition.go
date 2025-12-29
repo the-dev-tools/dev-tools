@@ -12,7 +12,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/txutil"
@@ -292,57 +291,6 @@ func (s *FlowServiceV2RPC) streamNodeConditionSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, nodeModel := range nodes {
-				// Filter for Condition nodes
-				if nodeModel.NodeKind != mflow.NODE_KIND_CONDITION {
-					continue
-				}
-
-				nodeCondition, err := s.nifs.GetNodeIf(ctx, nodeModel.ID)
-				if err != nil {
-					return nil, err
-				}
-				if nodeCondition == nil {
-					continue
-				}
-
-				// Create a custom NodeEvent that includes Condition node data
-				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
-					Topic: NodeTopic{FlowID: flow.ID},
-					Payload: NodeEvent{
-						Type:   nodeEventInsert,
-						FlowID: flow.ID,
-						Node: &flowv1.Node{
-							NodeId: nodeCondition.FlowNodeID.Bytes(),
-							Kind:   flowv1.NodeKind_NODE_KIND_CONDITION,
-						},
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic NodeTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -354,7 +302,7 @@ func (s *FlowServiceV2RPC) streamNodeConditionSync(
 		return true
 	}
 
-	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.nodeStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -399,18 +347,18 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 		return nil, fmt.Errorf("invalid node id: %w", err)
 	}
 
-	// Fetch the Condition configuration for this node
+	// Fetch the condition configuration for this node
 	nodeCondition, err := s.nifs.GetNodeIf(ctx, nodeID)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
-	}
-	if nodeCondition == nil {
-		return nil, nil
 	}
 
 	var syncEvent *flowv1.NodeConditionSync
 	switch evt.Type {
 	case nodeEventInsert:
+		if nodeCondition == nil {
+			return nil, nil
+		}
 		syncEvent = &flowv1.NodeConditionSync{
 			Value: &flowv1.NodeConditionSync_ValueUnion{
 				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_INSERT,
@@ -421,12 +369,17 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 			},
 		}
 	case nodeEventUpdate:
+		update := &flowv1.NodeConditionSyncUpdate{
+			NodeId: nodeID.Bytes(),
+		}
+		if nodeCondition != nil {
+			cond := nodeCondition.Condition.Comparisons.Expression
+			update.Condition = &cond
+		}
 		syncEvent = &flowv1.NodeConditionSync{
 			Value: &flowv1.NodeConditionSync_ValueUnion{
-				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_UPDATE,
-				Update: &flowv1.NodeConditionSyncUpdate{
-					NodeId: nodeCondition.FlowNodeID.Bytes(),
-				},
+				Kind:   flowv1.NodeConditionSync_ValueUnion_KIND_UPDATE,
+				Update: update,
 			},
 		}
 	case nodeEventDelete:
@@ -434,13 +387,14 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 			Value: &flowv1.NodeConditionSync_ValueUnion{
 				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_DELETE,
 				Delete: &flowv1.NodeConditionSyncDelete{
-					NodeId: nodeCondition.FlowNodeID.Bytes(),
+					NodeId: nodeID.Bytes(),
 				},
 			},
 		}
 	default:
 		return nil, nil
 	}
+
 
 	return &flowv1.NodeConditionSyncResponse{
 		Items: []*flowv1.NodeConditionSync{syncEvent},

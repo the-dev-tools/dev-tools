@@ -12,7 +12,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/txutil"
@@ -153,12 +152,12 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 		syncTx.Track(nodeHttpWithFlow{
 			nodeRequest: nodeRequest,
 			flowID:      data.flowID,
+			baseNode:    data.baseNode,
 		})
 	}
 
 	// 4. Commit transaction and publish events in bulk
-	// Note: NodeHttp insert does NOT publish events (intentional - base node events are used)
-	if err := tx.Commit(); err != nil {
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeHttpInsert); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -349,46 +348,6 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, nodeModel := range nodes {
-				// Filter for HTTP nodes (REQUEST nodes)
-				if nodeModel.NodeKind != mflow.NODE_KIND_REQUEST {
-					continue
-				}
-
-				// Create a custom NodeEvent that includes HTTP node data
-				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
-					Topic: NodeTopic{FlowID: flow.ID},
-					Payload: NodeEvent{
-						Type:   nodeEventInsert,
-						FlowID: flow.ID,
-						Node:   serializeNode(nodeModel), // Pass regular node for compatibility
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic NodeTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -400,7 +359,7 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 		return true
 	}
 
-	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.nodeStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

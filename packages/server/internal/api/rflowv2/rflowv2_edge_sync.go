@@ -35,3 +35,18 @@ func (s *FlowServiceV2RPC) publishBulkEdgeUpdate(
 		s.publishEdgeEvent(edgeEventUpdate, evt.Item.edge)
 	}
 }
+
+// publishBulkEdgeDelete publishes multiple edge delete events in bulk.
+// Groups edges by flow ID and publishes all deletions for that flow.
+func (s *FlowServiceV2RPC) publishBulkEdgeDelete(
+	topic EdgeTopic,
+	events []txutil.DeleteEvent[idwrap.IDWrap],
+) {
+	for _, evt := range events {
+		edge := mflow.Edge{
+			ID:     evt.ID,
+			FlowID: evt.WorkspaceID, // WorkspaceID field is reused for FlowID
+		}
+		s.publishEdgeEvent(edgeEventDelete, edge)
+	}
+}

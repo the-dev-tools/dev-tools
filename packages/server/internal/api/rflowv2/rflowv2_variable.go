@@ -280,15 +280,21 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 		})
 	}
 
-	// 2. Begin transaction
+	// 2. Begin transaction with bulk sync wrapper
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, FlowVariableTopic](
+		tx,
+		func(evt txutil.DeleteEvent[idwrap.IDWrap]) FlowVariableTopic {
+			return FlowVariableTopic{FlowID: evt.WorkspaceID} // WorkspaceID field is reused for FlowID
+		},
+	)
+
 	varWriter := s.fvs.TX(tx)
-	var deletedVariables []mflow.FlowVariable
 
 	// 3. Execute all deletes in transaction
 	for _, data := range validatedDeletes {
@@ -296,17 +302,12 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedVariables = append(deletedVariables, data.variable)
+		syncTx.Track(data.variableID, data.variable.FlowID, false)
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction and publish events in bulk
+	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowVariableDelete); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, variable := range deletedVariables {
-		s.publishFlowVariableEvent(flowVarEventDelete, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
