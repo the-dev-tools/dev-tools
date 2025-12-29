@@ -349,19 +349,24 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
     [executionCollection, nodeId],
   );
 
-  const firstExec = pipe(
+  const latestExecutionId = pipe(
     Array.head(executions),
-    Option.map((_) => executionCollection.utils.getKey(_)),
+    Option.map((_) => _.nodeExecutionId),
     Option.getOrNull,
   );
 
-  const [prevFirstExec, setPrevFirstExec] = useState<Key | null>(firstExec);
-  const [selectedExecKey, setSelectedExecKey] = useState<Key | null>(firstExec);
+  const latestExecutionIdCan = latestExecutionId ? Ulid.construct(latestExecutionId).toCanonical() : null;
 
-  if (prevFirstExec !== firstExec) {
-    setSelectedExecKey(firstExec);
-    setPrevFirstExec(firstExec);
-  }
+  const [selectedExecKey, setSelectedExecKey] = useState<Key | null>(latestExecutionId ? 'latest' : null);
+
+  const selectedExecutionId =
+    selectedExecKey === 'latest'
+      ? latestExecutionId
+      : typeof selectedExecKey === 'string'
+        ? Ulid.fromCanonical(selectedExecKey).bytes
+        : null;
+
+  const selectedExecutionIdCan = selectedExecutionId ? Ulid.construct(selectedExecutionId).toCanonical() : null;
 
   // Fix React Aria over-rendering non-visible components
   // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825
@@ -369,12 +374,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
   const [isExecListOpen, setIsExecListOpen] = useState(false);
   const execItems = isExecListOpen
     ? executions
-    : executions.filter((_) => executionCollection.utils.getKey(_) === selectedExecKey);
-
-  const nodeExecutionId =
-    typeof selectedExecKey === 'string'
-      ? executionCollection.utils.parseKeyUnsafe(selectedExecKey).nodeExecutionId
-      : undefined;
+    : executions.filter((_) => Ulid.construct(_.nodeExecutionId).toCanonical() === selectedExecutionIdCan);
 
   return (
     <div className={tw`flex h-full flex-col`}>
@@ -395,7 +395,12 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             onSelectionChange={setSelectedExecKey}
             selectedKey={selectedExecKey}
           >
-            {(_) => <SelectItem id={executionCollection.utils.getKey(_)}>{_.name}</SelectItem>}
+            {(_) => {
+              let key = Ulid.construct(_.nodeExecutionId).toCanonical();
+              if (key === latestExecutionIdCan) key = 'latest';
+
+              return <SelectItem id={key}>{_.name}</SelectItem>;
+            }}
           </Select>
         )}
 
@@ -414,7 +419,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             Input
           </div>
           <div className={tw`flex-1 overflow-auto p-5`}>
-            {!nodeExecutionId ? (
+            {!selectedExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
                 <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-slate-800`}>
@@ -425,9 +430,9 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
                 </div>
               </div>
             ) : input ? (
-              input(nodeExecutionId)
+              input(selectedExecutionId)
             ) : (
-              <NodeSettingsBasicInput nodeExecutionId={nodeExecutionId} />
+              <NodeSettingsBasicInput nodeExecutionId={selectedExecutionId} />
             )}
           </div>
         </div>
@@ -454,7 +459,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
           </div>
 
           <div className={tw`flex-1 overflow-auto p-5`}>
-            {!nodeExecutionId ? (
+            {!selectedExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
                 <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-slate-800`}>
@@ -465,9 +470,9 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
                 </div>
               </div>
             ) : output ? (
-              output(nodeExecutionId)
+              output(selectedExecutionId)
             ) : (
-              <NodeSettingsBasicOutput nodeExecutionId={nodeExecutionId} />
+              <NodeSettingsBasicOutput nodeExecutionId={selectedExecutionId} />
             )}
           </div>
         </div>
