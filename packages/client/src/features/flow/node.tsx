@@ -380,11 +380,13 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
 
   return (
     <div className={tw`flex h-full flex-col`}>
-      <div className={tw`flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
+      <div className={tw`flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-2`}>
         <div className='min-w-0'>
           <div className={tw`text-md leading-5 text-slate-400`}>{name}</div>
           <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>{title}</div>
         </div>
+
+        <NodeStateIndicator nodeId={nodeId} />
 
         <div className={tw`flex-1`} />
 
