@@ -10,6 +10,7 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
@@ -184,6 +185,8 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		suite.services.Us,
 		suite.services.Ws,
 		suite.services.Wus,
+		sworkspace.NewUserReaderFromQueries(suite.baseDB.Queries),
+		sworkspace.NewWorkspaceReaderFromQueries(suite.baseDB.Queries),
 		envService,
 		varService,
 		suite.importHandler.HttpBodyRawService,

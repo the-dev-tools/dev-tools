@@ -51,15 +51,16 @@ func TestEdgeInsert_TransactionRollback(t *testing.T) {
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
-		nsReader: nsReader,
-		ws:       &wsService,
-		fs:       &flowService,
-		ns:       &nodeService,
-		es:       &edgeService,
-		logger:   logger,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: edgeService.Reader(),
+		ws:             &wsService,
+		fs:             &flowService,
+		ns:             &nodeService,
+		es:             &edgeService,
+		logger:         logger,
 	}
 
 	// Create test data
@@ -198,15 +199,16 @@ func TestEdgeInsert_PartialSuccess_ValidatesFirst(t *testing.T) {
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
-		nsReader: nsReader,
-		ws:       &wsService,
-		fs:       &flowService,
-		ns:       &nodeService,
-		es:       &edgeService,
-		logger:   logger,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: edgeService.Reader(),
+		ws:             &wsService,
+		fs:             &flowService,
+		ns:             &nodeService,
+		es:             &edgeService,
+		logger:         logger,
 	}
 
 	userID := idwrap.NewNow()
@@ -322,15 +324,16 @@ func TestEdgeInsert_AllOrNothing(t *testing.T) {
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
-		nsReader: nsReader,
-		ws:       &wsService,
-		fs:       &flowService,
-		ns:       &nodeService,
-		es:       &edgeService,
-		logger:   logger,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: edgeService.Reader(),
+		ws:             &wsService,
+		fs:             &flowService,
+		ns:             &nodeService,
+		es:             &edgeService,
+		logger:         logger,
 	}
 
 	userID := idwrap.NewNow()
@@ -474,15 +477,16 @@ func TestEdgeInsert_Concurrency(t *testing.T) {
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
-		nsReader: nsReader,
-		ws:       &wsService,
-		fs:       &flowService,
-		ns:       &nodeService,
-		es:       &edgeService,
-		logger:   logger,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: edgeService.Reader(),
+		ws:             &wsService,
+		fs:             &flowService,
+		ns:             &nodeService,
+		es:             &edgeService,
+		logger:         logger,
 	}
 
 	userID := idwrap.NewNow()
@@ -622,15 +626,16 @@ func TestEdgeUpdate_Concurrency(t *testing.T) {
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
-		nsReader: nsReader,
-		ws:       &wsService,
-		fs:       &flowService,
-		ns:       &nodeService,
-		es:       &edgeService,
-		logger:   logger,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: edgeService.Reader(),
+		ws:             &wsService,
+		fs:             &flowService,
+		ns:             &nodeService,
+		es:             &edgeService,
+		logger:         logger,
 	}
 
 	userID := idwrap.NewNow()
@@ -792,15 +797,16 @@ func TestEdgeDelete_Concurrency(t *testing.T) {
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
-		nsReader: nsReader,
-		ws:       &wsService,
-		fs:       &flowService,
-		ns:       &nodeService,
-		es:       &edgeService,
-		logger:   logger,
+		DB:             db,
+		wsReader:       wsReader,
+		fsReader:       fsReader,
+		nsReader:       nsReader,
+		flowEdgeReader: edgeService.Reader(),
+		ws:             &wsService,
+		fs:             &flowService,
+		ns:             &nodeService,
+		es:             &edgeService,
+		logger:         logger,
 	}
 
 	userID := idwrap.NewNow()

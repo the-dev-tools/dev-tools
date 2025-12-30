@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/sworkspace"
 
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -115,6 +116,8 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 		services.Us,
 		services.Ws,
 		services.Wus,
+		sworkspace.NewUserReaderFromQueries(base.Queries),
+		sworkspace.NewWorkspaceReaderFromQueries(base.Queries),
 		envService,
 		varService,
 		bodyService,

@@ -26,6 +26,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/sworkspace"
 
 	"the-dev-tools/server/pkg/testutil"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
@@ -117,6 +118,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			NodeRequest:        &nodeRequestService,
 			Edge:               &edgeService,
 		},
+		sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
+		sworkspace.NewUserReaderFromQueries(baseDB.Queries),
 		rimportv2.ImportStreamers{
 			Flow:               flowStream,
 			Node:               nodeStream,
@@ -151,6 +154,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		services.Us,
 		services.Ws,
 		services.Wus,
+		sworkspace.NewUserReaderFromQueries(baseDB.Queries),
+		sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
 		envService,
 		varService,
 		bodyService,

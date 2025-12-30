@@ -365,7 +365,7 @@ func (q *Queries) GetRootFilesByWorkspaceID(ctx context.Context, workspaceID idw
 
 const updateFile = `-- name: UpdateFile :exec
 UPDATE files 
-SET workspace_id = ?, parent_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, updated_at = ?
+SET workspace_id = ?, parent_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, path_hash = ?, updated_at = ?
 WHERE id = ?
 `
 
@@ -376,6 +376,7 @@ type UpdateFileParams struct {
 	ContentKind  int8
 	Name         string
 	DisplayOrder float64
+	PathHash     sql.NullString
 	UpdatedAt    int64
 	ID           idwrap.IDWrap
 }
@@ -389,6 +390,7 @@ func (q *Queries) UpdateFile(ctx context.Context, arg UpdateFileParams) error {
 		arg.ContentKind,
 		arg.Name,
 		arg.DisplayOrder,
+		arg.PathHash,
 		arg.UpdatedAt,
 		arg.ID,
 	)

@@ -98,6 +98,7 @@ func TestExecutionCache(t *testing.T) {
 		nodeService.Reader(),
 		envService.Reader(),
 		httpService.Reader(),
+		edgeService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,

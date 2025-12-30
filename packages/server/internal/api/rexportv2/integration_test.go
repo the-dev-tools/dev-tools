@@ -65,6 +65,7 @@ type BaseTestServices struct {
 	EdgeService        *sflow.EdgeService
 	EnvService         senv.EnvironmentService
 	VarService         senv.VariableService
+	WorkspaceUserReader *sworkspace.UserReader
 }
 
 // newIntegrationTestFixture creates a complete test environment for integration tests
@@ -96,6 +97,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	edgeService := sflow.NewEdgeService(base.Queries)
 	envService := senv.NewEnvironmentService(base.Queries, logger)
 	varService := senv.NewVariableService(base.Queries, logger)
+	workspaceUserReader := sworkspace.NewUserReaderFromQueries(base.Queries)
 
 	// Create user and workspace
 	userID := idwrap.NewNow()
@@ -157,9 +159,10 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		HttpAssertService:         httpAssertService,
 		NodeService:               &nodeService,
 		NodeRequestService:        &nodeRequestService,
-		EdgeService:               &edgeService,
-		EnvService:                envService,
-		VarService:                varService,
+		EdgeService:        &edgeService,
+		EnvService:         envService,
+		VarService:         varService,
+		WorkspaceUserReader: workspaceUserReader,
 	}
 
 	return &integrationTestFixture{
@@ -587,7 +590,7 @@ func createImportService(t *testing.T, fixture *integrationTestFixture) *rimport
 		fixture.services.EnvService,
 		fixture.services.VarService,
 	)
-	validator := rimportv2.NewValidator(&fixture.services.Us)
+	validator := rimportv2.NewValidator(&fixture.services.Us, fixture.services.WorkspaceUserReader)
 
 	return rimportv2.NewService(importer, validator, rimportv2.WithLogger(fixture.logger))
 }

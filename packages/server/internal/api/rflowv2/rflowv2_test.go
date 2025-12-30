@@ -28,128 +28,6 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
-svc := &FlowServiceV2RPC{
-		DB:             db,
-		wsReader:       wsReader,
-		fsReader:       fsReader,
-		nsReader:       nsReader,
-		flowEdgeReader: &edgeService,
-		ws:             &wsService,
-		fs:           &flowService,
-		ns:           &nodeService,
-		nes:          &nodeExecService,
-		es:           &edgeService,
-		fvs:          &flowVarService,
-		nrs:          &reqService,
-		nfs:          &forService,
-		nfes:         &forEachService,
-		nifs:         ifService,
-		njss:         &jsService,
-		logger:       logger,
-		builder:      builder,
-		runningFlows: make(map[string]context.CancelFunc),
-	}
-
-	// Setup Data
-	userID := idwrap.NewNow()
-	ctx = mwauth.CreateAuthedContext(ctx, userID)
-
-	err = queries.CreateUser(ctx, gen.CreateUserParams{
-		ID:    userID,
-		Email: "test@example.com",
-	})
-	require.NoError(t, err)
-
-	workspaceID := idwrap.NewNow()
-	workspace := mworkspace.Workspace{
-		ID:              workspaceID,
-		Name:            "Test Workspace",
-		Updated:         dbtime.DBNow(),
-		CollectionCount: 0,
-		FlowCount:       0,
-	}
-	err = wsService.Create(ctx, &workspace)
-	require.NoError(t, err)
-
-	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: workspaceID,
-		UserID:      userID,
-		Role:        1,
-	})
-	require.NoError(t, err)
-
-	flowID := idwrap.NewNow()
-	flow := mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        "Test Flow",
-	}
-	err = flowService.CreateFlow(ctx, flow)
-	require.NoError(t, err)
-
-	// Create Start Node (ManualStart)
-	startNodeID := idwrap.NewNow()
-	startNode := mflow.Node{
-		ID:        startNodeID,
-		FlowID:    flowID,
-		Name:      "Start",
-		NodeKind:  mflow.NODE_KIND_MANUAL_START,
-		PositionX: 0,
-		PositionY: 0,
-	}
-	err = nodeService.CreateNode(ctx, startNode)
-	require.NoError(t, err)
-
-	// Run Multiple Times
-	runCount := 10
-	for i := 0; i < runCount; i++ {
-		req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
-		_, err = svc.FlowRun(ctx, req)
-		require.NoError(t, err, "Run %d failed", i)
-	}
-
-	// Verification (Poll for SUCCESS)
-	collReq := connect.NewRequest(&emptypb.Empty{})
-	var resp *connect.Response[flowv1.NodeCollectionResponse]
-
-	// Poll until we see SUCCESS state on the original flow's node
-	// Note: NodeCollection now returns nodes from all flows including versions
-	// We expect 1 original node + 10 version nodes = 11 total
-	expectedNodeCount := 1 + runCount
-	for i := 0; i < 20; i++ {
-		resp, err = svc.NodeCollection(ctx, collReq)
-		require.NoError(t, err)
-		require.Len(t, resp.Msg.Items, expectedNodeCount, "Should have %d nodes (1 original + %d versions)", expectedNodeCount, runCount)
-
-		// Find the original node by ID
-		var originalNode *flowv1.Node
-		for _, item := range resp.Msg.Items {
-			if bytes.Equal(item.NodeId, startNodeID.Bytes()) {
-				originalNode = item
-				break
-			}
-		}
-		require.NotNil(t, originalNode, "Original node should be in collection")
-
-		if originalNode.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Find original node and verify its state
-	var originalNode *flowv1.Node
-	for _, item := range resp.Msg.Items {
-		if bytes.Equal(item.NodeId, startNodeID.Bytes()) {
-			originalNode = item
-			break
-		}
-	}
-	require.NotNil(t, originalNode, "Original node should be in collection")
-	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, originalNode.State)
-}
-
 const schema = `
 -- USERS
 CREATE TABLE users (
@@ -319,7 +197,7 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		wsReader:       wsReader,
 		fsReader:       fsReader,
 		nsReader:       nsReader,
-		flowEdgeReader: &edgeService,
+		flowEdgeReader: edgeService.Reader(),
 		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
@@ -463,7 +341,7 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 		wsReader:       wsReader,
 		fsReader:       fsReader,
 		nsReader:       nsReader,
-		flowEdgeReader: &edgeService,
+		flowEdgeReader: edgeService.Reader(),
 		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,
@@ -613,7 +491,7 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 		wsReader:       wsReader,
 		fsReader:       fsReader,
 		nsReader:       nsReader,
-		flowEdgeReader: &edgeService,
+		flowEdgeReader: edgeService.Reader(),
 		ws:             &wsService,
 		fs:           &flowService,
 		ns:           &nodeService,

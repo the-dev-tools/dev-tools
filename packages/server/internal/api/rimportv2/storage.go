@@ -455,22 +455,38 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			return false
 		})
 
+		logicalPathToID := make(map[string]idwrap.IDWrap)
 		for i := range results.Files {
 			file := &results.Files[i]
 			oldID := file.ID
 			logicalPath := oldIDToLogicalPath[oldID]
 
+			// First check if we've already seen this logical path in the SAME import
+			if newID, ok := logicalPathToID[logicalPath]; ok {
+				fileIDMap[oldID] = newID
+				deduplicatedFileIDs[newID] = true
+				continue
+			}
+
 			// Use FindFile instead of ResolveFile
-			existingID, _, err := imp.dedup.FindFile(ctx, file, logicalPath)
+			existingID, pathHash, err := imp.dedup.FindFile(ctx, file, logicalPath)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to pre-resolve file %s: %w", file.Name, err)
 			}
+			
+			// Fresh variable for pointer
+			currentPathHash := pathHash
+			file.PathHash = &currentPathHash
 
 			if existingID.Compare(idwrap.IDWrap{}) != 0 {
 				fileIDMap[oldID] = existingID
 				deduplicatedFileIDs[existingID] = true
+				imp.dedup.UpdatePathCache(pathHash, existingID)
+				logicalPathToID[logicalPath] = existingID
 			} else {
 				fileIDMap[oldID] = oldID
+				imp.dedup.UpdatePathCache(pathHash, oldID)
+				logicalPathToID[logicalPath] = oldID
 			}
 		}
 	}

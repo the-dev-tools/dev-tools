@@ -135,6 +135,7 @@ func (w *Writer) UpdateFile(ctx context.Context, file *mfile.File) error {
 		ContentKind:  dbFile.ContentKind,
 		Name:         dbFile.Name,
 		DisplayOrder: dbFile.DisplayOrder,
+		PathHash:     dbFile.PathHash,
 		UpdatedAt:    dbFile.UpdatedAt,
 		ID:           dbFile.ID,
 	})

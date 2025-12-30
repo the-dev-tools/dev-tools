@@ -104,6 +104,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 		nodeService.Reader(),
 		envService.Reader(),
 		httpService.Reader(),
+		edgeService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,
@@ -126,7 +127,8 @@ func TestChaos_EventOrdering(t *testing.T) {
 		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		executionStream,
 		responseStream,
-		nil, nil, nil, nil,
+		nil, nil, nil,
+		nil, // jsClient
 	)
 
 	// 4. Setup Data

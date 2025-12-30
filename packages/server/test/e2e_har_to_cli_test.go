@@ -577,6 +577,8 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 			NodeRequest:        &nodeRequestService,
 			Edge:               &edgeService,
 		},
+		sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
+		sworkspace.NewUserReaderFromQueries(baseDB.Queries),
 		rimportv2.ImportStreamers{
 			Flow:               flowStream,
 			Node:               nodeStream,

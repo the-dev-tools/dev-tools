@@ -23,7 +23,7 @@ LIMIT 1;
 -- name: UpdateFile :exec
 -- Update an existing file
 UPDATE files 
-SET workspace_id = ?, parent_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, updated_at = ?
+SET workspace_id = ?, parent_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, path_hash = ?, updated_at = ?
 WHERE id = ?;
 
 -- name: DeleteFile :exec

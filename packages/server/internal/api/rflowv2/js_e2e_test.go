@@ -141,6 +141,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		nodeService.Reader(),
 		envService.Reader(),
 		httpService.Reader(),
+		edgeService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,

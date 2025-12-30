@@ -2,6 +2,7 @@ package rimportv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -90,11 +91,25 @@ func (d *Deduplicator) FindHTTP(
 
 	// 2. O(1) DB Check (Index Lookup) using Reader (Read-only)
 	existingID, err := d.httpService.Reader().FindHTTPByContentHash(ctx, req.WorkspaceID, contentHash)
-	if err == nil && existingID.Compare(idwrap.IDWrap{}) != 0 {
+	if err != nil {
+		if errors.Is(err, shttp.ErrNoHTTPFound) {
+			return idwrap.IDWrap{}, contentHash, nil
+		}
+		return idwrap.IDWrap{}, "", err
+	}
+
+	if existingID.Compare(idwrap.IDWrap{}) != 0 {
 		return existingID, contentHash, nil
 	}
 
 	return idwrap.IDWrap{}, contentHash, nil
+}
+
+// UpdatePathCache manually adds an entry to the path cache.
+func (d *Deduplicator) UpdatePathCache(pathHash string, id idwrap.IDWrap) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.pathCache[pathHash] = id
 }
 
 // ResolveHTTP ensures the HTTP request exists.
@@ -153,7 +168,41 @@ func (d *Deduplicator) FindFile(ctx context.Context, file *mfile.File, logicalPa
 
 	// 3. O(1) DB Check (Index Lookup) using Reader
 	existingID, err := d.fileService.Reader().FindFileByPathHash(ctx, file.WorkspaceID, pathHash)
-	if err == nil && existingID.Compare(idwrap.IDWrap{}) != 0 {
+	if err != nil {
+		if errors.Is(err, sfile.ErrFileNotFound) {
+			return idwrap.IDWrap{}, pathHash, nil
+		}
+		return idwrap.IDWrap{}, "", err
+	}
+
+	if existingID.Compare(idwrap.IDWrap{}) != 0 {
+		return existingID, pathHash, nil
+	}
+
+	return idwrap.IDWrap{}, pathHash, nil
+}
+
+// findFileLocked is an unexported version of FindFile that MUST be called with d.mu held.
+func (d *Deduplicator) findFileLocked(ctx context.Context, file *mfile.File, logicalPath string) (idwrap.IDWrap, string, error) {
+	// 1. Calculate Path Hash (Workspace + Path)
+	fullPathKey := fmt.Sprintf("%s:%s", file.WorkspaceID.String(), logicalPath)
+	pathHash := d.hasher.HashString(fullPathKey)
+
+	// 2. Check Memory Cache (Fastest)
+	if cachedID, ok := d.pathCache[pathHash]; ok {
+		return cachedID, pathHash, nil
+	}
+
+	// 3. O(1) DB Check (Index Lookup) using Reader
+	existingID, err := d.fileService.Reader().FindFileByPathHash(ctx, file.WorkspaceID, pathHash)
+	if err != nil {
+		if errors.Is(err, sfile.ErrFileNotFound) {
+			return idwrap.IDWrap{}, pathHash, nil
+		}
+		return idwrap.IDWrap{}, "", err
+	}
+
+	if existingID.Compare(idwrap.IDWrap{}) != 0 {
 		return existingID, pathHash, nil
 	}
 
@@ -171,8 +220,8 @@ func (d *Deduplicator) ResolveFile(ctx context.Context, file *mfile.File, logica
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// 1. Check if it exists
-	existingID, pathHash, err := d.FindFile(ctx, file, logicalPath)
+	// 1. Check if it exists (using the locked version to avoid deadlock)
+	existingID, pathHash, err := d.findFileLocked(ctx, file, logicalPath)
 	if err != nil {
 		return idwrap.IDWrap{}, false, err
 	}

@@ -104,6 +104,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 		nodeService.Reader(),
 		envService.Reader(),
 		httpService.Reader(),
+		edgeService.Reader(),
 		&wsService,
 		&flowService,
 		&edgeService,
@@ -123,12 +124,10 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 		logger,
 		nil, // workspaceImportService
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, // 1-9 (removed NoOp)
-		executionStream, // 10
-		nil, nil,        // 11-12
-		assertStream, // 13
-		nil,          // 14 (logStream)
-		nil,          // jsClient
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, // 1-9
+		executionStream,          // 10: executionStream
+		nil, nil, assertStream, nil, // 11-14: httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, logStream
+		nil, // jsClient
 	)
 
 	// 4. Setup Data
