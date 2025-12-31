@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"the-dev-tools/server/pkg/depfinder" //nolint:gocritic // imports grouping
+	"the-dev-tools/server/pkg/flowgraph"
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -1035,186 +1036,27 @@ func sanitizeFileName(name string) string {
 
 // ReorganizeNodePositions positions flow nodes using a level-based horizontal layout.
 // Sequential nodes flow left-to-right, parallel nodes are stacked vertically.
+// Uses the shared flowgraph package for layout calculation.
 func ReorganizeNodePositions(result *HarResolved) error {
-	const (
-		nodeSpacingX = 300 // Horizontal spacing between sequential levels
-		nodeSpacingY = 150 // Vertical spacing between parallel nodes
-		startX       = 0   // Starting X position
-		startY       = 0   // Starting Y position
-	)
-
-	// Map for quick node lookup
-	nodeMap := make(map[idwrap.IDWrap]*mflow.Node)
-	for i := range result.Nodes {
-		nodeMap[result.Nodes[i].ID] = &result.Nodes[i]
-	}
-
-	// Find start node
-	var startNode *mflow.Node
-	for i := range result.Nodes {
-		if result.Nodes[i].NodeKind == mflow.NODE_KIND_MANUAL_START {
-			startNode = &result.Nodes[i]
-			break
-		}
-	}
-	if startNode == nil {
+	startNode, found := flowgraph.FindStartNode(result.Nodes)
+	if !found {
 		return fmt.Errorf("start node not found")
 	}
 
-	// Build adjacency lists from edges
-	outgoingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
-	incomingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
-	for _, e := range result.Edges {
-		outgoingEdges[e.SourceID] = append(outgoingEdges[e.SourceID], e.TargetID)
-		incomingEdges[e.TargetID] = append(incomingEdges[e.TargetID], e.SourceID)
+	config := flowgraph.DefaultHorizontalConfig()
+	layoutResult, err := flowgraph.Layout(result.Nodes, result.Edges, startNode.ID, config)
+	if err != nil {
+		return err
 	}
 
-	// Calculate dependency levels using BFS
-	nodeLevels := make(map[idwrap.IDWrap]int)
-	levelNodes := make(map[int][]idwrap.IDWrap) // level -> nodes at that level
-
-	// BFS to assign levels
-	queue := []idwrap.IDWrap{startNode.ID}
-	nodeLevels[startNode.ID] = 0
-	levelNodes[0] = []idwrap.IDWrap{startNode.ID}
-
-	// Safety counter to prevent infinite loops on cyclic graphs
-	processedCount := 0
-	maxProcessed := len(result.Nodes) * len(result.Nodes)
-	if maxProcessed < 10000 {
-		maxProcessed = 10000
-	}
-
-	for len(queue) > 0 {
-		// Check for potential infinite loop
-		if processedCount > maxProcessed {
-			break
-		}
-		processedCount++
-
-		currentNodeID := queue[0]
-		queue = queue[1:]
-
-		// Process all children
-		for _, childID := range outgoingEdges[currentNodeID] {
-			// Calculate the maximum level of all parents + 1
-			maxParentLevel := -1
-			for _, parentID := range incomingEdges[childID] {
-				if parentLevel, exists := nodeLevels[parentID]; exists {
-					if parentLevel > maxParentLevel {
-						maxParentLevel = parentLevel
-					}
-				}
-			}
-
-			childLevel := maxParentLevel + 1
-
-			// Only update if this is a new node or we found a deeper level
-			if existingLevel, exists := nodeLevels[childID]; !exists || childLevel > existingLevel {
-				// Remove from old level if it existed
-				if exists {
-					oldLevelNodes := levelNodes[existingLevel]
-					for i, nodeID := range oldLevelNodes {
-						if nodeID == childID {
-							levelNodes[existingLevel] = append(oldLevelNodes[:i], oldLevelNodes[i+1:]...)
-							break
-						}
-					}
-				}
-
-				// Add to new level
-				nodeLevels[childID] = childLevel
-				levelNodes[childLevel] = append(levelNodes[childLevel], childID)
-				queue = append(queue, childID)
-			}
-		}
-	}
-
-	// Position nodes level by level (horizontal flow: left-to-right)
-	for level := 0; level <= len(levelNodes)-1; level++ {
-		nodes := levelNodes[level]
-		if len(nodes) == 0 {
-			continue
-		}
-
-		// Calculate X position for this level (sequential nodes go right)
-		xPos := float64(startX + level*nodeSpacingX)
-
-		// Calculate starting Y position to center the nodes at this level
-		totalHeight := float64((len(nodes) - 1) * nodeSpacingY)
-		startYForLevel := float64(startY) - totalHeight/2
-
-		// Position each node in this level
-		for i, nodeID := range nodes {
-			if node := nodeMap[nodeID]; node != nil {
-				node.PositionX = xPos
-				node.PositionY = startYForLevel + float64(i*nodeSpacingY)
-			}
-		}
-	}
-
+	flowgraph.ApplyLayout(result.Nodes, layoutResult)
 	return nil
 }
 
-// applyTransitiveReduction removes redundant edges from the graph
+// applyTransitiveReduction removes redundant edges from the graph.
+// Uses the shared flowgraph package for transitive reduction.
 func applyTransitiveReduction(edges []mflow.Edge) []mflow.Edge {
-	if len(edges) == 0 {
-		return edges
-	}
-
-	// Performance optimization: Skip reduction for large graphs to avoid O(E^2) complexity
-	// 2000 edges is roughly where performance starts to degrade noticeably (>1s)
-	if len(edges) > 2000 {
-		return edges
-	}
-
-	// Build adjacency map
-	adjMap := make(map[idwrap.IDWrap][]idwrap.IDWrap)
-	for _, edge := range edges {
-		adjMap[edge.SourceID] = append(adjMap[edge.SourceID], edge.TargetID)
-	}
-
-	// For each edge, check if there's an alternative path
-	var reducedEdges []mflow.Edge
-	for _, edge := range edges {
-		if !hasAlternativePath(adjMap, edge.SourceID, edge.TargetID, edge.TargetID) {
-			reducedEdges = append(reducedEdges, edge)
-		}
-	}
-
-	return reducedEdges
-}
-
-// hasAlternativePath checks if there's a path from source to target that doesn't use the direct edge
-func hasAlternativePath(adjMap map[idwrap.IDWrap][]idwrap.IDWrap, source, target, avoidTarget idwrap.IDWrap) bool {
-	visited := make(map[idwrap.IDWrap]bool)
-	var queue []idwrap.IDWrap
-
-	// Start from source, explore all neighbors except the direct target
-	for _, neighbor := range adjMap[source] {
-		if neighbor != avoidTarget {
-			queue = append(queue, neighbor)
-			visited[neighbor] = true
-		}
-	}
-
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-
-		if current == target {
-			return true // Found alternative path
-		}
-
-		for _, neighbor := range adjMap[current] {
-			if !visited[neighbor] {
-				visited[neighbor] = true
-				queue = append(queue, neighbor)
-			}
-		}
-	}
-
-	return false
+	return flowgraph.ApplyTransitiveReduction(edges, 0)
 }
 
 // createStatusAssertions creates base and delta assertions for HTTP response status code

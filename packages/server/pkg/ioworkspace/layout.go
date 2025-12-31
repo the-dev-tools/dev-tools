@@ -3,11 +3,12 @@ package ioworkspace
 import (
 	"fmt"
 
+	"the-dev-tools/server/pkg/flowgraph"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 )
 
-// Layout constants for node positioning
+// Layout constants for node positioning (kept for backward compatibility)
 const (
 	NodeSpacingX = 400 // Horizontal spacing between parallel nodes
 	NodeSpacingY = 300 // Vertical spacing between levels
@@ -67,119 +68,50 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 
 // layoutFlowNodes positions flow nodes using a level-based layout algorithm.
 // Parallel nodes are positioned at the same Y level, sequential nodes at deeper levels.
+// Uses the shared flowgraph package for layout calculation.
 func (wb *WorkspaceBundle) layoutFlowNodes(flowID idwrap.IDWrap) error {
-	// Build node map for this flow
-	nodeMap := make(map[idwrap.IDWrap]*mflow.Node)
+	// Collect nodes and edges for this flow
+	var flowNodes []mflow.Node
+	nodeIndexMap := make(map[idwrap.IDWrap]int) // Maps node ID to index in wb.FlowNodes
+
 	for i := range wb.FlowNodes {
 		if wb.FlowNodes[i].FlowID.Compare(flowID) == 0 {
-			nodeMap[wb.FlowNodes[i].ID] = &wb.FlowNodes[i]
+			flowNodes = append(flowNodes, wb.FlowNodes[i])
+			nodeIndexMap[wb.FlowNodes[i].ID] = i
 		}
 	}
 
-	if len(nodeMap) == 0 {
+	if len(flowNodes) == 0 {
 		return nil // No nodes to layout
 	}
 
-	// Find start node for this flow
-	var startNode *mflow.Node
-	for i := range wb.FlowNodes {
-		if wb.FlowNodes[i].NodeKind == mflow.NODE_KIND_MANUAL_START &&
-			wb.FlowNodes[i].FlowID.Compare(flowID) == 0 {
-			startNode = &wb.FlowNodes[i]
-			break
+	// Collect edges for this flow
+	var flowEdges []mflow.Edge
+	for _, e := range wb.FlowEdges {
+		if e.FlowID.Compare(flowID) == 0 {
+			flowEdges = append(flowEdges, e)
 		}
 	}
 
-	if startNode == nil {
+	// Find start node
+	startNode, found := flowgraph.FindStartNode(flowNodes)
+	if !found {
 		return fmt.Errorf("start node not found for flow")
 	}
 
-	// Build adjacency lists from edges for this flow
-	outgoingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
-	incomingEdges := make(map[idwrap.IDWrap][]idwrap.IDWrap)
-	for _, e := range wb.FlowEdges {
-		if e.FlowID.Compare(flowID) == 0 {
-			outgoingEdges[e.SourceID] = append(outgoingEdges[e.SourceID], e.TargetID)
-			incomingEdges[e.TargetID] = append(incomingEdges[e.TargetID], e.SourceID)
-		}
+	// Use vertical layout (Y increases with depth, X for parallel nodes)
+	config := flowgraph.DefaultVerticalConfig()
+
+	layoutResult, err := flowgraph.Layout(flowNodes, flowEdges, startNode.ID, config)
+	if err != nil {
+		return err
 	}
 
-	// Calculate dependency levels using BFS
-	nodeLevels := make(map[idwrap.IDWrap]int)
-	levelNodes := make(map[int][]idwrap.IDWrap) // level -> nodes at that level
-
-	// BFS to assign levels
-	queue := []idwrap.IDWrap{startNode.ID}
-	nodeLevels[startNode.ID] = 0
-	levelNodes[0] = []idwrap.IDWrap{startNode.ID}
-
-	for len(queue) > 0 {
-		currentNodeID := queue[0]
-		queue = queue[1:]
-
-		// Process all children
-		for _, childID := range outgoingEdges[currentNodeID] {
-			// Calculate the maximum level of all parents + 1
-			maxParentLevel := -1
-			for _, parentID := range incomingEdges[childID] {
-				if parentLevel, exists := nodeLevels[parentID]; exists {
-					if parentLevel > maxParentLevel {
-						maxParentLevel = parentLevel
-					}
-				}
-			}
-
-			childLevel := maxParentLevel + 1
-
-			// Only update if this is a new node or we found a deeper level
-			if existingLevel, exists := nodeLevels[childID]; !exists || childLevel > existingLevel {
-				// Remove from old level if it existed
-				if exists {
-					oldLevelNodes := levelNodes[existingLevel]
-					for i, nodeID := range oldLevelNodes {
-						if nodeID == childID {
-							levelNodes[existingLevel] = append(oldLevelNodes[:i], oldLevelNodes[i+1:]...)
-							break
-						}
-					}
-				}
-
-				// Add to new level
-				nodeLevels[childID] = childLevel
-				levelNodes[childLevel] = append(levelNodes[childLevel], childID)
-				queue = append(queue, childID)
-			}
-		}
-	}
-
-	// Find max level
-	maxLevel := 0
-	for level := range levelNodes {
-		if level > maxLevel {
-			maxLevel = level
-		}
-	}
-
-	// Position nodes level by level
-	for level := 0; level <= maxLevel; level++ {
-		nodes := levelNodes[level]
-		if len(nodes) == 0 {
-			continue
-		}
-
-		// Calculate Y position for this level
-		yPos := float64(StartY + level*NodeSpacingY)
-
-		// Calculate starting X position to center the nodes at this level
-		totalWidth := float64((len(nodes) - 1) * NodeSpacingX)
-		startXForLevel := float64(StartX) - totalWidth/2
-
-		// Position each node in this level
-		for i, nodeID := range nodes {
-			if node := nodeMap[nodeID]; node != nil {
-				node.PositionX = startXForLevel + float64(i*NodeSpacingX)
-				node.PositionY = yPos
-			}
+	// Apply positions back to the original nodes in wb.FlowNodes
+	for nodeID, pos := range layoutResult.Positions {
+		if idx, ok := nodeIndexMap[nodeID]; ok {
+			wb.FlowNodes[idx].PositionX = pos.X
+			wb.FlowNodes[idx].PositionY = pos.Y
 		}
 	}
 

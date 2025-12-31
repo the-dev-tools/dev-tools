@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"the-dev-tools/server/pkg/flowgraph"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -221,6 +222,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		}
 
 		var flowNodes []mflow.Node
+		var flowEdges []mflow.Edge
 		var startNodeID idwrap.IDWrap
 		for _, n := range data.FlowNodes {
 			if n.FlowID == flow.ID {
@@ -230,8 +232,13 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 			}
 		}
+		for _, e := range data.FlowEdges {
+			if e.FlowID == flow.ID {
+				flowEdges = append(flowEdges, e)
+			}
+		}
 
-		orderedNodes := linearizeNodes(startNodeID, flowNodes, edgesBySource)
+		orderedNodes := flowgraph.LinearizeNodes(startNodeID, flowNodes, flowEdges)
 
 		for _, node := range orderedNodes {
 			var stepWrapper YamlStepWrapper
@@ -391,59 +398,6 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	return yaml.Marshal(yamlFormat)
-}
-
-func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mflow.Node, edgesBySource map[idwrap.IDWrap][]mflow.Edge) []mflow.Node {
-	nodeMap := make(map[idwrap.IDWrap]mflow.Node)
-	for _, n := range allNodes {
-		nodeMap[n.ID] = n
-	}
-
-	visited := make(map[idwrap.IDWrap]bool)
-	var result []mflow.Node
-	queue := []idwrap.IDWrap{startNodeID}
-	visited[startNodeID] = true
-
-	for len(queue) > 0 {
-		currentID := queue[0]
-		queue = queue[1:]
-
-		if n, ok := nodeMap[currentID]; ok {
-			result = append(result, n)
-		}
-
-		edges := edgesBySource[currentID]
-		var neighbors []mflow.Node
-		for _, e := range edges {
-			if target, ok := nodeMap[e.TargetID]; ok {
-				neighbors = append(neighbors, target)
-			}
-		}
-
-		sort.Slice(neighbors, func(i, j int) bool {
-			return neighbors[i].Name < neighbors[j].Name
-		})
-
-		for _, neighbor := range neighbors {
-			if !visited[neighbor.ID] {
-				visited[neighbor.ID] = true
-				queue = append(queue, neighbor.ID)
-			}
-		}
-	}
-
-	var disconnected []mflow.Node
-	for _, n := range allNodes {
-		if !visited[n.ID] {
-			disconnected = append(disconnected, n)
-		}
-	}
-	sort.Slice(disconnected, func(i, j int) bool {
-		return disconnected[i].Name < disconnected[j].Name
-	})
-	result = append(result, disconnected...)
-
-	return result
 }
 
 type deltaLookupContext struct {
