@@ -73,6 +73,11 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, template
 		return nil, fmt.Errorf("failed to process steps: %w", err)
 	}
 
+	// Create default start node if none was explicitly defined
+	if !processRes.StartNodeFound {
+		createStartNodeWithID(startNodeID, flowID, result)
+	}
+
 	// Create edges
 	if err := createEdges(flowID, startNodeID, processRes.NodeInfoMap, processRes.NodeList, flowEntry.Steps, processRes.StartNodeFound, result); err != nil {
 		return nil, fmt.Errorf("failed to create edges: %w", err)

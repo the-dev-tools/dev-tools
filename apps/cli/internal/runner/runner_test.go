@@ -662,3 +662,96 @@ flows:
 		t.Error("JS node 'ComputeResult' was not found in results")
 	}
 }
+
+// TestFlowRun_OrphanNodesNotExecuted verifies that nodes without depends_on
+// remain disconnected and don't execute when there's an explicit manual_start.
+func TestFlowRun_OrphanNodesNotExecuted(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	// Create a flow with explicit manual_start and orphan nodes (no depends_on)
+	// Only the Start node should execute, OrphanRequest should NOT execute
+	yamlContent := fmt.Sprintf(`workspace_name: Orphan Node Test
+flows:
+  - name: OrphanFlow
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: ConnectedRequest
+          method: GET
+          url: %s/connected
+          depends_on: Start
+      - request:
+          name: OrphanRequest
+          method: GET
+          url: %s/orphan
+`, fixture.mockServer.URL, fixture.mockServer.URL)
+
+	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML([]byte(yamlContent), yamlflowsimplev2.ConvertOptionsV2{
+		WorkspaceID: fixture.workspaceID,
+	})
+	if err != nil {
+		t.Fatalf("failed to convert YAML: %v", err)
+	}
+
+	// Verify edges were created correctly - OrphanRequest should not be connected
+	orphanConnected := false
+	for _, edge := range resolved.FlowEdges {
+		for _, node := range resolved.FlowNodes {
+			if node.Name == "OrphanRequest" && edge.TargetID == node.ID {
+				orphanConnected = true
+				break
+			}
+		}
+	}
+	if orphanConnected {
+		t.Error("OrphanRequest should NOT have any incoming edges")
+	}
+
+	// Import the flow data
+	fixture.importWorkspaceBundle(resolved)
+
+	// Get the flow
+	flow := fixture.getFlowByName("OrphanFlow")
+	if flow == nil {
+		t.Fatal("OrphanFlow not found")
+	}
+
+	// Run the flow
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	result, err := runner.RunFlow(ctx, flow, fixture.getRunnerServices(nil), nil)
+	if err != nil {
+		t.Fatalf("flow execution failed: %v", err)
+	}
+
+	// Verify flow succeeded
+	if result.Status != "success" {
+		t.Errorf("expected status 'success', got '%s'. Error: %s", result.Status, result.Error)
+	}
+
+	// Verify ConnectedRequest was executed
+	connectedExecuted := false
+	orphanExecuted := false
+	for _, node := range result.Nodes {
+		if node.Name == "ConnectedRequest" {
+			connectedExecuted = true
+		}
+		if node.Name == "OrphanRequest" {
+			orphanExecuted = true
+		}
+	}
+
+	if !connectedExecuted {
+		t.Error("ConnectedRequest should have been executed")
+	}
+
+	if orphanExecuted {
+		t.Error("OrphanRequest should NOT have been executed (it's an orphan node)")
+	}
+}
