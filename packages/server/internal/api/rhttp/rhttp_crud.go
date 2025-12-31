@@ -143,7 +143,7 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 	}
 
 	// Commit and auto-publish sync events atomically
-	if err := syncTx.CommitAndPublish(ctx, h.publishInsertEvent); err != nil {
+	if err := syncTx.CommitAndPublish(ctx, func(item mhttp.HTTP) { h.publishInsertEvent(item) }); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -309,7 +309,9 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 	}
 
 	// Commit and bulk publish HTTP updates (grouped by workspace)
-	if err := httpSyncTx.CommitAndPublish(ctx, h.publishBulkHttpUpdate); err != nil {
+	if err := httpSyncTx.CommitAndPublish(ctx, func(topic HttpTopic, events []txutil.UpdateEvent[mhttp.HTTP, patch.HTTPDeltaPatch]) {
+		h.publishBulkHttpUpdate(topic, events)
+	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -412,7 +414,9 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 	}
 
 	// Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHttpDelete); err != nil {
+	if err := syncTx.CommitAndPublish(ctx, func(topic HttpTopic, events []txutil.DeleteEvent[idwrap.IDWrap]) {
+		h.publishBulkHttpDelete(topic, events)
+	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

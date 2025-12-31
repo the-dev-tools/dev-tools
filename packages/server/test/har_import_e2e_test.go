@@ -97,10 +97,10 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	fileStream := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
 
 	// Create import handler
-	importHandler := rimportv2.NewImportV2RPC(
-		baseDB.DB,
-		mockLogger,
-		rimportv2.ImportServices{
+	importHandler := rimportv2.NewImportV2RPC(rimportv2.ImportV2Deps{
+		DB:     baseDB.DB,
+		Logger: mockLogger,
+		Services: rimportv2.ImportServices{
 			Workspace:          services.Ws,
 			User:               services.Us,
 			Http:               &httpService,
@@ -118,9 +118,11 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			NodeRequest:        &nodeRequestService,
 			Edge:               &edgeService,
 		},
-		sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
-		sworkspace.NewUserReaderFromQueries(baseDB.Queries),
-		rimportv2.ImportStreamers{
+		Readers: rimportv2.ImportV2Readers{
+			Workspace: sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
+			User:      sworkspace.NewUserReaderFromQueries(baseDB.Queries),
+		},
+		Streamers: rimportv2.ImportStreamers{
 			Flow:               flowStream,
 			Node:               nodeStream,
 			Edge:               edgeStream,
@@ -133,7 +135,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			HttpAssert:         httpAssertStream,
 			File:               fileStream,
 		},
-	)
+	})
 
 	// Create resolver for delta resolution
 	requestResolver := resolver.NewStandardResolver(
@@ -147,26 +149,30 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	)
 
 	// Create HTTP handler
-	httpHandler := rhttp.New(
-		baseDB.DB,
-		httpService.Reader(),
-		httpService,
-		services.Us,
-		services.Ws,
-		services.Wus,
-		sworkspace.NewUserReaderFromQueries(baseDB.Queries),
-		sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
-		envService,
-		varService,
-		bodyService,
-		httpHeaderService,
-		httpSearchParamService,
-		httpBodyFormService,
-		httpBodyUrlEncodedService,
-		httpAssertService,
-		shttp.NewHttpResponseService(baseDB.Queries),
-		requestResolver,
-		&rhttp.HttpStreamers{
+	httpHandler := rhttp.New(rhttp.HttpServiceRPCDeps{
+		DB: baseDB.DB,
+		Readers: rhttp.HttpServiceRPCReaders{
+			Http:      httpService.Reader(),
+			User:      sworkspace.NewUserReaderFromQueries(baseDB.Queries),
+			Workspace: sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
+		},
+		Services: rhttp.HttpServiceRPCServices{
+			Http:               httpService,
+			User:               services.Us,
+			Workspace:          services.Ws,
+			WorkspaceUser:      services.Wus,
+			Env:                envService,
+			Variable:           varService,
+			HttpBodyRaw:        bodyService,
+			HttpHeader:         httpHeaderService,
+			HttpSearchParam:    httpSearchParamService,
+			HttpBodyForm:       httpBodyFormService,
+			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
+			HttpAssert:         httpAssertService,
+			HttpResponse:       shttp.NewHttpResponseService(baseDB.Queries),
+		},
+		Resolver: requestResolver,
+		Streamers: &rhttp.HttpStreamers{
 			Http:               stream,
 			HttpHeader:         httpHeaderStream,
 			HttpSearchParam:    httpSearchParamStream,
@@ -180,7 +186,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			HttpBodyRaw:        httpBodyRawStream,
 			Log:                memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent](),
 		},
-	)
+	})
 
 	// We'll call RPC methods directly instead of using Connect clients
 	// This matches the approach used in the integration tests

@@ -4,6 +4,7 @@ package rimportv2
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -46,6 +47,22 @@ type ImportServices struct {
 	Edge               *sflow.EdgeService
 }
 
+func (s *ImportServices) Validate() error {
+	// Http is a pointer to struct in DefaultImporter
+	if s.Http == nil { return fmt.Errorf("http service is required") }
+	if s.Flow == nil { return fmt.Errorf("flow service is required") }
+	if s.File == nil { return fmt.Errorf("file service is required") }
+	if s.HttpSearchParam == nil { return fmt.Errorf("http search param service is required") }
+	if s.HttpBodyForm == nil { return fmt.Errorf("http body form service is required") }
+	if s.HttpBodyUrlEncoded == nil { return fmt.Errorf("http body url encoded service is required") }
+	if s.HttpBodyRaw == nil { return fmt.Errorf("http body raw service is required") }
+	if s.HttpAssert == nil { return fmt.Errorf("http assert service is required") }
+	if s.Node == nil { return fmt.Errorf("node service is required") }
+	if s.NodeRequest == nil { return fmt.Errorf("node request service is required") }
+	if s.Edge == nil { return fmt.Errorf("edge service is required") }
+	return nil
+}
+
 // ImportStreamers groups all event streams
 type ImportStreamers struct {
 	Flow               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
@@ -61,6 +78,41 @@ type ImportStreamers struct {
 	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 	Env                eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 	EnvVar             eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
+}
+
+func (s *ImportStreamers) Validate() error {
+	if s.Flow == nil { return fmt.Errorf("flow stream is required") }
+	if s.Http == nil { return fmt.Errorf("http stream is required") }
+	if s.File == nil { return fmt.Errorf("file stream is required") }
+	return nil
+}
+
+type ImportV2Deps struct {
+	DB         *sql.DB
+	Logger     *slog.Logger
+	Services   ImportServices
+	Readers    ImportV2Readers
+	Streamers  ImportStreamers
+}
+
+type ImportV2Readers struct {
+	Workspace *sworkspace.WorkspaceReader
+	User      *sworkspace.UserReader
+}
+
+func (r *ImportV2Readers) Validate() error {
+	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
+	if r.User == nil { return fmt.Errorf("user reader is required") }
+	return nil
+}
+
+func (d *ImportV2Deps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if d.Logger == nil { return fmt.Errorf("logger is required") }
+	if err := d.Services.Validate(); err != nil { return err }
+	if err := d.Readers.Validate(); err != nil { return err }
+	if err := d.Streamers.Validate(); err != nil { return err }
+	return nil
 }
 
 // ImportV2RPC implements the Connect RPC interface for HAR import v2
@@ -108,68 +160,65 @@ type ImportV2RPC struct {
 }
 
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies
-func NewImportV2RPC(
-	db *sql.DB,
-	logger *slog.Logger,
-	services ImportServices,
-	wsReader *sworkspace.WorkspaceReader,
-	userReader *sworkspace.UserReader,
-	streamers ImportStreamers,
-) *ImportV2RPC {
+func NewImportV2RPC(deps ImportV2Deps) *ImportV2RPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("ImportV2 Deps validation failed: %v", err))
+	}
+
 	// Create the importer with modern service dependencies
-	importer := NewImporter(db,
-		services.Http, services.Flow, services.File,
-		services.HttpHeader, services.HttpSearchParam, services.HttpBodyForm, services.HttpBodyUrlEncoded, services.HttpBodyRaw,
-		services.HttpAssert, services.Node, services.NodeRequest, services.Edge,
-		services.Env, services.Var)
+	importer := NewImporter(deps.DB,
+		deps.Services.Http, deps.Services.Flow, deps.Services.File,
+		deps.Services.HttpHeader, deps.Services.HttpSearchParam, deps.Services.HttpBodyForm, deps.Services.HttpBodyUrlEncoded, deps.Services.HttpBodyRaw,
+		deps.Services.HttpAssert, deps.Services.Node, deps.Services.NodeRequest, deps.Services.Edge,
+		deps.Services.Env, deps.Services.Var)
 
 	// Create the validator for input validation
-	validator := NewValidator(&services.User, userReader)
+	validator := NewValidator(&deps.Services.User, deps.Readers.User)
 
 	// Create the main service with functional options
 	service := NewService(importer, validator,
-		WithLogger(logger),
-		WithHTTPService(services.Http),
+		WithLogger(deps.Logger),
+		WithHTTPService(deps.Services.Http),
 	)
 
 	// Create and return the RPC handler
 	return &ImportV2RPC{
-		db:                       db,
+		db:                       deps.DB,
 		service:                  service,
-		Logger:                   logger,
-		ws:                       services.Workspace,
-		us:                       services.User,
-		wsReader:                 wsReader,
-		userReader:               userReader,
-		FlowStream:               streamers.Flow,
-		NodeStream:               streamers.Node,
-		EdgeStream:               streamers.Edge,
-		HttpStream:               streamers.Http,
-		HttpHeaderStream:         streamers.HttpHeader,
-		HttpSearchParamStream:    streamers.HttpSearchParam,
-		HttpBodyFormStream:       streamers.HttpBodyForm,
-		HttpBodyUrlEncodedStream: streamers.HttpBodyUrlEncoded,
-		HttpBodyRawStream:        streamers.HttpBodyRaw,
-		HttpAssertStream:         streamers.HttpAssert,
-		FileStream:               streamers.File,
-		EnvStream:                streamers.Env,
-		EnvVarStream:             streamers.EnvVar,
+		Logger:                   deps.Logger,
+		ws:                       deps.Services.Workspace,
+		us:                       deps.Services.User,
+		wsReader:                 deps.Readers.Workspace,
+		userReader:               deps.Readers.User,
+		FlowStream:               deps.Streamers.Flow,
+		NodeStream:               deps.Streamers.Node,
+		EdgeStream:               deps.Streamers.Edge,
+		HttpStream:               deps.Streamers.Http,
+		HttpHeaderStream:         deps.Streamers.HttpHeader,
+		HttpSearchParamStream:    deps.Streamers.HttpSearchParam,
+		HttpBodyFormStream:       deps.Streamers.HttpBodyForm,
+		HttpBodyUrlEncodedStream: deps.Streamers.HttpBodyUrlEncoded,
+		HttpBodyRawStream:        deps.Streamers.HttpBodyRaw,
+		HttpAssertStream:         deps.Streamers.HttpAssert,
+		FileStream:               deps.Streamers.File,
+		EnvStream:                deps.Streamers.Env,
+		EnvVarStream:             deps.Streamers.EnvVar,
 
 		// Exposed Services
-		HttpService:               services.Http,
-		FlowService:               services.Flow,
-		FileService:               services.File,
-		HttpHeaderService:         services.HttpHeader,
-		HttpSearchParamService:    services.HttpSearchParam,
-		HttpBodyFormService:       services.HttpBodyForm,
-		HttpBodyUrlEncodedService: services.HttpBodyUrlEncoded,
-		HttpBodyRawService:        services.HttpBodyRaw,
-		HttpAssertService:         services.HttpAssert,
-		NodeService:               services.Node,
-		NodeRequestService:        services.NodeRequest,
-		EdgeService:               services.Edge,
-		EnvService:                services.Env,
-		VarService:                services.Var,
+		HttpService:               deps.Services.Http,
+		FlowService:               deps.Services.Flow,
+		FileService:               deps.Services.File,
+		HttpHeaderService:         deps.Services.HttpHeader,
+		HttpSearchParamService:    deps.Services.HttpSearchParam,
+		HttpBodyFormService:       deps.Services.HttpBodyForm,
+		HttpBodyUrlEncodedService: deps.Services.HttpBodyUrlEncoded,
+		HttpBodyRawService:        deps.Services.HttpBodyRaw,
+		HttpAssertService:         deps.Services.HttpAssert,
+		NodeService:               deps.Services.Node,
+		NodeRequestService:        deps.Services.NodeRequest,
+		EdgeService:               deps.Services.Edge,
+		EnvService:                deps.Services.Env,
+		VarService:                deps.Services.Var,
 	}
 }
 

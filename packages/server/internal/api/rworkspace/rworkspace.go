@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 
 	"connectrpc.com/connect"
@@ -60,27 +61,69 @@ type WorkspaceServiceRPC struct {
 	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 }
 
-func New(
-	db *sql.DB,
-	ws sworkspace.WorkspaceService,
-	wus sworkspace.UserService,
-	us suser.UserService,
-	es senv.EnvService,
-	wsReader *sworkspace.WorkspaceReader,
-	userReader *sworkspace.UserReader,
-	stream eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent],
-	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent],
-) WorkspaceServiceRPC {
+type WorkspaceServiceRPCServices struct {
+	Workspace     sworkspace.WorkspaceService
+	WorkspaceUser sworkspace.UserService
+	User          suser.UserService
+	Env           senv.EnvService
+}
+
+func (s *WorkspaceServiceRPCServices) Validate() error {
+	return nil
+}
+
+type WorkspaceServiceRPCReaders struct {
+	Workspace *sworkspace.WorkspaceReader
+	User      *sworkspace.UserReader
+}
+
+func (r *WorkspaceServiceRPCReaders) Validate() error {
+	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
+	if r.User == nil { return fmt.Errorf("user reader is required") }
+	return nil
+}
+
+type WorkspaceServiceRPCStreamers struct {
+	Workspace   eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
+	Environment eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+}
+
+func (s *WorkspaceServiceRPCStreamers) Validate() error {
+	if s.Workspace == nil { return fmt.Errorf("workspace stream is required") }
+	if s.Environment == nil { return fmt.Errorf("environment stream is required") }
+	return nil
+}
+
+type WorkspaceServiceRPCDeps struct {
+	DB        *sql.DB
+	Services  WorkspaceServiceRPCServices
+	Readers   WorkspaceServiceRPCReaders
+	Streamers WorkspaceServiceRPCStreamers
+}
+
+func (d *WorkspaceServiceRPCDeps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if err := d.Services.Validate(); err != nil { return err }
+	if err := d.Readers.Validate(); err != nil { return err }
+	if err := d.Streamers.Validate(); err != nil { return err }
+	return nil
+}
+
+func New(deps WorkspaceServiceRPCDeps) WorkspaceServiceRPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("WorkspaceServiceRPC Deps validation failed: %v", err))
+	}
+
 	return WorkspaceServiceRPC{
-		DB:         db,
-		ws:         ws,
-		wus:        wus,
-		us:         us,
-		es:         es,
-		wsReader:   wsReader,
-		userReader: userReader,
-		stream:     stream,
-		envStream:  envStream,
+		DB:         deps.DB,
+		ws:         deps.Services.Workspace,
+		wus:        deps.Services.WorkspaceUser,
+		us:         deps.Services.User,
+		es:         deps.Services.Env,
+		wsReader:   deps.Readers.Workspace,
+		userReader: deps.Readers.User,
+		stream:     deps.Streamers.Workspace,
+		envStream:  deps.Streamers.Environment,
 	}
 }
 

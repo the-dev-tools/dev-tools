@@ -214,10 +214,42 @@ func run() error {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, workspaceReader, userReader, streamers.Workspace, streamers.Environment)
+	workspaceSrv := rworkspace.New(rworkspace.WorkspaceServiceRPCDeps{
+		DB: currentDB,
+		Services: rworkspace.WorkspaceServiceRPCServices{
+			Workspace:     workspaceService,
+			WorkspaceUser: workspaceUserService,
+			User:          userService,
+			Env:           environmentService,
+		},
+		Readers: rworkspace.WorkspaceServiceRPCReaders{
+			Workspace: workspaceReader,
+			User:      userReader,
+		},
+		Streamers: rworkspace.WorkspaceServiceRPCStreamers{
+			Workspace:   streamers.Workspace,
+			Environment: streamers.Environment,
+		},
+	})
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
-	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, envReader, varReader, streamers.Environment, streamers.EnvironmentVariable)
+	envSrv := renv.New(renv.EnvRPCDeps{
+		DB: currentDB,
+		Services: renv.EnvRPCServices{
+			Env:       environmentService,
+			Variable:  variableService,
+			User:      userService,
+			Workspace: workspaceService,
+		},
+		Readers: renv.EnvRPCReaders{
+			Env:      envReader,
+			Variable: varReader,
+		},
+		Streamers: renv.EnvRPCStreamers{
+			Env:      streamers.Environment,
+			Variable: streamers.EnvironmentVariable,
+		},
+	})
 	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
 
 	// Create request resolver for HTTP delta resolution (shared with flow service)
@@ -247,19 +279,38 @@ func run() error {
 		Log:                streamers.Log,
 	}
 
-	httpSrv := rhttp.New(
-		currentDB, httpReader, httpService, userService, workspaceService, workspaceUserService, userReader, workspaceReader, environmentService, variableService,
-		httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService,
-		httpAssertService, httpResponseService, requestResolver,
-		httpStreamers,
-	)
+	httpSrv := rhttp.New(rhttp.HttpServiceRPCDeps{
+		DB: currentDB,
+		Readers: rhttp.HttpServiceRPCReaders{
+			Http:      httpReader,
+			User:      userReader,
+			Workspace: workspaceReader,
+		},
+		Services: rhttp.HttpServiceRPCServices{
+			Http:               httpService,
+			User:               userService,
+			Workspace:          workspaceService,
+			WorkspaceUser:      workspaceUserService,
+			Env:                environmentService,
+			Variable:           variableService,
+			HttpBodyRaw:        httpBodyRawService,
+			HttpHeader:         httpHeaderService,
+			HttpSearchParam:    httpSearchParamService,
+			HttpBodyForm:       httpBodyFormService,
+			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
+			HttpAssert:         httpAssertService,
+			HttpResponse:       httpResponseService,
+		},
+		Resolver:  requestResolver,
+		Streamers: httpStreamers,
+	})
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 
 	// ImportV2 Service
-	importV2Srv := rimportv2.NewImportV2RPC(
-		currentDB,
-		logger,
-		rimportv2.ImportServices{
+	importV2Srv := rimportv2.NewImportV2RPC(rimportv2.ImportV2Deps{
+		DB:     currentDB,
+		Logger: logger,
+		Services: rimportv2.ImportServices{
 			Workspace:          workspaceService,
 			User:               userService,
 			Http:               &httpService,
@@ -277,9 +328,11 @@ func run() error {
 			NodeRequest:        &flowNodeRequestSevice,
 			Edge:               &flowEdgeService,
 		},
-		workspaceReader,
-		userReader,
-		rimportv2.ImportStreamers{
+		Readers: rimportv2.ImportV2Readers{
+			Workspace: workspaceReader,
+			User:      userReader,
+		},
+		Streamers: rimportv2.ImportStreamers{
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,
 			Edge:               streamers.Edge,
@@ -294,7 +347,7 @@ func run() error {
 			Env:                streamers.Environment,
 			EnvVar:             streamers.EnvironmentVariable,
 		},
-	)
+	})
 	newServiceManager.AddService(rimportv2.CreateImportV2Service(importV2Srv, optionsAll))
 
 	// Create workspace importer adapter for flow service
@@ -347,84 +400,105 @@ func run() error {
 		jsBaseURL,
 	)
 
-	flowSrvV2 := rflowv2.New(
-		currentDB,
-		workspaceReader,
-		flowReader,
-		nodeReader,
-		envReader,
-		httpReader,
-		flowEdgeReader,
-		&workspaceService,
-		&flowService,
-		&flowEdgeService,
-		&flowNodeService,
-		&flowNodeRequestSevice,
-		&flowNodeForService,
-		&flowNodeForeachService,
-		flowNodeConditionService,
-		&flowNodeNodeJsService,
-		&nodeExecutionService,
-		&flowVariableService,
-		&environmentService,
-		&variableService,
-		&httpService,
-		httpBodyRawService,
-		requestResolver,
-		logger,
-		workspaceImporter,
-		httpResponseService,
-		streamers.Flow,
-		streamers.Node,
-		streamers.Edge,
-		streamers.FlowVariable,
-		streamers.FlowVersion,
-		streamers.For,
-		streamers.Condition,
-		streamers.ForEach,
-		streamers.Js,
-		streamers.Execution,
-		streamers.HttpResponse,
-		streamers.HttpResponseHeader,
-		streamers.HttpResponseAssert,
-		streamers.Log,
-		jsClient,
-	)
+	flowSrvV2 := rflowv2.New(rflowv2.FlowServiceV2Deps{
+		DB: currentDB,
+		Readers: rflowv2.FlowServiceV2Readers{
+			Workspace:     workspaceReader,
+			Flow:          flowReader,
+			Node:          nodeReader,
+			Env:           envReader,
+			Http:          httpReader,
+			Edge:          flowEdgeReader,
+			NodeRequest:   flowNodeRequestReader,
+			FlowVariable:  flowVariableReader,
+			NodeExecution: nodeExecutionReader,
+			HttpResponse:  httpResponseReader,
+		},
+		Services: rflowv2.FlowServiceV2Services{
+			Workspace:     &workspaceService,
+			Flow:          &flowService,
+			Edge:          &flowEdgeService,
+			Node:          &flowNodeService,
+			NodeRequest:   &flowNodeRequestSevice,
+			NodeFor:       &flowNodeForService,
+			NodeForEach:   &flowNodeForeachService,
+			NodeIf:        flowNodeConditionService,
+			NodeJs:        &flowNodeNodeJsService,
+			NodeExecution: &nodeExecutionService,
+			FlowVariable:  &flowVariableService,
+			Env:           &environmentService,
+			Var:           &variableService,
+			Http:          &httpService,
+			HttpBodyRaw:   httpBodyRawService,
+			HttpResponse:  httpResponseService,
+			Importer:      workspaceImporter,
+		},
+		Streamers: rflowv2.FlowServiceV2Streamers{
+			Flow:               streamers.Flow,
+			Node:               streamers.Node,
+			Edge:               streamers.Edge,
+			Var:                streamers.FlowVariable,
+			Version:            streamers.FlowVersion,
+			For:                streamers.For,
+			Condition:          streamers.Condition,
+			ForEach:            streamers.ForEach,
+			Js:                 streamers.Js,
+			Execution:          streamers.Execution,
+			HttpResponse:       streamers.HttpResponse,
+			HttpResponseHeader: streamers.HttpResponseHeader,
+			HttpResponseAssert: streamers.HttpResponseAssert,
+			Log:                streamers.Log,
+		},
+		Resolver: requestResolver,
+		Logger:   logger,
+		JsClient: jsClient,
+	})
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
 	logSrv := rlog.New(streamers.Log)
 	newServiceManager.AddService(rlog.CreateService(logSrv, optionsAll))
 
 	// ExportV2 Service
-	exportV2Srv := rexportv2.NewExportV2RPC(
-		currentDB,
-		queries,
-		workspaceService,
-		userService,
-		&httpService,
-		&flowService,
-		fileService,
-		logger,
-	)
+	exportV2Srv := rexportv2.NewExportV2RPC(rexportv2.ExportV2Deps{
+		DB:        currentDB,
+		Queries:   queries,
+		Workspace: workspaceService,
+		User:      userService,
+		Http:      &httpService,
+		Flow:      &flowService,
+		File:      fileService,
+		Logger:    logger,
+	})
 	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
 
-	fileSrv := rfile.New(currentDB, fileService, userService, workspaceService, streamers.File)
+	fileSrv := rfile.New(rfile.FileServiceRPCDeps{
+		DB: currentDB,
+		Services: rfile.FileServiceRPCServices{
+			File:      fileService,
+			User:      userService,
+			Workspace: workspaceService,
+		},
+		Stream: streamers.File,
+	})
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
 	// Reference Service
-	refServiceRPC := rreference.NewReferenceServiceRPC(currentDB,
-		userReader,
-		workspaceReader,
-		envReader,
-		varReader,
-		flowReader,
-		nodeReader,
-		flowNodeRequestReader,
-		flowVariableReader,
-		flowEdgeReader,
-		nodeExecutionReader,
-		httpResponseReader,
-	)
+	refServiceRPC := rreference.NewReferenceServiceRPC(rreference.ReferenceServiceRPCDeps{
+		DB: currentDB,
+		Readers: rreference.ReferenceServiceRPCReaders{
+			User:          userReader,
+			Workspace:     workspaceReader,
+			Env:           envReader,
+			Variable:      varReader,
+			Flow:          flowReader,
+			Node:          nodeReader,
+			NodeRequest:   flowNodeRequestReader,
+			FlowVariable:  flowVariableReader,
+			FlowEdge:      flowEdgeReader,
+			NodeExecution: nodeExecutionReader,
+			HttpResponse:  httpResponseReader,
+		},
+	})
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
 
 	// Start services

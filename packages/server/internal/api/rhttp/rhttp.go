@@ -3,6 +3,7 @@ package rhttp
 
 import (
 	"database/sql"
+	"fmt"
 
 	"connectrpc.com/connect"
 
@@ -16,9 +17,8 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	httpv1connect "the-dev-tools/spec/dist/buf/go/api/http/v1/httpv1connect"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	"the-dev-tools/spec/dist/buf/go/api/http/v1/httpv1connect"
 )
 
 const (
@@ -37,7 +37,7 @@ type HttpEvent struct {
 	Type    string
 	IsDelta bool
 	Patch   patch.HTTPDeltaPatch
-	Http    *apiv1.Http
+	Http    *httpv1.Http
 }
 
 // HttpHeaderTopic defines the streaming topic for HTTP header events
@@ -50,7 +50,7 @@ type HttpHeaderEvent struct {
 	Type       string
 	IsDelta    bool
 	Patch      patch.HTTPHeaderPatch
-	HttpHeader *apiv1.HttpHeader
+	HttpHeader *httpv1.HttpHeader
 }
 
 // HttpSearchParamTopic defines the streaming topic for HTTP search param events
@@ -63,7 +63,7 @@ type HttpSearchParamEvent struct {
 	Type            string
 	IsDelta         bool
 	Patch           patch.HTTPSearchParamPatch
-	HttpSearchParam *apiv1.HttpSearchParam
+	HttpSearchParam *httpv1.HttpSearchParam
 }
 
 // HttpBodyFormTopic defines the streaming topic for HTTP body form events
@@ -76,7 +76,7 @@ type HttpBodyFormEvent struct {
 	Type         string
 	IsDelta      bool
 	Patch        patch.HTTPBodyFormPatch
-	HttpBodyForm *apiv1.HttpBodyFormData
+	HttpBodyForm *httpv1.HttpBodyFormData
 }
 
 // HttpBodyUrlEncodedTopic defines the streaming topic for HTTP body URL encoded events
@@ -89,7 +89,7 @@ type HttpBodyUrlEncodedEvent struct {
 	Type               string
 	IsDelta            bool
 	Patch              patch.HTTPBodyUrlEncodedPatch
-	HttpBodyUrlEncoded *apiv1.HttpBodyUrlEncoded
+	HttpBodyUrlEncoded *httpv1.HttpBodyUrlEncoded
 }
 
 // HttpAssertTopic defines the streaming topic for HTTP assert events
@@ -102,7 +102,7 @@ type HttpAssertEvent struct {
 	Type       string
 	IsDelta    bool
 	Patch      patch.HTTPAssertPatch
-	HttpAssert *apiv1.HttpAssert
+	HttpAssert *httpv1.HttpAssert
 }
 
 // HttpVersionTopic defines the streaming topic for HTTP version events
@@ -113,7 +113,7 @@ type HttpVersionTopic struct {
 // HttpVersionEvent defines the event payload for HTTP version streaming
 type HttpVersionEvent struct {
 	Type        string
-	HttpVersion *apiv1.HttpVersion
+	HttpVersion *httpv1.HttpVersion
 }
 
 // HttpResponseTopic defines the streaming topic for HTTP response events
@@ -124,7 +124,7 @@ type HttpResponseTopic struct {
 // HttpResponseEvent defines the event payload for HTTP response streaming
 type HttpResponseEvent struct {
 	Type         string
-	HttpResponse *apiv1.HttpResponse
+	HttpResponse *httpv1.HttpResponse
 }
 
 // HttpResponseHeaderTopic defines the streaming topic for HTTP response header events
@@ -135,7 +135,7 @@ type HttpResponseHeaderTopic struct {
 // HttpResponseHeaderEvent defines the event payload for HTTP response header streaming
 type HttpResponseHeaderEvent struct {
 	Type               string
-	HttpResponseHeader *apiv1.HttpResponseHeader
+	HttpResponseHeader *httpv1.HttpResponseHeader
 }
 
 // HttpResponseAssertTopic defines the streaming topic for HTTP response assert events
@@ -146,7 +146,7 @@ type HttpResponseAssertTopic struct {
 // HttpResponseAssertEvent defines the event payload for HTTP response assert streaming
 type HttpResponseAssertEvent struct {
 	Type               string
-	HttpResponseAssert *apiv1.HttpResponseAssert
+	HttpResponseAssert *httpv1.HttpResponseAssert
 }
 
 // HttpBodyRawTopic defines the streaming topic for HTTP body raw events
@@ -159,7 +159,7 @@ type HttpBodyRawEvent struct {
 	Type        string
 	IsDelta     bool
 	Patch       patch.HTTPBodyRawPatch
-	HttpBodyRaw *apiv1.HttpBodyRaw
+	HttpBodyRaw *httpv1.HttpBodyRaw
 }
 
 // HttpStreamers groups all event streams used by the HTTP service
@@ -187,74 +187,107 @@ type HttpServiceRPC struct {
 	us         suser.UserService
 	ws         sworkspace.WorkspaceService
 	wus        sworkspace.UserService
-
 	userReader *sworkspace.UserReader
 	wsReader   *sworkspace.WorkspaceReader
 
-	// Environment and variable services
 	es senv.EnvService
 	vs senv.VariableService
 
-	// Additional services for HTTP components
-	bodyService         *shttp.HttpBodyRawService
-	httpResponseService shttp.HttpResponseService
-
-	// Resolver for delta request resolution
-	resolver resolver.RequestResolver
-
-	// Child entity services
+	bodyService               *shttp.HttpBodyRawService
 	httpHeaderService         shttp.HttpHeaderService
 	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	httpAssertService         *shttp.HttpAssertService
+	httpResponseService       shttp.HttpResponseService
+
+	resolver resolver.RequestResolver
 
 	// Streamers
 	streamers *HttpStreamers
 }
 
+type HttpServiceRPCReaders struct {
+	Http      *shttp.Reader
+	User      *sworkspace.UserReader
+	Workspace *sworkspace.WorkspaceReader
+}
+
+func (r *HttpServiceRPCReaders) Validate() error {
+	if r.Http == nil { return fmt.Errorf("http reader is required") }
+	if r.User == nil { return fmt.Errorf("user reader is required") }
+	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
+	return nil
+}
+
+type HttpServiceRPCServices struct {
+	Http               shttp.HTTPService
+	User               suser.UserService
+	Workspace          sworkspace.WorkspaceService
+	WorkspaceUser      sworkspace.UserService
+	Env                senv.EnvService
+	Variable           senv.VariableService
+	HttpBodyRaw        *shttp.HttpBodyRawService
+	HttpHeader         shttp.HttpHeaderService
+	HttpSearchParam    *shttp.HttpSearchParamService
+	HttpBodyForm       *shttp.HttpBodyFormService
+	HttpBodyUrlEncoded *shttp.HttpBodyUrlEncodedService
+	HttpAssert         *shttp.HttpAssertService
+	HttpResponse       shttp.HttpResponseService
+}
+
+func (s *HttpServiceRPCServices) Validate() error {
+	if s.HttpBodyRaw == nil { return fmt.Errorf("http body raw service is required") }
+	if s.HttpSearchParam == nil { return fmt.Errorf("http search param service is required") }
+	if s.HttpBodyForm == nil { return fmt.Errorf("http body form service is required") }
+	if s.HttpBodyUrlEncoded == nil { return fmt.Errorf("http body url encoded service is required") }
+	if s.HttpAssert == nil { return fmt.Errorf("http assert service is required") }
+	return nil
+}
+
+type HttpServiceRPCDeps struct {
+	DB        *sql.DB
+	Readers   HttpServiceRPCReaders
+	Services  HttpServiceRPCServices
+	Resolver  resolver.RequestResolver
+	Streamers *HttpStreamers
+}
+
+func (d *HttpServiceRPCDeps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if err := d.Readers.Validate(); err != nil { return err }
+	if err := d.Services.Validate(); err != nil { return err }
+	if d.Resolver == nil { return fmt.Errorf("resolver is required") }
+	if d.Streamers == nil { return fmt.Errorf("streamers is required") }
+	return nil
+}
+
 // New creates a new HttpServiceRPC instance
-func New(
-	db *sql.DB,
-	httpReader *shttp.Reader,
-	hs shttp.HTTPService,
-	us suser.UserService,
-	ws sworkspace.WorkspaceService,
-	wus sworkspace.UserService,
-	userReader *sworkspace.UserReader,
-	wsReader *sworkspace.WorkspaceReader,
-	es senv.EnvService,
-	vs senv.VariableService,
-	bodyService *shttp.HttpBodyRawService,
-	httpHeaderService shttp.HttpHeaderService,
-	httpSearchParamService *shttp.HttpSearchParamService,
-	httpBodyFormService *shttp.HttpBodyFormService,
-	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
-	httpAssertService *shttp.HttpAssertService,
-	httpResponseService shttp.HttpResponseService,
-	requestResolver resolver.RequestResolver,
-	streamers *HttpStreamers,
-) HttpServiceRPC {
+func New(deps HttpServiceRPCDeps) HttpServiceRPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("HttpServiceRPC Deps validation failed: %v", err))
+	}
+
 	return HttpServiceRPC{
-		DB:                        db,
-		httpReader:                httpReader,
-		hs:                        hs,
-		us:                        us,
-		ws:                        ws,
-		wus:                       wus,
-		userReader:                userReader,
-		wsReader:                  wsReader,
-		es:                        es,
-		vs:                        vs,
-		bodyService:               bodyService,
-		httpHeaderService:         httpHeaderService,
-		httpSearchParamService:    httpSearchParamService,
-		httpBodyFormService:       httpBodyFormService,
-		httpBodyUrlEncodedService: httpBodyUrlEncodedService,
-		httpAssertService:         httpAssertService,
-		httpResponseService:       httpResponseService,
-		resolver:                  requestResolver,
-		streamers:                 streamers,
+		DB:                        deps.DB,
+		httpReader:                deps.Readers.Http,
+		hs:                        deps.Services.Http,
+		us:                        deps.Services.User,
+		ws:                        deps.Services.Workspace,
+		wus:                       deps.Services.WorkspaceUser,
+		userReader:                deps.Readers.User,
+		wsReader:                  deps.Readers.Workspace,
+		es:                        deps.Services.Env,
+		vs:                        deps.Services.Variable,
+		bodyService:               deps.Services.HttpBodyRaw,
+		httpHeaderService:         deps.Services.HttpHeader,
+		httpSearchParamService:    deps.Services.HttpSearchParam,
+		httpBodyFormService:       deps.Services.HttpBodyForm,
+		httpBodyUrlEncodedService: deps.Services.HttpBodyUrlEncoded,
+		httpAssertService:         deps.Services.HttpAssert,
+		httpResponseService:       deps.Services.HttpResponse,
+		resolver:                  deps.Resolver,
+		streamers:                 deps.Streamers,
 	}
 }
 
@@ -263,5 +296,3 @@ func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Se
 	path, handler := httpv1connect.NewHttpServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
-
-// publishInsertEvent publishes an insert event for real-time sync

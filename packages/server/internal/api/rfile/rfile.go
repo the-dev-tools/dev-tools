@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 
 	"connectrpc.com/connect"
@@ -50,19 +51,41 @@ type FileServiceRPC struct {
 	stream eventstream.SyncStreamer[FileTopic, FileEvent]
 }
 
-func New(
-	db *sql.DB,
-	fs *sfile.FileService,
-	us suser.UserService,
-	ws sworkspace.WorkspaceService,
-	stream eventstream.SyncStreamer[FileTopic, FileEvent],
-) FileServiceRPC {
+type FileServiceRPCServices struct {
+	File      *sfile.FileService
+	User      suser.UserService
+	Workspace sworkspace.WorkspaceService
+}
+
+func (s *FileServiceRPCServices) Validate() error {
+	if s.File == nil { return fmt.Errorf("file service is required") }
+	return nil
+}
+
+type FileServiceRPCDeps struct {
+	DB       *sql.DB
+	Services FileServiceRPCServices
+	Stream   eventstream.SyncStreamer[FileTopic, FileEvent]
+}
+
+func (d *FileServiceRPCDeps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if err := d.Services.Validate(); err != nil { return err }
+	if d.Stream == nil { return fmt.Errorf("stream is required") }
+	return nil
+}
+
+func New(deps FileServiceRPCDeps) FileServiceRPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("FileServiceRPC Deps validation failed: %v", err))
+	}
+
 	return FileServiceRPC{
-		DB:     db,
-		fs:     fs,
-		us:     us,
-		ws:     ws,
-		stream: stream,
+		DB:     deps.DB,
+		fs:     deps.Services.File,
+		us:     deps.Services.User,
+		ws:     deps.Services.Workspace,
+		stream: deps.Stream,
 	}
 }
 

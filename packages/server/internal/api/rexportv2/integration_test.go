@@ -133,16 +133,16 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
 	// Create RPC handler
-	rpc := NewExportV2RPC(
-		base.DB,
-		base.Queries,
-		baseServices.Ws,
-		baseServices.Us,
-		&httpService,
-		&flowService,
-		fileService,
-		logger,
-	)
+	rpc := NewExportV2RPC(ExportV2Deps{
+		DB:        base.DB,
+		Queries:   base.Queries,
+		Workspace: baseServices.Ws,
+		User:      baseServices.Us,
+		Http:      &httpService,
+		Flow:      &flowService,
+		File:      fileService,
+		Logger:    logger,
+	})
 
 	services := BaseTestServices{
 		Us:                        baseServices.Us,

@@ -4,6 +4,7 @@ package rflowv2
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -179,6 +180,104 @@ const (
 	executionEventDelete = "delete"
 )
 
+type FlowServiceV2Readers struct {
+	Workspace      *sworkspace.WorkspaceReader
+	Flow           *sflow.FlowReader
+	Node           *sflow.NodeReader
+	Env            *senv.EnvReader
+	Http           *shttp.Reader
+	Edge           *sflow.EdgeReader
+	NodeRequest    *sflow.NodeRequestReader
+	FlowVariable   *sflow.FlowVariableReader
+	NodeExecution  *sflow.NodeExecutionReader
+	HttpResponse   *shttp.HttpResponseReader
+}
+
+func (r *FlowServiceV2Readers) Validate() error {
+	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
+	if r.Flow == nil { return fmt.Errorf("flow reader is required") }
+	if r.Node == nil { return fmt.Errorf("node reader is required") }
+	if r.Env == nil { return fmt.Errorf("env reader is required") }
+	if r.Http == nil { return fmt.Errorf("http reader is required") }
+	if r.Edge == nil { return fmt.Errorf("edge reader is required") }
+	return nil
+}
+
+type FlowServiceV2Services struct {
+	Workspace      *sworkspace.WorkspaceService
+	Flow           *sflow.FlowService
+	Edge           *sflow.EdgeService
+	Node           *sflow.NodeService
+	NodeRequest    *sflow.NodeRequestService
+	NodeFor        *sflow.NodeForService
+	NodeForEach    *sflow.NodeForEachService
+	NodeIf         *sflow.NodeIfService
+	NodeJs         *sflow.NodeJsService
+	NodeExecution  *sflow.NodeExecutionService
+	FlowVariable   *sflow.FlowVariableService
+	Env            *senv.EnvironmentService
+	Var            *senv.VariableService
+	Http           *shttp.HTTPService
+	HttpBodyRaw    *shttp.HttpBodyRawService
+	HttpResponse   shttp.HttpResponseService
+	Importer       WorkspaceImporter
+}
+
+func (s *FlowServiceV2Services) Validate() error {
+	if s.Workspace == nil { return fmt.Errorf("workspace service is required") }
+	if s.Flow == nil { return fmt.Errorf("flow service is required") }
+	if s.Edge == nil { return fmt.Errorf("edge service is required") }
+	if s.Node == nil { return fmt.Errorf("node service is required") }
+	if s.NodeRequest == nil { return fmt.Errorf("node request service is required") }
+	if s.NodeFor == nil { return fmt.Errorf("node for service is required") }
+	if s.NodeForEach == nil { return fmt.Errorf("node for each service is required") }
+	if s.NodeIf == nil { return fmt.Errorf("node if service is required") }
+	if s.NodeJs == nil { return fmt.Errorf("node js service is required") }
+	if s.NodeExecution == nil { return fmt.Errorf("node execution service is required") }
+	if s.FlowVariable == nil { return fmt.Errorf("flow variable service is required") }
+	if s.Env == nil { return fmt.Errorf("env service is required") }
+	if s.Var == nil { return fmt.Errorf("var service is required") }
+	if s.Http == nil { return fmt.Errorf("http service is required") }
+	if s.HttpBodyRaw == nil { return fmt.Errorf("http body raw service is required") }
+	return nil
+}
+
+type FlowServiceV2Streamers struct {
+	Flow               eventstream.SyncStreamer[FlowTopic, FlowEvent]
+	Node               eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	Edge               eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	Var                eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	Version            eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	For                eventstream.SyncStreamer[ForTopic, ForEvent]
+	Condition          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	ForEach            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	Js                 eventstream.SyncStreamer[JsTopic, JsEvent]
+	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	HttpResponse       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
+	HttpResponseHeader eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
+	HttpResponseAssert eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+	Log                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+}
+
+type FlowServiceV2Deps struct {
+	DB        *sql.DB
+	Readers   FlowServiceV2Readers
+	Services  FlowServiceV2Services
+	Streamers FlowServiceV2Streamers
+	Resolver  resolver.RequestResolver
+	Logger    *slog.Logger
+	JsClient  node_js_executorv1connect.NodeJsExecutorServiceClient
+}
+
+func (d *FlowServiceV2Deps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if err := d.Readers.Validate(); err != nil { return err }
+	if err := d.Services.Validate(); err != nil { return err }
+	if d.Resolver == nil { return fmt.Errorf("resolver is required") }
+	if d.Logger == nil { return fmt.Errorf("logger is required") }
+	return nil
+}
+
 type FlowServiceV2RPC struct {
 	DB *sql.DB
 
@@ -195,29 +294,29 @@ type FlowServiceV2RPC struct {
 	ns       *sflow.NodeService
 	nrs      *sflow.NodeRequestService
 	nfs      *sflow.NodeForService
-		nfes                     *sflow.NodeForEachService
-		nifs                     *sflow.NodeIfService
-		njss                     *sflow.NodeJsService
-		nes                      *sflow.NodeExecutionService
-		fvs                      *sflow.FlowVariableService
-		envs                     *senv.EnvironmentService
-		vs                       *senv.VariableService
-		hs                       *shttp.HTTPService
-		hbr                      *shttp.HttpBodyRawService
-		resolver resolver.RequestResolver
-		logger   *slog.Logger
-		// V2 import services
-		workspaceImportService   WorkspaceImporter
-		httpResponseService      shttp.HttpResponseService
-		flowStream               eventstream.SyncStreamer[FlowTopic, FlowEvent]
-		nodeStream               eventstream.SyncStreamer[NodeTopic, NodeEvent]
-		edgeStream               eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-		varStream                eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-		versionStream            eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-		forStream                eventstream.SyncStreamer[ForTopic, ForEvent]
-		conditionStream          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
-		forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
-		jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
+	nfes     *sflow.NodeForEachService
+	nifs     *sflow.NodeIfService
+	njss     *sflow.NodeJsService
+	nes      *sflow.NodeExecutionService
+	fvs      *sflow.FlowVariableService
+	envs     *senv.EnvironmentService
+	vs       *senv.VariableService
+	hs       *shttp.HTTPService
+	hbr      *shttp.HttpBodyRawService
+	resolver resolver.RequestResolver
+	logger   *slog.Logger
+	// V2 import services
+	workspaceImportService   WorkspaceImporter
+	httpResponseService      shttp.HttpResponseService
+	flowStream               eventstream.SyncStreamer[FlowTopic, FlowEvent]
+	nodeStream               eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream               eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream                eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream            eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	forStream                eventstream.SyncStreamer[ForTopic, ForEvent]
+	conditionStream          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
@@ -235,96 +334,60 @@ type FlowServiceV2RPC struct {
 	runningFlows   map[string]context.CancelFunc
 }
 
-func New(
-	db *sql.DB,
-	wsReader *sworkspace.WorkspaceReader,
-	fsReader *sflow.FlowReader,
-	nsReader *sflow.NodeReader,
-	vsReader *senv.EnvReader,
-	hsReader *shttp.Reader,
-	flowEdgeReader *sflow.EdgeReader,
-	ws *sworkspace.WorkspaceService,
-	fs *sflow.FlowService,
-	es *sflow.EdgeService,
-	ns *sflow.NodeService,
-	nrs *sflow.NodeRequestService,
-	nfs *sflow.NodeForService,
-	nfes *sflow.NodeForEachService,
-	nifs *sflow.NodeIfService,
-	njss *sflow.NodeJsService,
-	nes *sflow.NodeExecutionService,
-	fvs *sflow.FlowVariableService,
-	envs *senv.EnvironmentService,
-	vs *senv.VariableService,
-	hs *shttp.HTTPService,
-	hbr *shttp.HttpBodyRawService,
-	resolver resolver.RequestResolver,
-	logger *slog.Logger,
-	workspaceImportService WorkspaceImporter,
-	httpResponseService shttp.HttpResponseService,
-	flowStream eventstream.SyncStreamer[FlowTopic, FlowEvent],
-	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
-	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
-	varStream eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent],
-	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent],
-	forStream eventstream.SyncStreamer[ForTopic, ForEvent],
-	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent],
-	forEachStream eventstream.SyncStreamer[ForEachTopic, ForEachEvent],
-	jsStream eventstream.SyncStreamer[JsTopic, JsEvent],
-	executionStream eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent],
-	httpResponseStream eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent],
-	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent],
-	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent],
-	logStream eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent],
-	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient,
-) *FlowServiceV2RPC {
+func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("FlowServiceV2 Deps validation failed: %v", err))
+	}
+
 	builder := flowbuilder.New(
-		ns, nrs, nfs, nfes, nifs, njss,
-		ws, vs, fvs, resolver, logger,
+		deps.Services.Node, deps.Services.NodeRequest, deps.Services.NodeFor, deps.Services.NodeForEach,
+		deps.Services.NodeIf, deps.Services.NodeJs,
+		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
+		deps.Resolver, deps.Logger,
 	)
 
 	return &FlowServiceV2RPC{
-		DB:                       db,
-		wsReader:                 wsReader,
-		fsReader:                 fsReader,
-		nsReader:                 nsReader,
-		vsReader:                 vsReader,
-		hsReader:                 hsReader,
-		flowEdgeReader:           flowEdgeReader,
-		ws:                       ws,
-		fs:                       fs,
-		es:                       es,
-		ns:                       ns,
-		nrs:                      nrs,
-		nfs:                      nfs,
-		nfes:                     nfes,
-		nifs:                     nifs,
-		njss:                     njss,
-		nes:                      nes,
-		fvs:                      fvs,
-		envs:                     envs,
-		vs:                       vs,
-		hs:                       hs,
-		hbr:                      hbr,
-		resolver:                 resolver,
-		logger:                   logger,
-		workspaceImportService:   workspaceImportService,
-		httpResponseService:      httpResponseService,
-		flowStream:               flowStream,
-		nodeStream:               nodeStream,
-		edgeStream:               edgeStream,
-		varStream:                varStream,
-		versionStream:            versionStream,
-		forStream:                forStream,
-		conditionStream:          conditionStream,
-		forEachStream:            forEachStream,
-		jsStream:                 jsStream,
-		executionStream:          executionStream,
-		httpResponseStream:       httpResponseStream,
-		httpResponseHeaderStream: httpResponseHeaderStream,
-		httpResponseAssertStream: httpResponseAssertStream,
-		logStream:                logStream,
-		jsClient:                 jsClient,
+		DB:                       deps.DB,
+		wsReader:                 deps.Readers.Workspace,
+		fsReader:                 deps.Readers.Flow,
+		nsReader:                 deps.Readers.Node,
+		vsReader:                 deps.Readers.Env,
+		hsReader:                 deps.Readers.Http,
+		flowEdgeReader:           deps.Readers.Edge,
+		ws:                       deps.Services.Workspace,
+		fs:                       deps.Services.Flow,
+		es:                       deps.Services.Edge,
+		ns:                       deps.Services.Node,
+		nrs:                      deps.Services.NodeRequest,
+		nfs:                      deps.Services.NodeFor,
+		nfes:                     deps.Services.NodeForEach,
+		nifs:                     deps.Services.NodeIf,
+		njss:                     deps.Services.NodeJs,
+		nes:                      deps.Services.NodeExecution,
+		fvs:                      deps.Services.FlowVariable,
+		envs:                     deps.Services.Env,
+		vs:                       deps.Services.Var,
+		hs:                       deps.Services.Http,
+		hbr:                      deps.Services.HttpBodyRaw,
+		resolver:                 deps.Resolver,
+		logger:                   deps.Logger,
+		workspaceImportService:   deps.Services.Importer,
+		httpResponseService:      deps.Services.HttpResponse,
+		flowStream:               deps.Streamers.Flow,
+		nodeStream:               deps.Streamers.Node,
+		edgeStream:               deps.Streamers.Edge,
+		varStream:                deps.Streamers.Var,
+		versionStream:            deps.Streamers.Version,
+		forStream:                deps.Streamers.For,
+		conditionStream:          deps.Streamers.Condition,
+		forEachStream:            deps.Streamers.ForEach,
+		jsStream:                 deps.Streamers.Js,
+		executionStream:          deps.Streamers.Execution,
+		httpResponseStream:       deps.Streamers.HttpResponse,
+		httpResponseHeaderStream: deps.Streamers.HttpResponseHeader,
+		httpResponseAssertStream: deps.Streamers.HttpResponseAssert,
+		logStream:                deps.Streamers.Log,
+		jsClient:                 deps.JsClient,
 		builder:                  builder,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}

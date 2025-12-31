@@ -50,35 +50,67 @@ type ReferenceServiceRPC struct {
 	httpResponseReader *shttp.HttpResponseReader
 }
 
-func NewReferenceServiceRPC(db *sql.DB,
-	userReader *sworkspace.UserReader,
-	workspaceReader *sworkspace.WorkspaceReader,
-	envReader *senv.EnvReader,
-	varReader *senv.VariableReader,
-	flowReader *sflow.FlowReader,
-	nodeReader *sflow.NodeReader,
-	nodeRequestReader *sflow.NodeRequestReader,
-	flowVariableReader *sflow.FlowVariableReader,
-	flowEdgeReader *sflow.EdgeReader,
-	nodeExecutionReader *sflow.NodeExecutionReader,
-	httpResponseReader *shttp.HttpResponseReader,
-) *ReferenceServiceRPC {
+type ReferenceServiceRPCReaders struct {
+	User          *sworkspace.UserReader
+	Workspace     *sworkspace.WorkspaceReader
+	Env           *senv.EnvReader
+	Variable      *senv.VariableReader
+	Flow          *sflow.FlowReader
+	Node          *sflow.NodeReader
+	NodeRequest   *sflow.NodeRequestReader
+	FlowVariable  *sflow.FlowVariableReader
+	FlowEdge      *sflow.EdgeReader
+	NodeExecution *sflow.NodeExecutionReader
+	HttpResponse  *shttp.HttpResponseReader
+}
+
+func (r *ReferenceServiceRPCReaders) Validate() error {
+	if r.User == nil { return fmt.Errorf("user reader is required") }
+	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
+	if r.Env == nil { return fmt.Errorf("env reader is required") }
+	if r.Variable == nil { return fmt.Errorf("variable reader is required") }
+	if r.Flow == nil { return fmt.Errorf("flow reader is required") }
+	if r.Node == nil { return fmt.Errorf("node reader is required") }
+	if r.NodeRequest == nil { return fmt.Errorf("node request reader is required") }
+	if r.FlowVariable == nil { return fmt.Errorf("flow variable reader is required") }
+	if r.FlowEdge == nil { return fmt.Errorf("flow edge reader is required") }
+	if r.NodeExecution == nil { return fmt.Errorf("node execution reader is required") }
+	if r.HttpResponse == nil { return fmt.Errorf("http response reader is required") }
+	return nil
+}
+
+type ReferenceServiceRPCDeps struct {
+	DB      *sql.DB
+	Readers ReferenceServiceRPCReaders
+}
+
+func (d *ReferenceServiceRPCDeps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if err := d.Readers.Validate(); err != nil { return err }
+	return nil
+}
+
+func NewReferenceServiceRPC(deps ReferenceServiceRPCDeps) *ReferenceServiceRPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("ReferenceServiceRPC Deps validation failed: %v", err))
+	}
+
 	return &ReferenceServiceRPC{
-		DB: db,
+		DB: deps.DB,
 
-		userReader:      userReader,
-		workspaceReader: workspaceReader,
+		userReader:      deps.Readers.User,
+		workspaceReader: deps.Readers.Workspace,
 
-		envReader: envReader,
-		varReader: varReader,
+		envReader: deps.Readers.Env,
+		varReader: deps.Readers.Variable,
 
-		flowReader:          flowReader,
-		nodeReader:          nodeReader,
-		nodeRequestReader:   nodeRequestReader,
-		flowVariableReader:  flowVariableReader,
-		flowEdgeReader:      flowEdgeReader,
-		nodeExecutionReader: nodeExecutionReader,
-		httpResponseReader:  httpResponseReader,
+		flowReader:          deps.Readers.Flow,
+		nodeReader:          deps.Readers.Node,
+		nodeRequestReader:   deps.Readers.NodeRequest,
+		flowVariableReader:  deps.Readers.FlowVariable,
+		flowEdgeReader:      deps.Readers.FlowEdge,
+		nodeExecutionReader: deps.Readers.NodeExecution,
+		httpResponseReader:  deps.Readers.HttpResponse,
 	}
 }
 
@@ -744,69 +776,68 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						creator.AddWithKey(currentNode.Name, nodeVarsMap)
 					}
 
-				case mflow.NODE_KIND_REQUEST:
-					// REQUEST nodes can reference their own response and request directly (without prefix)
-					var nodeData interface{}
-					hasExecutionData := false
-
-					// Try to get the current node's execution data
-					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
-					if err == nil && len(executions) > 0 {
-						// Use the latest execution (first one, as they're ordered by ID DESC)
-						latestExecution := &executions[0]
-
-						if true {
-							// Decompress data if needed
-							data := latestExecution.OutputData
-							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
-								decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
-								if err == nil {
-									data = decompressed
-								}
-							}
-
-							// Try to unmarshal as generic JSON
-							var genericOutput interface{}
-							if err := json.Unmarshal(data, &genericOutput); err == nil {
-								nodeData = genericOutput
-								hasExecutionData = true
-							}
-						}
-					}
-
-					dataAdded := false
-					if hasExecutionData && nodeData != nil {
-						// Extract the node-specific data
-						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
-							if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
-								// Add the entire node data at ROOT level
-								// This allows direct access to response.* and request.*
-								if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
-									// Add all variables from the node directly at root
-									for key, value := range nodeVars {
-										creator.AddWithKey(key, value)
+				                case mflow.NODE_KIND_REQUEST:
+									// REQUEST nodes can reference their own response and request directly (without prefix)
+									var nodeData interface{}
+									hasExecutionData := false
+				
+									// Try to get the current node's execution data
+									executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+									if err == nil && len(executions) > 0 {
+										// Use the latest execution (first one, as they're ordered by ID DESC)
+										latestExecution := &executions[0]
+				
+										if true {
+											// Decompress data if needed
+											data := latestExecution.OutputData
+											if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+												decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+												if err == nil {
+													data = decompressed
+												}
+											}
+				
+											// Try to unmarshal as generic JSON
+											var genericOutput interface{}
+											if err := json.Unmarshal(data, &genericOutput); err == nil {
+												nodeData = genericOutput
+												hasExecutionData = true
+											}
+										}
 									}
-									dataAdded = true
-								}
-							}
-						}
-					}
-
-					if !dataAdded {
-						// No execution data, provide the schema at root level
-						creator.AddWithKey("request", map[string]interface{}{
-							"headers": map[string]string{},
-							"queries": map[string]string{},
-							"body":    "string",
-						})
-						creator.AddWithKey("response", map[string]interface{}{
-							"status":   200,
-							"body":     map[string]interface{}{},
-							"headers":  map[string]string{},
-							"duration": 0,
-						})
-					}
-				}
+				
+									dataAdded := false
+									if hasExecutionData && nodeData != nil {
+										// Extract the node-specific data
+										if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+											if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
+												// Add the entire node data at ROOT level
+												// This allows direct access to response.* and request.*
+												if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
+													// Add all variables from the node directly at root
+													for key, value := range nodeVars {
+														creator.AddWithKey(key, value)
+													}
+													dataAdded = true
+												}
+											}
+										}
+									}
+				
+									if !dataAdded {
+										// No execution data, provide the schema at root level
+										creator.AddWithKey("request", map[string]interface{}{
+											"headers": map[string]string{},
+											"queries": map[string]string{},
+											"body":    "string",
+										})
+										creator.AddWithKey("response", map[string]interface{}{
+											"status":   200,
+											"body":     map[string]interface{}{},
+											"headers":  map[string]string{},
+											"duration": 0,
+										})
+									}				}
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 
 	"connectrpc.com/connect"
@@ -65,27 +66,69 @@ type EnvironmentVariableEvent struct {
 	Variable *apiv1.EnvironmentVariable
 }
 
-func New(
-	db *sql.DB,
-	es senv.EnvService,
-	vs senv.VariableService,
-	us suser.UserService,
-	ws sworkspace.WorkspaceService,
-	envReader *senv.EnvReader,
-	varReader *senv.VariableReader,
-	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent],
-	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent],
-) EnvRPC {
+type EnvRPCServices struct {
+	Env       senv.EnvService
+	Variable  senv.VariableService
+	User      suser.UserService
+	Workspace sworkspace.WorkspaceService
+}
+
+func (s *EnvRPCServices) Validate() error {
+	return nil
+}
+
+type EnvRPCReaders struct {
+	Env      *senv.EnvReader
+	Variable *senv.VariableReader
+}
+
+func (r *EnvRPCReaders) Validate() error {
+	if r.Env == nil { return fmt.Errorf("env reader is required") }
+	if r.Variable == nil { return fmt.Errorf("variable reader is required") }
+	return nil
+}
+
+type EnvRPCStreamers struct {
+	Env      eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
+	Variable eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]
+}
+
+func (s *EnvRPCStreamers) Validate() error {
+	if s.Env == nil { return fmt.Errorf("env stream is required") }
+	if s.Variable == nil { return fmt.Errorf("variable stream is required") }
+	return nil
+}
+
+type EnvRPCDeps struct {
+	DB        *sql.DB
+	Services  EnvRPCServices
+	Readers   EnvRPCReaders
+	Streamers EnvRPCStreamers
+}
+
+func (d *EnvRPCDeps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if err := d.Services.Validate(); err != nil { return err }
+	if err := d.Readers.Validate(); err != nil { return err }
+	if err := d.Streamers.Validate(); err != nil { return err }
+	return nil
+}
+
+func New(deps EnvRPCDeps) EnvRPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("EnvRPC Deps validation failed: %v", err))
+	}
+
 	return EnvRPC{
-		DB:        db,
-		es:        es,
-		vs:        vs,
-		us:        us,
-		ws:        ws,
-		envReader: envReader,
-		varReader: varReader,
-		envStream: envStream,
-		varStream: varStream,
+		DB:        deps.DB,
+		es:        deps.Services.Env,
+		vs:        deps.Services.Variable,
+		us:        deps.Services.User,
+		ws:        deps.Services.Workspace,
+		envReader: deps.Readers.Env,
+		varReader: deps.Readers.Variable,
+		envStream: deps.Streamers.Env,
+		varStream: deps.Streamers.Variable,
 	}
 }
 
@@ -559,131 +602,132 @@ func (e *EnvRPC) EnvironmentVariableCollection(ctx context.Context, req *connect
 
 	var items []*apiv1.EnvironmentVariable
 	for _, env := range environments {
-		vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
+		vars, err := e.varReader.GetVariableByEnvID(ctx, env.ID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoVarFound) {
 				continue
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		        for _, v := range vars {
-		            items = append(items, converter.ToAPIEnvironmentVariable(v))
-		        }
-		    }
-		
-		    return connect.NewResponse(&apiv1.EnvironmentVariableCollectionResponse{Items: items}), nil
+		for _, v := range vars {
+			items = append(items, converter.ToAPIEnvironmentVariable(v))
 		}
-		
-		// EnvironmentVariableInsert creates new environment variables
-		func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
-		    if len(req.Msg.Items) == 0 {
-		        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
-		    }
-		
-		    // Step 1: Process request data and build cache OUTSIDE transaction
-		    type varData struct {
-		        envID       idwrap.IDWrap
-		        workspaceID idwrap.IDWrap
-		        varID       idwrap.IDWrap
-		        key         string
-		        value       string
-		        enabled     bool
-		        description string
-		        order       float64
-		    }
-		
-		    var varModels []varData
-		    workspaceCache := map[string]idwrap.IDWrap{}
-		
-		    for _, item := range req.Msg.Items {
-		        envID, err := idwrap.NewFromBytes(item.EnvironmentId)
-		        if err != nil {
-		            return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		        }
-		
-		        // Check permissions OUTSIDE transaction
-		        rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
-		        if rpcErr != nil {
-		            return nil, rpcErr
-		        }
-		
-		        // Build cache OUTSIDE transaction
-		        		workspaceID := workspaceCache[envID.String()]
-		        		if workspaceID == (idwrap.IDWrap{}) {
-		        			env, err := e.envReader.GetEnvironment(ctx, envID)
-		        			if err != nil {
-		        				return nil, connect.NewError(connect.CodeInternal, err)
-		        			}
-		        			workspaceID = env.WorkspaceID
-		        			workspaceCache[envID.String()] = workspaceID
-		        		}
-		        		        varID := idwrap.NewNow()
-		        if len(item.EnvironmentVariableId) > 0 {
-		            varID, err = idwrap.NewFromBytes(item.EnvironmentVariableId)
-		            if err != nil {
-		                return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		            }
-		        }
-		
-		        varModels = append(varModels, varData{
-		            envID:       envID,
-		            workspaceID: workspaceID,
-		            varID:       varID,
-		            key:         item.Key,
-		            value:       item.Value,
-		            enabled:     item.Enabled,
-		            description: item.Description,
-		            order:       float64(item.Order),
-		        })
-		    }
-		
-		    // Step 2: Minimal write transaction for fast inserts only
-		    tx, err := e.DB.BeginTx(ctx, nil)
-		    if err != nil {
-		        return nil, connect.NewError(connect.CodeInternal, err)
-		    }
-		    defer devtoolsdb.TxnRollback(tx)
-		
-		    varWriter := senv.NewVariableWriter(tx)
-		    createdVars := []struct {
-		        variable    menv.Variable
-		        workspaceID idwrap.IDWrap
-		    }{}
-		
-		    // Fast inserts inside minimal transaction
-		    for _, data := range varModels {
-		        varReq := menv.Variable{
-		            ID:          data.varID,
-		            EnvID:       data.envID,
-		            VarKey:      data.key,
-		            Value:       data.value,
-		            Enabled:     data.enabled,
-		            Description: data.description,
-		            Order:       data.order,
-		        }
-		
-		        if err := varWriter.Create(ctx, varReq); err != nil {
-		            return nil, connect.NewError(connect.CodeInternal, err)
-		        }
-		        createdVars = append(createdVars, struct {
-		            variable    menv.Variable
-		            workspaceID idwrap.IDWrap
-		        }{variable: varReq, workspaceID: data.workspaceID})
-		    }
-		
-		    if err := tx.Commit(); err != nil {
-		        return nil, connect.NewError(connect.CodeInternal, err)
-		    }
-		
-		    for _, evt := range createdVars {
-		        e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
-		            Type:     eventTypeInsert,
-		            Variable: converter.ToAPIEnvironmentVariable(evt.variable),
-		        })
-		    }
-		
-		    return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	return connect.NewResponse(&apiv1.EnvironmentVariableCollectionResponse{Items: items}), nil
+}
+
+// EnvironmentVariableInsert creates new environment variables
+func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
+	}
+
+	// Step 1: Process request data and build cache OUTSIDE transaction
+	type varData struct {
+		envID       idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		varID       idwrap.IDWrap
+		key         string
+		value       string
+		enabled     bool
+		description string
+		order       float64
+	}
+
+	var varModels []varData
+	workspaceCache := map[string]idwrap.IDWrap{}
+
+	for _, item := range req.Msg.Items {
+		envID, err := idwrap.NewFromBytes(item.EnvironmentId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
+
+		// Check permissions OUTSIDE transaction
+		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
+		// Build cache OUTSIDE transaction
+		workspaceID := workspaceCache[envID.String()]
+		if workspaceID == (idwrap.IDWrap{}) {
+			env, err := e.envReader.GetEnvironment(ctx, envID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			workspaceID = env.WorkspaceID
+			workspaceCache[envID.String()] = workspaceID
+		}
+		varID := idwrap.NewNow()
+		if len(item.EnvironmentVariableId) > 0 {
+			varID, err = idwrap.NewFromBytes(item.EnvironmentVariableId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+		}
+
+		varModels = append(varModels, varData{
+			envID:       envID,
+			workspaceID: workspaceID,
+			varID:       varID,
+			key:         item.Key,
+			value:       item.Value,
+			enabled:     item.Enabled,
+			description: item.Description,
+			order:       float64(item.Order),
+		})
+	}
+
+	// Step 2: Minimal write transaction for fast inserts only
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	varWriter := senv.NewVariableWriter(tx)
+	createdVars := []struct {
+		variable    menv.Variable
+		workspaceID idwrap.IDWrap
+	}{}
+
+	// Fast inserts inside minimal transaction
+	for _, data := range varModels {
+		varReq := menv.Variable{
+			ID:          data.varID,
+			EnvID:       data.envID,
+			VarKey:      data.key,
+			Value:       data.value,
+			Enabled:     data.enabled,
+			Description: data.description,
+			Order:       data.order,
+		}
+
+		if err := varWriter.Create(ctx, varReq); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		createdVars = append(createdVars, struct {
+			variable    menv.Variable
+			workspaceID idwrap.IDWrap
+		}{variable: varReq, workspaceID: data.workspaceID})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, evt := range createdVars {
+		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+			Type:     eventTypeInsert,
+			Variable: converter.ToAPIEnvironmentVariable(evt.variable),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 // EnvironmentVariableUpdate updates existing environment variables
 func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {

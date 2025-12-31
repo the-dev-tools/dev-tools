@@ -2,6 +2,8 @@ package rflowv2
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -15,9 +17,12 @@ import (
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -39,20 +44,57 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 			wsService := sworkspace.NewWorkspaceService(queries)
 			flowService := sflow.NewFlowService(queries)
 			nodeService := sflow.NewNodeService(queries)
+			nodeExecService := sflow.NewNodeExecutionService(queries)
+			edgeService := sflow.NewEdgeService(queries)
+			reqService := sflow.NewNodeRequestService(queries)
+			forService := sflow.NewNodeForService(queries)
+			forEachService := sflow.NewNodeForEachService(queries)
+			ifService := sflow.NewNodeIfService(queries)
+			jsService := sflow.NewNodeJsService(queries)
+			flowVarService := sflow.NewFlowVariableService(queries)
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+			envService := senv.NewEnvironmentService(queries, logger)
+			varService := senv.NewVariableService(queries, logger)
+			httpService := shttp.New(queries, logger)
 
 			flowStream = memory.NewInMemorySyncStreamer[FlowTopic, FlowEvent]()
 			nodeStream := memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
+			res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 
-			svc = &FlowServiceV2RPC{
-				DB:         db,
-				wsReader:   sworkspace.NewWorkspaceReaderFromQueries(queries),
-				fsReader:   sflow.NewFlowReaderFromQueries(queries),
-				ws:         &wsService,
-				fs:         &flowService,
-				ns:         &nodeService,
-				flowStream: flowStream,
-				nodeStream: nodeStream,
-			}
+			svc = New(FlowServiceV2Deps{
+				DB: db,
+				Readers: FlowServiceV2Readers{
+					Workspace: sworkspace.NewWorkspaceReaderFromQueries(queries),
+					Flow:      sflow.NewFlowReaderFromQueries(queries),
+					Node:      sflow.NewNodeReaderFromQueries(queries),
+					Env:       senv.NewEnvReaderFromQueries(queries, logger),
+					Http:      shttp.NewReaderFromQueries(queries, logger, nil),
+					Edge:      edgeService.Reader(),
+				},
+				Services: FlowServiceV2Services{
+					Workspace:     &wsService,
+					Flow:          &flowService,
+					Edge:          &edgeService,
+					Node:          &nodeService,
+					NodeRequest:   &reqService,
+					NodeFor:       &forService,
+					NodeForEach:   &forEachService,
+					NodeIf:        ifService,
+					NodeJs:        &jsService,
+					NodeExecution: &nodeExecService,
+					FlowVariable:  &flowVarService,
+					Env:           &envService,
+					Var:           &varService,
+					Http:          &httpService,
+					HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
+				},
+				Streamers: FlowServiceV2Streamers{
+					Flow: flowStream,
+					Node: nodeStream,
+				},
+				Resolver: res,
+				Logger:   logger,
+			})
 
 			userID := idwrap.NewNow()
 			ctx = mwauth.CreateAuthedContext(ctx, userID)
@@ -146,25 +188,56 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 			flowService := sflow.NewFlowService(queries)
 			nodeService := sflow.NewNodeService(queries)
 			nodeExecService := sflow.NewNodeExecutionService(queries)
+			edgeService := sflow.NewEdgeService(queries)
+			reqService := sflow.NewNodeRequestService(queries)
+			forService := sflow.NewNodeForService(queries)
+			forEachService := sflow.NewNodeForEachService(queries)
+			ifService := sflow.NewNodeIfService(queries)
+			jsService := sflow.NewNodeJsService(queries)
+			flowVarService := sflow.NewFlowVariableService(queries)
+			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+			envService := senv.NewEnvironmentService(queries, logger)
+			varService := senv.NewVariableService(queries, logger)
+			httpService := shttp.New(queries, logger)
 
-			// We need these readers for NodeCollection
-			nsReader := sflow.NewNodeReaderFromQueries(queries)
-
-			flowStream := memory.NewInMemorySyncStreamer[FlowTopic, FlowEvent]()
 			nodeStream = memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
+			flowStream := memory.NewInMemorySyncStreamer[FlowTopic, FlowEvent]()
+			res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 
-			svc = &FlowServiceV2RPC{
-				DB:         db,
-				wsReader:   sworkspace.NewWorkspaceReaderFromQueries(queries),
-				fsReader:   sflow.NewFlowReaderFromQueries(queries),
-				nsReader:   nsReader,
-				ws:         &wsService,
-				fs:         &flowService,
-				ns:         &nodeService,
-				nes:        &nodeExecService,
-				flowStream: flowStream,
-				nodeStream: nodeStream,
-			}
+			svc = New(FlowServiceV2Deps{
+				DB: db,
+				Readers: FlowServiceV2Readers{
+					Workspace: sworkspace.NewWorkspaceReaderFromQueries(queries),
+					Flow:      sflow.NewFlowReaderFromQueries(queries),
+					Node:      sflow.NewNodeReaderFromQueries(queries),
+					Env:       senv.NewEnvReaderFromQueries(queries, logger),
+					Http:      shttp.NewReaderFromQueries(queries, logger, nil),
+					Edge:      edgeService.Reader(),
+				},
+				Services: FlowServiceV2Services{
+					Workspace:     &wsService,
+					Flow:          &flowService,
+					Edge:          &edgeService,
+					Node:          &nodeService,
+					NodeRequest:   &reqService,
+					NodeFor:       &forService,
+					NodeForEach:   &forEachService,
+					NodeIf:        ifService,
+					NodeJs:        &jsService,
+					NodeExecution: &nodeExecService,
+					FlowVariable:  &flowVarService,
+					Env:           &envService,
+					Var:           &varService,
+					Http:          &httpService,
+					HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
+				},
+				Streamers: FlowServiceV2Streamers{
+					Flow: flowStream,
+					Node: nodeStream,
+				},
+				Resolver: res,
+				Logger:   logger,
+			})
 
 			userID := idwrap.NewNow()
 			ctx = mwauth.CreateAuthedContext(ctx, userID)
@@ -242,4 +315,3 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 		},
 	})
 }
-

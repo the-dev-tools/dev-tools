@@ -556,10 +556,10 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 	fileStream := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
 
 	// Create import handler
-	importHandler := rimportv2.NewImportV2RPC(
-		baseDB.DB,
-		mockLogger,
-		rimportv2.ImportServices{
+	importHandler := rimportv2.NewImportV2RPC(rimportv2.ImportV2Deps{
+		DB:     baseDB.DB,
+		Logger: mockLogger,
+		Services: rimportv2.ImportServices{
 			Workspace:          s.Ws,
 			User:               s.Us,
 			Http:               &s.Hs,
@@ -577,9 +577,11 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 			NodeRequest:        &nodeRequestService,
 			Edge:               &edgeService,
 		},
-		sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
-		sworkspace.NewUserReaderFromQueries(baseDB.Queries),
-		rimportv2.ImportStreamers{
+		Readers: rimportv2.ImportV2Readers{
+			Workspace: sworkspace.NewWorkspaceReaderFromQueries(baseDB.Queries),
+			User:      sworkspace.NewUserReaderFromQueries(baseDB.Queries),
+		},
+		Streamers: rimportv2.ImportStreamers{
 			Flow:               flowStream,
 			Node:               nodeStream,
 			Edge:               edgeStream,
@@ -592,7 +594,7 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 			HttpAssert:         httpAssertStream,
 			File:               fileStream,
 		},
-	)
+	})
 
 	return importHandler
 }

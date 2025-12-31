@@ -153,26 +153,30 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 		httpAssertService,
 	)
 
-	httpHandler := rhttp.New(
-		suite.baseDB.DB,
-		suite.importHandler.HttpService.Reader(),
-		*suite.importHandler.HttpService,
-		suite.services.Us,
-		suite.services.Ws,
-		suite.services.Wus,
-		sworkspace.NewUserReaderFromQueries(suite.baseDB.Queries),
-		sworkspace.NewWorkspaceReaderFromQueries(suite.baseDB.Queries),
-		envService,
-		varService,
-		suite.importHandler.HttpBodyRawService,
-		suite.importHandler.HttpHeaderService,
-		suite.importHandler.HttpSearchParamService,
-		suite.importHandler.HttpBodyFormService,
-		suite.importHandler.HttpBodyUrlEncodedService,
-		httpAssertService,
-		httpResponseService,
-		requestResolver,
-		&rhttp.HttpStreamers{
+	httpHandler := rhttp.New(rhttp.HttpServiceRPCDeps{
+		DB: suite.baseDB.DB,
+		Readers: rhttp.HttpServiceRPCReaders{
+			Http:      suite.importHandler.HttpService.Reader(),
+			User:      sworkspace.NewUserReaderFromQueries(suite.baseDB.Queries),
+			Workspace: sworkspace.NewWorkspaceReaderFromQueries(suite.baseDB.Queries),
+		},
+		Services: rhttp.HttpServiceRPCServices{
+			Http:               *suite.importHandler.HttpService,
+			User:               suite.services.Us,
+			Workspace:          suite.services.Ws,
+			WorkspaceUser:      suite.services.Wus,
+			Env:                envService,
+			Variable:           varService,
+			HttpBodyRaw:        suite.importHandler.HttpBodyRawService,
+			HttpHeader:         suite.importHandler.HttpHeaderService,
+			HttpSearchParam:    suite.importHandler.HttpSearchParamService,
+			HttpBodyForm:       suite.importHandler.HttpBodyFormService,
+			HttpBodyUrlEncoded: suite.importHandler.HttpBodyUrlEncodedService,
+			HttpAssert:         httpAssertService,
+			HttpResponse:       httpResponseService,
+		},
+		Resolver: requestResolver,
+		Streamers: &rhttp.HttpStreamers{
 			Http:               suite.importHandler.HttpStream,
 			HttpHeader:         suite.importHandler.HttpHeaderStream,
 			HttpSearchParam:    suite.importHandler.HttpSearchParamStream,
@@ -186,7 +190,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 			HttpBodyRaw:        suite.importHandler.HttpBodyRawStream,
 			Log:                logStreamer,
 		},
-	)
+	})
 
 	// Call HttpHeaderDeltaCollection
 	headerDeltaCollResp, err := httpHandler.HttpHeaderDeltaCollection(ctx, connect.NewRequest(&emptypb.Empty{}))

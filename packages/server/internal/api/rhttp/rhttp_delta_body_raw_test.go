@@ -68,27 +68,31 @@ func TestHttpBodyRawDelta_Unset(t *testing.T) {
 
 	httpReader := shttp.NewReader(db, logger, &wus)
 
-	svc := New(
-		db,
-		httpReader,
-		hs,
-		us,
-		ws,
-		wus,
-		wus.Reader(),
-		ws.Reader(),
-		es,
-		vs,
-		bodyService,
-		httpHeaderService,
-		httpSearchParamService,
-		httpBodyFormService,
-		httpBodyUrlEncodedService,
-		httpAssertService,
-		httpResponseService,
-		requestResolver,
-		httpStreamers,
-	)
+	svc := New(HttpServiceRPCDeps{
+		DB: db,
+		Readers: HttpServiceRPCReaders{
+			Http:      httpReader,
+			User:      wus.Reader(),
+			Workspace: ws.Reader(),
+		},
+		Services: HttpServiceRPCServices{
+			Http:               hs,
+			User:               us,
+			Workspace:          ws,
+			WorkspaceUser:      wus,
+			Env:                es,
+			Variable:           vs,
+			HttpBodyRaw:        bodyService,
+			HttpHeader:         httpHeaderService,
+			HttpSearchParam:    httpSearchParamService,
+			HttpBodyForm:       httpBodyFormService,
+			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
+			HttpAssert:         httpAssertService,
+			HttpResponse:       httpResponseService,
+		},
+		Resolver:  requestResolver,
+		Streamers: httpStreamers,
+	})
 
 	// 1. Create Workspace and User
 	workspaceID := idwrap.NewNow()

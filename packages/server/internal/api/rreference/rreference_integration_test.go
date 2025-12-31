@@ -40,20 +40,22 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	httpService := services.Hs
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
 
-	svc := NewReferenceServiceRPC(
-		base.DB,
-		sworkspace.NewUserReader(base.DB),
-		services.Ws.Reader(),
-		envService.Reader(),
-		varService.Reader(),
-		flowService.Reader(),
-		flowNodeService.Reader(),
-		flowNodeRequestService.Reader(),
-		flowVariableService.Reader(),
-		edgeService.Reader(),
-		nodeExecutionService.Reader(),
-		httpResponseService.Reader(),
-	)
+	svc := NewReferenceServiceRPC(ReferenceServiceRPCDeps{
+		DB: base.DB,
+		Readers: ReferenceServiceRPCReaders{
+			User:          sworkspace.NewUserReader(base.DB),
+			Workspace:     services.Ws.Reader(),
+			Env:           envService.Reader(),
+			Variable:      varService.Reader(),
+			Flow:          flowService.Reader(),
+			Node:          flowNodeService.Reader(),
+			NodeRequest:   flowNodeRequestService.Reader(),
+			FlowVariable:  flowVariableService.Reader(),
+			FlowEdge:      edgeService.Reader(),
+			NodeExecution: nodeExecutionService.Reader(),
+			HttpResponse:  httpResponseService.Reader(),
+		},
+	})
 
 	// Create User
 	userID := idwrap.NewNow()

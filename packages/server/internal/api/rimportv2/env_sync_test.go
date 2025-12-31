@@ -120,10 +120,10 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	require.NoError(t, err)
 
 	// Create RPC handler with Env and EnvVar streams
-	rpc := NewImportV2RPC(
-		base.DB,
-		logger,
-		ImportServices{
+	rpc := NewImportV2RPC(ImportV2Deps{
+		DB:     base.DB,
+		Logger: logger,
+		Services: ImportServices{
 			Workspace:          baseServices.Ws,
 			User:               baseServices.Us,
 			Http:               &httpService,
@@ -141,9 +141,11 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 			NodeRequest:        &nodeRequestService,
 			Edge:               &edgeService,
 		},
-		baseServices.Ws.Reader(),
-		baseServices.Wus.Reader(),
-		ImportStreamers{
+		Readers: ImportV2Readers{
+			Workspace: baseServices.Ws.Reader(),
+			User:      baseServices.Wus.Reader(),
+		},
+		Streamers: ImportStreamers{
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,
 			Edge:               streamers.Edge,
@@ -158,7 +160,7 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 			Env:                streamers.Env,
 			EnvVar:             streamers.EnvVar,
 		},
-	)
+	})
 
 	return &envSyncTestFixture{
 		ctx:         mwauth.CreateAuthedContext(ctx, userID),

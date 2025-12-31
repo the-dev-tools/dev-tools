@@ -60,7 +60,23 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	})
 	require.NoError(t, err, "create user")
 
-	handler := New(base.DB, services.Ws, services.Wus, services.Us, envService, services.Ws.Reader(), services.Wus.Reader(), stream, envStream)
+	handler := New(WorkspaceServiceRPCDeps{
+		DB: base.DB,
+		Services: WorkspaceServiceRPCServices{
+			Workspace:     services.Ws,
+			WorkspaceUser: services.Wus,
+			User:          services.Us,
+			Env:           envService,
+		},
+		Readers: WorkspaceServiceRPCReaders{
+			Workspace: services.Ws.Reader(),
+			User:      services.Wus.Reader(),
+		},
+		Streamers: WorkspaceServiceRPCStreamers{
+			Workspace:   stream,
+			Environment: envStream,
+		},
+	})
 
 	t.Cleanup(base.Close)
 

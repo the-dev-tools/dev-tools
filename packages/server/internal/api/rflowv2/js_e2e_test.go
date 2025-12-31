@@ -134,36 +134,38 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		resAssertSvc,
 	)
 
-	svc := New(
-		db,
-		wsService.Reader(),
-		flowService.Reader(),
-		nodeService.Reader(),
-		envService.Reader(),
-		httpService.Reader(),
-		edgeService.Reader(),
-		&wsService,
-		&flowService,
-		&edgeService,
-		&nodeService,
-		&nodeRequestService,
-		&nodeForService,
-		&nodeForEachService,
-		nodeIfService,
-		&nodeNodeJsService,
-		&nodeExecService,
-		&flowVarService,
-		&envService,
-		&varService,
-		&httpService,
-		shttpBodyRawSvc,
-		res,
-		logger,
-		nil, // workspaceImportService
-		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // 14 streamers
-		jsClient, // JS client!
-	)
+	svc := New(FlowServiceV2Deps{
+		DB: db,
+		Readers: FlowServiceV2Readers{
+			Workspace: wsService.Reader(),
+			Flow:      flowService.Reader(),
+			Node:      nodeService.Reader(),
+			Env:       envService.Reader(),
+			Http:      httpService.Reader(),
+			Edge:      edgeService.Reader(),
+		},
+		Services: FlowServiceV2Services{
+			Workspace:     &wsService,
+			Flow:          &flowService,
+			Edge:          &edgeService,
+			Node:          &nodeService,
+			NodeRequest:   &nodeRequestService,
+			NodeFor:       &nodeForService,
+			NodeForEach:   &nodeForEachService,
+			NodeIf:        nodeIfService,
+			NodeJs:        &nodeNodeJsService,
+			NodeExecution: &nodeExecService,
+			FlowVariable:  &flowVarService,
+			Env:           &envService,
+			Var:           &varService,
+			Http:          &httpService,
+			HttpBodyRaw:   shttpBodyRawSvc,
+			HttpResponse:  httpResponseService,
+		},
+		Resolver: res,
+		Logger:   logger,
+		JsClient: jsClient,
+	})
 
 	// Setup Data
 	userID := idwrap.NewNow()

@@ -63,20 +63,22 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
-	svc := NewReferenceServiceRPC(
-		db,
-		sworkspace.NewUserReader(db),
-		ws.Reader(),
-		es.Reader(),
-		vs.Reader(),
-		fs.Reader(),
-		fns.Reader(),
-		frns.Reader(),
-		fvs.Reader(),
-		edgeService.Reader(),
-		nes.Reader(),
-		httpResponseService.Reader(),
-	)
+	svc := NewReferenceServiceRPC(ReferenceServiceRPCDeps{
+		DB: db,
+		Readers: ReferenceServiceRPCReaders{
+			User:          sworkspace.NewUserReader(db),
+			Workspace:     ws.Reader(),
+			Env:           es.Reader(),
+			Variable:      vs.Reader(),
+			Flow:          fs.Reader(),
+			Node:          fns.Reader(),
+			NodeRequest:   frns.Reader(),
+			FlowVariable:  fvs.Reader(),
+			FlowEdge:      edgeService.Reader(),
+			NodeExecution: nes.Reader(),
+			HttpResponse:  httpResponseService.Reader(),
+		},
+	})
 
 	// Create User and Workspace using BaseTestServices helper
 	userID := idwrap.NewNow()

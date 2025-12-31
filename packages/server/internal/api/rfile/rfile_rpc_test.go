@@ -39,13 +39,16 @@ func setupTestService(t *testing.T) (*FileServiceRPC, *gen.Queries, context.Cont
 
 	stream := memory.NewInMemorySyncStreamer[FileTopic, FileEvent]()
 
-	svc := &FileServiceRPC{
-		DB:     db,
-		fs:     fileService,
-		us:     userService,
-		ws:     wsService,
-		stream: stream,
-	}
+	handler := New(FileServiceRPCDeps{
+		DB: db,
+		Services: FileServiceRPCServices{
+			File:      fileService,
+			User:      userService,
+			Workspace: wsService,
+		},
+		Stream: stream,
+	})
+	svc := &handler
 
 	// Create User
 	userID := idwrap.NewNow()

@@ -41,16 +41,16 @@ func TestNewExportV2RPC(t *testing.T) {
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
-	rpc := NewExportV2RPC(
-		base.DB,
-		base.Queries,
-		services.Ws,
-		services.Us,
-		&httpService,
-		&flowService,
-		fileService,
-		logger,
-	)
+	rpc := NewExportV2RPC(ExportV2Deps{
+		DB:        base.DB,
+		Queries:   base.Queries,
+		Workspace: services.Ws,
+		User:      services.Us,
+		Http:      &httpService,
+		Flow:      &flowService,
+		File:      fileService,
+		Logger:    logger,
+	})
 
 	require.NotNil(t, rpc)
 	require.NotNil(t, rpc.service)
@@ -70,16 +70,16 @@ func TestCreateExportV2Service(t *testing.T) {
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
-	rpc := NewExportV2RPC(
-		base.DB,
-		base.Queries,
-		services.Ws,
-		services.Us,
-		&httpService,
-		&flowService,
-		fileService,
-		logger,
-	)
+	rpc := NewExportV2RPC(ExportV2Deps{
+		DB:        base.DB,
+		Queries:   base.Queries,
+		Workspace: services.Ws,
+		User:      services.Us,
+		Http:      &httpService,
+		Flow:      &flowService,
+		File:      fileService,
+		Logger:    logger,
+	})
 
 	service, err := CreateExportV2Service(*rpc, nil)
 	require.NoError(t, err)
@@ -539,16 +539,16 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 	require.NoError(t, err)
 
 	// Create RPC handler
-	rpc := NewExportV2RPC(
-		base.DB,
-		base.Queries,
-		services.Ws,
-		services.Us,
-		&httpService,
-		&flowService,
-		fileService,
-		logger,
-	)
+	rpc := NewExportV2RPC(ExportV2Deps{
+		DB:        base.DB,
+		Queries:   base.Queries,
+		Workspace: services.Ws,
+		User:      services.Us,
+		Http:      &httpService,
+		Flow:      &flowService,
+		File:      fileService,
+		Logger:    logger,
+	})
 
 	authCtx := mwauth.CreateAuthedContext(ctx, userID)
 	return rpc, workspaceID, flowID, exampleID, authCtx

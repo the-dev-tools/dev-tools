@@ -77,27 +77,31 @@ func TestHttpRun_Logging(t *testing.T) {
 
 	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.Wus)
 
-	handler := New(
-		base.DB,
-		httpReader,
-		services.Hs,
-		services.Us,
-		services.Ws,
-		services.Wus,
-		services.Wus.Reader(),
-		services.Ws.Reader(),
-		envService,
-		varService,
-		httpBodyRawService,
-		httpHeaderService,
-		httpSearchParamService,
-		httpBodyFormService,
-		httpBodyUrlEncodedService,
-		httpAssertService,
-		httpResponseService,
-		requestResolver,
-		httpStreamers,
-	)
+	handler := New(HttpServiceRPCDeps{
+		DB: base.DB,
+		Readers: HttpServiceRPCReaders{
+			Http:      httpReader,
+			User:      services.Wus.Reader(),
+			Workspace: services.Ws.Reader(),
+		},
+		Services: HttpServiceRPCServices{
+			Http:               services.Hs,
+			User:               services.Us,
+			Workspace:          services.Ws,
+			WorkspaceUser:      services.Wus,
+			Env:                envService,
+			Variable:           varService,
+			HttpBodyRaw:        httpBodyRawService,
+			HttpHeader:         httpHeaderService,
+			HttpSearchParam:    httpSearchParamService,
+			HttpBodyForm:       httpBodyFormService,
+			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
+			HttpAssert:         httpAssertService,
+			HttpResponse:       httpResponseService,
+		},
+		Resolver:  requestResolver,
+		Streamers: httpStreamers,
+	})
 
 	// Setup Data
 	providerID := fmt.Sprintf("test-%s", userID.String())

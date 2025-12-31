@@ -109,26 +109,30 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	)
 
 	// Create handler
-	handler := rhttp.New(
-		base.DB,
-		httpService.Reader(),
-		httpService,
-		services.Us,
-		services.Ws,
-		services.Wus,
-		sworkspace.NewUserReaderFromQueries(base.Queries),
-		sworkspace.NewWorkspaceReaderFromQueries(base.Queries),
-		envService,
-		varService,
-		bodyService,
-		httpHeaderService,
-		httpSearchParamService,
-		httpBodyFormService,
-		httpBodyUrlEncodedService,
-		httpAssertService,
-		httpResponseService,
-		requestResolver,
-		&rhttp.HttpStreamers{
+	handler := rhttp.New(rhttp.HttpServiceRPCDeps{
+		DB: base.DB,
+		Readers: rhttp.HttpServiceRPCReaders{
+			Http:      httpService.Reader(),
+			User:      sworkspace.NewUserReaderFromQueries(base.Queries),
+			Workspace: sworkspace.NewWorkspaceReaderFromQueries(base.Queries),
+		},
+		Services: rhttp.HttpServiceRPCServices{
+			Http:               httpService,
+			User:               services.Us,
+			Workspace:          services.Ws,
+			WorkspaceUser:      services.Wus,
+			Env:                envService,
+			Variable:           varService,
+			HttpBodyRaw:        bodyService,
+			HttpHeader:         httpHeaderService,
+			HttpSearchParam:    httpSearchParamService,
+			HttpBodyForm:       httpBodyFormService,
+			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
+			HttpAssert:         httpAssertService,
+			HttpResponse:       httpResponseService,
+		},
+		Resolver: requestResolver,
+		Streamers: &rhttp.HttpStreamers{
 			Http:               stream,
 			HttpHeader:         httpHeaderStream,
 			HttpSearchParam:    httpSearchParamStream,
@@ -142,7 +146,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 			HttpBodyRaw:        httpBodyRawStream,
 			Log:                logStreamer,
 		},
-	)
+	})
 
 	f := &deltaExecutionFixture{
 		ctx:               ctx,

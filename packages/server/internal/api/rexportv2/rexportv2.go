@@ -157,38 +157,54 @@ type ExportV2RPC struct {
 	us      suser.UserService
 }
 
+type ExportV2Deps struct {
+	DB          *sql.DB
+	Queries     *gen.Queries
+	Workspace   sworkspace.WorkspaceService
+	User        suser.UserService
+	Http        *shttp.HTTPService
+	Flow        *sflow.FlowService
+	File        *sfile.FileService
+	Logger      *slog.Logger
+}
+
+func (d *ExportV2Deps) Validate() error {
+	if d.DB == nil { return fmt.Errorf("db is required") }
+	if d.Queries == nil { return fmt.Errorf("queries is required") }
+	if d.Http == nil { return fmt.Errorf("http service is required") }
+	if d.Flow == nil { return fmt.Errorf("flow service is required") }
+	if d.File == nil { return fmt.Errorf("file service is required") }
+	if d.Logger == nil { return fmt.Errorf("logger is required") }
+	return nil
+}
+
 // NewExportV2RPC creates a new ExportV2RPC handler with modern services
-func NewExportV2RPC(
-	db *sql.DB,
-	queries *gen.Queries,
-	ws sworkspace.WorkspaceService,
-	us suser.UserService,
-	httpService *shttp.HTTPService,
-	flowService *sflow.FlowService,
-	fileService *sfile.FileService,
-	logger *slog.Logger,
-) *ExportV2RPC {
+func NewExportV2RPC(deps ExportV2Deps) *ExportV2RPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("ExportV2 Deps validation failed: %v", err))
+	}
+
 	// Create IOWorkspaceService
-	ioWorkspaceService := ioworkspace.New(queries, logger)
+	ioWorkspaceService := ioworkspace.New(deps.Queries, deps.Logger)
 
 	// Create simple storage with modern services
-	storage := NewStorage(&ws, httpService, flowService, fileService)
+	storage := NewStorage(&deps.Workspace, deps.Http, deps.Flow, deps.File)
 
 	// Create simple exporter with IOWorkspaceService
-	exporter := NewExporter(httpService, flowService, fileService, ioWorkspaceService)
+	exporter := NewExporter(deps.Http, deps.Flow, deps.File, ioWorkspaceService)
 
 	// Create simple validator
-	validator := NewValidator(&us)
+	validator := NewValidator(&deps.User)
 
 	// Create the main service
 	service := NewService(exporter, validator, storage)
 
 	return &ExportV2RPC{
-		db:      db,
+		db:      deps.DB,
 		service: service,
-		logger:  logger,
-		ws:      ws,
-		us:      us,
+		logger:  deps.Logger,
+		ws:      deps.Workspace,
+		us:      deps.User,
 	}
 }
 

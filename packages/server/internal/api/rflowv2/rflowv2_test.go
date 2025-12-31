@@ -17,13 +17,13 @@ import (
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/flow/flowbuilder"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -169,6 +169,7 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
 	varService := senv.NewVariableService(queries, logger)
+	envService := senv.NewEnvironmentService(queries, logger)
 
 	// Readers
 	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
@@ -177,42 +178,38 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+	httpService := shttp.New(queries, logger)
 
-	builder := flowbuilder.New(
-		&nodeService,
-		&reqService,
-		&forService,
-		&forEachService,
-		ifService,
-		&jsService,
-		&wsService,
-		&varService,
-		&flowVarService,
-		res,
-		logger,
-	)
-
-	svc := &FlowServiceV2RPC{
-		DB:             db,
-		wsReader:       wsReader,
-		fsReader:       fsReader,
-		nsReader:       nsReader,
-		flowEdgeReader: edgeService.Reader(),
-		ws:             &wsService,
-		fs:           &flowService,
-		ns:           &nodeService,
-		nes:          &nodeExecService,
-		es:           &edgeService,
-		fvs:          &flowVarService,
-		nrs:          &reqService,
-		nfs:          &forService,
-		nfes:         &forEachService,
-		nifs:         ifService,
-		njss:         &jsService,
-		logger:       logger,
-		builder:      builder,
-		runningFlows: make(map[string]context.CancelFunc),
-	}
+	svc := New(FlowServiceV2Deps{
+		DB: db,
+		Readers: FlowServiceV2Readers{
+			Workspace: wsReader,
+			Flow:      fsReader,
+			Node:      nsReader,
+			Env:       senv.NewEnvReaderFromQueries(queries, logger),
+			Http:      shttp.NewReaderFromQueries(queries, logger, nil),
+			Edge:      edgeService.Reader(),
+		},
+		Services: FlowServiceV2Services{
+			Workspace:     &wsService,
+			Flow:          &flowService,
+			Edge:          &edgeService,
+			Node:          &nodeService,
+			NodeRequest:   &reqService,
+			NodeFor:       &forService,
+			NodeForEach:   &forEachService,
+			NodeIf:        ifService,
+			NodeJs:        &jsService,
+			NodeExecution: &nodeExecService,
+			FlowVariable:  &flowVarService,
+			Env:           &envService,
+			Var:           &varService,
+			Http:          &httpService,
+			HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
+		},
+		Resolver: res,
+		Logger:   logger,
+	})
 
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
@@ -313,6 +310,7 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
 	varService := senv.NewVariableService(queries, logger)
+	envService := senv.NewEnvironmentService(queries, logger)
 
 	// Readers
 	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
@@ -321,42 +319,38 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+	httpService := shttp.New(queries, logger)
 
-	builder := flowbuilder.New(
-		&nodeService,
-		&reqService,
-		&forService,
-		&forEachService,
-		ifService,
-		&jsService,
-		&wsService,
-		&varService,
-		&flowVarService,
-		res,
-		logger,
-	)
-
-	svc := &FlowServiceV2RPC{
-		DB:             db,
-		wsReader:       wsReader,
-		fsReader:       fsReader,
-		nsReader:       nsReader,
-		flowEdgeReader: edgeService.Reader(),
-		ws:             &wsService,
-		fs:           &flowService,
-		ns:           &nodeService,
-		nes:          &nodeExecService,
-		es:           &edgeService,
-		fvs:          &flowVarService,
-		nrs:          &reqService,
-		nfs:          &forService,
-		nfes:         &forEachService,
-		nifs:         ifService,
-		njss:         &jsService,
-		logger:       logger,
-		builder:      builder,
-		runningFlows: make(map[string]context.CancelFunc),
-	}
+	svc := New(FlowServiceV2Deps{
+		DB: db,
+		Readers: FlowServiceV2Readers{
+			Workspace: wsReader,
+			Flow:      fsReader,
+			Node:      nsReader,
+			Env:       senv.NewEnvReaderFromQueries(queries, logger),
+			Http:      shttp.NewReaderFromQueries(queries, logger, nil),
+			Edge:      edgeService.Reader(),
+		},
+		Services: FlowServiceV2Services{
+			Workspace:     &wsService,
+			Flow:          &flowService,
+			Edge:          &edgeService,
+			Node:          &nodeService,
+			NodeRequest:   &reqService,
+			NodeFor:       &forService,
+			NodeForEach:   &forEachService,
+			NodeIf:        ifService,
+			NodeJs:        &jsService,
+			NodeExecution: &nodeExecService,
+			FlowVariable:  &flowVarService,
+			Env:           &envService,
+			Var:           &varService,
+			Http:          &httpService,
+			HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
+		},
+		Resolver: res,
+		Logger:   logger,
+	})
 
 	// Setup Data
 	userID := idwrap.NewNow()
@@ -463,6 +457,7 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
 	varService := senv.NewVariableService(queries, logger)
+	envService := senv.NewEnvironmentService(queries, logger)
 
 	// Readers
 	wsReader := sworkspace.NewWorkspaceReaderFromQueries(queries)
@@ -471,42 +466,38 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
+	httpService := shttp.New(queries, logger)
 
-	builder := flowbuilder.New(
-		&nodeService,
-		&reqService,
-		&forService,
-		&forEachService,
-		ifService,
-		&jsService,
-		&wsService,
-		&varService,
-		&flowVarService,
-		res,
-		logger,
-	)
-
-	svc := &FlowServiceV2RPC{
-		DB:             db,
-		wsReader:       wsReader,
-		fsReader:       fsReader,
-		nsReader:       nsReader,
-		flowEdgeReader: edgeService.Reader(),
-		ws:             &wsService,
-		fs:           &flowService,
-		ns:           &nodeService,
-		nes:          &nodeExecService,
-		es:           &edgeService,
-		fvs:          &flowVarService,
-		nrs:          &reqService,
-		nfs:          &forService,
-		nfes:         &forEachService,
-		nifs:         ifService,
-		njss:         &jsService,
-		logger:       logger,
-		builder:      builder,
-		runningFlows: make(map[string]context.CancelFunc),
-	}
+	svc := New(FlowServiceV2Deps{
+		DB: db,
+		Readers: FlowServiceV2Readers{
+			Workspace: wsReader,
+			Flow:      fsReader,
+			Node:      nsReader,
+			Env:       senv.NewEnvReaderFromQueries(queries, logger),
+			Http:      shttp.NewReaderFromQueries(queries, logger, nil),
+			Edge:      edgeService.Reader(),
+		},
+		Services: FlowServiceV2Services{
+			Workspace:     &wsService,
+			Flow:          &flowService,
+			Edge:          &edgeService,
+			Node:          &nodeService,
+			NodeRequest:   &reqService,
+			NodeFor:       &forService,
+			NodeForEach:   &forEachService,
+			NodeIf:        ifService,
+			NodeJs:        &jsService,
+			NodeExecution: &nodeExecService,
+			FlowVariable:  &flowVarService,
+			Env:           &envService,
+			Var:           &varService,
+			Http:          &httpService,
+			HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
+		},
+		Resolver: res,
+		Logger:   logger,
+	})
 
 	// Setup Data
 	userID := idwrap.NewNow()

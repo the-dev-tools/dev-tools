@@ -371,80 +371,45 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 
 	// Create RPC handler
-
-	rpc := NewImportV2RPC(
-
-		base.DB,
-
-		logger,
-
-		ImportServices{
-
+	rpc := NewImportV2RPC(ImportV2Deps{
+		DB:     base.DB,
+		Logger: logger,
+		Services: ImportServices{
 			Workspace:          baseServices.Ws,
-
 			User:               baseServices.Us,
-
 			Http:               &httpService,
-
 			Flow:               &flowService,
-
 			File:               fileService,
-
 			Env:                envService,
-
 			Var:                varService,
-
 			HttpHeader:         httpHeaderService,
-
 			HttpSearchParam:    httpSearchParamService,
-
 			HttpBodyForm:       httpBodyFormService,
-
 			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
-
 			HttpBodyRaw:        bodyService,
-
 			HttpAssert:         httpAssertService,
-
 			Node:               &nodeService,
-
 			NodeRequest:        &nodeRequestService,
-
 			Edge:               &edgeService,
-
 		},
-
-		baseServices.Ws.Reader(),
-
-		baseServices.Wus.Reader(),
-
-		ImportStreamers{
-
+		Readers: ImportV2Readers{
+			Workspace: baseServices.Ws.Reader(),
+			User:      baseServices.Wus.Reader(),
+		},
+		Streamers: ImportStreamers{
 			Flow:               streamers.Flow,
-
 			Node:               streamers.Node,
-
 			Edge:               streamers.Edge,
-
 			Http:               streamers.Http,
-
 			HttpHeader:         streamers.HttpHeader,
-
 			HttpSearchParam:    streamers.HttpSearchParam,
-
 			HttpBodyForm:       streamers.HttpBodyForm,
-
 			HttpBodyUrlEncoded: streamers.HttpBodyUrlEncoded,
-
 			HttpBodyRaw:        streamers.HttpBodyRaw,
-
 			HttpAssert:         streamers.HttpAssert,
-
 			File:               streamers.File,
-
 		},
-
-	)
+	})
 
 	services := BaseTestServices{
 

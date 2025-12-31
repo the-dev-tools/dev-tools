@@ -19,29 +19,35 @@ import (
 )
 
 func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
-	h.streamers.Http.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
+	topic := HttpTopic{WorkspaceID: http.WorkspaceID}
+	event := HttpEvent{
 		Type:    eventTypeInsert,
 		IsDelta: http.IsDelta,
 		Http:    converter.ToAPIHttp(http),
-	})
+	}
+	h.streamers.Http.Publish(topic, event)
 }
 
 // publishUpdateEvent publishes an update event for real-time sync
 func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP, p patch.HTTPDeltaPatch) {
-	h.streamers.Http.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
+	topic := HttpTopic{WorkspaceID: http.WorkspaceID}
+	event := HttpEvent{
 		Type:    eventTypeUpdate,
 		IsDelta: http.IsDelta,
 		Patch:   p,
 		Http:    converter.ToAPIHttp(http),
-	})
+	}
+	h.streamers.Http.Publish(topic, event)
 }
 
 // publishVersionInsertEvent publishes an insert event for real-time sync
 func (h *HttpServiceRPC) publishVersionInsertEvent(version mhttp.HttpVersion, workspaceID idwrap.IDWrap) {
-	h.streamers.HttpVersion.Publish(HttpVersionTopic{WorkspaceID: workspaceID}, HttpVersionEvent{
+	topic := HttpVersionTopic{WorkspaceID: workspaceID}
+	event := HttpVersionEvent{
 		Type:        eventTypeInsert,
 		HttpVersion: converter.ToAPIHttpVersion(version),
-	})
+	}
+	h.streamers.HttpVersion.Publish(topic, event)
 }
 
 // publishBulkHttpUpdate publishes multiple HTTP update events in bulk.
@@ -668,7 +674,3 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 		nil,
 	)
 }
-
-// Helper methods for HTTP request execution
-
-// parseHttpMethod converts string method to HttpMethod enum
