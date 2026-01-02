@@ -624,6 +624,33 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		if err := txFlowService.CreateFlowBulk(ctx, results.Flows); err != nil {
 			return nil, nil, fmt.Errorf("failed to store flows: %w", err)
 		}
+
+		// Create File entries for flows that don't already have entries in results.Files
+		// (HAR imports already include flow files, YAML imports don't)
+		existingFlowFiles := make(map[idwrap.IDWrap]bool)
+		for i := range results.Files {
+			if results.Files[i].ContentType == mfile.ContentTypeFlow {
+				existingFlowFiles[results.Files[i].ID] = true
+			}
+		}
+
+		// Create flow files for flows that don't have entries, append to Files
+		for i, flow := range results.Flows {
+			if existingFlowFiles[flow.ID] {
+				continue // Already in results.Files
+			}
+			flowFile := mfile.File{
+				ID:          flow.ID,
+				WorkspaceID: flow.WorkspaceID,
+				ContentType: mfile.ContentTypeFlow,
+				Name:        flow.Name,
+				Order:       float64(i + 1),
+			}
+			if err := txFileService.CreateFile(ctx, &flowFile); err != nil {
+				return nil, nil, fmt.Errorf("failed to store flow file entry %s: %w", flow.Name, err)
+			}
+			results.Files = append(results.Files, flowFile) // Append to unified Files array
+		}
 	}
 	if len(results.Nodes) > 0 {
 		if err := txNodeService.CreateNodeBulk(ctx, results.Nodes); err != nil {

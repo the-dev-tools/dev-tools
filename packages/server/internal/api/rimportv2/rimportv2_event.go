@@ -8,35 +8,92 @@ import (
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/converter"
+	"the-dev-tools/server/pkg/eventsync"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mhttp"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
-// publishEvents publishes real-time sync events for imported entities
+// publishEvents publishes real-time sync events for imported entities.
+// Uses the eventsync package for dependency-based ordering, ensuring
+// entities are published in the correct order for frontend TanStack DB.
+//
+// Event order (computed automatically by eventsync.Dependencies):
+//  1. Flow event (root - no dependencies)
+//  2. Environment event (root - no dependencies)
+//  3. Flow file events (depend on Flow)
+//  4. Node events (depend on Flow, ordered by graph level)
+//  5. Edge events (depend on Node)
+//  6. HTTP events (depend on Node)
+//  7. HTTP file events (depend on HTTP)
+//  8. HTTP child events: headers, params, bodies, asserts (depend on HTTP)
+//  9. Environment Variable events (depend on Environment)
 func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults) {
-	// Publish Flow event FIRST if present
+	batch := eventsync.NewEventBatch()
+
+	// Add Flow event
 	if results.Flow != nil {
-		flowPB := &flowv1.Flow{
-			FlowId: results.Flow.ID.Bytes(),
-			Name:   results.Flow.Name,
-		}
-		if results.Flow.Duration != 0 {
-			d := results.Flow.Duration
-			flowPB.Duration = &d
-		}
+		flow := results.Flow // capture for closure
+		batch.AddSimple(eventsync.KindFlow, func() {
+			flowPB := &flowv1.Flow{
+				FlowId: flow.ID.Bytes(),
+				Name:   flow.Name,
+			}
+			if flow.Duration != 0 {
+				d := flow.Duration
+				flowPB.Duration = &d
+			}
 
-		h.FlowStream.Publish(rflowv2.FlowTopic{WorkspaceID: results.Flow.WorkspaceID}, rflowv2.FlowEvent{
-			Type: "insert",
-			Flow: flowPB,
+			h.FlowStream.Publish(rflowv2.FlowTopic{WorkspaceID: flow.WorkspaceID}, rflowv2.FlowEvent{
+				Type: "insert",
+				Flow: flowPB,
+			})
 		})
+	}
 
-		// Publish Nodes events
-		if len(results.Nodes) > 0 {
-			grouped := make(map[rflowv2.NodeTopic][]rflowv2.NodeEvent)
-			for _, node := range results.Nodes {
-				// We don't typically deduplicate nodes yet as they are unique to each flow,
-				// but let's check for consistency if we ever do.
-				topic := rflowv2.NodeTopic{FlowID: node.FlowID}
-				grouped[topic] = append(grouped[topic], rflowv2.NodeEvent{
+	// Add Environment events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindEnvironment, h.EnvStream, renv.EnvironmentTopic{WorkspaceID: results.WorkspaceID}, results.CreatedEnvs, func(env menv.Env) renv.EnvironmentEvent {
+		return renv.EnvironmentEvent{
+			Type:        "insert",
+			Environment: converter.ToAPIEnvironment(env),
+		}
+	})
+
+	// Add File events (both flow files and other files)
+	// The eventsync package ensures flow files (KindFlowFile) are published before other files (KindHTTPFile)
+	for _, file := range results.Files {
+		if results.DeduplicatedFiles[file.ID] {
+			continue
+		}
+
+		kind := eventsync.KindHTTPFile
+		if file.ContentType == mfile.ContentTypeFlow {
+			kind = eventsync.KindFlowFile
+		}
+
+		batch.AddSimple(kind, func() {
+			h.FileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
+				Type: "create",
+				File: converter.ToAPIFile(*file),
+				Name: file.Name,
+			})
+		})
+	}
+
+	// Add Node events (with graph-based ordering via subOrder)
+	if len(results.Nodes) > 0 {
+		nodeOrder := eventsync.ComputeNodeOrder(results.Nodes, results.Edges)
+		nodeLevel := make(map[string]int)
+		for i, id := range nodeOrder {
+			nodeLevel[id.String()] = i
+		}
+
+		for _, node := range results.Nodes {
+			level := nodeLevel[node.ID.String()]
+			batch.Add(eventsync.KindNode, level, func() {
+				h.NodeStream.Publish(rflowv2.NodeTopic{FlowID: node.FlowID}, rflowv2.NodeEvent{
 					Type: "insert",
 					Node: &flowv1.Node{
 						NodeId: node.ID.Bytes(),
@@ -49,215 +106,112 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 						},
 					},
 				})
-			}
-			for topic, events := range grouped {
-				h.NodeStream.Publish(topic, events...)
-			}
-		}
-
-                				// Publish Edges events
-                				if len(results.Edges) > 0 {
-                					grouped := make(map[rflowv2.EdgeTopic][]rflowv2.EdgeEvent)
-                					for _, edge := range results.Edges {
-                						edgePB := &flowv1.Edge{
-                							EdgeId:       edge.ID.Bytes(),
-                							FlowId:       edge.FlowID.Bytes(),
-                							SourceId:     edge.SourceID.Bytes(),
-                							TargetId:     edge.TargetID.Bytes(),
-                							SourceHandle: flowv1.HandleKind(edge.SourceHandler),
-                						}
-                						topic := rflowv2.EdgeTopic{FlowID: edge.FlowID}
-                						grouped[topic] = append(grouped[topic], rflowv2.EdgeEvent{
-                							Type: "insert",
-                							Edge: edgePB,
-                						})
-                					}
-                					for topic, events := range grouped {
-                						h.EdgeStream.Publish(topic, events...)
-                					}
-                				}            }
-
-            // Publish HTTP events
-	if len(results.HTTPReqs) > 0 {
-		grouped := make(map[rhttp.HttpTopic][]rhttp.HttpEvent)
-		for _, httpReq := range results.HTTPReqs {
-			// Skip if deduplicated
-			if results.DeduplicatedHTTPReqs[httpReq.ID] {
-				continue
-			}
-			topic := rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}
-			grouped[topic] = append(grouped[topic], rhttp.HttpEvent{
-				Type:    "insert",
-				IsDelta: httpReq.IsDelta,
-				Http:    converter.ToAPIHttp(*httpReq),
-			})
-		}
-		for topic, events := range grouped {
-			h.HttpStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish File events
-	if len(results.Files) > 0 {
-		grouped := make(map[rfile.FileTopic][]rfile.FileEvent)
-		for _, file := range results.Files {
-			// Skip if deduplicated
-			if results.DeduplicatedFiles[file.ID] {
-				continue
-			}
-			topic := rfile.FileTopic{WorkspaceID: file.WorkspaceID}
-			grouped[topic] = append(grouped[topic], rfile.FileEvent{
-				Type: "create",
-				File: converter.ToAPIFile(*file),
-				Name: file.Name,
-			})
-		}
-		for topic, events := range grouped {
-			h.FileStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish Header events
-	if len(results.HTTPHeaders) > 0 {
-		topic := rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}
-		var events []rhttp.HttpHeaderEvent
-		for _, header := range results.HTTPHeaders {
-			if results.DeduplicatedHTTPReqs[header.HttpID] {
-				continue
-			}
-			events = append(events, rhttp.HttpHeaderEvent{
-				Type:       "insert",
-				IsDelta:    header.IsDelta,
-				HttpHeader: converter.ToAPIHttpHeader(*header),
-			})
-		}
-		if len(events) > 0 {
-			h.HttpHeaderStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish SearchParam events
-	if len(results.HTTPSearchParams) > 0 {
-		topic := rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}
-		var events []rhttp.HttpSearchParamEvent
-		for _, param := range results.HTTPSearchParams {
-			if results.DeduplicatedHTTPReqs[param.HttpID] {
-				continue
-			}
-			events = append(events, rhttp.HttpSearchParamEvent{
-				Type:            "insert",
-				IsDelta:         param.IsDelta,
-				HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
-			})
-		}
-		if len(events) > 0 {
-			h.HttpSearchParamStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish BodyForm events
-	if len(results.HTTPBodyForms) > 0 {
-		topic := rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}
-		var events []rhttp.HttpBodyFormEvent
-		for _, form := range results.HTTPBodyForms {
-			if results.DeduplicatedHTTPReqs[form.HttpID] {
-				continue
-			}
-			events = append(events, rhttp.HttpBodyFormEvent{
-				Type:         "insert",
-				IsDelta:      form.IsDelta,
-				HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
-			})
-		}
-		if len(events) > 0 {
-			h.HttpBodyFormStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish BodyUrlEncoded events
-	if len(results.HTTPBodyUrlEncoded) > 0 {
-		topic := rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}
-		var events []rhttp.HttpBodyUrlEncodedEvent
-		for _, encoded := range results.HTTPBodyUrlEncoded {
-			if results.DeduplicatedHTTPReqs[encoded.HttpID] {
-				continue
-			}
-			events = append(events, rhttp.HttpBodyUrlEncodedEvent{
-				Type:               "insert",
-				IsDelta:            encoded.IsDelta,
-				HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
-			})
-		}
-		if len(events) > 0 {
-			h.HttpBodyUrlEncodedStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish BodyRaw events
-	if len(results.HTTPBodyRaws) > 0 {
-		topic := rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}
-		var events []rhttp.HttpBodyRawEvent
-		for _, raw := range results.HTTPBodyRaws {
-			if results.DeduplicatedHTTPReqs[raw.HttpID] {
-				continue
-			}
-			events = append(events, rhttp.HttpBodyRawEvent{
-				Type:        "insert",
-				IsDelta:     raw.IsDelta,
-				HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
-			})
-		}
-		if len(events) > 0 {
-			h.HttpBodyRawStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish Assert events
-	if len(results.HTTPAsserts) > 0 {
-		topic := rhttp.HttpAssertTopic{WorkspaceID: results.WorkspaceID}
-		var events []rhttp.HttpAssertEvent
-		for _, assert := range results.HTTPAsserts {
-			if results.DeduplicatedHTTPReqs[assert.HttpID] {
-				continue
-			}
-			events = append(events, rhttp.HttpAssertEvent{
-				Type:       "insert",
-				IsDelta:    assert.IsDelta,
-				HttpAssert: converter.ToAPIHttpAssert(*assert),
-			})
-		}
-		if len(events) > 0 {
-			h.HttpAssertStream.Publish(topic, events...)
-		}
-	}
-
-	// Publish Environment events (if a default environment was created during domain variable import)
-	if len(results.CreatedEnvs) > 0 && h.EnvStream != nil {
-		for _, env := range results.CreatedEnvs {
-			h.EnvStream.Publish(renv.EnvironmentTopic{WorkspaceID: env.WorkspaceID}, renv.EnvironmentEvent{
-				Type:        "insert",
-				Environment: converter.ToAPIEnvironment(env),
 			})
 		}
 	}
 
-	// Publish Environment Variable events (for domain-to-variable mappings created during import)
-	if len(results.CreatedVars) > 0 && h.EnvVarStream != nil {
-		for _, v := range results.CreatedVars {
-			h.EnvVarStream.Publish(renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID, EnvironmentID: v.EnvID}, renv.EnvironmentVariableEvent{
-				Type:     "insert",
-				Variable: converter.ToAPIEnvironmentVariable(v),
-			})
+	// Add Edge events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindEdge, h.EdgeStream, rflowv2.EdgeTopic{FlowID: results.Flow.ID}, results.Edges, func(edge mflow.Edge) rflowv2.EdgeEvent {
+		return rflowv2.EdgeEvent{
+			Type:   "insert",
+			FlowID: edge.FlowID,
+			Edge: &flowv1.Edge{
+				EdgeId:       edge.ID.Bytes(),
+				FlowId:       edge.FlowID.Bytes(),
+				SourceId:     edge.SourceID.Bytes(),
+				TargetId:     edge.TargetID.Bytes(),
+				SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+			},
+		}
+	})
+
+	// Filter HTTP requests for deduplication
+	var filteredHTTP []*mhttp.HTTP
+	for _, req := range results.HTTPReqs {
+		if !results.DeduplicatedHTTPReqs[req.ID] {
+			filteredHTTP = append(filteredHTTP, req)
 		}
 	}
 
-	// Publish Environment Variable update events (for variables that already existed and were updated)
-	if len(results.UpdatedVars) > 0 && h.EnvVarStream != nil {
-		for _, v := range results.UpdatedVars {
-			h.EnvVarStream.Publish(renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID, EnvironmentID: v.EnvID}, renv.EnvironmentVariableEvent{
-				Type:     "update",
-				Variable: converter.ToAPIEnvironmentVariable(v),
-			})
+	// Add HTTP events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTP, h.HttpStream, rhttp.HttpTopic{WorkspaceID: results.WorkspaceID}, filteredHTTP, func(httpReq *mhttp.HTTP) rhttp.HttpEvent {
+		return rhttp.HttpEvent{
+			Type:    "insert",
+			IsDelta: httpReq.IsDelta,
+			Http:    converter.ToAPIHttp(*httpReq),
 		}
-	}
+	})
+
+	// Add HTTP Header events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTPHeader, h.HttpHeaderStream, rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, results.HTTPHeaders, func(header *mhttp.HTTPHeader) rhttp.HttpHeaderEvent {
+		return rhttp.HttpHeaderEvent{
+			Type:       "insert",
+			IsDelta:    header.IsDelta,
+			HttpHeader: converter.ToAPIHttpHeader(*header),
+		}
+	})
+
+	// Add HTTP SearchParam events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTPParam, h.HttpSearchParamStream, rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}, results.HTTPSearchParams, func(param *mhttp.HTTPSearchParam) rhttp.HttpSearchParamEvent {
+		return rhttp.HttpSearchParamEvent{
+			Type:            "insert",
+			IsDelta:         param.IsDelta,
+			HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
+		}
+	})
+
+	// Add HTTP BodyForm events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTPBodyForm, h.HttpBodyFormStream, rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}, results.HTTPBodyForms, func(form *mhttp.HTTPBodyForm) rhttp.HttpBodyFormEvent {
+		return rhttp.HttpBodyFormEvent{
+			Type:         "insert",
+			IsDelta:      form.IsDelta,
+			HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
+		}
+	})
+
+	// Add HTTP BodyUrlEncoded events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTPBodyURL, h.HttpBodyUrlEncodedStream, rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}, results.HTTPBodyUrlEncoded, func(encoded *mhttp.HTTPBodyUrlencoded) rhttp.HttpBodyUrlEncodedEvent {
+		return rhttp.HttpBodyUrlEncodedEvent{
+			Type:               "insert",
+			IsDelta:            encoded.IsDelta,
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
+		}
+	})
+
+	// Add HTTP BodyRaw events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTPBodyRaw, h.HttpBodyRawStream, rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}, results.HTTPBodyRaws, func(raw *mhttp.HTTPBodyRaw) rhttp.HttpBodyRawEvent {
+		return rhttp.HttpBodyRawEvent{
+			Type:        "insert",
+			IsDelta:     raw.IsDelta,
+			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
+		}
+	})
+
+	// Add HTTP Assert events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindHTTPAssert, h.HttpAssertStream, rhttp.HttpAssertTopic{WorkspaceID: results.WorkspaceID}, results.HTTPAsserts, func(assert *mhttp.HTTPAssert) rhttp.HttpAssertEvent {
+		return rhttp.HttpAssertEvent{
+			Type:       "insert",
+			IsDelta:    assert.IsDelta,
+			HttpAssert: converter.ToAPIHttpAssert(*assert),
+		}
+	})
+
+	// Add Environment Variable events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindEnvVariable, h.EnvVarStream, renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID}, results.CreatedVars, func(v menv.Variable) renv.EnvironmentVariableEvent {
+		return renv.EnvironmentVariableEvent{
+			Type:     "insert",
+			Variable: converter.ToAPIEnvironmentVariable(v),
+		}
+	})
+
+	// Add Environment Variable update events
+	eventsync.AddSyncTransformSimple(batch, eventsync.KindEnvVariable, h.EnvVarStream, renv.EnvironmentVariableTopic{WorkspaceID: results.WorkspaceID}, results.UpdatedVars, func(v menv.Variable) renv.EnvironmentVariableEvent {
+		return renv.EnvironmentVariableEvent{
+			Type:     "update",
+			Variable: converter.ToAPIEnvironmentVariable(v),
+		}
+	})
+
+	// Publish all events in dependency-sorted order
+	_ = batch.Publish(ctx)
 }

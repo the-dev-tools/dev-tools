@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
@@ -1336,14 +1337,11 @@ flows:
 	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
 	defer cancel()
 
-	// Create the request
+	// Create the request - YAML imports don't need DomainData
 	req := connect.NewRequest(&apiv1.ImportRequest{
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "YAML Import Test",
 		Data:        yamlData,
-		DomainData: []*apiv1.ImportDomainData{
-			{Enabled: true, Domain: "ecommerce-admin-panel.fly.dev", Variable: "API_HOST"},
-		},
 	})
 
 	// Channel to capture result
@@ -1415,13 +1413,11 @@ flows:
 	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
 	defer cancel()
 
+	// YAML imports don't need DomainData - they persist directly
 	req := connect.NewRequest(&apiv1.ImportRequest{
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "Flow Nodes Test",
 		Data:        yamlData,
-		DomainData: []*apiv1.ImportDomainData{
-			{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
-		},
 	})
 
 	type result struct {
@@ -1444,7 +1440,17 @@ flows:
 		require.NoError(t, err)
 		require.Len(t, flows, 1, "Should have exactly 1 flow")
 
-		t.Logf("Flow nodes test completed successfully with %d flow(s)", len(flows))
+		// Verify nodes were created using the RPC's node service
+		nodes, err := fixture.rpc.NodeService.GetNodesByFlowID(fixture.ctx, flows[0].ID)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(nodes), 3, "Should have at least 3 request nodes + start node")
+
+		// Verify edges were created using the RPC's edge service
+		edges, err := fixture.rpc.EdgeService.GetEdgesByFlowID(fixture.ctx, flows[0].ID)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(edges), 1, "Should have at least 1 edge")
+
+		t.Logf("Flow nodes test completed successfully with %d flow(s), %d nodes, %d edges", len(flows), len(nodes), len(edges))
 
 	case <-ctx.Done():
 		t.Fatal("YAML import with flow nodes timed out!")
@@ -1482,13 +1488,11 @@ flows:
 	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
 	defer cancel()
 
+	// YAML imports don't need DomainData - they persist directly
 	req := connect.NewRequest(&apiv1.ImportRequest{
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "File Names Test",
 		Data:        yamlData,
-		DomainData: []*apiv1.ImportDomainData{
-			{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
-		},
 	})
 
 	resp, err := fixture.rpc.Import(ctx, req)
@@ -1670,4 +1674,71 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 		"Should have URL {{API_HOST}}/users/create")
 
 	t.Log("Domain replacement test passed - URLs are correctly replaced in storage")
+}
+
+// TestYAMLImport_FlowFileEntryCreated verifies that a File entry (sidebar) is created
+// for imported flows, so they appear in the sidebar file tree.
+func TestYAMLImport_FlowFileEntryCreated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping flow file entry test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	yamlData := []byte(`workspace_name: Flow File Test
+flows:
+  - name: My Test Flow
+    steps:
+      - request:
+          name: Request1
+          method: GET
+          url: "{{baseUrl}}/test"
+`)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	// Import YAML without domain data
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Flow File Entry Test",
+		Data:        yamlData,
+	})
+
+	resp, err := fixture.rpc.Import(ctx, req)
+	require.NoError(t, err, "YAML import should complete without error")
+	require.NotNil(t, resp)
+	require.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp.Msg.MissingData,
+		"YAML imports should not require domain data")
+
+	// Verify flow was created
+	flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	require.NoError(t, err)
+	require.Len(t, flows, 1, "Should have exactly 1 flow")
+	require.Equal(t, "My Test Flow", flows[0].Name)
+
+	t.Logf("Flow created: ID=%s Name=%s", flows[0].ID.String(), flows[0].Name)
+
+	// Verify File entry was created for the flow (sidebar entry)
+	// The File entry should have fileId = flowId and ContentType = Flow
+	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	require.NoError(t, err)
+
+	// Filter for flow files only (ContentType = ContentTypeFlow = 3)
+	var flowFiles []mfile.File
+	for _, f := range files {
+		if f.ContentType == mfile.ContentTypeFlow {
+			flowFiles = append(flowFiles, f)
+		}
+	}
+
+	require.Len(t, flowFiles, 1, "Should have exactly 1 flow file entry in sidebar")
+	require.Equal(t, flows[0].ID, flowFiles[0].ID, "Flow file ID should equal flow ID")
+	require.Equal(t, "My Test Flow", flowFiles[0].Name, "Flow file name should match flow name")
+	require.Equal(t, fixture.workspaceID, flowFiles[0].WorkspaceID, "Flow file should belong to workspace")
+
+	t.Logf("Flow File entry created: ID=%s Name=%s ContentType=%d",
+		flowFiles[0].ID.String(), flowFiles[0].Name, flowFiles[0].ContentType)
+
+	t.Log("Flow file entry test passed - flow appears in sidebar")
 }

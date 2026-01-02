@@ -99,8 +99,9 @@ func (wb *WorkspaceBundle) layoutFlowNodes(flowID idwrap.IDWrap) error {
 		return fmt.Errorf("start node not found for flow")
 	}
 
-	// Use vertical layout (Y increases with depth, X for parallel nodes)
-	config := flowgraph.DefaultVerticalConfig()
+	// Use horizontal layout (X increases with depth, Y for parallel nodes)
+	// This matches HAR import: nodes flow left-to-right with 300px spacing
+	config := flowgraph.DefaultHorizontalConfig()
 
 	layoutResult, err := flowgraph.Layout(flowNodes, flowEdges, startNode.ID, config)
 	if err != nil {

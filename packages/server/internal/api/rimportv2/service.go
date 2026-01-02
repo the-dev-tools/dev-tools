@@ -136,9 +136,9 @@ func DefaultConstraints() *ImportConstraints {
 
 // ImportResults represents the complete results of an import operation
 type ImportResults struct {
-	Flow     *mflow.Flow
-	HTTPReqs []*mhttp.HTTP
-	Files    []*mfile.File
+	Flow      *mflow.Flow
+	HTTPReqs  []*mhttp.HTTP
+	Files     []*mfile.File // ALL files: HTTP, folders, AND flow files (ContentType=Flow)
 
 	HTTPHeaders        []*mhttp.HTTPHeader
 	HTTPSearchParams   []*mhttp.HTTPSearchParam
@@ -550,7 +550,8 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 	}
 	results.DeduplicatedFiles = dedupFiles
 	results.DeduplicatedHTTPReqs = dedupHTTP
-	s.logger.Debug("ImportUnified: Storage complete", "dedup_files", len(dedupFiles), "dedup_http", len(dedupHTTP))
+
+	s.logger.Debug("ImportUnified: Storage complete", "dedup_files", len(dedupFiles), "dedup_http", len(dedupHTTP), "files", len(results.Files))
 
 	s.logger.Info("Unified import completed successfully",
 		"workspace_id", req.WorkspaceID,

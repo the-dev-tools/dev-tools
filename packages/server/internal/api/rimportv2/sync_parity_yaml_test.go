@@ -46,9 +46,7 @@ flows:
 				WorkspaceId: fixture.workspaceID.Bytes(),
 				Name:        "Sync Parity Import",
 				Data:        yamlData,
-				DomainData: []*apiv1.ImportDomainData{
-					{Enabled: true, Domain: "api.sync-parity.com", Variable: "API_HOST"},
-				},
+				// YAML imports don't need DomainData - they persist directly
 			})
 
 			_, err := fixture.rpc.Import(ctx, req)
@@ -135,9 +133,7 @@ func TestYAMLImport_SQLiteLockContention(t *testing.T) {
 			WorkspaceId: fixture.workspaceID.Bytes(),
 			Name:        fmt.Sprintf("Import %d", id),
 			Data:        yaml,
-			DomainData: []*apiv1.ImportDomainData{
-				{Enabled: true, Domain: fmt.Sprintf("api.lock-test-%d.com", id), Variable: "API_HOST"},
-			},
+			// YAML imports don't need DomainData - they persist directly
 		})
 
 		resp, err := fixture.rpc.Import(ctx, req)

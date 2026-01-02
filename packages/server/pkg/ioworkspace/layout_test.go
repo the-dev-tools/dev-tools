@@ -131,22 +131,25 @@ func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
 		nodeMap[bundle.FlowNodes[i].ID] = &bundle.FlowNodes[i]
 	}
 
-	// Start node should be at level 0 (Y = 0)
+	// Horizontal layout: X increases with depth (300px spacing), Y stays at 0 for sequential nodes
+	const spacingPrimary = 300 // X spacing between levels (matches DefaultHorizontalConfig)
+
+	// Start node should be at level 0 (X = 0)
 	startNode := nodeMap[startNodeID]
-	if startNode.PositionY != 0 {
-		t.Errorf("Start node Y position should be 0, got %f", startNode.PositionY)
+	if startNode.PositionX != 0 {
+		t.Errorf("Start node X position should be 0, got %f", startNode.PositionX)
 	}
 
-	// Node1 should be at level 1 (Y = NodeSpacingY)
+	// Node1 should be at level 1 (X = 300)
 	node1 := nodeMap[node1ID]
-	if node1.PositionY != NodeSpacingY {
-		t.Errorf("Node1 Y position should be %d, got %f", NodeSpacingY, node1.PositionY)
+	if node1.PositionX != spacingPrimary {
+		t.Errorf("Node1 X position should be %d, got %f", spacingPrimary, node1.PositionX)
 	}
 
-	// Node2 should be at level 2 (Y = 2*NodeSpacingY)
+	// Node2 should be at level 2 (X = 600)
 	node2 := nodeMap[node2ID]
-	if node2.PositionY != 2*NodeSpacingY {
-		t.Errorf("Node2 Y position should be %d, got %f", 2*NodeSpacingY, node2.PositionY)
+	if node2.PositionX != 2*spacingPrimary {
+		t.Errorf("Node2 X position should be %d, got %f", 2*spacingPrimary, node2.PositionX)
 	}
 }
 
@@ -185,20 +188,23 @@ func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
 		nodeMap[bundle.FlowNodes[i].ID] = &bundle.FlowNodes[i]
 	}
 
-	// Both node1 and node2 should be at the same Y level (level 1)
+	// Horizontal layout: parallel nodes have same X (level), different Y (vertical spread)
+	const spacingPrimary = 300 // X spacing between levels (matches DefaultHorizontalConfig)
+
 	node1 := nodeMap[node1ID]
 	node2 := nodeMap[node2ID]
 
-	if node1.PositionY != node2.PositionY {
-		t.Errorf("Parallel nodes should be at same Y level, got %f and %f", node1.PositionY, node2.PositionY)
+	// Both nodes should be at the same X level (level 1 = X=300)
+	if node1.PositionX != node2.PositionX {
+		t.Errorf("Parallel nodes should be at same X level, got %f and %f", node1.PositionX, node2.PositionX)
 	}
 
-	if node1.PositionY != NodeSpacingY {
-		t.Errorf("Parallel nodes should be at level 1 (Y=%d), got %f", NodeSpacingY, node1.PositionY)
+	if node1.PositionX != spacingPrimary {
+		t.Errorf("Parallel nodes should be at level 1 (X=%d), got %f", spacingPrimary, node1.PositionX)
 	}
 
-	// Nodes should have different X positions
-	if node1.PositionX == node2.PositionX {
-		t.Errorf("Parallel nodes should have different X positions, both at %f", node1.PositionX)
+	// Nodes should have different Y positions (spread vertically)
+	if node1.PositionY == node2.PositionY {
+		t.Errorf("Parallel nodes should have different Y positions, both at %f", node1.PositionY)
 	}
 }

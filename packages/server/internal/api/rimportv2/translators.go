@@ -25,7 +25,7 @@ import (
 type TranslationResult struct {
 	// Core entities
 	HTTPRequests []mhttp.HTTP
-	Files        []mfile.File
+	Files        []mfile.File // ALL files: HTTP, folders, AND flow files (ContentType=Flow)
 	Flows        []mflow.Flow
 
 	// Associated HTTP data (headers, params, bodies)
@@ -179,9 +179,10 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 	}
 
 	// Convert to unified result
+	// Files contains ALL files: HTTP, folders, AND flow files (harv2 creates flow files)
 	result := &TranslationResult{
 		HTTPRequests:   resolved.HTTPRequests,
-		Files:          resolved.Files,
+		Files:          resolved.Files, // All files including flow files
 		Flows:          []mflow.Flow{resolved.Flow},
 		Headers:        resolved.HTTPHeaders,
 		SearchParams:   resolved.HTTPSearchParams,
@@ -257,8 +258,10 @@ func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
-	// Extract domains from HTTP requests
-	result.Domains = extractDomainsFromHTTP(result.HTTPRequests)
+	// YAML imports don't need domain extraction - they typically already use
+	// template variables like {{baseUrl}}. Domain extraction is only for HAR
+	// imports where real URLs need to be converted to variables.
+	// result.Domains intentionally left empty
 
 	return result, nil
 }
