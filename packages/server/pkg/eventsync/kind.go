@@ -49,10 +49,10 @@ var Dependencies = map[EventKind][]EventKind{
 	// Roots - no dependencies
 	KindFlow:        {},
 	KindEnvironment: {},
-	KindFolder:      {},
 
 	// Flow children - depend on Flow existing
 	KindFlowFile: {KindFlow},
+	KindFolder:   {KindFlowFile}, // Folders come after flow files for consistent ordering
 	KindNode:     {KindFlow},
 
 	// Graph edges - depend on nodes existing

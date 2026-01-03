@@ -48,7 +48,7 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, template
 			ID:          folderID,
 			WorkspaceID: opts.WorkspaceID,
 			ParentID:    opts.FolderID,
-			ContentID:   &folderID,
+			ContentID:   nil,
 			ContentType: mfile.ContentTypeFolder,
 			Name:        flowEntry.Name,
 			Order:       float64(opts.FileOrder) + 1,

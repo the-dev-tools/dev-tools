@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
@@ -89,6 +90,9 @@ type IntegrationTestStreamers struct {
 
 	File eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
+	Env eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+
+	EnvVar eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
 }
 
 
@@ -269,6 +273,9 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 		File: memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 
+		Env: memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent](),
+
+		EnvVar: memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent](),
 	}
 
 
@@ -409,6 +416,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 			HttpBodyRaw:        streamers.HttpBodyRaw,
 			HttpAssert:         streamers.HttpAssert,
 			File:               streamers.File,
+			Env:                streamers.Env,
+			EnvVar:             streamers.EnvVar,
 		},
 	})
 
@@ -1741,4 +1750,92 @@ flows:
 		flowFiles[0].ID.String(), flowFiles[0].Name, flowFiles[0].ContentType)
 
 	t.Log("Flow file entry test passed - flow appears in sidebar")
+}
+
+// TestYAMLImport_FolderFileCreated verifies that folder files are created
+// for YAML imports containing flows with HTTP requests
+func TestYAMLImport_FolderFileCreated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping folder file test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	yamlData := []byte(`workspace_name: Folder Test
+flows:
+  - name: Test Flow
+    steps:
+      - request:
+          name: Request1
+          method: GET
+          url: https://example.com/test
+`)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	// Import YAML
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Folder File Test",
+		Data:        yamlData,
+	})
+
+	// Also test the translator directly to see what files it creates
+	translator := NewYAMLTranslator()
+	translatorResult, err := translator.Translate(ctx, yamlData, fixture.workspaceID)
+	require.NoError(t, err, "Translator should work")
+	t.Logf("Translator returned %d files:", len(translatorResult.Files))
+	for i, f := range translatorResult.Files {
+		t.Logf("  [%d] Name=%q ContentType=%d ParentID=%v", i, f.Name, f.ContentType, f.ParentID)
+	}
+
+	resp, err := fixture.rpc.Import(ctx, req)
+	require.NoError(t, err, "YAML import should complete without error")
+	require.NotNil(t, resp)
+	require.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp.Msg.MissingData,
+		"YAML imports should not require domain data")
+
+	// Query all files from database
+	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	require.NoError(t, err)
+
+	// Count files by type
+	var folderFiles []mfile.File
+	var flowFiles []mfile.File
+	var httpFiles []mfile.File
+
+	for _, f := range files {
+		switch f.ContentType {
+		case mfile.ContentTypeFolder:
+			folderFiles = append(folderFiles, f)
+		case mfile.ContentTypeFlow:
+			flowFiles = append(flowFiles, f)
+		case mfile.ContentTypeHTTP:
+			httpFiles = append(httpFiles, f)
+		}
+	}
+
+	t.Logf("Files created: Folders=%d, Flows=%d, HTTP=%d", len(folderFiles), len(flowFiles), len(httpFiles))
+
+	// YAML import creates:
+	// 1. Flow file (ContentTypeFlow) - for the flow definition
+	// 2. Folder file (ContentTypeFolder) - to contain HTTP requests
+	// 3. HTTP file(s) (ContentTypeHTTP) - for each request
+	require.Len(t, flowFiles, 1, "Should have 1 flow file")
+	require.Len(t, folderFiles, 1, "Should have 1 folder file")
+	require.Len(t, httpFiles, 1, "Should have 1 HTTP file")
+
+	// Verify folder has correct properties
+	folder := folderFiles[0]
+	require.Equal(t, "Test Flow", folder.Name, "Folder name should match flow name")
+	require.Nil(t, folder.ContentID, "Folder should not have ContentID")
+	require.Equal(t, fixture.workspaceID, folder.WorkspaceID, "Folder should belong to workspace")
+
+	// Verify HTTP file is inside the folder
+	httpFile := httpFiles[0]
+	require.NotNil(t, httpFile.ParentID, "HTTP file should have parent")
+	require.Equal(t, folder.ID, *httpFile.ParentID, "HTTP file should be inside the folder")
+
+	t.Log("Folder file test passed - folder created and HTTP file is inside folder")
 }

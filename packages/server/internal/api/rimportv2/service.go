@@ -535,8 +535,24 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 	}
 
 	s.logger.Debug("ImportUnified: Storing results")
-	// Store all results atomically
-	dedupFiles, dedupHTTP, err := s.importer.StoreUnifiedResults(ctx, translationResult)
+
+	// YAML imports use simpler storage path without deduplication
+	// YAML is deliberately authored content that doesn't need dedup like HAR recordings
+	var dedupFiles map[idwrap.IDWrap]bool
+	var dedupHTTP map[idwrap.IDWrap]bool
+
+	if translationResult.DetectedFormat == FormatYAML {
+		// Use simpler storage for YAML - no deduplication needed
+		importResults := buildImportResults(translationResult, req.WorkspaceID)
+		err = s.importer.StoreImportResults(ctx, importResults)
+		// YAML doesn't deduplicate, so these stay empty
+		dedupFiles = make(map[idwrap.IDWrap]bool)
+		dedupHTTP = make(map[idwrap.IDWrap]bool)
+	} else {
+		// Use full deduplication for HAR, cURL, Postman etc.
+		dedupFiles, dedupHTTP, err = s.importer.StoreUnifiedResults(ctx, translationResult)
+	}
+
 	if err != nil {
 		s.logger.Error("Storage failed - unexpected internal error",
 			"workspace_id", req.WorkspaceID,

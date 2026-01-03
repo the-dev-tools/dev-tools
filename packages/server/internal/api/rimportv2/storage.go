@@ -308,6 +308,27 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 		}
 	}
 
+	// Store flow nodes
+	for _, node := range results.Nodes {
+		if err := imp.nodeService.CreateNode(ctx, node); err != nil {
+			return fmt.Errorf("failed to store node: %w", err)
+		}
+	}
+
+	// Store request nodes
+	for _, reqNode := range results.RequestNodes {
+		if err := imp.nodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
+			return fmt.Errorf("failed to store request node: %w", err)
+		}
+	}
+
+	// Store edges
+	for _, edge := range results.Edges {
+		if err := imp.edgeService.CreateEdge(ctx, edge); err != nil {
+			return fmt.Errorf("failed to store edge: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -461,8 +482,12 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			oldID := file.ID
 			logicalPath := oldIDToLogicalPath[oldID]
 
-			// First check if we've already seen this logical path in the SAME import
-			if newID, ok := logicalPathToID[logicalPath]; ok {
+			// Include content type in the key to avoid deduplicating different file types
+			// with the same name (e.g., a flow file and a folder named "Test Flow")
+			pathKey := fmt.Sprintf("%s:%d", logicalPath, file.ContentType)
+
+			// First check if we've already seen this logical path + type in the SAME import
+			if newID, ok := logicalPathToID[pathKey]; ok {
 				fileIDMap[oldID] = newID
 				deduplicatedFileIDs[newID] = true
 				continue
@@ -473,7 +498,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to pre-resolve file %s: %w", file.Name, err)
 			}
-			
+
 			// Fresh variable for pointer
 			currentPathHash := pathHash
 			file.PathHash = &currentPathHash
@@ -482,11 +507,11 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				fileIDMap[oldID] = existingID
 				deduplicatedFileIDs[existingID] = true
 				imp.dedup.UpdatePathCache(pathHash, existingID)
-				logicalPathToID[logicalPath] = existingID
+				logicalPathToID[pathKey] = existingID
 			} else {
 				fileIDMap[oldID] = oldID
 				imp.dedup.UpdatePathCache(pathHash, oldID)
-				logicalPathToID[logicalPath] = oldID
+				logicalPathToID[pathKey] = oldID
 			}
 		}
 	}

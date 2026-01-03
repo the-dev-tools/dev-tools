@@ -71,6 +71,8 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		kind := eventsync.KindHTTPFile
 		if file.ContentType == mfile.ContentTypeFlow {
 			kind = eventsync.KindFlowFile
+		} else if file.ContentType == mfile.ContentTypeFolder {
+			kind = eventsync.KindFolder
 		}
 
 		batch.AddSimple(kind, func() {
@@ -110,20 +112,22 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		}
 	}
 
-	// Add Edge events
-	eventsync.AddSyncTransformSimple(batch, eventsync.KindEdge, h.EdgeStream, rflowv2.EdgeTopic{FlowID: results.Flow.ID}, results.Edges, func(edge mflow.Edge) rflowv2.EdgeEvent {
-		return rflowv2.EdgeEvent{
-			Type:   "insert",
-			FlowID: edge.FlowID,
-			Edge: &flowv1.Edge{
-				EdgeId:       edge.ID.Bytes(),
-				FlowId:       edge.FlowID.Bytes(),
-				SourceId:     edge.SourceID.Bytes(),
-				TargetId:     edge.TargetID.Bytes(),
-				SourceHandle: flowv1.HandleKind(edge.SourceHandler),
-			},
-		}
-	})
+	// Add Edge events (only if flow exists)
+	if results.Flow != nil && len(results.Edges) > 0 {
+		eventsync.AddSyncTransformSimple(batch, eventsync.KindEdge, h.EdgeStream, rflowv2.EdgeTopic{FlowID: results.Flow.ID}, results.Edges, func(edge mflow.Edge) rflowv2.EdgeEvent {
+			return rflowv2.EdgeEvent{
+				Type:   "insert",
+				FlowID: edge.FlowID,
+				Edge: &flowv1.Edge{
+					EdgeId:       edge.ID.Bytes(),
+					FlowId:       edge.FlowID.Bytes(),
+					SourceId:     edge.SourceID.Bytes(),
+					TargetId:     edge.TargetID.Bytes(),
+					SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+				},
+			}
+		})
+	}
 
 	// Filter HTTP requests for deduplication
 	var filteredHTTP []*mhttp.HTTP
