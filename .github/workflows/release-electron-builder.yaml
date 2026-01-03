@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         runner:
-          - macos-13 # x64
+          - macos-15-intel # x64
           - macos-latest # arm64
           - ubuntu-latest # x64
           - windows-latest # x64

@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: macos-13
+          - runner: macos-15-intel
             platform: darwin-x64
           - runner: macos-latest
             platform: darwin-arm64
