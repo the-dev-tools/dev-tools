@@ -1,828 +1,828 @@
 workspace_name: New Workspace
 run:
-    - flow: Imported HAR Flow
+  - flow: Imported HAR Flow
 requests:
-    - name: Api Auth Login
-      method: POST
-      url: https://ecommerce-admin-panel.fly.dev/api/auth/login
-      headers:
-        accept: '*/*'
-        accept-encoding: gzip, deflate, br, zstd
-        accept-language: en-US,en;q=0.9
-        content-length: "51"
-        content-type: application/json
-        origin: https://ecommerce-admin-panel.fly.dev
-        priority: u=1, i
-        referer: https://ecommerce-admin-panel.fly.dev/
-        sec-ch-ua: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-        sec-ch-ua-mobile: ?0
-        sec-ch-ua-platform: '"macOS"'
-        sec-fetch-dest: empty
-        sec-fetch-mode: cors
-        sec-fetch-site: same-origin
-        user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-      body: '{"email":"admin@example.com","password":"admin123"}'
-      assertions:
-        - response.status == 200
-    - name: Api Categories
-      method: POST
-      url: https://ecommerce-admin-panel.fly.dev/api/categories
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-length
-          value: "25"
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: origin
-          value: https://ecommerce-admin-panel.fly.dev
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      body: '{"name":"Apple products"}'
-      assertions:
-        - response.status == 201
-    - name: Api Categories C2b85766 9Fb6 4A3b A032 9628552Cbdf2
-      method: DELETE
-      url: https://ecommerce-admin-panel.fly.dev/api/categories/{{ request_5.response.body.id }}
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: origin
-          value: https://ecommerce-admin-panel.fly.dev
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 204
-    - name: Api Categories_1
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/categories
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 200
-    - name: Api Categories_2
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/categories
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: if-none-match
-          value: W/"8d-YkKC4eioi9dWU32IsTnvwj8nWkE"
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 200
-    - name: Api Products
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/products
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: if-none-match
-          value: W/"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 304
-    - name: Api Products 6D316d59 4Cb4 451E B5b1 673Ecbdd5609
-      method: DELETE
-      url: https://ecommerce-admin-panel.fly.dev/api/products/{{ request_9.response.body.id }}
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: origin
-          value: https://ecommerce-admin-panel.fly.dev
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 204
-    - name: Api Products_1
-      method: POST
-      url: https://ecommerce-admin-panel.fly.dev/api/products
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-length
-          value: "213"
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: origin
-          value: https://ecommerce-admin-panel.fly.dev
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      body: '{"category_id":"{{ request_5.response.body.id }}","description":"a","name":"macbook pro","options":[{"key":"b","value":"1"},{"key":"d","value":"2"}],"price":123,"tags":["{{ request_7.response.body.id }}"]}'
-      assertions:
-        - response.status == 201
-    - name: Api Products_2
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/products
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 200
-    - name: Api Products_3
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/products
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: if-none-match
-          value: W/"1f6-5tv4wqNP6dUwXEvn9hFhr7wYgiA"
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 200
-    - name: Api Tags
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/tags
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: if-none-match
-          value: W/"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 304
-    - name: Api Tags Ef2574d1 1781 4Ca9 Bfcd C571e124be02
-      method: DELETE
-      url: https://ecommerce-admin-panel.fly.dev/api/tags/{{ request_7.response.body.id }}
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: origin
-          value: https://ecommerce-admin-panel.fly.dev
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 204
-    - name: Api Tags_1
-      method: POST
-      url: https://ecommerce-admin-panel.fly.dev/api/tags
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-length
-          value: "18"
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: origin
-          value: https://ecommerce-admin-panel.fly.dev
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      body: '{"name":"laptops"}'
-      assertions:
-        - response.status == 201
-    - name: Api Tags_2
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/tags
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 200
-    - name: Api Tags_3
-      method: GET
-      url: https://ecommerce-admin-panel.fly.dev/api/tags
-      headers:
-        - name: accept
-          value: '*/*'
-          enabled: true
-        - name: accept-encoding
-          value: gzip, deflate, br, zstd
-          enabled: true
-        - name: accept-language
-          value: en-US,en;q=0.9
-          enabled: true
-        - name: authorization
-          value: Bearer {{ request_1.response.body.token }}
-          description: Imported from HAR
-          enabled: true
-        - name: content-type
-          value: application/json
-          enabled: true
-        - name: if-none-match
-          value: W/"86-WXMiLzB+hMgdzxVBoFc9Pvp9OBE"
-          enabled: true
-        - name: priority
-          value: u=1, i
-          enabled: true
-        - name: referer
-          value: https://ecommerce-admin-panel.fly.dev/
-          enabled: true
-        - name: sec-ch-ua
-          value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
-          enabled: true
-        - name: sec-ch-ua-mobile
-          value: ?0
-          enabled: true
-        - name: sec-ch-ua-platform
-          value: '"macOS"'
-          enabled: true
-        - name: sec-fetch-dest
-          value: empty
-          enabled: true
-        - name: sec-fetch-mode
-          value: cors
-          enabled: true
-        - name: sec-fetch-site
-          value: same-origin
-          enabled: true
-        - name: user-agent
-          value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
-          enabled: true
-      assertions:
-        - response.status == 200
+  - name: Api Auth Login
+    method: POST
+    url: https://ecommerce-admin-panel.fly.dev/api/auth/login
+    headers:
+      accept: '*/*'
+      accept-encoding: gzip, deflate, br, zstd
+      accept-language: en-US,en;q=0.9
+      content-length: '51'
+      content-type: application/json
+      origin: https://ecommerce-admin-panel.fly.dev
+      priority: u=1, i
+      referer: https://ecommerce-admin-panel.fly.dev/
+      sec-ch-ua: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+      sec-ch-ua-mobile: ?0
+      sec-ch-ua-platform: '"macOS"'
+      sec-fetch-dest: empty
+      sec-fetch-mode: cors
+      sec-fetch-site: same-origin
+      user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+    body: '{"email":"admin@example.com","password":"admin123"}'
+    assertions:
+      - response.status == 200
+  - name: Api Categories
+    method: POST
+    url: https://ecommerce-admin-panel.fly.dev/api/categories
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-length
+        value: '25'
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: origin
+        value: https://ecommerce-admin-panel.fly.dev
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    body: '{"name":"Apple products"}'
+    assertions:
+      - response.status == 201
+  - name: Api Categories C2b85766 9Fb6 4A3b A032 9628552Cbdf2
+    method: DELETE
+    url: https://ecommerce-admin-panel.fly.dev/api/categories/{{ request_5.response.body.id }}
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: origin
+        value: https://ecommerce-admin-panel.fly.dev
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 204
+  - name: Api Categories_1
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/categories
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 200
+  - name: Api Categories_2
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/categories
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: if-none-match
+        value: W/"8d-YkKC4eioi9dWU32IsTnvwj8nWkE"
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 200
+  - name: Api Products
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/products
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: if-none-match
+        value: W/"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 304
+  - name: Api Products 6D316d59 4Cb4 451E B5b1 673Ecbdd5609
+    method: DELETE
+    url: https://ecommerce-admin-panel.fly.dev/api/products/{{ request_9.response.body.id }}
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: origin
+        value: https://ecommerce-admin-panel.fly.dev
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 204
+  - name: Api Products_1
+    method: POST
+    url: https://ecommerce-admin-panel.fly.dev/api/products
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-length
+        value: '213'
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: origin
+        value: https://ecommerce-admin-panel.fly.dev
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    body: '{"category_id":"{{ request_5.response.body.id }}","description":"a","name":"macbook pro","options":[{"key":"b","value":"1"},{"key":"d","value":"2"}],"price":123,"tags":["{{ request_7.response.body.id }}"]}'
+    assertions:
+      - response.status == 201
+  - name: Api Products_2
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/products
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 200
+  - name: Api Products_3
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/products
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: if-none-match
+        value: W/"1f6-5tv4wqNP6dUwXEvn9hFhr7wYgiA"
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 200
+  - name: Api Tags
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/tags
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: if-none-match
+        value: W/"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 304
+  - name: Api Tags Ef2574d1 1781 4Ca9 Bfcd C571e124be02
+    method: DELETE
+    url: https://ecommerce-admin-panel.fly.dev/api/tags/{{ request_7.response.body.id }}
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: origin
+        value: https://ecommerce-admin-panel.fly.dev
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 204
+  - name: Api Tags_1
+    method: POST
+    url: https://ecommerce-admin-panel.fly.dev/api/tags
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-length
+        value: '18'
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: origin
+        value: https://ecommerce-admin-panel.fly.dev
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    body: '{"name":"laptops"}'
+    assertions:
+      - response.status == 201
+  - name: Api Tags_2
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/tags
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 200
+  - name: Api Tags_3
+    method: GET
+    url: https://ecommerce-admin-panel.fly.dev/api/tags
+    headers:
+      - name: accept
+        value: '*/*'
+        enabled: true
+      - name: accept-encoding
+        value: gzip, deflate, br, zstd
+        enabled: true
+      - name: accept-language
+        value: en-US,en;q=0.9
+        enabled: true
+      - name: authorization
+        value: Bearer {{ request_1.response.body.token }}
+        description: Imported from HAR
+        enabled: true
+      - name: content-type
+        value: application/json
+        enabled: true
+      - name: if-none-match
+        value: W/"86-WXMiLzB+hMgdzxVBoFc9Pvp9OBE"
+        enabled: true
+      - name: priority
+        value: u=1, i
+        enabled: true
+      - name: referer
+        value: https://ecommerce-admin-panel.fly.dev/
+        enabled: true
+      - name: sec-ch-ua
+        value: '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"'
+        enabled: true
+      - name: sec-ch-ua-mobile
+        value: ?0
+        enabled: true
+      - name: sec-ch-ua-platform
+        value: '"macOS"'
+        enabled: true
+      - name: sec-fetch-dest
+        value: empty
+        enabled: true
+      - name: sec-fetch-mode
+        value: cors
+        enabled: true
+      - name: sec-fetch-site
+        value: same-origin
+        enabled: true
+      - name: user-agent
+        value: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36
+        enabled: true
+    assertions:
+      - response.status == 200
 flows:
-    - name: Imported HAR Flow
-      steps:
-        - manual_start:
-            name: Start
-        - for:
-            name: for_17
-            depends_on: Start
-            iter_count: "5"
-        - request:
-            name: request_1
-            depends_on: for_17.loop
-            use_request: Api Auth Login
-        - request:
-            name: request_10
-            depends_on: request_1
-            use_request: Api Products_2
-        - request:
-            name: request_12
-            depends_on: request_1
-            use_request: Api Products_3
-        - request:
-            name: request_14
-            depends_on: request_1
-            use_request: Api Tags_3
-        - request:
-            name: request_16
-            depends_on: request_1
-            use_request: Api Categories_2
-        - request:
-            name: request_5
-            depends_on: request_1
-            use_request: Api Categories
-        - request:
-            name: request_6
-            depends_on: request_1
-            use_request: Api Categories_1
-        - request:
-            name: request_8
-            depends_on: request_1
-            use_request: Api Tags_2
-        - request:
-            name: request_7
-            depends_on: request_5
-            use_request: Api Tags_1
-        - request:
-            name: request_9
-            depends_on: request_7
-            use_request: Api Products_1
-        - request:
-            name: request_11
-            depends_on: request_9
-            use_request: Api Products 6D316d59 4Cb4 451E B5b1 673Ecbdd5609
-        - request:
-            name: request_13
-            depends_on: request_11
-            use_request: Api Tags Ef2574d1 1781 4Ca9 Bfcd C571e124be02
-        - request:
-            name: request_15
-            depends_on: request_13
-            use_request: Api Categories C2b85766 9Fb6 4A3b A032 9628552Cbdf2
-        - request:
-            name: request_3
-            use_request: Api Tags
-        - request:
-            name: request_4
-            depends_on: request_3
-            use_request: Api Products
+  - name: Imported HAR Flow
+    steps:
+      - manual_start:
+          name: Start
+      - for:
+          name: for_17
+          depends_on: Start
+          iter_count: '5'
+      - request:
+          name: request_1
+          depends_on: for_17.loop
+          use_request: Api Auth Login
+      - request:
+          name: request_10
+          depends_on: request_1
+          use_request: Api Products_2
+      - request:
+          name: request_12
+          depends_on: request_1
+          use_request: Api Products_3
+      - request:
+          name: request_14
+          depends_on: request_1
+          use_request: Api Tags_3
+      - request:
+          name: request_16
+          depends_on: request_1
+          use_request: Api Categories_2
+      - request:
+          name: request_5
+          depends_on: request_1
+          use_request: Api Categories
+      - request:
+          name: request_6
+          depends_on: request_1
+          use_request: Api Categories_1
+      - request:
+          name: request_8
+          depends_on: request_1
+          use_request: Api Tags_2
+      - request:
+          name: request_7
+          depends_on: request_5
+          use_request: Api Tags_1
+      - request:
+          name: request_9
+          depends_on: request_7
+          use_request: Api Products_1
+      - request:
+          name: request_11
+          depends_on: request_9
+          use_request: Api Products 6D316d59 4Cb4 451E B5b1 673Ecbdd5609
+      - request:
+          name: request_13
+          depends_on: request_11
+          use_request: Api Tags Ef2574d1 1781 4Ca9 Bfcd C571e124be02
+      - request:
+          name: request_15
+          depends_on: request_13
+          use_request: Api Categories C2b85766 9Fb6 4A3b A032 9628552Cbdf2
+      - request:
+          name: request_3
+          use_request: Api Tags
+      - request:
+          name: request_4
+          depends_on: request_3
+          use_request: Api Products
 environments:
-    - name: default
-      variables: {}
+  - name: default
+    variables: {}

@@ -569,22 +569,17 @@ func TestHttpCreatePublishesEvent(t *testing.T) {
 	t.Parallel()
 
 	f := newHttpFixture(t)
-	_ = f.createWorkspace(t, "test-workspace") // Ensure user has a workspace for HTTP creation
+	wsID := f.createWorkspace(t, "test-workspace") // Ensure user has a workspace for HTTP creation
 
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
 
-	msgCh := make(chan *httpv1.HttpSyncResponse, 5)
-	errCh := make(chan error, 1)
-
-	go func() {
-		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
-			msgCh <- resp
-			return nil
-		})
-		errCh <- err
-		close(msgCh)
-	}()
+	// Subscribe DIRECTLY to the streamer first (before any operations)
+	// This avoids the race condition with StreamToClient's batching delays
+	eventChan, err := f.handler.streamers.Http.Subscribe(ctx, func(topic HttpTopic) bool {
+		return topic.WorkspaceID == wsID
+	})
+	require.NoError(t, err, "subscribe to http stream")
 
 	httpID := idwrap.NewNow()
 	createReq := connect.NewRequest(&httpv1.HttpInsertRequest{
@@ -597,20 +592,33 @@ func TestHttpCreatePublishesEvent(t *testing.T) {
 			},
 		},
 	})
-	_, err := f.handler.HttpInsert(f.ctx, createReq)
+	_, err = f.handler.HttpInsert(f.ctx, createReq)
 	require.NoError(t, err, "HttpInsert")
 
-	items := collectHttpSyncItems(t, msgCh, 1)
-	val := items[0].GetValue()
-	require.NotNil(t, val, "create response missing value union")
-	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_INSERT, val.GetKind(), "expected insert kind")
-	require.Equal(t, "api-created", val.GetInsert().GetName(), "expected created name")
+	// Collect events with short timeout (events are immediate, no batching)
+	var events []HttpEvent
+	timer := time.NewTimer(500 * time.Millisecond)
+	defer timer.Stop()
 
-	cancel()
-	err = <-errCh
-	if err != nil {
-		require.ErrorIs(t, err, context.Canceled, "stream returned unexpected error")
+loop:
+	for {
+		select {
+		case evt, ok := <-eventChan:
+			if !ok {
+				break loop
+			}
+			events = append(events, evt.Payload)
+			if len(events) >= 1 {
+				break loop
+			}
+		case <-timer.C:
+			break loop
+		}
 	}
+
+	require.Len(t, events, 1, "expected 1 event")
+	require.Equal(t, "insert", events[0].Type, "expected insert type")
+	require.Equal(t, "api-created", events[0].Http.GetName(), "expected created name")
 }
 
 // ========== HTTP RUN INTEGRATION TESTS ==========

@@ -69,10 +69,13 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		}
 
 		kind := eventsync.KindHTTPFile
-		if file.ContentType == mfile.ContentTypeFlow {
+		switch file.ContentType {
+		case mfile.ContentTypeFlow:
 			kind = eventsync.KindFlowFile
-		} else if file.ContentType == mfile.ContentTypeFolder {
+		case mfile.ContentTypeFolder:
 			kind = eventsync.KindFolder
+		case mfile.ContentTypeHTTP, mfile.ContentTypeHTTPDelta:
+			// Keep default KindHTTPFile
 		}
 
 		batch.AddSimple(kind, func() {

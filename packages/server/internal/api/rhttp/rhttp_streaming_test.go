@@ -432,6 +432,9 @@ func TestHttpCreatePublishesEventStreaming(t *testing.T) {
 		close(msgCh)
 	}()
 
+	// Allow goroutine to subscribe before performing insert
+	time.Sleep(100 * time.Millisecond)
+
 	httpID := idwrap.NewNow()
 	createReq := connect.NewRequest(&httpv1.HttpInsertRequest{
 		Items: []*httpv1.HttpInsert{

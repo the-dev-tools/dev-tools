@@ -13,6 +13,7 @@ import (
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
@@ -95,6 +96,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
 	httpAssertStream := memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]()
 	fileStream := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
+	envStream := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
+	envVarStream := memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]()
 
 	// Create import handler
 	importHandler := rimportv2.NewImportV2RPC(rimportv2.ImportV2Deps{
@@ -134,6 +137,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			HttpBodyRaw:        httpBodyRawStream,
 			HttpAssert:         httpAssertStream,
 			File:               fileStream,
+			Env:                envStream,
+			EnvVar:             envVarStream,
 		},
 	})
 
