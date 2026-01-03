@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream"
@@ -19,6 +20,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -220,6 +222,7 @@ type FlowServiceV2Services struct {
 	Http           *shttp.HTTPService
 	HttpBodyRaw    *shttp.HttpBodyRawService
 	HttpResponse   shttp.HttpResponseService
+	File           *sfile.FileService
 	Importer       WorkspaceImporter
 }
 
@@ -257,6 +260,7 @@ type FlowServiceV2Streamers struct {
 	HttpResponseHeader eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
 	HttpResponseAssert eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
 	Log                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
 
 type FlowServiceV2Deps struct {
@@ -322,6 +326,8 @@ type FlowServiceV2RPC struct {
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
 	logStream                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	fileService              *sfile.FileService
+	fileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
 	// JS executor client for running JS nodes (connects to worker-js)
 	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient
@@ -387,6 +393,8 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		httpResponseHeaderStream: deps.Streamers.HttpResponseHeader,
 		httpResponseAssertStream: deps.Streamers.HttpResponseAssert,
 		logStream:                deps.Streamers.Log,
+		fileService:              deps.Services.File,
+		fileStream:               deps.Streamers.File,
 		jsClient:                 deps.JsClient,
 		builder:                  builder,
 		runningFlows:             make(map[string]context.CancelFunc),

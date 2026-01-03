@@ -8,21 +8,25 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rfile"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -133,6 +137,17 @@ func (s *FlowServiceV2RPC) publishFlowEvent(eventType string, flow mflow.Flow) {
 	s.flowStream.Publish(FlowTopic{WorkspaceID: flow.WorkspaceID}, FlowEvent{
 		Type: eventType,
 		Flow: serializeFlow(flow),
+	})
+}
+
+func (s *FlowServiceV2RPC) publishFileEvent(file mfile.File) {
+	if s.fileStream == nil {
+		return
+	}
+	s.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
+		Type: "create",
+		File: converter.ToAPIFile(file),
+		Name: file.Name,
 	})
 }
 
@@ -573,7 +588,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		detail := nodeDetail{node: n}
 		switch n.NodeKind {
 		case mflow.NODE_KIND_REQUEST:
-			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil {
+			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil && d != nil {
 				detail.request = d
 				if d.HttpID != nil {
 					if h, err := s.hsReader.Get(ctx, *d.HttpID); err == nil {
@@ -622,7 +637,6 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	wsWriter := sworkspace.NewWorkspaceWriter(tx)
 	nsWriter := sflow.NewNodeWriter(tx)
 	nrsWriter := sflow.NewNodeRequestWriter(tx)
-	hsWriter := shttp.NewWriter(tx)
 	nfsWriter := sflow.NewNodeForWriter(tx)
 	nfesWriter := sflow.NewNodeForEachWriter(tx)
 	nifsWriter := sflow.NewNodeIfWriter(tx)
@@ -640,6 +654,21 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Create file entry for the duplicated flow (for sidebar integration)
+	fileWriter := sfile.NewWriter(tx, nil)
+	newFlowFile := mfile.File{
+		ID:          newFlowID,
+		WorkspaceID: sourceFlow.WorkspaceID,
+		ContentID:   &newFlowID,
+		ContentType: mfile.ContentTypeFlow,
+		Name:        newFlow.Name,
+		Order:       float64(time.Now().UnixMilli()),
+		UpdatedAt:   time.Now(),
+	}
+	if err := fileWriter.CreateFile(ctx, &newFlowFile); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	nodeIDMapping := make(map[string]idwrap.IDWrap)
 	for _, d := range details {
 		newNodeID := idwrap.NewNow()
@@ -653,23 +682,11 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		}
 
 		if d.request != nil {
-			newHttpID := idwrap.IDWrap{}
-			if d.http != nil {
-				newHttpID = idwrap.NewNow()
-				duplicatedHttp := *d.http
-				duplicatedHttp.ID = newHttpID
-				duplicatedHttp.Name = fmt.Sprintf("Copy of %s", d.http.Name)
-				if err := hsWriter.Create(ctx, &duplicatedHttp); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-			}
+			// Reuse the same HTTP reference - don't duplicate HTTP requests
 			node := mflow.NodeRequest{
 				FlowNodeID:       newNodeID,
-				HttpID:           nil,
+				HttpID:           d.request.HttpID,
 				HasRequestConfig: d.request.HasRequestConfig,
-			}
-			if !isZeroID(newHttpID) {
-				node.HttpID = &newHttpID
 			}
 			if err := nrsWriter.CreateNodeRequest(ctx, node); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -705,6 +722,8 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		}
 	}
 
+	// Track created edges for event publishing
+	createdEdges := make([]mflow.Edge, 0, len(sourceEdges))
 	for _, e := range sourceEdges {
 		newSourceID, sourceOK := nodeIDMapping[e.SourceID.String()]
 		newTargetID, targetOK := nodeIDMapping[e.TargetID.String()]
@@ -721,8 +740,11 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		if err := esWriter.CreateEdge(ctx, newEdge); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdEdges = append(createdEdges, newEdge)
 	}
 
+	// Track created variables for event publishing
+	createdVariables := make([]mflow.FlowVariable, 0, len(sourceVariables))
 	for _, v := range sourceVariables {
 		newVar := v
 		newVar.ID = idwrap.NewNow()
@@ -730,6 +752,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		if err := fvsWriter.CreateFlowVariable(ctx, newVar); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdVariables = append(createdVariables, newVar)
 	}
 
 	workspace.FlowCount++
@@ -745,6 +768,9 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	// Step 3: NOTIFY (Outside transaction) - Publish events for all created entities
 	s.publishFlowEvent(flowEventInsert, newFlow)
 
+	// Publish file event for sidebar integration
+	s.publishFileEvent(newFlowFile)
+
 	// Publish node events for all duplicated nodes
 	for _, d := range details {
 		newNodeID, ok := nodeIDMapping[d.node.ID.String()]
@@ -757,29 +783,14 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		s.publishNodeEvent(nodeEventInsert, duplicatedNode)
 	}
 
-	// Publish edge events for all duplicated edges
-	for _, e := range sourceEdges {
-		newSourceID, sourceOK := nodeIDMapping[e.SourceID.String()]
-		newTargetID, targetOK := nodeIDMapping[e.TargetID.String()]
-		if !sourceOK || !targetOK {
-			continue
-		}
-		duplicatedEdge := mflow.Edge{
-			ID:            idwrap.NewNow(), // Event system will handle ID reconciliation
-			FlowID:        newFlowID,
-			SourceID:      newSourceID,
-			TargetID:      newTargetID,
-			SourceHandler: e.SourceHandler,
-		}
-		s.publishEdgeEvent(edgeEventInsert, duplicatedEdge)
+	// Publish edge events for all duplicated edges (use tracked IDs)
+	for _, edge := range createdEdges {
+		s.publishEdgeEvent(edgeEventInsert, edge)
 	}
 
-	// Publish variable events for all duplicated variables
-	for _, v := range sourceVariables {
-		duplicatedVar := v
-		duplicatedVar.ID = idwrap.NewNow() // Event system will handle ID reconciliation
-		duplicatedVar.FlowID = newFlowID
-		s.publishFlowVariableEvent(flowVarEventInsert, duplicatedVar)
+	// Publish variable events for all duplicated variables (use tracked IDs)
+	for _, variable := range createdVariables {
+		s.publishFlowVariableEvent(flowVarEventInsert, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

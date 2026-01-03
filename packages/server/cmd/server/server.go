@@ -431,6 +431,7 @@ func run() error {
 			Http:          &httpService,
 			HttpBodyRaw:   httpBodyRawService,
 			HttpResponse:  httpResponseService,
+			File:          fileService,
 			Importer:      workspaceImporter,
 		},
 		Streamers: rflowv2.FlowServiceV2Streamers{
@@ -448,6 +449,7 @@ func run() error {
 			HttpResponseHeader: streamers.HttpResponseHeader,
 			HttpResponseAssert: streamers.HttpResponseAssert,
 			Log:                streamers.Log,
+			File:               streamers.File,
 		},
 		Resolver: requestResolver,
 		Logger:   logger,
