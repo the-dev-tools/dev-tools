@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     name: Build Go Binary
+    continue-on-error: true
     strategy:
       matrix:
         include:

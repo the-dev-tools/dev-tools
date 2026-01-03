@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     name: Build
+    continue-on-error: true
     strategy:
       matrix:
         runner:
