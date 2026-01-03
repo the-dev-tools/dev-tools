@@ -10,6 +10,7 @@ import (
 type BulkOptions struct {
 	MaxBatchSize  int
 	FlushInterval time.Duration
+	Ready         chan<- struct{} // Closed after subscription is active (for test synchronization)
 }
 
 // StreamToClient bridges a SyncStreamer to a client sending function.
@@ -40,6 +41,11 @@ func StreamToClient[Topic any, Payload any, Response any](
 	events, err := streamer.Subscribe(ctx, filter, WithSnapshot(snapshot))
 	if err != nil {
 		return err
+	}
+
+	// Signal that subscription is ready (for test synchronization)
+	if opts != nil && opts.Ready != nil {
+		close(opts.Ready)
 	}
 
 	ticker := time.NewTicker(flushInterval)

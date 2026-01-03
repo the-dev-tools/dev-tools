@@ -12,6 +12,7 @@ import (
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
@@ -422,18 +423,21 @@ func TestHttpCreatePublishesEventStreaming(t *testing.T) {
 
 	msgCh := make(chan *httpv1.HttpSyncResponse, 5)
 	errCh := make(chan error, 1)
+	ready := make(chan struct{})
 
 	go func() {
-		err := f.handler.streamHttpSync(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
+		err := f.handler.streamHttpSyncWithOptions(ctx, f.userID, func(resp *httpv1.HttpSyncResponse) error {
 			msgCh <- resp
 			return nil
+		}, &eventstream.BulkOptions{
+			Ready: ready,
 		})
 		errCh <- err
 		close(msgCh)
 	}()
 
-	// Allow goroutine to subscribe before performing insert
-	time.Sleep(100 * time.Millisecond)
+	// Wait for subscription to be ready (deterministic, no sleep!)
+	<-ready
 
 	httpID := idwrap.NewNow()
 	createReq := connect.NewRequest(&httpv1.HttpInsertRequest{

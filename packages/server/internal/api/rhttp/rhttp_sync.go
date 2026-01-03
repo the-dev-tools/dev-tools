@@ -115,6 +115,11 @@ func (h *HttpServiceRPC) HttpSync(ctx context.Context, req *connect.Request[empt
 
 // streamHttpSync streams HTTP events to the client
 func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpSyncResponse) error) error {
+	return h.streamHttpSyncWithOptions(ctx, userID, send, nil)
+}
+
+// streamHttpSyncWithOptions streams HTTP events with configurable options (for testing)
+func (h *HttpServiceRPC) streamHttpSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	// Filter for workspace-based access control
@@ -153,7 +158,7 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 		filter,
 		converter,
 		send,
-		nil, // Use default batching options
+		opts,
 	)
 }
 
