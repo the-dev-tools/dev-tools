@@ -19,12 +19,20 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Key Directories:**
   - `apps/desktop`: Electron desktop application (TypeScript/React).
   - `apps/cli`: Go CLI. Key internals: `internal/runner` (execution engine), `internal/importer`.
-  - `apps/api-recorder-extension`: Chrome extension.
+  - `apps/api-recorder-extension`: Chrome extension (currently disabled).
   - `packages/server`: Go backend (Connect RPC, SQLite/LibSQL).
   - `packages/client`: React frontend services/hooks.
   - `packages/ui`: Shared React component library (Storybook).
   - `packages/db`: Shared SQL drivers and `sqlc` generated code.
   - `packages/spec`: TypeSpec definitions (single source of truth for API/Protobuf).
+  - `packages/worker-js`: TypeScript worker bundled into CLI binary.
+- **Tools Directory (`tools/`):**
+  - `benchmark/`: Go benchmarking tool for performance testing.
+  - `norawsql/`: Custom Go linter to detect raw SQL (enforces sqlc usage).
+  - `spec-lib/`: TypeSpec emitter library for custom code generation.
+  - `eslint/`: Shared ESLint configuration package.
+  - `storybook/`: Storybook configuration and composition.
+  - `gha-scripts/`: GitHub Actions helper scripts.
 
 ## Development Workflows
 
@@ -78,14 +86,18 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 ### Architectural Layers
 1.  **RPC Layer (`packages/server/internal/api`)**
     *   **Role:** Entry point for Connect RPC requests. Handles authentication, request validation, permission checks, and response formatting.
-    *   **Transaction Management:** Explicitly manages database transactions (`BeginTx`, `Commit`, `Rollback`). Passes transactional context down to services.
-    *   **Orchestration:** Coordinates multiple services (e.g., HTTP, User, Workspace) to fulfill a request.
+    *   **Fetch-Check-Act Pattern:** All RPC handlers follow this 3-phase flow to maximize SQLite concurrency:
+        1.  **FETCH**: Gather data using Reader services (non-blocking, parallel).
+        2.  **CHECK**: Validate permissions and business rules (pure Go memory).
+        3.  **ACT**: Persist changes using Writer services inside a transaction (serialized, kept short).
     *   **Real-time Sync:** Publishes events to `eventstream` after successful transactions for client synchronization.
 
 2.  **Service Layer (`packages/server/pkg/service`)**
     *   **Role:** Encapsulates domain logic and database interactions.
     *   **Structure:** Organized by domain entity (e.g., `shttp`, `suser`).
-    *   **Transaction Support:** Services implement a `TX(tx *sql.Tx)` method to return a generic-bound instance, allowing the RPC layer to compose atomic operations across multiple services.
+    *   **Reader/Writer Pattern:** Services are split into two types:
+        -   `*Reader`: Read-only, uses `*sql.DB` pool, non-blocking, long-lived singleton.
+        -   `*Writer`: Write-only, uses `*sql.Tx`, serialized, transient (created per-transaction).
     *   **Abstraction:** Operates on **Internal Models**, decoupling the RPC layer from DB implementation details.
 
 3.  **Model Layer (`packages/server/pkg/model`)**
@@ -106,6 +118,8 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Flow Engine & Nodes:** Read `packages/server/docs/specs/FLOW.md` for details on the execution engine, node types, and variable system.
 - **HTTP & Proxy:** Read `packages/server/docs/specs/HTTP.md` for request recording, execution, and import/export logic.
 - **Real-time Sync:** Read `packages/server/docs/specs/SYNC.md` for the Deep dive into the Real-time Sync / TanStack DB pattern and Event Streaming.
+- **Service Architecture:** Read `packages/server/docs/specs/BACKEND_ARCHITECTURE_V2.md` for Reader/Writer service pattern and Fetch-Check-Act concurrency pattern.
+- **Bulk Operations:** Read `packages/server/docs/specs/BULK_SYNC_TRANSACTION_WRAPPERS.md` for bulk sync transaction patterns.
 
 ### Security Best Practices
 -   **ID Enumeration Prevention:** When a user requests a resource (Workspace, Flow, etc.) they do not have access to, the server must return `CodeNotFound` (or `ErrWorkspaceNotFound`), **NOT** `CodePermissionDenied`. This prevents attackers from probing the existence of private resources by distinguishing between "does not exist" and "access denied" responses.
