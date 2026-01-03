@@ -1,3 +1,13 @@
+## 0.2.0 (2026-01-03)
+
+### 🚀 Features
+
+- Bump minor version ([faeb29ba](https://github.com/the-dev-tools/dev-tools/commit/faeb29ba))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.1.3 (2025-12-07)
 
 ### 🚀 Features
