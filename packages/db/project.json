@@ -11,7 +11,7 @@
       "cache": false,
       "options": {
         "cwd": "{projectRoot}/pkg/sqlc",
-        "command": "nix develop -c sqlc generate"
+        "command": "sqlc generate"
       }
     },
     "generate-ci": {
@@ -20,7 +20,7 @@
       "cache": true,
       "options": {
         "cwd": "{projectRoot}/pkg/sqlc",
-        "command": "nix develop -c sqlc generate"
+        "command": "sqlc generate"
       }
     },
     "test": {
