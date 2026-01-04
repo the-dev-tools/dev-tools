@@ -2,14 +2,12 @@ package eventstream_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/eventstream/memory"
-
 	"github.com/stretchr/testify/require"
+
+	"the-dev-tools/server/pkg/eventstream/memory"
 )
 
 type testTopic struct {
@@ -102,58 +100,5 @@ func TestInMemorySyncStreamer_ContextCancellation(t *testing.T) {
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("channel did not close after cancellation")
-	}
-}
-
-func TestInMemorySyncStreamer_Snapshot(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
-	t.Cleanup(streamer.Shutdown)
-
-	snapshot := func(context.Context) ([]eventstream.Event[testTopic, testPayload], error) {
-		return []eventstream.Event[testTopic, testPayload]{
-			{Topic: testTopic{workspace: "A"}, Payload: testPayload{ID: "snap"}},
-		}, nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	t.Cleanup(cancel)
-
-	ch, err := streamer.Subscribe(ctx, allowAll, eventstream.WithSnapshot(snapshot))
-	require.NoError(t, err, "subscribe")
-
-	select {
-	case evt := <-ch:
-		if evt.Payload.ID != "snap" {
-			t.Fatalf("expected snapshot event, got %+v", evt)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("did not receive snapshot event")
-	}
-}
-
-func TestInMemorySyncStreamer_SnapshotErrorIgnored(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
-	t.Cleanup(streamer.Shutdown)
-
-	snapshotErr := errors.New("boom")
-	snapshot := func(context.Context) ([]eventstream.Event[testTopic, testPayload], error) {
-		return nil, snapshotErr
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	t.Cleanup(cancel)
-
-	ch, err := streamer.Subscribe(ctx, allowAll, eventstream.WithSnapshot(snapshot))
-	require.NoError(t, err, "subscribe")
-
-	streamer.Publish(testTopic{workspace: "A"}, testPayload{ID: "live"})
-
-	select {
-	case evt := <-ch:
-		if evt.Payload.ID != "live" {
-			t.Fatalf("expected live event, got %+v", evt)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("did not receive live event")
 	}
 }

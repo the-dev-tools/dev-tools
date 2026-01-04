@@ -18,7 +18,6 @@ import (
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -72,29 +71,6 @@ func (s *FlowServiceV2RPC) streamFlowSync(
 
 	var workspaceSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[FlowTopic, FlowEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[FlowTopic, FlowEvent], 0)
-
-		for _, flow := range flows {
-			workspaceSet.Store(flow.WorkspaceID.String(), struct{}{})
-
-			events = append(events, eventstream.Event[FlowTopic, FlowEvent]{
-				Topic: FlowTopic{WorkspaceID: flow.WorkspaceID},
-				Payload: FlowEvent{
-					Type: flowEventInsert,
-					Flow: serializeFlow(flow),
-				},
-			})
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic FlowTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -106,7 +82,7 @@ func (s *FlowServiceV2RPC) streamFlowSync(
 		return true
 	}
 
-	events, err := s.flowStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.flowStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

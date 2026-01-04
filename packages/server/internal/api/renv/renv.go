@@ -29,10 +29,10 @@ import (
 type EnvRPC struct {
 	DB *sql.DB
 
-	es        senv.EnvService
-	vs        senv.VariableService
-	us        suser.UserService
-	ws        sworkspace.WorkspaceService
+	es senv.EnvService
+	vs senv.VariableService
+	us suser.UserService
+	ws sworkspace.WorkspaceService
 
 	envReader *senv.EnvReader
 	varReader *senv.VariableReader
@@ -83,8 +83,12 @@ type EnvRPCReaders struct {
 }
 
 func (r *EnvRPCReaders) Validate() error {
-	if r.Env == nil { return fmt.Errorf("env reader is required") }
-	if r.Variable == nil { return fmt.Errorf("variable reader is required") }
+	if r.Env == nil {
+		return fmt.Errorf("env reader is required")
+	}
+	if r.Variable == nil {
+		return fmt.Errorf("variable reader is required")
+	}
 	return nil
 }
 
@@ -94,8 +98,12 @@ type EnvRPCStreamers struct {
 }
 
 func (s *EnvRPCStreamers) Validate() error {
-	if s.Env == nil { return fmt.Errorf("env stream is required") }
-	if s.Variable == nil { return fmt.Errorf("variable stream is required") }
+	if s.Env == nil {
+		return fmt.Errorf("env stream is required")
+	}
+	if s.Variable == nil {
+		return fmt.Errorf("variable stream is required")
+	}
 	return nil
 }
 
@@ -107,10 +115,18 @@ type EnvRPCDeps struct {
 }
 
 func (d *EnvRPCDeps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if err := d.Services.Validate(); err != nil { return err }
-	if err := d.Readers.Validate(); err != nil { return err }
-	if err := d.Streamers.Validate(); err != nil { return err }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
+	if err := d.Streamers.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -537,26 +553,6 @@ func (e *EnvRPC) EnvironmentSync(ctx context.Context, req *connect.Request[empty
 func (e *EnvRPC) streamEnvironmentSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.EnvironmentSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[EnvironmentTopic, EnvironmentEvent], error) {
-		envs, err := e.listUserEnvironments(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[EnvironmentTopic, EnvironmentEvent], 0, len(envs))
-		for _, env := range envs {
-			workspaceSet.Store(env.WorkspaceID.String(), struct{}{})
-			events = append(events, eventstream.Event[EnvironmentTopic, EnvironmentEvent]{
-				Topic: EnvironmentTopic{WorkspaceID: env.WorkspaceID},
-				Payload: EnvironmentEvent{
-					Type:        eventTypeInsert,
-					Environment: converter.ToAPIEnvironment(env),
-				},
-			})
-		}
-		return events, nil
-	}
-
 	filter := func(topic EnvironmentTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -569,7 +565,7 @@ func (e *EnvRPC) streamEnvironmentSync(ctx context.Context, userID idwrap.IDWrap
 		return true
 	}
 
-	events, err := e.envStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := e.envStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -939,36 +935,6 @@ func (e *EnvRPC) EnvironmentVariableSync(ctx context.Context, req *connect.Reque
 func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.EnvironmentVariableSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent], error) {
-		envs, err := e.listUserEnvironments(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		var events []eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent]
-		for _, env := range envs {
-			workspaceSet.Store(env.WorkspaceID.String(), struct{}{})
-			vars, err := e.varReader.GetVariableByEnvID(ctx, env.ID)
-			if err != nil {
-				if errors.Is(err, senv.ErrNoVarFound) {
-					continue
-				}
-				return nil, err
-			}
-			for _, v := range vars {
-				copyVar := v
-				events = append(events, eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent]{
-					Topic: EnvironmentVariableTopic{WorkspaceID: env.WorkspaceID, EnvironmentID: env.ID},
-					Payload: EnvironmentVariableEvent{
-						Type:     eventTypeInsert,
-						Variable: converter.ToAPIEnvironmentVariable(copyVar),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	filter := func(topic EnvironmentVariableTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -981,7 +947,7 @@ func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwra
 		return true
 	}
 
-	events, err := e.varStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := e.varStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

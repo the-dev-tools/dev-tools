@@ -12,7 +12,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/patch"
@@ -336,40 +335,6 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[FlowVariableTopic, FlowVariableEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[FlowVariableTopic, FlowVariableEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sflow.ErrNoFlowVariableFound) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, variable := range variables {
-				events = append(events, eventstream.Event[FlowVariableTopic, FlowVariableEvent]{
-					Topic: FlowVariableTopic{FlowID: flow.ID},
-					Payload: FlowVariableEvent{
-						Type:     flowVarEventInsert,
-						FlowID:   flow.ID,
-						Variable: variable,
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic FlowVariableTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -381,7 +346,7 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 		return true
 	}
 
-	events, err := s.varStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.varStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

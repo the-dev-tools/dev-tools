@@ -167,17 +167,12 @@ func (c *LogServiceRPC) LogSync(ctx context.Context, req *connect.Request[emptyp
 }
 
 func (c *LogServiceRPC) streamLogSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.LogSyncResponse) error) error {
-	snapshot := func(ctx context.Context) ([]eventstream.Event[LogTopic, LogEvent], error) {
-		// Return empty snapshot for logs - they are streaming-only
-		return []eventstream.Event[LogTopic, LogEvent]{}, nil
-	}
-
 	filter := func(topic LogTopic) bool {
 		// Only deliver logs to the user who owns them
 		return topic.UserID == userID
 	}
 
-	events, err := c.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := c.stream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

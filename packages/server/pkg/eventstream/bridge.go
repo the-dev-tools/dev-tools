@@ -14,12 +14,11 @@ type BulkOptions struct {
 }
 
 // StreamToClient bridges a SyncStreamer to a client sending function.
-// It handles the subscription, snapshot, and the continuous loop.
+// It handles the subscription and the continuous loop.
 // It supports batching events before sending to the client.
 func StreamToClient[Topic any, Payload any, Response any](
 	ctx context.Context,
 	streamer SyncStreamer[Topic, Payload],
-	snapshot SnapshotProvider[Topic, Payload],
 	filter TopicFilter[Topic],
 	convert func([]Payload) *Response,
 	send func(*Response) error,
@@ -38,7 +37,7 @@ func StreamToClient[Topic any, Payload any, Response any](
 		}
 	}
 
-	events, err := streamer.Subscribe(ctx, filter, WithSnapshot(snapshot))
+	events, err := streamer.Subscribe(ctx, filter)
 	if err != nil {
 		return err
 	}

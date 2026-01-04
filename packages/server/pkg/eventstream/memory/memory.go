@@ -29,7 +29,7 @@ type inMemorySyncStreamer[Topic any, Payload any] struct {
 }
 
 // NewInMemorySyncStreamer creates a new in-memory streamer that supports topic
-// filtering and optional snapshot delivery.
+// filtering.
 func NewInMemorySyncStreamer[Topic any, Payload any]() eventstream.SyncStreamer[Topic, Payload] {
 	return &inMemorySyncStreamer[Topic, Payload]{
 		subscribers: make(map[*subscriber[Topic, Payload]]struct{}),
@@ -70,7 +70,6 @@ func (s *inMemorySyncStreamer[Topic, Payload]) Publish(topic Topic, payloads ...
 func (s *inMemorySyncStreamer[Topic, Payload]) Subscribe(
 	ctx context.Context,
 	filter eventstream.TopicFilter[Topic],
-	opts ...eventstream.SubscribeOption[Topic, Payload],
 ) (<-chan eventstream.Event[Topic, Payload], error) {
 	if s.closed.Load() {
 		return nil, errStreamerClosed
@@ -78,11 +77,6 @@ func (s *inMemorySyncStreamer[Topic, Payload]) Subscribe(
 
 	if filter == nil {
 		filter = func(Topic) bool { return true }
-	}
-
-	cfg := eventstream.SubscribeOptions[Topic, Payload]{}
-	for _, opt := range opts {
-		opt(&cfg)
 	}
 
 	sub := &subscriber[Topic, Payload]{
@@ -98,10 +92,6 @@ func (s *inMemorySyncStreamer[Topic, Payload]) Subscribe(
 	}
 	s.subscribers[sub] = struct{}{}
 	s.mu.Unlock()
-
-	if cfg.Snapshot != nil {
-		go s.deliverSnapshot(sub, cfg.Snapshot)
-	}
 
 	go s.monitorContext(sub)
 
@@ -146,19 +136,6 @@ func (s *inMemorySyncStreamer[Topic, Payload]) removeSubscriber(sub *subscriber[
 	}
 }
 
-func (s *inMemorySyncStreamer[Topic, Payload]) deliverSnapshot(sub *subscriber[Topic, Payload], provider eventstream.SnapshotProvider[Topic, Payload]) {
-	events, err := provider(sub.ctx)
-	if err != nil {
-		return
-	}
-	for _, evt := range events {
-		if sub.closed.Load() {
-			return
-		}
-		s.sendSnapshot(sub, evt)
-	}
-}
-
 func (s *inMemorySyncStreamer[Topic, Payload]) trySend(sub *subscriber[Topic, Payload], evt eventstream.Event[Topic, Payload]) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -169,23 +146,6 @@ func (s *inMemorySyncStreamer[Topic, Payload]) trySend(sub *subscriber[Topic, Pa
 	select {
 	case sub.ch <- evt:
 	default:
-	}
-}
-
-func (s *inMemorySyncStreamer[Topic, Payload]) sendSnapshot(sub *subscriber[Topic, Payload], evt eventstream.Event[Topic, Payload]) {
-	if s.closed.Load() {
-		return
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			sub.closed.Store(true)
-		}
-	}()
-
-	select {
-	case <-sub.ctx.Done():
-		return
-	case sub.ch <- evt:
 	}
 }
 

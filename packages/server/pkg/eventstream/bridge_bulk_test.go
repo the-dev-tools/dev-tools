@@ -24,7 +24,7 @@ func TestStreamToClientBulk(t *testing.T) {
 		}
 
 		mockStreamer := &MockStreamer[TestTopic, TestPayload]{
-			subscribeFunc: func(ctx context.Context, filter TopicFilter[TestTopic], opts ...SubscribeOption[TestTopic, TestPayload]) (<-chan Event[TestTopic, TestPayload], error) {
+			subscribeFunc: func(ctx context.Context, filter TopicFilter[TestTopic]) (<-chan Event[TestTopic, TestPayload], error) {
 				ch := make(chan Event[TestTopic, TestPayload], 5)
 				// Send 3 events (BatchSize=2, so expect [1,2] then [3] on close)
 				ch <- Event[TestTopic, TestPayload]{Payload: "1"}
@@ -48,8 +48,7 @@ func TestStreamToClientBulk(t *testing.T) {
 			FlushInterval: 1 * time.Hour, // Long interval
 		}
 
-		// Changed StreamToClientBulk to StreamToClient
-		err := StreamToClient(ctx, mockStreamer, nil, nil, convert, send, opts)
+		err := StreamToClient(ctx, mockStreamer, nil, convert, send, opts)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -79,7 +78,7 @@ func TestStreamToClientBulk(t *testing.T) {
 		}
 
 		mockStreamer := &MockStreamer[TestTopic, TestPayload]{
-			subscribeFunc: func(ctx context.Context, filter TopicFilter[TestTopic], opts ...SubscribeOption[TestTopic, TestPayload]) (<-chan Event[TestTopic, TestPayload], error) {
+			subscribeFunc: func(ctx context.Context, filter TopicFilter[TestTopic]) (<-chan Event[TestTopic, TestPayload], error) {
 				ch := make(chan Event[TestTopic, TestPayload], 1)
 				ch <- Event[TestTopic, TestPayload]{Payload: "1"}
 				// Don't close, just wait for interval flush
@@ -100,8 +99,7 @@ func TestStreamToClientBulk(t *testing.T) {
 			FlushInterval: 10 * time.Millisecond, // Short interval
 		}
 
-		// Changed StreamToClientBulk to StreamToClient
-		err := StreamToClient(ctx, mockStreamer, nil, nil, convert, send, opts)
+		err := StreamToClient(ctx, mockStreamer, nil, convert, send, opts)
 		// Context canceled is expected
 		if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 			t.Errorf("Unexpected error: %v", err)

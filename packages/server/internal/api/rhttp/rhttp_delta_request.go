@@ -425,7 +425,6 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.Http,
-		nil,
 		filter,
 		converter,
 		send,

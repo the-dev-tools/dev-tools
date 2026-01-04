@@ -108,7 +108,6 @@ func (s *FlowServiceV2RPC) streamNodeExecutionSync(
 	return eventstream.StreamToClient(
 		ctx,
 		s.executionStream,
-		nil,
 		filter,
 		converter,
 		send,

@@ -12,7 +12,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/txutil"
@@ -316,62 +315,6 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[ForTopic, ForEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[ForTopic, ForEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			// Get all nodes in the flow and filter for For nodes
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, node := range nodes {
-				// Only process For nodes
-				if node.NodeKind != mflow.NODE_KIND_FOR {
-					continue
-				}
-
-				// Skip start nodes (For nodes shouldn't be start nodes, but just in case)
-				if isStartNode(node) {
-					continue
-				}
-
-				// Get the For configuration for this node
-				forNode, err := s.nfs.GetNodeFor(ctx, node.ID)
-				if err != nil {
-					return nil, err
-				}
-
-				if forNode == nil {
-					continue
-				}
-
-				forPB := serializeNodeFor(*forNode)
-				events = append(events, eventstream.Event[ForTopic, ForEvent]{
-					Topic: ForTopic{FlowID: flow.ID},
-					Payload: ForEvent{
-						Type:   forEventInsert,
-						FlowID: flow.ID,
-						Node:   forPB,
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic ForTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -383,7 +326,7 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 		return true
 	}
 
-	events, err := s.forStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.forStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

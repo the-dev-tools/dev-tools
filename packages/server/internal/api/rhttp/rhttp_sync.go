@@ -154,7 +154,6 @@ func (h *HttpServiceRPC) streamHttpSyncWithOptions(ctx context.Context, userID i
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.Http,
-		nil,
 		filter,
 		converter,
 		send,
@@ -217,7 +216,6 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpSearchParam,
-		nil,
 		filter,
 		converter,
 		send,
@@ -261,7 +259,6 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpAssert,
-		nil,
 		filter,
 		converter,
 		send,
@@ -302,7 +299,6 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpVersion,
-		nil,
 		filter,
 		converter,
 		send,
@@ -361,7 +357,6 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpResponse,
-		nil,
 		filter,
 		converter,
 		send,
@@ -411,7 +406,6 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpResponseHeader,
-		nil,
 		filter,
 		converter,
 		send,
@@ -461,7 +455,6 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpResponseAssert,
-		nil,
 		filter,
 		converter,
 		send,
@@ -515,7 +508,6 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpHeader,
-		nil,
 		filter,
 		converter,
 		send,
@@ -567,7 +559,6 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpBodyForm,
-		nil,
 		filter,
 		converter,
 		send,
@@ -619,7 +610,6 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpBodyUrlEncoded,
-		nil,
 		filter,
 		converter,
 		send,
@@ -672,7 +662,6 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 	return eventstream.StreamToClient(
 		ctx,
 		h.streamers.HttpBodyRaw,
-		nil,
 		filter,
 		converter,
 		send,

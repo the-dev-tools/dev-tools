@@ -3,7 +3,6 @@ package rflowv2
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,7 +11,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/patch"
@@ -303,49 +301,6 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
-
-		for _, flow := range flows {
-			flowSet.Store(flow.ID.String(), struct{}{})
-
-			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, nodeModel := range nodes {
-				nodePB := serializeNode(nodeModel)
-				exec, err := s.nes.GetLatestNodeExecutionByNodeID(ctx, nodeModel.ID)
-				if err == nil && exec != nil {
-					nodePB.State = flowv1.FlowItemState(exec.State)
-					if exec.Error != nil {
-						nodePB.Info = exec.Error
-					}
-				}
-
-				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
-					Topic: NodeTopic{FlowID: flow.ID},
-					Payload: NodeEvent{
-						Type:   nodeEventInsert,
-						FlowID: flow.ID,
-						Node:   nodePB,
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic NodeTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -357,7 +312,7 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 		return true
 	}
 
-	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.nodeStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

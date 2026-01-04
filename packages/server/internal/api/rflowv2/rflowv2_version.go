@@ -11,10 +11,8 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/sflow"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -72,47 +70,6 @@ func (s *FlowServiceV2RPC) streamFlowVersionSync(
 
 	var flowSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[FlowVersionTopic, FlowVersionEvent], error) {
-		flows, err := s.listAccessibleFlows(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		topics := make(map[string]struct{}, len(flows))
-		events := make([]eventstream.Event[FlowVersionTopic, FlowVersionEvent], 0)
-
-		for _, flow := range flows {
-			parentID := flow.ID
-			key := parentID.String()
-			if _, seen := topics[key]; seen {
-				continue
-			}
-			topics[key] = struct{}{}
-			flowSet.Store(key, struct{}{})
-
-			versions, err := s.fs.GetFlowsByVersionParentID(ctx, parentID)
-			if err != nil {
-				if errors.Is(err, sflow.ErrNoFlowFound) {
-					continue
-				}
-				return nil, err
-			}
-
-			for _, version := range versions {
-				events = append(events, eventstream.Event[FlowVersionTopic, FlowVersionEvent]{
-					Topic: FlowVersionTopic{FlowID: parentID},
-					Payload: FlowVersionEvent{
-						Type:      flowVersionEventInsert,
-						FlowID:    parentID,
-						VersionID: version.ID,
-					},
-				})
-			}
-		}
-
-		return events, nil
-	}
-
 	filter := func(topic FlowVersionTopic) bool {
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
@@ -124,7 +81,7 @@ func (s *FlowServiceV2RPC) streamFlowVersionSync(
 		return true
 	}
 
-	events, err := s.versionStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := s.versionStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

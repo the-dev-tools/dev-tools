@@ -54,7 +54,7 @@ type WorkspaceServiceRPC struct {
 	us  suser.UserService
 	es  senv.EnvService
 
-	wsReader  *sworkspace.WorkspaceReader
+	wsReader   *sworkspace.WorkspaceReader
 	userReader *sworkspace.UserReader
 
 	stream    eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
@@ -78,8 +78,12 @@ type WorkspaceServiceRPCReaders struct {
 }
 
 func (r *WorkspaceServiceRPCReaders) Validate() error {
-	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
-	if r.User == nil { return fmt.Errorf("user reader is required") }
+	if r.Workspace == nil {
+		return fmt.Errorf("workspace reader is required")
+	}
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
+	}
 	return nil
 }
 
@@ -89,8 +93,12 @@ type WorkspaceServiceRPCStreamers struct {
 }
 
 func (s *WorkspaceServiceRPCStreamers) Validate() error {
-	if s.Workspace == nil { return fmt.Errorf("workspace stream is required") }
-	if s.Environment == nil { return fmt.Errorf("environment stream is required") }
+	if s.Workspace == nil {
+		return fmt.Errorf("workspace stream is required")
+	}
+	if s.Environment == nil {
+		return fmt.Errorf("environment stream is required")
+	}
 	return nil
 }
 
@@ -102,10 +110,18 @@ type WorkspaceServiceRPCDeps struct {
 }
 
 func (d *WorkspaceServiceRPCDeps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if err := d.Services.Validate(); err != nil { return err }
-	if err := d.Readers.Validate(); err != nil { return err }
-	if err := d.Streamers.Validate(); err != nil { return err }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
+	if err := d.Streamers.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -558,26 +574,6 @@ func (c *WorkspaceServiceRPC) WorkspaceSync(ctx context.Context, req *connect.Re
 func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.WorkspaceSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[WorkspaceTopic, WorkspaceEvent], error) {
-		ordered, err := c.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[WorkspaceTopic, WorkspaceEvent], 0, len(ordered))
-		for _, item := range ordered {
-			workspaceSet.Store(item.ID.String(), struct{}{})
-			events = append(events, eventstream.Event[WorkspaceTopic, WorkspaceEvent]{
-				Topic: WorkspaceTopic{WorkspaceID: item.ID},
-				Payload: WorkspaceEvent{
-					Type:      eventTypeInsert,
-					Workspace: toAPIWorkspace(item),
-				},
-			})
-		}
-		return events, nil
-	}
-
 	filter := func(topic WorkspaceTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -590,7 +586,7 @@ func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID id
 		return true
 	}
 
-	events, err := c.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := c.stream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
