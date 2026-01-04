@@ -461,7 +461,7 @@ type mockImporter struct {
 	StoreFlowFunc             func(context.Context, *mflow.Flow) error
 	StoreFlowsFunc            func(context.Context, []*mflow.Flow) error
 	StoreImportResultsFunc    func(context.Context, *ImportResults) error
-	StoreUnifiedResultsFunc   func(context.Context, *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, error)
+	StoreUnifiedResultsFunc   func(context.Context, *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, []menv.Variable, []menv.Variable, error)
 }
 
 func (m *mockImporter) ConvertHAR(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
@@ -521,11 +521,11 @@ func (m *mockImporter) StoreImportResults(ctx context.Context, results *ImportRe
 	return nil
 }
 
-func (m *mockImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, error) {
+func (m *mockImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, []menv.Variable, []menv.Variable, error) {
 	if m.StoreUnifiedResultsFunc != nil {
 		return m.StoreUnifiedResultsFunc(ctx, results)
 	}
-	return nil, nil, nil
+	return nil, nil, nil, nil, nil
 }
 
 func (m *mockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]menv.Env, []menv.Variable, []menv.Variable, error) {

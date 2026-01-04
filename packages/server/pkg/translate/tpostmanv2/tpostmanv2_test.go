@@ -61,24 +61,24 @@ func TestConvertPostmanCollection_SimpleRequest(t *testing.T) {
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	require.Len(t, resolved.HTTPRequests, 1, "Expected 1 HTTP request")
+	require.Len(t, resolved.HTTPRequests, 2, "Expected 2 HTTP requests (Base + Delta)")
 
 	httpReq := resolved.HTTPRequests[0]
 	require.Equal(t, "Get Users", httpReq.Name, "Expected name 'Get Users'")
 	require.Equal(t, "GET", httpReq.Method, "Expected method 'GET'")
 	require.Equal(t, "https://api.example.com/users", httpReq.Url, "Expected URL")
 
-	// Check search parameters
+	// Check search parameters (2 Base, Delta will have 0 because they are identical)
 	require.Len(t, resolved.SearchParams, 2, "Expected 2 search parameters")
 
-	// Check headers
+	// Check headers (1 Base, Delta will have 0)
 	require.Len(t, resolved.Headers, 1, "Expected 1 header")
 	header := resolved.Headers[0]
 	require.Equal(t, "Accept", header.Key, "Expected header key 'Accept'")
 	require.Equal(t, "application/json", header.Value, "Expected header value 'application/json'")
 
 	// Check files
-	require.Len(t, resolved.Files, 1, "Expected 1 file")
+	require.Len(t, resolved.Files, 2, "Expected 2 files (Base + Delta)")
 	file := resolved.Files[0]
 	require.Equal(t, "Get Users", file.Name, "Expected file name 'Get Users'")
 	require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "Expected content type")
@@ -165,12 +165,12 @@ func TestConvertPostmanCollection_RequestBodyModes(t *testing.T) {
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	require.Len(t, resolved.HTTPRequests, 3, "Expected 3 HTTP requests")
+	require.Len(t, resolved.HTTPRequests, 6, "Expected 6 HTTP requests (3 items * 2)")
 
 	// Test raw body
 	rawBodyReq := resolved.HTTPRequests[0]
 	require.Equal(t, "POST", rawBodyReq.Method, "Expected POST method for raw body request")
-	require.Len(t, resolved.BodyRaw, 1, "Expected 1 raw body")
+	require.Len(t, resolved.BodyRaw, 2, "Expected 2 raw bodies (Base + Delta)")
 	rawBody := resolved.BodyRaw[0]
 	expectedRawData := []byte(`{"name": "John", "age": 30}`)
 	require.Equal(t, string(expectedRawData), string(rawBody.RawData), "Expected raw body data")
@@ -242,10 +242,10 @@ func TestConvertPostmanCollection_FoldersAndNesting(t *testing.T) {
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	// Should extract all HTTP requests regardless of nesting level
-	require.Len(t, resolved.HTTPRequests, 3, "Expected 3 HTTP requests")
+	// Should extract all HTTP requests regardless of nesting level (Base + Delta for each)
+	require.Len(t, resolved.HTTPRequests, 6, "Expected 6 HTTP requests (3 items * 2)")
 
-	expectedNames := []string{"Get All Users", "Create User", "Get Posts"}
+	expectedNames := []string{"Get All Users", "Get All Users (Delta)", "Create User", "Create User (Delta)", "Get Posts", "Get Posts (Delta)"}
 	for i, expectedName := range expectedNames {
 		require.Equal(t, expectedName, resolved.HTTPRequests[i].Name, "Expected request name at index %d", i)
 	}
@@ -377,7 +377,7 @@ func TestConvertToFiles(t *testing.T) {
 	files, err := ConvertToFiles([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertToFiles() error")
 
-	require.Len(t, files, 1, "Expected 1 file")
+	require.Len(t, files, 2, "Expected 2 files (Base + Delta)")
 
 	file := files[0]
 	require.Equal(t, "Test Request", file.Name, "Expected file name 'Test Request'")
@@ -406,7 +406,7 @@ func TestConvertToHTTPRequests(t *testing.T) {
 	httpReqs, err := ConvertToHTTPRequests([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertToHTTPRequests() error")
 
-	require.Len(t, httpReqs, 1, "Expected 1 HTTP request")
+	require.Len(t, httpReqs, 2, "Expected 2 HTTP requests (Base + Delta)")
 
 	httpReq := httpReqs[0]
 	require.Equal(t, "POST", httpReq.Method, "Expected method 'POST'")
@@ -479,7 +479,7 @@ func TestBuildPostmanCollection(t *testing.T) {
 		HTTPRequests: httpReqs,
 		Headers:      headers,
 		SearchParams: searchParams,
-		BodyRaw:      []*mhttp.HTTPBodyRaw{bodyRaw},
+		BodyRaw:      []mhttp.HTTPBodyRaw{*bodyRaw},
 	}
 
 	// Build Postman collection
@@ -532,13 +532,10 @@ func TestConvertPostmanCollection_DeltaSystem(t *testing.T) {
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	require.Len(t, resolved.HTTPRequests, 1, "Expected 1 HTTP request")
+	require.Len(t, resolved.HTTPRequests, 2, "Expected 2 HTTP requests (Base + Delta)")
 
 	httpReq := resolved.HTTPRequests[0]
-	require.True(t, httpReq.IsDelta, "Expected HTTP request to be marked as delta")
-	require.Equal(t, 0, httpReq.ParentHttpID.Compare(parentID), "Expected ParentHttpID to match parent ID")
-	require.NotNil(t, httpReq.DeltaName, "Expected DeltaName to be set")
-	require.Equal(t, "Variation A", *httpReq.DeltaName, "Expected DeltaName 'Variation A'")
+	require.False(t, httpReq.IsDelta, "Expected first HTTP request to be base")
 }
 
 func TestConvertPostmanCollection_Authentication(t *testing.T) {

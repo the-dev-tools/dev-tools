@@ -347,6 +347,18 @@ func TestIntegrationPostmanImport(t *testing.T) {
 			"description": "A collection for testing user API endpoints",
 			"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 		},
+		"variable": [
+			{
+				"key": "baseUrl",
+				"value": "https://api.example.com",
+				"type": "string"
+			},
+			{
+				"key": "token",
+				"value": "secret-token",
+				"type": "string"
+			}
+		],
 		"item": [
 			{
 				"name": "Get Users",
@@ -446,14 +458,36 @@ func TestIntegrationPostmanImport(t *testing.T) {
 	if len(result.HTTPRequests) == 0 {
 		t.Error("Expected HTTP requests in translation result")
 	}
-	if len(result.HTTPRequests) < 2 {
-		t.Errorf("Expected at least 2 HTTP requests from Postman, got %d", len(result.HTTPRequests))
+	if len(result.HTTPRequests) != 4 {
+		t.Errorf("Expected 4 HTTP requests from Postman (2 items * 2), got %d", len(result.HTTPRequests))
+	}
+
+	// Verify collection variables
+	if len(result.Variables) != 2 {
+		t.Errorf("Expected 2 collection variables, got %d", len(result.Variables))
+	}
+	var foundBaseUrl, foundToken bool
+	for _, v := range result.Variables {
+		if v.VarKey == "baseUrl" && v.Value == "https://api.example.com" {
+			foundBaseUrl = true
+		}
+		if v.VarKey == "token" && v.Value == "secret-token" {
+			foundToken = true
+		}
+	}
+	if !foundBaseUrl {
+		t.Errorf("baseUrl variable not found or incorrect value")
+	}
+	if !foundToken {
+		t.Errorf("token variable not found or incorrect value")
 	}
 
 	t.Logf("Postman import test completed successfully:")
+
 	t.Logf("  - Format: %v (confidence: %.2f)", detection.Format, detection.Confidence)
 	t.Logf("  - HTTP Requests: %d", len(result.HTTPRequests))
 	t.Logf("  - Files: %d", len(result.Files))
+	t.Logf("  - Flows: %d", len(result.Flows))
 	t.Logf("  - Headers: %d", len(result.Headers))
 	t.Logf("  - Search Params: %d", len(result.SearchParams))
 }

@@ -73,14 +73,13 @@ func convertPostmanURLToSearchParams(postmanURL PostmanURL, httpID idwrap.IDWrap
 	// If Postman query array is provided, use it as the authoritative source
 	// and ignore query parameters from the raw URL
 	if len(postmanURL.Query) > 0 {
-		// Parse URL to remove any existing query string
-		if parsedURL != nil {
-			parsedURL.RawQuery = ""
-			rawURL = parsedURL.String()
+		// Strip query string from raw URL manually to preserve variables
+		if idx := strings.Index(rawURL, "?"); idx != -1 {
+			rawURL = rawURL[:idx]
 		}
 	} else {
 		// If no Postman query array, extract parameters from raw URL
-		if parsedURL != nil {
+		if parsedURL != nil && parsedURL.RawQuery != "" {
 			rawQueryParams := parsedURL.Query()
 			for key, values := range rawQueryParams {
 				for _, value := range values {
@@ -99,8 +98,15 @@ func convertPostmanURLToSearchParams(postmanURL PostmanURL, httpID idwrap.IDWrap
 			}
 
 			// Return the base URL without query string
-			parsedURL.RawQuery = ""
-			rawURL = parsedURL.String()
+			// We only use parsedURL.String() if there are no braces to avoid re-encoding them
+			if !strings.Contains(rawURL, "{{") {
+				parsedURL.RawQuery = ""
+				rawURL = parsedURL.String()
+			} else {
+				if idx := strings.Index(rawURL, "?"); idx != -1 {
+					rawURL = rawURL[:idx]
+				}
+			}
 		}
 	}
 
@@ -389,14 +395,4 @@ func extractHeadersForHTTP(httpID idwrap.IDWrap, headers []mhttp.HTTPHeader) []P
 	}
 
 	return postmanHeaders
-}
-
-// extractBodyRawForHTTP finds the raw body associated with a specific HTTP request
-func extractBodyRawForHTTP(httpID idwrap.IDWrap, bodyRaws []*mhttp.HTTPBodyRaw) *mhttp.HTTPBodyRaw {
-	for _, bodyRaw := range bodyRaws {
-		if bodyRaw.HttpID.Compare(httpID) == 0 {
-			return bodyRaw
-		}
-	}
-	return nil
 }

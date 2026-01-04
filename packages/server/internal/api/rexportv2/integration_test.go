@@ -574,21 +574,22 @@ func createImportService(t *testing.T, fixture *integrationTestFixture) *rimport
 	t.Helper()
 
 	importer := rimportv2.NewImporter(
-		fixture.base.DB,
-		&fixture.services.Hs,
-		&fixture.services.Fs,
-		&fixture.services.FileService,
-		fixture.services.HttpHeaderService,
-		fixture.services.HttpSearchParamService,
-		fixture.services.HttpBodyFormService,
-		fixture.services.HttpBodyUrlEncodedService,
-		fixture.services.BodyService,
-		fixture.services.HttpAssertService,
-		fixture.services.NodeService,
-		fixture.services.NodeRequestService,
-		fixture.services.EdgeService,
-		fixture.services.EnvService,
-		fixture.services.VarService,
+		fixture.db,
+		fixture.services.Workspace,
+		&fixture.services.Http,
+		&fixture.services.Flow,
+		&fixture.services.File,
+		fixture.services.HttpHeader,
+		&fixture.services.HttpSearchParam,
+		&fixture.services.HttpBodyForm,
+		&fixture.services.HttpBodyUrlEncoded,
+		&fixture.services.HttpBodyRaw,
+		&fixture.services.HttpAssert,
+		&fixture.services.Node,
+		&fixture.services.NodeRequest,
+		&fixture.services.Edge,
+		fixture.services.Env,
+		fixture.services.Var,
 	)
 	validator := rimportv2.NewValidator(&fixture.services.Us, fixture.services.WorkspaceUserReader)
 

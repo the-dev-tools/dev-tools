@@ -152,10 +152,11 @@ func (d *Deduplicator) ResolveHTTP(
 	return req.ID, true, contentHash, nil
 }
 
-// FindFile checks if a file with the same path already exists.
+// FindFile checks if a file with the same path and type already exists.
 func (d *Deduplicator) FindFile(ctx context.Context, file *mfile.File, logicalPath string) (idwrap.IDWrap, string, error) {
-	// 1. Calculate Path Hash (Workspace + Path)
-	fullPathKey := fmt.Sprintf("%s:%s", file.WorkspaceID.String(), logicalPath)
+	// 1. Calculate Path Hash (Workspace + Path + Kind)
+	// We include ContentType to allow a folder and a flow with the same name to coexist
+	fullPathKey := fmt.Sprintf("%s:%s:%d", file.WorkspaceID.String(), logicalPath, file.ContentType)
 	pathHash := d.hasher.HashString(fullPathKey)
 
 	// 2. Check Memory Cache (Fastest)
@@ -184,8 +185,8 @@ func (d *Deduplicator) FindFile(ctx context.Context, file *mfile.File, logicalPa
 
 // findFileLocked is an unexported version of FindFile that MUST be called with d.mu held.
 func (d *Deduplicator) findFileLocked(ctx context.Context, file *mfile.File, logicalPath string) (idwrap.IDWrap, string, error) {
-	// 1. Calculate Path Hash (Workspace + Path)
-	fullPathKey := fmt.Sprintf("%s:%s", file.WorkspaceID.String(), logicalPath)
+	// 1. Calculate Path Hash (Workspace + Path + Kind)
+	fullPathKey := fmt.Sprintf("%s:%s:%d", file.WorkspaceID.String(), logicalPath, file.ContentType)
 	pathHash := d.hasher.HashString(fullPathKey)
 
 	// 2. Check Memory Cache (Fastest)

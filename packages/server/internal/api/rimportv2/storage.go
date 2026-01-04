@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -26,6 +27,7 @@ import (
 // It coordinates HAR processing and storage operations
 type DefaultImporter struct {
 	db                        *sql.DB
+	workspaceService          sworkspace.WorkspaceService
 	httpService               *shttp.HTTPService
 	flowService               *sflow.FlowService
 	fileService               *sfile.FileService
@@ -47,6 +49,7 @@ type DefaultImporter struct {
 // NewImporter creates a new DefaultImporter with service dependencies
 func NewImporter(
 	db *sql.DB,
+	workspaceService sworkspace.WorkspaceService,
 	httpService *shttp.HTTPService,
 	flowService *sflow.FlowService,
 	fileService *sfile.FileService,
@@ -64,6 +67,7 @@ func NewImporter(
 ) *DefaultImporter {
 	return &DefaultImporter{
 		db:                        db,
+		workspaceService:          workspaceService,
 		httpService:               httpService,
 		flowService:               flowService,
 		fileService:               fileService,
@@ -354,9 +358,9 @@ func (imp *DefaultImporter) StoreFlows(ctx context.Context, flows []*mflow.Flow)
 }
 
 // StoreUnifiedResults performs a coordinated storage of all unified translation results
-func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, error) {
+func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, []menv.Variable, []menv.Variable, error) {
 	if results == nil {
-		return nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 
 	// PHASE 1: Pre-Resolution (Read-only)
@@ -415,7 +419,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			// Use FindHTTP instead of ResolveHTTP to avoid writes
 			existingID, contentHash, err := imp.dedup.FindHTTP(ctx, req, reqHeaders, reqParams, reqBodyRaw, reqBodyForms, reqBodyUrlEncoded, parentContentHash)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to pre-resolve HTTP request %s: %w", req.Name, err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to pre-resolve HTTP request %s: %w", req.Name, err)
 			}
 
 			if existingID.Compare(idwrap.IDWrap{}) != 0 {
@@ -496,7 +500,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			// Use FindFile instead of ResolveFile
 			existingID, pathHash, err := imp.dedup.FindFile(ctx, file, logicalPath)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to pre-resolve file %s: %w", file.Name, err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to pre-resolve file %s: %w", file.Name, err)
 			}
 
 			// Fresh variable for pointer
@@ -521,7 +525,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
@@ -553,7 +557,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 		if !deduplicatedHttpIDs[newID] {
 			if err := txHttpService.Create(ctx, req); err != nil {
-				return nil, nil, fmt.Errorf("failed to store HTTP request %s: %w", req.Name, err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to store HTTP request %s: %w", req.Name, err)
 			}
 		}
 		req.ID = newID
@@ -578,7 +582,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 		if !deduplicatedFileIDs[newID] {
 			if err := txFileService.CreateFile(ctx, file); err != nil {
-				return nil, nil, fmt.Errorf("failed to store file %s: %w", file.Name, err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to store file %s: %w", file.Name, err)
 			}
 		}
 		file.ID = newID
@@ -627,7 +631,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	}
 
 	if err := storeUnifiedChildren(ctx, results, txHeaderWriter, txSearchParamWriter, txBodyFormWriter, txBodyUrlEncodedWriter, txBodyRawWriter, shttp.NewAssertWriter(tx), deduplicatedHttpIDs); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// 2.5 Update Flow Entities
@@ -647,7 +651,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	if len(results.Flows) > 0 {
 		if err := txFlowService.CreateFlowBulk(ctx, results.Flows); err != nil {
-			return nil, nil, fmt.Errorf("failed to store flows: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("failed to store flows: %w", err)
 		}
 
 		// Create File entries for flows that don't already have entries in results.Files
@@ -672,36 +676,64 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Order:       float64(i + 1),
 			}
 			if err := txFileService.CreateFile(ctx, &flowFile); err != nil {
-				return nil, nil, fmt.Errorf("failed to store flow file entry %s: %w", flow.Name, err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to store flow file entry %s: %w", flow.Name, err)
 			}
 			results.Files = append(results.Files, flowFile) // Append to unified Files array
 		}
 	}
 	if len(results.Nodes) > 0 {
 		if err := txNodeService.CreateNodeBulk(ctx, results.Nodes); err != nil {
-			return nil, nil, fmt.Errorf("failed to store nodes: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("failed to store nodes: %w", err)
 		}
 	}
 	if len(results.RequestNodes) > 0 {
 		for _, reqNode := range results.RequestNodes {
 			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
-				return nil, nil, fmt.Errorf("failed to store request node: %w", err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to store request node: %w", err)
 			}
 		}
 	}
 	if len(results.Edges) > 0 {
 		for _, edge := range results.Edges {
 			if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
-				return nil, nil, fmt.Errorf("failed to store edge: %w", err)
+				return nil, nil, nil, nil, fmt.Errorf("failed to store edge: %w", err)
 			}
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
+	// 2.6 Update and Store Variables
+	var storedCreatedVars []menv.Variable
+	var storedUpdatedVars []menv.Variable
+	if len(results.Variables) > 0 {
+		workspace, err := imp.workspaceService.Get(ctx, results.WorkspaceID)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to get workspace for variables: %w", err)
+		}
+
+		targetEnvID := workspace.GlobalEnv
+		if targetEnvID.Compare(idwrap.IDWrap{}) == 0 {
+			// No global environment? This shouldn't happen but let's be safe
+			return nil, nil, nil, nil, fmt.Errorf("workspace has no global environment")
+		}
+
+		txVarWriter := senv.NewVariableWriter(tx)
+		for _, v := range results.Variables {
+			v.EnvID = targetEnvID
+			if err := txVarWriter.Upsert(ctx, v); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store variable %s: %w", v.VarKey, err)
+			}
+			// For simplicity, we treat all as created for now in the return slice
+			// because Upsert doesn't tell us if it was an insert or update easily
+			// and we just want them to appear on the frontend.
+			storedCreatedVars = append(storedCreatedVars, v)
+		}
 	}
 
-	return deduplicatedFileIDs, deduplicatedHttpIDs, nil
+	if err := tx.Commit(); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return deduplicatedFileIDs, deduplicatedHttpIDs, storedCreatedVars, storedUpdatedVars, nil
 }
 
 func storeUnifiedChildren(

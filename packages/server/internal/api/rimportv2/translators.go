@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -40,6 +41,9 @@ type TranslationResult struct {
 	Nodes        []mflow.Node
 	RequestNodes []mflow.NodeRequest
 	Edges        []mflow.Edge
+
+	// Variables (collection or environment level)
+	Variables []menv.Variable
 
 	// Metadata
 	DetectedFormat Format
@@ -359,16 +363,26 @@ func (t *PostmanTranslator) Translate(ctx context.Context, data []byte, workspac
 		SearchParams:   resolved.SearchParams,
 		BodyForms:      resolved.BodyForms,
 		BodyUrlencoded: resolved.BodyUrlencoded,
+		BodyRaw:        resolved.BodyRaw,
+		Asserts:        resolved.Asserts,
+		Flows:          []mflow.Flow{resolved.Flow},
+		Nodes:          resolved.Nodes,
+		RequestNodes:   resolved.RequestNodes,
+		Edges:          resolved.Edges,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
-	// Convert BodyRaw from pointer slice to value slice
-	if len(resolved.BodyRaw) > 0 {
-		result.BodyRaw = make([]mhttp.HTTPBodyRaw, 0, len(resolved.BodyRaw))
-		for _, br := range resolved.BodyRaw {
-			if br != nil {
-				result.BodyRaw = append(result.BodyRaw, *br)
-			}
+	// Map collection variables
+	if len(resolved.Variables) > 0 {
+		result.Variables = make([]menv.Variable, 0, len(resolved.Variables))
+		for i, v := range resolved.Variables {
+			result.Variables = append(result.Variables, menv.Variable{
+				ID:      idwrap.NewNow(),
+				VarKey:  v.Key,
+				Value:   v.Value,
+				Enabled: true,
+				Order:   float64(i + 1),
+			})
 		}
 	}
 

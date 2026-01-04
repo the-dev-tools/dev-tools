@@ -167,6 +167,7 @@ func NewImportV2RPC(deps ImportV2Deps) *ImportV2RPC {
 
 	// Create the importer with modern service dependencies
 	importer := NewImporter(deps.DB,
+		deps.Services.Workspace,
 		deps.Services.Http, deps.Services.Flow, deps.Services.File,
 		deps.Services.HttpHeader, deps.Services.HttpSearchParam, deps.Services.HttpBodyForm, deps.Services.HttpBodyUrlEncoded, deps.Services.HttpBodyRaw,
 		deps.Services.HttpAssert, deps.Services.Node, deps.Services.NodeRequest, deps.Services.Edge,

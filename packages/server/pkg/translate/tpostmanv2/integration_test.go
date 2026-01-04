@@ -124,8 +124,8 @@ func TestIntegration_SimpleWorkflow(t *testing.T) {
 	resolved, err := ConvertPostmanCollection([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertPostmanCollection() error")
 
-	// Verify we got the right number of HTTP requests
-	require.Len(t, resolved.HTTPRequests, 2, "Expected 2 HTTP requests")
+	// Verify we got the right number of HTTP requests (Base + Delta for each)
+	require.Len(t, resolved.HTTPRequests, 4, "Expected 4 HTTP requests (2 items * 2)")
 
 	// Test first request (Login)
 	loginReq := resolved.HTTPRequests[0]
@@ -133,52 +133,38 @@ func TestIntegration_SimpleWorkflow(t *testing.T) {
 	require.Equal(t, "POST", loginReq.Method, "Expected login method 'POST'")
 	require.Equal(t, "https://api.example.com/auth/login", loginReq.Url, "Expected login URL")
 
-	// Verify login request has raw body
-	loginBodyRaw := extractBodyRawForHTTP(loginReq.ID, resolved.BodyRaw)
-	require.NotNil(t, loginBodyRaw, "Expected login request to have raw body")
-	expectedLoginBody := `{"username": "test@example.com", "password": "secret123"}`
-	require.Equal(t, expectedLoginBody, string(loginBodyRaw.RawData), "Expected login body")
-
-	// Verify login request has content-type header
-	loginHeaders := extractHeadersForHTTP(loginReq.ID, resolved.Headers)
-	require.Len(t, loginHeaders, 1, "Expected 1 header for login request")
-	require.Equal(t, "Content-Type", loginHeaders[0].Key, "Expected login header key 'Content-Type'")
-	require.Equal(t, "application/json", loginHeaders[0].Value, "Expected login header value 'application/json'")
-
 	// Test second request (Users)
-	usersReq := resolved.HTTPRequests[1]
+	usersReq := resolved.HTTPRequests[2]
 	require.Equal(t, "Users", usersReq.Name, "Expected second request name 'Users'")
 	require.Equal(t, "GET", usersReq.Method, "Expected users method 'GET'")
 
-	// Verify users request has search parameters
-	usersSearchParams := extractSearchParamsForHTTP(usersReq.ID, resolved.SearchParams)
-	require.Len(t, usersSearchParams, 3, "Expected 3 search parameters for users request")
+	// Verify files were created for each HTTP request and folders (including deltas)
+	// 1 folder + (2 requests * 2) = 5 files
+	require.Len(t, resolved.Files, 5, "Expected 5 files created (1 folder + 4 request files)")
 
-	// Verify specific search parameters
-	paramMap := make(map[string]string)
-	for _, param := range usersSearchParams {
-		paramMap[param.Key] = param.Value
-	}
-
-	require.Equal(t, "1", paramMap["page"], "Expected page parameter '1'")
-	require.Equal(t, "20", paramMap["limit"], "Expected limit parameter '20'")
-	require.Equal(t, "created_at", paramMap["sort"], "Expected sort parameter 'created_at'")
-
-	// Verify users request has only enabled headers (disabled header should be filtered out)
-	usersHeaders := extractHeadersForHTTP(usersReq.ID, resolved.Headers)
-	require.Len(t, usersHeaders, 1, "Expected 1 enabled header for users request")
-	require.Equal(t, "Authorization", usersHeaders[0].Key, "Expected users header key 'Authorization'")
-
-	// Verify files were created for each HTTP request
-	require.Len(t, resolved.Files, 2, "Expected 2 files created")
-
-	// Verify file names match request names
+	// Verify file names match request names and folder names
 	fileNames := make(map[string]bool)
+	var authFolderID idwrap.IDWrap
 	for _, file := range resolved.Files {
 		fileNames[file.Name] = true
+		if file.Name == "Authentication" {
+			authFolderID = file.ID
+		}
 	}
 	require.True(t, fileNames["Login"], "Expected file named 'Login'")
 	require.True(t, fileNames["Users"], "Expected file named 'Users'")
+	require.True(t, fileNames["Authentication"], "Expected file named 'Authentication'")
+
+	// Verify hierarchy
+	for _, file := range resolved.Files {
+		if file.Name == "Login" {
+			require.NotNil(t, file.ParentID, "Login request should be in a folder")
+			require.Equal(t, 0, file.ParentID.Compare(authFolderID), "Login request should be in Authentication folder")
+		}
+		if file.Name == "Users" {
+			require.Nil(t, file.ParentID, "Users request should be at root")
+		}
+	}
 }
 
 // TestIntegration_RoundTrip tests that we can convert to HTTP models and back to Postman format

@@ -92,12 +92,16 @@ type Importer interface {
 	StoreHTTPEntities(ctx context.Context, httpReqs []*mhttp.HTTP) error
 	StoreFiles(ctx context.Context, files []*mfile.File) error
 	StoreFlow(ctx context.Context, flow *mflow.Flow) error
+	// Store multiple flow entities using the modern flow service
 	StoreFlows(ctx context.Context, flows []*mflow.Flow) error
-	// Store complete import results atomically
+
+	// StoreImportResults performs a coordinated storage of all import results (legacy)
 	StoreImportResults(ctx context.Context, results *ImportResults) error
-	StoreUnifiedResults(ctx context.Context, results *TranslationResult) (dedupFiles map[idwrap.IDWrap]bool, dedupHTTP map[idwrap.IDWrap]bool, err error)
+
+	// StoreUnifiedResults performs a coordinated storage of all unified translation results
+	StoreUnifiedResults(ctx context.Context, results *TranslationResult) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool, []menv.Variable, []menv.Variable, error)
+
 	// Store domain-to-variable mappings to all existing environments
-	// Returns created environments (if a default was created), created variables, and updated variables
 	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) (createdEnvs []menv.Env, createdVars []menv.Variable, updatedVars []menv.Variable, err error)
 }
 
@@ -543,26 +547,24 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 
 	if translationResult.DetectedFormat == FormatYAML {
 		// Use simpler storage for YAML - no deduplication needed
-		importResults := buildImportResults(translationResult, req.WorkspaceID)
-		err = s.importer.StoreImportResults(ctx, importResults)
-		// YAML doesn't deduplicate, so these stay empty
-		dedupFiles = make(map[idwrap.IDWrap]bool)
-		dedupHTTP = make(map[idwrap.IDWrap]bool)
+		var storedCreatedVars []menv.Variable
+		var storedUpdatedVars []menv.Variable
+		dedupFiles, dedupHTTP, storedCreatedVars, storedUpdatedVars, err = s.importer.StoreUnifiedResults(ctx, translationResult)
+		if err != nil {
+			return nil, fmt.Errorf("YAML storage failed: %w", err)
+		}
+		results.CreatedVars = append(results.CreatedVars, storedCreatedVars...)
+		results.UpdatedVars = append(results.UpdatedVars, storedUpdatedVars...)
 	} else {
-		// Use full deduplication for HAR, cURL, Postman etc.
-		dedupFiles, dedupHTTP, err = s.importer.StoreUnifiedResults(ctx, translationResult)
-	}
-
-	if err != nil {
-		s.logger.Error("Storage failed - unexpected internal error",
-			"workspace_id", req.WorkspaceID,
-			"format", translationResult.DetectedFormat,
-			"http_requests_count", len(translationResult.HTTPRequests),
-			"files_count", len(translationResult.Files),
-			"flows_count", len(translationResult.Flows),
-			"domains_count", len(translationResult.Domains),
-			"error", err)
-		return nil, fmt.Errorf("storage operation failed: %w", err)
+		// Store results with deduplication
+		var storedCreatedVars []menv.Variable
+		var storedUpdatedVars []menv.Variable
+		dedupFiles, dedupHTTP, storedCreatedVars, storedUpdatedVars, err = s.importer.StoreUnifiedResults(ctx, translationResult)
+		if err != nil {
+			return nil, fmt.Errorf("storage operation failed: %w", err)
+		}
+		results.CreatedVars = append(results.CreatedVars, storedCreatedVars...)
+		results.UpdatedVars = append(results.UpdatedVars, storedUpdatedVars...)
 	}
 	results.DeduplicatedFiles = dedupFiles
 	results.DeduplicatedHTTPReqs = dedupHTTP
