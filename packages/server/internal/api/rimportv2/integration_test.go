@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -281,102 +282,45 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 
 	// Create user and workspace
-
-
-
 	userID := idwrap.NewNow()
-
-
-
 	workspaceID := idwrap.NewNow()
-
-
+	globalEnvID := idwrap.NewNow()
 
 	// Create test user
-
-
-
 	err := baseServices.Us.CreateUser(ctx, &muser.User{
-
-
-
-		ID: userID,
-
-
-
-		Email: "test@example.com",
-
-
-
-		Password: []byte("password"),
-
-
-
+		ID:           userID,
+		Email:        "test@example.com",
+		Password:     []byte("password"),
 		ProviderType: muser.MagicLink,
-
-
-
 		Status:       muser.Active,
-
 	})
-
-
-
 	require.NoError(t, err)
 
+	// Create global environment first (so we can reference it in workspace)
+	err = envService.CreateEnvironment(ctx, &menv.Env{
+		ID:          globalEnvID,
+		WorkspaceID: workspaceID,
+		Name:        "Global Environment",
+		Type:        menv.EnvGlobal,
+	})
+	require.NoError(t, err)
 
-
-	// Create test workspace
-
-
-
+	// Create test workspace with GlobalEnv set
 	err = baseServices.Ws.Create(ctx, &mworkspace.Workspace{
-
-
-
-		ID: workspaceID,
-
-
-
-		Name: "Test Workspace",
-
+		ID:        workspaceID,
+		Name:      "Test Workspace",
+		GlobalEnv: globalEnvID,
 	})
-
-
-
 	require.NoError(t, err)
-
-
 
 	// Create workspace-user relationship
-
-
-
 	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
-
-
-
-		ID: idwrap.NewNow(),
-
-
-
+		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
-
-
-
 		UserID:      userID,
-
-
-
 		Role:        mworkspace.RoleOwner,
-
 	})
-
-
-
 	require.NoError(t, err)
-
-
 
 	// Create RPC handler
 	rpc := NewImportV2RPC(ImportV2Deps{

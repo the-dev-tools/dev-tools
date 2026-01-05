@@ -366,7 +366,21 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	// PHASE 1: Pre-Resolution (Read-only)
 	// We perform all deduplication checks BEFORE starting the write transaction
 	// to keep the transaction as short as possible.
-	
+
+	// 1.0 Pre-fetch workspace for GlobalEnv (needed for variable storage)
+	// CRITICAL: This MUST be done BEFORE the transaction to avoid SQLite deadlocks
+	var targetEnvID idwrap.IDWrap
+	if len(results.Variables) > 0 {
+		workspace, err := imp.workspaceService.Get(ctx, results.WorkspaceID)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to get workspace for variables: %w", err)
+		}
+		targetEnvID = workspace.GlobalEnv
+		if targetEnvID.Compare(idwrap.IDWrap{}) == 0 {
+			return nil, nil, nil, nil, fmt.Errorf("workspace has no global environment")
+		}
+	}
+
 	httpIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
 	httpContentHashMap := make(map[idwrap.IDWrap]string)
 	deduplicatedHttpIDs := make(map[idwrap.IDWrap]bool)
@@ -702,20 +716,10 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	}
 
 	// 2.6 Update and Store Variables
+	// NOTE: targetEnvID was pre-fetched in PHASE 1 to avoid SQLite deadlock
 	var storedCreatedVars []menv.Variable
 	var storedUpdatedVars []menv.Variable
 	if len(results.Variables) > 0 {
-		workspace, err := imp.workspaceService.Get(ctx, results.WorkspaceID)
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("failed to get workspace for variables: %w", err)
-		}
-
-		targetEnvID := workspace.GlobalEnv
-		if targetEnvID.Compare(idwrap.IDWrap{}) == 0 {
-			// No global environment? This shouldn't happen but let's be safe
-			return nil, nil, nil, nil, fmt.Errorf("workspace has no global environment")
-		}
-
 		txVarWriter := senv.NewVariableWriter(tx)
 		for _, v := range results.Variables {
 			v.EnvID = targetEnvID
