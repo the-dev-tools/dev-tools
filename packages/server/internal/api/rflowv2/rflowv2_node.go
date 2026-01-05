@@ -150,7 +150,10 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node kind updates are not supported"))
 		}
 		if len(item.GetFlowId()) != 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node flow reassignment is not supported"))
+			requestedFlowID, err := idwrap.NewFromBytes(item.GetFlowId())
+			if err != nil || requestedFlowID != existing.FlowID {
+				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node flow reassignment is not supported"))
+			}
 		}
 
 		// Build patch

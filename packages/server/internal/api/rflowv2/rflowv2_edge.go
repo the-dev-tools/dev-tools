@@ -169,7 +169,10 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 		}
 
 		if len(item.GetFlowId()) != 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow reassignment is not supported"))
+			requestedFlowID, err := idwrap.NewFromBytes(item.GetFlowId())
+			if err != nil || requestedFlowID != existing.FlowID {
+				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow reassignment is not supported"))
+			}
 		}
 
 		edgePatch := patch.EdgePatch{}
