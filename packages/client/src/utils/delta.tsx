@@ -369,6 +369,7 @@ export interface DeltaReferenceColumnProps<
 > extends DeltaOptions<TOriginSchema, TDeltaSchema>,
     Omit<DisplayColumnDef<TData>, 'id'> {
   allowFiles?: boolean;
+  fullExpression?: boolean;
   isReadOnly?: boolean | undefined;
   valueKey: keyof Filter<MessageShape<TOriginSchema['item']>, string> & string;
 }
@@ -380,7 +381,7 @@ export const deltaReferenceColumn = <
 >(
   props: DeltaReferenceColumnProps<TOriginSchema, TDeltaSchema, TData>,
 ): DisplayColumnDef<TData> => {
-  const { allowFiles, isReadOnly = false, valueKey } = props;
+  const { allowFiles, fullExpression, isReadOnly = false, valueKey } = props;
   return {
     cell: function Cell({ row }) {
       const { deltaOptions, setValue, value } = useDeltaColumnState({ ...props, originKeyObject: row.original });
@@ -390,7 +391,7 @@ export const deltaReferenceColumn = <
           <ReferenceField
             allowFiles={allowFiles}
             className='flex-1'
-            kind='StringExpression'
+            kind={fullExpression ? 'FullExpression' : 'StringExpression'}
             onChange={(_) => void setValue(_ as never)}
             placeholder={`Enter ${valueKey}`}
             readOnly={isReadOnly}

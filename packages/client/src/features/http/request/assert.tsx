@@ -65,6 +65,7 @@ export const AssertTable = ({ deltaHttpId, httpId, isReadOnly = false }: AssertT
         deltaReferenceColumn({
           ...deltaColumnOptions,
           allowFiles: true,
+          fullExpression: true,
           isReadOnly,
           meta: { isRowHeader: true },
           valueKey: 'value',
