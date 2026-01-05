@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -254,6 +255,9 @@ func ConvertPostmanCollection(data []byte, opts ConvertOptions) (*PostmanResolve
 		}
 		resolved.Files = append(resolved.Files, flowFile)
 	}
+
+	// Extract template variables from URLs/headers/body and add placeholders
+	extractTemplateVariables(collection, resolved)
 
 	return resolved, nil
 }
@@ -1080,4 +1084,113 @@ func isNumericSegment(segment string) bool {
 		}
 	}
 	return true
+}
+
+// templateVarRegex matches Postman-style template variables like {{variableName}}
+var templateVarRegex = regexp.MustCompile(`\{\{([^}]+)\}\}`)
+
+// extractTemplateVariables finds all {{variable}} patterns in the collection
+// and adds placeholder variables for any that aren't already defined
+func extractTemplateVariables(collection PostmanCollection, resolved *PostmanResolved) {
+	// Build set of existing variable keys
+	existingVars := make(map[string]bool)
+	for _, v := range resolved.Variables {
+		existingVars[v.Key] = true
+	}
+
+	// Collect all unique template variables
+	foundVars := make(map[string]bool)
+	extractVarsFromItems(collection.Item, foundVars)
+
+	// Add placeholder variables for any that aren't defined
+	for varName := range foundVars {
+		if !existingVars[varName] {
+			resolved.Variables = append(resolved.Variables, PostmanVariable{
+				Key:   varName,
+				Value: "https://dev.tools/",
+			})
+		}
+	}
+}
+
+// extractVarsFromItems recursively extracts template variables from collection items
+func extractVarsFromItems(items []PostmanItem, foundVars map[string]bool) {
+	for _, item := range items {
+		// Recurse into folders
+		if len(item.Item) > 0 {
+			extractVarsFromItems(item.Item, foundVars)
+		}
+
+		// Extract from request
+		if item.Request != nil {
+			// URL
+			extractVarsFromString(item.Request.URL.Raw, foundVars)
+			for _, host := range item.Request.URL.Host {
+				extractVarsFromString(host, foundVars)
+			}
+			for _, pathPart := range item.Request.URL.Path {
+				extractVarsFromString(pathPart, foundVars)
+			}
+			for _, query := range item.Request.URL.Query {
+				extractVarsFromString(query.Key, foundVars)
+				extractVarsFromString(query.Value, foundVars)
+			}
+
+			// Headers
+			for _, header := range item.Request.Header {
+				extractVarsFromString(header.Key, foundVars)
+				extractVarsFromString(header.Value, foundVars)
+			}
+
+			// Body
+			if item.Request.Body != nil {
+				extractVarsFromString(item.Request.Body.Raw, foundVars)
+				for _, form := range item.Request.Body.FormData {
+					extractVarsFromString(form.Key, foundVars)
+					extractVarsFromString(form.Value, foundVars)
+				}
+				for _, encoded := range item.Request.Body.URLEncoded {
+					extractVarsFromString(encoded.Key, foundVars)
+					extractVarsFromString(encoded.Value, foundVars)
+				}
+			}
+
+			// Auth
+			if item.Request.Auth != nil {
+				extractVarsFromAuth(item.Request.Auth, foundVars)
+			}
+		}
+
+		// Auth at item level
+		if item.Auth != nil {
+			extractVarsFromAuth(item.Auth, foundVars)
+		}
+	}
+}
+
+// extractVarsFromAuth extracts template variables from auth configuration
+func extractVarsFromAuth(auth *PostmanAuth, foundVars map[string]bool) {
+	for _, param := range auth.APIKey {
+		extractVarsFromString(param.Value, foundVars)
+	}
+	for _, param := range auth.Basic {
+		extractVarsFromString(param.Value, foundVars)
+	}
+	for _, param := range auth.Bearer {
+		extractVarsFromString(param.Value, foundVars)
+	}
+}
+
+// extractVarsFromString finds all {{variable}} patterns in a string
+func extractVarsFromString(s string, foundVars map[string]bool) {
+	matches := templateVarRegex.FindAllStringSubmatch(s, -1)
+	for _, match := range matches {
+		if len(match) > 1 {
+			varName := strings.TrimSpace(match[1])
+			// Skip dynamic response references like http_1.response.body.token
+			if !strings.Contains(varName, ".") {
+				foundVars[varName] = true
+			}
+		}
+	}
 }

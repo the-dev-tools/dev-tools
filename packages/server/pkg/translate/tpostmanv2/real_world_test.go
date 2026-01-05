@@ -34,4 +34,19 @@ func TestConvertPostmanCollection_RealWorldGalaxy(t *testing.T) {
 	t.Logf("  - Flow Nodes: %d", len(resolved.Nodes))
 	t.Logf("  - Flow Edges: %d", len(resolved.Edges))
 	t.Logf("  - Files/Folders: %d", len(resolved.Files))
+	t.Logf("  - Variables: %d", len(resolved.Variables))
+
+	// Verify template variables are extracted (Galaxy collection uses {{your-collection-link}})
+	require.Greater(t, len(resolved.Variables), 0, "Should have extracted template variables")
+
+	// Check for your-collection-link variable specifically
+	foundCollectionLink := false
+	for _, v := range resolved.Variables {
+		t.Logf("    Variable: %s = %s", v.Key, v.Value)
+		if v.Key == "your-collection-link" {
+			foundCollectionLink = true
+			require.Equal(t, "https://dev.tools/", v.Value, "Placeholder should default to https://dev.tools/")
+		}
+	}
+	require.True(t, foundCollectionLink, "Should have extracted 'your-collection-link' variable as placeholder")
 }
