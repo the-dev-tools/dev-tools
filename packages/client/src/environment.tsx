@@ -1,5 +1,3 @@
-'use no memo'; // TODO: fix variable table incorrect first render with compiler
-
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Array, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
@@ -29,7 +27,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/environment';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Button } from '@the-dev-tools/ui/button';
-import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
@@ -49,6 +47,7 @@ import {
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
+  ReactTableNoMemo,
   useFormTable,
   useFormTableAddRow,
 } from './form-table';
@@ -394,20 +393,6 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     [environmentId, variableColleciton],
   );
 
-  const table = useReactTable({
-    columns: [
-      columnCheckboxField<EnvironmentVariable>('enabled', { meta: { divider: false } }),
-      columnReferenceField<EnvironmentVariable>('key', { meta: { isRowHeader: true } }),
-      columnReferenceField<EnvironmentVariable>('value', { allowFiles: true }),
-      columnTextField<EnvironmentVariable>('description', { meta: { divider: false } }),
-      columnActionsCommon<EnvironmentVariable>({
-        onDelete: (_) => variableColleciton.utils.delete(pick(_, 'environmentVariableId')),
-      }),
-    ],
-    data: variables,
-    getRowId: (_) => variableColleciton.utils.getKey(_),
-  });
-
   const formTable = useFormTable<EnvironmentVariable>({
     onUpdate: ({ $typeName: _, ...item }) => variableColleciton.utils.update(item),
   });
@@ -433,12 +418,28 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   });
 
   return (
-    <DataTable
-      {...formTable}
-      {...addRow}
-      aria-label='Environment variables'
-      dragAndDropHooks={dragAndDropHooks}
-      table={table}
-    />
+    <ReactTableNoMemo
+      columns={[
+        columnCheckboxField<EnvironmentVariable>('enabled', { meta: { divider: false } }),
+        columnReferenceField<EnvironmentVariable>('key', { meta: { isRowHeader: true } }),
+        columnReferenceField<EnvironmentVariable>('value', { allowFiles: true }),
+        columnTextField<EnvironmentVariable>('description', { meta: { divider: false } }),
+        columnActionsCommon<EnvironmentVariable>({
+          onDelete: (_) => variableColleciton.utils.delete(pick(_, 'environmentVariableId')),
+        }),
+      ]}
+      data={variables}
+      getRowId={(_) => variableColleciton.utils.getKey(_)}
+    >
+      {(table) => (
+        <DataTable
+          {...formTable}
+          {...addRow}
+          aria-label='Environment variables'
+          dragAndDropHooks={dragAndDropHooks}
+          table={table}
+        />
+      )}
+    </ReactTableNoMemo>
   );
 };
