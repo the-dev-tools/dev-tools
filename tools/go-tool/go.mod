@@ -8,6 +8,7 @@ tool (
 	github.com/sqlc-dev/sqlc/cmd/sqlc
 	google.golang.org/protobuf/cmd/protoc-gen-go
 	the-dev-tools/norawsql/cmd/norawsql
+	the-dev-tools/notxread/cmd/notxread
 )
 
 require (

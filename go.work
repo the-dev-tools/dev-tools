@@ -8,4 +8,5 @@ use (
 	./tools/benchmark
 	./tools/go-tool
 	./tools/norawsql
+	./tools/notxread
 )
