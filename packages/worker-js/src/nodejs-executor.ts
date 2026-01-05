@@ -13,7 +13,15 @@ export const NodeJsExecutorService = (router: ConnectRouter) =>
         throw new ConnectError('Importing dependencies is not supported', Code.Unimplemented);
       });
 
-      await module.evaluate();
+      try {
+        await module.evaluate();
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new ConnectError(`${error.name}: ${error.message}`);
+        } else {
+          throw new ConnectError('Failed to evaluate JavaScript');
+        }
+      }
 
       if (!('default' in module.namespace)) {
         // ? Can be implemented in the future via CDN imports
@@ -30,6 +38,7 @@ export const NodeJsExecutorService = (router: ConnectRouter) =>
       }
 
       result = await Promise.resolve(result);
+      result ??= null; // convert undefined to null
 
       return { result: fromJson(ValueSchema, result as JsonValue) };
     },
