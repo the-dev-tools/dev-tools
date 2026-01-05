@@ -16,11 +16,17 @@ import { pick } from '~/utils/tanstack-db';
 
 export interface BodyUrlEncodedTableProps {
   deltaHttpId: Uint8Array | undefined;
+  hideDescription?: boolean;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const BodyUrlEncodedTable = ({ deltaHttpId, httpId, isReadOnly = false }: BodyUrlEncodedTableProps) => {
+export const BodyUrlEncodedTable = ({
+  deltaHttpId,
+  hideDescription = false,
+  httpId,
+  isReadOnly = false,
+}: BodyUrlEncodedTableProps) => {
   const collection = useApiCollection(HttpBodyUrlEncodedCollectionSchema);
 
   const items = useLiveQuery(
@@ -65,7 +71,9 @@ export const BodyUrlEncodedTable = ({ deltaHttpId, httpId, isReadOnly = false }:
         deltaCheckboxColumn({ ...deltaColumnOptions, header: '', isReadOnly, valueKey: 'enabled' }),
         deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, meta: { isRowHeader: true }, valueKey: 'key' }),
         deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'value' }),
-        deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' }),
+        ...(hideDescription
+          ? []
+          : [deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' })]),
         ...(isReadOnly ? [] : [deltaActionsColumn(deltaColumnOptions)]),
       ]}
       data={items}

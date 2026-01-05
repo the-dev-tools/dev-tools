@@ -15,11 +15,17 @@ import { pick } from '~/utils/tanstack-db';
 
 export interface SearchParamTableProps {
   deltaHttpId: Uint8Array | undefined;
+  hideDescription?: boolean;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const SearchParamTable = ({ deltaHttpId, httpId, isReadOnly = false }: SearchParamTableProps) => {
+export const SearchParamTable = ({
+  deltaHttpId,
+  hideDescription = false,
+  httpId,
+  isReadOnly = false,
+}: SearchParamTableProps) => {
   const collection = useApiCollection(HttpSearchParamCollectionSchema);
 
   const items = useLiveQuery(
@@ -64,7 +70,9 @@ export const SearchParamTable = ({ deltaHttpId, httpId, isReadOnly = false }: Se
         deltaCheckboxColumn({ ...deltaColumnOptions, header: '', isReadOnly, valueKey: 'enabled' }),
         deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, meta: { isRowHeader: true }, valueKey: 'key' }),
         deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'value' }),
-        deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' }),
+        ...(hideDescription
+          ? []
+          : [deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' })]),
         ...(isReadOnly ? [] : [deltaActionsColumn(deltaColumnOptions)]),
       ]}
       data={items}

@@ -123,7 +123,13 @@ export const HttpSettings = ({ nodeId }: NodeSettingsProps) => {
       <HttpUrl deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
 
       <ReferenceContext value={{ flowNodeId: nodeId, httpId, workspaceId, ...(deltaHttpId && { deltaHttpId }) }}>
-        <HttpRequest className={tw`px-0`} deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+        <HttpRequest
+          className={tw`px-0`}
+          deltaHttpId={deltaHttpId}
+          hideDescription
+          httpId={httpId}
+          isReadOnly={isReadOnly}
+        />
       </ReferenceContext>
     </NodeSettingsBody>
   );

@@ -24,11 +24,18 @@ import { SearchParamTable } from './search-param';
 export interface HttpRequestPanelProps {
   className?: string;
   deltaHttpId: Uint8Array | undefined;
+  hideDescription?: boolean;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const HttpRequestPanel = ({ className, deltaHttpId, httpId, isReadOnly = false }: HttpRequestPanelProps) => {
+export const HttpRequestPanel = ({
+  className,
+  deltaHttpId,
+  hideDescription = false,
+  httpId,
+  isReadOnly = false,
+}: HttpRequestPanelProps) => {
   const searchParamCollection = useApiCollection(HttpSearchParamCollectionSchema);
 
   const { searchParamCount = 0 } =
@@ -179,15 +186,30 @@ export const HttpRequestPanel = ({ className, deltaHttpId, httpId, isReadOnly = 
         }
       >
         <TabPanel id='params'>
-          <SearchParamTable deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+          <SearchParamTable
+            deltaHttpId={deltaHttpId}
+            hideDescription={hideDescription}
+            httpId={httpId}
+            isReadOnly={isReadOnly}
+          />
         </TabPanel>
 
         <TabPanel id='headers'>
-          <HeaderTable deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+          <HeaderTable
+            deltaHttpId={deltaHttpId}
+            hideDescription={hideDescription}
+            httpId={httpId}
+            isReadOnly={isReadOnly}
+          />
         </TabPanel>
 
         <TabPanel className={tw`h-full`} id='body'>
-          <BodyPanel deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+          <BodyPanel
+            deltaHttpId={deltaHttpId}
+            hideDescription={hideDescription}
+            httpId={httpId}
+            isReadOnly={isReadOnly}
+          />
         </TabPanel>
 
         <TabPanel id='assertions'>

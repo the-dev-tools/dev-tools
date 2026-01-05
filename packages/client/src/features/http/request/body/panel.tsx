@@ -10,11 +10,12 @@ import { BodyUrlEncodedTable } from './url-encoded';
 
 export interface BodyPanelProps {
   deltaHttpId: Uint8Array | undefined;
+  hideDescription?: boolean;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const BodyPanel = ({ deltaHttpId, httpId, isReadOnly = false }: BodyPanelProps) => {
+export const BodyPanel = ({ deltaHttpId, hideDescription = false, httpId, isReadOnly = false }: BodyPanelProps) => {
   const deltaOptions = {
     deltaId: deltaHttpId,
     deltaSchema: HttpDeltaCollectionSchema,
@@ -49,10 +50,20 @@ export const BodyPanel = ({ deltaHttpId, httpId, isReadOnly = false }: BodyPanel
       {pipe(
         Match.value(bodyKind),
         Match.when(HttpBodyKind.FORM_DATA, () => (
-          <BodyFormDataTable deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+          <BodyFormDataTable
+            deltaHttpId={deltaHttpId}
+            hideDescription={hideDescription}
+            httpId={httpId}
+            isReadOnly={isReadOnly}
+          />
         )),
         Match.when(HttpBodyKind.URL_ENCODED, () => (
-          <BodyUrlEncodedTable deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
+          <BodyUrlEncodedTable
+            deltaHttpId={deltaHttpId}
+            hideDescription={hideDescription}
+            httpId={httpId}
+            isReadOnly={isReadOnly}
+          />
         )),
         Match.when(HttpBodyKind.RAW, () => (
           <RawForm deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
