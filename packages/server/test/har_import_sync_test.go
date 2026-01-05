@@ -199,6 +199,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 			HttpBodyUrlEncoded: suite.importHandler.HttpBodyUrlEncodedService,
 			HttpAssert:         httpAssertService,
 			HttpResponse:       httpResponseService,
+			File:               suite.importHandler.FileService,
 		},
 		Resolver: requestResolver,
 		Streamers: &rhttp.HttpStreamers{
@@ -214,6 +215,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 			HttpResponseAssert: memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
 			HttpBodyRaw:        suite.importHandler.HttpBodyRawStream,
 			Log:                logStreamer,
+			File:               suite.importHandler.FileStream,
 		},
 	})
 

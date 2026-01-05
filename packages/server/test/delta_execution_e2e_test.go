@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream/memory"
@@ -20,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sworkspace"
 
@@ -83,6 +85,9 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	envService := senv.NewEnvironmentService(base.Queries, base.Logger())
 	varService := senv.NewVariableService(base.Queries, base.Logger())
 
+	// Create file service
+	fileService := sfile.New(base.Queries, base.Logger())
+
 	// Create streamers
 	stream := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
 	httpHeaderStream := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
@@ -96,6 +101,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	httpResponseAssertStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
 	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
+	fileStream := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
 
 	// Create resolver for delta resolution
 	requestResolver := resolver.NewStandardResolver(
@@ -130,6 +136,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
 			HttpAssert:         httpAssertService,
 			HttpResponse:       httpResponseService,
+			File:               fileService,
 		},
 		Resolver: requestResolver,
 		Streamers: &rhttp.HttpStreamers{
@@ -145,6 +152,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 			HttpResponseAssert: httpResponseAssertStream,
 			HttpBodyRaw:        httpBodyRawStream,
 			Log:                logStreamer,
+			File:               fileStream,
 		},
 	})
 

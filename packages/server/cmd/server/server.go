@@ -277,6 +277,7 @@ func run() error {
 		HttpResponseAssert: streamers.HttpResponseAssert,
 		HttpBodyRaw:        streamers.HttpBodyRaw,
 		Log:                streamers.Log,
+		File:               streamers.File,
 	}
 
 	httpSrv := rhttp.New(rhttp.HttpServiceRPCDeps{
@@ -300,6 +301,7 @@ func run() error {
 			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
 			HttpAssert:         httpAssertService,
 			HttpResponse:       httpResponseService,
+			File:               fileService,
 		},
 		Resolver:  requestResolver,
 		Streamers: httpStreamers,

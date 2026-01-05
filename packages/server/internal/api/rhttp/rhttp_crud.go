@@ -12,12 +12,15 @@ import (
 
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/txutil"
 
+	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -499,6 +502,14 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	httpAssertService := h.httpAssertService.TX(tx)
 	bodyService := h.bodyService.TX(tx)
 
+	// Track created entities for event publishing
+	var createdHeaders []mhttp.HTTPHeader
+	var createdParams []mhttp.HTTPSearchParam
+	var createdBodyForms []mhttp.HTTPBodyForm
+	var createdBodyUrlEncoded []mhttp.HTTPBodyUrlencoded
+	var createdAsserts []mhttp.HTTPAssert
+	var createdBodyRaw *mhttp.HTTPBodyRaw
+
 	// Create new HTTP entry with duplicated name
 	newHttpID := idwrap.NewNow()
 	duplicateName := fmt.Sprintf("Copy of %s", httpEntry.Name)
@@ -526,7 +537,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Duplicate headers
 	for _, header := range headers {
 		newHeaderID := idwrap.NewNow()
-		headerModel := &mhttp.HTTPHeader{
+		headerModel := mhttp.HTTPHeader{
 			ID:          newHeaderID,
 			HttpID:      newHttpID,
 			Key:         header.Key,
@@ -534,15 +545,16 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Enabled:     header.Enabled,
 			Description: header.Description,
 		}
-		if err := httpHeaderService.Create(ctx, headerModel); err != nil {
+		if err := httpHeaderService.Create(ctx, &headerModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdHeaders = append(createdHeaders, headerModel)
 	}
 
 	// Duplicate search params
 	for _, param := range searchParams {
 		newParamID := idwrap.NewNow()
-		paramModel := &mhttp.HTTPSearchParam{
+		paramModel := mhttp.HTTPSearchParam{
 			ID:           newParamID,
 			HttpID:       newHttpID,
 			Key:          param.Key,
@@ -551,15 +563,16 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Description:  param.Description,
 			DisplayOrder: param.DisplayOrder,
 		}
-		if err := httpSearchParamService.Create(ctx, paramModel); err != nil {
+		if err := httpSearchParamService.Create(ctx, &paramModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdParams = append(createdParams, paramModel)
 	}
 
 	// Duplicate body form entries
 	for _, bodyForm := range bodyForms {
 		newBodyFormID := idwrap.NewNow()
-		bodyFormModel := &mhttp.HTTPBodyForm{
+		bodyFormModel := mhttp.HTTPBodyForm{
 			ID:                   newBodyFormID,
 			HttpID:               newHttpID,
 			Key:                  bodyForm.Key,
@@ -569,15 +582,16 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			DisplayOrder:         bodyForm.DisplayOrder,
 			ParentHttpBodyFormID: bodyForm.ParentHttpBodyFormID, // Assuming direct copy is fine or handle recursive logic if needed
 		}
-		if err := httpBodyFormService.Create(ctx, bodyFormModel); err != nil {
+		if err := httpBodyFormService.Create(ctx, &bodyFormModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdBodyForms = append(createdBodyForms, bodyFormModel)
 	}
 
 	// Duplicate body URL encoded entries
 	for _, bodyUrlEnc := range bodyUrlEncoded {
 		newBodyUrlEncodedID := idwrap.NewNow()
-		bodyUrlEncodedModel := &mhttp.HTTPBodyUrlencoded{
+		bodyUrlEncodedModel := mhttp.HTTPBodyUrlencoded{
 			ID:                         newBodyUrlEncodedID,
 			HttpID:                     newHttpID,
 			Key:                        bodyUrlEnc.Key,
@@ -587,15 +601,16 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			DisplayOrder:               bodyUrlEnc.DisplayOrder,
 			ParentHttpBodyUrlEncodedID: bodyUrlEnc.ParentHttpBodyUrlEncodedID, // Assuming direct copy is fine
 		}
-		if err := httpBodyUrlEncodedService.Create(ctx, bodyUrlEncodedModel); err != nil {
+		if err := httpBodyUrlEncodedService.Create(ctx, &bodyUrlEncodedModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdBodyUrlEncoded = append(createdBodyUrlEncoded, bodyUrlEncodedModel)
 	}
 
 	// Duplicate assertions
 	for _, assert := range asserts {
 		newAssertID := idwrap.NewNow()
-		assertModel := &mhttp.HTTPAssert{
+		assertModel := mhttp.HTTPAssert{
 			ID:           newAssertID,
 			HttpID:       newHttpID,
 			Value:        assert.Value,
@@ -603,9 +618,10 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Description:  "",   // No description available in DB
 			DisplayOrder: 0,    // No order available in DB
 		}
-		if err := httpAssertService.Create(ctx, assertModel); err != nil {
+		if err := httpAssertService.Create(ctx, &assertModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdAsserts = append(createdAsserts, assertModel)
 	}
 
 	// Handle raw body
@@ -619,14 +635,116 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			rawData = bodyRaw.RawData
 		}
 
-		if _, err := bodyService.Create(ctx, newHttpID, rawData); err != nil {
+		newBodyRaw, err := bodyService.Create(ctx, newHttpID, rawData)
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdBodyRaw = newBodyRaw
+	}
+
+	// Create file entry for the duplicated HTTP request (for sidebar integration)
+	fileWriter := sfile.NewWriter(tx, nil)
+	newHttpFile := mfile.File{
+		ID:          newHttpID,
+		WorkspaceID: httpEntry.WorkspaceID,
+		ContentID:   &newHttpID,
+		ContentType: mfile.ContentTypeHTTP,
+		Name:        duplicateHttp.Name,
+		ParentID:    httpEntry.FolderID,
+		Order:       float64(time.Now().UnixMilli()),
+		UpdatedAt:   time.Now(),
+	}
+	if err := fileWriter.CreateFile(ctx, &newHttpFile); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: NOTIFY - Publish sync events for all created entities
+	h.publishInsertEvent(*duplicateHttp)
+
+	// Publish header events
+	for _, header := range createdHeaders {
+		h.streamers.HttpHeader.Publish(
+			HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID},
+			HttpHeaderEvent{
+				Type:       eventTypeInsert,
+				IsDelta:    false,
+				HttpHeader: converter.ToAPIHttpHeader(header),
+			},
+		)
+	}
+
+	// Publish search param events
+	for _, param := range createdParams {
+		h.streamers.HttpSearchParam.Publish(
+			HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID},
+			HttpSearchParamEvent{
+				Type:            eventTypeInsert,
+				IsDelta:         false,
+				HttpSearchParam: converter.ToAPIHttpSearchParam(param),
+			},
+		)
+	}
+
+	// Publish body form events
+	for _, bodyForm := range createdBodyForms {
+		h.streamers.HttpBodyForm.Publish(
+			HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID},
+			HttpBodyFormEvent{
+				Type:         eventTypeInsert,
+				IsDelta:      false,
+				HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
+			},
+		)
+	}
+
+	// Publish body URL encoded events
+	for _, bodyUrlEnc := range createdBodyUrlEncoded {
+		h.streamers.HttpBodyUrlEncoded.Publish(
+			HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID},
+			HttpBodyUrlEncodedEvent{
+				Type:               eventTypeInsert,
+				IsDelta:            false,
+				HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEnc),
+			},
+		)
+	}
+
+	// Publish assert events
+	for _, assert := range createdAsserts {
+		h.streamers.HttpAssert.Publish(
+			HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID},
+			HttpAssertEvent{
+				Type:       eventTypeInsert,
+				IsDelta:    false,
+				HttpAssert: converter.ToAPIHttpAssert(assert),
+			},
+		)
+	}
+
+	// Publish body raw event if exists
+	if createdBodyRaw != nil {
+		h.streamers.HttpBodyRaw.Publish(
+			HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID},
+			HttpBodyRawEvent{
+				Type:        eventTypeInsert,
+				IsDelta:     false,
+				HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*createdBodyRaw),
+			},
+		)
+	}
+
+	// Publish file event for sidebar integration
+	if h.fileStream != nil {
+		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: httpEntry.WorkspaceID}, rfile.FileEvent{
+			Type: "create",
+			File: converter.ToAPIFile(newHttpFile),
+			Name: newHttpFile.Name,
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

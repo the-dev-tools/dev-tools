@@ -8,12 +8,14 @@ import (
 	"connectrpc.com/connect"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -176,6 +178,7 @@ type HttpStreamers struct {
 	HttpResponseAssert eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]
 	HttpBodyRaw        eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]
 	Log                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
 
 // HttpServiceRPC handles HTTP RPC operations with streaming support
@@ -202,6 +205,10 @@ type HttpServiceRPC struct {
 	httpResponseService       shttp.HttpResponseService
 
 	resolver resolver.RequestResolver
+
+	// File service and stream for sidebar integration
+	fileService *sfile.FileService
+	fileStream  eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
 	// Streamers
 	streamers *HttpStreamers
@@ -234,6 +241,7 @@ type HttpServiceRPCServices struct {
 	HttpBodyUrlEncoded *shttp.HttpBodyUrlEncodedService
 	HttpAssert         *shttp.HttpAssertService
 	HttpResponse       shttp.HttpResponseService
+	File               *sfile.FileService
 }
 
 func (s *HttpServiceRPCServices) Validate() error {
@@ -287,6 +295,8 @@ func New(deps HttpServiceRPCDeps) HttpServiceRPC {
 		httpAssertService:         deps.Services.HttpAssert,
 		httpResponseService:       deps.Services.HttpResponse,
 		resolver:                  deps.Resolver,
+		fileService:               deps.Services.File,
+		fileStream:                deps.Streamers.File,
 		streamers:                 deps.Streamers,
 	}
 }

@@ -175,6 +175,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			HttpBodyUrlEncoded: httpBodyUrlEncodedService,
 			HttpAssert:         httpAssertService,
 			HttpResponse:       shttp.NewHttpResponseService(baseDB.Queries),
+			File:               fileService,
 		},
 		Resolver: requestResolver,
 		Streamers: &rhttp.HttpStreamers{
@@ -190,6 +191,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 			HttpResponseAssert: memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
 			HttpBodyRaw:        httpBodyRawStream,
 			Log:                memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent](),
+			File:               fileStream,
 		},
 	})
 
