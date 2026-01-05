@@ -4,6 +4,9 @@ package tpostmanv2
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	"the-dev-tools/server/pkg/depfinder"
@@ -225,11 +228,31 @@ func ConvertPostmanCollection(data []byte, opts ConvertOptions) (*PostmanResolve
 	// Initialize DepFinder for automatic dependency discovery
 	df := depfinder.NewDepFinder()
 
+	// Initialize folder context for URL-based folder creation
+	fc := newFolderContext(opts.WorkspaceID)
+
 	// Track the previous node for sequential linking
 	var previousNodeID *idwrap.IDWrap = &startNodeID
 
-	if err := processItems(collection.Item, idwrap.IDWrap{}, collection.Auth, previousNodeID, &df, opts, resolved); err != nil {
+	if err := processItems(collection.Item, idwrap.IDWrap{}, collection.Auth, previousNodeID, &df, fc, opts, resolved); err != nil {
 		return nil, fmt.Errorf("failed to process collection items: %w", err)
+	}
+
+	// Append URL-based folder files to result
+	fc.appendFolderFiles(resolved)
+
+	// Create Flow file entry (aligning with harv2)
+	if !mfile.IDIsZero(resolved.Flow.ID) {
+		flowFile := mfile.File{
+			ID:          resolved.Flow.ID,
+			WorkspaceID: opts.WorkspaceID,
+			ContentID:   &resolved.Flow.ID,
+			ContentType: mfile.ContentTypeFlow,
+			Name:        resolved.Flow.Name,
+			Order:       -1, // Put flow at top/special order
+			UpdatedAt:   time.Now(),
+		}
+		resolved.Files = append(resolved.Files, flowFile)
 	}
 
 	return resolved, nil
@@ -270,6 +293,7 @@ func ConvertToHTTPRequests(data []byte, opts ConvertOptions) ([]mhttp.HTTP, erro
 }
 
 // createFileRecord creates a file record for an HTTP request
+// Uses httpReq.ID as the file ID so frontend can match file to HTTP content
 func createFileRecord(httpReq mhttp.HTTP, opts ConvertOptions) mfile.File {
 	filename := httpReq.Name
 	if filename == "" {
@@ -277,7 +301,7 @@ func createFileRecord(httpReq mhttp.HTTP, opts ConvertOptions) mfile.File {
 	}
 
 	return mfile.File{
-		ID:          idwrap.NewNow(),
+		ID:          httpReq.ID, // Same ID as HTTP request (like HAR does)
 		WorkspaceID: opts.WorkspaceID,
 		ParentID:    httpReq.FolderID,
 		ContentID:   &httpReq.ID,
@@ -345,7 +369,7 @@ func extractBodyRawForHTTP(httpID idwrap.IDWrap, bodyRaws []mhttp.HTTPBodyRaw) *
 }
 
 // processItems recursively processes Postman collection items and extracts HTTP requests
-func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, inheritedAuth *PostmanAuth, previousNodeID *idwrap.IDWrap, df *depfinder.DepFinder, opts ConvertOptions, resolved *PostmanResolved) error {
+func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, inheritedAuth *PostmanAuth, previousNodeID *idwrap.IDWrap, df *depfinder.DepFinder, fc *folderContext, opts ConvertOptions, resolved *PostmanResolved) error {
 	for _, item := range items {
 		// Use inherited auth if item doesn't have its own
 		effectiveAuth := item.Auth
@@ -357,12 +381,16 @@ func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, inheritedAu
 			// This is a folder, process its children
 			folderID := idwrap.NewNow()
 
-			// Create folder record
+			// Create folder record with empty name fallback
+			folderName := item.Name
+			if folderName == "" {
+				folderName = "Unnamed Folder"
+			}
 			folderFile := mfile.File{
 				ID:          folderID,
 				WorkspaceID: opts.WorkspaceID,
 				ContentType: mfile.ContentTypeFolder,
-				Name:        item.Name,
+				Name:        folderName,
 				UpdatedAt:   time.Now(),
 			}
 			if parentFolderID.Compare(idwrap.IDWrap{}) != 0 {
@@ -372,7 +400,7 @@ func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, inheritedAu
 			}
 			resolved.Files = append(resolved.Files, folderFile)
 
-			if err := processItems(item.Item, folderID, effectiveAuth, previousNodeID, df, opts, resolved); err != nil {
+			if err := processItems(item.Item, folderID, effectiveAuth, previousNodeID, df, fc, opts, resolved); err != nil {
 				return err
 			}
 		} else if item.Request != nil {
@@ -391,10 +419,18 @@ func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, inheritedAu
 			}
 
 			// Set the folder ID for both
+			// If inside a Postman folder, use that folder
+			// Otherwise, create URL-based folder hierarchy (like HAR does)
 			if parentFolderID.Compare(idwrap.IDWrap{}) != 0 {
 				baseReq.FolderID = &parentFolderID
 			} else if opts.FolderID != nil {
 				baseReq.FolderID = opts.FolderID
+			} else if baseReq.Url != "" && fc != nil {
+				// Root-level request: create URL-based folder structure
+				urlFolderID, err := fc.getOrCreateURLFolder(baseReq.Url)
+				if err == nil && urlFolderID.Compare(idwrap.IDWrap{}) != 0 {
+					baseReq.FolderID = &urlFolderID
+				}
 			}
 
 			// 3. Create Delta Request Object
@@ -890,4 +926,158 @@ func createDeltaBodyRaw(originalRaw *mhttp.HTTPBodyRaw, newRaw *mhttp.HTTPBodyRa
 		CreatedAt:            newRaw.CreatedAt + 1,
 		UpdatedAt:            newRaw.UpdatedAt + 1,
 	}
+}
+
+// folderContext tracks URL-based folders during Postman import
+type folderContext struct {
+	folderMap     map[string]idwrap.IDWrap // path -> folder ID
+	folderFileMap map[string]mfile.File   // path -> folder file
+	workspaceID   idwrap.IDWrap
+}
+
+// newFolderContext creates a new folder tracking context
+func newFolderContext(workspaceID idwrap.IDWrap) *folderContext {
+	return &folderContext{
+		folderMap:     make(map[string]idwrap.IDWrap),
+		folderFileMap: make(map[string]mfile.File),
+		workspaceID:   workspaceID,
+	}
+}
+
+// appendFolderFiles adds all created folder files to the resolved files
+func (fc *folderContext) appendFolderFiles(resolved *PostmanResolved) {
+	for _, folderFile := range fc.folderFileMap {
+		resolved.Files = append(resolved.Files, folderFile)
+	}
+}
+
+// getOrCreateURLFolder creates or retrieves folder ID for a URL-based path
+func (fc *folderContext) getOrCreateURLFolder(urlStr string) (idwrap.IDWrap, error) {
+	folderPath := buildFolderPathFromURL(urlStr)
+	if folderPath == "" || folderPath == "/" {
+		return idwrap.IDWrap{}, nil
+	}
+
+	return fc.getOrCreateFolder(folderPath)
+}
+
+// getOrCreateFolder creates or retrieves folder ID for a given path
+func (fc *folderContext) getOrCreateFolder(folderPath string) (idwrap.IDWrap, error) {
+	if existingID, exists := fc.folderMap[folderPath]; exists {
+		return existingID, nil
+	}
+
+	// Create parent folders if needed first
+	var parentID *idwrap.IDWrap
+	parentPath := path.Dir(folderPath)
+	if parentPath != "/" && parentPath != "." && parentPath != "" {
+		pid, err := fc.getOrCreateFolder(parentPath)
+		if err != nil {
+			return idwrap.IDWrap{}, err
+		}
+		parentID = &pid
+	}
+
+	// Create new folder file
+	folderID := idwrap.NewNow()
+	folderName := path.Base(folderPath)
+	if folderName == "" || folderName == "." || folderName == "/" {
+		folderName = "imported"
+	}
+
+	folderFile := mfile.File{
+		ID:          folderID,
+		WorkspaceID: fc.workspaceID,
+		ParentID:    parentID,
+		ContentID:   nil, // Folders don't have content
+		ContentType: mfile.ContentTypeFolder,
+		Name:        folderName,
+		Order:       0,
+		UpdatedAt:   time.Now(),
+	}
+
+	fc.folderMap[folderPath] = folderID
+	fc.folderFileMap[folderPath] = folderFile
+
+	return folderID, nil
+}
+
+// buildFolderPathFromURL creates a hierarchical folder path from a URL
+func buildFolderPathFromURL(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return ""
+	}
+
+	// Normalize hostname: api.example.com -> com/example/api
+	// Filter out empty parts to avoid double slashes in path
+	var hostParts []string
+	hostname := parsedURL.Hostname()
+	if hostname != "" {
+		parts := strings.Split(hostname, ".")
+		for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+			parts[i], parts[j] = parts[j], parts[i]
+		}
+		for _, part := range parts {
+			if part != "" {
+				hostParts = append(hostParts, part)
+			}
+		}
+	}
+
+	// Clean up path segments
+	pathSegments := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
+	var cleanSegments []string
+	for _, segment := range pathSegments {
+		if segment != "" && !isNumericSegment(segment) {
+			cleanSegments = append(cleanSegments, sanitizeFileName(segment))
+		}
+	}
+
+	// Combine host and path
+	allSegments := make([]string, 0, len(hostParts)+len(cleanSegments))
+	allSegments = append(allSegments, hostParts...)
+	allSegments = append(allSegments, cleanSegments...)
+
+	if len(allSegments) == 0 {
+		return ""
+	}
+	return "/" + strings.Join(allSegments, "/")
+}
+
+// sanitizeFileName cleans up a string to be used as a filename
+func sanitizeFileName(name string) string {
+	replacer := strings.NewReplacer(
+		" ", "_",
+		"?", "",
+		"#", "",
+		"&", "_and_",
+		"=", "_eq_",
+		"<", "_lt_",
+		">", "_gt_",
+		"*", "_star_",
+		"\"", "",
+		"'", "",
+		"/", "_",
+		"\\", "_",
+	)
+
+	result := replacer.Replace(name)
+	if result == "" {
+		return "unnamed"
+	}
+	return result
+}
+
+// isNumericSegment checks if a URL path segment is purely numeric (like IDs)
+func isNumericSegment(segment string) bool {
+	if segment == "" {
+		return false
+	}
+	for _, c := range segment {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

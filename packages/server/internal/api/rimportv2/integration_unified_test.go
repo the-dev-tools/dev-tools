@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 )
 
 // TestIntegrationHARImport tests the complete HAR import workflow
@@ -128,6 +129,26 @@ func TestIntegrationHARImport(t *testing.T) {
 	}
 	if len(result.BodyRaw) == 0 {
 		t.Error("Expected body raw in translation result")
+	}
+
+	// Verify file IDs match HTTP IDs (critical for frontend sync)
+	httpIDSet := make(map[string]bool)
+	for _, http := range result.HTTPRequests {
+		httpIDSet[http.ID.String()] = true
+	}
+	for _, file := range result.Files {
+		if file.ContentType == mfile.ContentTypeHTTP || file.ContentType == mfile.ContentTypeHTTPDelta {
+			if file.ContentID == nil {
+				t.Errorf("File %q has nil ContentID", file.Name)
+				continue
+			}
+			if file.ID.Compare(*file.ContentID) != 0 {
+				t.Errorf("File %q: file.ID != file.ContentID (frontend cannot match)", file.Name)
+			}
+			if !httpIDSet[file.ID.String()] {
+				t.Errorf("File %q: file.ID not found in HTTP requests", file.Name)
+			}
+		}
 	}
 
 	t.Logf("HAR import test completed successfully:")
@@ -480,6 +501,50 @@ func TestIntegrationPostmanImport(t *testing.T) {
 	}
 	if !foundToken {
 		t.Errorf("token variable not found or incorrect value")
+	}
+
+	// Verify file IDs match HTTP IDs (critical for frontend sync)
+	// Build HTTP ID lookup map
+	httpIDSet := make(map[string]bool)
+	for _, http := range result.HTTPRequests {
+		httpIDSet[http.ID.String()] = true
+	}
+
+	// Verify each HTTP/HTTPDelta file has matching content
+	for _, file := range result.Files {
+		switch file.ContentType {
+		case mfile.ContentTypeHTTP:
+			// File ID must equal HTTP ID for frontend to match them
+			if file.ContentID == nil {
+				t.Errorf("HTTP file %q has nil ContentID", file.Name)
+				continue
+			}
+			if file.ID.Compare(*file.ContentID) != 0 {
+				t.Errorf("HTTP file %q: file.ID != file.ContentID (frontend cannot match)", file.Name)
+			}
+			if !httpIDSet[file.ID.String()] {
+				t.Errorf("HTTP file %q: file.ID not found in HTTP requests", file.Name)
+			}
+		case mfile.ContentTypeHTTPDelta:
+			// Delta file ID must equal Delta HTTP ID
+			if file.ContentID == nil {
+				t.Errorf("HTTPDelta file %q has nil ContentID", file.Name)
+				continue
+			}
+			if file.ID.Compare(*file.ContentID) != 0 {
+				t.Errorf("HTTPDelta file %q: file.ID != file.ContentID (frontend cannot match)", file.Name)
+			}
+			if !httpIDSet[file.ID.String()] {
+				t.Errorf("HTTPDelta file %q: file.ID not found in HTTP requests", file.Name)
+			}
+		case mfile.ContentTypeFolder:
+			// Folders don't have ContentID, that's fine
+		case mfile.ContentTypeFlow:
+			// Flow files should have ContentID matching flow ID
+			if file.ContentID == nil {
+				t.Errorf("Flow file %q has nil ContentID", file.Name)
+			}
+		}
 	}
 
 	t.Logf("Postman import test completed successfully:")

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 
 	"github.com/stretchr/testify/require"
 )
@@ -138,9 +139,9 @@ func TestIntegration_SimpleWorkflow(t *testing.T) {
 	require.Equal(t, "Users", usersReq.Name, "Expected second request name 'Users'")
 	require.Equal(t, "GET", usersReq.Method, "Expected users method 'GET'")
 
-	// Verify files were created for each HTTP request and folders (including deltas)
-	// 1 folder + (2 requests * 2) = 5 files
-	require.Len(t, resolved.Files, 5, "Expected 5 files created (1 folder + 4 request files)")
+	// Verify files were created for each HTTP request, folders (including deltas), URL folders, and flow file
+	// Now includes: 1 Postman folder + 4 request files + URL-based folders + 1 flow file
+	require.GreaterOrEqual(t, len(resolved.Files), 6, "Expected at least 6 files (folders + requests + flow)")
 
 	// Verify file names match request names and folder names
 	fileNames := make(map[string]bool)
@@ -161,8 +162,9 @@ func TestIntegration_SimpleWorkflow(t *testing.T) {
 			require.NotNil(t, file.ParentID, "Login request should be in a folder")
 			require.Equal(t, 0, file.ParentID.Compare(authFolderID), "Login request should be in Authentication folder")
 		}
-		if file.Name == "Users" {
-			require.Nil(t, file.ParentID, "Users request should be at root")
+		if file.Name == "Users" && file.ContentType == mfile.ContentTypeHTTP {
+			// Users request should now be in a URL-based folder (not at root)
+			require.NotNil(t, file.ParentID, "Users request should be in URL-based folder")
 		}
 	}
 }

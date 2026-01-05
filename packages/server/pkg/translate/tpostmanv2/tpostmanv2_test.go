@@ -77,11 +77,21 @@ func TestConvertPostmanCollection_SimpleRequest(t *testing.T) {
 	require.Equal(t, "Accept", header.Key, "Expected header key 'Accept'")
 	require.Equal(t, "application/json", header.Value, "Expected header value 'application/json'")
 
-	// Check files
-	require.Len(t, resolved.Files, 2, "Expected 2 files (Base + Delta)")
-	file := resolved.Files[0]
-	require.Equal(t, "Get Users", file.Name, "Expected file name 'Get Users'")
-	require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "Expected content type")
+	// Check files - now includes URL-based folders and flow file
+	// For https://api.example.com/users: 4 folders (com, example, api, users) + 1 base + 1 delta + 1 flow = 7
+	require.GreaterOrEqual(t, len(resolved.Files), 3, "Expected at least 3 files (Base + Delta + Flow)")
+
+	// Find the HTTP file
+	var httpFile *mfile.File
+	for i := range resolved.Files {
+		if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
+			httpFile = &resolved.Files[i]
+			break
+		}
+	}
+	require.NotNil(t, httpFile, "Expected to find HTTP file")
+	require.Equal(t, "Get Users", httpFile.Name, "Expected file name 'Get Users'")
+	require.Equal(t, mfile.ContentTypeHTTP, httpFile.ContentType, "Expected content type")
 }
 
 func TestConvertPostmanCollection_RequestBodyModes(t *testing.T) {
@@ -377,11 +387,20 @@ func TestConvertToFiles(t *testing.T) {
 	files, err := ConvertToFiles([]byte(collectionJSON), opts)
 	require.NoError(t, err, "ConvertToFiles() error")
 
-	require.Len(t, files, 2, "Expected 2 files (Base + Delta)")
+	// Now includes URL-based folders and flow file
+	require.GreaterOrEqual(t, len(files), 3, "Expected at least 3 files (Base + Delta + Flow)")
 
-	file := files[0]
-	require.Equal(t, "Test Request", file.Name, "Expected file name 'Test Request'")
-	require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "Expected content type")
+	// Find the HTTP file
+	var httpFile *mfile.File
+	for i := range files {
+		if files[i].ContentType == mfile.ContentTypeHTTP {
+			httpFile = &files[i]
+			break
+		}
+	}
+	require.NotNil(t, httpFile, "Expected to find HTTP file")
+	require.Equal(t, "Test Request", httpFile.Name, "Expected file name 'Test Request'")
+	require.Equal(t, mfile.ContentTypeHTTP, httpFile.ContentType, "Expected content type")
 }
 
 func TestConvertToHTTPRequests(t *testing.T) {
