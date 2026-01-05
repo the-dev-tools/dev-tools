@@ -55,7 +55,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	// Create User
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	err := services.Us.CreateUser(ctx, &muser.User{
+	err := services.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -124,9 +124,9 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 		},
 		Services: rhttp.HttpServiceRPCServices{
 			Http:               httpService,
-			User:               services.Us,
-			Workspace:          services.Ws,
-			WorkspaceUser:      services.Wus,
+			User:               services.UserService,
+			Workspace:          services.WorkspaceService,
+			WorkspaceUser:      services.WorkspaceUserService,
 			Env:                envService,
 			Variable:           varService,
 			HttpBodyRaw:        bodyService,

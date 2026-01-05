@@ -37,14 +37,14 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	nodeExecutionService := sflow.NewNodeExecutionService(base.Queries)
 
 	// HTTP services
-	httpService := services.Hs
+	httpService := services.HttpService
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
 
 	svc := NewReferenceServiceRPC(ReferenceServiceRPCDeps{
 		DB: base.DB,
 		Readers: ReferenceServiceRPCReaders{
 			User:          sworkspace.NewUserReader(base.DB),
-			Workspace:     services.Ws.Reader(),
+			Workspace:     services.WorkspaceService.Reader(),
 			Env:           envService.Reader(),
 			Variable:      varService.Reader(),
 			Flow:          flowService.Reader(),
@@ -59,7 +59,7 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 
 	// Create User
 	userID := idwrap.NewNow()
-	if err := services.Us.CreateUser(context.Background(), &muser.User{
+	if err := services.UserService.CreateUser(context.Background(), &muser.User{
 		ID:     userID,
 		Email:  "test@example.com",
 		Status: muser.Active,
@@ -71,7 +71,7 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	// Create Workspace
 	workspaceID := idwrap.NewNow()
 	envID := idwrap.NewNow()
-	if err := services.Ws.Create(ctx, &mworkspace.Workspace{
+	if err := services.WorkspaceService.Create(ctx, &mworkspace.Workspace{
 		ID:        workspaceID,
 		Name:      "test-ws",
 		Updated:   dbtime.DBNow(),
@@ -82,7 +82,7 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	}
 
 	// Link User to Workspace
-	if err := services.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+	if err := services.WorkspaceUserService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,

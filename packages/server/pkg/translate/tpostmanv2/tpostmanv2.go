@@ -233,7 +233,7 @@ func ConvertPostmanCollection(data []byte, opts ConvertOptions) (*PostmanResolve
 	fc := newFolderContext(opts.WorkspaceID)
 
 	// Track the previous node for sequential linking
-	var previousNodeID *idwrap.IDWrap = &startNodeID
+	previousNodeID := &startNodeID
 
 	if err := processItems(collection.Item, idwrap.IDWrap{}, collection.Auth, previousNodeID, &df, fc, opts, resolved); err != nil {
 		return nil, fmt.Errorf("failed to process collection items: %w", err)
@@ -425,11 +425,12 @@ func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, inheritedAu
 			// Set the folder ID for both
 			// If inside a Postman folder, use that folder
 			// Otherwise, create URL-based folder hierarchy (like HAR does)
-			if parentFolderID.Compare(idwrap.IDWrap{}) != 0 {
+			switch {
+			case parentFolderID.Compare(idwrap.IDWrap{}) != 0:
 				baseReq.FolderID = &parentFolderID
-			} else if opts.FolderID != nil {
+			case opts.FolderID != nil:
 				baseReq.FolderID = opts.FolderID
-			} else if baseReq.Url != "" && fc != nil {
+			case baseReq.Url != "" && fc != nil:
 				// Root-level request: create URL-based folder structure
 				urlFolderID, err := fc.getOrCreateURLFolder(baseReq.Url)
 				if err == nil && urlFolderID.Compare(idwrap.IDWrap{}) != 0 {

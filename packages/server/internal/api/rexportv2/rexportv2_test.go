@@ -44,8 +44,8 @@ func TestNewExportV2RPC(t *testing.T) {
 	rpc := NewExportV2RPC(ExportV2Deps{
 		DB:        base.DB,
 		Queries:   base.Queries,
-		Workspace: services.Ws,
-		User:      services.Us,
+		Workspace: services.WorkspaceService,
+		User:      services.UserService,
 		Http:      &httpService,
 		Flow:      &flowService,
 		File:      fileService,
@@ -73,8 +73,8 @@ func TestCreateExportV2Service(t *testing.T) {
 	rpc := NewExportV2RPC(ExportV2Deps{
 		DB:        base.DB,
 		Queries:   base.Queries,
-		Workspace: services.Ws,
-		User:      services.Us,
+		Workspace: services.WorkspaceService,
+		User:      services.UserService,
 		Http:      &httpService,
 		Flow:      &flowService,
 		File:      fileService,
@@ -495,7 +495,7 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 	flowID := idwrap.NewNow()
 
 	// Create test user
-	err := services.Us.CreateUser(ctx, &muser.User{
+	err := services.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        "test@example.com",
 		Password:     []byte("password"),
@@ -509,11 +509,11 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 		ID:   workspaceID,
 		Name: "Test Workspace",
 	}
-	err = services.Ws.Create(ctx, workspace)
+	err = services.WorkspaceService.Create(ctx, workspace)
 	require.NoError(t, err)
 
 	// Add user to workspace
-	err = services.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+	err = services.WorkspaceUserService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		UserID:      userID,
 		WorkspaceID: workspaceID,
 		Role:        mworkspace.RoleAdmin,
@@ -542,8 +542,8 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 	rpc := NewExportV2RPC(ExportV2Deps{
 		DB:        base.DB,
 		Queries:   base.Queries,
-		Workspace: services.Ws,
-		User:      services.Us,
+		Workspace: services.WorkspaceService,
+		User:      services.UserService,
 		Http:      &httpService,
 		Flow:      &flowService,
 		File:      fileService,

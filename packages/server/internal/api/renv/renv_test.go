@@ -51,7 +51,7 @@ func newEnvFixture(t *testing.T) *envFixture {
 	now := time.Now()
 
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	err := services.Us.CreateUser(context.Background(), &muser.User{
+	err := services.UserService.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -61,14 +61,14 @@ func newEnvFixture(t *testing.T) *envFixture {
 	})
 	require.NoError(t, err, "create user")
 
-	err = services.Ws.Create(context.Background(), &mworkspace.Workspace{
+	err = services.WorkspaceService.Create(context.Background(), &mworkspace.Workspace{
 		ID:      workspaceID,
 		Name:    "Test Workspace",
 		Updated: now,
 	})
 	require.NoError(t, err, "create workspace")
 
-	err = services.Wus.CreateWorkspaceUser(context.Background(), &mworkspace.WorkspaceUser{
+	err = services.WorkspaceUserService.CreateWorkspaceUser(context.Background(), &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
@@ -82,8 +82,8 @@ func newEnvFixture(t *testing.T) *envFixture {
 		Services: EnvRPCServices{
 			Env:       envService,
 			Variable:  varService,
-			User:      services.Us,
-			Workspace: services.Ws,
+			User:      services.UserService,
+			Workspace: services.WorkspaceService,
 		},
 		Readers: EnvRPCReaders{
 			Env:      envService.Reader(),
@@ -476,7 +476,7 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 
 	otherWorkspaceID := idwrap.NewNow()
 	services := f.base.GetBaseServices()
-	err := services.Ws.Create(context.Background(), &mworkspace.Workspace{
+	err := services.WorkspaceService.Create(context.Background(), &mworkspace.Workspace{
 		ID:      otherWorkspaceID,
 		Name:    "other",
 		Updated: time.Now(),

@@ -50,7 +50,7 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	err := services.Us.CreateUser(context.Background(), &muser.User{
+	err := services.UserService.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -63,14 +63,14 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	handler := New(WorkspaceServiceRPCDeps{
 		DB: base.DB,
 		Services: WorkspaceServiceRPCServices{
-			Workspace:     services.Ws,
-			WorkspaceUser: services.Wus,
-			User:          services.Us,
+			Workspace:     services.WorkspaceService,
+			WorkspaceUser: services.WorkspaceUserService,
+			User:          services.UserService,
 			Env:           envService,
 		},
 		Readers: WorkspaceServiceRPCReaders{
-			Workspace: services.Ws.Reader(),
-			User:      services.Wus.Reader(),
+			Workspace: services.WorkspaceService.Reader(),
+			User:      services.WorkspaceUserService.Reader(),
 		},
 		Streamers: WorkspaceServiceRPCStreamers{
 			Workspace:   stream,
@@ -84,10 +84,10 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 		ctx:     mwauth.CreateAuthedContext(context.Background(), userID),
 		base:    base,
 		handler: handler,
-		ws:      services.Ws,
-		wus:     services.Wus,
+		ws:      services.WorkspaceService,
+		wus:     services.WorkspaceUserService,
 		es:      envService,
-		us:      services.Us,
+		us:      services.UserService,
 		userID:  userID,
 	}
 }

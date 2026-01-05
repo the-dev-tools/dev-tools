@@ -44,27 +44,27 @@ type integrationTestFixture struct {
 
 // BaseTestServices wraps the testutil services for easier access
 type BaseTestServices struct {
-	Us          suser.UserService
-	Ws          sworkspace.WorkspaceService
-	Wus         sworkspace.UserService
-	Hs          shttp.HTTPService
-	Fs          sflow.FlowService
-	FileService sfile.FileService
+	UserService          suser.UserService
+	WorkspaceService     sworkspace.WorkspaceService
+	WorkspaceUserService sworkspace.UserService
+	HttpService          shttp.HTTPService
+	FlowService          sflow.FlowService
+	FileService          sfile.FileService
 
 	// Child entity services
 	HttpHeaderService         shttp.HttpHeaderService
 	HttpSearchParamService    *shttp.HttpSearchParamService
 	HttpBodyFormService       *shttp.HttpBodyFormService
 	HttpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
-	BodyService               *shttp.HttpBodyRawService
+	HttpBodyRawService        *shttp.HttpBodyRawService
 	HttpAssertService         *shttp.HttpAssertService
 
 	// Flow related services
-	NodeService        *sflow.NodeService
-	NodeRequestService *sflow.NodeRequestService
-	EdgeService        *sflow.EdgeService
-	EnvService         senv.EnvironmentService
-	VarService         senv.VariableService
+	NodeService         *sflow.NodeService
+	NodeRequestService  *sflow.NodeRequestService
+	EdgeService         *sflow.EdgeService
+	EnvService          senv.EnvironmentService
+	VarService          senv.VariableService
 	WorkspaceUserReader *sworkspace.UserReader
 }
 
@@ -104,7 +104,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	workspaceID := idwrap.NewNow()
 
 	// Create test user
-	err := baseServices.Us.CreateUser(ctx, &muser.User{
+	err := baseServices.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        "test@example.com",
 		Password:     []byte("password"),
@@ -118,11 +118,11 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		ID:   workspaceID,
 		Name: "Integration Test Workspace",
 	}
-	err = baseServices.Ws.Create(ctx, workspace)
+	err = baseServices.WorkspaceService.Create(ctx, workspace)
 	require.NoError(t, err)
 
 	// Add user to workspace
-	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+	err = baseServices.WorkspaceUserService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		UserID:      userID,
 		WorkspaceID: workspaceID,
 		Role:        mworkspace.RoleAdmin,
@@ -136,8 +136,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	rpc := NewExportV2RPC(ExportV2Deps{
 		DB:        base.DB,
 		Queries:   base.Queries,
-		Workspace: baseServices.Ws,
-		User:      baseServices.Us,
+		Workspace: baseServices.WorkspaceService,
+		User:      baseServices.UserService,
 		Http:      &httpService,
 		Flow:      &flowService,
 		File:      fileService,
@@ -145,24 +145,24 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	})
 
 	services := BaseTestServices{
-		Us:                        baseServices.Us,
-		Ws:                        baseServices.Ws,
-		Wus:                       baseServices.Wus,
-		Hs:                        httpService,
-		Fs:                        flowService,
-		FileService:               *fileService,
-		HttpHeaderService:         httpHeaderService,
-		HttpSearchParamService:    httpSearchParamService,
-		HttpBodyFormService:       httpBodyFormService,
+		UserService:              baseServices.UserService,
+		WorkspaceService:         baseServices.WorkspaceService,
+		WorkspaceUserService:     baseServices.WorkspaceUserService,
+		HttpService:              httpService,
+		FlowService:              flowService,
+		FileService:              *fileService,
+		HttpHeaderService:        httpHeaderService,
+		HttpSearchParamService:   httpSearchParamService,
+		HttpBodyFormService:      httpBodyFormService,
 		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
-		BodyService:               bodyService,
-		HttpAssertService:         httpAssertService,
-		NodeService:               &nodeService,
-		NodeRequestService:        &nodeRequestService,
-		EdgeService:        &edgeService,
-		EnvService:         envService,
-		VarService:         varService,
-		WorkspaceUserReader: workspaceUserReader,
+		HttpBodyRawService:       bodyService,
+		HttpAssertService:        httpAssertService,
+		NodeService:              &nodeService,
+		NodeRequestService:       &nodeRequestService,
+		EdgeService:              &edgeService,
+		EnvService:               envService,
+		VarService:               varService,
+		WorkspaceUserReader:      workspaceUserReader,
 	}
 
 	return &integrationTestFixture{
@@ -379,7 +379,7 @@ func TestIntegration_PerformanceWithLargeDataset(t *testing.T) {
 			WorkspaceID: fixture.workspaceID,
 			Name:        "Performance Test Flow",
 		}
-		err := fixture.services.Fs.CreateFlow(fixture.ctx, flow)
+		err := fixture.services.FlowService.CreateFlow(fixture.ctx, flow)
 		require.NoError(t, err)
 	}
 
@@ -392,7 +392,7 @@ func TestIntegration_PerformanceWithLargeDataset(t *testing.T) {
 			Method:      "POST",
 			Name:        "Performance Test Request",
 		}
-		err := fixture.services.Hs.Create(fixture.ctx, httpRequest)
+		err := fixture.services.HttpService.Create(fixture.ctx, httpRequest)
 		require.NoError(t, err)
 	}
 
@@ -468,7 +468,7 @@ func createComplexTestData(t *testing.T, fixture *integrationTestFixture) (idwra
 		WorkspaceID: fixture.workspaceID,
 		Name:        "Integration Test Flow",
 	}
-	err := fixture.services.Fs.CreateFlow(fixture.ctx, flow)
+	err := fixture.services.FlowService.CreateFlow(fixture.ctx, flow)
 	require.NoError(t, err)
 
 	// Create HTTP request
@@ -479,7 +479,7 @@ func createComplexTestData(t *testing.T, fixture *integrationTestFixture) (idwra
 		Method:      "POST",
 		Name:        "Integration Test Request",
 	}
-	err = fixture.services.Hs.Create(fixture.ctx, &httpRequest)
+	err = fixture.services.HttpService.Create(fixture.ctx, &httpRequest)
 	require.NoError(t, err)
 
 	// Create file
@@ -510,7 +510,7 @@ func createIntegrationTestData(t *testing.T, fixture *integrationTestFixture) (i
 		WorkspaceID: fixture.workspaceID,
 		Name:        "Additional Test Flow",
 	}
-	err := fixture.services.Fs.CreateFlow(fixture.ctx, flow)
+	err := fixture.services.FlowService.CreateFlow(fixture.ctx, flow)
 	require.NoError(t, err)
 
 	// Create additional HTTP request
@@ -521,7 +521,7 @@ func createIntegrationTestData(t *testing.T, fixture *integrationTestFixture) (i
 		Method:      "GET",
 		Name:        "Additional Test Request",
 	}
-	err = fixture.services.Hs.Create(fixture.ctx, &httpRequest)
+	err = fixture.services.HttpService.Create(fixture.ctx, &httpRequest)
 	require.NoError(t, err)
 
 	return flowID, exampleID
@@ -574,24 +574,24 @@ func createImportService(t *testing.T, fixture *integrationTestFixture) *rimport
 	t.Helper()
 
 	importer := rimportv2.NewImporter(
-		fixture.db,
-		fixture.services.Workspace,
-		&fixture.services.Http,
-		&fixture.services.Flow,
-		&fixture.services.File,
-		fixture.services.HttpHeader,
-		&fixture.services.HttpSearchParam,
-		&fixture.services.HttpBodyForm,
-		&fixture.services.HttpBodyUrlEncoded,
-		&fixture.services.HttpBodyRaw,
-		&fixture.services.HttpAssert,
-		&fixture.services.Node,
-		&fixture.services.NodeRequest,
-		&fixture.services.Edge,
-		fixture.services.Env,
-		fixture.services.Var,
+		fixture.base.DB,
+		fixture.services.WorkspaceService,
+		&fixture.services.HttpService,
+		&fixture.services.FlowService,
+		&fixture.services.FileService,
+		fixture.services.HttpHeaderService,
+		fixture.services.HttpSearchParamService,
+		fixture.services.HttpBodyFormService,
+		fixture.services.HttpBodyUrlEncodedService,
+		fixture.services.HttpBodyRawService,
+		fixture.services.HttpAssertService,
+		fixture.services.NodeService,
+		fixture.services.NodeRequestService,
+		fixture.services.EdgeService,
+		fixture.services.EnvService,
+		fixture.services.VarService,
 	)
-	validator := rimportv2.NewValidator(&fixture.services.Us, fixture.services.WorkspaceUserReader)
+	validator := rimportv2.NewValidator(&fixture.services.UserService, fixture.services.WorkspaceUserReader)
 
 	return rimportv2.NewService(importer, validator, rimportv2.WithLogger(fixture.logger))
 }

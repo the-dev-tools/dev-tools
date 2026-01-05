@@ -64,7 +64,7 @@ func TestImportService_FileCollision(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify files in DB
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Log files for debugging

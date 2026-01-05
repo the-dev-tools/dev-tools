@@ -59,7 +59,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	err := services.Us.CreateUser(context.Background(), &muser.User{
+	err := services.UserService.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -114,7 +114,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 
 	// Create resolver for delta resolution
 	requestResolver := resolver.NewStandardResolver(
-		&services.Hs,
+		&services.HttpService,
 		&httpHeaderService,
 		httpSearchParamService,
 		httpBodyRawService,
@@ -123,20 +123,20 @@ func newHttpFixture(t *testing.T) *httpFixture {
 		httpAssertService,
 	)
 
-	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.Wus)
+	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.WorkspaceUserService)
 
 	handler := New(HttpServiceRPCDeps{
 		DB: base.DB,
 		Readers: HttpServiceRPCReaders{
 			Http:      httpReader,
-			User:      services.Wus.Reader(),
-			Workspace: services.Ws.Reader(),
+			User:      services.WorkspaceUserService.Reader(),
+			Workspace: services.WorkspaceService.Reader(),
 		},
 		Services: HttpServiceRPCServices{
-			Http:               services.Hs,
-			User:               services.Us,
-			Workspace:          services.Ws,
-			WorkspaceUser:      services.Wus,
+			Http:               services.HttpService,
+			User:               services.UserService,
+			Workspace:          services.WorkspaceService,
+			WorkspaceUser:      services.WorkspaceUserService,
 			Env:                envService,
 			Variable:           varService,
 			HttpBodyRaw:        httpBodyRawService,
@@ -157,10 +157,10 @@ func newHttpFixture(t *testing.T) *httpFixture {
 		ctx:     mwauth.CreateAuthedContext(context.Background(), userID),
 		base:    base,
 		handler: handler,
-		hs:      services.Hs,
-		us:      services.Us,
-		ws:      services.Ws,
-		wus:     services.Wus,
+		hs:      services.HttpService,
+		us:      services.UserService,
+		ws:      services.WorkspaceService,
+		wus:     services.WorkspaceUserService,
 		es:      envService,
 		vs:      varService,
 		userID:  userID,

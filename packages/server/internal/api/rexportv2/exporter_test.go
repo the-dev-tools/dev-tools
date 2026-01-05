@@ -31,7 +31,7 @@ func TestNewExporter(t *testing.T) {
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
-	workspaceService := services.Ws
+	workspaceService := services.WorkspaceService
 
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
@@ -120,7 +120,7 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
-	workspaceService := services.Ws
+	workspaceService := services.WorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
 
 	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService)
@@ -139,7 +139,7 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 		ActiveEnv: envID,
 		GlobalEnv: envID,
 	}
-	err := services.Ws.Create(ctx, workspace)
+	err := services.WorkspaceService.Create(ctx, workspace)
 	require.NoError(t, err)
 
 	// Create environment
@@ -519,7 +519,7 @@ func setupExporterWithoutData(t *testing.T, ctx context.Context) *SimpleExporter
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
-	workspaceService := services.Ws
+	workspaceService := services.WorkspaceService
 
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
@@ -544,7 +544,7 @@ func setupExporterWithTestData(t *testing.T, ctx context.Context) (*SimpleExport
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
-	workspaceService := services.Ws
+	workspaceService := services.WorkspaceService
 
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
@@ -580,7 +580,7 @@ func createExporterTestData(t *testing.T, ctx context.Context, base *testutil.Ba
 		ActiveEnv: envID,
 		GlobalEnv: envID,
 	}
-	if err := services.Ws.Create(ctx, workspace); err != nil {
+	if err := services.WorkspaceService.Create(ctx, workspace); err != nil {
 		t.Fatalf("create workspace: %v", err)
 	}
 

@@ -96,7 +96,7 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	userID := idwrap.NewNow()
 	workspaceID := idwrap.NewNow()
 
-	err := baseServices.Us.CreateUser(ctx, &muser.User{
+	err := baseServices.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        "test@example.com",
 		Password:     []byte("password"),
@@ -105,13 +105,13 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 	})
 	require.NoError(t, err)
 
-	err = baseServices.Ws.Create(ctx, &mworkspace.Workspace{
+	err = baseServices.WorkspaceService.Create(ctx, &mworkspace.Workspace{
 		ID:   workspaceID,
 		Name: "Test Workspace",
 	})
 	require.NoError(t, err)
 
-	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+	err = baseServices.WorkspaceUserService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
@@ -124,8 +124,8 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 		DB:     base.DB,
 		Logger: logger,
 		Services: ImportServices{
-			Workspace:          baseServices.Ws,
-			User:               baseServices.Us,
+			Workspace:          baseServices.WorkspaceService,
+			User:               baseServices.UserService,
 			Http:               &httpService,
 			Flow:               &flowService,
 			File:               fileService,
@@ -142,8 +142,8 @@ func setupEnvSyncTestFixture(t *testing.T) *envSyncTestFixture {
 			Edge:               &edgeService,
 		},
 		Readers: ImportV2Readers{
-			Workspace: baseServices.Ws.Reader(),
-			User:      baseServices.Wus.Reader(),
+			Workspace: baseServices.WorkspaceService.Reader(),
+			User:      baseServices.WorkspaceUserService.Reader(),
 		},
 		Streamers: ImportStreamers{
 			Flow:               streamers.Flow,

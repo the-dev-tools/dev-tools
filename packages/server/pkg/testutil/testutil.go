@@ -25,14 +25,14 @@ type BaseDBQueries struct {
 }
 
 type BaseTestServices struct {
-	Queries *gen.Queries
-	DB      *sql.DB
-	Us      suser.UserService
-	Ws      sworkspace.WorkspaceService
-	Wus     sworkspace.UserService
-	Hs      shttp.HTTPService
-	Fs      sflow.FlowService
-	Fvs     sflow.FlowVariableService
+	Queries              *gen.Queries
+	DB                   *sql.DB
+	UserService          suser.UserService
+	WorkspaceService     sworkspace.WorkspaceService
+	WorkspaceUserService sworkspace.UserService
+	HttpService          shttp.HTTPService
+	FlowService          sflow.FlowService
+	FlowVariableService  sflow.FlowVariableService
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
@@ -59,20 +59,20 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	fs := sflow.NewFlowService(queries)
 	fvs := sflow.NewFlowVariableService(queries)
 	return BaseTestServices{
-		Queries: queries,
-		DB:      c.DB,
-		Us:      us,
-		Ws:      ws,
-		Wus:     wus,
-		Hs:      hs,
-		Fs:      fs,
-		Fvs:     fvs,
+		Queries:              queries,
+		DB:                   c.DB,
+		UserService:          us,
+		WorkspaceService:     ws,
+		WorkspaceUserService: wus,
+		HttpService:          hs,
+		FlowService:          fs,
+		FlowVariableService:  fvs,
 	}
 }
 
 func (b BaseTestServices) CreateTempCollection(ctx context.Context, userID idwrap.IDWrap, name string) (idwrap.IDWrap, error) {
 	workspaceID := idwrap.NewNow()
-	err := b.Ws.Create(ctx, &mworkspace.Workspace{
+	err := b.WorkspaceService.Create(ctx, &mworkspace.Workspace{
 		ID:   workspaceID,
 		Name: name,
 	})
@@ -80,7 +80,7 @@ func (b BaseTestServices) CreateTempCollection(ctx context.Context, userID idwra
 		return idwrap.IDWrap{}, err
 	}
 
-	err = b.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+	err = b.WorkspaceUserService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,

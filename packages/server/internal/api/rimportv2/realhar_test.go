@@ -45,11 +45,11 @@ func TestRealHAR_UUIDFile(t *testing.T) {
 		"Import should succeed without MissingData")
 
 	// Get all HTTP requests
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Get all deltas
-	deltas, err := fixture.services.Hs.GetDeltasByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	deltas, err := fixture.services.HttpService.GetDeltasByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// The HAR has 16 entries, each creates base + delta = 16 base + 16 delta
@@ -58,7 +58,7 @@ func TestRealHAR_UUIDFile(t *testing.T) {
 	require.Equal(t, 16, len(deltas), "Should have 16 delta HTTP requests")
 
 	// Get all files
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Count file types
@@ -87,8 +87,8 @@ func TestRealHAR_UUIDFile(t *testing.T) {
 	report, err := ValidateImportIntegrity(
 		fixture.ctx,
 		fixture.workspaceID,
-		&fixture.services.Fs,
-		&fixture.services.Hs,
+		&fixture.services.FileService,
+		&fixture.services.HttpService,
 		nil, // nodeService not needed for file validation
 		nil, // nodeRequestService not needed for file validation
 	)
@@ -122,7 +122,7 @@ func TestRealHAR_DuplicateURLsGetUniqueFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get all files
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Find files with "Tags" in the name (there are 3 GET /api/tags requests)
@@ -179,8 +179,8 @@ func TestRealHAR_ReimportDeduplication(t *testing.T) {
 	require.NoError(t, err)
 
 	// Count after first import
-	httpReqs1, _ := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
-	files1, _ := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	httpReqs1, _ := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	files1, _ := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 
 	// Second import (same data)
 	req2 := connect.NewRequest(&apiv1.ImportRequest{
@@ -195,8 +195,8 @@ func TestRealHAR_ReimportDeduplication(t *testing.T) {
 	require.NoError(t, err)
 
 	// Count after second import
-	httpReqs2, _ := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
-	files2, _ := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	httpReqs2, _ := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	files2, _ := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 
 	t.Logf("After 1st import: %d HTTP, %d files", len(httpReqs1), len(files1))
 	t.Logf("After 2nd import: %d HTTP, %d files", len(httpReqs2), len(files2))
@@ -216,8 +216,8 @@ func TestRealHAR_ReimportDeduplication(t *testing.T) {
 	report, err := ValidateImportIntegrity(
 		fixture.ctx,
 		fixture.workspaceID,
-		&fixture.services.Fs,
-		&fixture.services.Hs,
+		&fixture.services.FileService,
+		&fixture.services.HttpService,
 		nil,
 		nil,
 	)
@@ -260,7 +260,7 @@ func TestRealHAR_RepeatedImportsNoDeadlock(t *testing.T) {
 	}
 
 	// Verify final state
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	t.Logf("After %d imports: %d HTTP requests", numImports, len(httpReqs))
@@ -272,8 +272,8 @@ func TestRealHAR_RepeatedImportsNoDeadlock(t *testing.T) {
 	report, err := ValidateImportIntegrity(
 		fixture.ctx,
 		fixture.workspaceID,
-		&fixture.services.Fs,
-		&fixture.services.Hs,
+		&fixture.services.FileService,
+		&fixture.services.HttpService,
 		nil,
 		nil,
 	)

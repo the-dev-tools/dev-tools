@@ -187,9 +187,9 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		},
 		Services: rhttp.HttpServiceRPCServices{
 			Http:               *suite.importHandler.HttpService,
-			User:               suite.services.Us,
-			Workspace:          suite.services.Ws,
-			WorkspaceUser:      suite.services.Wus,
+			User:               suite.services.UserService,
+			Workspace:          suite.services.WorkspaceService,
+			WorkspaceUser:      suite.services.WorkspaceUserService,
 			Env:                envService,
 			Variable:           varService,
 			HttpBodyRaw:        suite.importHandler.HttpBodyRawService,

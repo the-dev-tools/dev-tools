@@ -42,7 +42,7 @@ func TestRealYAML_EcommerceFile(t *testing.T) {
 		"Import should succeed without MissingData")
 
 	// Get all HTTP requests
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// The YAML has 15 requests
@@ -50,7 +50,7 @@ func TestRealYAML_EcommerceFile(t *testing.T) {
 	require.Equal(t, 15, len(httpReqs), "Should have 15 HTTP requests")
 
 	// Get all files
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Count file types
@@ -78,8 +78,8 @@ func TestRealYAML_EcommerceFile(t *testing.T) {
 	report, err := ValidateImportIntegrity(
 		fixture.ctx,
 		fixture.workspaceID,
-		&fixture.services.Fs,
-		&fixture.services.Hs,
+		&fixture.services.FileService,
+		&fixture.services.HttpService,
 		nil, // nodeService not needed for file validation
 		nil, // nodeRequestService not needed for file validation
 	)
@@ -109,7 +109,7 @@ func TestRealYAML_FlowCreated(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get all flows in workspace
-	flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(flows), "Should have 1 flow")
 
@@ -140,7 +140,7 @@ func TestRealYAML_MultipleRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get all HTTP requests
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Log all request names and methods

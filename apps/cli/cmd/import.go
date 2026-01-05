@@ -175,11 +175,9 @@ translation service. All requests in the collection will be converted to unified
 			}
 
 			for _, rawBody := range resolved.BodyRaw {
-				if rawBody != nil {
-					_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData)
-					if err != nil {
-						return fmt.Errorf("failed to save body raw: %w", err)
-					}
+				_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData)
+				if err != nil {
+					return fmt.Errorf("failed to save body raw: %w", err)
 				}
 			}
 

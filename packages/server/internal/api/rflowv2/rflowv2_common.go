@@ -22,6 +22,7 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
+//nolint:unused // used by tests
 func isStartNode(node mflow.Node) bool {
 	return node.NodeKind == mflow.NODE_KIND_MANUAL_START
 }

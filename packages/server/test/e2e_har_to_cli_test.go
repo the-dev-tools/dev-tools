@@ -92,7 +92,7 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 	wsID := idwrap.NewNow()
 
 	providerID := "test-provider"
-	err := services.Us.CreateUser(ctx, &muser.User{
+	err := services.UserService.CreateUser(ctx, &muser.User{
 		ID:           uid,
 		Email:        "test@example.com",
 		Status:       muser.Active,
@@ -103,10 +103,10 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 
 	authCtx := mwauth.CreateAuthedContext(ctx, uid)
 
-	err = services.Ws.Create(authCtx, &mworkspace.Workspace{ID: wsID, Name: "Source Workspace"})
+	err = services.WorkspaceService.Create(authCtx, &mworkspace.Workspace{ID: wsID, Name: "Source Workspace"})
 	require.NoError(t, err)
 
-	err = services.Wus.CreateWorkspaceUser(authCtx, &mworkspace.WorkspaceUser{ID: idwrap.NewNow(), WorkspaceID: wsID, UserID: uid, Role: mworkspace.RoleOwner})
+	err = services.WorkspaceUserService.CreateWorkspaceUser(authCtx, &mworkspace.WorkspaceUser{ID: idwrap.NewNow(), WorkspaceID: wsID, UserID: uid, Role: mworkspace.RoleOwner})
 	require.NoError(t, err)
 
 	// Setup Import Handler
@@ -144,7 +144,7 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 	}
 
 	// Verify Import Success (Sanity Check)
-	flows, err := services.Fs.GetFlowsByWorkspaceID(ctx, wsID)
+	flows, err := services.FlowService.GetFlowsByWorkspaceID(ctx, wsID)
 	require.NoError(t, err)
 	require.NotEmpty(t, flows, "Should have imported at least one flow")
 	sourceFlowID := flows[0].ID
@@ -563,10 +563,10 @@ func setupImportHandler(t *testing.T, baseDB *testutil.BaseDBQueries, s testutil
 		DB:     baseDB.DB,
 		Logger: mockLogger,
 		Services: rimportv2.ImportServices{
-			Workspace:          s.Ws,
-			User:               s.Us,
-			Http:               &s.Hs,
-			Flow:               &s.Fs,
+			Workspace:          s.WorkspaceService,
+			User:               s.UserService,
+			Http:               &s.HttpService,
+			Flow:               &s.FlowService,
 			File:               fileService,
 			Env:                envService,
 			Var:                varService,

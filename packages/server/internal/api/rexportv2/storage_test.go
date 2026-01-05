@@ -25,7 +25,7 @@ func TestNewStorage(t *testing.T) {
 	flowService := sflow.NewFlowService(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
-	storage := NewStorage(&services.Ws, &httpService, &flowService, fileService)
+	storage := NewStorage(&services.WorkspaceService, &httpService, &flowService, fileService)
 
 	require.NotNil(t, storage)
 }

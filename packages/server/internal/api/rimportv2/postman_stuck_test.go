@@ -136,13 +136,13 @@ func TestPostmanImport_GalaxyCollection(t *testing.T) {
 	t.Log("Verifying database storage...")
 
 	// Verify HTTP requests were stored
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	t.Logf("Stored %d HTTP requests", len(httpReqs))
 	require.GreaterOrEqual(t, len(httpReqs), 5, "Should have at least 5 HTTP requests")
 
 	// Verify flows were created
-	flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Len(t, flows, 1, "Should have exactly 1 flow")
 	t.Logf("Created flow: %s", flows[0].Name)
@@ -160,7 +160,7 @@ func TestPostmanImport_GalaxyCollection(t *testing.T) {
 	t.Logf("Created %d edges", len(edges))
 
 	// Verify files were created (folder + HTTP files)
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Greater(t, len(files), 0, "Should have files created")
 

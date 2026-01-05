@@ -104,8 +104,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		DB:     baseDB.DB,
 		Logger: mockLogger,
 		Services: rimportv2.ImportServices{
-			Workspace:          services.Ws,
-			User:               services.Us,
+			Workspace:          services.WorkspaceService,
+			User:               services.UserService,
 			Http:               &httpService,
 			Flow:               &flowService,
 			File:               fileService,
@@ -163,9 +163,9 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		},
 		Services: rhttp.HttpServiceRPCServices{
 			Http:               httpService,
-			User:               services.Us,
-			Workspace:          services.Ws,
-			WorkspaceUser:      services.Wus,
+			User:               services.UserService,
+			Workspace:          services.WorkspaceService,
+			WorkspaceUser:      services.WorkspaceUserService,
 			Env:                envService,
 			Variable:           varService,
 			HttpBodyRaw:        bodyService,
@@ -201,7 +201,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	// Create test user first
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	if err := services.Us.CreateUser(ctx, &muser.User{
+	if err := services.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -219,7 +219,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	workspaceID := idwrap.NewNow()
 
 	// Create workspace in database using authenticated context
-	err := services.Ws.Create(authCtx, &mworkspace.Workspace{
+	err := services.WorkspaceService.Create(authCtx, &mworkspace.Workspace{
 		ID:   workspaceID,
 		Name: "HAR Import Test Workspace",
 	})
@@ -228,7 +228,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	}
 
 	// Create workspace-user relationship using authenticated context
-	err = services.Wus.CreateWorkspaceUser(authCtx, &mworkspace.WorkspaceUser{
+	err = services.WorkspaceUserService.CreateWorkspaceUser(authCtx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,

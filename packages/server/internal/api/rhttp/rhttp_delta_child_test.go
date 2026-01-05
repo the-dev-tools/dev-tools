@@ -33,10 +33,10 @@ func TestHttpDelta_ChildEntities_SparsePatch(t *testing.T) {
 	queries := baseDBQueries.Queries
 	db := baseDBQueries.DB
 
-	ws := baseDBQueries.GetBaseServices().Ws
-	wus := baseDBQueries.GetBaseServices().Wus
-	us := baseDBQueries.GetBaseServices().Us
-	hs := baseDBQueries.GetBaseServices().Hs
+	ws := baseDBQueries.GetBaseServices().WorkspaceService
+	wus := baseDBQueries.GetBaseServices().WorkspaceUserService
+	us := baseDBQueries.GetBaseServices().UserService
+	hs := baseDBQueries.GetBaseServices().HttpService
 	es := senv.NewEnvironmentService(queries, logger)
 	vs := senv.NewVariableService(queries, logger)
 

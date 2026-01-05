@@ -53,7 +53,7 @@ flows:
 			require.NoError(t, err)
 		},
 		GetCollection: func(ctx context.Context, t *testing.T) []*mhttp.HTTP {
-			all, err := fixture.services.Hs.GetByWorkspaceID(ctx, fixture.workspaceID)
+			all, err := fixture.services.HttpService.GetByWorkspaceID(ctx, fixture.workspaceID)
 			require.NoError(t, err)
 			
 			var filtered []*mhttp.HTTP
@@ -159,7 +159,7 @@ func TestYAMLImport_SQLiteLockContention(t *testing.T) {
 	duration := time.Since(start)
 	t.Logf("Concurrent imports completed in %v", duration)
 	
-	all, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	all, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	
 	t.Logf("Found %d requests in database for workspace %s", len(all), fixture.workspaceID.String())

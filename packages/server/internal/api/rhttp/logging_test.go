@@ -66,7 +66,7 @@ func TestHttpRun_Logging(t *testing.T) {
 	httpBodyRawService := shttp.NewHttpBodyRawService(base.Queries)
 
 	requestResolver := resolver.NewStandardResolver(
-		&services.Hs,
+		&services.HttpService,
 		&httpHeaderService,
 		httpSearchParamService,
 		httpBodyRawService,
@@ -75,20 +75,20 @@ func TestHttpRun_Logging(t *testing.T) {
 		httpAssertService,
 	)
 
-	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.Wus)
+	httpReader := shttp.NewReader(base.DB, base.Logger(), &services.WorkspaceUserService)
 
 	handler := New(HttpServiceRPCDeps{
 		DB: base.DB,
 		Readers: HttpServiceRPCReaders{
 			Http:      httpReader,
-			User:      services.Wus.Reader(),
-			Workspace: services.Ws.Reader(),
+			User:      services.WorkspaceUserService.Reader(),
+			Workspace: services.WorkspaceService.Reader(),
 		},
 		Services: HttpServiceRPCServices{
-			Http:               services.Hs,
-			User:               services.Us,
-			Workspace:          services.Ws,
-			WorkspaceUser:      services.Wus,
+			Http:               services.HttpService,
+			User:               services.UserService,
+			Workspace:          services.WorkspaceService,
+			WorkspaceUser:      services.WorkspaceUserService,
 			Env:                envService,
 			Variable:           varService,
 			HttpBodyRaw:        httpBodyRawService,
@@ -105,7 +105,7 @@ func TestHttpRun_Logging(t *testing.T) {
 
 	// Setup Data
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	err := services.Us.CreateUser(context.Background(), &muser.User{
+	err := services.UserService.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -124,7 +124,7 @@ func TestHttpRun_Logging(t *testing.T) {
 		ActiveEnv: envID,
 		GlobalEnv: envID,
 	}
-	err = services.Ws.Create(ctx, ws)
+	err = services.WorkspaceService.Create(ctx, ws)
 	require.NoError(t, err)
 
 	env := menv.Env{
@@ -142,7 +142,7 @@ func TestHttpRun_Logging(t *testing.T) {
 		UserID:      userID,
 		Role:        mworkspace.RoleOwner,
 	}
-	err = services.Wus.CreateWorkspaceUser(ctx, member)
+	err = services.WorkspaceUserService.CreateWorkspaceUser(ctx, member)
 	require.NoError(t, err)
 
 	// Create HTTP
@@ -157,7 +157,7 @@ func TestHttpRun_Logging(t *testing.T) {
 		Url:         testServer.URL,
 		Method:      "GET",
 	}
-	err = services.Hs.Create(ctx, httpModel)
+	err = services.HttpService.Create(ctx, httpModel)
 	require.NoError(t, err)
 
 	// Subscribe to logs

@@ -103,29 +103,12 @@ type IntegrationTestStreamers struct {
 
 
 type BaseTestServices struct {
-
-	Us suser.UserService
-
-
-
-	Ws sworkspace.WorkspaceService
-
-
-
-	Wus sworkspace.UserService
-
-
-
-	Hs shttp.HTTPService
-
-
-
-	Fs sfile.FileService
-
-
-
-	Fls sflow.FlowService
-
+	UserService          suser.UserService
+	WorkspaceService     sworkspace.WorkspaceService
+	WorkspaceUserService sworkspace.UserService
+	HttpService          shttp.HTTPService
+	FileService          sfile.FileService
+	FlowService          sflow.FlowService
 }
 
 
@@ -287,7 +270,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	globalEnvID := idwrap.NewNow()
 
 	// Create test user
-	err := baseServices.Us.CreateUser(ctx, &muser.User{
+	err := baseServices.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        "test@example.com",
 		Password:     []byte("password"),
@@ -306,7 +289,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	require.NoError(t, err)
 
 	// Create test workspace with GlobalEnv set
-	err = baseServices.Ws.Create(ctx, &mworkspace.Workspace{
+	err = baseServices.WorkspaceService.Create(ctx, &mworkspace.Workspace{
 		ID:        workspaceID,
 		Name:      "Test Workspace",
 		GlobalEnv: globalEnvID,
@@ -314,7 +297,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	require.NoError(t, err)
 
 	// Create workspace-user relationship
-	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
+	err = baseServices.WorkspaceUserService.CreateWorkspaceUser(ctx, &mworkspace.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
@@ -327,8 +310,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		DB:     base.DB,
 		Logger: logger,
 		Services: ImportServices{
-			Workspace:          baseServices.Ws,
-			User:               baseServices.Us,
+			Workspace:          baseServices.WorkspaceService,
+			User:               baseServices.UserService,
 			Http:               &httpService,
 			Flow:               &flowService,
 			File:               fileService,
@@ -345,8 +328,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 			Edge:               &edgeService,
 		},
 		Readers: ImportV2Readers{
-			Workspace: baseServices.Ws.Reader(),
-			User:      baseServices.Wus.Reader(),
+			Workspace: baseServices.WorkspaceService.Reader(),
+			User:      baseServices.WorkspaceUserService.Reader(),
 		},
 		Streamers: ImportStreamers{
 			Flow:               streamers.Flow,
@@ -366,18 +349,12 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	})
 
 	services := BaseTestServices{
-
-		Us: baseServices.Us,
-
-		Ws: baseServices.Ws,
-
-		Wus: baseServices.Wus,
-
-		Hs: httpService,
-
-		Fs: *fileService,
-
-		Fls: flowService,
+		UserService:          baseServices.UserService,
+		WorkspaceService:     baseServices.WorkspaceService,
+		WorkspaceUserService: baseServices.WorkspaceUserService,
+		HttpService:          httpService,
+		FileService:          *fileService,
+		FlowService:          flowService,
 	}
 
 	return &integrationTestFixture{
@@ -576,7 +553,7 @@ func TestImportService_ErrorHandling(t *testing.T) {
 
 	// Verify error handling - the service should not have stored partial data
 	// Check that no unexpected HTTP requests were created for this workspace
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	// Note: Some requests might exist from previous tests, so we just check the operation didn't crash
 	t.Logf("HTTP requests count after error: %d", len(httpReqs))
@@ -630,7 +607,7 @@ func TestImportService_ConcurrentImports(t *testing.T) {
 	require.Greater(t, successCount, 0, "At least some concurrent imports should succeed")
 
 	// Verify that successful imports created data
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Greater(t, len(httpReqs), 0, "HTTP requests should exist from successful imports")
 }
@@ -666,7 +643,7 @@ func TestImportService_LargeHARImport(t *testing.T) {
 
 	t.Logf("Large HAR import (50 entries) completed in %v", duration)
 	// Verify all entries were processed
-	httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Len(t, httpReqs, 50, "All 50 HTTP requests should be imported")
 
@@ -795,13 +772,13 @@ func (f *integrationTestFixture) verifyStoredData(t *testing.T, originalHAR []by
 	require.NoError(t, err)
 
 	// Verify HTTP requests were stored
-	httpReqs, err := f.services.Hs.GetByWorkspaceID(f.ctx, f.workspaceID)
+	httpReqs, err := f.services.HttpService.GetByWorkspaceID(f.ctx, f.workspaceID)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(httpReqs), len(har.Log.Entries),
 		"Should have stored at least as many HTTP requests as HAR entries")
 
 	// Verify flows were created
-	flows, err := f.services.Fls.GetFlowsByWorkspaceID(f.ctx, f.workspaceID)
+	flows, err := f.services.FlowService.GetFlowsByWorkspaceID(f.ctx, f.workspaceID)
 	require.NoError(t, err)
 	require.NotEmpty(t, flows, "Should have created flows")
 
@@ -1316,11 +1293,11 @@ flows:
 		require.NotNil(t, res.resp, "Response should not be nil")
 
 		// Verify data was stored
-		httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+		httpReqs, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(httpReqs), 3, "Should have at least 3 HTTP requests")
 
-		flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+		flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 		require.NoError(t, err)
 		require.NotEmpty(t, flows, "Should have created flows")
 
@@ -1389,7 +1366,7 @@ flows:
 		require.NoError(t, res.err, "YAML import should complete without error")
 
 		// Verify flows were created
-		flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+		flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 		require.NoError(t, err)
 		require.Len(t, flows, 1, "Should have exactly 1 flow")
 
@@ -1453,7 +1430,7 @@ flows:
 	require.NotNil(t, resp, "Response should not be nil")
 
 	// Get all files in the workspace
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Log all files for debugging
@@ -1598,7 +1575,7 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 
 	// Step 3: Verify the stored HTTP requests have replaced URLs
 	// Query the database directly to check the stored URLs
-	httpRequests, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpRequests, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err, "Should be able to list HTTP requests")
 	require.NotEmpty(t, httpRequests, "Should have stored HTTP requests")
 
@@ -1665,7 +1642,7 @@ flows:
 		"YAML imports should not require domain data")
 
 	// Verify flow was created
-	flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Len(t, flows, 1, "Should have exactly 1 flow")
 	require.Equal(t, "My Test Flow", flows[0].Name)
@@ -1674,7 +1651,7 @@ flows:
 
 	// Verify File entry was created for the flow (sidebar entry)
 	// The File entry should have fileId = flowId and ContentType = Flow
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Filter for flow files only (ContentType = ContentTypeFlow = 3)
@@ -1741,7 +1718,7 @@ flows:
 		"YAML imports should not require domain data")
 
 	// Query all files from database
-	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 
 	// Count files by type

@@ -46,7 +46,7 @@ func newFlowExecutionFixture(t *testing.T) *flowExecutionFixture {
 	// Create User
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
-	err := services.Us.CreateUser(ctx, &muser.User{
+	err := services.UserService.CreateUser(ctx, &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
 		Password:     []byte("password"),
@@ -113,7 +113,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 
 	// 1. Create Flow
 	flowID := idwrap.NewNow()
-	err := f.services.Fs.CreateFlow(f.ctx, mflow.Flow{
+	err := f.services.FlowService.CreateFlow(f.ctx, mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: f.workspaceID,
 		Name:        "E2E Test Flow",

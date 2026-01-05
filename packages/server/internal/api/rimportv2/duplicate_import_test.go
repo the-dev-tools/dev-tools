@@ -35,7 +35,7 @@ func TestImportService_DuplicateImport(t *testing.T) {
 	require.NotNil(t, resp1)
 
 	// Verify count after first import
-	httpReqs1, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs1, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(httpReqs1), "Should have 1 HTTP request after first import")
 
@@ -56,7 +56,7 @@ func TestImportService_DuplicateImport(t *testing.T) {
 	require.NotNil(t, resp2)
 
 	// Verify count after second import
-	httpReqs2, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs2, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	// DEDUPLICATION: Count should still be 1 because it's identical data
 	require.Equal(t, 1, len(httpReqs2), "Should still have 1 HTTP request after second import due to deduplication")
@@ -89,12 +89,12 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	require.NotNil(t, resp1) // Usage
 
 	// Capture first import IDs
-	httpReqs1, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs1, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.NotEmpty(t, httpReqs1)
 	_ = httpReqs1[0].ID // Ignored
 
-	flows1, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows1, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.NotEmpty(t, flows1)
 	firstFlowID := flows1[0].ID
@@ -116,7 +116,7 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	// 3. Verify New Entities
 
 	// Check HTTP Requests
-	httpReqs2, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs2, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	// Complex HAR has 2 entries. 2 imports = 2 base requests (deduplicated) + 2 delta requests (deduplicated) = 2 unique requests total if base+delta are also stable
 	// Actually, delta fingerprint includes parent hash, so if parent is same and delta content is same, delta is also deduplicated.
@@ -135,7 +135,7 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	}
 
 	// Check Flows (Flows are always new for now as they are named/timestamped implicitly or we don't deduplicate them)
-	flows2, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	flows2, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(flows2), "Should have 2 flows (Flows are not deduplicated yet)")
 
@@ -154,7 +154,7 @@ func TestImportService_DuplicateImport_DeepVerification(t *testing.T) {
 	require.NotEmpty(t, nodes, "New flow should have nodes")
 
 	// Check Files
-	files2, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	files2, err := fixture.services.FileService.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
 	// DEDUPLICATION:
 	// 1st import: 2 base reqs + 2 delta reqs + folder structure (e.g. /com/example/api) + 1 flow file
@@ -187,7 +187,7 @@ func TestImportService_DuplicateImport_CleanDelta(t *testing.T) {
 	require.NotNil(t, resp1)
 
 	// Get the first request ID (which has headers and params)
-	httpReqs1, _ := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	httpReqs1, _ := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NotEmpty(t, httpReqs1)
 	reqID := httpReqs1[0].ID
 
@@ -208,7 +208,7 @@ func TestImportService_DuplicateImport_CleanDelta(t *testing.T) {
 	require.NotNil(t, resp2)
 
 	// 3. Find the Delta Request
-	deltas, err := fixture.services.Hs.GetDeltasByParentID(fixture.ctx, reqID)
+	deltas, err := fixture.services.HttpService.GetDeltasByParentID(fixture.ctx, reqID)
 	require.NoError(t, err)
 
 	// We might have multiple deltas (one from first import, one from second).
