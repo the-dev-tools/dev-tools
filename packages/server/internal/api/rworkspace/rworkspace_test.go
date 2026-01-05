@@ -155,7 +155,7 @@ func collectWorkspaceSyncItems(t *testing.T, ch <-chan *apiv1.WorkspaceSyncRespo
 	return items
 }
 
-func TestWorkspaceSyncStreamsSnapshotAndUpdates(t *testing.T) {
+func TestWorkspaceSyncStreamsUpdates(t *testing.T) {
 	t.Parallel()
 
 	f := newWorkspaceFixture(t)
@@ -177,17 +177,15 @@ func TestWorkspaceSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		close(msgCh)
 	}()
 
-	snapshot := collectWorkspaceSyncItems(t, msgCh, 2)
-	seen := make(map[string]bool)
-	for _, item := range snapshot {
-		val := item.GetValue()
-		require.NotNil(t, val, "snapshot item missing value union")
-		require.Equal(t, apiv1.WorkspaceSync_ValueUnion_KIND_INSERT, val.GetKind())
-		seen[string(val.GetInsert().GetWorkspaceId())] = true
+	// Verify NO snapshot arrives (snapshots removed in favor of *Collection RPCs)
+	select {
+	case <-msgCh:
+		require.FailNow(t, "received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good - stream active, no snapshot sent
 	}
-	require.True(t, seen[string(wsA.Bytes())], "snapshot missing wsA")
-	require.True(t, seen[string(wsB.Bytes())], "snapshot missing wsB")
 
+	// Test live UPDATE event
 	newName := "renamed workspace"
 	updateReq := connect.NewRequest(&apiv1.WorkspaceUpdateRequest{
 		Items: []*apiv1.WorkspaceUpdate{
@@ -206,6 +204,7 @@ func TestWorkspaceSyncStreamsSnapshotAndUpdates(t *testing.T) {
 	require.Equal(t, apiv1.WorkspaceSync_ValueUnion_KIND_UPDATE, updateVal.GetKind())
 	require.Equal(t, newName, updateVal.GetUpdate().GetName())
 
+	// Test live DELETE event
 	deleteReq := connect.NewRequest(&apiv1.WorkspaceDeleteRequest{
 		Items: []*apiv1.WorkspaceDelete{
 			{
@@ -233,7 +232,6 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	t.Parallel()
 
 	f := newWorkspaceFixture(t)
-	f.createWorkspace(t, "visible")
 
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
@@ -250,8 +248,15 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		close(msgCh)
 	}()
 
-	_ = collectWorkspaceSyncItems(t, msgCh, 1)
+	// Verify NO snapshot arrives (snapshots removed in favor of *Collection RPCs)
+	select {
+	case <-msgCh:
+		require.FailNow(t, "received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good - stream active, no snapshot sent
+	}
 
+	// Create another user and their workspace (current user is not a member)
 	otherUserID := idwrap.NewNow()
 	providerID := fmt.Sprintf("other-%s", otherUserID.String())
 	err := f.us.CreateUser(context.Background(), &muser.User{
@@ -295,6 +300,7 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	err = f.wus.CreateWorkspaceUser(context.Background(), otherMember)
 	require.NoError(t, err, "create other workspace user")
 
+	// Publish event for unauthorized workspace - should be filtered
 	f.handler.stream.Publish(WorkspaceTopic{WorkspaceID: otherWorkspaceID}, WorkspaceEvent{
 		Type: eventTypeInsert,
 		Workspace: &apiv1.Workspace{
@@ -308,6 +314,7 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	case resp := <-msgCh:
 		require.FailNow(t, "unexpected event for unauthorized workspace", "%+v", resp)
 	case <-time.After(150 * time.Millisecond):
+		// success: no events delivered for unauthorized workspace
 	}
 
 	cancel()

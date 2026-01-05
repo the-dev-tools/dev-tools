@@ -334,12 +334,11 @@ func TestEnvironmentVariableDelete(t *testing.T) {
 	require.ErrorIs(t, err, senv.ErrNoVarFound)
 }
 
-func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
+func TestEnvironmentSyncStreamsUpdates(t *testing.T) {
 	t.Parallel()
 
 	f := newEnvFixture(t)
 	envA := f.createEnv(t, 1)
-	envB := f.createEnv(t, 2)
 
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
@@ -356,18 +355,15 @@ func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		close(msgCh)
 	}()
 
-	snapshot := collectEnvironmentSyncItems(t, msgCh, 2)
-	seen := map[string]bool{}
-	for _, item := range snapshot {
-		val := item.GetValue()
-		require.NotNil(t, val, "snapshot item missing value union")
-		require.Equal(t, apiv1.EnvironmentSync_ValueUnion_KIND_INSERT, val.GetKind())
-		envID := string(val.GetInsert().GetEnvironmentId())
-		seen[envID] = true
+	// Verify NO snapshot arrives (snapshots removed in favor of *Collection RPCs)
+	select {
+	case <-msgCh:
+		require.FailNow(t, "received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good - stream active, no snapshot sent
 	}
-	require.True(t, seen[string(envA.ID.Bytes())], "snapshot missing envA")
-	require.True(t, seen[string(envB.ID.Bytes())], "snapshot missing envB")
 
+	// Test live UPDATE event
 	newName := "updated env"
 	req := connect.NewRequest(&apiv1.EnvironmentUpdateRequest{
 		Items: []*apiv1.EnvironmentUpdate{
@@ -393,13 +389,12 @@ func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
 	}
 }
 
-func TestEnvironmentVariableSyncStreamsSnapshotAndUpdates(t *testing.T) {
+func TestEnvironmentVariableSyncStreamsUpdates(t *testing.T) {
 	t.Parallel()
 
 	f := newEnvFixture(t)
 	env := f.createEnv(t, 1)
 	varA := f.createVar(t, env.ID, 1)
-	f.createVar(t, env.ID, 2)
 
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
@@ -416,16 +411,15 @@ func TestEnvironmentVariableSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		close(msgCh)
 	}()
 
-	snapshot := collectEnvironmentVariableSyncItems(t, msgCh, 2)
-	varSeen := map[string]bool{}
-	for _, item := range snapshot {
-		val := item.GetValue()
-		require.NotNil(t, val, "snapshot variable missing value union")
-		require.Equal(t, apiv1.EnvironmentVariableSync_ValueUnion_KIND_INSERT, val.GetKind())
-		varSeen[string(val.GetInsert().GetEnvironmentVariableId())] = true
+	// Verify NO snapshot arrives (snapshots removed in favor of *Collection RPCs)
+	select {
+	case <-msgCh:
+		require.FailNow(t, "received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good - stream active, no snapshot sent
 	}
-	require.Len(t, varSeen, 2)
 
+	// Test live UPDATE event
 	newValue := "changed"
 	req := connect.NewRequest(&apiv1.EnvironmentVariableUpdateRequest{
 		Items: []*apiv1.EnvironmentVariableUpdate{
@@ -455,7 +449,6 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	t.Parallel()
 
 	f := newEnvFixture(t)
-	f.createEnv(t, 1)
 
 	ctx, cancel := context.WithCancel(f.ctx)
 	defer cancel()
@@ -472,8 +465,15 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		close(msgCh)
 	}()
 
-	_ = collectEnvironmentSyncItems(t, msgCh, 1)
+	// Verify NO snapshot arrives (snapshots removed in favor of *Collection RPCs)
+	select {
+	case <-msgCh:
+		require.FailNow(t, "received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good - stream active, no snapshot sent
+	}
 
+	// Create an unauthorized workspace (user is not a member)
 	otherWorkspaceID := idwrap.NewNow()
 	services := f.base.GetBaseServices()
 	err := services.WorkspaceService.Create(context.Background(), &mworkspace.Workspace{
@@ -491,6 +491,7 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		Order:       42,
 	}
 
+	// Publish event for unauthorized workspace - should be filtered
 	f.handler.envStream.Publish(EnvironmentTopic{WorkspaceID: otherWorkspaceID}, EnvironmentEvent{
 		Type:        "insert",
 		Environment: converter.ToAPIEnvironment(otherEnv),
@@ -500,7 +501,7 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	case resp := <-msgCh:
 		require.FailNow(t, "unexpected event for unauthorized workspace", "%+v", resp)
 	case <-time.After(150 * time.Millisecond):
-		// success: no events delivered
+		// success: no events delivered for unauthorized workspace
 	}
 
 	cancel()
@@ -508,7 +509,6 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	if err != nil {
 		require.ErrorIs(t, err, context.Canceled)
 	}
-
 }
 
 func collectEnvironmentSyncItems(t *testing.T, ch <-chan *apiv1.EnvironmentSyncResponse, count int) []*apiv1.EnvironmentSync {
