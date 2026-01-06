@@ -18,6 +18,7 @@ export const modalStyles = tv({
   },
   variants: {
     size: {
+      xs: { base: tw`max-h-48 max-w-96` },
       sm: { base: tw`max-h-[40vh] max-w-[40vw]` },
       md: { base: tw`max-h-[50vh] max-w-[70vw]` },
       lg: { base: tw`max-h-[75vh] max-w-[80vw]` },

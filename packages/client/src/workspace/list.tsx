@@ -4,7 +4,7 @@ import { count, eq, useLiveQuery } from '@tanstack/react-db';
 import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useMemo, useRef } from 'react';
-import { ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { Dialog, Heading, ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
 import { twJoin } from 'tailwind-merge';
@@ -16,6 +16,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon } from '@the-dev-tools/ui/icons';
 import { Link } from '@the-dev-tools/ui/link';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
+import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
@@ -128,8 +129,12 @@ const Item = ({ containerRef, id }: ItemProps) => {
     value: name,
   });
 
+  const deleteModal = useProgrammaticModal();
+
   return (
     <ListBoxItem id={id} textValue={name}>
+      {deleteModal.children && <Modal {...deleteModal} className={tw`h-auto`} size='xs' />}
+
       <div className={tw`flex items-center gap-3 px-5 py-4`} onContextMenu={onContextMenu}>
         <Avatar shape='square' size='md'>
           {name}
@@ -190,8 +195,38 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
             <MenuItem
-              onAction={() => void workspaceCollection.utils.delete({ workspaceId: workspaceUlid.bytes })}
+              onAction={() =>
+                void deleteModal.onOpenChange(
+                  true,
+                  <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
+                    <Heading
+                      className={tw`text-base leading-5 font-semibold tracking-tight text-slate-800`}
+                      slot='title'
+                    >
+                      Delete workspace?
+                    </Heading>
+
+                    <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-slate-500`}>
+                      Are you sure you want to delete <span className={tw`text-slate-800`}>“{name}”</span>? This action
+                      cannot be undone.
+                    </div>
+
+                    <div className={tw`mt-5 flex justify-end gap-2`}>
+                      <Button slot='close'>Cancel</Button>
+
+                      <Button
+                        onPress={() => void workspaceCollection.utils.delete({ workspaceId: workspaceUlid.bytes })}
+                        slot='close'
+                        variant='danger'
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </Dialog>,
+                )
+              }
               variant='danger'
             >
               Delete

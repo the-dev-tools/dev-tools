@@ -36,6 +36,14 @@ export const buttonStyles = tv({
         pressed:border-slate-300 pressed:bg-white
       `,
 
+      danger: tw`
+        border-red-700 bg-red-600 text-white
+
+        hover:border-red-800 hover:bg-red-700
+
+        pressed:border-red-900 pressed:bg-red-800
+      `,
+
       ghost: tw`text-slate-800 hover:bg-slate-100 pressed:bg-slate-200`,
 
       'ghost dark': tw`text-white hover:bg-slate-600 pressed:bg-slate-700`,

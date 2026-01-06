@@ -6,7 +6,7 @@ import { listBoxItemStyles, listBoxStyles } from './list-box';
 import { Popover } from './popover';
 import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
-import { composeStyleRenderProps } from './utils';
+import { composeStyleProps, composeStyleRenderProps } from './utils';
 
 // Root
 
@@ -74,8 +74,8 @@ export const menuItemStyles = tv({ extend: listBoxItemStyles });
 
 export interface MenuItemProps extends RAC.MenuItemProps, VariantProps<typeof menuItemStyles> {}
 
-export const MenuItem = ({ children, className, ...props }: MenuItemProps) => (
-  <RAC.MenuItem {...props} className={composeStyleRenderProps(className, menuItemStyles)}>
+export const MenuItem = ({ children, ...props }: MenuItemProps) => (
+  <RAC.MenuItem {...props} className={composeStyleProps(props, menuItemStyles)}>
     {RAC.composeRenderProps(children, (children, { hasSubmenu }) => (
       <>
         {children}

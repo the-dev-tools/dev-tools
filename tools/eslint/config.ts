@@ -139,7 +139,7 @@ const rules = defineConfig({
       'warn',
       // Tailwind Variants function
       sortObject(['extend', 'base', 'slot', 'variants', 'defaultVariants', 'compoundVariants', 'compoundSlots'], 'tv'),
-      sortObject(['sm', 'md', 'lg', 'xl']),
+      sortObject(['xs', 'sm', 'md', 'lg', 'xl']),
       sortObject(['min', 'max']),
     ],
 
