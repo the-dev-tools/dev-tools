@@ -9,11 +9,11 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -89,10 +89,17 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
-	// Process each delta item
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		assertID    idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		item        *apiv1.HttpAssertDeltaInsert
+	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
+
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_assert_id is required for each delta item"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_assert_id is required"))
 		}
 
 		assertID, err := idwrap.NewFromBytes(item.HttpAssertId)
@@ -118,11 +125,50 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		// Update delta fields
-		err = h.httpAssertService.UpdateDelta(ctx, assertID, item.Value, item.Enabled, nil, item.Order)
+		insertData = append(insertData, insertItem{
+			assertID:    assertID,
+			workspaceID: httpEntry.WorkspaceID,
+			item:        item,
+		})
+	}
+
+	// ACT: Update delta fields using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range insertData {
+		assertService := h.httpAssertService.TX(mut.TX())
+		assert, err := assertService.GetByID(ctx, data.assertID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if err := mut.UpdateHTTPAssertDelta(ctx, mutation.HTTPAssertDeltaUpdateItem{
+			ID:          data.assertID,
+			HttpID:      assert.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPAssertDeltaParams{
+				ID:                data.assertID,
+				DeltaValue:        ptrToNullString(data.item.Value),
+				DeltaEnabled:      data.item.Enabled,
+				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
+			},
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Update payload in tracked event
+		updated, err := assertService.GetByID(ctx, data.assertID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -134,11 +180,13 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
+	type updateItem struct {
 		deltaID        idwrap.IDWrap
-		existingAssert *mhttp.HTTPAssert
+		existingAssert mhttp.HTTPAssert
+		workspaceID    idwrap.IDWrap
 		item           *apiv1.HttpAssertDeltaUpdate
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpAssertId) == 0 {
@@ -175,25 +223,20 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			deltaID        idwrap.IDWrap
-			existingAssert *mhttp.HTTPAssert
-			item           *apiv1.HttpAssertDeltaUpdate
-		}{
+		updateData = append(updateData, updateItem{
 			deltaID:        deltaID,
-			existingAssert: existingAssert,
+			existingAssert: *existingAssert,
+			workspaceID:    httpEntry.WorkspaceID,
 			item:           item,
 		})
 	}
 
-	// Step 2: Prepare updates (in memory)
-	var preparedUpdates []struct {
-		deltaID      idwrap.IDWrap
-		deltaValue   *string
-		deltaEnabled *bool
-		deltaOrder   *float32
+	// ACT: Update using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	var patches []patch.HTTPAssertPatch
+	defer mut.Rollback()
 
 	for _, data := range updateData {
 		item := data.item
@@ -236,60 +279,31 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 			}
 		}
 
-		patches = append(patches, patchData)
-		preparedUpdates = append(preparedUpdates, struct {
-			deltaID      idwrap.IDWrap
-			deltaValue   *string
-			deltaEnabled *bool
-			deltaOrder   *float32
-		}{
-			deltaID:      data.deltaID,
-			deltaValue:   deltaValue,
-			deltaEnabled: deltaEnabled,
-			deltaOrder:   deltaOrder,
-		})
-	}
-
-	// Step 3: Execute updates in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpAssertService := h.httpAssertService.TX(tx)
-	var updatedAsserts []mhttp.HTTPAssert
-
-	for _, update := range preparedUpdates {
-		if err := httpAssertService.UpdateDelta(ctx, update.deltaID, update.deltaValue, update.deltaEnabled, nil, update.deltaOrder); err != nil {
+		assertService := h.httpAssertService.TX(mut.TX())
+		if err := mut.UpdateHTTPAssertDelta(ctx, mutation.HTTPAssertDeltaUpdateItem{
+			ID:          data.deltaID,
+			HttpID:      data.existingAssert.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPAssertDeltaParams{
+				ID:                data.deltaID,
+				DeltaValue:        ptrToNullString(deltaValue),
+				DeltaEnabled:      deltaEnabled,
+				DeltaDisplayOrder: ptrToNullFloat64(deltaOrder),
+			},
+			Patch: patchData,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated assert for event publishing (from TX service)
-		updatedAssert, err := httpAssertService.GetByID(ctx, update.deltaID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Update payload in tracked event
+		updated, err := assertService.GetByID(ctx, data.deltaID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
 		}
-		updatedAsserts = append(updatedAsserts, *updatedAssert)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish update events for real-time sync after successful commit
-	for i, assert := range updatedAsserts {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, assert.HttpID)
-		if err != nil {
-			continue
-		}
-		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
-			Type:       eventTypeUpdate,
-			IsDelta:    assert.IsDelta,
-			Patch:      patches[i],
-			HttpAssert: converter.ToAPIHttpAssert(assert),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -301,11 +315,13 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		deltaID        idwrap.IDWrap
-		existingAssert *mhttp.HTTPAssert
-		workspaceID    idwrap.IDWrap
+	type deleteItem struct {
+		deltaID     idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		assert      mhttp.HTTPAssert
 	}
+	deleteData := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpAssertId) == 0 {
@@ -317,7 +333,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta assert - use pool service
+		// Get existing delta assert
 		existingAssert, err := h.httpAssertService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpAssertFound) {
@@ -331,7 +347,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP assert is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access - use pool service
+		// Get the HTTP entry to check workspace access
 		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -342,49 +358,38 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			deltaID        idwrap.IDWrap
-			existingAssert *mhttp.HTTPAssert
-			workspaceID    idwrap.IDWrap
-		}{
-			deltaID:        deltaID,
-			existingAssert: existingAssert,
-			workspaceID:    httpEntry.WorkspaceID,
+		deleteData = append(deleteData, deleteItem{
+			deltaID:     deltaID,
+			httpID:      existingAssert.HttpID,
+			workspaceID: httpEntry.WorkspaceID,
+			assert:      *existingAssert,
 		})
 	}
 
 	// Step 2: Execute deletes in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpAssertService := h.httpAssertService.TX(tx)
-	var deletedAsserts []mhttp.HTTPAssert
-	var deletedWorkspaceIDs []idwrap.IDWrap
+	defer mut.Rollback()
 
 	for _, data := range deleteData {
-		// Delete the delta record
-		if err := httpAssertService.Delete(ctx, data.deltaID); err != nil {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPAssert,
+			Op:          mutation.OpDelete,
+			ID:          data.deltaID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Payload:     data.assert,
+		})
+		if err := mut.Queries().DeleteHTTPAssert(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedAsserts = append(deletedAsserts, *data.existingAssert)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync after successful commit
-	for i, assert := range deletedAsserts {
-		h.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
-			Type:       eventTypeDelete,
-			IsDelta:    assert.IsDelta,
-			HttpAssert: converter.ToAPIHttpAssert(assert),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

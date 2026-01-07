@@ -9,11 +9,11 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -94,10 +94,17 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
-	// Process each delta item
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		headerID    idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		item        *apiv1.HttpHeaderDeltaInsert
+	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
+
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_header_id is required for each delta item"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_header_id is required"))
 		}
 
 		headerID, err := idwrap.NewFromBytes(item.HttpHeaderId)
@@ -105,7 +112,6 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check workspace write access
 		header, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
@@ -123,15 +129,54 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		// Update delta fields
-		var deltaOrder *float32
-		if item.Order != nil {
-			deltaOrder = item.Order
-		}
-		err = h.httpHeaderService.UpdateDelta(ctx, headerID, item.Key, item.Value, item.Description, item.Enabled, deltaOrder)
+		insertData = append(insertData, insertItem{
+			headerID:    headerID,
+			workspaceID: httpEntry.WorkspaceID,
+			item:        item,
+		})
+	}
+
+	// ACT: Update delta fields using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range insertData {
+		// Use TX service to read current state within TX
+		headerService := h.httpHeaderService.TX(mut.TX())
+		header, err := headerService.GetByID(ctx, data.headerID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if err := mut.UpdateHTTPHeaderDelta(ctx, mutation.HTTPHeaderDeltaUpdateItem{
+			ID:          data.headerID,
+			HttpID:      header.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPHeaderDeltaParams{
+				ID:                data.headerID,
+				DeltaHeaderKey:    data.item.Key,
+				DeltaHeaderValue:  data.item.Value,
+				DeltaDescription:  data.item.Description,
+				DeltaEnabled:      data.item.Enabled,
+				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
+			},
+			// Fetch updated model for publisher
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Update payload in tracked event
+		updated, err := headerService.GetByID(ctx, data.headerID)
+		if err == nil {
+			mut.UpdateLastEventPayload(updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -143,11 +188,13 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
+	type updateItem struct {
 		deltaID        idwrap.IDWrap
 		existingHeader mhttp.HTTPHeader
+		workspaceID    idwrap.IDWrap
 		item           *apiv1.HttpHeaderDeltaUpdate
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpHeaderId) == 0 {
@@ -159,7 +206,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta header - use pool service
+		// Get existing delta header
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
@@ -173,38 +220,30 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP header is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access - use pool service
+		// Get the HTTP entry to check workspace access
 		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			deltaID        idwrap.IDWrap
-			existingHeader mhttp.HTTPHeader
-			item           *apiv1.HttpHeaderDeltaUpdate
-		}{
+		updateData = append(updateData, updateItem{
 			deltaID:        deltaID,
 			existingHeader: existingHeader,
+			workspaceID:    httpEntry.WorkspaceID,
 			item:           item,
 		})
 	}
 
-	// Step 2: Prepare updates (in memory)
-	var preparedUpdates []struct {
-		deltaID          idwrap.IDWrap
-		deltaKey         *string
-		deltaValue       *string
-		deltaEnabled     *bool
-		deltaDescription *string
-		deltaOrder       *float32
+	// ACT: Update using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	var patches []patch.HTTPHeaderPatch
+	defer mut.Rollback()
 
 	for _, data := range updateData {
 		item := data.item
@@ -271,64 +310,33 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			}
 		}
 
-		patches = append(patches, patchData)
-		preparedUpdates = append(preparedUpdates, struct {
-			deltaID          idwrap.IDWrap
-			deltaKey         *string
-			deltaValue       *string
-			deltaEnabled     *bool
-			deltaDescription *string
-			deltaOrder       *float32
-		}{
-			deltaID:          data.deltaID,
-			deltaKey:         deltaKey,
-			deltaValue:       deltaValue,
-			deltaEnabled:     deltaEnabled,
-			deltaDescription: deltaDescription,
-			deltaOrder:       deltaOrder,
-		})
-	}
-
-	// Step 3: Execute updates in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-	var updatedHeaders []mhttp.HTTPHeader
-
-	for _, update := range preparedUpdates {
-		if err := httpHeaderService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaDescription, update.deltaEnabled, update.deltaOrder); err != nil {
+		headerService := h.httpHeaderService.TX(mut.TX())
+		if err := mut.UpdateHTTPHeaderDelta(ctx, mutation.HTTPHeaderDeltaUpdateItem{
+			ID:          data.deltaID,
+			HttpID:      data.existingHeader.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPHeaderDeltaParams{
+				ID:                data.deltaID,
+				DeltaHeaderKey:    deltaKey,
+				DeltaHeaderValue:  deltaValue,
+				DeltaDescription:  deltaDescription,
+				DeltaEnabled:      deltaEnabled,
+				DeltaDisplayOrder: ptrToNullFloat64(deltaOrder),
+			},
+			Patch: patchData,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated header for event publishing (from TX service)
-		updatedHeader, err := httpHeaderService.GetByID(ctx, update.deltaID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Update payload in tracked event
+		updated, err := headerService.GetByID(ctx, data.deltaID)
+		if err == nil {
+			mut.UpdateLastEventPayload(updated)
 		}
-		updatedHeaders = append(updatedHeaders, updatedHeader)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish update events for real-time sync after successful commit
-	for i, header := range updatedHeaders {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, header.HttpID)
-		if err != nil {
-			continue
-		}
-		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
-			Type:       eventTypeUpdate,
-			IsDelta:    true,
-			Patch:      patches[i],
-			HttpHeader: converter.ToAPIHttpHeader(header),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -340,11 +348,13 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		deltaID        idwrap.IDWrap
-		existingHeader mhttp.HTTPHeader
-		workspaceID    idwrap.IDWrap
+	type deleteItem struct {
+		deltaID     idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		header      mhttp.HTTPHeader
 	}
+	deleteData := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpHeaderId) == 0 {
@@ -356,7 +366,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta header - use pool service
+		// Get existing delta header
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
@@ -370,59 +380,48 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP header is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access - use pool service
+		// Get the HTTP entry to check workspace access
 		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access to the workspace
 		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			deltaID        idwrap.IDWrap
-			existingHeader mhttp.HTTPHeader
-			workspaceID    idwrap.IDWrap
-		}{
-			deltaID:        deltaID,
-			existingHeader: existingHeader,
-			workspaceID:    httpEntry.WorkspaceID,
+		deleteData = append(deleteData, deleteItem{
+			deltaID:     deltaID,
+			httpID:      existingHeader.HttpID,
+			workspaceID: httpEntry.WorkspaceID,
+			header:      existingHeader,
 		})
 	}
 
 	// Step 2: Execute deletes in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-	var deletedHeaders []mhttp.HTTPHeader
-	var deletedWorkspaceIDs []idwrap.IDWrap
+	defer mut.Rollback()
 
 	for _, data := range deleteData {
-		// Delete the delta record
-		if err := httpHeaderService.Delete(ctx, data.deltaID); err != nil {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPHeader,
+			Op:          mutation.OpDelete,
+			ID:          data.deltaID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Payload:     data.header,
+		})
+		if err := mut.Queries().DeleteHTTPHeader(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedHeaders = append(deletedHeaders, data.existingHeader)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync after successful commit
-	for i, header := range deletedHeaders {
-		h.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpHeaderEvent{
-			Type:       eventTypeDelete,
-			HttpHeader: converter.ToAPIHttpHeader(header),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

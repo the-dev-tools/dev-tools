@@ -5,13 +5,16 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -77,6 +80,15 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		httpID          idwrap.IDWrap
+		workspaceID     idwrap.IDWrap
+		parentBodyRawID *idwrap.IDWrap
+		data            string
+	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
+
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required for each delta item"))
@@ -104,24 +116,73 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connec
 			return nil, err
 		}
 
-		// Create delta body raw
-		// Data is optional (can be empty string)
+		// Find parent body raw ID (required by schema constraint for deltas)
+		if httpEntry.ParentHttpID == nil {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("delta HTTP entry must have a parent"))
+		}
+
+		parentBody, err := h.bodyService.GetByHttpID(ctx, *httpEntry.ParentHttpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+				return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("parent HTTP entry must have a body"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		data := ""
 		if item.Data != nil {
 			data = *item.Data
 		}
 
-		// Use CreateDelta from body service
-		bodyRaw, err := h.bodyService.CreateDelta(ctx, httpID, []byte(data))
-		if err != nil {
+		insertData = append(insertData, insertItem{
+			httpID:          httpID,
+			workspaceID:     httpEntry.WorkspaceID,
+			parentBodyRawID: &parentBody.ID,
+			data:            data,
+		})
+	}
+
+	// ACT: Insert using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	now := time.Now().UnixMilli()
+	for _, data := range insertData {
+		newID := idwrap.NewNow()
+		params := gen.CreateHTTPBodyRawParams{
+			ID:              newID,
+			HttpID:          data.httpID,
+			RawData:         []byte(""), // Base data empty for delta
+			ParentBodyRawID: data.parentBodyRawID,
+			IsDelta:         true,
+			DeltaRawData:    []byte(data.data),
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+
+		if err := mut.InsertHTTPBodyRaw(ctx, mutation.HTTPBodyRawInsertItem{
+			ID:          newID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Params:      params,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
-			Type:        eventTypeInsert,
-			IsDelta:     true,
-			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*bodyRaw),
-		})
+		// Fetch the full model for publisher
+		bodyService := h.bodyService.TX(mut.TX())
+		updated, err := bodyService.GetByHttpID(ctx, data.httpID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -131,6 +192,15 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw delta must be provided"))
 	}
+
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type updateItem struct {
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		bodyRaw     mhttp.HTTPBodyRaw
+		item        *apiv1.HttpBodyRawDeltaUpdate
+	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -142,7 +212,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check workspace write access and if body exists
+		// Check workspace write access
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -164,34 +234,60 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Prepare update
-		deltaData := bodyRaw.DeltaRawData
+		updateData = append(updateData, updateItem{
+			httpID:      httpID,
+			workspaceID: httpEntry.WorkspaceID,
+			bodyRaw:     *bodyRaw,
+			item:        item,
+		})
+	}
+
+	// ACT: Update using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range updateData {
+		deltaData := data.bodyRaw.DeltaRawData
 		var patchData patch.HTTPBodyRawPatch
 
-		if item.Data != nil {
-			switch item.Data.GetKind() {
+		if data.item.Data != nil {
+			switch data.item.Data.GetKind() {
 			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_UNSET:
 				deltaData = nil
 				patchData.Data = patch.Unset[string]()
 			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_VALUE:
-				strVal := item.Data.GetValue()
+				strVal := data.item.Data.GetValue()
 				deltaData = []byte(strVal)
 				patchData.Data = patch.NewOptional(strVal)
 			}
 		}
 
-		// Update using UpdateDelta
-		updatedBody, err := h.bodyService.UpdateDelta(ctx, bodyRaw.ID, deltaData)
-		if err != nil {
+		bodyService := h.bodyService.TX(mut.TX())
+		if err := mut.UpdateHTTPBodyRawDelta(ctx, mutation.HTTPBodyRawDeltaUpdateItem{
+			ID:          data.bodyRaw.ID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPBodyRawDeltaParams{
+				ID:           data.bodyRaw.ID,
+				DeltaRawData: deltaData,
+			},
+			Patch: patchData,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
-			Type:        eventTypeUpdate,
-			IsDelta:     true,
-			Patch:       patchData,
-			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*updatedBody),
-		})
+		// Update payload in tracked event
+		updated, err := bodyService.GetByHttpID(ctx, data.httpID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -201,6 +297,15 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaDelete(ctx context.Context, req *connec
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw delta must be provided"))
 	}
+
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type deleteItem struct {
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		bodyRawID   idwrap.IDWrap
+		bodyRaw     mhttp.HTTPBodyRaw
+	}
+	deleteData := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpId) == 0 {
@@ -226,22 +331,46 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaDelete(ctx context.Context, req *connec
 			return nil, err
 		}
 
-		// Delete by HTTP ID
-		if err := h.bodyService.DeleteByHttpID(ctx, httpID); err != nil {
+		bodyRaw, err := h.bodyService.GetByHttpID(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+				continue
+			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish delete event
-		// We need to construct a minimal object for the event since we deleted it
-		deletedBody := &apiv1.HttpBodyRaw{
-			HttpId: item.DeltaHttpId,
-		}
-
-		h.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
-			Type:        eventTypeDelete,
-			IsDelta:     true,
-			HttpBodyRaw: deletedBody,
+		deleteData = append(deleteData, deleteItem{
+			httpID:      httpID,
+			workspaceID: httpEntry.WorkspaceID,
+			bodyRawID:   bodyRaw.ID,
+			bodyRaw:     *bodyRaw,
 		})
+	}
+
+	// ACT: Delete using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range deleteData {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyRaw,
+			Op:          mutation.OpDelete,
+			ID:          data.bodyRawID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Payload:     data.bodyRaw,
+		})
+		if err := mut.Queries().DeleteHTTPBodyRaw(ctx, data.bodyRawID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

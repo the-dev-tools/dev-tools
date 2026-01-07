@@ -10,15 +10,15 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
-	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -54,7 +54,6 @@ func (h *HttpServiceRPC) getHttpVersionsByHttpID(ctx context.Context, httpID idw
 	return h.httpReader.GetHttpVersionsByHttpID(ctx, httpID)
 }
 
-// httpSyncResponseFrom converts HttpEvent to HttpSync response
 func (h *HttpServiceRPC) HttpCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpCollectionResponse], error) {
 	_, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -125,40 +124,31 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 		httpModels = append(httpModels, httpModel)
 	}
 
-	// Step 4: Minimal write transaction for fast inserts only
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// Step 4: Minimal write transaction using mutation system with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	// Create sync transaction wrapper to auto-publish events
-	syncTx := txutil.NewInsertTx[mhttp.HTTP](tx)
-	hsWriter := shttp.NewWriter(tx)
+	defer mut.Rollback()
 
 	// Fast writes inside minimal transaction
 	for _, httpModel := range httpModels {
-		if err := hsWriter.Create(ctx, httpModel); err != nil {
+		if err := mut.InsertHTTP(ctx, mutation.HTTPInsertItem{
+			HTTP:        httpModel,
+			WorkspaceID: defaultWorkspaceID,
+			IsDelta:     false,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		// Track for automatic sync event publishing
-		syncTx.Track(*httpModel)
+		// mut.InsertHTTP tracks the event internally
 	}
 
 	// Commit and auto-publish sync events atomically
-	if err := syncTx.CommitAndPublish(ctx, func(item mhttp.HTTP) { h.publishInsertEvent(item) }); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// versionWithWorkspace is a context carrier that pairs a version with its workspace ID.
-// This is needed because HttpVersion doesn't store WorkspaceID directly, but we need it
-// for topic extraction during bulk sync event publishing.
-type versionWithWorkspace struct {
-	version     mhttp.HttpVersion
-	workspaceID idwrap.IDWrap
 }
 
 func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[apiv1.HttpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -166,15 +156,13 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP entry must be provided"))
 	}
 
-	// Step 1: Process request data and get HTTP IDs OUTSIDE transaction
-	var updateData []struct {
-		httpID    idwrap.IDWrap
-		name      *string
-		url       *string
-		method    *string
-		bodyKind  *mhttp.HttpBodyKind
-		httpModel *mhttp.HTTP
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
+
+	// FETCH: Parse request and get existing HTTP entries OUTSIDE transaction
+	updateItems := make([]mutation.HTTPUpdateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -186,40 +174,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		var name *string
-		var url *string
-		var method *string
-		var bodyKind *mhttp.HttpBodyKind
-
-		// Process optional fields
-		if item.Name != nil {
-			name = item.Name
-		}
-		if item.Url != nil {
-			url = item.Url
-		}
-		if item.Method != nil {
-			m := converter.FromAPIHttpMethod(*item.Method)
-			method = &m
-		}
-		if item.BodyKind != nil {
-			bk := converter.FromAPIHttpBodyKind(*item.BodyKind)
-			bodyKind = &bk
-		}
-
-		updateData = append(updateData, struct {
-			httpID    idwrap.IDWrap
-			name      *string
-			url       *string
-			method    *string
-			bodyKind  *mhttp.HttpBodyKind
-			httpModel *mhttp.HTTP
-		}{httpID: httpID, name: name, url: url, method: method, bodyKind: bodyKind})
-	}
-
-	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
-	for i := range updateData {
-		existingHttp, err := h.httpReader.Get(ctx, updateData[i].httpID)
+		existingHttp, err := h.httpReader.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -227,106 +182,57 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access (Admin or Owner role required)
+		// CHECK: Validate permissions (Admin or Owner role required)
 		if err := h.checkWorkspaceWriteAccess(ctx, existingHttp.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		// Store the existing model for later update
-		updateData[i].httpModel = existingHttp
-	}
-
-	// Step 3: Minimal write transaction for fast updates only
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	// Create bulk sync wrapper for HTTP updates with topic extractor
-	httpSyncTx := txutil.NewBulkUpdateTx[mhttp.HTTP, patch.HTTPDeltaPatch, HttpTopic](
-		tx,
-		func(http mhttp.HTTP) HttpTopic {
-			return HttpTopic{WorkspaceID: http.WorkspaceID}
-		},
-	)
-
-	hsWriter := shttp.NewWriter(tx)
-
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	// Track versions for bulk publishing after commit
-	var versionsToPublish []versionWithWorkspace
-
-	// Fast updates inside minimal transaction
-	for _, data := range updateData {
-		http := *data.httpModel
-
-		// Build patch with only changed fields
+		// Build the updated HTTP model and patch
+		http := *existingHttp
 		httpPatch := patch.HTTPDeltaPatch{}
 
 		// Apply updates and track in patch
-		if data.name != nil {
-			http.Name = *data.name
-			httpPatch.Name = patch.NewOptional(*data.name)
+		if item.Name != nil {
+			http.Name = *item.Name
+			httpPatch.Name = patch.NewOptional(*item.Name)
 		}
-		if data.url != nil {
-			http.Url = *data.url
-			httpPatch.Url = patch.NewOptional(*data.url)
+		if item.Url != nil {
+			http.Url = *item.Url
+			httpPatch.Url = patch.NewOptional(*item.Url)
 		}
-		if data.method != nil {
-			http.Method = *data.method
-			httpPatch.Method = patch.NewOptional(*data.method)
+		if item.Method != nil {
+			m := converter.FromAPIHttpMethod(*item.Method)
+			http.Method = m
+			httpPatch.Method = patch.NewOptional(m)
 		}
-		if data.bodyKind != nil {
-			http.BodyKind = *data.bodyKind
-			// Note: BodyKind is not in HTTPDeltaPatch, so we can't track it
-		}
-
-		if err := hsWriter.Update(ctx, &http); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		if item.BodyKind != nil {
+			bk := converter.FromAPIHttpBodyKind(*item.BodyKind)
+			http.BodyKind = bk
 		}
 
-		// Track with patch for bulk sync
-		httpSyncTx.Track(http, httpPatch)
-
-		// Create a new version for this update
-		// Use Nano to ensure uniqueness during rapid updates
-		versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
-		versionDesc := "Auto-saved version"
-
-		version, err := hsWriter.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
-		if err != nil {
-			// Strict mode: fail the update if version creation fails
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Track version with workspace context for later bulk publishing
-		versionsToPublish = append(versionsToPublish, versionWithWorkspace{
-			version:     *version,
-			workspaceID: http.WorkspaceID,
+		updateItems = append(updateItems, mutation.HTTPUpdateItem{
+			HTTP:        &http,
+			WorkspaceID: existingHttp.WorkspaceID,
+			IsDelta:     existingHttp.IsDelta,
+			Patch:       httpPatch,
+			UserID:      userID,
 		})
 	}
 
-	// Commit and bulk publish HTTP updates (grouped by workspace)
-	if err := httpSyncTx.CommitAndPublish(ctx, func(topic HttpTopic, events []txutil.UpdateEvent[mhttp.HTTP, patch.HTTPDeltaPatch]) {
-		h.publishBulkHttpUpdate(topic, events)
-	}); err != nil {
+	// ACT: Update HTTP entries using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	// Use batch update which handles internal event tracking for each item
+	if _, err := mut.UpdateHTTPBatch(ctx, updateItems); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Bulk publish version inserts (grouped by workspace)
-	// Group versions by topic and publish
-	versionsByTopic := make(map[HttpVersionTopic][]versionWithWorkspace)
-	for _, vww := range versionsToPublish {
-		topic := HttpVersionTopic{WorkspaceID: vww.workspaceID}
-		versionsByTopic[topic] = append(versionsByTopic[topic], vww)
-	}
-	for topic, items := range versionsByTopic {
-		h.publishBulkVersionInsert(topic, items)
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -337,13 +243,8 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP entry must be provided"))
 	}
 
-	// Step 1: Process request data and get HTTP IDs OUTSIDE transaction
-	var deleteData []struct {
-		httpID       idwrap.IDWrap
-		existingHttp *mhttp.HTTP
-		workspaceID  idwrap.IDWrap
-	}
-
+	// FETCH: Get HTTP data and build delete items (outside transaction)
+	deleteItems := make([]mutation.HTTPDeleteItem, 0, len(req.Msg.Items))
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
@@ -354,16 +255,7 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		deleteData = append(deleteData, struct {
-			httpID       idwrap.IDWrap
-			existingHttp *mhttp.HTTP
-			workspaceID  idwrap.IDWrap
-		}{httpID: httpID})
-	}
-
-	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
-	for i := range deleteData {
-		existingHttp, err := h.httpReader.Get(ctx, deleteData[i].httpID)
+		existingHttp, err := h.httpReader.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -371,55 +263,36 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access (Owner role only)
+		// CHECK: Validate permissions (Owner role only for delete)
 		if err := h.checkWorkspaceDeleteAccess(ctx, existingHttp.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		// Store the existing model and workspace ID for later deletion
-		deleteData[i].existingHttp = existingHttp
-		deleteData[i].workspaceID = existingHttp.WorkspaceID
+		deleteItems = append(deleteItems, mutation.HTTPDeleteItem{
+			ID:          existingHttp.ID,
+			WorkspaceID: existingHttp.WorkspaceID,
+			IsDelta:     existingHttp.IsDelta,
+		})
 	}
 
-	// Step 3: Minimal write transaction for fast deletes only
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Delete HTTP entries using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpTopic {
-			return HttpTopic{WorkspaceID: evt.WorkspaceID}
-		},
-	)
-
-	hsWriter := shttp.NewWriter(tx)
-
-	// Fast deletes inside minimal transaction
-	for _, data := range deleteData {
-		// Perform cascade delete - the database schema should handle foreign key constraints
-		// This includes: http_search_param, http_header, http_body_form, http_body_urlencoded,
-		// http_body_raw, http_assert, http_response, etc.
-		if err := hsWriter.Delete(ctx, data.httpID); err != nil {
-			// Handle foreign key constraint violations gracefully
-			if isForeignKeyConstraintError(err) {
-				return nil, connect.NewError(connect.CodeFailedPrecondition,
-					errors.New("cannot delete HTTP entry with dependent records"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
+	// Use batch delete which handles internal event tracking (including cascades)
+	if err := mut.DeleteHTTPBatch(ctx, deleteItems); err != nil {
+		// Handle foreign key constraint violations gracefully
+		if isForeignKeyConstraintError(err) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition,
+				errors.New("cannot delete HTTP entry with dependent records"))
 		}
-
-		// Track deletion with workspace context and delta flag
-		syncTx.Track(data.httpID, data.workspaceID, data.existingHttp.IsDelta)
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, func(topic HttpTopic, events []txutil.DeleteEvent[idwrap.IDWrap]) {
-		h.publishBulkHttpDelete(topic, events)
-	}); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -487,30 +360,13 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	}
 
 	// Start transaction for consistent duplication
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create transaction-scoped services
-	hsWriter := shttp.NewWriter(tx)
-	httpHeaderService := h.httpHeaderService.TX(tx)
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	httpAssertService := h.httpAssertService.TX(tx)
-	bodyService := h.bodyService.TX(tx)
-
-	// Track created entities for event publishing
-	var createdHeaders []mhttp.HTTPHeader
-	var createdParams []mhttp.HTTPSearchParam
-	var createdBodyForms []mhttp.HTTPBodyForm
-	var createdBodyUrlEncoded []mhttp.HTTPBodyUrlencoded
-	var createdAsserts []mhttp.HTTPAssert
-	var createdBodyRaw *mhttp.HTTPBodyRaw
-
-	// Create new HTTP entry with duplicated name
+	// Fast writes using mutation system
 	newHttpID := idwrap.NewNow()
 	duplicateName := fmt.Sprintf("Copy of %s", httpEntry.Name)
 	duplicateHttp := &mhttp.HTTP{
@@ -522,128 +378,250 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		Method:       httpEntry.Method,
 		Description:  httpEntry.Description,
 		ParentHttpID: httpEntry.ParentHttpID,
-		// Clear delta fields for the duplicate
-		IsDelta:          false,
-		DeltaName:        nil,
-		DeltaUrl:         nil,
-		DeltaMethod:      nil,
-		DeltaDescription: nil,
+		IsDelta:      false,
 	}
 
-	if err := hsWriter.Create(ctx, duplicateHttp); err != nil {
+	if err := mut.InsertHTTP(ctx, mutation.HTTPInsertItem{
+		HTTP:        duplicateHttp,
+		WorkspaceID: httpEntry.WorkspaceID,
+		IsDelta:     false,
+	}); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Duplicate headers
-	for _, header := range headers {
-		newHeaderID := idwrap.NewNow()
-		headerModel := mhttp.HTTPHeader{
-			ID:          newHeaderID,
+	// Duplicate child entities
+	now := time.Now().UnixMilli()
+	for _, h := range headers {
+		newID := idwrap.NewNow()
+		header := mhttp.HTTPHeader{
+			ID:           newID,
+			HttpID:       newHttpID,
+			Key:          h.Key,
+			Value:        h.Value,
+			Enabled:      h.Enabled,
+			Description:  h.Description,
+			DisplayOrder: h.DisplayOrder,
+		}
+		if err := mut.InsertHTTPHeader(ctx, mutation.HTTPHeaderInsertItem{
+			ID:          newID,
 			HttpID:      newHttpID,
-			Key:         header.Key,
-			Value:       header.Value,
-			Enabled:     header.Enabled,
-			Description: header.Description,
-		}
-		if err := httpHeaderService.Create(ctx, &headerModel); err != nil {
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPHeaderParams{
+				ID:           newID,
+				HttpID:       newHttpID,
+				HeaderKey:    h.Key,
+				HeaderValue:  h.Value,
+				Description:  h.Description,
+				Enabled:      h.Enabled,
+				DisplayOrder: float64(h.DisplayOrder),
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		createdHeaders = append(createdHeaders, headerModel)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPHeader,
+			Op:          mutation.OpInsert,
+			ID:          newID,
+			ParentID:    newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			Payload:     header,
+		})
 	}
 
-	// Duplicate search params
-	for _, param := range searchParams {
-		newParamID := idwrap.NewNow()
-		paramModel := mhttp.HTTPSearchParam{
-			ID:           newParamID,
+	for _, p := range searchParams {
+		newID := idwrap.NewNow()
+		param := mhttp.HTTPSearchParam{
+			ID:           newID,
 			HttpID:       newHttpID,
-			Key:          param.Key,
-			Value:        param.Value,
-			Enabled:      param.Enabled,
-			Description:  param.Description,
-			DisplayOrder: param.DisplayOrder,
+			Key:          p.Key,
+			Value:        p.Value,
+			Enabled:      p.Enabled,
+			Description:  p.Description,
+			DisplayOrder: p.DisplayOrder,
 		}
-		if err := httpSearchParamService.Create(ctx, &paramModel); err != nil {
+		if err := mut.InsertHTTPSearchParam(ctx, mutation.HTTPSearchParamInsertItem{
+			ID:          newID,
+			HttpID:      newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPSearchParamParams{
+				ID:           newID,
+				HttpID:       newHttpID,
+				Key:          p.Key,
+				Value:        p.Value,
+				Description:  p.Description,
+				Enabled:      p.Enabled,
+				DisplayOrder: p.DisplayOrder,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		createdParams = append(createdParams, paramModel)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPParam,
+			Op:          mutation.OpInsert,
+			ID:          newID,
+			ParentID:    newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			Payload:     param,
+		})
 	}
 
-	// Duplicate body form entries
-	for _, bodyForm := range bodyForms {
-		newBodyFormID := idwrap.NewNow()
-		bodyFormModel := mhttp.HTTPBodyForm{
-			ID:                   newBodyFormID,
-			HttpID:               newHttpID,
-			Key:                  bodyForm.Key,
-			Value:                bodyForm.Value,
-			Enabled:              bodyForm.Enabled,
-			Description:          bodyForm.Description,
-			DisplayOrder:         bodyForm.DisplayOrder,
-			ParentHttpBodyFormID: bodyForm.ParentHttpBodyFormID, // Assuming direct copy is fine or handle recursive logic if needed
-		}
-		if err := httpBodyFormService.Create(ctx, &bodyFormModel); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		createdBodyForms = append(createdBodyForms, bodyFormModel)
-	}
-
-	// Duplicate body URL encoded entries
-	for _, bodyUrlEnc := range bodyUrlEncoded {
-		newBodyUrlEncodedID := idwrap.NewNow()
-		bodyUrlEncodedModel := mhttp.HTTPBodyUrlencoded{
-			ID:                         newBodyUrlEncodedID,
-			HttpID:                     newHttpID,
-			Key:                        bodyUrlEnc.Key,
-			Value:                      bodyUrlEnc.Value,
-			Enabled:                    bodyUrlEnc.Enabled,
-			Description:                bodyUrlEnc.Description,
-			DisplayOrder:               bodyUrlEnc.DisplayOrder,
-			ParentHttpBodyUrlEncodedID: bodyUrlEnc.ParentHttpBodyUrlEncodedID, // Assuming direct copy is fine
-		}
-		if err := httpBodyUrlEncodedService.Create(ctx, &bodyUrlEncodedModel); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		createdBodyUrlEncoded = append(createdBodyUrlEncoded, bodyUrlEncodedModel)
-	}
-
-	// Duplicate assertions
-	for _, assert := range asserts {
-		newAssertID := idwrap.NewNow()
-		assertModel := mhttp.HTTPAssert{
-			ID:           newAssertID,
+	for _, f := range bodyForms {
+		newID := idwrap.NewNow()
+		form := mhttp.HTTPBodyForm{
+			ID:           newID,
 			HttpID:       newHttpID,
-			Value:        assert.Value,
-			Enabled:      true, // Assertions are always active
-			Description:  "",   // No description available in DB
-			DisplayOrder: 0,    // No order available in DB
+			Key:          f.Key,
+			Value:        f.Value,
+			Enabled:      f.Enabled,
+			Description:  f.Description,
+			DisplayOrder: f.DisplayOrder,
 		}
-		if err := httpAssertService.Create(ctx, &assertModel); err != nil {
+		if err := mut.InsertHTTPBodyForm(ctx, mutation.HTTPBodyFormInsertItem{
+			ID:          newID,
+			HttpID:      newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPBodyFormParams{
+				ID:           newID,
+				HttpID:       newHttpID,
+				Key:          f.Key,
+				Value:        f.Value,
+				Description:  f.Description,
+				Enabled:      f.Enabled,
+				DisplayOrder: float64(f.DisplayOrder),
+				CreatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		createdAsserts = append(createdAsserts, assertModel)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyForm,
+			Op:          mutation.OpInsert,
+			ID:          newID,
+			ParentID:    newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			Payload:     form,
+		})
 	}
 
-	// Handle raw body
+	for _, u := range bodyUrlEncoded {
+		newID := idwrap.NewNow()
+		urlEnc := mhttp.HTTPBodyUrlencoded{
+			ID:           newID,
+			HttpID:       newHttpID,
+			Key:          u.Key,
+			Value:        u.Value,
+			Enabled:      u.Enabled,
+			Description:  u.Description,
+			DisplayOrder: u.DisplayOrder,
+		}
+		if err := mut.InsertHTTPBodyUrlEncoded(ctx, mutation.HTTPBodyUrlEncodedInsertItem{
+			ID:          newID,
+			HttpID:      newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPBodyUrlEncodedParams{
+				ID:           newID,
+				HttpID:       newHttpID,
+				Key:          u.Key,
+				Value:        u.Value,
+				Description:  u.Description,
+				Enabled:      u.Enabled,
+				DisplayOrder: float64(u.DisplayOrder),
+				CreatedAt:    now,
+			},
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyURL,
+			Op:          mutation.OpInsert,
+			ID:          newID,
+			ParentID:    newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			Payload:     urlEnc,
+		})
+	}
+
+	for _, a := range asserts {
+		newID := idwrap.NewNow()
+		ass := mhttp.HTTPAssert{
+			ID:           newID,
+			HttpID:       newHttpID,
+			Value:        a.Value,
+			Enabled:      true,
+			DisplayOrder: 0,
+		}
+		if err := mut.InsertHTTPAssert(ctx, mutation.HTTPAssertInsertItem{
+			ID:          newID,
+			HttpID:      newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPAssertParams{
+				ID:           newID,
+				HttpID:       newHttpID,
+				Value:        a.Value,
+				Enabled:      true,
+				DisplayOrder: 0,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPAssert,
+			Op:          mutation.OpInsert,
+			ID:          newID,
+			ParentID:    newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			Payload:     ass,
+		})
+	}
+
 	if bodyRaw != nil {
-		var rawData []byte
-
-		// If the source was a delta, we use the delta data for the new base copy
+		newID := idwrap.NewNow()
+		rawData := bodyRaw.RawData
 		if bodyRaw.IsDelta {
 			rawData = bodyRaw.DeltaRawData
-		} else {
-			rawData = bodyRaw.RawData
 		}
-
-		newBodyRaw, err := bodyService.Create(ctx, newHttpID, rawData)
-		if err != nil {
+		br := mhttp.HTTPBodyRaw{
+			ID:      newID,
+			HttpID:  newHttpID,
+			RawData: rawData,
+		}
+		if err := mut.InsertHTTPBodyRaw(ctx, mutation.HTTPBodyRawInsertItem{
+			ID:          newID,
+			HttpID:      newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPBodyRawParams{
+				ID:        newID,
+				HttpID:    newHttpID,
+				RawData:   rawData,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		createdBodyRaw = newBodyRaw
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyRaw,
+			Op:          mutation.OpInsert,
+			ID:          newID,
+			ParentID:    newHttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			Payload:     br,
+		})
 	}
 
-	// Create file entry for the duplicated HTTP request (for sidebar integration)
-	fileWriter := sfile.NewWriter(tx, nil)
+	// Create file entry
 	newHttpFile := mfile.File{
 		ID:          newHttpID,
 		WorkspaceID: httpEntry.WorkspaceID,
@@ -654,91 +632,15 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		Order:       float64(time.Now().UnixMilli()),
 		UpdatedAt:   time.Now(),
 	}
-	if err := fileWriter.CreateFile(ctx, &newHttpFile); err != nil {
+	if err := sfile.NewWriter(mut.TX(), nil).CreateFile(ctx, &newHttpFile); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Step 3: NOTIFY - Publish sync events for all created entities
-	h.publishInsertEvent(*duplicateHttp)
-
-	// Publish header events
-	for _, header := range createdHeaders {
-		h.streamers.HttpHeader.Publish(
-			HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID},
-			HttpHeaderEvent{
-				Type:       eventTypeInsert,
-				IsDelta:    false,
-				HttpHeader: converter.ToAPIHttpHeader(header),
-			},
-		)
-	}
-
-	// Publish search param events
-	for _, param := range createdParams {
-		h.streamers.HttpSearchParam.Publish(
-			HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID},
-			HttpSearchParamEvent{
-				Type:            eventTypeInsert,
-				IsDelta:         false,
-				HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-			},
-		)
-	}
-
-	// Publish body form events
-	for _, bodyForm := range createdBodyForms {
-		h.streamers.HttpBodyForm.Publish(
-			HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID},
-			HttpBodyFormEvent{
-				Type:         eventTypeInsert,
-				IsDelta:      false,
-				HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
-			},
-		)
-	}
-
-	// Publish body URL encoded events
-	for _, bodyUrlEnc := range createdBodyUrlEncoded {
-		h.streamers.HttpBodyUrlEncoded.Publish(
-			HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID},
-			HttpBodyUrlEncodedEvent{
-				Type:               eventTypeInsert,
-				IsDelta:            false,
-				HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEnc),
-			},
-		)
-	}
-
-	// Publish assert events
-	for _, assert := range createdAsserts {
-		h.streamers.HttpAssert.Publish(
-			HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID},
-			HttpAssertEvent{
-				Type:       eventTypeInsert,
-				IsDelta:    false,
-				HttpAssert: converter.ToAPIHttpAssert(assert),
-			},
-		)
-	}
-
-	// Publish body raw event if exists
-	if createdBodyRaw != nil {
-		h.streamers.HttpBodyRaw.Publish(
-			HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID},
-			HttpBodyRawEvent{
-				Type:        eventTypeInsert,
-				IsDelta:     false,
-				HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*createdBodyRaw),
-			},
-		)
-	}
-
-	// Publish file event for sidebar integration
+	// Publish file event
 	if h.fileStream != nil {
 		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: httpEntry.WorkspaceID}, rfile.FileEvent{
 			Type: "create",

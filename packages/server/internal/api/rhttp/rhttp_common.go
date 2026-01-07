@@ -3,6 +3,7 @@ package rhttp
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net"
 	"net/http"
@@ -19,6 +20,21 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
+
+func ptrToNullString(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: *s, Valid: true}
+}
+
+func ptrToNullFloat64(f *float32) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{Valid: false}
+	}
+	return sql.NullFloat64{Float64: float64(*f), Valid: true}
+}
+
 
 // isForeignKeyConstraintError checks if the error is a foreign key constraint violation
 func isForeignKeyConstraintError(err error) bool {
@@ -245,3 +261,5 @@ func (h *HttpServiceRPC) getStatusText(statusCode int) string {
 }
 
 // constructAssertionExpression constructs an expression from key and value
+
+

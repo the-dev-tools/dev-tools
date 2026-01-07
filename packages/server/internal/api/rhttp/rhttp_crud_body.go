@@ -4,135 +4,22 @@ package rhttp
 import (
 	"context"
 	"errors"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
-	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
-
-// bodyFormWithWorkspace is a context carrier that pairs a body form with its workspace ID.
-type bodyFormWithWorkspace struct {
-	bodyForm    mhttp.HTTPBodyForm
-	workspaceID idwrap.IDWrap
-}
-
-// publishBulkBodyFormInsert publishes multiple body form insert events in bulk.
-func (h *HttpServiceRPC) publishBulkBodyFormInsert(
-	topic HttpBodyFormTopic,
-	items []bodyFormWithWorkspace,
-) {
-	events := make([]HttpBodyFormEvent, len(items))
-	for i, item := range items {
-		events[i] = HttpBodyFormEvent{
-			Type:         eventTypeInsert,
-			IsDelta:      item.bodyForm.IsDelta,
-			HttpBodyForm: converter.ToAPIHttpBodyFormData(item.bodyForm),
-		}
-	}
-	h.streamers.HttpBodyForm.Publish(topic, events...)
-}
-
-// publishBulkBodyFormUpdate publishes multiple body form update events in bulk.
-func (h *HttpServiceRPC) publishBulkBodyFormUpdate(
-	topic HttpBodyFormTopic,
-	events []txutil.UpdateEvent[bodyFormWithWorkspace, patch.HTTPBodyFormPatch],
-) {
-	bodyFormEvents := make([]HttpBodyFormEvent, len(events))
-	for i, evt := range events {
-		bodyFormEvents[i] = HttpBodyFormEvent{
-			Type:         eventTypeUpdate,
-			IsDelta:      evt.Item.bodyForm.IsDelta,
-			HttpBodyForm: converter.ToAPIHttpBodyFormData(evt.Item.bodyForm),
-			Patch:        evt.Patch,
-		}
-	}
-	h.streamers.HttpBodyForm.Publish(topic, bodyFormEvents...)
-}
-
-// publishBulkBodyFormDelete publishes multiple body form delete events in bulk.
-func (h *HttpServiceRPC) publishBulkBodyFormDelete(
-	topic HttpBodyFormTopic,
-	events []txutil.DeleteEvent[idwrap.IDWrap],
-) {
-	bodyFormEvents := make([]HttpBodyFormEvent, len(events))
-	for i, evt := range events {
-		bodyFormEvents[i] = HttpBodyFormEvent{
-			Type:    eventTypeDelete,
-			IsDelta: evt.IsDelta,
-			HttpBodyForm: &apiv1.HttpBodyFormData{
-				HttpBodyFormDataId: evt.ID.Bytes(),
-			},
-		}
-	}
-	h.streamers.HttpBodyForm.Publish(topic, bodyFormEvents...)
-}
-
-// bodyUrlEncodedWithWorkspace is a context carrier that pairs a body URL encoded with its workspace ID.
-type bodyUrlEncodedWithWorkspace struct {
-	bodyUrlEncoded mhttp.HTTPBodyUrlencoded
-	workspaceID    idwrap.IDWrap
-}
-
-// publishBulkBodyUrlEncodedInsert publishes multiple body URL encoded insert events in bulk.
-func (h *HttpServiceRPC) publishBulkBodyUrlEncodedInsert(
-	topic HttpBodyUrlEncodedTopic,
-	items []bodyUrlEncodedWithWorkspace,
-) {
-	events := make([]HttpBodyUrlEncodedEvent, len(items))
-	for i, item := range items {
-		events[i] = HttpBodyUrlEncodedEvent{
-			Type:               eventTypeInsert,
-			IsDelta:            item.bodyUrlEncoded.IsDelta,
-			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(item.bodyUrlEncoded),
-		}
-	}
-	h.streamers.HttpBodyUrlEncoded.Publish(topic, events...)
-}
-
-// publishBulkBodyUrlEncodedUpdate publishes multiple body URL encoded update events in bulk.
-func (h *HttpServiceRPC) publishBulkBodyUrlEncodedUpdate(
-	topic HttpBodyUrlEncodedTopic,
-	events []txutil.UpdateEvent[bodyUrlEncodedWithWorkspace, patch.HTTPBodyUrlEncodedPatch],
-) {
-	bodyUrlEncodedEvents := make([]HttpBodyUrlEncodedEvent, len(events))
-	for i, evt := range events {
-		bodyUrlEncodedEvents[i] = HttpBodyUrlEncodedEvent{
-			Type:               eventTypeUpdate,
-			IsDelta:            evt.Item.bodyUrlEncoded.IsDelta,
-			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(evt.Item.bodyUrlEncoded),
-			Patch:              evt.Patch,
-		}
-	}
-	h.streamers.HttpBodyUrlEncoded.Publish(topic, bodyUrlEncodedEvents...)
-}
-
-// publishBulkBodyUrlEncodedDelete publishes multiple body URL encoded delete events in bulk.
-func (h *HttpServiceRPC) publishBulkBodyUrlEncodedDelete(
-	topic HttpBodyUrlEncodedTopic,
-	events []txutil.DeleteEvent[idwrap.IDWrap],
-) {
-	bodyUrlEncodedEvents := make([]HttpBodyUrlEncodedEvent, len(events))
-	for i, evt := range events {
-		bodyUrlEncodedEvents[i] = HttpBodyUrlEncodedEvent{
-			Type:    eventTypeDelete,
-			IsDelta: evt.IsDelta,
-			HttpBodyUrlEncoded: &apiv1.HttpBodyUrlEncoded{
-				HttpBodyUrlEncodedId: evt.ID.Bytes(),
-			},
-		}
-	}
-	h.streamers.HttpBodyUrlEncoded.Publish(topic, bodyUrlEncodedEvents...)
-}
 
 func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -177,11 +64,18 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var insertData []struct {
-		bodyFormModel *mhttp.HTTPBodyForm
-		workspaceID   idwrap.IDWrap
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		bodyFormID  idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		key         string
+		value       string
+		enabled     bool
+		description string
+		order       float32
+		workspaceID idwrap.IDWrap
 	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
@@ -210,62 +104,73 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		// Create the body form model
-		bodyFormModel := &mhttp.HTTPBodyForm{
-			ID:           bodyFormID,
-			HttpID:       httpID,
-			Key:          item.Key,
-			Value:        item.Value,
-			Enabled:      item.Enabled,
-			Description:  item.Description,
-			DisplayOrder: item.Order,
-		}
-
-		insertData = append(insertData, struct {
-			bodyFormModel *mhttp.HTTPBodyForm
-			workspaceID   idwrap.IDWrap
-		}{
-			bodyFormModel: bodyFormModel,
-			workspaceID:   httpEntry.WorkspaceID,
+		insertData = append(insertData, insertItem{
+			bodyFormID:  bodyFormID,
+			httpID:      httpID,
+			key:         item.Key,
+			value:       item.Value,
+			enabled:     item.Enabled,
+			description: item.Description,
+			order:       item.Order,
+			workspaceID: httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Insert body forms using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkInsertTx[bodyFormWithWorkspace, HttpBodyFormTopic](
-		tx,
-		func(bfw bodyFormWithWorkspace) HttpBodyFormTopic {
-			return HttpBodyFormTopic{WorkspaceID: bfw.workspaceID}
-		},
-	)
-
-	bodyFormWriter := shttp.NewBodyFormWriter(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		if err := bodyFormWriter.Create(ctx, data.bodyFormModel); err != nil {
+		bodyForm := mhttp.HTTPBodyForm{
+			ID:           data.bodyFormID,
+			HttpID:       data.httpID,
+			Key:          data.key,
+			Value:        data.value,
+			Enabled:      data.enabled,
+			Description:  data.description,
+			DisplayOrder: data.order,
+		}
+
+		if err := mut.InsertHTTPBodyForm(ctx, mutation.HTTPBodyFormInsertItem{
+			ID:          data.bodyFormID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPBodyFormParams{
+				ID:           data.bodyFormID,
+				HttpID:       data.httpID,
+				Key:          data.key,
+				Value:        data.value,
+				Description:  data.description,
+				Enabled:      data.enabled,
+				DisplayOrder: float64(data.order),
+				IsDelta:      false,
+				CreatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context for bulk sync
-		syncTx.Track(bodyFormWithWorkspace{
-			bodyForm:    *data.bodyFormModel,
-			workspaceID: data.workspaceID,
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyForm,
+			Op:          mutation.OpInsert,
+			ID:          data.bodyFormID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     bodyForm,
 		})
 	}
 
-	// Step 3: Commit and bulk publish sync events (grouped by topic)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyFormInsert); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -277,9 +182,9 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
-		existingBodyForm *mhttp.HTTPBodyForm
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type updateItem struct {
+		existingBodyForm mhttp.HTTPBodyForm
 		key              *string
 		value            *string
 		enabled          *bool
@@ -287,6 +192,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		order            *float32
 		workspaceID      idwrap.IDWrap
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
@@ -316,21 +222,13 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			existingBodyForm *mhttp.HTTPBodyForm
-			key              *string
-			value            *string
-			enabled          *bool
-			description      *string
-			order            *float32
-			workspaceID      idwrap.IDWrap
-		}{
-			existingBodyForm: existingBodyForm,
+		updateData = append(updateData, updateItem{
+			existingBodyForm: *existingBodyForm,
 			key:              item.Key,
 			value:            item.Value,
 			enabled:          item.Enabled,
@@ -340,25 +238,15 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Update body forms using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkUpdateTx[bodyFormWithWorkspace, patch.HTTPBodyFormPatch, HttpBodyFormTopic](
-		tx,
-		func(bfw bodyFormWithWorkspace) HttpBodyFormTopic {
-			return HttpBodyFormTopic{WorkspaceID: bfw.workspaceID}
-		},
-	)
-
-	bodyFormWriter := shttp.NewBodyFormWriter(tx)
+	defer mut.Rollback()
 
 	for _, data := range updateData {
-		bodyForm := *data.existingBodyForm
+		bodyForm := data.existingBodyForm
 
 		// Build patch with only changed fields
 		bodyFormPatch := patch.HTTPBodyFormPatch{}
@@ -385,22 +273,36 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 			bodyFormPatch.Order = patch.NewOptional(*data.order)
 		}
 
-		if err := bodyFormWriter.Update(ctx, &bodyForm); err != nil {
+		if err := mut.UpdateHTTPBodyForm(ctx, mutation.HTTPBodyFormUpdateItem{
+			ID:          bodyForm.ID,
+			HttpID:      bodyForm.HttpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     bodyForm.IsDelta,
+			Params: gen.UpdateHTTPBodyFormParams{
+				ID:           bodyForm.ID,
+				Key:          bodyForm.Key,
+				Value:        bodyForm.Value,
+				Description:  bodyForm.Description,
+				Enabled:      bodyForm.Enabled,
+				DisplayOrder: float64(bodyForm.DisplayOrder),
+			},
+			Patch: bodyFormPatch,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context and patch
-		syncTx.Track(
-			bodyFormWithWorkspace{
-				bodyForm:    bodyForm,
-				workspaceID: data.workspaceID,
-			},
-			bodyFormPatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyForm,
+			Op:          mutation.OpUpdate,
+			ID:          bodyForm.ID,
+			ParentID:    bodyForm.HttpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     bodyForm,
+			Patch:       bodyFormPatch,
+		})
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyFormUpdate); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -412,12 +314,14 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		bodyFormID       idwrap.IDWrap
-		existingBodyForm *mhttp.HTTPBodyForm
-		workspaceID      idwrap.IDWrap
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type deleteItem struct {
+		ID          idwrap.IDWrap
+		HttpID      idwrap.IDWrap
+		WorkspaceID idwrap.IDWrap
+		IsDelta     bool
 	}
+	deleteItems := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
@@ -447,48 +351,41 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access to the workspace
+		// CHECK: Validate delete access to the workspace
 		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			bodyFormID       idwrap.IDWrap
-			existingBodyForm *mhttp.HTTPBodyForm
-			workspaceID      idwrap.IDWrap
-		}{
-			bodyFormID:       bodyFormID,
-			existingBodyForm: existingBodyForm,
-			workspaceID:      httpEntry.WorkspaceID,
+		deleteItems = append(deleteItems, deleteItem{
+			ID:          bodyFormID,
+			HttpID:      existingBodyForm.HttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     existingBodyForm.IsDelta,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Delete using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpBodyFormTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpBodyFormTopic {
-			return HttpBodyFormTopic{WorkspaceID: evt.WorkspaceID}
-		},
-	)
-
-	bodyFormWriter := shttp.NewBodyFormWriter(tx)
-
-	for _, data := range deleteData {
-		if err := bodyFormWriter.Delete(ctx, data.bodyFormID); err != nil {
+	for _, item := range deleteItems {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyForm,
+			Op:          mutation.OpDelete,
+			ID:          item.ID,
+			ParentID:    item.HttpID,
+			WorkspaceID: item.WorkspaceID,
+			IsDelta:     item.IsDelta,
+		})
+		if err := mut.Queries().DeleteHTTPBodyForm(ctx, item.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		syncTx.Track(data.bodyFormID, data.workspaceID, data.existingBodyForm.IsDelta)
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyFormDelete); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -538,11 +435,18 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var insertData []struct {
-		bodyUrlEncodedModel *mhttp.HTTPBodyUrlencoded
-		workspaceID         idwrap.IDWrap
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		bodyUrlEncodedID idwrap.IDWrap
+		httpID           idwrap.IDWrap
+		key              string
+		value            string
+		enabled          bool
+		description      string
+		order            float32
+		workspaceID      idwrap.IDWrap
 	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
@@ -571,62 +475,73 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		// Create the body URL encoded model
-		bodyUrlEncodedModel := &mhttp.HTTPBodyUrlencoded{
-			ID:           bodyUrlEncodedID,
-			HttpID:       httpID,
-			Key:          item.Key,
-			Value:        item.Value,
-			Enabled:      item.Enabled,
-			Description:  item.Description,
-			DisplayOrder: item.Order,
-		}
-
-		insertData = append(insertData, struct {
-			bodyUrlEncodedModel *mhttp.HTTPBodyUrlencoded
-			workspaceID         idwrap.IDWrap
-		}{
-			bodyUrlEncodedModel: bodyUrlEncodedModel,
-			workspaceID:         httpEntry.WorkspaceID,
+		insertData = append(insertData, insertItem{
+			bodyUrlEncodedID: bodyUrlEncodedID,
+			httpID:           httpID,
+			key:              item.Key,
+			value:            item.Value,
+			enabled:          item.Enabled,
+			description:      item.Description,
+			order:            item.Order,
+			workspaceID:      httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Insert body URL encoded using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkInsertTx[bodyUrlEncodedWithWorkspace, HttpBodyUrlEncodedTopic](
-		tx,
-		func(buw bodyUrlEncodedWithWorkspace) HttpBodyUrlEncodedTopic {
-			return HttpBodyUrlEncodedTopic{WorkspaceID: buw.workspaceID}
-		},
-	)
-
-	bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		if err := bodyUrlEncodedWriter.Create(ctx, data.bodyUrlEncodedModel); err != nil {
+		bodyUrlEnc := mhttp.HTTPBodyUrlencoded{
+			ID:           data.bodyUrlEncodedID,
+			HttpID:       data.httpID,
+			Key:          data.key,
+			Value:        data.value,
+			Enabled:      data.enabled,
+			Description:  data.description,
+			DisplayOrder: data.order,
+		}
+
+		if err := mut.InsertHTTPBodyUrlEncoded(ctx, mutation.HTTPBodyUrlEncodedInsertItem{
+			ID:          data.bodyUrlEncodedID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPBodyUrlEncodedParams{
+				ID:           data.bodyUrlEncodedID,
+				HttpID:       data.httpID,
+				Key:          data.key,
+				Value:        data.value,
+				Description:  data.description,
+				Enabled:      data.enabled,
+				DisplayOrder: float64(data.order),
+				IsDelta:      false,
+				CreatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context for bulk sync
-		syncTx.Track(bodyUrlEncodedWithWorkspace{
-			bodyUrlEncoded: *data.bodyUrlEncodedModel,
-			workspaceID:    data.workspaceID,
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyURL,
+			Op:          mutation.OpInsert,
+			ID:          data.bodyUrlEncodedID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     bodyUrlEnc,
 		})
 	}
 
-	// Step 3: Commit and bulk publish sync events (grouped by topic)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyUrlEncodedInsert); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -638,9 +553,9 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
-		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type updateItem struct {
+		existingBodyUrlEncoded mhttp.HTTPBodyUrlencoded
 		key                    *string
 		value                  *string
 		enabled                *bool
@@ -648,6 +563,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		order                  *float32
 		workspaceID            idwrap.IDWrap
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
@@ -677,21 +593,13 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-			key                    *string
-			value                  *string
-			enabled                *bool
-			description            *string
-			order                  *float32
-			workspaceID            idwrap.IDWrap
-		}{
-			existingBodyUrlEncoded: existingBodyUrlEncoded,
+		updateData = append(updateData, updateItem{
+			existingBodyUrlEncoded: *existingBodyUrlEncoded,
 			key:                    item.Key,
 			value:                  item.Value,
 			enabled:                item.Enabled,
@@ -701,25 +609,15 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Update body URL encoded using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkUpdateTx[bodyUrlEncodedWithWorkspace, patch.HTTPBodyUrlEncodedPatch, HttpBodyUrlEncodedTopic](
-		tx,
-		func(buw bodyUrlEncodedWithWorkspace) HttpBodyUrlEncodedTopic {
-			return HttpBodyUrlEncodedTopic{WorkspaceID: buw.workspaceID}
-		},
-	)
-
-	bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
+	defer mut.Rollback()
 
 	for _, data := range updateData {
-		bodyUrlEncoded := *data.existingBodyUrlEncoded
+		bodyUrlEncoded := data.existingBodyUrlEncoded
 
 		// Build patch with only changed fields
 		bodyUrlEncodedPatch := patch.HTTPBodyUrlEncodedPatch{}
@@ -746,22 +644,36 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 			bodyUrlEncodedPatch.Order = patch.NewOptional(*data.order)
 		}
 
-		if err := bodyUrlEncodedWriter.Update(ctx, &bodyUrlEncoded); err != nil {
+		if err := mut.UpdateHTTPBodyUrlEncoded(ctx, mutation.HTTPBodyUrlEncodedUpdateItem{
+			ID:          bodyUrlEncoded.ID,
+			HttpID:      bodyUrlEncoded.HttpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     bodyUrlEncoded.IsDelta,
+			Params: gen.UpdateHTTPBodyUrlEncodedParams{
+				ID:           bodyUrlEncoded.ID,
+				Key:          bodyUrlEncoded.Key,
+				Value:        bodyUrlEncoded.Value,
+				Description:  bodyUrlEncoded.Description,
+				Enabled:      bodyUrlEncoded.Enabled,
+				DisplayOrder: float64(bodyUrlEncoded.DisplayOrder),
+			},
+			Patch: bodyUrlEncodedPatch,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context and patch
-		syncTx.Track(
-			bodyUrlEncodedWithWorkspace{
-				bodyUrlEncoded: bodyUrlEncoded,
-				workspaceID:    data.workspaceID,
-			},
-			bodyUrlEncodedPatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyURL,
+			Op:          mutation.OpUpdate,
+			ID:          bodyUrlEncoded.ID,
+			ParentID:    bodyUrlEncoded.HttpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     bodyUrlEncoded,
+			Patch:       bodyUrlEncodedPatch,
+		})
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyUrlEncodedUpdate); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -773,12 +685,14 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		bodyUrlEncodedID       idwrap.IDWrap
-		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-		workspaceID            idwrap.IDWrap
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type deleteItem struct {
+		ID          idwrap.IDWrap
+		HttpID      idwrap.IDWrap
+		WorkspaceID idwrap.IDWrap
+		IsDelta     bool
 	}
+	deleteItems := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
@@ -808,48 +722,41 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access to the workspace
+		// CHECK: Validate delete access to the workspace
 		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			bodyUrlEncodedID       idwrap.IDWrap
-			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-			workspaceID            idwrap.IDWrap
-		}{
-			bodyUrlEncodedID:       bodyUrlEncodedID,
-			existingBodyUrlEncoded: existingBodyUrlEncoded,
-			workspaceID:            httpEntry.WorkspaceID,
+		deleteItems = append(deleteItems, deleteItem{
+			ID:          bodyUrlEncodedID,
+			HttpID:      existingBodyUrlEncoded.HttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     existingBodyUrlEncoded.IsDelta,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Delete using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpBodyUrlEncodedTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpBodyUrlEncodedTopic {
-			return HttpBodyUrlEncodedTopic{WorkspaceID: evt.WorkspaceID}
-		},
-	)
-
-	bodyUrlEncodedWriter := shttp.NewBodyUrlEncodedWriter(tx)
-
-	for _, data := range deleteData {
-		if err := bodyUrlEncodedWriter.Delete(ctx, data.bodyUrlEncodedID); err != nil {
+	for _, item := range deleteItems {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyURL,
+			Op:          mutation.OpDelete,
+			ID:          item.ID,
+			ParentID:    item.HttpID,
+			WorkspaceID: item.WorkspaceID,
+			IsDelta:     item.IsDelta,
+		})
+		if err := mut.Queries().DeleteHTTPBodyUrlEncoded(ctx, item.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		syncTx.Track(data.bodyUrlEncodedID, data.workspaceID, data.existingBodyUrlEncoded.IsDelta)
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyUrlEncodedDelete); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -898,12 +805,13 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var insertData []struct {
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
 		httpID      idwrap.IDWrap
 		data        []byte
 		workspaceID idwrap.IDWrap
 	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -924,55 +832,62 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		insertData = append(insertData, struct {
-			httpID      idwrap.IDWrap
-			data        []byte
-			workspaceID idwrap.IDWrap
-		}{
+		insertData = append(insertData, insertItem{
 			httpID:      httpID,
 			data:        []byte(item.Data),
 			workspaceID: httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Execute inserts in transaction with bulk sync
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Insert body raw using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkInsertTx[bodyRawWithWorkspace, HttpBodyRawTopic](
-		tx,
-		func(brww bodyRawWithWorkspace) HttpBodyRawTopic {
-			return HttpBodyRawTopic{WorkspaceID: brww.workspaceID}
-		},
-	)
-
-	bodyRawWriter := shttp.NewBodyRawWriter(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		// Create the body raw using the new service
-		bodyRaw, err := bodyRawWriter.Create(ctx, data.httpID, data.data)
-		if err != nil {
+		bodyRawID := idwrap.NewNow()
+		bodyRaw := mhttp.HTTPBodyRaw{
+			ID:      bodyRawID,
+			HttpID:  data.httpID,
+			RawData: data.data,
+		}
+
+		if err := mut.InsertHTTPBodyRaw(ctx, mutation.HTTPBodyRawInsertItem{
+			ID:          bodyRawID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPBodyRawParams{
+				ID:        bodyRawID,
+				HttpID:    data.httpID,
+				RawData:   data.data,
+				IsDelta:   false,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context for bulk sync
-		syncTx.Track(bodyRawWithWorkspace{
-			bodyRaw:     *bodyRaw,
-			workspaceID: data.workspaceID,
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyRaw,
+			Op:          mutation.OpInsert,
+			ID:          bodyRawID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     bodyRaw,
 		})
 	}
 
-	// Step 3: Commit and bulk publish sync events (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyRawInsert); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -984,12 +899,13 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type updateItem struct {
 		existingBodyRaw mhttp.HTTPBodyRaw
 		data            *string
 		workspaceID     idwrap.IDWrap
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -1010,7 +926,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
@@ -1024,34 +940,21 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updateData = append(updateData, struct {
-			existingBodyRaw mhttp.HTTPBodyRaw
-			data            *string
-			workspaceID     idwrap.IDWrap
-		}{
+		updateData = append(updateData, updateItem{
 			existingBodyRaw: *existingBodyRaw,
 			data:            item.Data,
 			workspaceID:     httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Execute updates in transaction with bulk sync
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Update body raw using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkUpdateTx[bodyRawWithWorkspace, patch.HTTPBodyRawPatch, HttpBodyRawTopic](
-		tx,
-		func(brww bodyRawWithWorkspace) HttpBodyRawTopic {
-			return HttpBodyRawTopic{WorkspaceID: brww.workspaceID}
-		},
-	)
-
-	bodyRawWriter := shttp.NewBodyRawWriter(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range updateData {
 		bodyRaw := data.existingBodyRaw
 
@@ -1064,24 +967,33 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			bodyRawPatch.Data = patch.NewOptional(*data.data)
 		}
 
-		// Update using the new service
-		updated, err := bodyRawWriter.Update(ctx, bodyRaw.ID, bodyRaw.RawData)
-		if err != nil {
+		if err := mut.UpdateHTTPBodyRaw(ctx, mutation.HTTPBodyRawUpdateItem{
+			ID:          bodyRaw.ID,
+			HttpID:      bodyRaw.HttpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     bodyRaw.IsDelta,
+			Params: gen.UpdateHTTPBodyRawParams{
+				RawData:   bodyRaw.RawData,
+				UpdatedAt: now,
+				ID:        bodyRaw.ID,
+			},
+			Patch: bodyRawPatch,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context and patch
-		syncTx.Track(
-			bodyRawWithWorkspace{
-				bodyRaw:     *updated,
-				workspaceID: data.workspaceID,
-			},
-			bodyRawPatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyRaw,
+			Op:          mutation.OpUpdate,
+			ID:          bodyRaw.ID,
+			ParentID:    bodyRaw.HttpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     bodyRaw,
+			Patch:       bodyRawPatch,
+		})
 	}
 
-	// Step 3: Commit and bulk publish sync events (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkBodyRawUpdate); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

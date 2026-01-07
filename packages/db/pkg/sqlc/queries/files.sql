@@ -80,3 +80,16 @@ WHERE id = ?;
 SELECT id, name, duration
 FROM flow
 WHERE id = ?;
+
+-- name: GetFileByContentID :one
+-- Find file that references a specific content (HTTP, Flow, etc.)
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
+FROM files
+WHERE content_id = ?
+LIMIT 1;
+
+-- name: GetFilesByContentIDs :many
+-- Batch query to find files that reference multiple content IDs
+SELECT id, workspace_id, content_id, content_kind
+FROM files
+WHERE content_id IN (sqlc.slice('content_ids'));

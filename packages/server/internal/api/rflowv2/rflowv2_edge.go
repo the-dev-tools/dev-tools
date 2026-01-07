@@ -11,11 +11,9 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/patch"
-	"the-dev-tools/server/pkg/txutil"
+	"the-dev-tools/server/pkg/mutation"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -49,11 +47,9 @@ func (s *FlowServiceV2RPC) EdgeCollection(
 func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[flowv1.EdgeInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type insertData struct {
-		edgeID       idwrap.IDWrap
-		flowID       idwrap.IDWrap
-		sourceID     idwrap.IDWrap
-		targetID     idwrap.IDWrap
-		sourceHandle mflow.EdgeHandle
+		edge        mflow.Edge
+		flowID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
 	}
 	var validatedItems []insertData
 
@@ -74,6 +70,12 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 		}
 		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 			return nil, err
+		}
+
+		// Get workspace ID for the flow
+		flow, err := s.fsReader.GetFlow(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		sourceID, err := idwrap.NewFromBytes(item.GetSourceId())
@@ -97,52 +99,49 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 		}
 
 		validatedItems = append(validatedItems, insertData{
-			edgeID:       edgeID,
-			flowID:       flowID,
-			sourceID:     sourceID,
-			targetID:     targetID,
-			sourceHandle: convertHandle(item.GetSourceHandle()),
+			edge: mflow.Edge{
+				ID:            edgeID,
+				FlowID:        flowID,
+				SourceID:      sourceID,
+				TargetID:      targetID,
+				SourceHandler: convertHandle(item.GetSourceHandle()),
+			},
+			flowID:      flowID,
+			workspaceID: flow.WorkspaceID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkInsertTx[edgeWithFlow, EdgeTopic](
-		tx,
-		func(ewf edgeWithFlow) EdgeTopic {
-			return EdgeTopic{FlowID: ewf.flowID}
-		},
-	)
-
-	edgeWriter := s.es.TX(tx)
+	edgeWriter := s.es.TX(mut.TX())
 
 	// 3. Execute all inserts in transaction
 	for _, data := range validatedItems {
-		model := mflow.Edge{
-			ID:            data.edgeID,
-			FlowID:        data.flowID,
-			SourceID:      data.sourceID,
-			TargetID:      data.targetID,
-			SourceHandler: data.sourceHandle,
-		}
-
-		if err := edgeWriter.CreateEdge(ctx, model); err != nil {
+		if err := edgeWriter.CreateEdge(ctx, data.edge); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		syncTx.Track(edgeWithFlow{
-			edge:   model,
-			flowID: data.flowID,
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlowEdge,
+			Op:          mutation.OpInsert,
+			ID:          data.edge.ID,
+			WorkspaceID: data.workspaceID,
+			ParentID:    data.flowID,
+			Payload:     data.edge,
 		})
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkEdgeInsert); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -152,8 +151,9 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[flowv1.EdgeUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type updateData struct {
-		edge      mflow.Edge
-		edgePatch patch.EdgePatch
+		edge        mflow.Edge
+		flowID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
 	}
 	var validatedUpdates []updateData
 
@@ -175,7 +175,11 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			}
 		}
 
-		edgePatch := patch.EdgePatch{}
+		// Get workspace ID for the flow
+		flow, err := s.fsReader.GetFlow(ctx, existing.FlowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 
 		if len(item.GetSourceId()) != 0 {
 			sourceID, err := idwrap.NewFromBytes(item.GetSourceId())
@@ -186,7 +190,6 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 				return nil, err
 			}
 			existing.SourceID = sourceID
-			edgePatch.SourceID = patch.NewOptional(sourceID.String())
 		}
 
 		if len(item.GetTargetId()) != 0 {
@@ -198,35 +201,31 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 				return nil, err
 			}
 			existing.TargetID = targetID
-			edgePatch.TargetID = patch.NewOptional(targetID.String())
 		}
 
 		if item.SourceHandle != nil {
 			existing.SourceHandler = convertHandle(item.GetSourceHandle())
-			edgePatch.SourceHandler = patch.NewOptional(existing.SourceHandler)
 		}
 
 		validatedUpdates = append(validatedUpdates, updateData{
-			edge:      *existing,
-			edgePatch: edgePatch,
+			edge:        *existing,
+			flowID:      existing.FlowID,
+			workspaceID: flow.WorkspaceID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedUpdates) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkUpdateTx[edgeWithFlow, patch.EdgePatch, EdgeTopic](
-		tx,
-		func(ewf edgeWithFlow) EdgeTopic {
-			return EdgeTopic{FlowID: ewf.flowID}
-		},
-	)
-
-	edgeWriter := s.es.TX(tx)
+	edgeWriter := s.es.TX(mut.TX())
 
 	// 3. Execute all updates in transaction
 	for _, data := range validatedUpdates {
@@ -234,17 +233,18 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		syncTx.Track(
-			edgeWithFlow{
-				edge:   data.edge,
-				flowID: data.edge.FlowID,
-			},
-			data.edgePatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlowEdge,
+			Op:          mutation.OpUpdate,
+			ID:          data.edge.ID,
+			WorkspaceID: data.workspaceID,
+			ParentID:    data.flowID,
+			Payload:     data.edge,
+		})
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkEdgeUpdate); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -254,8 +254,8 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[flowv1.EdgeDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type deleteData struct {
-		edgeID   idwrap.IDWrap
-		existing *mflow.Edge
+		edgeID idwrap.IDWrap
+		flowID idwrap.IDWrap
 	}
 	var validatedItems []deleteData
 
@@ -271,38 +271,37 @@ func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[
 		}
 
 		validatedItems = append(validatedItems, deleteData{
-			edgeID:   edgeID,
-			existing: existing,
+			edgeID: edgeID,
+			flowID: existing.FlowID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, EdgeTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) EdgeTopic {
-			return EdgeTopic{FlowID: evt.WorkspaceID} // WorkspaceID field is reused for FlowID
-		},
-	)
-
-	edgeWriter := s.es.TX(tx)
+	defer mut.Rollback()
 
 	// 3. Execute all deletes in transaction
 	for _, data := range validatedItems {
-		if err := edgeWriter.DeleteEdge(ctx, data.edgeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		mut.Track(mutation.Event{
+			Entity:   mutation.EntityFlowEdge,
+			Op:       mutation.OpDelete,
+			ID:       data.edgeID,
+			ParentID: data.flowID,
+		})
+		if err := mut.Queries().DeleteFlowEdge(ctx, data.edgeID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		syncTx.Track(data.edgeID, data.existing.FlowID, false)
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkEdgeDelete); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

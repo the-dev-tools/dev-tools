@@ -292,6 +292,12 @@ SELECT
 FROM http_search_param
 WHERE id IN (sqlc.slice('ids'));
 
+-- name: GetHTTPSearchParamsByHttpIDs :many
+-- Batch query for cascade collection - fetches all params for multiple HTTP entries
+SELECT id, http_id, is_delta
+FROM http_search_param
+WHERE http_id IN (sqlc.slice('http_ids'));
+
 -- name: CreateHTTPSearchParam :exec
 INSERT INTO http_search_param (
   id, http_id, key, value, description, enabled, display_order,
@@ -376,6 +382,12 @@ SELECT
   updated_at
 FROM http_header
 WHERE id IN (sqlc.slice('ids'));
+
+-- name: GetHTTPHeadersByHttpIDs :many
+-- Batch query for cascade collection - fetches all headers for multiple HTTP entries
+SELECT id, http_id, is_delta
+FROM http_header
+WHERE http_id IN (sqlc.slice('http_ids'));
 
 -- name: CreateHTTPHeader :exec
 INSERT INTO http_header (
@@ -462,6 +474,12 @@ SELECT
   updated_at
 FROM http_body_form
 WHERE id IN (sqlc.slice('ids'));
+
+-- name: GetHTTPBodyFormsByHttpIDs :many
+-- Batch query for cascade collection - fetches all body forms for multiple HTTP entries
+SELECT id, http_id, is_delta
+FROM http_body_form
+WHERE http_id IN (sqlc.slice('http_ids'));
 
 -- name: CreateHTTPBodyForm :exec
 INSERT INTO http_body_form (
@@ -583,6 +601,12 @@ SELECT
 FROM http_body_urlencoded
 WHERE id IN (sqlc.slice('ids'));
 
+-- name: GetHTTPBodyUrlencodedsByHttpIDs :many
+-- Batch query for cascade collection - fetches all body urlencoded for multiple HTTP entries
+SELECT id, http_id, is_delta
+FROM http_body_urlencoded
+WHERE http_id IN (sqlc.slice('http_ids'));
+
 -- name: CreateHTTPBodyUrlEncoded :exec
 INSERT INTO http_body_urlencoded (
   id, http_id, key, value, enabled, description, display_order,
@@ -696,6 +720,12 @@ SELECT
   updated_at
 FROM http_assert
 WHERE id IN (sqlc.slice('ids'));
+
+-- name: GetHTTPAssertsByHttpIDs :many
+-- Batch query for cascade collection - fetches all asserts for multiple HTTP entries
+SELECT id, http_id, is_delta
+FROM http_assert
+WHERE http_id IN (sqlc.slice('http_ids'));
 
 -- name: CreateHTTPAssert :exec
 INSERT INTO http_assert (
@@ -1088,6 +1118,13 @@ WHERE
 DELETE FROM http_body_raw
 WHERE
   id = ?;
+
+-- name: GetHTTPBodyRawsByHttpIDs :many
+-- Batch query for cascade collection - fetches all body raws for multiple HTTP entries
+SELECT id, http_id, is_delta
+FROM http_body_raw
+WHERE http_id IN (sqlc.slice('http_ids'));
+
 -- name: CreateHttpVersion :exec
 INSERT INTO http_version (
   id, http_id, version_name, version_description, is_active, created_at, created_by

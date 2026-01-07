@@ -9,11 +9,11 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -95,10 +95,17 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
-	// Process each delta item
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		bodyFormID  idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		item        *apiv1.HttpBodyFormDataDeltaInsert
+	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
+
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required for each delta item"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required"))
 		}
 
 		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
@@ -124,11 +131,52 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 			return nil, err
 		}
 
-		// Update delta fields
-		err = h.httpBodyFormService.UpdateDelta(ctx, bodyFormID, item.Key, item.Value, item.Enabled, item.Description, item.Order)
+		insertData = append(insertData, insertItem{
+			bodyFormID:  bodyFormID,
+			workspaceID: httpEntry.WorkspaceID,
+			item:        item,
+		})
+	}
+
+	// ACT: Update delta fields using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range insertData {
+		bodyFormService := h.httpBodyFormService.TX(mut.TX())
+		bodyForm, err := bodyFormService.GetByID(ctx, data.bodyFormID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if err := mut.UpdateHTTPBodyFormDelta(ctx, mutation.HTTPBodyFormDeltaUpdateItem{
+			ID:          data.bodyFormID,
+			HttpID:      bodyForm.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPBodyFormDeltaParams{
+				ID:                data.bodyFormID,
+				DeltaKey:          ptrToNullString(data.item.Key),
+				DeltaValue:        ptrToNullString(data.item.Value),
+				DeltaEnabled:      data.item.Enabled,
+				DeltaDescription:  data.item.Description,
+				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
+			},
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Update payload in tracked event
+		updated, err := bodyFormService.GetByID(ctx, data.bodyFormID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -140,11 +188,13 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
+	type updateItem struct {
 		deltaID          idwrap.IDWrap
-		existingBodyForm *mhttp.HTTPBodyForm
+		existingBodyForm mhttp.HTTPBodyForm
+		workspaceID      idwrap.IDWrap
 		item             *apiv1.HttpBodyFormDataDeltaUpdate
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpBodyFormDataId) == 0 {
@@ -156,7 +206,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta body form - use pool service
+		// Get existing delta body form
 		existingBodyForm, err := h.httpBodyFormService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
@@ -176,32 +226,24 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			deltaID          idwrap.IDWrap
-			existingBodyForm *mhttp.HTTPBodyForm
-			item             *apiv1.HttpBodyFormDataDeltaUpdate
-		}{
+		updateData = append(updateData, updateItem{
 			deltaID:          deltaID,
-			existingBodyForm: existingBodyForm,
+			existingBodyForm: *existingBodyForm,
+			workspaceID:      httpEntry.WorkspaceID,
 			item:             item,
 		})
 	}
 
-	// Step 2: Prepare updates (in memory)
-	var preparedUpdates []struct {
-		deltaID          idwrap.IDWrap
-		deltaKey         *string
-		deltaValue       *string
-		deltaEnabled     *bool
-		deltaDescription *string
-		deltaOrder       *float32
+	// ACT: Update using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	var patches []patch.HTTPBodyFormPatch
+	defer mut.Rollback()
 
 	for _, data := range updateData {
 		item := data.item
@@ -268,64 +310,33 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 			}
 		}
 
-		patches = append(patches, patchData)
-		preparedUpdates = append(preparedUpdates, struct {
-			deltaID          idwrap.IDWrap
-			deltaKey         *string
-			deltaValue       *string
-			deltaEnabled     *bool
-			deltaDescription *string
-			deltaOrder       *float32
-		}{
-			deltaID:          data.deltaID,
-			deltaKey:         deltaKey,
-			deltaValue:       deltaValue,
-			deltaEnabled:     deltaEnabled,
-			deltaDescription: deltaDescription,
-			deltaOrder:       deltaOrder,
-		})
-	}
-
-	// Step 3: Execute updates in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	var updatedBodyForms []mhttp.HTTPBodyForm
-
-	for _, update := range preparedUpdates {
-		if err := httpBodyFormService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+		bodyFormService := h.httpBodyFormService.TX(mut.TX())
+		if err := mut.UpdateHTTPBodyFormDelta(ctx, mutation.HTTPBodyFormDeltaUpdateItem{
+			ID:          data.deltaID,
+			HttpID:      data.existingBodyForm.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPBodyFormDeltaParams{
+				ID:                data.deltaID,
+				DeltaKey:          ptrToNullString(deltaKey),
+				DeltaValue:        ptrToNullString(deltaValue),
+				DeltaEnabled:      deltaEnabled,
+				DeltaDescription:  deltaDescription,
+				DeltaDisplayOrder: ptrToNullFloat64(deltaOrder),
+			},
+			Patch: patchData,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated body form for event publishing (from TX service)
-		updatedBodyForm, err := httpBodyFormService.GetByID(ctx, update.deltaID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Update payload in tracked event
+		updated, err := bodyFormService.GetByID(ctx, data.deltaID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
 		}
-		updatedBodyForms = append(updatedBodyForms, *updatedBodyForm)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish update events for real-time sync after successful commit
-	for i, bodyForm := range updatedBodyForms {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, bodyForm.HttpID)
-		if err != nil {
-			continue
-		}
-		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
-			Type:         eventTypeUpdate,
-			IsDelta:      true,
-			Patch:        patches[i],
-			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -337,11 +348,13 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		deltaID          idwrap.IDWrap
-		existingBodyForm *mhttp.HTTPBodyForm
-		workspaceID      idwrap.IDWrap
+	type deleteItem struct {
+		deltaID     idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		bodyForm    mhttp.HTTPBodyForm
 	}
+	deleteData := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpBodyFormDataId) == 0 {
@@ -353,7 +366,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta body form - use pool service
+		// Get existing delta body form
 		existingBodyForm, err := h.httpBodyFormService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
@@ -367,59 +380,48 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP body form is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access - use pool service
+		// Get the HTTP entry to check workspace access
 		httpEntry, err := h.hs.Get(ctx, existingBodyForm.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access to the workspace
 		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			deltaID          idwrap.IDWrap
-			existingBodyForm *mhttp.HTTPBodyForm
-			workspaceID      idwrap.IDWrap
-		}{
-			deltaID:          deltaID,
-			existingBodyForm: existingBodyForm,
-			workspaceID:      httpEntry.WorkspaceID,
+		deleteData = append(deleteData, deleteItem{
+			deltaID:     deltaID,
+			httpID:      existingBodyForm.HttpID,
+			workspaceID: httpEntry.WorkspaceID,
+			bodyForm:    *existingBodyForm,
 		})
 	}
 
 	// Step 2: Execute deletes in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	var deletedBodyForms []mhttp.HTTPBodyForm
-	var deletedWorkspaceIDs []idwrap.IDWrap
+	defer mut.Rollback()
 
 	for _, data := range deleteData {
-		// Delete the delta record
-		if err := httpBodyFormService.Delete(ctx, data.deltaID); err != nil {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyForm,
+			Op:          mutation.OpDelete,
+			ID:          data.deltaID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Payload:     data.bodyForm,
+		})
+		if err := mut.Queries().DeleteHTTPBodyForm(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedBodyForms = append(deletedBodyForms, *data.existingBodyForm)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync after successful commit
-	for i, bodyForm := range deletedBodyForms {
-		h.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
-			Type:         eventTypeDelete,
-			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -488,7 +490,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 	}
 }
 
-// streamHttpAssertDeltaSync streams HTTP assert delta events to the client
+// HttpBodyUrlEncodedDeltaCollection returns all body URL encoded deltas
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyUrlEncodedDeltaCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -563,10 +565,17 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
-	// Process each delta item
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		bodyUrlEncodedID idwrap.IDWrap
+		workspaceID      idwrap.IDWrap
+		item             *apiv1.HttpBodyUrlEncodedDeltaInsert
+	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
+
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_url_encoded_id is required for each delta item"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_url_encoded_id is required"))
 		}
 
 		bodyUrlEncodedID, err := idwrap.NewFromBytes(item.HttpBodyUrlEncodedId)
@@ -592,11 +601,52 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 			return nil, err
 		}
 
-		// Update delta fields
-		err = h.httpBodyUrlEncodedService.UpdateDelta(ctx, bodyUrlEncodedID, item.Key, item.Value, item.Enabled, item.Description, item.Order)
+		insertData = append(insertData, insertItem{
+			bodyUrlEncodedID: bodyUrlEncodedID,
+			workspaceID:      httpEntry.WorkspaceID,
+			item:             item,
+		})
+	}
+
+	// ACT: Update delta fields using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range insertData {
+		bodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(mut.TX())
+		bodyUrlEncoded, err := bodyUrlEncodedService.GetByID(ctx, data.bodyUrlEncodedID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if err := mut.UpdateHTTPBodyUrlEncodedDelta(ctx, mutation.HTTPBodyUrlEncodedDeltaUpdateItem{
+			ID:          data.bodyUrlEncodedID,
+			HttpID:      bodyUrlEncoded.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPBodyUrlEncodedDeltaParams{
+				ID:                data.bodyUrlEncodedID,
+				DeltaKey:          ptrToNullString(data.item.Key),
+				DeltaValue:        ptrToNullString(data.item.Value),
+				DeltaDescription:  data.item.Description,
+				DeltaEnabled:      data.item.Enabled,
+				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
+			},
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Update payload in tracked event
+		updated, err := bodyUrlEncodedService.GetByID(ctx, data.bodyUrlEncodedID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -608,11 +658,13 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
+	type updateItem struct {
 		deltaID                idwrap.IDWrap
-		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
+		existingBodyUrlEncoded mhttp.HTTPBodyUrlencoded
+		workspaceID            idwrap.IDWrap
 		item                   *apiv1.HttpBodyUrlEncodedDeltaUpdate
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpBodyUrlEncodedId) == 0 {
@@ -624,7 +676,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta body url encoded - use pool service
+		// Get existing delta body url encoded
 		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
@@ -649,27 +701,20 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			deltaID                idwrap.IDWrap
-			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-			item                   *apiv1.HttpBodyUrlEncodedDeltaUpdate
-		}{
+		updateData = append(updateData, updateItem{
 			deltaID:                deltaID,
-			existingBodyUrlEncoded: existingBodyUrlEncoded,
+			existingBodyUrlEncoded: *existingBodyUrlEncoded,
+			workspaceID:            httpEntry.WorkspaceID,
 			item:                   item,
 		})
 	}
 
-	// Step 2: Prepare updates (in memory)
-	var preparedUpdates []struct {
-		deltaID          idwrap.IDWrap
-		deltaKey         *string
-		deltaValue       *string
-		deltaEnabled     *bool
-		deltaDescription *string
-		deltaOrder       *float32
+	// ACT: Update using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	var patches []patch.HTTPBodyUrlEncodedPatch
+	defer mut.Rollback()
 
 	for _, data := range updateData {
 		item := data.item
@@ -736,64 +781,33 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 			}
 		}
 
-		patches = append(patches, patchData)
-		preparedUpdates = append(preparedUpdates, struct {
-			deltaID          idwrap.IDWrap
-			deltaKey         *string
-			deltaValue       *string
-			deltaEnabled     *bool
-			deltaDescription *string
-			deltaOrder       *float32
-		}{
-			deltaID:          data.deltaID,
-			deltaKey:         deltaKey,
-			deltaValue:       deltaValue,
-			deltaEnabled:     deltaEnabled,
-			deltaDescription: deltaDescription,
-			deltaOrder:       deltaOrder,
-		})
-	}
-
-	// Step 3: Execute updates in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
-
-	for _, update := range preparedUpdates {
-		if err := httpBodyUrlEncodedService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+		bodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(mut.TX())
+		if err := mut.UpdateHTTPBodyUrlEncodedDelta(ctx, mutation.HTTPBodyUrlEncodedDeltaUpdateItem{
+			ID:          data.deltaID,
+			HttpID:      data.existingBodyUrlEncoded.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPBodyUrlEncodedDeltaParams{
+				ID:                data.deltaID,
+				DeltaKey:          ptrToNullString(deltaKey),
+				DeltaValue:        ptrToNullString(deltaValue),
+				DeltaEnabled:      deltaEnabled,
+				DeltaDescription:  deltaDescription,
+				DeltaDisplayOrder: ptrToNullFloat64(deltaOrder),
+			},
+			Patch: patchData,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated body url encoded for event publishing (from TX service)
-		updatedBodyUrlEncoded, err := httpBodyUrlEncodedService.GetByID(ctx, update.deltaID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Update payload in tracked event
+		updated, err := bodyUrlEncodedService.GetByID(ctx, data.deltaID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
 		}
-		updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *updatedBodyUrlEncoded)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish update events for real-time sync after successful commit
-	for i, bodyUrlEncoded := range updatedBodyUrlEncodeds {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, bodyUrlEncoded.HttpID)
-		if err != nil {
-			continue
-		}
-		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
-			Type:               eventTypeUpdate,
-			IsDelta:            true,
-			Patch:              patches[i],
-			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -805,11 +819,13 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		deltaID                idwrap.IDWrap
-		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-		workspaceID            idwrap.IDWrap
+	type deleteItem struct {
+		deltaID     idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		bodyUrl     mhttp.HTTPBodyUrlencoded
 	}
+	deleteData := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpBodyUrlEncodedId) == 0 {
@@ -846,48 +862,38 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			deltaID                idwrap.IDWrap
-			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
-			workspaceID            idwrap.IDWrap
-		}{
-			deltaID:                deltaID,
-			existingBodyUrlEncoded: existingBodyUrlEncoded,
-			workspaceID:            httpEntry.WorkspaceID,
+		deleteData = append(deleteData, deleteItem{
+			deltaID:     deltaID,
+			httpID:      existingBodyUrlEncoded.HttpID,
+			workspaceID: httpEntry.WorkspaceID,
+			bodyUrl:     *existingBodyUrlEncoded,
 		})
 	}
 
 	// Step 2: Execute deletes in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
-	var deletedWorkspaceIDs []idwrap.IDWrap
+	defer mut.Rollback()
 
 	for _, data := range deleteData {
-		// Delete the delta record
-		if err := httpBodyUrlEncodedService.Delete(ctx, data.deltaID); err != nil {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPBodyURL,
+			Op:          mutation.OpDelete,
+			ID:          data.deltaID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Payload:     data.bodyUrl,
+		})
+		if err := mut.Queries().DeleteHTTPBodyUrlEncoded(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedBodyUrlEncodeds = append(deletedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync after successful commit
-	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
-		h.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
-			Type:               eventTypeDelete,
-			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

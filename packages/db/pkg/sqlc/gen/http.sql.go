@@ -1927,6 +1927,52 @@ func (q *Queries) GetHTTPAssertsByHttpID(ctx context.Context, httpID idwrap.IDWr
 	return items, nil
 }
 
+const getHTTPAssertsByHttpIDs = `-- name: GetHTTPAssertsByHttpIDs :many
+SELECT id, http_id, is_delta
+FROM http_assert
+WHERE http_id IN (/*SLICE:http_ids*/?)
+`
+
+type GetHTTPAssertsByHttpIDsRow struct {
+	ID      idwrap.IDWrap
+	HttpID  idwrap.IDWrap
+	IsDelta bool
+}
+
+// Batch query for cascade collection - fetches all asserts for multiple HTTP entries
+func (q *Queries) GetHTTPAssertsByHttpIDs(ctx context.Context, httpIds []idwrap.IDWrap) ([]GetHTTPAssertsByHttpIDsRow, error) {
+	query := getHTTPAssertsByHttpIDs
+	var queryParams []interface{}
+	if len(httpIds) > 0 {
+		for _, v := range httpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(httpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPAssertsByHttpIDsRow{}
+	for rows.Next() {
+		var i GetHTTPAssertsByHttpIDsRow
+		if err := rows.Scan(&i.ID, &i.HttpID, &i.IsDelta); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPAssertsByIDs = `-- name: GetHTTPAssertsByIDs :many
 SELECT
   id,
@@ -2279,6 +2325,52 @@ func (q *Queries) GetHTTPBodyForms(ctx context.Context, httpID idwrap.IDWrap) ([
 	return items, nil
 }
 
+const getHTTPBodyFormsByHttpIDs = `-- name: GetHTTPBodyFormsByHttpIDs :many
+SELECT id, http_id, is_delta
+FROM http_body_form
+WHERE http_id IN (/*SLICE:http_ids*/?)
+`
+
+type GetHTTPBodyFormsByHttpIDsRow struct {
+	ID      idwrap.IDWrap
+	HttpID  idwrap.IDWrap
+	IsDelta bool
+}
+
+// Batch query for cascade collection - fetches all body forms for multiple HTTP entries
+func (q *Queries) GetHTTPBodyFormsByHttpIDs(ctx context.Context, httpIds []idwrap.IDWrap) ([]GetHTTPBodyFormsByHttpIDsRow, error) {
+	query := getHTTPBodyFormsByHttpIDs
+	var queryParams []interface{}
+	if len(httpIds) > 0 {
+		for _, v := range httpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(httpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPBodyFormsByHttpIDsRow{}
+	for rows.Next() {
+		var i GetHTTPBodyFormsByHttpIDsRow
+		if err := rows.Scan(&i.ID, &i.HttpID, &i.IsDelta); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPBodyFormsByIDs = `-- name: GetHTTPBodyFormsByIDs :many
 SELECT
   id,
@@ -2443,6 +2535,52 @@ func (q *Queries) GetHTTPBodyRawByID(ctx context.Context, id idwrap.IDWrap) (Htt
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getHTTPBodyRawsByHttpIDs = `-- name: GetHTTPBodyRawsByHttpIDs :many
+SELECT id, http_id, is_delta
+FROM http_body_raw
+WHERE http_id IN (/*SLICE:http_ids*/?)
+`
+
+type GetHTTPBodyRawsByHttpIDsRow struct {
+	ID      idwrap.IDWrap
+	HttpID  idwrap.IDWrap
+	IsDelta bool
+}
+
+// Batch query for cascade collection - fetches all body raws for multiple HTTP entries
+func (q *Queries) GetHTTPBodyRawsByHttpIDs(ctx context.Context, httpIds []idwrap.IDWrap) ([]GetHTTPBodyRawsByHttpIDsRow, error) {
+	query := getHTTPBodyRawsByHttpIDs
+	var queryParams []interface{}
+	if len(httpIds) > 0 {
+		for _, v := range httpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(httpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPBodyRawsByHttpIDsRow{}
+	for rows.Next() {
+		var i GetHTTPBodyRawsByHttpIDsRow
+		if err := rows.Scan(&i.ID, &i.HttpID, &i.IsDelta); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getHTTPBodyUrlEncoded = `-- name: GetHTTPBodyUrlEncoded :one
@@ -2616,6 +2754,52 @@ func (q *Queries) GetHTTPBodyUrlEncodedsByIDs(ctx context.Context, ids []idwrap.
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPBodyUrlencodedsByHttpIDs = `-- name: GetHTTPBodyUrlencodedsByHttpIDs :many
+SELECT id, http_id, is_delta
+FROM http_body_urlencoded
+WHERE http_id IN (/*SLICE:http_ids*/?)
+`
+
+type GetHTTPBodyUrlencodedsByHttpIDsRow struct {
+	ID      idwrap.IDWrap
+	HttpID  idwrap.IDWrap
+	IsDelta bool
+}
+
+// Batch query for cascade collection - fetches all body urlencoded for multiple HTTP entries
+func (q *Queries) GetHTTPBodyUrlencodedsByHttpIDs(ctx context.Context, httpIds []idwrap.IDWrap) ([]GetHTTPBodyUrlencodedsByHttpIDsRow, error) {
+	query := getHTTPBodyUrlencodedsByHttpIDs
+	var queryParams []interface{}
+	if len(httpIds) > 0 {
+		for _, v := range httpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(httpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPBodyUrlencodedsByHttpIDsRow{}
+	for rows.Next() {
+		var i GetHTTPBodyUrlencodedsByHttpIDsRow
+		if err := rows.Scan(&i.ID, &i.HttpID, &i.IsDelta); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2946,6 +3130,52 @@ func (q *Queries) GetHTTPHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]H
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPHeadersByHttpIDs = `-- name: GetHTTPHeadersByHttpIDs :many
+SELECT id, http_id, is_delta
+FROM http_header
+WHERE http_id IN (/*SLICE:http_ids*/?)
+`
+
+type GetHTTPHeadersByHttpIDsRow struct {
+	ID      idwrap.IDWrap
+	HttpID  idwrap.IDWrap
+	IsDelta bool
+}
+
+// Batch query for cascade collection - fetches all headers for multiple HTTP entries
+func (q *Queries) GetHTTPHeadersByHttpIDs(ctx context.Context, httpIds []idwrap.IDWrap) ([]GetHTTPHeadersByHttpIDsRow, error) {
+	query := getHTTPHeadersByHttpIDs
+	var queryParams []interface{}
+	if len(httpIds) > 0 {
+		for _, v := range httpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(httpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPHeadersByHttpIDsRow{}
+	for rows.Next() {
+		var i GetHTTPHeadersByHttpIDsRow
+		if err := rows.Scan(&i.ID, &i.HttpID, &i.IsDelta); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -3879,6 +4109,52 @@ func (q *Queries) GetHTTPSearchParams(ctx context.Context, httpID idwrap.IDWrap)
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPSearchParamsByHttpIDs = `-- name: GetHTTPSearchParamsByHttpIDs :many
+SELECT id, http_id, is_delta
+FROM http_search_param
+WHERE http_id IN (/*SLICE:http_ids*/?)
+`
+
+type GetHTTPSearchParamsByHttpIDsRow struct {
+	ID      idwrap.IDWrap
+	HttpID  idwrap.IDWrap
+	IsDelta bool
+}
+
+// Batch query for cascade collection - fetches all params for multiple HTTP entries
+func (q *Queries) GetHTTPSearchParamsByHttpIDs(ctx context.Context, httpIds []idwrap.IDWrap) ([]GetHTTPSearchParamsByHttpIDsRow, error) {
+	query := getHTTPSearchParamsByHttpIDs
+	var queryParams []interface{}
+	if len(httpIds) > 0 {
+		for _, v := range httpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(httpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPSearchParamsByHttpIDsRow{}
+	for rows.Next() {
+		var i GetHTTPSearchParamsByHttpIDsRow
+		if err := rows.Scan(&i.ID, &i.HttpID, &i.IsDelta); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

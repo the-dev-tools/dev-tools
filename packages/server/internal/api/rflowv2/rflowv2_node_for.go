@@ -11,10 +11,9 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/txutil"
+	"the-dev-tools/server/pkg/mutation"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -57,10 +56,11 @@ func (s *FlowServiceV2RPC) NodeForCollection(
 func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Request[flowv1.NodeForInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type insertData struct {
-		nodeID   idwrap.IDWrap
-		model    mflow.NodeFor
-		baseNode *mflow.Node
-		flowID   idwrap.IDWrap
+		nodeID      idwrap.IDWrap
+		model       mflow.NodeFor
+		baseNode    *mflow.Node
+		flowID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
 	}
 	var validatedItems []insertData
 
@@ -82,33 +82,36 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 		baseNode, _ := s.ns.GetNode(ctx, nodeID)
 
 		var flowID idwrap.IDWrap
+		var workspaceID idwrap.IDWrap
 		if baseNode != nil {
 			flowID = baseNode.FlowID
+			flow, err := s.fsReader.GetFlow(ctx, flowID)
+			if err == nil {
+				workspaceID = flow.WorkspaceID
+			}
 		}
 
 		validatedItems = append(validatedItems, insertData{
-			nodeID:   nodeID,
-			model:    model,
-			baseNode: baseNode,
-			flowID:   flowID,
+			nodeID:      nodeID,
+			model:       model,
+			baseNode:    baseNode,
+			flowID:      flowID,
+			workspaceID: workspaceID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkInsertTx[nodeForWithFlow, ForTopic](
-		tx,
-		func(nfwf nodeForWithFlow) ForTopic {
-			return ForTopic{FlowID: nfwf.flowID}
-		},
-	)
-
-	nfsWriter := s.nfs.TX(tx)
+	nfsWriter := s.nfs.TX(mut.TX())
 
 	// 3. Execute all inserts in transaction
 	for _, data := range validatedItems {
@@ -118,15 +121,19 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 
 		// Only track for event publishing if base node exists
 		if data.baseNode != nil {
-			syncTx.Track(nodeForWithFlow{
-				nodeFor: data.model,
-				flowID:  data.flowID,
+			mut.Track(mutation.Event{
+				Entity:      mutation.EntityFlowNodeFor,
+				Op:          mutation.OpInsert,
+				ID:          data.nodeID,
+				WorkspaceID: data.workspaceID,
+				ParentID:    data.flowID,
+				Payload:     data.model,
 			})
 		}
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeForInsert); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -136,9 +143,10 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Request[flowv1.NodeForUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type updateData struct {
-		nodeID   idwrap.IDWrap
-		updated  mflow.NodeFor
-		baseNode *mflow.Node
+		nodeID      idwrap.IDWrap
+		updated     mflow.NodeFor
+		baseNode    *mflow.Node
+		workspaceID idwrap.IDWrap
 	}
 	var validatedItems []updateData
 
@@ -151,6 +159,12 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
+		}
+
+		// Get workspace ID for the flow
+		flow, err := s.fsReader.GetFlow(ctx, baseNode.FlowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		existing, err := s.nfs.GetNodeFor(ctx, nodeID)
@@ -177,27 +191,25 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 		}
 
 		validatedItems = append(validatedItems, updateData{
-			nodeID:   nodeID,
-			updated:  *existing,
-			baseNode: baseNode,
+			nodeID:      nodeID,
+			updated:     *existing,
+			baseNode:    baseNode,
+			workspaceID: flow.WorkspaceID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkUpdateTx[nodeForWithFlow, nodeForPatch, ForTopic](
-		tx,
-		func(nfwf nodeForWithFlow) ForTopic {
-			return ForTopic{FlowID: nfwf.flowID}
-		},
-	)
-
-	nfsWriter := s.nfs.TX(tx)
+	nfsWriter := s.nfs.TX(mut.TX())
 
 	// 3. Execute all updates in transaction
 	for _, data := range validatedItems {
@@ -205,17 +217,18 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		syncTx.Track(
-			nodeForWithFlow{
-				nodeFor: data.updated,
-				flowID:  data.baseNode.FlowID,
-			},
-			nodeForPatch{}, // Empty patch - not used for NodeFor
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlowNodeFor,
+			Op:          mutation.OpUpdate,
+			ID:          data.nodeID,
+			WorkspaceID: data.workspaceID,
+			ParentID:    data.baseNode.FlowID,
+			Payload:     data.updated,
+		})
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkNodeForUpdate); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -225,9 +238,8 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 func (s *FlowServiceV2RPC) NodeForDelete(ctx context.Context, req *connect.Request[flowv1.NodeForDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type deleteData struct {
-		nodeID      idwrap.IDWrap
-		existingFor *mflow.NodeFor
-		baseNode    *mflow.Node
+		nodeID idwrap.IDWrap
+		flowID idwrap.IDWrap
 	}
 	var validatedItems []deleteData
 
@@ -242,51 +254,39 @@ func (s *FlowServiceV2RPC) NodeForDelete(ctx context.Context, req *connect.Reque
 			return nil, err
 		}
 
-		// Get existing For node to publish delete event
-		existingFor, err := s.nfs.GetNodeFor(ctx, nodeID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
 		validatedItems = append(validatedItems, deleteData{
-			nodeID:      nodeID,
-			existingFor: existingFor,
-			baseNode:    baseNode,
+			nodeID: nodeID,
+			flowID: baseNode.FlowID,
 		})
 	}
 
-	// 2. Begin transaction
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	nfsWriter := s.nfs.TX(tx)
-	var deletedNodes []nodeForWithFlow
+	defer mut.Rollback()
 
 	// 3. Execute all deletes in transaction
 	for _, data := range validatedItems {
-		if err := nfsWriter.DeleteNodeFor(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		mut.Track(mutation.Event{
+			Entity:   mutation.EntityFlowNodeFor,
+			Op:       mutation.OpDelete,
+			ID:       data.nodeID,
+			ParentID: data.flowID,
+		})
+		if err := mut.Queries().DeleteFlowNodeFor(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		if data.existingFor != nil {
-			deletedNodes = append(deletedNodes, nodeForWithFlow{
-				nodeFor: *data.existingFor,
-				flowID:  data.baseNode.FlowID,
-			})
-		}
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit
-	for _, node := range deletedNodes {
-		s.publishForEvent(forEventDelete, node.flowID, node.nodeFor)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -350,18 +350,6 @@ func (s *FlowServiceV2RPC) streamNodeForSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishForEvent(eventType string, flowID idwrap.IDWrap, node mflow.NodeFor) {
-	if s.forStream == nil {
-		return
-	}
-
-	nodePB := serializeNodeFor(node)
-	s.forStream.Publish(ForTopic{FlowID: flowID}, ForEvent{
-		Type:   eventType,
-		FlowID: flowID,
-		Node:   nodePB,
-	})
-}
 
 func forEventToSyncResponse(evt ForEvent) *flowv1.NodeForSyncResponse {
 	if evt.Node == nil {

@@ -8,6 +8,7 @@ package gen
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
 )
@@ -102,6 +103,31 @@ func (q *Queries) GetFile(ctx context.Context, id idwrap.IDWrap) (File, error) {
 	return i, err
 }
 
+const getFileByContentID = `-- name: GetFileByContentID :one
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
+FROM files
+WHERE content_id = ?
+LIMIT 1
+`
+
+// Find file that references a specific content (HTTP, Flow, etc.)
+func (q *Queries) GetFileByContentID(ctx context.Context, contentID *idwrap.IDWrap) (File, error) {
+	row := q.queryRow(ctx, q.getFileByContentIDStmt, getFileByContentID, contentID)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ParentID,
+		&i.ContentID,
+		&i.ContentKind,
+		&i.Name,
+		&i.DisplayOrder,
+		&i.PathHash,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getFileWithContent = `-- name: GetFileWithContent :one
 SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, path_hash, updated_at
 FROM files
@@ -138,6 +164,58 @@ func (q *Queries) GetFileWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idw
 	var workspace_id idwrap.IDWrap
 	err := row.Scan(&workspace_id)
 	return workspace_id, err
+}
+
+const getFilesByContentIDs = `-- name: GetFilesByContentIDs :many
+SELECT id, workspace_id, content_id, content_kind
+FROM files
+WHERE content_id IN (/*SLICE:content_ids*/?)
+`
+
+type GetFilesByContentIDsRow struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	ContentID   *idwrap.IDWrap
+	ContentKind int8
+}
+
+// Batch query to find files that reference multiple content IDs
+func (q *Queries) GetFilesByContentIDs(ctx context.Context, contentIds []*idwrap.IDWrap) ([]GetFilesByContentIDsRow, error) {
+	query := getFilesByContentIDs
+	var queryParams []interface{}
+	if len(contentIds) > 0 {
+		for _, v := range contentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:content_ids*/?", strings.Repeat(",?", len(contentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:content_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetFilesByContentIDsRow{}
+	for rows.Next() {
+		var i GetFilesByContentIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ContentID,
+			&i.ContentKind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getFilesByParentID = `-- name: GetFilesByParentID :many

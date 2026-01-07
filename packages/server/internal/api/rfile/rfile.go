@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/suser"
@@ -30,6 +31,30 @@ const (
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 )
+
+// filePublisher implements mutation.Publisher for file-related events.
+// It routes mutation events to the appropriate eventstream for real-time sync.
+type filePublisher struct {
+	stream eventstream.SyncStreamer[FileTopic, FileEvent]
+}
+
+// PublishAll publishes all mutation events to the file event stream.
+func (p *filePublisher) PublishAll(events []mutation.Event) {
+	for _, evt := range events {
+		if evt.Op != mutation.OpDelete {
+			continue
+		}
+		if evt.Entity == mutation.EntityFile {
+			p.stream.Publish(FileTopic{WorkspaceID: evt.WorkspaceID}, FileEvent{
+				Type: eventTypeDelete,
+				File: &apiv1.File{
+					FileId:      evt.ID.Bytes(),
+					WorkspaceId: evt.WorkspaceID.Bytes(),
+				},
+			})
+		}
+	}
+}
 
 type FileTopic struct {
 	WorkspaceID idwrap.IDWrap
@@ -58,7 +83,9 @@ type FileServiceRPCServices struct {
 }
 
 func (s *FileServiceRPCServices) Validate() error {
-	if s.File == nil { return fmt.Errorf("file service is required") }
+	if s.File == nil {
+		return fmt.Errorf("file service is required")
+	}
 	return nil
 }
 
@@ -69,9 +96,15 @@ type FileServiceRPCDeps struct {
 }
 
 func (d *FileServiceRPCDeps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if err := d.Services.Validate(); err != nil { return err }
-	if d.Stream == nil { return fmt.Errorf("stream is required") }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if d.Stream == nil {
+		return fmt.Errorf("stream is required")
+	}
 	return nil
 }
 
@@ -611,22 +644,21 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// FileDelete deletes files
+// FileDelete deletes files and their associated content (HTTP/Flow) using the mutation system.
+// The mutation system handles cascade deletion and auto-publishes events for sync.
 func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[apiv1.FileDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one file must be provided"))
 	}
 
-	var filesToDelete []*mfile.File
-
-	// Step 1: Validate and check permissions OUTSIDE transaction
+	// FETCH: Get file data and build delete items (outside transaction)
+	deleteItems := make([]mutation.FileDeleteItem, 0, len(req.Msg.Items))
 	for _, fileDelete := range req.Msg.Items {
 		fileID, err := idwrap.NewFromBytes(fileDelete.FileId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing file for workspace permission check and event publishing
 		existingFile, err := f.fs.GetFile(ctx, fileID)
 		if err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
@@ -635,50 +667,36 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check workspace permissions
+		// CHECK: Validate permissions
 		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		filesToDelete = append(filesToDelete, existingFile)
-	}
-
-	// Step 2: Minimal write transaction
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	fileWriter := sfile.NewWriter(tx, nil)
-	var deletedFiles []mfile.File
-
-	for _, file := range filesToDelete {
-		// Delete file
-		if err := fileWriter.DeleteFile(ctx, file.ID); err != nil {
-			if errors.Is(err, sfile.ErrFileNotFound) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		deletedFiles = append(deletedFiles, *file)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish events for real-time sync
-	for _, file := range deletedFiles {
-		f.stream.Publish(FileTopic{WorkspaceID: file.WorkspaceID}, FileEvent{
-			Type: eventTypeDelete,
-			File: &apiv1.File{
-				FileId:      file.ID.Bytes(),
-				WorkspaceId: file.WorkspaceID.Bytes(),
-			},
+		deleteItems = append(deleteItems, mutation.FileDeleteItem{
+			ID:          existingFile.ID,
+			WorkspaceID: existingFile.WorkspaceID,
+			ContentID:   existingFile.ContentID,
+			ContentKind: existingFile.ContentType,
 		})
+	}
+
+	// ACT: Delete files and content using mutation context with auto-publish
+	mut := mutation.New(f.DB, mutation.WithPublisher(&filePublisher{stream: f.stream}))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	if err := mut.DeleteFileBatch(ctx, deleteItems); err != nil {
+		if errors.Is(err, sfile.ErrFileNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -909,22 +927,21 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// FolderDelete deletes folders
+// FolderDelete deletes folders using the mutation system.
+// The mutation system handles cascade deletion and auto-publishes events for sync.
 func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[apiv1.FolderDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one folder must be provided"))
 	}
 
-	var foldersToDelete []*mfile.File
-
-	// Step 1: Validate and check permissions OUTSIDE transaction
+	// FETCH: Get folder data and build delete items (outside transaction)
+	deleteItems := make([]mutation.FileDeleteItem, 0, len(req.Msg.Items))
 	for _, folderDelete := range req.Msg.Items {
 		folderID, err := idwrap.NewFromBytes(folderDelete.FolderId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing folder for workspace permission check and event publishing
 		existingFolder, err := f.fs.GetFile(ctx, folderID)
 		if err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
@@ -938,50 +955,36 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("not a folder"))
 		}
 
-		// Check workspace permissions
+		// CHECK: Validate permissions
 		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		foldersToDelete = append(foldersToDelete, existingFolder)
-	}
-
-	// Step 2: Minimal write transaction
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	fileWriter := sfile.NewWriter(tx, nil)
-	var deletedFolders []mfile.File
-
-	for _, folder := range foldersToDelete {
-		// Delete folder
-		if err := fileWriter.DeleteFile(ctx, folder.ID); err != nil {
-			if errors.Is(err, sfile.ErrFileNotFound) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		deletedFolders = append(deletedFolders, *folder)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish events for real-time sync
-	for _, folder := range deletedFolders {
-		f.stream.Publish(FileTopic{WorkspaceID: folder.WorkspaceID}, FileEvent{
-			Type: eventTypeDelete,
-			File: &apiv1.File{
-				FileId:      folder.ID.Bytes(),
-				WorkspaceId: folder.WorkspaceID.Bytes(),
-			},
+		deleteItems = append(deleteItems, mutation.FileDeleteItem{
+			ID:          existingFolder.ID,
+			WorkspaceID: existingFolder.WorkspaceID,
+			ContentID:   existingFolder.ContentID,
+			ContentKind: existingFolder.ContentType,
 		})
+	}
+
+	// ACT: Delete folders using mutation context with auto-publish
+	mut := mutation.New(f.DB, mutation.WithPublisher(&filePublisher{stream: f.stream}))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	if err := mut.DeleteFileBatch(ctx, deleteItems); err != nil {
+		if errors.Is(err, sfile.ErrFileNotFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

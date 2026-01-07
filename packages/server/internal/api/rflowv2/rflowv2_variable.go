@@ -11,12 +11,10 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -49,7 +47,12 @@ func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *conn
 
 func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.Request[flowv1.FlowVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
-	var validatedVariables []mflow.FlowVariable
+	type insertData struct {
+		variable    mflow.FlowVariable
+		flowID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+	}
+	var validatedItems []insertData
 
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
@@ -63,6 +66,12 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 
 		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 			return nil, err
+		}
+
+		// Get workspace ID for the flow
+		flow, err := s.fsReader.GetFlow(ctx, flowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		variableID := idwrap.NewNow()
@@ -88,39 +97,44 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 			Order:       float64(item.GetOrder()),
 		}
 
-		validatedVariables = append(validatedVariables, variable)
-	}
-
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	syncTx := txutil.NewBulkInsertTx[variableWithFlow, FlowVariableTopic](
-		tx,
-		func(vwf variableWithFlow) FlowVariableTopic {
-			return FlowVariableTopic{FlowID: vwf.flowID}
-		},
-	)
-
-	varWriter := s.fvs.TX(tx)
-
-	// 3. Execute all inserts in transaction
-	for _, variable := range validatedVariables {
-		if err := varWriter.CreateFlowVariable(ctx, variable); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		syncTx.Track(variableWithFlow{
-			variable: variable,
-			flowID:   variable.FlowID,
+		validatedItems = append(validatedItems, insertData{
+			variable:    variable,
+			flowID:      flowID,
+			workspaceID: flow.WorkspaceID,
 		})
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowVariableInsert); err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	varWriter := s.fvs.TX(mut.TX())
+
+	// 3. Execute all inserts in transaction
+	for _, data := range validatedItems {
+		if err := varWriter.CreateFlowVariable(ctx, data.variable); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlowVariable,
+			Op:          mutation.OpInsert,
+			ID:          data.variable.ID,
+			WorkspaceID: data.workspaceID,
+			ParentID:    data.flowID,
+			Payload:     data.variable,
+		})
+	}
+
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -130,9 +144,10 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.Request[flowv1.FlowVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type updateData struct {
-		variable      mflow.FlowVariable
-		variablePatch patch.FlowVariablePatch
-		updateOrder   bool
+		variable    mflow.FlowVariable
+		flowID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		updateOrder bool
 	}
 	var validatedUpdates []updateData
 
@@ -158,6 +173,12 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			return nil, err
 		}
 
+		// Get workspace ID for the flow
+		flow, err := s.fsReader.GetFlow(ctx, variable.FlowID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		if len(item.GetFlowId()) != 0 {
 			requestedFlowID, err := idwrap.NewFromBytes(item.GetFlowId())
 			if err != nil || requestedFlowID != variable.FlowID {
@@ -165,61 +186,52 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			}
 		}
 
-		variablePatch := patch.FlowVariablePatch{}
-
 		if item.Key != nil {
 			key := strings.TrimSpace(item.GetKey())
 			if key == "" {
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable key cannot be empty"))
 			}
 			variable.Name = key
-			variablePatch.Name = patch.NewOptional(key)
 		}
 
 		if item.Value != nil {
 			variable.Value = item.GetValue()
-			variablePatch.Value = patch.NewOptional(item.GetValue())
 		}
 
 		if item.Enabled != nil {
 			variable.Enabled = item.GetEnabled()
-			variablePatch.Enabled = patch.NewOptional(item.GetEnabled())
 		}
 
 		if item.Description != nil {
 			variable.Description = item.GetDescription()
-			variablePatch.Description = patch.NewOptional(item.GetDescription())
 		}
 
 		updateOrder := false
 		if item.Order != nil {
 			variable.Order = float64(item.GetOrder())
-			variablePatch.Order = patch.NewOptional(variable.Order)
 			updateOrder = true
 		}
 
 		validatedUpdates = append(validatedUpdates, updateData{
-			variable:      variable,
-			variablePatch: variablePatch,
-			updateOrder:   updateOrder,
+			variable:    variable,
+			flowID:      variable.FlowID,
+			workspaceID: flow.WorkspaceID,
+			updateOrder: updateOrder,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedUpdates) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkUpdateTx[variableWithFlow, patch.FlowVariablePatch, FlowVariableTopic](
-		tx,
-		func(vwf variableWithFlow) FlowVariableTopic {
-			return FlowVariableTopic{FlowID: vwf.flowID}
-		},
-	)
-
-	varWriter := s.fvs.TX(tx)
+	varWriter := s.fvs.TX(mut.TX())
 
 	// 3. Execute all updates in transaction
 	for _, data := range validatedUpdates {
@@ -233,17 +245,18 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		syncTx.Track(
-			variableWithFlow{
-				variable: data.variable,
-				flowID:   data.variable.FlowID,
-			},
-			data.variablePatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlowVariable,
+			Op:          mutation.OpUpdate,
+			ID:          data.variable.ID,
+			WorkspaceID: data.workspaceID,
+			ParentID:    data.flowID,
+			Payload:     data.variable,
+		})
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowVariableUpdate); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -254,7 +267,7 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type deleteData struct {
 		variableID idwrap.IDWrap
-		variable   mflow.FlowVariable
+		flowID     idwrap.IDWrap
 	}
 	var validatedDeletes []deleteData
 
@@ -278,37 +291,36 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 
 		validatedDeletes = append(validatedDeletes, deleteData{
 			variableID: variableID,
-			variable:   variable,
+			flowID:     variable.FlowID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedDeletes) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, FlowVariableTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) FlowVariableTopic {
-			return FlowVariableTopic{FlowID: evt.WorkspaceID} // WorkspaceID field is reused for FlowID
-		},
-	)
-
-	varWriter := s.fvs.TX(tx)
+	defer mut.Rollback()
 
 	// 3. Execute all deletes in transaction
 	for _, data := range validatedDeletes {
-		if err := varWriter.DeleteFlowVariable(ctx, data.variableID); err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
+		mut.Track(mutation.Event{
+			Entity:   mutation.EntityFlowVariable,
+			Op:       mutation.OpDelete,
+			ID:       data.variableID,
+			ParentID: data.flowID,
+		})
+		if err := mut.Queries().DeleteFlowVariable(ctx, data.variableID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		syncTx.Track(data.variableID, data.variable.FlowID, false)
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowVariableDelete); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

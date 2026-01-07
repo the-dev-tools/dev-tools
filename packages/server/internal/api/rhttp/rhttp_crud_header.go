@@ -4,86 +4,22 @@ package rhttp
 import (
 	"context"
 	"errors"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
-	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
-
-// headerWithWorkspace is a context carrier that pairs a header with its workspace ID.
-// This is needed because HTTPHeader doesn't store WorkspaceID directly, but we need it
-// for topic extraction during bulk sync event publishing.
-type headerWithWorkspace struct {
-	header      mhttp.HTTPHeader
-	workspaceID idwrap.IDWrap
-}
-
-// publishBulkHeaderInsert publishes multiple header insert events in bulk.
-// Items are already grouped by HttpHeaderTopic by the BulkSyncTxInsert wrapper.
-func (h *HttpServiceRPC) publishBulkHeaderInsert(
-	topic HttpHeaderTopic,
-	items []headerWithWorkspace,
-) {
-	// Convert to event slice for variadic publish
-	events := make([]HttpHeaderEvent, len(items))
-	for i, item := range items {
-		events[i] = HttpHeaderEvent{
-			Type:       eventTypeInsert,
-			IsDelta:    item.header.IsDelta,
-			HttpHeader: converter.ToAPIHttpHeader(item.header),
-		}
-	}
-
-	// Single bulk publish for entire batch
-	h.streamers.HttpHeader.Publish(topic, events...)
-}
-
-// publishBulkHeaderUpdate publishes multiple header update events in bulk.
-// Items are already grouped by HttpHeaderTopic by the BulkSyncTxUpdate wrapper.
-func (h *HttpServiceRPC) publishBulkHeaderUpdate(
-	topic HttpHeaderTopic,
-	events []txutil.UpdateEvent[headerWithWorkspace, patch.HTTPHeaderPatch],
-) {
-	headerEvents := make([]HttpHeaderEvent, len(events))
-	for i, evt := range events {
-		headerEvents[i] = HttpHeaderEvent{
-			Type:       eventTypeUpdate,
-			IsDelta:    evt.Item.header.IsDelta,
-			HttpHeader: converter.ToAPIHttpHeader(evt.Item.header),
-			Patch:      evt.Patch, // Partial updates preserved!
-		}
-	}
-	h.streamers.HttpHeader.Publish(topic, headerEvents...)
-}
-
-// publishBulkHeaderDelete publishes multiple header delete events in bulk.
-// Items are already grouped by HttpHeaderTopic by the BulkSyncTxDelete wrapper.
-func (h *HttpServiceRPC) publishBulkHeaderDelete(
-	topic HttpHeaderTopic,
-	events []txutil.DeleteEvent[idwrap.IDWrap],
-) {
-	headerEvents := make([]HttpHeaderEvent, len(events))
-	for i, evt := range events {
-		headerEvents[i] = HttpHeaderEvent{
-			Type:    eventTypeDelete,
-			IsDelta: evt.IsDelta,
-			HttpHeader: &apiv1.HttpHeader{
-				HttpHeaderId: evt.ID.Bytes(),
-			},
-		}
-	}
-	h.streamers.HttpHeader.Publish(topic, headerEvents...)
-}
 
 func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpHeaderCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -128,8 +64,8 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
 
-	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
-	var insertData []struct {
+	// FETCH: Process request data and perform all reads/checks OUTSIDE transaction
+	type insertItem struct {
 		headerID    idwrap.IDWrap
 		httpID      idwrap.IDWrap
 		key         string
@@ -139,6 +75,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 		order       float64
 		workspaceID idwrap.IDWrap
 	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
@@ -167,21 +104,12 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		insertData = append(insertData, struct {
-			headerID    idwrap.IDWrap
-			httpID      idwrap.IDWrap
-			key         string
-			value       string
-			enabled     bool
-			description string
-			order       float64
-			workspaceID idwrap.IDWrap
-		}{
+		insertData = append(insertData, insertItem{
 			headerID:    headerID,
 			httpID:      httpID,
 			key:         item.Key,
@@ -193,26 +121,16 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Insert headers using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkInsertTx[headerWithWorkspace, HttpHeaderTopic](
-		tx,
-		func(hww headerWithWorkspace) HttpHeaderTopic {
-			return HttpHeaderTopic{WorkspaceID: hww.workspaceID}
-		},
-	)
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		// Create the header
-		headerModel := &mhttp.HTTPHeader{
+		header := mhttp.HTTPHeader{
 			ID:           data.headerID,
 			HttpID:       data.httpID,
 			Key:          data.key,
@@ -222,19 +140,38 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 			DisplayOrder: float32(data.order),
 		}
 
-		if err := httpHeaderService.Create(ctx, headerModel); err != nil {
+		if err := mut.InsertHTTPHeader(ctx, mutation.HTTPHeaderInsertItem{
+			ID:          data.headerID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPHeaderParams{
+				ID:           data.headerID,
+				HttpID:       data.httpID,
+				HeaderKey:    data.key,
+				HeaderValue:  data.value,
+				Description:  data.description,
+				Enabled:      data.enabled,
+				DisplayOrder: data.order,
+				IsDelta:      false,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context for bulk sync
-		syncTx.Track(headerWithWorkspace{
-			header:      *headerModel,
-			workspaceID: data.workspaceID,
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPHeader,
+			Op:          mutation.OpInsert,
+			ID:          data.headerID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     header,
 		})
 	}
 
-	// Step 3: Commit and bulk publish sync events (grouped by topic)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHeaderInsert); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -246,8 +183,8 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
 
-	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
-	var updateData []struct {
+	// FETCH: Process request data and perform all reads/checks OUTSIDE transaction
+	type updateItem struct {
 		existingHeader mhttp.HTTPHeader
 		key            *string
 		value          *string
@@ -256,6 +193,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 		order          *float32
 		workspaceID    idwrap.IDWrap
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
@@ -282,20 +220,12 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			existingHeader mhttp.HTTPHeader
-			key            *string
-			value          *string
-			enabled        *bool
-			description    *string
-			order          *float32
-			workspaceID    idwrap.IDWrap
-		}{
+		updateData = append(updateData, updateItem{
 			existingHeader: existingHeader,
 			key:            item.Key,
 			value:          item.Value,
@@ -306,22 +236,12 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Update headers using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkUpdateTx[headerWithWorkspace, patch.HTTPHeaderPatch, HttpHeaderTopic](
-		tx,
-		func(hww headerWithWorkspace) HttpHeaderTopic {
-			return HttpHeaderTopic{WorkspaceID: hww.workspaceID}
-		},
-	)
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
+	defer mut.Rollback()
 
 	for _, data := range updateData {
 		header := data.existingHeader
@@ -351,22 +271,36 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			headerPatch.Order = patch.NewOptional(*data.order)
 		}
 
-		if err := httpHeaderService.Update(ctx, &header); err != nil {
+		if err := mut.UpdateHTTPHeader(ctx, mutation.HTTPHeaderUpdateItem{
+			ID:          header.ID,
+			HttpID:      header.HttpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     header.IsDelta,
+			Params: gen.UpdateHTTPHeaderParams{
+				ID:           header.ID,
+				HeaderKey:    header.Key,
+				HeaderValue:  header.Value,
+				Description:  header.Description,
+				Enabled:      header.Enabled,
+				DisplayOrder: float64(header.DisplayOrder),
+			},
+			Patch: headerPatch,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context and patch
-		syncTx.Track(
-			headerWithWorkspace{
-				header:      header,
-				workspaceID: data.workspaceID,
-			},
-			headerPatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPHeader,
+			Op:          mutation.OpUpdate,
+			ID:          header.ID,
+			ParentID:    header.HttpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     header,
+			Patch:       headerPatch,
+		})
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHeaderUpdate); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -378,12 +312,14 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
 
-	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
-	var deleteData []struct {
+	// FETCH: Process request data and perform all reads/checks OUTSIDE transaction
+	type deleteItem struct {
 		headerID    idwrap.IDWrap
+		httpID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
 		isDelta     bool
 	}
+	deleteItems := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
@@ -410,48 +346,41 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access to the workspace
+		// CHECK: Validate delete access to the workspace
 		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			headerID    idwrap.IDWrap
-			workspaceID idwrap.IDWrap
-			isDelta     bool
-		}{
+		deleteItems = append(deleteItems, deleteItem{
 			headerID:    headerID,
+			httpID:      existingHeader.HttpID,
 			workspaceID: httpEntry.WorkspaceID,
 			isDelta:     existingHeader.IsDelta,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Delete headers using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpHeaderTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpHeaderTopic {
-			return HttpHeaderTopic{WorkspaceID: evt.WorkspaceID}
-		},
-	)
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
-	for _, data := range deleteData {
-		if err := httpHeaderService.Delete(ctx, data.headerID); err != nil {
+	for _, item := range deleteItems {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPHeader,
+			Op:          mutation.OpDelete,
+			ID:          item.headerID,
+			ParentID:    item.httpID,
+			WorkspaceID: item.workspaceID,
+			IsDelta:     item.isDelta,
+		})
+		if err := mut.Queries().DeleteHTTPHeader(ctx, item.headerID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		syncTx.Track(data.headerID, data.workspaceID, data.isDelta)
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkHeaderDelete); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

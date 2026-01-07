@@ -16,7 +16,7 @@ import (
 // TestSync_DeleteRobustness verifies that Delete events are published
 // even if the sub-configuration record is already missing from the database.
 func TestSync_DeleteRobustness(t *testing.T) {
-	svc, ctx, _, workspaceID, eventChan := setupTestServiceWithStreams(t)
+	svc, ctx, _, workspaceID, registry := setupTestServiceWithStreams(t)
 
 	// Create flow
 	flowID := idwrap.NewNow()
@@ -49,7 +49,7 @@ func TestSync_DeleteRobustness(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should still receive an event because we publish it to trigger re-fetch
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
+		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
 		require.Len(t, events, 1)
 		assert.Equal(t, nodeEventUpdate, events[0].Type)
 	})
@@ -64,12 +64,9 @@ func TestSync_DeleteRobustness(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// Sub-config is missing. We manually publish a Delete event via the internal helper
-		// to verify the converter logic (since Delete RPC for sub-configs usually follows a record read).
-		
-		// In rflowv2_node_javascript.go, NodeJsDelete first ensures node access, then deletes config.
-		// If config is missing, it still continues to publish the event.
-		
+		// Subscribe to specialized stream
+		ch, _ := svc.jsStream.Subscribe(ctx, nil)
+
 		req := connect.NewRequest(&flowv1.NodeJsDeleteRequest{
 			Items: []*flowv1.NodeJsDelete{{
 				NodeId: nodeID.Bytes(),
@@ -79,13 +76,13 @@ func TestSync_DeleteRobustness(t *testing.T) {
 		_, err = svc.NodeJsDelete(ctx, req)
 		require.NoError(t, err)
 
-		// converter logic (jsEventToSyncResponse) should handle the missing DB record
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1)
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
-		
-		// Now verify the converter directly via stream simulation if needed, 
-		// but svc.NodeJsDelete calling s.publishNodeEvent is the main path.
+		// Wait for sync event
+		select {
+		case evt := <-ch:
+			assert.Equal(t, jsEventDelete, evt.Payload.Type)
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timeout waiting for sync event")
+		}
 	})
 
 	t.Run("NodeCondition Delete robustness", func(t *testing.T) {
@@ -98,6 +95,9 @@ func TestSync_DeleteRobustness(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		// Subscribe to specialized stream
+		ch, _ := svc.conditionStream.Subscribe(ctx, nil)
+
 		req := connect.NewRequest(&flowv1.NodeConditionDeleteRequest{
 			Items: []*flowv1.NodeConditionDelete{{
 				NodeId: nodeID.Bytes(),
@@ -107,9 +107,13 @@ func TestSync_DeleteRobustness(t *testing.T) {
 		_, err = svc.NodeConditionDelete(ctx, req)
 		require.NoError(t, err)
 
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1)
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		// Wait for sync event
+		select {
+		case evt := <-ch:
+			assert.Equal(t, "delete", evt.Payload.Type)
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timeout waiting for sync event")
+		}
 	})
 
 	t.Run("Edge Delete robustness", func(t *testing.T) {

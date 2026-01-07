@@ -4,86 +4,22 @@ package rhttp
 import (
 	"context"
 	"errors"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
-	"the-dev-tools/server/pkg/txutil"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
-
-// assertWithWorkspace is a context carrier that pairs an assert with its workspace ID.
-// This is needed because HTTPAssert doesn't store WorkspaceID directly, but we need it
-// for topic extraction during bulk sync event publishing.
-type assertWithWorkspace struct {
-	assert      mhttp.HTTPAssert
-	workspaceID idwrap.IDWrap
-}
-
-// publishBulkAssertInsert publishes multiple assert insert events in bulk.
-// Items are already grouped by HttpAssertTopic by the BulkSyncTxInsert wrapper.
-func (h *HttpServiceRPC) publishBulkAssertInsert(
-	topic HttpAssertTopic,
-	items []assertWithWorkspace,
-) {
-	// Convert to event slice for variadic publish
-	events := make([]HttpAssertEvent, len(items))
-	for i, item := range items {
-		events[i] = HttpAssertEvent{
-			Type:       eventTypeInsert,
-			IsDelta:    item.assert.IsDelta,
-			HttpAssert: converter.ToAPIHttpAssert(item.assert),
-		}
-	}
-
-	// Single bulk publish for entire batch
-	h.streamers.HttpAssert.Publish(topic, events...)
-}
-
-// publishBulkAssertUpdate publishes multiple assert update events in bulk.
-// Items are already grouped by HttpAssertTopic by the BulkSyncTxUpdate wrapper.
-func (h *HttpServiceRPC) publishBulkAssertUpdate(
-	topic HttpAssertTopic,
-	events []txutil.UpdateEvent[assertWithWorkspace, patch.HTTPAssertPatch],
-) {
-	assertEvents := make([]HttpAssertEvent, len(events))
-	for i, evt := range events {
-		assertEvents[i] = HttpAssertEvent{
-			Type:       eventTypeUpdate,
-			IsDelta:    evt.Item.assert.IsDelta,
-			HttpAssert: converter.ToAPIHttpAssert(evt.Item.assert),
-			Patch:      evt.Patch, // Partial updates preserved!
-		}
-	}
-	h.streamers.HttpAssert.Publish(topic, assertEvents...)
-}
-
-// publishBulkAssertDelete publishes multiple assert delete events in bulk.
-// Items are already grouped by HttpAssertTopic by the BulkSyncTxDelete wrapper.
-func (h *HttpServiceRPC) publishBulkAssertDelete(
-	topic HttpAssertTopic,
-	events []txutil.DeleteEvent[idwrap.IDWrap],
-) {
-	assertEvents := make([]HttpAssertEvent, len(events))
-	for i, evt := range events {
-		assertEvents[i] = HttpAssertEvent{
-			Type:    eventTypeDelete,
-			IsDelta: evt.IsDelta,
-			HttpAssert: &apiv1.HttpAssert{
-				HttpAssertId: evt.ID.Bytes(),
-			},
-		}
-	}
-	h.streamers.HttpAssert.Publish(topic, assertEvents...)
-}
 
 func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpAssertCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -128,11 +64,16 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var insertData []struct {
-		assertModel *mhttp.HTTPAssert
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		assertID    idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		value       string
+		enabled     bool
+		order       float32
 		workspaceID idwrap.IDWrap
 	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
@@ -161,61 +102,70 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		// Create the assert model
-		assertModel := &mhttp.HTTPAssert{
-			ID:           assertID,
-			HttpID:       httpID,
-			Value:        item.Value,
-			Enabled:      item.Enabled,
-			Description:  "",
-			DisplayOrder: item.Order,
-		}
-
-		insertData = append(insertData, struct {
-			assertModel *mhttp.HTTPAssert
-			workspaceID idwrap.IDWrap
-		}{
-			assertModel: assertModel,
+		insertData = append(insertData, insertItem{
+			assertID:    assertID,
+			httpID:      httpID,
+			value:       item.Value,
+			enabled:     item.Enabled,
+			order:       item.Order,
 			workspaceID: httpEntry.WorkspaceID,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Insert asserts using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkInsertTx[assertWithWorkspace, HttpAssertTopic](
-		tx,
-		func(aww assertWithWorkspace) HttpAssertTopic {
-			return HttpAssertTopic{WorkspaceID: aww.workspaceID}
-		},
-	)
-
-	assertWriter := shttp.NewAssertWriter(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		if err := assertWriter.Create(ctx, data.assertModel); err != nil {
+		assert := mhttp.HTTPAssert{
+			ID:           data.assertID,
+			HttpID:       data.httpID,
+			Value:        data.value,
+			Enabled:      data.enabled,
+			Description:  "",
+			DisplayOrder: data.order,
+		}
+
+		if err := mut.InsertHTTPAssert(ctx, mutation.HTTPAssertInsertItem{
+			ID:          data.assertID,
+			HttpID:      data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     false,
+			Params: gen.CreateHTTPAssertParams{
+				ID:           data.assertID,
+				HttpID:       data.httpID,
+				Value:        data.value,
+				Enabled:      data.enabled,
+				Description:  "",
+				DisplayOrder: float64(data.order),
+				IsDelta:      false,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context for bulk sync
-		syncTx.Track(assertWithWorkspace{
-			assert:      *data.assertModel,
-			workspaceID: data.workspaceID,
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPAssert,
+			Op:          mutation.OpInsert,
+			ID:          data.assertID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     assert,
 		})
 	}
 
-	// Step 3: Commit and bulk publish sync events (grouped by topic)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkAssertInsert); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -227,14 +177,15 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
 
-	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
-	var updateData []struct {
-		existingAssert *mhttp.HTTPAssert
+	// FETCH: Process request data and perform all reads/checks OUTSIDE transaction
+	type updateItem struct {
+		existingAssert mhttp.HTTPAssert
 		value          *string
 		enabled        *bool
 		order          *float32
 		workspaceID    idwrap.IDWrap
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
@@ -264,19 +215,13 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
+		// CHECK: Validate write access to the workspace
 		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			existingAssert *mhttp.HTTPAssert
-			value          *string
-			enabled        *bool
-			order          *float32
-			workspaceID    idwrap.IDWrap
-		}{
-			existingAssert: existingAssert,
+		updateData = append(updateData, updateItem{
+			existingAssert: *existingAssert,
 			value:          item.Value,
 			enabled:        item.Enabled,
 			order:          item.Order,
@@ -284,25 +229,16 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Update asserts using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkUpdateTx[assertWithWorkspace, patch.HTTPAssertPatch, HttpAssertTopic](
-		tx,
-		func(aww assertWithWorkspace) HttpAssertTopic {
-			return HttpAssertTopic{WorkspaceID: aww.workspaceID}
-		},
-	)
-
-	assertWriter := shttp.NewAssertWriter(tx)
-
+	now := time.Now().UnixMilli()
 	for _, data := range updateData {
-		assert := *data.existingAssert
+		assert := data.existingAssert
 
 		// Build patch with only changed fields
 		assertPatch := patch.HTTPAssertPatch{}
@@ -321,22 +257,36 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 			assertPatch.Order = patch.NewOptional(*data.order)
 		}
 
-		if err := assertWriter.Update(ctx, &assert); err != nil {
+		if err := mut.UpdateHTTPAssert(ctx, mutation.HTTPAssertUpdateItem{
+			ID:          assert.ID,
+			HttpID:      assert.HttpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     assert.IsDelta,
+			Params: gen.UpdateHTTPAssertParams{
+				ID:           assert.ID,
+				Value:        assert.Value,
+				Enabled:      assert.Enabled,
+				Description:  assert.Description,
+				DisplayOrder: float64(assert.DisplayOrder),
+				UpdatedAt:    now,
+			},
+			Patch: assertPatch,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track with workspace context and patch
-		syncTx.Track(
-			assertWithWorkspace{
-				assert:      assert,
-				workspaceID: data.workspaceID,
-			},
-			assertPatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPAssert,
+			Op:          mutation.OpUpdate,
+			ID:          assert.ID,
+			ParentID:    assert.HttpID,
+			WorkspaceID: data.workspaceID,
+			Payload:     assert,
+			Patch:       assertPatch,
+		})
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkAssertUpdate); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -348,12 +298,14 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
 
-	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		assertID       idwrap.IDWrap
-		existingAssert *mhttp.HTTPAssert
-		workspaceID    idwrap.IDWrap
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type deleteItem struct {
+		ID          idwrap.IDWrap
+		HttpID      idwrap.IDWrap
+		WorkspaceID idwrap.IDWrap
+		IsDelta     bool
 	}
+	deleteItems := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
@@ -383,48 +335,41 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check delete access to the workspace
+		// CHECK: Validate delete access to the workspace
 		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			assertID       idwrap.IDWrap
-			existingAssert *mhttp.HTTPAssert
-			workspaceID    idwrap.IDWrap
-		}{
-			assertID:       assertID,
-			existingAssert: existingAssert,
-			workspaceID:    httpEntry.WorkspaceID,
+		deleteItems = append(deleteItems, deleteItem{
+			ID:          assertID,
+			HttpID:      existingAssert.HttpID,
+			WorkspaceID: httpEntry.WorkspaceID,
+			IsDelta:     existingAssert.IsDelta,
 		})
 	}
 
-	// Step 2: Minimal write transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Delete using mutation context with auto-publish
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	// Create bulk sync wrapper with topic extractor
-	syncTx := txutil.NewBulkDeleteTx[idwrap.IDWrap, HttpAssertTopic](
-		tx,
-		func(evt txutil.DeleteEvent[idwrap.IDWrap]) HttpAssertTopic {
-			return HttpAssertTopic{WorkspaceID: evt.WorkspaceID}
-		},
-	)
-
-	assertWriter := shttp.NewAssertWriter(tx)
-
-	for _, data := range deleteData {
-		if err := assertWriter.Delete(ctx, data.assertID); err != nil {
+	for _, item := range deleteItems {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPAssert,
+			Op:          mutation.OpDelete,
+			ID:          item.ID,
+			ParentID:    item.HttpID,
+			WorkspaceID: item.WorkspaceID,
+			IsDelta:     item.IsDelta,
+		})
+		if err := mut.Queries().DeleteHTTPAssert(ctx, item.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		syncTx.Track(data.assertID, data.workspaceID, data.existingAssert.IsDelta)
 	}
 
-	// Step 3: Commit and bulk publish (grouped by workspace)
-	if err := syncTx.CommitAndPublish(ctx, h.publishBulkAssertDelete); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

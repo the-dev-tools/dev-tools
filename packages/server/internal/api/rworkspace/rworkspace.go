@@ -22,10 +22,12 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
+	envapiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	"the-dev-tools/spec/dist/buf/go/api/workspace/v1/workspacev1connect"
 )
 
@@ -44,6 +46,39 @@ type WorkspaceTopic struct {
 type WorkspaceEvent struct {
 	Type      string
 	Workspace *apiv1.Workspace
+}
+
+// workspacePublisher implements mutation.Publisher for workspace-related events.
+// It routes mutation events to the appropriate eventstreams for real-time sync.
+type workspacePublisher struct {
+	wsStream  eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
+	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+}
+
+// PublishAll publishes all mutation events to the appropriate event streams.
+func (p *workspacePublisher) PublishAll(events []mutation.Event) {
+	for _, evt := range events {
+		//nolint:exhaustive
+		switch evt.Entity {
+		case mutation.EntityWorkspace:
+			p.wsStream.Publish(WorkspaceTopic{WorkspaceID: evt.WorkspaceID}, WorkspaceEvent{
+				Type: eventTypeDelete,
+				Workspace: &apiv1.Workspace{
+					WorkspaceId: evt.ID.Bytes(),
+				},
+			})
+		case mutation.EntityEnvironment:
+			p.envStream.Publish(renv.EnvironmentTopic{WorkspaceID: evt.WorkspaceID}, renv.EnvironmentEvent{
+				Type: eventTypeDelete,
+				Environment: &envapiv1.Environment{
+					EnvironmentId: evt.ID.Bytes(),
+					WorkspaceId:   evt.WorkspaceID.Bytes(),
+				},
+			})
+			// Note: HTTP and Flow events would need their respective streamers.
+			// These are handled separately by their own RPC services if needed.
+		}
+	}
 }
 
 type WorkspaceServiceRPC struct {
@@ -497,7 +532,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Step 1: FETCH and CHECK
+	// FETCH and CHECK: Validate permissions (Owner role required)
 	var validatedDeletes []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
@@ -524,39 +559,27 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 		validatedDeletes = append(validatedDeletes, workspaceID)
 	}
 
-	// Step 2: ACT
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT: Delete workspaces using mutation context with auto-publish
+	mut := mutation.New(c.DB, mutation.WithPublisher(&workspacePublisher{
+		wsStream:  c.stream,
+		envStream: c.envStream,
+	}))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	wsWriter := sworkspace.NewWorkspaceWriter(tx)
-	var deletedIDs []idwrap.IDWrap
-
-	for _, workspaceID := range validatedDeletes {
-		if err := wsWriter.Delete(ctx, workspaceID); err != nil {
+	for _, wsID := range validatedDeletes {
+		if err := mut.DeleteWorkspace(ctx, wsID); err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedIDs = append(deletedIDs, workspaceID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: NOTIFY
-	for _, workspaceID := range deletedIDs {
-		c.stream.Publish(WorkspaceTopic{WorkspaceID: workspaceID}, WorkspaceEvent{
-			Type: eventTypeDelete,
-			Workspace: &apiv1.Workspace{
-				WorkspaceId: workspaceID.Bytes(),
-			},
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

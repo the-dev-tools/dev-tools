@@ -2,17 +2,24 @@
 package rhttp
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rlog"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
@@ -276,7 +283,7 @@ func New(deps HttpServiceRPCDeps) HttpServiceRPC {
 		panic(fmt.Sprintf("HttpServiceRPC Deps validation failed: %v", err))
 	}
 
-	return HttpServiceRPC{
+	return HttpServiceRPC {
 		DB:                        deps.DB,
 		httpReader:                deps.Readers.Http,
 		hs:                        deps.Services.Http,
@@ -305,4 +312,925 @@ func New(deps HttpServiceRPCDeps) HttpServiceRPC {
 func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := httpv1connect.NewHttpServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
+}
+
+// mutationPublisher returns a unified publisher for HTTP-related mutation events.
+func (s *HttpServiceRPC) mutationPublisher() mutation.Publisher {
+	return &rhttpPublisher{
+		streamers: s.streamers,
+	}
+}
+
+type rhttpPublisher struct {
+	streamers *HttpStreamers
+}
+
+func (p *rhttpPublisher) PublishAll(events []mutation.Event) {
+	for _, evt := range events {
+		//nolint:exhaustive
+		switch evt.Entity {
+		case mutation.EntityHTTP:
+			p.publishHTTP(evt)
+		case mutation.EntityHTTPHeader:
+			p.publishHeader(evt)
+		case mutation.EntityHTTPParam:
+			p.publishParam(evt)
+		case mutation.EntityHTTPAssert:
+			p.publishAssert(evt)
+		case mutation.EntityHTTPBodyRaw:
+			p.publishBodyRaw(evt)
+		case mutation.EntityHTTPBodyForm:
+			p.publishBodyForm(evt)
+		case mutation.EntityHTTPBodyURL:
+			p.publishBodyUrlEncoded(evt)
+		case mutation.EntityHTTPVersion:
+			p.publishVersion(evt)
+		}
+	}
+}
+
+func (p *rhttpPublisher) publishHTTP(evt mutation.Event) {
+	if p.streamers.Http == nil {
+		return
+	}
+	var httpModel *httpv1.Http
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		if evt.Op == mutation.OpInsert {
+			eventType = eventTypeInsert
+		} else {
+			eventType = eventTypeUpdate
+		}
+		if h, ok := evt.Payload.(mhttp.HTTP); ok {
+			httpModel = converter.ToAPIHttp(h)
+		} else if hp, ok := evt.Payload.(*mhttp.HTTP); ok {
+			httpModel = converter.ToAPIHttp(*hp)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		httpModel = &httpv1.Http{
+			HttpId: evt.ID.Bytes(),
+		}
+	}
+
+	if httpModel != nil {
+		event := HttpEvent{
+			Type:    eventType,
+			IsDelta: evt.IsDelta,
+			Http:    httpModel,
+		}
+		if p, ok := evt.Patch.(patch.HTTPDeltaPatch); ok {
+			event.Patch = p
+		}
+		p.streamers.Http.Publish(HttpTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishHeader(evt mutation.Event) {
+	if p.streamers.HttpHeader == nil {
+		return
+	}
+	var headerModel *httpv1.HttpHeader
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		eventType = eventTypeInsert
+		if evt.Op == mutation.OpUpdate {
+			eventType = eventTypeUpdate
+		}
+		if h, ok := evt.Payload.(mhttp.HTTPHeader); ok {
+			headerModel = converter.ToAPIHttpHeader(h)
+		} else if hp, ok := evt.Payload.(*mhttp.HTTPHeader); ok {
+			headerModel = converter.ToAPIHttpHeader(*hp)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		headerModel = &httpv1.HttpHeader{
+			HttpHeaderId: evt.ID.Bytes(),
+			HttpId:       evt.ParentID.Bytes(),
+		}
+	}
+
+	if headerModel != nil {
+		event := HttpHeaderEvent{
+			Type:       eventType,
+			IsDelta:    evt.IsDelta,
+			HttpHeader: headerModel,
+		}
+		if patch, ok := evt.Patch.(patch.HTTPHeaderPatch); ok {
+			event.Patch = patch
+		}
+		p.streamers.HttpHeader.Publish(HttpHeaderTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishParam(evt mutation.Event) {
+	if p.streamers.HttpSearchParam == nil {
+		return
+	}
+	var paramModel *httpv1.HttpSearchParam
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		eventType = eventTypeInsert
+		if evt.Op == mutation.OpUpdate {
+			eventType = eventTypeUpdate
+		}
+		if pr, ok := evt.Payload.(mhttp.HTTPSearchParam); ok {
+			paramModel = converter.ToAPIHttpSearchParam(pr)
+		} else if prp, ok := evt.Payload.(*mhttp.HTTPSearchParam); ok {
+			paramModel = converter.ToAPIHttpSearchParam(*prp)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		paramModel = &httpv1.HttpSearchParam{
+			HttpSearchParamId: evt.ID.Bytes(),
+			HttpId:            evt.ParentID.Bytes(),
+		}
+	}
+
+	if paramModel != nil {
+		event := HttpSearchParamEvent{
+			Type:            eventType,
+			IsDelta:         evt.IsDelta,
+			HttpSearchParam: paramModel,
+		}
+		if patch, ok := evt.Patch.(patch.HTTPSearchParamPatch); ok {
+			event.Patch = patch
+		}
+		p.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishAssert(evt mutation.Event) {
+	if p.streamers.HttpAssert == nil {
+		return
+	}
+	var assertModel *httpv1.HttpAssert
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		eventType = eventTypeInsert
+		if evt.Op == mutation.OpUpdate {
+			eventType = eventTypeUpdate
+		}
+		if a, ok := evt.Payload.(mhttp.HTTPAssert); ok {
+			assertModel = converter.ToAPIHttpAssert(a)
+		} else if ap, ok := evt.Payload.(*mhttp.HTTPAssert); ok {
+			assertModel = converter.ToAPIHttpAssert(*ap)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		assertModel = &httpv1.HttpAssert{
+			HttpAssertId: evt.ID.Bytes(),
+			HttpId:       evt.ParentID.Bytes(),
+		}
+	}
+
+	if assertModel != nil {
+		event := HttpAssertEvent{
+			Type:       eventType,
+			IsDelta:    evt.IsDelta,
+			HttpAssert: assertModel,
+		}
+		if patch, ok := evt.Patch.(patch.HTTPAssertPatch); ok {
+			event.Patch = patch
+		}
+		p.streamers.HttpAssert.Publish(HttpAssertTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishBodyRaw(evt mutation.Event) {
+	if p.streamers.HttpBodyRaw == nil {
+		return
+	}
+	var bodyModel *httpv1.HttpBodyRaw
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		eventType = eventTypeInsert
+		if evt.Op == mutation.OpUpdate {
+			eventType = eventTypeUpdate
+		}
+		if b, ok := evt.Payload.(mhttp.HTTPBodyRaw); ok {
+			bodyModel = converter.ToAPIHttpBodyRawFromMHttp(b)
+		} else if bp, ok := evt.Payload.(*mhttp.HTTPBodyRaw); ok {
+			bodyModel = converter.ToAPIHttpBodyRawFromMHttp(*bp)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		bodyModel = &httpv1.HttpBodyRaw{
+			HttpId: evt.ParentID.Bytes(),
+		}
+	}
+
+	if bodyModel != nil {
+		event := HttpBodyRawEvent{
+			Type:        eventType,
+			IsDelta:     evt.IsDelta,
+			HttpBodyRaw: bodyModel,
+		}
+		if patch, ok := evt.Patch.(patch.HTTPBodyRawPatch); ok {
+			event.Patch = patch
+		}
+		p.streamers.HttpBodyRaw.Publish(HttpBodyRawTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishBodyForm(evt mutation.Event) {
+	if p.streamers.HttpBodyForm == nil {
+		return
+	}
+	var formModel *httpv1.HttpBodyFormData
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		eventType = eventTypeInsert
+		if evt.Op == mutation.OpUpdate {
+			eventType = eventTypeUpdate
+		}
+		if f, ok := evt.Payload.(mhttp.HTTPBodyForm); ok {
+			formModel = converter.ToAPIHttpBodyFormData(f)
+		} else if fp, ok := evt.Payload.(*mhttp.HTTPBodyForm); ok {
+			formModel = converter.ToAPIHttpBodyFormData(*fp)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		formModel = &httpv1.HttpBodyFormData{
+			HttpBodyFormDataId: evt.ID.Bytes(),
+			HttpId:             evt.ParentID.Bytes(),
+		}
+	}
+
+	if formModel != nil {
+		event := HttpBodyFormEvent{
+			Type:         eventType,
+			IsDelta:      evt.IsDelta,
+			HttpBodyForm: formModel,
+		}
+		if patch, ok := evt.Patch.(patch.HTTPBodyFormPatch); ok {
+			event.Patch = patch
+		}
+		p.streamers.HttpBodyForm.Publish(HttpBodyFormTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishBodyUrlEncoded(evt mutation.Event) {
+	if p.streamers.HttpBodyUrlEncoded == nil {
+		return
+	}
+	var urlModel *httpv1.HttpBodyUrlEncoded
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		eventType = eventTypeInsert
+		if evt.Op == mutation.OpUpdate {
+			eventType = eventTypeUpdate
+		}
+		if u, ok := evt.Payload.(mhttp.HTTPBodyUrlencoded); ok {
+			urlModel = converter.ToAPIHttpBodyUrlEncoded(u)
+		} else if up, ok := evt.Payload.(*mhttp.HTTPBodyUrlencoded); ok {
+			urlModel = converter.ToAPIHttpBodyUrlEncoded(*up)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		urlModel = &httpv1.HttpBodyUrlEncoded{
+			HttpBodyUrlEncodedId: evt.ID.Bytes(),
+			HttpId:               evt.ParentID.Bytes(),
+		}
+	}
+
+	if urlModel != nil {
+		event := HttpBodyUrlEncodedEvent{
+			Type:               eventType,
+			IsDelta:            evt.IsDelta,
+			HttpBodyUrlEncoded: urlModel,
+		}
+		if patch, ok := evt.Patch.(patch.HTTPBodyUrlEncodedPatch); ok {
+			event.Patch = patch
+		}
+		p.streamers.HttpBodyUrlEncoded.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: evt.WorkspaceID}, event)
+	}
+}
+
+func (p *rhttpPublisher) publishVersion(evt mutation.Event) {
+	if p.streamers.HttpVersion == nil {
+		return
+	}
+	var versionModel *httpv1.HttpVersion
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		if evt.Op == mutation.OpInsert {
+			eventType = eventTypeInsert
+		} else {
+			eventType = eventTypeUpdate
+		}
+		if v, ok := evt.Payload.(mhttp.HttpVersion); ok {
+			versionModel = converter.ToAPIHttpVersion(v)
+		} else if vp, ok := evt.Payload.(*mhttp.HttpVersion); ok {
+			versionModel = converter.ToAPIHttpVersion(*vp)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		versionModel = &httpv1.HttpVersion{
+			HttpVersionId: evt.ID.Bytes(),
+		}
+	}
+
+	if versionModel != nil {
+		p.streamers.HttpVersion.Publish(HttpVersionTopic{WorkspaceID: evt.WorkspaceID}, HttpVersionEvent{
+			Type:        eventType,
+			HttpVersion: versionModel,
+		})
+	}
+}
+
+func (h *HttpServiceRPC) HttpAssertSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpAssertSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpAssertSync(ctx, userID, stream.Send)
+}
+
+// streamHttpAssertSync streams HTTP assert events to the client
+func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpAssertSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpAssertTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpAssertEvent) *httpv1.HttpAssertSyncResponse {
+		var items []*httpv1.HttpAssertSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpAssertSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpAssertSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpAssert,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) HttpBodyFormDataSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpBodyFormDataSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyFormSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
+	topic := HttpTopic{WorkspaceID: http.WorkspaceID}
+	event := HttpEvent{
+		Type:    eventTypeInsert,
+		IsDelta: http.IsDelta,
+		Http:    converter.ToAPIHttp(http),
+	}
+	h.streamers.Http.Publish(topic, event)
+}
+
+// publishUpdateEvent publishes an update event for real-time sync
+func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP, p patch.HTTPDeltaPatch) {
+	topic := HttpTopic{WorkspaceID: http.WorkspaceID}
+	event := HttpEvent{
+		Type:    eventTypeUpdate,
+		IsDelta: http.IsDelta,
+		Patch:   p,
+		Http:    converter.ToAPIHttp(http),
+	}
+	h.streamers.Http.Publish(topic, event)
+}
+
+func (h *HttpServiceRPC) HttpBodyRawSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpBodyRawSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyRawSync(ctx, userID, stream.Send)
+}
+
+// streamHttpBodyRawSync streams HTTP body raw events to the client
+func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyRawSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyRawTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpBodyRawEvent) *httpv1.HttpBodyRawSyncResponse {
+		var items []*httpv1.HttpBodyRawSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpBodyRawSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpBodyRawSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpBodyRaw,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyFormDataSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyFormTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpBodyFormEvent) *httpv1.HttpBodyFormDataSyncResponse {
+		var items []*httpv1.HttpBodyFormDataSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpBodyFormDataSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpBodyFormDataSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpBodyForm,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+// publishVersionInsertEvent publishes an insert event for real-time sync
+func (h *HttpServiceRPC) publishVersionInsertEvent(version mhttp.HttpVersion, workspaceID idwrap.IDWrap) {
+	topic := HttpVersionTopic{WorkspaceID: workspaceID}
+	event := HttpVersionEvent{
+		Type:        eventTypeInsert,
+		HttpVersion: converter.ToAPIHttpVersion(version),
+	}
+	h.streamers.HttpVersion.Publish(topic, event)
+}
+
+func (h *HttpServiceRPC) HttpBodyUrlEncodedSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpBodyUrlEncodedSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyUrlEncodedSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyUrlEncodedSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyUrlEncodedTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpBodyUrlEncodedEvent) *httpv1.HttpBodyUrlEncodedSyncResponse {
+		var items []*httpv1.HttpBodyUrlEncodedSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpBodyUrlEncodedSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpBodyUrlEncodedSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpBodyUrlEncoded,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) HttpHeaderSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpHeaderSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpHeaderSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpHeaderSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpHeaderTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpHeaderEvent) *httpv1.HttpHeaderSyncResponse {
+		var items []*httpv1.HttpHeaderSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpHeaderSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpHeaderSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpHeader,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpResponseTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpResponseEvent) *httpv1.HttpResponseSyncResponse {
+		var items []*httpv1.HttpResponseSync
+		for _, event := range events {
+			if resp := httpResponseSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpResponseSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpResponse,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpVersionSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpVersionTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpVersionEvent) *httpv1.HttpVersionSyncResponse {
+		var items []*httpv1.HttpVersionSync
+		for _, event := range events {
+			if resp := httpVersionSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpVersionSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpVersion,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpSyncResponse) error) error {
+	return h.streamHttpSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpSyncResponse) error, opts *eventstream.BulkOptions) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpEvent) *httpv1.HttpSyncResponse {
+		var items []*httpv1.HttpSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.Http,
+		filter,
+		converter,
+		send,
+		opts,
+	)
+}
+
+func (h *HttpServiceRPC) HttpResponseSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpResponseSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpResponseSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) HttpResponseHeaderSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpResponseHeaderSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpResponseHeaderSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) HttpResponseAssertSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpResponseAssertSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpResponseAssertSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpSearchParamSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpSearchParamTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpSearchParamEvent) *httpv1.HttpSearchParamSyncResponse {
+		var items []*httpv1.HttpSearchParamSync
+		for _, event := range events {
+			if event.IsDelta {
+				continue
+			}
+			if resp := httpSearchParamSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpSearchParamSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpSearchParam,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseHeaderSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpResponseHeaderTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpResponseHeaderEvent) *httpv1.HttpResponseHeaderSyncResponse {
+		var items []*httpv1.HttpResponseHeaderSync
+		for _, event := range events {
+			if resp := httpResponseHeaderSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpResponseHeaderSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpResponseHeader,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseAssertSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic HttpResponseAssertTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	converter := func(events []HttpResponseAssertEvent) *httpv1.HttpResponseAssertSyncResponse {
+		var items []*httpv1.HttpResponseAssertSync
+		for _, event := range events {
+			if resp := httpResponseAssertSyncResponseFrom(event); resp != nil && len(resp.Items) > 0 {
+				items = append(items, resp.Items...)
+			}
+		}
+		if len(items) == 0 {
+			return nil
+		}
+		return &httpv1.HttpResponseAssertSyncResponse{Items: items}
+	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.streamers.HttpResponseAssert,
+		filter,
+		converter,
+		send,
+		nil,
+	)
+}
+
+func (h *HttpServiceRPC) HttpSearchParamSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpSearchParamSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpSearchParamSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) HttpSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) HttpVersionSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[httpv1.HttpVersionSyncResponse]) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpVersionSync(ctx, userID, stream.Send)
 }

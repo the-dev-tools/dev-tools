@@ -23,11 +23,10 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/patch"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/txutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -254,23 +253,20 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkInsertTx[flowNodePair, FlowTopic](
-		tx,
-		func(fnp flowNodePair) FlowTopic {
-			return FlowTopic{WorkspaceID: fnp.workspaceID}
-		},
-	)
-
-	wsWriter := sworkspace.NewWorkspaceWriter(tx)
-	fsWriter := sflow.NewFlowWriter(tx)
-	nsWriter := sflow.NewNodeWriter(tx)
+	wsWriter := sworkspace.NewWorkspaceWriter(mut.TX())
+	fsWriter := sflow.NewFlowWriter(mut.TX())
+	nsWriter := sflow.NewNodeWriter(mut.TX())
 
 	// 3. Execute all inserts in transaction
 	for _, data := range validatedItems {
@@ -282,8 +278,14 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Track for bulk event publishing
-		syncTx.Track(flowNodePair(data))
+		// Track flow insert
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlow,
+			Op:          mutation.OpInsert,
+			ID:          data.flow.ID,
+			WorkspaceID: data.workspaceID,
+			Payload:     flowNodePair(data),
+		})
 
 		// Increment workspace flow count
 		workspaceUpdates[data.workspaceID].FlowCount++
@@ -297,8 +299,8 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowInsert); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -313,7 +315,6 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type updateData struct {
 		flow        mflow.Flow
-		flowPatch   patch.FlowPatch
 		workspaceID idwrap.IDWrap
 	}
 	var validatedUpdates []updateData
@@ -340,51 +341,41 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		flowPatch := patch.FlowPatch{}
-
 		if item.Name != nil {
 			name := strings.TrimSpace(item.GetName())
 			if name == "" {
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow name cannot be empty"))
 			}
 			flow.Name = name
-			flowPatch.Name = patch.NewOptional(name)
 		}
 
 		if du := item.GetDuration(); du != nil {
 			switch du.GetKind() {
 			case flowv1.FlowUpdate_DurationUnion_KIND_UNSET:
 				flow.Duration = 0
-				flowPatch.Duration = patch.NewOptional(uint64(0))
 			case flowv1.FlowUpdate_DurationUnion_KIND_VALUE:
 				flow.Duration = du.GetValue()
-				durVal := max(0, int64(du.GetValue()))
-				flowPatch.Duration = patch.NewOptional(uint64(durVal)) //nolint:gosec // G115: Safe conversion - value is clamped to non-negative
 			}
 		}
 
 		validatedUpdates = append(validatedUpdates, updateData{
 			flow:        flow,
-			flowPatch:   flowPatch,
 			workspaceID: flow.WorkspaceID,
 		})
 	}
 
-	// 2. Begin transaction with bulk sync wrapper
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(validatedUpdates) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// 2. Begin transaction with mutation context
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	syncTx := txutil.NewBulkUpdateTx[flowWithWorkspace, patch.FlowPatch, FlowTopic](
-		tx,
-		func(fww flowWithWorkspace) FlowTopic {
-			return FlowTopic{WorkspaceID: fww.workspaceID}
-		},
-	)
-
-	fsWriter := sflow.NewFlowWriter(tx)
+	fsWriter := sflow.NewFlowWriter(mut.TX())
 
 	// 3. Execute all updates in transaction
 	for _, data := range validatedUpdates {
@@ -392,17 +383,17 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		syncTx.Track(
-			flowWithWorkspace{
-				flow:        data.flow,
-				workspaceID: data.workspaceID,
-			},
-			data.flowPatch,
-		)
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityFlow,
+			Op:          mutation.OpUpdate,
+			ID:          data.flow.ID,
+			WorkspaceID: data.workspaceID,
+			Payload:     data.flow,
+		})
 	}
 
-	// 4. Commit transaction and publish events in bulk
-	if err := syncTx.CommitAndPublish(ctx, s.publishBulkFlowUpdate); err != nil {
+	// 4. Commit transaction (auto-publishes events)
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -414,14 +405,8 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
 	}
 
-	// 1. Move validation OUTSIDE transaction (before BeginTx)
-	type deleteData struct {
-		flow        mflow.Flow
-		workspaceID idwrap.IDWrap
-	}
-	var validatedDeletes []deleteData
-
-	// Track workspace updates needed (aggregated by workspace ID)
+	// FETCH: Get flow data and build delete items (outside transaction)
+	deleteItems := make([]mutation.FlowDeleteItem, 0, len(req.Msg.GetItems()))
 	workspaceUpdates := make(map[idwrap.IDWrap]*mworkspace.Workspace)
 
 	for _, item := range req.Msg.GetItems() {
@@ -438,11 +423,12 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// CHECK: Validate permissions
 		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 			return nil, err
 		}
 
-		// Fetch workspace OUTSIDE transaction (fix for SQLite best practices)
+		// Fetch workspace OUTSIDE transaction (SQLite best practice)
 		if _, exists := workspaceUpdates[flow.WorkspaceID]; !exists {
 			workspace, err := s.wsReader.Get(ctx, flow.WorkspaceID)
 			if err != nil {
@@ -451,40 +437,36 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			workspaceUpdates[flow.WorkspaceID] = workspace
 		}
 
-		validatedDeletes = append(validatedDeletes, deleteData{
-			flow:        flow,
-			workspaceID: flow.WorkspaceID,
+		deleteItems = append(deleteItems, mutation.FlowDeleteItem{
+			ID:          flow.ID,
+			WorkspaceID: flow.WorkspaceID,
 		})
 	}
 
-	// 2. Begin transaction
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	if len(deleteItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// ACT: Delete flows using mutation context with auto-publish
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	fsWriter := sflow.NewFlowWriter(tx)
-	wsWriter := sworkspace.NewWorkspaceWriter(tx)
+	if err := mut.DeleteFlowBatch(ctx, deleteItems); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-	var deletedFlows []flowWithWorkspace
-
-	// 3. Execute all deletes in transaction
-	for _, data := range validatedDeletes {
-		if err := fsWriter.DeleteFlow(ctx, data.flow.ID); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Decrement workspace flow count
-		workspace := workspaceUpdates[data.workspaceID]
+	// Update workspace flow counts inside the transaction
+	wsWriter := sworkspace.NewWorkspaceWriter(mut.TX())
+	for _, item := range deleteItems {
+		workspace := workspaceUpdates[item.WorkspaceID]
 		if workspace.FlowCount > 0 {
 			workspace.FlowCount--
 		}
-
-		deletedFlows = append(deletedFlows, flowWithWorkspace(data))
 	}
 
-	// Update all workspaces
 	for _, workspace := range workspaceUpdates {
 		workspace.Updated = dbtime.DBNow()
 		if err := wsWriter.Update(ctx, workspace); err != nil {
@@ -492,21 +474,8 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	// 4. Commit transaction
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// 5. Publish events AFTER successful commit (group by workspace)
-	// Group by workspace ID for bulk publishing
-	grouped := make(map[idwrap.IDWrap][]flowWithWorkspace)
-	for _, fww := range deletedFlows {
-		grouped[fww.workspaceID] = append(grouped[fww.workspaceID], fww)
-	}
-
-	// Publish bulk delete events per workspace
-	for workspaceID, items := range grouped {
-		s.publishBulkFlowDelete(FlowTopic{WorkspaceID: workspaceID}, items)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

@@ -203,6 +203,12 @@ FROM
 WHERE
   flow_id = ?;
 
+-- name: GetFlowNodesByFlowIDs :many
+-- Batch query for cascade collection - fetches all nodes for multiple flows
+SELECT id, flow_id
+FROM flow_node
+WHERE flow_id IN (sqlc.slice('flow_ids'));
+
 -- name: CreateFlowNode :exec
 INSERT INTO
   flow_node (id, flow_id, name, node_kind, position_x, position_y, state)
@@ -271,6 +277,12 @@ FROM
   flow_edge
 WHERE
   flow_id = ?;
+
+-- name: GetFlowEdgesByFlowIDs :many
+-- Batch query for cascade collection - fetches all edges for multiple flows
+SELECT id, flow_id
+FROM flow_edge
+WHERE flow_id IN (sqlc.slice('flow_ids'));
 
 -- name: CreateFlowEdge :exec
 INSERT INTO
@@ -521,6 +533,12 @@ FROM
   flow_variable
 WHERE
   flow_id = ?;
+
+-- name: GetFlowVariablesByFlowIDs :many
+-- Batch query for cascade collection - fetches all variables for multiple flows
+SELECT id, flow_id
+FROM flow_variable
+WHERE flow_id IN (sqlc.slice('flow_ids'));
 
 -- name: CreateFlowVariable :exec
 INSERT INTO

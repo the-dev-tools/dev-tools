@@ -1205,6 +1205,51 @@ func (q *Queries) GetFlowEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 	return items, nil
 }
 
+const getFlowEdgesByFlowIDs = `-- name: GetFlowEdgesByFlowIDs :many
+SELECT id, flow_id
+FROM flow_edge
+WHERE flow_id IN (/*SLICE:flow_ids*/?)
+`
+
+type GetFlowEdgesByFlowIDsRow struct {
+	ID     idwrap.IDWrap
+	FlowID idwrap.IDWrap
+}
+
+// Batch query for cascade collection - fetches all edges for multiple flows
+func (q *Queries) GetFlowEdgesByFlowIDs(ctx context.Context, flowIds []idwrap.IDWrap) ([]GetFlowEdgesByFlowIDsRow, error) {
+	query := getFlowEdgesByFlowIDs
+	var queryParams []interface{}
+	if len(flowIds) > 0 {
+		for _, v := range flowIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:flow_ids*/?", strings.Repeat(",?", len(flowIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:flow_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetFlowEdgesByFlowIDsRow{}
+	for rows.Next() {
+		var i GetFlowEdgesByFlowIDsRow
+		if err := rows.Scan(&i.ID, &i.FlowID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlowNode = `-- name: GetFlowNode :one
 SELECT
   id,
@@ -1375,6 +1420,51 @@ func (q *Queries) GetFlowNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 			&i.PositionY,
 			&i.State,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFlowNodesByFlowIDs = `-- name: GetFlowNodesByFlowIDs :many
+SELECT id, flow_id
+FROM flow_node
+WHERE flow_id IN (/*SLICE:flow_ids*/?)
+`
+
+type GetFlowNodesByFlowIDsRow struct {
+	ID     idwrap.IDWrap
+	FlowID idwrap.IDWrap
+}
+
+// Batch query for cascade collection - fetches all nodes for multiple flows
+func (q *Queries) GetFlowNodesByFlowIDs(ctx context.Context, flowIds []idwrap.IDWrap) ([]GetFlowNodesByFlowIDsRow, error) {
+	query := getFlowNodesByFlowIDs
+	var queryParams []interface{}
+	if len(flowIds) > 0 {
+		for _, v := range flowIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:flow_ids*/?", strings.Repeat(",?", len(flowIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:flow_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetFlowNodesByFlowIDsRow{}
+	for rows.Next() {
+		var i GetFlowNodesByFlowIDsRow
+		if err := rows.Scan(&i.ID, &i.FlowID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1585,6 +1675,51 @@ func (q *Queries) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID id
 			&i.Description,
 			&i.DisplayOrder,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFlowVariablesByFlowIDs = `-- name: GetFlowVariablesByFlowIDs :many
+SELECT id, flow_id
+FROM flow_variable
+WHERE flow_id IN (/*SLICE:flow_ids*/?)
+`
+
+type GetFlowVariablesByFlowIDsRow struct {
+	ID     idwrap.IDWrap
+	FlowID idwrap.IDWrap
+}
+
+// Batch query for cascade collection - fetches all variables for multiple flows
+func (q *Queries) GetFlowVariablesByFlowIDs(ctx context.Context, flowIds []idwrap.IDWrap) ([]GetFlowVariablesByFlowIDsRow, error) {
+	query := getFlowVariablesByFlowIDs
+	var queryParams []interface{}
+	if len(flowIds) > 0 {
+		for _, v := range flowIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:flow_ids*/?", strings.Repeat(",?", len(flowIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:flow_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetFlowVariablesByFlowIDsRow{}
+	for rows.Next() {
+		var i GetFlowVariablesByFlowIDsRow
+		if err := rows.Scan(&i.ID, &i.FlowID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

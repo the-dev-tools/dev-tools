@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
@@ -46,6 +47,50 @@ const (
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 )
+
+// envDeletePublisher implements mutation.Publisher for environment delete events.
+type envDeletePublisher struct {
+	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
+}
+
+func (p *envDeletePublisher) PublishAll(events []mutation.Event) {
+	for _, evt := range events {
+		if evt.Op != mutation.OpDelete {
+			continue
+		}
+		if evt.Entity == mutation.EntityEnvironment {
+			p.envStream.Publish(EnvironmentTopic{WorkspaceID: evt.WorkspaceID}, EnvironmentEvent{
+				Type: eventTypeDelete,
+				Environment: &apiv1.Environment{
+					EnvironmentId: evt.ID.Bytes(),
+					WorkspaceId:   evt.WorkspaceID.Bytes(),
+				},
+			})
+		}
+	}
+}
+
+// varDeletePublisher implements mutation.Publisher for environment variable delete events.
+type varDeletePublisher struct {
+	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]
+}
+
+func (p *varDeletePublisher) PublishAll(events []mutation.Event) {
+	for _, evt := range events {
+		if evt.Op != mutation.OpDelete {
+			continue
+		}
+		if evt.Entity == mutation.EntityEnvironmentValue {
+			p.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.WorkspaceID, EnvironmentID: evt.ParentID}, EnvironmentVariableEvent{
+				Type: eventTypeDelete,
+				Variable: &apiv1.EnvironmentVariable{
+					EnvironmentVariableId: evt.ID.Bytes(),
+					EnvironmentId:         evt.ParentID.Bytes(),
+				},
+			})
+		}
+	}
+}
 
 type EnvironmentTopic struct {
 	WorkspaceID idwrap.IDWrap
@@ -504,37 +549,27 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 		validatedDeletes = append(validatedDeletes, *env)
 	}
 
-	// Step 2: ACT
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// Step 2: ACT using mutation context with auto-publish
+	mut := mutation.New(e.DB, mutation.WithPublisher(&envDeletePublisher{envStream: e.envStream}))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	envWriter := senv.NewEnvWriter(tx)
+	defer mut.Rollback()
 
 	for _, env := range validatedDeletes {
-		if err := envWriter.DeleteEnvironment(ctx, env.ID); err != nil {
-			if errors.Is(err, senv.ErrNoEnvironmentFound) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityEnvironment,
+			Op:          mutation.OpDelete,
+			ID:          env.ID,
+			WorkspaceID: env.WorkspaceID,
+		})
+		if err := mut.Queries().DeleteEnvironment(ctx, env.ID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: NOTIFY
-	for _, env := range validatedDeletes {
-		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
-			Type: eventTypeDelete,
-			Environment: &apiv1.Environment{
-				EnvironmentId: env.ID.Bytes(),
-				WorkspaceId:   env.WorkspaceID.Bytes(),
-			},
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -886,37 +921,28 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 		})
 	}
 
-	// Step 2: ACT
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// Step 2: ACT using mutation context with auto-publish
+	mut := mutation.New(e.DB, mutation.WithPublisher(&varDeletePublisher{varStream: e.varStream}))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	varWriter := senv.NewVariableWriter(tx)
+	defer mut.Rollback()
 
 	for _, data := range varModels {
-		if err := varWriter.Delete(ctx, data.varID); err != nil {
-			if errors.Is(err, senv.ErrNoVarFound) {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityEnvironmentValue,
+			Op:          mutation.OpDelete,
+			ID:          data.varID,
+			WorkspaceID: data.workspaceID,
+			ParentID:    data.variable.EnvID,
+		})
+		if err := mut.Queries().DeleteVariable(ctx, data.varID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Step 3: NOTIFY
-	for _, data := range varModels {
-		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: data.workspaceID, EnvironmentID: data.variable.EnvID}, EnvironmentVariableEvent{
-			Type: eventTypeDelete,
-			Variable: &apiv1.EnvironmentVariable{
-				EnvironmentVariableId: data.variable.ID.Bytes(),
-				EnvironmentId:         data.variable.EnvID.Bytes(),
-			},
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

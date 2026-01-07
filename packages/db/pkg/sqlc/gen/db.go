@@ -285,11 +285,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFileStmt, err = db.PrepareContext(ctx, getFile); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFile: %w", err)
 	}
+	if q.getFileByContentIDStmt, err = db.PrepareContext(ctx, getFileByContentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFileByContentID: %w", err)
+	}
 	if q.getFileWithContentStmt, err = db.PrepareContext(ctx, getFileWithContent); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFileWithContent: %w", err)
 	}
 	if q.getFileWorkspaceIDStmt, err = db.PrepareContext(ctx, getFileWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFileWorkspaceID: %w", err)
+	}
+	if q.getFilesByContentIDsStmt, err = db.PrepareContext(ctx, getFilesByContentIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByContentIDs: %w", err)
 	}
 	if q.getFilesByParentIDStmt, err = db.PrepareContext(ctx, getFilesByParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFilesByParentID: %w", err)
@@ -315,6 +321,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowEdgesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowEdgesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowEdgesByFlowID: %w", err)
 	}
+	if q.getFlowEdgesByFlowIDsStmt, err = db.PrepareContext(ctx, getFlowEdgesByFlowIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowEdgesByFlowIDs: %w", err)
+	}
 	if q.getFlowNodeStmt, err = db.PrepareContext(ctx, getFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNode: %w", err)
 	}
@@ -336,6 +345,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowNodesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowNodesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodesByFlowID: %w", err)
 	}
+	if q.getFlowNodesByFlowIDsStmt, err = db.PrepareContext(ctx, getFlowNodesByFlowIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodesByFlowIDs: %w", err)
+	}
 	if q.getFlowTagStmt, err = db.PrepareContext(ctx, getFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowTag: %w", err)
 	}
@@ -354,6 +366,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowVariablesByFlowIDOrderedStmt, err = db.PrepareContext(ctx, getFlowVariablesByFlowIDOrdered); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowVariablesByFlowIDOrdered: %w", err)
 	}
+	if q.getFlowVariablesByFlowIDsStmt, err = db.PrepareContext(ctx, getFlowVariablesByFlowIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowVariablesByFlowIDs: %w", err)
+	}
 	if q.getFlowsByVersionParentIDStmt, err = db.PrepareContext(ctx, getFlowsByVersionParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByVersionParentID: %w", err)
 	}
@@ -369,6 +384,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPAssertsByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPAssertsByHttpID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByHttpID: %w", err)
 	}
+	if q.getHTTPAssertsByHttpIDsStmt, err = db.PrepareContext(ctx, getHTTPAssertsByHttpIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByHttpIDs: %w", err)
+	}
 	if q.getHTTPAssertsByIDsStmt, err = db.PrepareContext(ctx, getHTTPAssertsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByIDs: %w", err)
 	}
@@ -381,6 +399,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPBodyFormsStmt, err = db.PrepareContext(ctx, getHTTPBodyForms); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyForms: %w", err)
 	}
+	if q.getHTTPBodyFormsByHttpIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyFormsByHttpIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyFormsByHttpIDs: %w", err)
+	}
 	if q.getHTTPBodyFormsByIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyFormsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyFormsByIDs: %w", err)
 	}
@@ -390,6 +411,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPBodyRawByIDStmt, err = db.PrepareContext(ctx, getHTTPBodyRawByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyRawByID: %w", err)
 	}
+	if q.getHTTPBodyRawsByHttpIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyRawsByHttpIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyRawsByHttpIDs: %w", err)
+	}
 	if q.getHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlEncoded: %w", err)
 	}
@@ -398,6 +422,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPBodyUrlEncodedsByIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlEncodedsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlEncodedsByIDs: %w", err)
+	}
+	if q.getHTTPBodyUrlencodedsByHttpIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlencodedsByHttpIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlencodedsByHttpIDs: %w", err)
 	}
 	if q.getHTTPDeltasByParentIDStmt, err = db.PrepareContext(ctx, getHTTPDeltasByParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPDeltasByParentID: %w", err)
@@ -410,6 +437,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPHeadersStmt, err = db.PrepareContext(ctx, getHTTPHeaders); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPHeaders: %w", err)
+	}
+	if q.getHTTPHeadersByHttpIDsStmt, err = db.PrepareContext(ctx, getHTTPHeadersByHttpIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPHeadersByHttpIDs: %w", err)
 	}
 	if q.getHTTPHeadersByIDsStmt, err = db.PrepareContext(ctx, getHTTPHeadersByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPHeadersByIDs: %w", err)
@@ -464,6 +494,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPSearchParamsStmt, err = db.PrepareContext(ctx, getHTTPSearchParams); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSearchParams: %w", err)
+	}
+	if q.getHTTPSearchParamsByHttpIDsStmt, err = db.PrepareContext(ctx, getHTTPSearchParamsByHttpIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPSearchParamsByHttpIDs: %w", err)
 	}
 	if q.getHTTPSearchParamsByIDsStmt, err = db.PrepareContext(ctx, getHTTPSearchParamsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSearchParamsByIDs: %w", err)
@@ -1163,6 +1196,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFileStmt: %w", cerr)
 		}
 	}
+	if q.getFileByContentIDStmt != nil {
+		if cerr := q.getFileByContentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFileByContentIDStmt: %w", cerr)
+		}
+	}
 	if q.getFileWithContentStmt != nil {
 		if cerr := q.getFileWithContentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFileWithContentStmt: %w", cerr)
@@ -1171,6 +1209,11 @@ func (q *Queries) Close() error {
 	if q.getFileWorkspaceIDStmt != nil {
 		if cerr := q.getFileWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFileWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getFilesByContentIDsStmt != nil {
+		if cerr := q.getFilesByContentIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByContentIDsStmt: %w", cerr)
 		}
 	}
 	if q.getFilesByParentIDStmt != nil {
@@ -1213,6 +1256,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowEdgesByFlowIDStmt: %w", cerr)
 		}
 	}
+	if q.getFlowEdgesByFlowIDsStmt != nil {
+		if cerr := q.getFlowEdgesByFlowIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowEdgesByFlowIDsStmt: %w", cerr)
+		}
+	}
 	if q.getFlowNodeStmt != nil {
 		if cerr := q.getFlowNodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeStmt: %w", cerr)
@@ -1248,6 +1296,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowNodesByFlowIDStmt: %w", cerr)
 		}
 	}
+	if q.getFlowNodesByFlowIDsStmt != nil {
+		if cerr := q.getFlowNodesByFlowIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodesByFlowIDsStmt: %w", cerr)
+		}
+	}
 	if q.getFlowTagStmt != nil {
 		if cerr := q.getFlowTagStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowTagStmt: %w", cerr)
@@ -1278,6 +1331,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowVariablesByFlowIDOrderedStmt: %w", cerr)
 		}
 	}
+	if q.getFlowVariablesByFlowIDsStmt != nil {
+		if cerr := q.getFlowVariablesByFlowIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowVariablesByFlowIDsStmt: %w", cerr)
+		}
+	}
 	if q.getFlowsByVersionParentIDStmt != nil {
 		if cerr := q.getFlowsByVersionParentIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowsByVersionParentIDStmt: %w", cerr)
@@ -1303,6 +1361,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPAssertsByHttpIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPAssertsByHttpIDsStmt != nil {
+		if cerr := q.getHTTPAssertsByHttpIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPAssertsByHttpIDsStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPAssertsByIDsStmt != nil {
 		if cerr := q.getHTTPAssertsByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPAssertsByIDsStmt: %w", cerr)
@@ -1323,6 +1386,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPBodyFormsStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPBodyFormsByHttpIDsStmt != nil {
+		if cerr := q.getHTTPBodyFormsByHttpIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyFormsByHttpIDsStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPBodyFormsByIDsStmt != nil {
 		if cerr := q.getHTTPBodyFormsByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPBodyFormsByIDsStmt: %w", cerr)
@@ -1338,6 +1406,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPBodyRawByIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPBodyRawsByHttpIDsStmt != nil {
+		if cerr := q.getHTTPBodyRawsByHttpIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyRawsByHttpIDsStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPBodyUrlEncodedStmt != nil {
 		if cerr := q.getHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPBodyUrlEncodedStmt: %w", cerr)
@@ -1351,6 +1424,11 @@ func (q *Queries) Close() error {
 	if q.getHTTPBodyUrlEncodedsByIDsStmt != nil {
 		if cerr := q.getHTTPBodyUrlEncodedsByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPBodyUrlEncodedsByIDsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPBodyUrlencodedsByHttpIDsStmt != nil {
+		if cerr := q.getHTTPBodyUrlencodedsByHttpIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyUrlencodedsByHttpIDsStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPDeltasByParentIDStmt != nil {
@@ -1371,6 +1449,11 @@ func (q *Queries) Close() error {
 	if q.getHTTPHeadersStmt != nil {
 		if cerr := q.getHTTPHeadersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPHeadersStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPHeadersByHttpIDsStmt != nil {
+		if cerr := q.getHTTPHeadersByHttpIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPHeadersByHttpIDsStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPHeadersByIDsStmt != nil {
@@ -1461,6 +1544,11 @@ func (q *Queries) Close() error {
 	if q.getHTTPSearchParamsStmt != nil {
 		if cerr := q.getHTTPSearchParamsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPSearchParamsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPSearchParamsByHttpIDsStmt != nil {
+		if cerr := q.getHTTPSearchParamsByHttpIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPSearchParamsByHttpIDsStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPSearchParamsByIDsStmt != nil {
@@ -2019,8 +2107,10 @@ type Queries struct {
 	getEnvironmentsByWorkspaceIDStmt           *sql.Stmt
 	getEnvironmentsByWorkspaceIDOrderedStmt    *sql.Stmt
 	getFileStmt                                *sql.Stmt
+	getFileByContentIDStmt                     *sql.Stmt
 	getFileWithContentStmt                     *sql.Stmt
 	getFileWorkspaceIDStmt                     *sql.Stmt
+	getFilesByContentIDsStmt                   *sql.Stmt
 	getFilesByParentIDStmt                     *sql.Stmt
 	getFilesByParentIDOrderedStmt              *sql.Stmt
 	getFilesByWorkspaceIDStmt                  *sql.Stmt
@@ -2029,6 +2119,7 @@ type Queries struct {
 	getFlowContentStmt                         *sql.Stmt
 	getFlowEdgeStmt                            *sql.Stmt
 	getFlowEdgesByFlowIDStmt                   *sql.Stmt
+	getFlowEdgesByFlowIDsStmt                  *sql.Stmt
 	getFlowNodeStmt                            *sql.Stmt
 	getFlowNodeConditionStmt                   *sql.Stmt
 	getFlowNodeForStmt                         *sql.Stmt
@@ -2036,31 +2127,38 @@ type Queries struct {
 	getFlowNodeHTTPStmt                        *sql.Stmt
 	getFlowNodeJsStmt                          *sql.Stmt
 	getFlowNodesByFlowIDStmt                   *sql.Stmt
+	getFlowNodesByFlowIDsStmt                  *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
 	getFlowTagsByFlowIDStmt                    *sql.Stmt
 	getFlowTagsByTagIDStmt                     *sql.Stmt
 	getFlowVariableStmt                        *sql.Stmt
 	getFlowVariablesByFlowIDStmt               *sql.Stmt
 	getFlowVariablesByFlowIDOrderedStmt        *sql.Stmt
+	getFlowVariablesByFlowIDsStmt              *sql.Stmt
 	getFlowsByVersionParentIDStmt              *sql.Stmt
 	getFlowsByWorkspaceIDStmt                  *sql.Stmt
 	getHTTPStmt                                *sql.Stmt
 	getHTTPAssertStmt                          *sql.Stmt
 	getHTTPAssertsByHttpIDStmt                 *sql.Stmt
+	getHTTPAssertsByHttpIDsStmt                *sql.Stmt
 	getHTTPAssertsByIDsStmt                    *sql.Stmt
 	getHTTPBatchForStreamingStmt               *sql.Stmt
 	getHTTPBodyFormStreamingStmt               *sql.Stmt
 	getHTTPBodyFormsStmt                       *sql.Stmt
+	getHTTPBodyFormsByHttpIDsStmt              *sql.Stmt
 	getHTTPBodyFormsByIDsStmt                  *sql.Stmt
 	getHTTPBodyRawStmt                         *sql.Stmt
 	getHTTPBodyRawByIDStmt                     *sql.Stmt
+	getHTTPBodyRawsByHttpIDsStmt               *sql.Stmt
 	getHTTPBodyUrlEncodedStmt                  *sql.Stmt
 	getHTTPBodyUrlEncodedByHttpIDStmt          *sql.Stmt
 	getHTTPBodyUrlEncodedsByIDsStmt            *sql.Stmt
+	getHTTPBodyUrlencodedsByHttpIDsStmt        *sql.Stmt
 	getHTTPDeltasByParentIDStmt                *sql.Stmt
 	getHTTPDeltasByWorkspaceIDStmt             *sql.Stmt
 	getHTTPDeltasSinceStmt                     *sql.Stmt
 	getHTTPHeadersStmt                         *sql.Stmt
+	getHTTPHeadersByHttpIDsStmt                *sql.Stmt
 	getHTTPHeadersByIDsStmt                    *sql.Stmt
 	getHTTPHeadersStreamingStmt                *sql.Stmt
 	getHTTPIncrementalUpdatesStmt              *sql.Stmt
@@ -2079,6 +2177,7 @@ type Queries struct {
 	getHTTPResponsesByIDsStmt                  *sql.Stmt
 	getHTTPResponsesByWorkspaceIDStmt          *sql.Stmt
 	getHTTPSearchParamsStmt                    *sql.Stmt
+	getHTTPSearchParamsByHttpIDsStmt           *sql.Stmt
 	getHTTPSearchParamsByIDsStmt               *sql.Stmt
 	getHTTPSearchParamsStreamingStmt           *sql.Stmt
 	getHTTPSnapshotCountStmt                   *sql.Stmt
@@ -2258,8 +2357,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getEnvironmentsByWorkspaceIDStmt:           q.getEnvironmentsByWorkspaceIDStmt,
 		getEnvironmentsByWorkspaceIDOrderedStmt:    q.getEnvironmentsByWorkspaceIDOrderedStmt,
 		getFileStmt:                                q.getFileStmt,
+		getFileByContentIDStmt:                     q.getFileByContentIDStmt,
 		getFileWithContentStmt:                     q.getFileWithContentStmt,
 		getFileWorkspaceIDStmt:                     q.getFileWorkspaceIDStmt,
+		getFilesByContentIDsStmt:                   q.getFilesByContentIDsStmt,
 		getFilesByParentIDStmt:                     q.getFilesByParentIDStmt,
 		getFilesByParentIDOrderedStmt:              q.getFilesByParentIDOrderedStmt,
 		getFilesByWorkspaceIDStmt:                  q.getFilesByWorkspaceIDStmt,
@@ -2268,6 +2369,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowContentStmt:                         q.getFlowContentStmt,
 		getFlowEdgeStmt:                            q.getFlowEdgeStmt,
 		getFlowEdgesByFlowIDStmt:                   q.getFlowEdgesByFlowIDStmt,
+		getFlowEdgesByFlowIDsStmt:                  q.getFlowEdgesByFlowIDsStmt,
 		getFlowNodeStmt:                            q.getFlowNodeStmt,
 		getFlowNodeConditionStmt:                   q.getFlowNodeConditionStmt,
 		getFlowNodeForStmt:                         q.getFlowNodeForStmt,
@@ -2275,31 +2377,38 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowNodeHTTPStmt:                        q.getFlowNodeHTTPStmt,
 		getFlowNodeJsStmt:                          q.getFlowNodeJsStmt,
 		getFlowNodesByFlowIDStmt:                   q.getFlowNodesByFlowIDStmt,
+		getFlowNodesByFlowIDsStmt:                  q.getFlowNodesByFlowIDsStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
 		getFlowTagsByFlowIDStmt:                    q.getFlowTagsByFlowIDStmt,
 		getFlowTagsByTagIDStmt:                     q.getFlowTagsByTagIDStmt,
 		getFlowVariableStmt:                        q.getFlowVariableStmt,
 		getFlowVariablesByFlowIDStmt:               q.getFlowVariablesByFlowIDStmt,
 		getFlowVariablesByFlowIDOrderedStmt:        q.getFlowVariablesByFlowIDOrderedStmt,
+		getFlowVariablesByFlowIDsStmt:              q.getFlowVariablesByFlowIDsStmt,
 		getFlowsByVersionParentIDStmt:              q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                  q.getFlowsByWorkspaceIDStmt,
 		getHTTPStmt:                                q.getHTTPStmt,
 		getHTTPAssertStmt:                          q.getHTTPAssertStmt,
 		getHTTPAssertsByHttpIDStmt:                 q.getHTTPAssertsByHttpIDStmt,
+		getHTTPAssertsByHttpIDsStmt:                q.getHTTPAssertsByHttpIDsStmt,
 		getHTTPAssertsByIDsStmt:                    q.getHTTPAssertsByIDsStmt,
 		getHTTPBatchForStreamingStmt:               q.getHTTPBatchForStreamingStmt,
 		getHTTPBodyFormStreamingStmt:               q.getHTTPBodyFormStreamingStmt,
 		getHTTPBodyFormsStmt:                       q.getHTTPBodyFormsStmt,
+		getHTTPBodyFormsByHttpIDsStmt:              q.getHTTPBodyFormsByHttpIDsStmt,
 		getHTTPBodyFormsByIDsStmt:                  q.getHTTPBodyFormsByIDsStmt,
 		getHTTPBodyRawStmt:                         q.getHTTPBodyRawStmt,
 		getHTTPBodyRawByIDStmt:                     q.getHTTPBodyRawByIDStmt,
+		getHTTPBodyRawsByHttpIDsStmt:               q.getHTTPBodyRawsByHttpIDsStmt,
 		getHTTPBodyUrlEncodedStmt:                  q.getHTTPBodyUrlEncodedStmt,
 		getHTTPBodyUrlEncodedByHttpIDStmt:          q.getHTTPBodyUrlEncodedByHttpIDStmt,
 		getHTTPBodyUrlEncodedsByIDsStmt:            q.getHTTPBodyUrlEncodedsByIDsStmt,
+		getHTTPBodyUrlencodedsByHttpIDsStmt:        q.getHTTPBodyUrlencodedsByHttpIDsStmt,
 		getHTTPDeltasByParentIDStmt:                q.getHTTPDeltasByParentIDStmt,
 		getHTTPDeltasByWorkspaceIDStmt:             q.getHTTPDeltasByWorkspaceIDStmt,
 		getHTTPDeltasSinceStmt:                     q.getHTTPDeltasSinceStmt,
 		getHTTPHeadersStmt:                         q.getHTTPHeadersStmt,
+		getHTTPHeadersByHttpIDsStmt:                q.getHTTPHeadersByHttpIDsStmt,
 		getHTTPHeadersByIDsStmt:                    q.getHTTPHeadersByIDsStmt,
 		getHTTPHeadersStreamingStmt:                q.getHTTPHeadersStreamingStmt,
 		getHTTPIncrementalUpdatesStmt:              q.getHTTPIncrementalUpdatesStmt,
@@ -2318,6 +2427,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPResponsesByIDsStmt:                  q.getHTTPResponsesByIDsStmt,
 		getHTTPResponsesByWorkspaceIDStmt:          q.getHTTPResponsesByWorkspaceIDStmt,
 		getHTTPSearchParamsStmt:                    q.getHTTPSearchParamsStmt,
+		getHTTPSearchParamsByHttpIDsStmt:           q.getHTTPSearchParamsByHttpIDsStmt,
 		getHTTPSearchParamsByIDsStmt:               q.getHTTPSearchParamsByIDsStmt,
 		getHTTPSearchParamsStreamingStmt:           q.getHTTPSearchParamsStreamingStmt,
 		getHTTPSnapshotCountStmt:                   q.getHTTPSnapshotCountStmt,

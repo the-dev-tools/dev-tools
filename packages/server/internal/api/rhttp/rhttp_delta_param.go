@@ -9,11 +9,11 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/patch"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -98,10 +98,17 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
-	// Process each delta item
+	// FETCH: Gather data and check permissions OUTSIDE transaction
+	type insertItem struct {
+		paramID     idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		item        *apiv1.HttpSearchParamDeltaInsert
+	}
+	insertData := make([]insertItem, 0, len(req.Msg.Items))
+
 	for _, item := range req.Msg.Items {
 		if len(item.HttpSearchParamId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_search_param_id is required for each delta item"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_search_param_id is required"))
 		}
 
 		paramID, err := idwrap.NewFromBytes(item.HttpSearchParamId)
@@ -127,19 +134,69 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 			return nil, err
 		}
 
-		// Update delta fields
+		insertData = append(insertData, insertItem{
+			paramID:     paramID,
+			workspaceID: httpEntry.WorkspaceID,
+			item:        item,
+		})
+	}
+
+	// ACT: Update delta fields using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	for _, data := range insertData {
 		var deltaOrder *float64
-		if item.Order != nil {
-			order := float64(*item.Order)
+		if data.item.Order != nil {
+			order := float64(*data.item.Order)
 			deltaOrder = &order
 		}
-		err = h.httpSearchParamService.UpdateDelta(ctx, paramID, item.Key, item.Value, item.Enabled, item.Description, deltaOrder)
+
+		paramService := h.httpSearchParamService.TX(mut.TX())
+		param, err := paramService.GetByID(ctx, data.paramID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if err := mut.UpdateHTTPSearchParamDelta(ctx, mutation.HTTPSearchParamDeltaUpdateItem{
+			ID:          data.paramID,
+			HttpID:      param.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPSearchParamDeltaParams{
+				ID:                data.paramID,
+				DeltaKey:          ptrToNullString(data.item.Key),
+				DeltaValue:        ptrToNullString(data.item.Value),
+				DeltaDescription:  data.item.Description,
+				DeltaEnabled:      data.item.Enabled,
+				DeltaDisplayOrder: ptrToNullFloat64(ptrToFloat32(deltaOrder)),
+			},
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Update payload in tracked event
+		updated, err := paramService.GetByID(ctx, data.paramID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
+		}
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func ptrToFloat32(f *float64) *float32 {
+	if f == nil {
+		return nil
+	}
+	v := float32(*f)
+	return &v
 }
 
 func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -148,11 +205,13 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var updateData []struct {
+	type updateItem struct {
 		deltaID       idwrap.IDWrap
-		existingParam *mhttp.HTTPSearchParam
+		existingParam mhttp.HTTPSearchParam
+		workspaceID   idwrap.IDWrap
 		item          *apiv1.HttpSearchParamDeltaUpdate
 	}
+	updateData := make([]updateItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpSearchParamId) == 0 {
@@ -189,27 +248,20 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			return nil, err
 		}
 
-		updateData = append(updateData, struct {
-			deltaID       idwrap.IDWrap
-			existingParam *mhttp.HTTPSearchParam
-			item          *apiv1.HttpSearchParamDeltaUpdate
-		}{
+		updateData = append(updateData, updateItem{
 			deltaID:       deltaID,
-			existingParam: existingParam,
+			existingParam: *existingParam,
+			workspaceID:   httpEntry.WorkspaceID,
 			item:          item,
 		})
 	}
 
-	// Step 2: Prepare updates (in memory)
-	var preparedUpdates []struct {
-		deltaID          idwrap.IDWrap
-		deltaKey         *string
-		deltaValue       *string
-		deltaEnabled     *bool
-		deltaDescription *string
-		deltaOrder       *float64
+	// ACT: Update using mutation context
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	var patches []patch.HTTPSearchParamPatch
+	defer mut.Rollback()
 
 	for _, data := range updateData {
 		item := data.item
@@ -278,64 +330,33 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			}
 		}
 
-		patches = append(patches, patchData)
-		preparedUpdates = append(preparedUpdates, struct {
-			deltaID          idwrap.IDWrap
-			deltaKey         *string
-			deltaValue       *string
-			deltaEnabled     *bool
-			deltaDescription *string
-			deltaOrder       *float64
-		}{
-			deltaID:          data.deltaID,
-			deltaKey:         deltaKey,
-			deltaValue:       deltaValue,
-			deltaEnabled:     deltaEnabled,
-			deltaDescription: deltaDescription,
-			deltaOrder:       deltaOrder,
-		})
-	}
-
-	// Step 3: Execute updates in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var updatedParams []mhttp.HTTPSearchParam
-
-	for _, update := range preparedUpdates {
-		if err := httpSearchParamService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+		paramService := h.httpSearchParamService.TX(mut.TX())
+		if err := mut.UpdateHTTPSearchParamDelta(ctx, mutation.HTTPSearchParamDeltaUpdateItem{
+			ID:          data.deltaID,
+			HttpID:      data.existingParam.HttpID,
+			WorkspaceID: data.workspaceID,
+			Params: gen.UpdateHTTPSearchParamDeltaParams{
+				ID:                data.deltaID,
+				DeltaKey:          ptrToNullString(deltaKey),
+				DeltaValue:        ptrToNullString(deltaValue),
+				DeltaEnabled:      deltaEnabled,
+				DeltaDescription:  deltaDescription,
+				DeltaDisplayOrder: ptrToNullFloat64(ptrToFloat32(deltaOrder)),
+			},
+			Patch: patchData,
+		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated param for event publishing (must get from TX service to see changes)
-		updatedParam, err := httpSearchParamService.GetByID(ctx, update.deltaID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Update payload in tracked event
+		updated, err := paramService.GetByID(ctx, data.deltaID)
+		if err == nil {
+			mut.UpdateLastEventPayload(*updated)
 		}
-		updatedParams = append(updatedParams, *updatedParam)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish update events for real-time sync after successful commit
-	for i, param := range updatedParams {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, param.HttpID)
-		if err != nil {
-			continue
-		}
-		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
-			Type:            eventTypeUpdate,
-			IsDelta:         true,
-			Patch:           patches[i],
-			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -347,11 +368,13 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 	}
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
-	var deleteData []struct {
-		deltaID       idwrap.IDWrap
-		existingParam *mhttp.HTTPSearchParam
-		workspaceID   idwrap.IDWrap
+	type deleteItem struct {
+		deltaID     idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		param       mhttp.HTTPSearchParam
 	}
+	deleteData := make([]deleteItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpSearchParamId) == 0 {
@@ -388,48 +411,38 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 			return nil, err
 		}
 
-		deleteData = append(deleteData, struct {
-			deltaID       idwrap.IDWrap
-			existingParam *mhttp.HTTPSearchParam
-			workspaceID   idwrap.IDWrap
-		}{
-			deltaID:       deltaID,
-			existingParam: existingParam,
-			workspaceID:   httpEntry.WorkspaceID,
+		deleteData = append(deleteData, deleteItem{
+			deltaID:     deltaID,
+			httpID:      existingParam.HttpID,
+			workspaceID: httpEntry.WorkspaceID,
+			param:       *existingParam,
 		})
 	}
 
 	// Step 2: Execute deletes in transaction
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var deletedParams []mhttp.HTTPSearchParam
-	var deletedWorkspaceIDs []idwrap.IDWrap
+	defer mut.Rollback()
 
 	for _, data := range deleteData {
-		// Delete the delta record
-		if err := httpSearchParamService.Delete(ctx, data.deltaID); err != nil {
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityHTTPParam,
+			Op:          mutation.OpDelete,
+			ID:          data.deltaID,
+			ParentID:    data.httpID,
+			WorkspaceID: data.workspaceID,
+			IsDelta:     true,
+			Payload:     data.param,
+		})
+		if err := mut.Queries().DeleteHTTPSearchParam(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		deletedParams = append(deletedParams, *data.existingParam)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync after successful commit
-	for i, param := range deletedParams {
-		h.streamers.HttpSearchParam.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
-			Type:            eventTypeDelete,
-			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

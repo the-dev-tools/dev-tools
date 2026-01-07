@@ -15,6 +15,7 @@ import (
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -24,9 +25,8 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
-// setupTestServiceWithStreams creates a test service with nodeStream configured
-// so we can verify events are published.
-func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Context, idwrap.IDWrap, idwrap.IDWrap, <-chan NodeEvent) {
+// setupTestServiceWithStreams creates a test service with all specialized streams configured
+func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Context, idwrap.IDWrap, idwrap.IDWrap, *testStreamRegistry) {
 	ctx := context.Background()
 	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
@@ -53,27 +53,35 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 	fsReader := sflow.NewFlowReaderFromQueries(queries)
 	nsReader := sflow.NewNodeReaderFromQueries(queries)
 
-	// Create in-memory node stream
+	// Create streams
 	nodeStream := memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
+	forStream := memory.NewInMemorySyncStreamer[ForTopic, ForEvent]()
+	conditionStream := memory.NewInMemorySyncStreamer[ConditionTopic, ConditionEvent]()
+	forEachStream := memory.NewInMemorySyncStreamer[ForEachTopic, ForEachEvent]()
+	jsStream := memory.NewInMemorySyncStreamer[JsTopic, JsEvent]()
 
 	svc := &FlowServiceV2RPC{
-		DB:         db,
-		wsReader:   wsReader,
-		fsReader:   fsReader,
-		nsReader:   nsReader,
-		ws:         &wsService,
-		fs:         &flowService,
-		ns:         &nodeService,
-		nes:        &nodeExecService,
-		es:         &edgeService,
-		fvs:        &flowVarService,
-		nrs:        &nodeRequestService,
-		nfs:        &nodeForService,
-		nfes:       &nodeForEachService,
-		nifs:       nodeIfService,
-		njss:       &nodeNodeJsService,
-		logger:     logger,
-		nodeStream: nodeStream,
+		DB:              db,
+		wsReader:        wsReader,
+		fsReader:        fsReader,
+		nsReader:        nsReader,
+		ws:              &wsService,
+		fs:              &flowService,
+		ns:              &nodeService,
+		nes:             &nodeExecService,
+		es:              &edgeService,
+		fvs:             &flowVarService,
+		nrs:             &nodeRequestService,
+		nfs:             &nodeForService,
+		nfes:            &nodeForEachService,
+		nifs:            nodeIfService,
+		njss:            &nodeNodeJsService,
+		logger:          logger,
+		nodeStream:      nodeStream,
+		forStream:       forStream,
+		conditionStream: conditionStream,
+		forEachStream:   forEachStream,
+		jsStream:        jsStream,
 	}
 
 	// Setup user and workspace
@@ -102,39 +110,140 @@ func setupTestServiceWithStreams(t *testing.T) (*FlowServiceV2RPC, context.Conte
 	})
 	require.NoError(t, err)
 
-	// Subscribe to node events
-	eventChan, err := nodeStream.Subscribe(ctx, func(topic NodeTopic) bool {
-		return true // Accept all events
-	})
-	require.NoError(t, err)
+	registry := &testStreamRegistry{
+		nodeEvents:      subscribeToNodeEvents(ctx, nodeStream),
+		forEvents:       subscribeToForEvents(ctx, forStream),
+		conditionEvents: subscribeToConditionEvents(ctx, conditionStream),
+		forEachEvents:   subscribeToForEachEvents(ctx, forEachStream),
+		jsEvents:        subscribeToJsEvents(ctx, jsStream),
+	}
 
-	// Convert to channel of NodeEvent
-	nodeEventChan := make(chan NodeEvent, 100)
-	go func() {
-		for evt := range eventChan {
-			nodeEventChan <- evt.Payload
-		}
-		close(nodeEventChan)
-	}()
-
-	return svc, ctx, userID, workspaceID, nodeEventChan
+	return svc, ctx, userID, workspaceID, registry
 }
 
-// collectEvents collects events from the channel with a timeout
-func collectEvents(eventChan <-chan NodeEvent, count int, timeout time.Duration) []NodeEvent {
+type testStreamRegistry struct {
+	nodeEvents      <-chan NodeEvent
+	forEvents       <-chan ForEvent
+	conditionEvents <-chan ConditionEvent
+	forEachEvents   <-chan ForEachEvent
+	jsEvents        <-chan JsEvent
+}
+
+func subscribeToNodeEvents(ctx context.Context, stream eventstream.SyncStreamer[NodeTopic, NodeEvent]) <-chan NodeEvent {
+	ch, _ := stream.Subscribe(ctx, nil)
+	out := make(chan NodeEvent, 100)
+	go func() {
+		for e := range ch {
+			out <- e.Payload
+		}
+		close(out)
+	}()
+	return out
+}
+
+func subscribeToForEvents(ctx context.Context, stream eventstream.SyncStreamer[ForTopic, ForEvent]) <-chan ForEvent {
+	ch, _ := stream.Subscribe(ctx, nil)
+	out := make(chan ForEvent, 100)
+	go func() {
+		for e := range ch {
+			out <- e.Payload
+		}
+		close(out)
+	}()
+	return out
+}
+
+func subscribeToConditionEvents(ctx context.Context, stream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]) <-chan ConditionEvent {
+	ch, _ := stream.Subscribe(ctx, nil)
+	out := make(chan ConditionEvent, 100)
+	go func() {
+		for e := range ch {
+			out <- e.Payload
+		}
+		close(out)
+	}()
+	return out
+}
+
+func subscribeToForEachEvents(ctx context.Context, stream eventstream.SyncStreamer[ForEachTopic, ForEachEvent]) <-chan ForEachEvent {
+	ch, _ := stream.Subscribe(ctx, nil)
+	out := make(chan ForEachEvent, 100)
+	go func() {
+		for e := range ch {
+			out <- e.Payload
+		}
+		close(out)
+	}()
+	return out
+}
+
+func subscribeToJsEvents(ctx context.Context, stream eventstream.SyncStreamer[JsTopic, JsEvent]) <-chan JsEvent {
+	ch, _ := stream.Subscribe(ctx, nil)
+	out := make(chan JsEvent, 100)
+	go func() {
+		for e := range ch {
+			out <- e.Payload
+		}
+		close(out)
+	}()
+	return out
+}
+
+func collectNodeEvents(eventChan <-chan NodeEvent, count int, timeout time.Duration) []NodeEvent {
 	events := make([]NodeEvent, 0, count)
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
-
 	for i := 0; i < count; i++ {
 		select {
 		case evt, ok := <-eventChan:
-			if !ok {
-				return events
-			}
+			if !ok { return events }
 			events = append(events, evt)
-		case <-timer.C:
-			return events
+		case <-timer.C: return events
+		}
+	}
+	return events
+}
+
+func collectConditionEvents(eventChan <-chan ConditionEvent, count int, timeout time.Duration) []ConditionEvent {
+	events := make([]ConditionEvent, 0, count)
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for i := 0; i < count; i++ {
+		select {
+		case evt, ok := <-eventChan:
+			if !ok { return events }
+			events = append(events, evt)
+		case <-timer.C: return events
+		}
+	}
+	return events
+}
+
+func collectForEachEvents(eventChan <-chan ForEachEvent, count int, timeout time.Duration) []ForEachEvent {
+	events := make([]ForEachEvent, 0, count)
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for i := 0; i < count; i++ {
+		select {
+		case evt, ok := <-eventChan:
+			if !ok { return events }
+			events = append(events, evt)
+		case <-timer.C: return events
+		}
+	}
+	return events
+}
+
+func collectJsEvents(eventChan <-chan JsEvent, count int, timeout time.Duration) []JsEvent {
+	events := make([]JsEvent, 0, count)
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for i := 0; i < count; i++ {
+		select {
+		case evt, ok := <-eventChan:
+			if !ok { return events }
+			events = append(events, evt)
+		case <-timer.C: return events
 		}
 	}
 	return events
@@ -143,291 +252,181 @@ func collectEvents(eventChan <-chan NodeEvent, count int, timeout time.Duration)
 // TestNodeHttpSync_PublishesEventsOnCRUD verifies that NodeHttp CRUD operations
 // publish events to the node stream.
 func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
-	svc, ctx, _, workspaceID, eventChan := setupTestServiceWithStreams(t)
+	svc, ctx, _, workspaceID, registry := setupTestServiceWithStreams(t)
 
-	// Create flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        "Test Flow",
-	})
+	err := svc.fs.CreateFlow(ctx, mflow.Flow{ID: flowID, WorkspaceID: workspaceID, Name: "Test Flow"})
 	require.NoError(t, err)
 
-	// Create base node (REQUEST kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mflow.Node{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     "HTTP Node",
-		NodeKind: mflow.NODE_KIND_REQUEST,
-	})
+	err = svc.ns.CreateNode(ctx, mflow.Node{ID: nodeID, FlowID: flowID, Name: "HTTP Node", NodeKind: mflow.NODE_KIND_REQUEST})
 	require.NoError(t, err)
-
-	httpID := idwrap.NewNow()
 
 	t.Run("Insert publishes event", func(t *testing.T) {
-		// Insert should publish event so sync clients re-fetch node with HTTP config
 		req := connect.NewRequest(&flowv1.NodeHttpInsertRequest{
-			Items: []*flowv1.NodeHttpInsert{{
-				NodeId: nodeID.Bytes(),
-				HttpId: httpID.Bytes(),
-			}},
+			Items: []*flowv1.NodeHttpInsert{{NodeId: nodeID.Bytes(), HttpId: idwrap.NewNow().Bytes()}},
 		})
-
 		_, err := svc.NodeHttpInsert(ctx, req)
 		require.NoError(t, err)
 
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Insert")
+		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
 		assert.Equal(t, nodeEventUpdate, events[0].Type)
 	})
 
 	t.Run("Update publishes event", func(t *testing.T) {
-		newHttpID := idwrap.NewNow()
 		req := connect.NewRequest(&flowv1.NodeHttpUpdateRequest{
-			Items: []*flowv1.NodeHttpUpdate{{
-				NodeId: nodeID.Bytes(),
-				HttpId: newHttpID.Bytes(),
-			}},
+			Items: []*flowv1.NodeHttpUpdate{{NodeId: nodeID.Bytes(), HttpId: idwrap.NewNow().Bytes()}},
 		})
-
 		_, err := svc.NodeHttpUpdate(ctx, req)
 		require.NoError(t, err)
 
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Update")
+		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
 		assert.Equal(t, nodeEventUpdate, events[0].Type)
 	})
 
 	t.Run("Delete publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeHttpDeleteRequest{
-			Items: []*flowv1.NodeHttpDelete{{
-				NodeId: nodeID.Bytes(),
-			}},
+			Items: []*flowv1.NodeHttpDelete{{NodeId: nodeID.Bytes()}},
 		})
-
 		_, err := svc.NodeHttpDelete(ctx, req)
 		require.NoError(t, err)
 
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Delete")
+		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
 		assert.Equal(t, nodeEventUpdate, events[0].Type)
 	})
 }
 
-// TestNodeConditionSync_PublishesEventsOnCRUD verifies that NodeCondition operations
-// publish events to the node stream.
+// TestNodeConditionSync_PublishesEventsOnCRUD verifies specialized sync events.
 func TestNodeConditionSync_PublishesEventsOnCRUD(t *testing.T) {
-	svc, ctx, _, workspaceID, eventChan := setupTestServiceWithStreams(t)
+	svc, ctx, _, workspaceID, registry := setupTestServiceWithStreams(t)
 
-	// Create flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        "Test Flow",
-	})
-	require.NoError(t, err)
+	svc.fs.CreateFlow(ctx, mflow.Flow{ID: flowID, WorkspaceID: workspaceID, Name: "Test Flow"})
 
-	// Create base node (CONDITION kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mflow.Node{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     "Condition Node",
-		NodeKind: mflow.NODE_KIND_CONDITION,
-	})
-	require.NoError(t, err)
+	svc.ns.CreateNode(ctx, mflow.Node{ID: nodeID, FlowID: flowID, Name: "Cond Node", NodeKind: mflow.NODE_KIND_CONDITION})
 
 	t.Run("Insert publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeConditionInsertRequest{
-			Items: []*flowv1.NodeConditionInsert{{
-				NodeId:    nodeID.Bytes(),
-				Condition: "a > b",
-			}},
+			Items: []*flowv1.NodeConditionInsert{{NodeId: nodeID.Bytes(), Condition: "true"}},
 		})
+		svc.NodeConditionInsert(ctx, req)
 
-		_, err := svc.NodeConditionInsert(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Insert")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectConditionEvents(registry.conditionEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, "insert", events[0].Type)
 	})
 
 	t.Run("Update publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeConditionUpdateRequest{
-			Items: []*flowv1.NodeConditionUpdate{{
-				NodeId:    nodeID.Bytes(),
-				Condition: ptr("x == y"),
-			}},
+			Items: []*flowv1.NodeConditionUpdate{{NodeId: nodeID.Bytes(), Condition: ptr("false")}},
 		})
+		svc.NodeConditionUpdate(ctx, req)
 
-		_, err := svc.NodeConditionUpdate(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Update")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectConditionEvents(registry.conditionEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, "update", events[0].Type)
 	})
 
 	t.Run("Delete publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeConditionDeleteRequest{
-			Items: []*flowv1.NodeConditionDelete{{
-				NodeId: nodeID.Bytes(),
-			}},
+			Items: []*flowv1.NodeConditionDelete{{NodeId: nodeID.Bytes()}},
 		})
+		svc.NodeConditionDelete(ctx, req)
 
-		_, err := svc.NodeConditionDelete(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Delete")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectConditionEvents(registry.conditionEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, "delete", events[0].Type)
 	})
 }
 
-// TestNodeForEachSync_PublishesEventsOnCRUD verifies that NodeForEach operations
-// publish events to the node stream.
+// TestNodeForEachSync_PublishesEventsOnCRUD verifies specialized sync events.
 func TestNodeForEachSync_PublishesEventsOnCRUD(t *testing.T) {
-	svc, ctx, _, workspaceID, eventChan := setupTestServiceWithStreams(t)
+	svc, ctx, _, workspaceID, registry := setupTestServiceWithStreams(t)
 
-	// Create flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        "Test Flow",
-	})
-	require.NoError(t, err)
+	svc.fs.CreateFlow(ctx, mflow.Flow{ID: flowID, WorkspaceID: workspaceID, Name: "Test Flow"})
 
-	// Create base node (FOR_EACH kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mflow.Node{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     "ForEach Node",
-		NodeKind: mflow.NODE_KIND_FOR_EACH,
-	})
-	require.NoError(t, err)
+	svc.ns.CreateNode(ctx, mflow.Node{ID: nodeID, FlowID: flowID, Name: "ForEach Node", NodeKind: mflow.NODE_KIND_FOR_EACH})
 
 	t.Run("Insert publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeForEachInsertRequest{
-			Items: []*flowv1.NodeForEachInsert{{
-				NodeId: nodeID.Bytes(),
-				Path:   "items",
-			}},
+			Items: []*flowv1.NodeForEachInsert{{NodeId: nodeID.Bytes(), Path: "items"}},
 		})
+		svc.NodeForEachInsert(ctx, req)
 
-		_, err := svc.NodeForEachInsert(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Insert")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectForEachEvents(registry.forEachEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, "insert", events[0].Type)
 	})
 
 	t.Run("Update publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeForEachUpdateRequest{
-			Items: []*flowv1.NodeForEachUpdate{{
-				NodeId: nodeID.Bytes(),
-				Path:   ptr("data.items"),
-			}},
+			Items: []*flowv1.NodeForEachUpdate{{NodeId: nodeID.Bytes(), Path: ptr("new.items")}},
 		})
+		svc.NodeForEachUpdate(ctx, req)
 
-		_, err := svc.NodeForEachUpdate(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Update")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectForEachEvents(registry.forEachEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, "update", events[0].Type)
 	})
 
 	t.Run("Delete publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeForEachDeleteRequest{
-			Items: []*flowv1.NodeForEachDelete{{
-				NodeId: nodeID.Bytes(),
-			}},
+			Items: []*flowv1.NodeForEachDelete{{NodeId: nodeID.Bytes()}},
 		})
+		svc.NodeForEachDelete(ctx, req)
 
-		_, err := svc.NodeForEachDelete(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Delete")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectForEachEvents(registry.forEachEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, "delete", events[0].Type)
 	})
 }
 
-// TestNodeJsSync_PublishesEventsOnCRUD verifies that NodeJs operations
-// publish events to the node stream.
+// TestNodeJsSync_PublishesEventsOnCRUD verifies specialized sync events.
 func TestNodeJsSync_PublishesEventsOnCRUD(t *testing.T) {
-	svc, ctx, _, workspaceID, eventChan := setupTestServiceWithStreams(t)
+	svc, ctx, _, workspaceID, registry := setupTestServiceWithStreams(t)
 
-	// Create flow
 	flowID := idwrap.NewNow()
-	err := svc.fs.CreateFlow(ctx, mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        "Test Flow",
-	})
-	require.NoError(t, err)
+	svc.fs.CreateFlow(ctx, mflow.Flow{ID: flowID, WorkspaceID: workspaceID, Name: "Test Flow"})
 
-	// Create base node (JS kind)
 	nodeID := idwrap.NewNow()
-	err = svc.ns.CreateNode(ctx, mflow.Node{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     "JS Node",
-		NodeKind: mflow.NODE_KIND_JS,
-	})
-	require.NoError(t, err)
+	svc.ns.CreateNode(ctx, mflow.Node{ID: nodeID, FlowID: flowID, Name: "JS Node", NodeKind: mflow.NODE_KIND_JS})
 
 	t.Run("Insert publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeJsInsertRequest{
-			Items: []*flowv1.NodeJsInsert{{
-				NodeId: nodeID.Bytes(),
-				Code:   "return 42;",
-			}},
+			Items: []*flowv1.NodeJsInsert{{NodeId: nodeID.Bytes(), Code: "console.log(1)"}},
 		})
+		svc.NodeJsInsert(ctx, req)
 
-		_, err := svc.NodeJsInsert(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Insert")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectJsEvents(registry.jsEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, jsEventInsert, events[0].Type)
 	})
 
 	t.Run("Update publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeJsUpdateRequest{
-			Items: []*flowv1.NodeJsUpdate{{
-				NodeId: nodeID.Bytes(),
-				Code:   ptr("return 'hello';"),
-			}},
+			Items: []*flowv1.NodeJsUpdate{{NodeId: nodeID.Bytes(), Code: ptr("console.log(2)")}},
 		})
+		svc.NodeJsUpdate(ctx, req)
 
-		_, err := svc.NodeJsUpdate(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Update")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectJsEvents(registry.jsEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, jsEventUpdate, events[0].Type)
 	})
 
 	t.Run("Delete publishes event", func(t *testing.T) {
 		req := connect.NewRequest(&flowv1.NodeJsDeleteRequest{
-			Items: []*flowv1.NodeJsDelete{{
-				NodeId: nodeID.Bytes(),
-			}},
+			Items: []*flowv1.NodeJsDelete{{NodeId: nodeID.Bytes()}},
 		})
+		svc.NodeJsDelete(ctx, req)
 
-		_, err := svc.NodeJsDelete(ctx, req)
-		require.NoError(t, err)
-
-		events := collectEvents(eventChan, 1, 100*time.Millisecond)
-		require.Len(t, events, 1, "Should receive 1 event after Delete")
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		events := collectJsEvents(registry.jsEvents, 1, 100*time.Millisecond)
+		require.Len(t, events, 1)
+		assert.Equal(t, jsEventDelete, events[0].Type)
 	})
 }

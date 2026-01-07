@@ -72,24 +72,27 @@ func setupZeroValueTestServices(t *testing.T) *testServices {
 	forStream := memory.NewInMemorySyncStreamer[ForTopic, ForEvent]()
 
 	svc := &FlowServiceV2RPC{
-		DB:         db,
-		wsReader:   wsReader,
-		fsReader:   fsReader,
-		nsReader:   nsReader,
-		ws:         &wsService,
-		fs:         &flowService,
-		ns:         &nodeService,
-		nes:        &nodeExecService,
-		es:         &edgeService,
-		fvs:        &flowVarService,
-		nrs:        &nodeRequestService,
-		nfs:        &nodeForService,
-		nfes:       &nodeForEachService,
-		nifs:       nodeIfService,
-		njss:       &nodeNodeJsService,
-		logger:     logger,
-		nodeStream: nodeStream,
-		forStream:  forStream,
+		DB:              db,
+		wsReader:        wsReader,
+		fsReader:        fsReader,
+		nsReader:        nsReader,
+		ws:              &wsService,
+		fs:              &flowService,
+		ns:              &nodeService,
+		nes:             &nodeExecService,
+		es:              &edgeService,
+		fvs:             &flowVarService,
+		nrs:             &nodeRequestService,
+		nfs:             &nodeForService,
+		nfes:            &nodeForEachService,
+		nifs:            nodeIfService,
+		njss:            &nodeNodeJsService,
+		logger:          logger,
+		nodeStream:      nodeStream,
+		forStream:       forStream,
+		conditionStream: memory.NewInMemorySyncStreamer[ConditionTopic, ConditionEvent](),
+		forEachStream:   memory.NewInMemorySyncStreamer[ForEachTopic, ForEachEvent](),
+		jsStream:        memory.NewInMemorySyncStreamer[JsTopic, JsEvent](),
 	}
 
 	// Setup user and workspace
@@ -283,7 +286,6 @@ func TestNodeCondition_EmptyCondition(t *testing.T) {
 	require.NoError(t, err)
 
 	// Subscribe to events after insert
-	eventChan := ts.subscribeNodeEvents(t)
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("update condition to empty string", func(t *testing.T) {
@@ -295,13 +297,19 @@ func TestNodeCondition_EmptyCondition(t *testing.T) {
 			}},
 		})
 
+		// Subscribe to specialized stream
+		ch, _ := ts.svc.conditionStream.Subscribe(ts.ctx, nil)
+
 		_, err := ts.svc.NodeConditionUpdate(ts.ctx, updateReq)
 		require.NoError(t, err)
 
 		// Wait for sync event
-		evt, ok := waitForEvent(t, eventChan, 2*time.Second)
-		require.True(t, ok, "Should receive sync event for empty condition")
-		assert.Equal(t, nodeEventUpdate, evt.Type)
+		select {
+		case evt := <-ch:
+			assert.Equal(t, "update", evt.Payload.Type)
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timeout waiting for sync event")
+		}
 	})
 
 	t.Run("verify persisted value is empty", func(t *testing.T) {
@@ -341,7 +349,6 @@ func TestNodeForEach_EmptyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	// Subscribe to events after insert
-	eventChan := ts.subscribeNodeEvents(t)
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("update path to empty string", func(t *testing.T) {
@@ -353,13 +360,19 @@ func TestNodeForEach_EmptyPath(t *testing.T) {
 			}},
 		})
 
+		// Subscribe to specialized stream
+		ch, _ := ts.svc.forEachStream.Subscribe(ts.ctx, nil)
+
 		_, err := ts.svc.NodeForEachUpdate(ts.ctx, updateReq)
 		require.NoError(t, err)
 
 		// Wait for sync event
-		evt, ok := waitForEvent(t, eventChan, 2*time.Second)
-		require.True(t, ok, "Should receive sync event for empty path")
-		assert.Equal(t, nodeEventUpdate, evt.Type)
+		select {
+		case evt := <-ch:
+			assert.Equal(t, "update", evt.Payload.Type)
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timeout waiting for sync event")
+		}
 	})
 
 	t.Run("verify persisted value is empty", func(t *testing.T) {
@@ -398,7 +411,6 @@ func TestNodeJs_EmptyCode(t *testing.T) {
 	require.NoError(t, err)
 
 	// Subscribe to events after insert
-	eventChan := ts.subscribeNodeEvents(t)
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("update code to empty string", func(t *testing.T) {
@@ -410,13 +422,19 @@ func TestNodeJs_EmptyCode(t *testing.T) {
 			}},
 		})
 
+		// Subscribe to specialized stream
+		ch, _ := ts.svc.jsStream.Subscribe(ts.ctx, nil)
+
 		_, err := ts.svc.NodeJsUpdate(ts.ctx, updateReq)
 		require.NoError(t, err)
 
 		// Wait for sync event
-		evt, ok := waitForEvent(t, eventChan, 2*time.Second)
-		require.True(t, ok, "Should receive sync event for empty code")
-		assert.Equal(t, nodeEventUpdate, evt.Type)
+		select {
+		case evt := <-ch:
+			assert.Equal(t, jsEventUpdate, evt.Payload.Type)
+		case <-time.After(2 * time.Second):
+			t.Fatal("Timeout waiting for sync event")
+		}
 	})
 
 	t.Run("verify persisted value is empty", func(t *testing.T) {
