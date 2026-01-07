@@ -30,7 +30,7 @@
           (import "${inputs.cache-nix-action}/saveFromGC.nix" {
             inherit pkgs inputs;
             derivations = [config.devShells.runner];
-          }).saveFromGC;
+          }).package;
 
         devShells.runner = let
           gha-scripts = pkgs.writeShellApplication {
