@@ -38,14 +38,22 @@ import (
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/mutation"
+	"the-dev-tools/server/pkg/streamregistry"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	envapiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
+	filesystemv1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
+	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
 )
 
 // workspaceImporterAdapter implements rflowv2.WorkspaceImporter using rimportv2 service
@@ -214,6 +222,26 @@ func run() error {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
+	httpStreamers := &rhttp.HttpStreamers{
+		Http:               streamers.Http,
+		HttpHeader:         streamers.HttpHeader,
+		HttpSearchParam:    streamers.HttpSearchParam,
+		HttpBodyForm:       streamers.HttpBodyForm,
+		HttpBodyUrlEncoded: streamers.HttpBodyUrlEncoded,
+		HttpAssert:         streamers.HttpAssert,
+		HttpVersion:        streamers.HttpVersion,
+		HttpResponse:       streamers.HttpResponse,
+		HttpResponseHeader: streamers.HttpResponseHeader,
+		HttpResponseAssert: streamers.HttpResponseAssert,
+		HttpBodyRaw:        streamers.HttpBodyRaw,
+		Log:                streamers.Log,
+		File:               streamers.File,
+	}
+
+	// Create stream registry for unified mutation event publishing
+	registry := streamregistry.New()
+	registerCascadeHandlers(registry, httpStreamers, streamers)
+
 	workspaceSrv := rworkspace.New(rworkspace.WorkspaceServiceRPCDeps{
 		DB: currentDB,
 		Services: rworkspace.WorkspaceServiceRPCServices{
@@ -230,6 +258,7 @@ func run() error {
 			Workspace:   streamers.Workspace,
 			Environment: streamers.Environment,
 		},
+		Publisher: registry,
 	})
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
@@ -249,6 +278,7 @@ func run() error {
 			Env:      streamers.Environment,
 			Variable: streamers.EnvironmentVariable,
 		},
+		Publisher: registry,
 	})
 	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
 
@@ -263,22 +293,6 @@ func run() error {
 		httpBodyUrlEncodedService,
 		httpAssertService,
 	)
-
-	httpStreamers := &rhttp.HttpStreamers{
-		Http:               streamers.Http,
-		HttpHeader:         streamers.HttpHeader,
-		HttpSearchParam:    streamers.HttpSearchParam,
-		HttpBodyForm:       streamers.HttpBodyForm,
-		HttpBodyUrlEncoded: streamers.HttpBodyUrlEncoded,
-		HttpAssert:         streamers.HttpAssert,
-		HttpVersion:        streamers.HttpVersion,
-		HttpResponse:       streamers.HttpResponse,
-		HttpResponseHeader: streamers.HttpResponseHeader,
-		HttpResponseAssert: streamers.HttpResponseAssert,
-		HttpBodyRaw:        streamers.HttpBodyRaw,
-		Log:                streamers.Log,
-		File:               streamers.File,
-	}
 
 	httpSrv := rhttp.New(rhttp.HttpServiceRPCDeps{
 		DB: currentDB,
@@ -482,7 +496,8 @@ func run() error {
 			User:      userService,
 			Workspace: workspaceService,
 		},
-		Stream: streamers.File,
+		Stream:    streamers.File,
+		Publisher: registry,
 	})
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
@@ -692,4 +707,224 @@ func (s *Streamers) Shutdown() {
 	s.Js.Shutdown()
 	s.Execution.Shutdown()
 	s.File.Shutdown()
+}
+
+// registerCascadeHandlers registers all handlers needed for cascade deletion events.
+// This wires the streamregistry to the concrete streamers from rhttp, rflowv2, rfile, renv, and rworkspace.
+func registerCascadeHandlers(registry *streamregistry.Registry, httpStreamers *rhttp.HttpStreamers, streamers *Streamers) {
+	// Workspace entity
+	if streamers.Workspace != nil {
+		registry.Register(mutation.EntityWorkspace, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.Workspace.Publish(rworkspace.WorkspaceTopic{WorkspaceID: evt.WorkspaceID}, rworkspace.WorkspaceEvent{
+				Type: "delete",
+				Workspace: &apiv1.Workspace{
+					WorkspaceId: evt.ID.Bytes(),
+				},
+			})
+		})
+	}
+
+	// Environment entity
+	if streamers.Environment != nil {
+		registry.Register(mutation.EntityEnvironment, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.Environment.Publish(renv.EnvironmentTopic{WorkspaceID: evt.WorkspaceID}, renv.EnvironmentEvent{
+				Type: "delete",
+				Environment: &envapiv1.Environment{
+					EnvironmentId: evt.ID.Bytes(),
+					WorkspaceId:   evt.WorkspaceID.Bytes(),
+				},
+			})
+		})
+	}
+
+	// Environment Variable entity
+	if streamers.EnvironmentVariable != nil {
+		registry.Register(mutation.EntityEnvironmentValue, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.EnvironmentVariable.Publish(renv.EnvironmentVariableTopic{WorkspaceID: evt.WorkspaceID, EnvironmentID: evt.ParentID}, renv.EnvironmentVariableEvent{
+				Type: "delete",
+				Variable: &envapiv1.EnvironmentVariable{
+					EnvironmentVariableId: evt.ID.Bytes(),
+					EnvironmentId:         evt.ParentID.Bytes(),
+				},
+			})
+		})
+	}
+
+	// File entity
+	if streamers.File != nil {
+		registry.Register(mutation.EntityFile, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.File.Publish(rfile.FileTopic{WorkspaceID: evt.WorkspaceID}, rfile.FileEvent{
+				Type: "delete",
+				File: &filesystemv1.File{
+					FileId:      evt.ID.Bytes(),
+					WorkspaceId: evt.WorkspaceID.Bytes(),
+				},
+			})
+		})
+	}
+
+	// HTTP entity
+	if httpStreamers.Http != nil {
+		registry.Register(mutation.EntityHTTP, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.Http.Publish(rhttp.HttpTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpEvent{
+				Type:    "delete",
+				IsDelta: evt.IsDelta,
+				Http:    &httpv1.Http{HttpId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// HTTP Header entity
+	if httpStreamers.HttpHeader != nil {
+		registry.Register(mutation.EntityHTTPHeader, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.HttpHeader.Publish(rhttp.HttpHeaderTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpHeaderEvent{
+				Type:       "delete",
+				IsDelta:    evt.IsDelta,
+				HttpHeader: &httpv1.HttpHeader{HttpHeaderId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// HTTP Search Param entity
+	if httpStreamers.HttpSearchParam != nil {
+		registry.Register(mutation.EntityHTTPParam, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.HttpSearchParam.Publish(rhttp.HttpSearchParamTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpSearchParamEvent{
+				Type:            "delete",
+				IsDelta:         evt.IsDelta,
+				HttpSearchParam: &httpv1.HttpSearchParam{HttpSearchParamId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// HTTP Body Form entity
+	if httpStreamers.HttpBodyForm != nil {
+		registry.Register(mutation.EntityHTTPBodyForm, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.HttpBodyForm.Publish(rhttp.HttpBodyFormTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpBodyFormEvent{
+				Type:         "delete",
+				IsDelta:      evt.IsDelta,
+				HttpBodyForm: &httpv1.HttpBodyFormData{HttpBodyFormDataId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// HTTP Body URL Encoded entity
+	if httpStreamers.HttpBodyUrlEncoded != nil {
+		registry.Register(mutation.EntityHTTPBodyURL, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.HttpBodyUrlEncoded.Publish(rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpBodyUrlEncodedEvent{
+				Type:               "delete",
+				IsDelta:            evt.IsDelta,
+				HttpBodyUrlEncoded: &httpv1.HttpBodyUrlEncoded{HttpBodyUrlEncodedId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// HTTP Body Raw entity
+	if httpStreamers.HttpBodyRaw != nil {
+		registry.Register(mutation.EntityHTTPBodyRaw, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.HttpBodyRaw.Publish(rhttp.HttpBodyRawTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpBodyRawEvent{
+				Type:        "delete",
+				IsDelta:     evt.IsDelta,
+				HttpBodyRaw: &httpv1.HttpBodyRaw{HttpId: evt.ParentID.Bytes()},
+			})
+		})
+	}
+
+	// HTTP Assert entity
+	if httpStreamers.HttpAssert != nil {
+		registry.Register(mutation.EntityHTTPAssert, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			httpStreamers.HttpAssert.Publish(rhttp.HttpAssertTopic{WorkspaceID: evt.WorkspaceID}, rhttp.HttpAssertEvent{
+				Type:       "delete",
+				IsDelta:    evt.IsDelta,
+				HttpAssert: &httpv1.HttpAssert{HttpAssertId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// Flow entity
+	if streamers.Flow != nil {
+		registry.Register(mutation.EntityFlow, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.Flow.Publish(rflowv2.FlowTopic{WorkspaceID: evt.WorkspaceID}, rflowv2.FlowEvent{
+				Type: "delete",
+				Flow: &flowv1.Flow{FlowId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// Flow Node entity
+	if streamers.Node != nil {
+		registry.Register(mutation.EntityFlowNode, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.Node.Publish(rflowv2.NodeTopic{FlowID: evt.ParentID}, rflowv2.NodeEvent{
+				Type:   "delete",
+				FlowID: evt.ParentID,
+				Node:   &flowv1.Node{NodeId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// Flow Edge entity
+	if streamers.Edge != nil {
+		registry.Register(mutation.EntityFlowEdge, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.Edge.Publish(rflowv2.EdgeTopic{FlowID: evt.ParentID}, rflowv2.EdgeEvent{
+				Type:   "delete",
+				FlowID: evt.ParentID,
+				Edge:   &flowv1.Edge{EdgeId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// Flow Variable entity
+	if streamers.FlowVariable != nil {
+		registry.Register(mutation.EntityFlowVariable, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.FlowVariable.Publish(rflowv2.FlowVariableTopic{FlowID: evt.ParentID}, rflowv2.FlowVariableEvent{
+				Type:     "delete",
+				FlowID:   evt.ParentID,
+				Variable: mflow.FlowVariable{ID: evt.ID},
+			})
+		})
+	}
 }

@@ -2,6 +2,8 @@ package mutation
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
@@ -19,6 +21,13 @@ type FileDeleteItem struct {
 // File -> points to -> Content, so deleting file cascades DOWN to content.
 // This is the PUBLIC entry point for content deletion.
 func (c *Context) DeleteFile(ctx context.Context, file FileDeleteItem) error {
+	// If it's a folder, we MUST recursively delete children first
+	if file.ContentKind == mfile.ContentTypeFolder {
+		if err := c.deleteFolderChildren(ctx, file.ID, file.WorkspaceID); err != nil {
+			return err
+		}
+	}
+
 	// Delete content based on content_kind (cascade DOWN - internal methods)
 	if file.ContentID != nil {
 		switch file.ContentKind {
@@ -38,7 +47,7 @@ func (c *Context) DeleteFile(ctx context.Context, file FileDeleteItem) error {
 				return err
 			}
 		case mfile.ContentTypeFolder:
-			// Folder - no content to delete, just the file record
+			// Content deletion handled by recursion above (folders don't have separate content tables)
 		}
 	}
 
@@ -60,7 +69,17 @@ func (c *Context) DeleteFileBatch(ctx context.Context, items []FileDeleteItem) e
 		return nil
 	}
 
-	// Group by content type for efficient batch deletion
+	// First pass: Handle folders recursively (cannot be easily batched due to depth)
+	// We do this one-by-one for simplicity and safety
+	for _, item := range items {
+		if item.ContentKind == mfile.ContentTypeFolder {
+			if err := c.deleteFolderChildren(ctx, item.ID, item.WorkspaceID); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Group by content type for efficient batch deletion of LEAF content
 	var httpItems []HTTPDeleteItem
 	var flowItems []FlowDeleteItem
 
@@ -117,4 +136,34 @@ func (c *Context) DeleteFileBatch(ctx context.Context, items []FileDeleteItem) e
 	}
 
 	return nil
+}
+
+// deleteFolderChildren recursively finds and deletes all children of a folder.
+func (c *Context) deleteFolderChildren(ctx context.Context, folderID, workspaceID idwrap.IDWrap) error {
+	children, err := c.q.GetFilesByParentID(ctx, &folderID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	if len(children) == 0 {
+		return nil
+	}
+
+	// Convert DB models to FileDeleteItem
+	var itemsToDelete []FileDeleteItem
+	for _, child := range children {
+		itemsToDelete = append(itemsToDelete, FileDeleteItem{
+			ID:          child.ID,
+			WorkspaceID: workspaceID,
+			ContentID:   child.ContentID,
+			ContentKind: mfile.ContentType(child.ContentKind),
+		})
+	}
+
+	// Recursively delete children using batch method
+	// This handles their content (HTTP/Flow) and their own children (if nested folders)
+	return c.DeleteFileBatch(ctx, itemsToDelete)
 }

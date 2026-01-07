@@ -17,11 +17,14 @@ import (
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/mutation"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/streamregistry"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
+	envapiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 )
 
 type workspaceFixture struct {
@@ -47,6 +50,32 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 	envStream := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
 	t.Cleanup(stream.Shutdown)
 	t.Cleanup(envStream.Shutdown)
+
+	// Create stream registry for cascade delete event publishing
+	registry := streamregistry.New()
+	registry.Register(mutation.EntityWorkspace, func(evt mutation.Event) {
+		if evt.Op != mutation.OpDelete {
+			return
+		}
+		stream.Publish(WorkspaceTopic{WorkspaceID: evt.WorkspaceID}, WorkspaceEvent{
+			Type: eventTypeDelete,
+			Workspace: &apiv1.Workspace{
+				WorkspaceId: evt.ID.Bytes(),
+			},
+		})
+	})
+	registry.Register(mutation.EntityEnvironment, func(evt mutation.Event) {
+		if evt.Op != mutation.OpDelete {
+			return
+		}
+		envStream.Publish(renv.EnvironmentTopic{WorkspaceID: evt.WorkspaceID}, renv.EnvironmentEvent{
+			Type: eventTypeDelete,
+			Environment: &envapiv1.Environment{
+				EnvironmentId: evt.ID.Bytes(),
+				WorkspaceId:   evt.WorkspaceID.Bytes(),
+			},
+		})
+	})
 
 	userID := idwrap.NewNow()
 	providerID := fmt.Sprintf("test-%s", userID.String())
@@ -76,6 +105,7 @@ func newWorkspaceFixture(t *testing.T) *workspaceFixture {
 			Workspace:   stream,
 			Environment: envStream,
 		},
+		Publisher: registry,
 	})
 
 	t.Cleanup(base.Close)

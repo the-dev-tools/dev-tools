@@ -40,6 +40,7 @@ type EnvRPC struct {
 
 	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
 	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]
+	publisher mutation.Publisher // Unified publisher for cascade delete events
 }
 
 const (
@@ -47,50 +48,6 @@ const (
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 )
-
-// envDeletePublisher implements mutation.Publisher for environment delete events.
-type envDeletePublisher struct {
-	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
-}
-
-func (p *envDeletePublisher) PublishAll(events []mutation.Event) {
-	for _, evt := range events {
-		if evt.Op != mutation.OpDelete {
-			continue
-		}
-		if evt.Entity == mutation.EntityEnvironment {
-			p.envStream.Publish(EnvironmentTopic{WorkspaceID: evt.WorkspaceID}, EnvironmentEvent{
-				Type: eventTypeDelete,
-				Environment: &apiv1.Environment{
-					EnvironmentId: evt.ID.Bytes(),
-					WorkspaceId:   evt.WorkspaceID.Bytes(),
-				},
-			})
-		}
-	}
-}
-
-// varDeletePublisher implements mutation.Publisher for environment variable delete events.
-type varDeletePublisher struct {
-	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]
-}
-
-func (p *varDeletePublisher) PublishAll(events []mutation.Event) {
-	for _, evt := range events {
-		if evt.Op != mutation.OpDelete {
-			continue
-		}
-		if evt.Entity == mutation.EntityEnvironmentValue {
-			p.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.WorkspaceID, EnvironmentID: evt.ParentID}, EnvironmentVariableEvent{
-				Type: eventTypeDelete,
-				Variable: &apiv1.EnvironmentVariable{
-					EnvironmentVariableId: evt.ID.Bytes(),
-					EnvironmentId:         evt.ParentID.Bytes(),
-				},
-			})
-		}
-	}
-}
 
 type EnvironmentTopic struct {
 	WorkspaceID idwrap.IDWrap
@@ -157,6 +114,7 @@ type EnvRPCDeps struct {
 	Services  EnvRPCServices
 	Readers   EnvRPCReaders
 	Streamers EnvRPCStreamers
+	Publisher mutation.Publisher // Unified publisher for cascade delete events
 }
 
 func (d *EnvRPCDeps) Validate() error {
@@ -190,6 +148,7 @@ func New(deps EnvRPCDeps) EnvRPC {
 		varReader: deps.Readers.Variable,
 		envStream: deps.Streamers.Env,
 		varStream: deps.Streamers.Variable,
+		publisher: deps.Publisher,
 	}
 }
 
@@ -549,21 +508,19 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 		validatedDeletes = append(validatedDeletes, *env)
 	}
 
-	// Step 2: ACT using mutation context with auto-publish
-	mut := mutation.New(e.DB, mutation.WithPublisher(&envDeletePublisher{envStream: e.envStream}))
+	// Step 2: ACT using mutation context with unified publisher
+	var opts []mutation.Option
+	if e.publisher != nil {
+		opts = append(opts, mutation.WithPublisher(e.publisher))
+	}
+	mut := mutation.New(e.DB, opts...)
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer mut.Rollback()
 
 	for _, env := range validatedDeletes {
-		mut.Track(mutation.Event{
-			Entity:      mutation.EntityEnvironment,
-			Op:          mutation.OpDelete,
-			ID:          env.ID,
-			WorkspaceID: env.WorkspaceID,
-		})
-		if err := mut.Queries().DeleteEnvironment(ctx, env.ID); err != nil {
+		if err := mut.DeleteEnvironment(ctx, env.ID, env.WorkspaceID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
@@ -921,8 +878,12 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 		})
 	}
 
-	// Step 2: ACT using mutation context with auto-publish
-	mut := mutation.New(e.DB, mutation.WithPublisher(&varDeletePublisher{varStream: e.varStream}))
+	// Step 2: ACT using mutation context with unified publisher
+	var opts []mutation.Option
+	if e.publisher != nil {
+		opts = append(opts, mutation.WithPublisher(e.publisher))
+	}
+	mut := mutation.New(e.DB, opts...)
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

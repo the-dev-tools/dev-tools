@@ -27,7 +27,6 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
-	envapiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	"the-dev-tools/spec/dist/buf/go/api/workspace/v1/workspacev1connect"
 )
 
@@ -48,39 +47,6 @@ type WorkspaceEvent struct {
 	Workspace *apiv1.Workspace
 }
 
-// workspacePublisher implements mutation.Publisher for workspace-related events.
-// It routes mutation events to the appropriate eventstreams for real-time sync.
-type workspacePublisher struct {
-	wsStream  eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
-	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
-}
-
-// PublishAll publishes all mutation events to the appropriate event streams.
-func (p *workspacePublisher) PublishAll(events []mutation.Event) {
-	for _, evt := range events {
-		//nolint:exhaustive
-		switch evt.Entity {
-		case mutation.EntityWorkspace:
-			p.wsStream.Publish(WorkspaceTopic{WorkspaceID: evt.WorkspaceID}, WorkspaceEvent{
-				Type: eventTypeDelete,
-				Workspace: &apiv1.Workspace{
-					WorkspaceId: evt.ID.Bytes(),
-				},
-			})
-		case mutation.EntityEnvironment:
-			p.envStream.Publish(renv.EnvironmentTopic{WorkspaceID: evt.WorkspaceID}, renv.EnvironmentEvent{
-				Type: eventTypeDelete,
-				Environment: &envapiv1.Environment{
-					EnvironmentId: evt.ID.Bytes(),
-					WorkspaceId:   evt.WorkspaceID.Bytes(),
-				},
-			})
-			// Note: HTTP and Flow events would need their respective streamers.
-			// These are handled separately by their own RPC services if needed.
-		}
-	}
-}
-
 type WorkspaceServiceRPC struct {
 	DB *sql.DB
 
@@ -94,6 +60,7 @@ type WorkspaceServiceRPC struct {
 
 	stream    eventstream.SyncStreamer[WorkspaceTopic, WorkspaceEvent]
 	envStream eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
+	publisher mutation.Publisher // Unified publisher for cascade delete events
 }
 
 type WorkspaceServiceRPCServices struct {
@@ -142,6 +109,7 @@ type WorkspaceServiceRPCDeps struct {
 	Services  WorkspaceServiceRPCServices
 	Readers   WorkspaceServiceRPCReaders
 	Streamers WorkspaceServiceRPCStreamers
+	Publisher mutation.Publisher // Unified publisher for cascade delete events
 }
 
 func (d *WorkspaceServiceRPCDeps) Validate() error {
@@ -175,6 +143,7 @@ func New(deps WorkspaceServiceRPCDeps) WorkspaceServiceRPC {
 		userReader: deps.Readers.User,
 		stream:     deps.Streamers.Workspace,
 		envStream:  deps.Streamers.Environment,
+		publisher:  deps.Publisher,
 	}
 }
 
@@ -559,11 +528,12 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 		validatedDeletes = append(validatedDeletes, workspaceID)
 	}
 
-	// ACT: Delete workspaces using mutation context with auto-publish
-	mut := mutation.New(c.DB, mutation.WithPublisher(&workspacePublisher{
-		wsStream:  c.stream,
-		envStream: c.envStream,
-	}))
+	// ACT: Delete workspaces using mutation context with unified publisher
+	var opts []mutation.Option
+	if c.publisher != nil {
+		opts = append(opts, mutation.WithPublisher(c.publisher))
+	}
+	mut := mutation.New(c.DB, opts...)
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

@@ -32,39 +32,18 @@ const (
 	eventTypeDelete = "delete"
 )
 
-// filePublisher implements mutation.Publisher for file-related events.
-// It routes mutation events to the appropriate eventstream for real-time sync.
-type filePublisher struct {
-	stream eventstream.SyncStreamer[FileTopic, FileEvent]
-}
-
-// PublishAll publishes all mutation events to the file event stream.
-func (p *filePublisher) PublishAll(events []mutation.Event) {
-	for _, evt := range events {
-		if evt.Op != mutation.OpDelete {
-			continue
-		}
-		if evt.Entity == mutation.EntityFile {
-			p.stream.Publish(FileTopic{WorkspaceID: evt.WorkspaceID}, FileEvent{
-				Type: eventTypeDelete,
-				File: &apiv1.File{
-					FileId:      evt.ID.Bytes(),
-					WorkspaceId: evt.WorkspaceID.Bytes(),
-				},
-			})
-		}
-	}
-}
-
+// FileTopic identifies the workspace whose files are being published.
 type FileTopic struct {
 	WorkspaceID idwrap.IDWrap
 }
 
+// FileEvent describes a file change for sync streaming.
 type FileEvent struct {
 	Type string
 	File *apiv1.File
 	Name string
 }
+
 
 type FileServiceRPC struct {
 	DB *sql.DB
@@ -73,7 +52,8 @@ type FileServiceRPC struct {
 	us suser.UserService
 	ws sworkspace.WorkspaceService
 
-	stream eventstream.SyncStreamer[FileTopic, FileEvent]
+	stream    eventstream.SyncStreamer[FileTopic, FileEvent]
+	publisher mutation.Publisher
 }
 
 type FileServiceRPCServices struct {
@@ -90,9 +70,10 @@ func (s *FileServiceRPCServices) Validate() error {
 }
 
 type FileServiceRPCDeps struct {
-	DB       *sql.DB
-	Services FileServiceRPCServices
-	Stream   eventstream.SyncStreamer[FileTopic, FileEvent]
+	DB        *sql.DB
+	Services  FileServiceRPCServices
+	Stream    eventstream.SyncStreamer[FileTopic, FileEvent]
+	Publisher mutation.Publisher // Publishes all mutation events (File, HTTP, Flow) to their streams
 }
 
 func (d *FileServiceRPCDeps) Validate() error {
@@ -114,11 +95,12 @@ func New(deps FileServiceRPCDeps) FileServiceRPC {
 	}
 
 	return FileServiceRPC{
-		DB:     deps.DB,
-		fs:     deps.Services.File,
-		us:     deps.Services.User,
-		ws:     deps.Services.Workspace,
-		stream: deps.Stream,
+		DB:        deps.DB,
+		fs:        deps.Services.File,
+		us:        deps.Services.User,
+		ws:        deps.Services.Workspace,
+		stream:    deps.Stream,
+		publisher: deps.Publisher,
 	}
 }
 
@@ -682,7 +664,11 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 	}
 
 	// ACT: Delete files and content using mutation context with auto-publish
-	mut := mutation.New(f.DB, mutation.WithPublisher(&filePublisher{stream: f.stream}))
+	var opts []mutation.Option
+	if f.publisher != nil {
+		opts = append(opts, mutation.WithPublisher(f.publisher))
+	}
+	mut := mutation.New(f.DB, opts...)
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -970,7 +956,11 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 	}
 
 	// ACT: Delete folders using mutation context with auto-publish
-	mut := mutation.New(f.DB, mutation.WithPublisher(&filePublisher{stream: f.stream}))
+	var opts []mutation.Option
+	if f.publisher != nil {
+		opts = append(opts, mutation.WithPublisher(f.publisher))
+	}
+	mut := mutation.New(f.DB, opts...)
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

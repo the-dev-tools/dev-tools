@@ -71,9 +71,22 @@ func (c *Context) collectWorkspaceChildren(ctx context.Context, workspaceID idwr
 		}
 	}
 
-	// Environments
+	// Environments - each cascades to its variables
 	if envs, err := c.q.GetEnvironmentsByWorkspaceID(ctx, workspaceID); err == nil {
 		for i := range envs {
+			// Collect environment variables (children of environment)
+			if vars, err := c.q.GetVariablesByEnvironmentID(ctx, envs[i].ID); err == nil {
+				for j := range vars {
+					c.track(Event{
+						Entity:      EntityEnvironmentValue,
+						Op:          OpDelete,
+						ID:          vars[j].ID,
+						WorkspaceID: workspaceID,
+						ParentID:    envs[i].ID, // Environment is the parent
+					})
+				}
+			}
+			// Track environment delete
 			c.track(Event{
 				Entity:      EntityEnvironment,
 				Op:          OpDelete,
