@@ -15,6 +15,7 @@ import {
   FlowSchema,
   FlowService,
   FlowVariable,
+  HandleKind,
   NodeKind,
   NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
@@ -106,7 +107,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const { getNodes, screenToFlowPosition } = XF.useReactFlow();
 
-  const { flowId, isReadOnly = false } = use(FlowContext);
+  const { flowId, isReadOnly = false, setSidebar } = use(FlowContext);
 
   const { duration } =
     useLiveQuery(
@@ -132,6 +133,18 @@ export const Flow = ({ children }: PropsWithChildren) => {
       sourceId: Ulid.fromCanonical(_.source).bytes,
       targetId: Ulid.fromCanonical(_.target).bytes,
     });
+
+  const onConnectEnd: XF.OnConnectEnd = (event, { fromHandle, fromNode, isValid }) => {
+    if (!(event instanceof MouseEvent)) return;
+    if (isValid) return;
+    if (fromNode === null) return;
+
+    const sourceId = Ulid.fromCanonical(fromNode.id).bytes;
+    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const handleKind = !fromHandle?.id ? HandleKind.UNSPECIFIED : parseInt(fromHandle.id);
+
+    setSidebar?.(<AddNodeSidebar handleKind={handleKind} position={position} sourceId={sourceId} />);
+  };
 
   const { dropProps } = useDrop({
     onDrop: async ({ items, x, y }) => {
@@ -210,6 +223,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         nodesDraggable
         nodeTypes={nodeTypes}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
         onEdgesChange={onEdgesChange}
         onNodeDoubleClick={(_, node) => {
           const nodeId = Ulid.fromCanonical(node.id);

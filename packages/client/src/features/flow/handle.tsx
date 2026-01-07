@@ -1,7 +1,6 @@
 import * as XF from '@xyflow/react';
 import { Match, pipe } from 'effect';
 import { use, useRef } from 'react';
-import * as RAC from 'react-aria-components';
 import { FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
@@ -35,15 +34,17 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
   const isConnected = XF.useNodeConnections({ ...(id && { handleId: id }), handleType: type }).length > 0;
 
   return (
-    <div
+    <XF.Handle
       className={twJoin(
-        tw`absolute inset-0 -z-10 m-auto size-0`,
+        tw`absolute inset-0 -z-10 m-auto size-0 min-h-0 min-w-0 border-none bg-transparent`,
         position === XF.Position.Right && tw`left-auto`,
         position === XF.Position.Left && tw`right-auto`,
         position === XF.Position.Bottom && tw`top-auto`,
         position === XF.Position.Top && tw`bottom-auto`,
       )}
+      id={id}
       ref={ref}
+      {...handleProps}
     >
       {!isConnected && (
         <>
@@ -71,14 +72,14 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
                 <div className={tw`pointer-events-none size-1.5 -translate-1/2 rounded-full bg-slate-800`} />
               </div>
 
-              <RAC.Button
+              <button
                 className={focusVisibleRingStyles({
                   className: tw`
                     pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-full border
                     border-slate-800 bg-white
                   `,
                 })}
-                onPress={() => {
+                onClick={() => {
                   const box = ref.current?.parentElement?.parentElement?.getBoundingClientRect();
                   let nodePosition: undefined | XF.XYPosition;
 
@@ -95,7 +96,7 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
                 }}
               >
                 <FiPlus className={tw`size-3 text-slate-800`} />
-              </RAC.Button>
+              </button>
             </div>
           )}
         </>
@@ -117,18 +118,16 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
         </div>
       )}
 
-      <XF.Handle className={tw`absolute size-0 min-h-0 min-w-0 border-none bg-transparent`} id={id} {...handleProps}>
-        <div className={tw`size-10 -translate-1/2 rounded-full`}>
-          <div
-            className={twJoin(
-              tw`absolute inset-0 m-auto bg-slate-800`,
-              type === 'source' && tw`size-2 rounded-full`,
-              type === 'target' && tw`size-2.5`,
-            )}
-          />
-        </div>
-      </XF.Handle>
-    </div>
+      <div className={tw`absolute size-10 min-h-0 min-w-0 -translate-1/2 rounded-full border-none bg-transparent`}>
+        <div
+          className={twJoin(
+            tw`absolute inset-0 m-auto bg-slate-800`,
+            type === 'source' && tw`size-2 rounded-full`,
+            type === 'target' && tw`size-2.5`,
+          )}
+        />
+      </div>
+    </XF.Handle>
   );
 };
 

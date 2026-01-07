@@ -298,7 +298,7 @@ export const SimpleNode = ({ children, className, handles, icon, nodeId, selecte
   <div className={tw`pointer-events-none flex flex-col`}>
     <NodeName className={tw`mb-1`} nodeId={nodeId} />
 
-    <div className={tw`pointer-events-auto relative`}>
+    <div className={tw`pointer-events-auto relative self-start`}>
       <NodeBody className={className} icon={icon} nodeId={nodeId} selected={selected}>
         {children}
       </NodeBody>
