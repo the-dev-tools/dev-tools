@@ -4,6 +4,384 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@aikidosec/safe-chain':
+      specifier: 1.4.0
+      version: 1.4.0
+    '@alloy-js/cli':
+      specifier: 0.22.0
+      version: 0.22.0
+    '@alloy-js/core':
+      specifier: 0.22.0
+      version: 0.22.0
+    '@alloy-js/typescript':
+      specifier: 0.22.0
+      version: 0.22.0
+    '@bufbuild/buf':
+      specifier: 1.63.0
+      version: 1.63.0
+    '@bufbuild/protobuf':
+      specifier: 2.10.2
+      version: 2.10.2
+    '@bufbuild/protoc-gen-es':
+      specifier: 2.10.2
+      version: 2.10.2
+    '@bufbuild/protovalidate':
+      specifier: 1.1.0
+      version: 1.1.0
+    '@codemirror/autocomplete':
+      specifier: 6.20.0
+      version: 6.20.0
+    '@codemirror/commands':
+      specifier: 6.10.1
+      version: 6.10.1
+    '@codemirror/lang-html':
+      specifier: 6.4.11
+      version: 6.4.11
+    '@codemirror/lang-javascript':
+      specifier: 6.2.4
+      version: 6.2.4
+    '@codemirror/lang-json':
+      specifier: 6.0.2
+      version: 6.0.2
+    '@codemirror/lang-xml':
+      specifier: 6.1.0
+      version: 6.1.0
+    '@codemirror/language':
+      specifier: 6.12.1
+      version: 6.12.1
+    '@codemirror/state':
+      specifier: 6.5.3
+      version: 6.5.3
+    '@codemirror/view':
+      specifier: 6.39.9
+      version: 6.39.9
+    '@connectrpc/connect':
+      specifier: 2.1.1
+      version: 2.1.1
+    '@connectrpc/connect-node':
+      specifier: 2.1.1
+      version: 2.1.1
+    '@connectrpc/connect-query':
+      specifier: 2.2.0
+      version: 2.2.0
+    '@connectrpc/connect-web':
+      specifier: 2.1.1
+      version: 2.1.1
+    '@effect-atom/atom-react':
+      specifier: 0.4.4
+      version: 0.4.4
+    '@effect/cli':
+      specifier: 0.73.0
+      version: 0.73.0
+    '@effect/platform':
+      specifier: 0.94.1
+      version: 0.94.1
+    '@effect/platform-browser':
+      specifier: 0.74.0
+      version: 0.74.0
+    '@effect/platform-node':
+      specifier: 0.104.0
+      version: 0.104.0
+    '@eslint/compat':
+      specifier: 2.0.0
+      version: 2.0.0
+    '@eslint/js':
+      specifier: 9.39.2
+      version: 9.39.2
+    '@faker-js/faker':
+      specifier: 10.2.0
+      version: 10.2.0
+    '@fontsource-variable/dm-sans':
+      specifier: 5.2.8
+      version: 5.2.8
+    '@fontsource/dm-mono':
+      specifier: 5.2.7
+      version: 5.2.7
+    '@hookform/devtools':
+      specifier: 4.4.0
+      version: 4.4.0
+    '@hookform/resolvers':
+      specifier: 5.2.2
+      version: 5.2.2
+    '@lezer/generator':
+      specifier: 1.8.0
+      version: 1.8.0
+    '@lezer/highlight':
+      specifier: 1.2.3
+      version: 1.2.3
+    '@lezer/lr':
+      specifier: 1.4.7
+      version: 1.4.7
+    '@nx/eslint':
+      specifier: 22.3.3
+      version: 22.3.3
+    '@nx/js':
+      specifier: 22.3.3
+      version: 22.3.3
+    '@nx/react':
+      specifier: 22.3.3
+      version: 22.3.3
+    '@nx/storybook':
+      specifier: 22.3.3
+      version: 22.3.3
+    '@nx/vite':
+      specifier: 22.3.3
+      version: 22.3.3
+    '@nx/web':
+      specifier: 22.3.3
+      version: 22.3.3
+    '@octokit/auth-action':
+      specifier: 6.0.2
+      version: 6.0.2
+    '@octokit/rest':
+      specifier: 22.0.1
+      version: 22.0.1
+    '@openreplay/tracker':
+      specifier: 17.1.3
+      version: 17.1.3
+    '@prettier/plugin-xml':
+      specifier: 3.4.2
+      version: 3.4.2
+    '@react-aria/collections':
+      specifier: 3.0.1
+      version: 3.0.1
+    '@standard-schema/spec':
+      specifier: 1.1.0
+      version: 1.1.0
+    '@storybook/addon-docs':
+      specifier: 10.1.11
+      version: 10.1.11
+    '@storybook/react':
+      specifier: 10.1.11
+      version: 10.1.11
+    '@storybook/react-vite':
+      specifier: 10.1.11
+      version: 10.1.11
+    '@tailwindcss/vite':
+      specifier: 4.1.18
+      version: 4.1.18
+    '@tanstack/eslint-plugin-router':
+      specifier: 1.141.0
+      version: 1.141.0
+    '@tanstack/react-db':
+      specifier: 0.1.60
+      version: 0.1.60
+    '@tanstack/react-query':
+      specifier: 5.90.16
+      version: 5.90.16
+    '@tanstack/react-query-devtools':
+      specifier: 5.91.2
+      version: 5.91.2
+    '@tanstack/react-router':
+      specifier: 1.145.7
+      version: 1.145.7
+    '@tanstack/react-router-devtools':
+      specifier: 1.145.7
+      version: 1.145.7
+    '@tanstack/react-table':
+      specifier: 8.21.3
+      version: 8.21.3
+    '@tanstack/router-plugin':
+      specifier: 1.145.10
+      version: 1.145.10
+    '@tanstack/table-core':
+      specifier: 8.21.3
+      version: 8.21.3
+    '@tanstack/virtual-file-routes':
+      specifier: 1.145.4
+      version: 1.145.4
+    '@tsconfig/strictest':
+      specifier: 2.0.8
+      version: 2.0.8
+    '@types/eslint-plugin-jsx-a11y':
+      specifier: 6.10.1
+      version: 6.10.1
+    '@types/node':
+      specifier: 25.0.3
+      version: 25.0.3
+    '@types/react':
+      specifier: 19.2.7
+      version: 19.2.7
+    '@types/react-dom':
+      specifier: 19.2.3
+      version: 19.2.3
+    '@types/react-timeago':
+      specifier: 8.0.0
+      version: 8.0.0
+    '@typescript-eslint/parser':
+      specifier: 8.52.0
+      version: 8.52.0
+    '@typespec/compiler':
+      specifier: 1.7.1
+      version: 1.7.1
+    '@typespec/emitter-framework':
+      specifier: 0.14.0
+      version: 0.14.0
+    '@typespec/prettier-plugin-typespec':
+      specifier: 1.7.0
+      version: 1.7.0
+    '@uiw/react-codemirror':
+      specifier: 4.25.4
+      version: 4.25.4
+    '@vitejs/plugin-react':
+      specifier: 5.1.2
+      version: 5.1.2
+    '@xyflow/react':
+      specifier: 12.10.0
+      version: 12.10.0
+    babel-plugin-react-compiler:
+      specifier: 19.1.0-rc.3
+      version: 19.1.0-rc.3
+    builder-util-runtime:
+      specifier: 9.5.1
+      version: 9.5.1
+    effect:
+      specifier: 3.19.14
+      version: 3.19.14
+    electron:
+      specifier: 39.2.7
+      version: 39.2.7
+    electron-builder:
+      specifier: 26.4.0
+      version: 26.4.0
+    electron-devtools-installer:
+      specifier: 4.0.0
+      version: 4.0.0
+    electron-updater:
+      specifier: 6.7.3
+      version: 6.7.3
+    electron-vite:
+      specifier: 5.0.0
+      version: 5.0.0
+    eslint:
+      specifier: 9.39.2
+      version: 9.39.2
+    eslint-config-prettier:
+      specifier: 10.1.8
+      version: 10.1.8
+    eslint-import-resolver-typescript:
+      specifier: 4.4.4
+      version: 4.4.4
+    eslint-plugin-better-tailwindcss:
+      specifier: 3.8.0
+      version: 3.8.0
+    eslint-plugin-import-x:
+      specifier: 4.16.1
+      version: 4.16.1
+    eslint-plugin-jsx-a11y:
+      specifier: 6.10.2
+      version: 6.10.2
+    eslint-plugin-perfectionist:
+      specifier: 5.3.0
+      version: 5.3.0
+    eslint-plugin-react:
+      specifier: 7.37.5
+      version: 7.37.5
+    eslint-plugin-react-hooks:
+      specifier: 7.0.1
+      version: 7.0.1
+    globals:
+      specifier: 17.0.0
+      version: 17.0.0
+    id128:
+      specifier: 1.6.6
+      version: 1.6.6
+    jiti:
+      specifier: 2.6.1
+      version: 2.6.1
+    nx:
+      specifier: 22.3.3
+      version: 22.3.3
+    prettier:
+      specifier: 3.7.4
+      version: 3.7.4
+    react:
+      specifier: 19.2.3
+      version: 19.2.3
+    react-aria:
+      specifier: 3.45.0
+      version: 3.45.0
+    react-aria-components:
+      specifier: 1.14.0
+      version: 1.14.0
+    react-dom:
+      specifier: 19.2.3
+      version: 19.2.3
+    react-error-boundary:
+      specifier: 6.0.2
+      version: 6.0.2
+    react-hook-form:
+      specifier: 7.70.0
+      version: 7.70.0
+    react-icons:
+      specifier: 5.5.0
+      version: 5.5.0
+    react-resizable-panels:
+      specifier: 4.3.0
+      version: 4.3.0
+    react-scan:
+      specifier: 0.4.3
+      version: 0.4.3
+    react-stately:
+      specifier: 3.43.0
+      version: 3.43.0
+    react-timeago:
+      specifier: 8.3.0
+      version: 8.3.0
+    storybook:
+      specifier: 10.1.11
+      version: 10.1.11
+    swc-node:
+      specifier: 1.0.0
+      version: 1.0.0
+    syncpack:
+      specifier: 13.0.4
+      version: 13.0.4
+    tailwind-merge:
+      specifier: 3.4.0
+      version: 3.4.0
+    tailwind-variants:
+      specifier: 3.2.2
+      version: 3.2.2
+    tailwindcss:
+      specifier: 4.1.18
+      version: 4.1.18
+    tailwindcss-react-aria-components:
+      specifier: 2.0.1
+      version: 2.0.1
+    ts-node:
+      specifier: 10.9.2
+      version: 10.9.2
+    tsup:
+      specifier: 8.5.1
+      version: 8.5.1
+    tw-animate-css:
+      specifier: 1.4.0
+      version: 1.4.0
+    typescript:
+      specifier: 5.9.3
+      version: 5.9.3
+    typescript-eslint:
+      specifier: 8.52.0
+      version: 8.52.0
+    undici:
+      specifier: 7.18.2
+      version: 7.18.2
+    use-debounce:
+      specifier: 10.0.6
+      version: 10.0.6
+    vite:
+      specifier: 7.3.1
+      version: 7.3.1
+    vite-tsconfig-paths:
+      specifier: 6.0.3
+      version: 6.0.3
+    yaml:
+      specifier: 2.8.2
+      version: 2.8.2
+
 overrides:
   '@types/eslint': '-'
 
@@ -24,70 +402,70 @@ importers:
         version: link:packages/spec
     devDependencies:
       '@aikidosec/safe-chain':
-        specifier: ~1.3.4
-        version: 1.3.4
+        specifier: 'catalog:'
+        version: 1.4.0
       '@nx/eslint':
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(patch_hash=45d7a0a2e2d55c4ffd4beb467a0e02fac3f27bc1857270f522acafd5365d2c6b)(@babel/traverse@7.28.5)(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))(@zkochan/js-yaml@0.0.7)(eslint@9.39.2(jiti@2.6.1))(nx@22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))
       '@nx/js':
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@babel/traverse@7.28.5)(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))(nx@22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))
       '@nx/react':
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@babel/core@7.28.5)(@babel/traverse@7.28.5)(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/helpers@0.5.18)(@types/babel__core@7.20.5)(@zkochan/js-yaml@0.0.7)(eslint@9.39.2(jiti@2.6.1))(nx@22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@25.0.3)(typescript@5.9.3))(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18)))
       '@nx/storybook':
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@babel/traverse@7.28.5)(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))(@zkochan/js-yaml@0.0.7)(eslint@9.39.2(jiti@2.6.1))(nx@22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)
       '@nx/vite':
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@babel/traverse@7.28.5)(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))(nx@22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       '@nx/web':
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@babel/traverse@7.28.5)(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))(nx@22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18)))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:tools/eslint
       '@tsconfig/strictest':
-        specifier: ~2.0.8
+        specifier: 'catalog:'
         version: 2.0.8
       '@typespec/compiler':
-        specifier: ~1.7.1
+        specifier: 'catalog:'
         version: 1.7.1(@types/node@25.0.3)
       '@typespec/prettier-plugin-typespec':
-        specifier: ~1.7.0
+        specifier: 'catalog:'
         version: 1.7.0
       eslint:
-        specifier: ~9.39.2
+        specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
       jiti:
-        specifier: ~2.6.1
+        specifier: 'catalog:'
         version: 2.6.1
       nx:
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))
       prettier:
-        specifier: ~3.7.4
+        specifier: 'catalog:'
         version: 3.7.4
       react:
-        specifier: ~19.2.3
+        specifier: 'catalog:'
         version: 19.2.3
       swc-node:
-        specifier: ~1.0.0
+        specifier: 'catalog:'
         version: 1.0.0(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3)
       syncpack:
-        specifier: ~13.0.4
+        specifier: 'catalog:'
         version: 13.0.4(typescript@5.9.3)
       tailwindcss:
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18
       ts-node:
-        specifier: ~10.9.2
+        specifier: 'catalog:'
         version: 10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@25.0.3)(typescript@5.9.3)
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       typescript-eslint:
-        specifier: ~8.52.0
+        specifier: 'catalog:'
         version: 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
 
   apps/cli:
@@ -102,25 +480,25 @@ importers:
   apps/desktop:
     dependencies:
       '@bufbuild/protobuf':
-        specifier: 2.10.2
+        specifier: 'catalog:'
         version: 2.10.2
       '@connectrpc/connect':
-        specifier: 2.1.1
+        specifier: 'catalog:'
         version: 2.1.1(@bufbuild/protobuf@2.10.2)
       '@connectrpc/connect-node':
-        specifier: 2.1.1
+        specifier: 'catalog:'
         version: 2.1.1(@bufbuild/protobuf@2.10.2)(@connectrpc/connect@2.1.1(@bufbuild/protobuf@2.10.2))
       '@effect-atom/atom-react':
-        specifier: 0.4.4
+        specifier: 'catalog:'
         version: 0.4.4(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)(react@19.2.3)(scheduler@0.27.0)
       '@effect/platform':
-        specifier: 0.94.1
+        specifier: 'catalog:'
         version: 0.94.1(effect@3.19.14)
       '@effect/platform-browser':
-        specifier: 0.74.0
+        specifier: 'catalog:'
         version: 0.74.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
       '@effect/platform-node':
-        specifier: 0.104.0
+        specifier: 'catalog:'
         version: 0.104.0(@effect/cluster@0.56.1(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/workflow@0.16.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)
       '@the-dev-tools/cli':
         specifier: workspace:^
@@ -135,170 +513,170 @@ importers:
         specifier: workspace:^
         version: link:../../packages/worker-js
       '@vitejs/plugin-react':
-        specifier: 5.1.2
+        specifier: 'catalog:'
         version: 5.1.2(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       builder-util-runtime:
-        specifier: 9.5.1
+        specifier: 'catalog:'
         version: 9.5.1
       effect:
-        specifier: 3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       electron-updater:
-        specifier: 6.7.3
+        specifier: 'catalog:'
         version: 6.7.3
       react:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3
       react-dom:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
       undici:
-        specifier: 7.18.2
+        specifier: 'catalog:'
         version: 7.18.2
       yaml:
-        specifier: 2.8.2
+        specifier: 'catalog:'
         version: 2.8.2
     devDependencies:
       '@lezer/generator':
-        specifier: ~1.8.0
+        specifier: 'catalog:'
         version: 1.8.0
       '@tailwindcss/vite':
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
       '@types/react':
-        specifier: ~19.2.7
+        specifier: 'catalog:'
         version: 19.2.7
       '@types/react-dom':
-        specifier: ~19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.7)
       babel-plugin-react-compiler:
-        specifier: 19.1.0-rc.3
+        specifier: 'catalog:'
         version: 19.1.0-rc.3
       electron:
-        specifier: ~39.2.7
+        specifier: 'catalog:'
         version: 39.2.7
       electron-builder:
-        specifier: ~26.4.0
+        specifier: 'catalog:'
         version: 26.4.0(electron-builder-squirrel-windows@26.4.0)
       electron-devtools-installer:
-        specifier: ~4.0.0
+        specifier: 'catalog:'
         version: 4.0.0
       electron-vite:
-        specifier: ~5.0.0
+        specifier: 'catalog:'
         version: 5.0.0(@swc/core@1.15.8(@swc/helpers@0.5.18))(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       eslint:
-        specifier: ~9.39.2
+        specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
       tailwindcss:
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       vite:
-        specifier: ~7.3.1
+        specifier: 'catalog:'
         version: 7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
       vite-tsconfig-paths:
-        specifier: ~6.0.3
+        specifier: 'catalog:'
         version: 6.0.3(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/client:
     dependencies:
       '@bufbuild/protobuf':
-        specifier: 2.10.2
+        specifier: 'catalog:'
         version: 2.10.2
       '@bufbuild/protovalidate':
-        specifier: 1.1.0
+        specifier: 'catalog:'
         version: 1.1.0(@bufbuild/protobuf@2.10.2)
       '@codemirror/autocomplete':
-        specifier: 6.20.0
+        specifier: 'catalog:'
         version: 6.20.0
       '@codemirror/commands':
-        specifier: 6.10.1
+        specifier: 'catalog:'
         version: 6.10.1
       '@codemirror/lang-html':
-        specifier: 6.4.11
+        specifier: 'catalog:'
         version: 6.4.11
       '@codemirror/lang-javascript':
-        specifier: 6.2.4
+        specifier: 'catalog:'
         version: 6.2.4
       '@codemirror/lang-json':
-        specifier: 6.0.2
+        specifier: 'catalog:'
         version: 6.0.2
       '@codemirror/lang-xml':
-        specifier: 6.1.0
+        specifier: 'catalog:'
         version: 6.1.0
       '@codemirror/language':
-        specifier: 6.12.1
+        specifier: 'catalog:'
         version: 6.12.1
       '@codemirror/state':
-        specifier: 6.5.3
+        specifier: 'catalog:'
         version: 6.5.3
       '@codemirror/view':
-        specifier: 6.39.9
+        specifier: 'catalog:'
         version: 6.39.9
       '@connectrpc/connect':
-        specifier: 2.1.1
+        specifier: 'catalog:'
         version: 2.1.1(@bufbuild/protobuf@2.10.2)
       '@connectrpc/connect-query':
-        specifier: 2.2.0
+        specifier: 'catalog:'
         version: 2.2.0(@bufbuild/protobuf@2.10.2)(@connectrpc/connect@2.1.1(@bufbuild/protobuf@2.10.2))(@tanstack/query-core@5.90.16)(@tanstack/react-query@5.90.16(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@connectrpc/connect-web':
-        specifier: 2.1.1
+        specifier: 'catalog:'
         version: 2.1.1(@bufbuild/protobuf@2.10.2)(@connectrpc/connect@2.1.1(@bufbuild/protobuf@2.10.2))
       '@effect-atom/atom-react':
-        specifier: 0.4.4
+        specifier: 'catalog:'
         version: 0.4.4(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.72.2(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)(react@19.2.3)(scheduler@0.27.0)
       '@effect/platform':
-        specifier: 0.94.1
+        specifier: 'catalog:'
         version: 0.94.1(effect@3.19.14)
       '@effect/platform-browser':
-        specifier: 0.74.0
+        specifier: 'catalog:'
         version: 0.74.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14)
       '@faker-js/faker':
-        specifier: 10.2.0
+        specifier: 'catalog:'
         version: 10.2.0
       '@hookform/resolvers':
-        specifier: 5.2.2
+        specifier: 'catalog:'
         version: 5.2.2(react-hook-form@7.70.0(react@19.2.3))
       '@lezer/highlight':
-        specifier: 1.2.3
+        specifier: 'catalog:'
         version: 1.2.3
       '@lezer/lr':
-        specifier: 1.4.7
+        specifier: 'catalog:'
         version: 1.4.7
       '@openreplay/tracker':
-        specifier: 17.1.3
+        specifier: 'catalog:'
         version: 17.1.3
       '@prettier/plugin-xml':
-        specifier: 3.4.2
+        specifier: 'catalog:'
         version: 3.4.2(prettier@3.7.4)
       '@react-aria/collections':
-        specifier: 3.0.1
+        specifier: 'catalog:'
         version: 3.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@standard-schema/spec':
-        specifier: 1.1.0
+        specifier: 'catalog:'
         version: 1.1.0
       '@tanstack/react-db':
-        specifier: 0.1.60
+        specifier: 'catalog:'
         version: 0.1.60(react@19.2.3)(typescript@5.9.3)
       '@tanstack/react-query':
-        specifier: 5.90.16
+        specifier: 'catalog:'
         version: 5.90.16(react@19.2.3)
       '@tanstack/react-router':
-        specifier: 1.145.7
+        specifier: 'catalog:'
         version: 1.145.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-table':
-        specifier: 8.21.3
+        specifier: 'catalog:'
         version: 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/table-core':
-        specifier: 8.21.3
+        specifier: 'catalog:'
         version: 8.21.3
       '@tanstack/virtual-file-routes':
-        specifier: 1.145.4
+        specifier: 'catalog:'
         version: 1.145.4
       '@the-dev-tools/spec':
         specifier: workspace:^
@@ -310,122 +688,122 @@ importers:
         specifier: workspace:^
         version: link:../ui
       '@uiw/react-codemirror':
-        specifier: 4.25.4
+        specifier: 'catalog:'
         version: 4.25.4(@babel/runtime@7.28.4)(@codemirror/autocomplete@6.20.0)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.2)(@codemirror/search@6.5.11)(@codemirror/state@6.5.3)(@codemirror/theme-one-dark@6.1.3)(@codemirror/view@6.39.9)(codemirror@6.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@xyflow/react':
-        specifier: 12.10.0
+        specifier: 'catalog:'
         version: 12.10.0(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       effect:
-        specifier: 3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       id128:
-        specifier: 1.6.6
+        specifier: 'catalog:'
         version: 1.6.6
       prettier:
-        specifier: 3.7.4
+        specifier: 'catalog:'
         version: 3.7.4
       react:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3
       react-aria:
-        specifier: 3.45.0
+        specifier: 'catalog:'
         version: 3.45.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-aria-components:
-        specifier: 1.14.0
+        specifier: 'catalog:'
         version: 1.14.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-dom:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
       react-error-boundary:
-        specifier: 6.0.2
+        specifier: 'catalog:'
         version: 6.0.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-hook-form:
-        specifier: 7.70.0
+        specifier: 'catalog:'
         version: 7.70.0(react@19.2.3)
       react-icons:
-        specifier: 5.5.0
+        specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)
       react-resizable-panels:
-        specifier: 4.3.0
+        specifier: 'catalog:'
         version: 4.3.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-scan:
-        specifier: 0.4.3
+        specifier: 'catalog:'
         version: 0.4.3(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(rollup@4.55.1)
       react-stately:
-        specifier: 3.43.0
+        specifier: 'catalog:'
         version: 3.43.0(react@19.2.3)
       react-timeago:
-        specifier: 8.3.0
+        specifier: 'catalog:'
         version: 8.3.0(react@19.2.3)
       tailwind-merge:
-        specifier: 3.4.0
+        specifier: 'catalog:'
         version: 3.4.0
       tailwind-variants:
-        specifier: 3.2.2
+        specifier: 'catalog:'
         version: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.1.18)
       use-debounce:
-        specifier: 10.0.6
+        specifier: 'catalog:'
         version: 10.0.6(react@19.2.3)
     devDependencies:
       '@hookform/devtools':
-        specifier: ~4.4.0
+        specifier: 'catalog:'
         version: 4.4.0(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@lezer/generator':
-        specifier: ~1.8.0
+        specifier: 'catalog:'
         version: 1.8.0
       '@storybook/react-vite':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(esbuild@0.27.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(rollup@4.55.1)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@tailwindcss/vite':
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       '@tanstack/react-query-devtools':
-        specifier: ~5.91.2
+        specifier: 'catalog:'
         version: 5.91.2(@tanstack/react-query@5.90.16(react@19.2.3))(react@19.2.3)
       '@tanstack/react-router-devtools':
-        specifier: ~1.145.7
+        specifier: 'catalog:'
         version: 1.145.7(@tanstack/react-router@1.145.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.145.7)(csstype@3.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.10)
       '@tanstack/router-plugin':
-        specifier: ~1.145.10
+        specifier: 'catalog:'
         version: 1.145.10(@tanstack/react-router@1.145.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
       '@types/react':
-        specifier: ~19.2.7
+        specifier: 'catalog:'
         version: 19.2.7
       '@types/react-dom':
-        specifier: ~19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.7)
       '@types/react-timeago':
-        specifier: ~8.0.0
+        specifier: 'catalog:'
         version: 8.0.0(react@19.2.3)
       '@vitejs/plugin-react':
-        specifier: ~5.1.2
+        specifier: 'catalog:'
         version: 5.1.2(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       babel-plugin-react-compiler:
-        specifier: 19.1.0-rc.3
+        specifier: 'catalog:'
         version: 19.1.0-rc.3
       electron:
-        specifier: ~39.2.7
+        specifier: 'catalog:'
         version: 39.2.7
       eslint:
-        specifier: ~9.39.2
+        specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
       globals:
-        specifier: ~17.0.0
+        specifier: 'catalog:'
         version: 17.0.0
       storybook:
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       vite:
-        specifier: ~7.3.1
+        specifier: 'catalog:'
         version: 7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
       vite-tsconfig-paths:
-        specifier: ~6.0.3
+        specifier: 'catalog:'
         version: 6.0.3(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/server:
@@ -437,13 +815,13 @@ importers:
   packages/spec:
     devDependencies:
       '@bufbuild/buf':
-        specifier: ~1.63.0
+        specifier: 'catalog:'
         version: 1.63.0
       '@bufbuild/protobuf':
-        specifier: ~2.10.2
+        specifier: 'catalog:'
         version: 2.10.2
       '@bufbuild/protoc-gen-es':
-        specifier: ~2.10.2
+        specifier: 'catalog:'
         version: 2.10.2(@bufbuild/protobuf@2.10.2)
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
@@ -452,134 +830,134 @@ importers:
         specifier: workspace:^
         version: link:../../tools/spec-lib
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       effect:
-        specifier: ~3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       prettier:
-        specifier: ~3.7.4
+        specifier: 'catalog:'
         version: 3.7.4
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
 
   packages/ui:
     dependencies:
       '@bufbuild/protobuf':
-        specifier: 2.10.2
+        specifier: 'catalog:'
         version: 2.10.2
       '@effect-atom/atom-react':
-        specifier: 0.4.4
+        specifier: 'catalog:'
         version: 0.4.4(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.72.2(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)(react@19.2.3)(scheduler@0.27.0)
       '@fontsource-variable/dm-sans':
-        specifier: 5.2.8
+        specifier: 'catalog:'
         version: 5.2.8
       '@fontsource/dm-mono':
-        specifier: 5.2.7
+        specifier: 'catalog:'
         version: 5.2.7
       '@react-aria/collections':
-        specifier: 3.0.1
+        specifier: 'catalog:'
         version: 3.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-router':
-        specifier: 1.145.7
+        specifier: 'catalog:'
         version: 1.145.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-table':
-        specifier: 8.21.3
+        specifier: 'catalog:'
         version: 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       effect:
-        specifier: 3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       react:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3
       react-aria:
-        specifier: 3.45.0
+        specifier: 'catalog:'
         version: 3.45.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-aria-components:
-        specifier: 1.14.0
+        specifier: 'catalog:'
         version: 1.14.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-dom:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
       react-hook-form:
-        specifier: 7.70.0
+        specifier: 'catalog:'
         version: 7.70.0(react@19.2.3)
       react-icons:
-        specifier: 5.5.0
+        specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)
       react-resizable-panels:
-        specifier: 4.3.0
+        specifier: 'catalog:'
         version: 4.3.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       tailwind-merge:
-        specifier: 3.4.0
+        specifier: 'catalog:'
         version: 3.4.0
       tailwind-variants:
-        specifier: 3.2.2
+        specifier: 'catalog:'
         version: 3.2.2(tailwind-merge@3.4.0)(tailwindcss@4.1.18)
     devDependencies:
       '@storybook/addon-docs':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(@types/react@19.2.7)(esbuild@0.27.2)(rollup@4.55.1)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@storybook/react':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)
       '@storybook/react-vite':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(esbuild@0.27.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(rollup@4.55.1)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@tailwindcss/vite':
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       '@types/react':
-        specifier: ~19.2.7
+        specifier: 'catalog:'
         version: 19.2.7
       '@types/react-dom':
-        specifier: ~19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.7)
       '@vitejs/plugin-react':
-        specifier: ~5.1.2
+        specifier: 'catalog:'
         version: 5.1.2(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       babel-plugin-react-compiler:
-        specifier: 19.1.0-rc.3
+        specifier: 'catalog:'
         version: 19.1.0-rc.3
       storybook:
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       tailwindcss:
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18
       tailwindcss-react-aria-components:
-        specifier: ~2.0.0
+        specifier: 'catalog:'
         version: 2.0.1(tailwindcss@4.1.18)
       tw-animate-css:
-        specifier: ~1.4.0
+        specifier: 'catalog:'
         version: 1.4.0
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       vite:
-        specifier: ~7.3.1
+        specifier: 'catalog:'
         version: 7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/worker-js:
     devDependencies:
       '@bufbuild/protobuf':
-        specifier: ~2.10.2
+        specifier: 'catalog:'
         version: 2.10.2
       '@connectrpc/connect':
-        specifier: ~2.1.1
+        specifier: 'catalog:'
         version: 2.1.1(@bufbuild/protobuf@2.10.2)
       '@effect/platform':
-        specifier: ~0.94.1
+        specifier: 'catalog:'
         version: 0.94.1(effect@3.19.14)
       '@effect/platform-node':
-        specifier: ~0.104.0
+        specifier: 'catalog:'
         version: 0.104.0(@effect/cluster@0.56.1(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/workflow@0.16.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
@@ -588,200 +966,200 @@ importers:
         specifier: workspace:^
         version: link:../spec
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       effect:
-        specifier: ~3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       eslint:
-        specifier: ~9.39.2
+        specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
       tsup:
-        specifier: ~8.5.1
+        specifier: 'catalog:'
         version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
 
   tools/eslint:
     devDependencies:
       '@eslint/compat':
-        specifier: ~2.0.0
+        specifier: 'catalog:'
         version: 2.0.0(eslint@9.39.2(jiti@2.6.1))
       '@eslint/js':
-        specifier: ~9.39.2
+        specifier: 'catalog:'
         version: 9.39.2
       '@tanstack/eslint-plugin-router':
-        specifier: ~1.141.0
+        specifier: 'catalog:'
         version: 1.141.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       '@types/eslint-plugin-jsx-a11y':
-        specifier: ~6.10.1
+        specifier: 'catalog:'
         version: 6.10.1(jiti@2.6.1)
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       '@typescript-eslint/parser':
-        specifier: ~8.52.0
+        specifier: 'catalog:'
         version: 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       effect:
-        specifier: ~3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       eslint:
-        specifier: ~9.39.2
+        specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
       eslint-config-prettier:
-        specifier: ~10.1.8
+        specifier: 'catalog:'
         version: 10.1.8(eslint@9.39.2(jiti@2.6.1))
       eslint-import-resolver-typescript:
-        specifier: ~4.4.4
+        specifier: 'catalog:'
         version: 4.4.4(eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-better-tailwindcss:
-        specifier: ~3.8.0
+        specifier: 'catalog:'
         version: 3.8.0(eslint@9.39.2(jiti@2.6.1))(tailwindcss@4.1.18)
       eslint-plugin-import-x:
-        specifier: ~4.16.1
+        specifier: 'catalog:'
         version: 4.16.1(@typescript-eslint/utils@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y:
-        specifier: ~6.10.2
+        specifier: 'catalog:'
         version: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-perfectionist:
-        specifier: ~5.3.0
+        specifier: 'catalog:'
         version: 5.3.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       eslint-plugin-react:
-        specifier: ~7.37.5
+        specifier: 'catalog:'
         version: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks:
-        specifier: ~7.0.1
+        specifier: 'catalog:'
         version: 7.0.1(eslint@9.39.2(jiti@2.6.1))
       globals:
-        specifier: ~17.0.0
+        specifier: 'catalog:'
         version: 17.0.0
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       typescript-eslint:
-        specifier: ~8.52.0
+        specifier: 'catalog:'
         version: 8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
 
   tools/gha-scripts:
     devDependencies:
       '@effect/cli':
-        specifier: ~0.73.0
+        specifier: 'catalog:'
         version: 0.73.0(@effect/platform@0.94.1(effect@3.19.14))(@effect/printer-ansi@0.47.0(@effect/typeclass@0.38.0(effect@3.19.14))(effect@3.19.14))(@effect/printer@0.47.0(@effect/typeclass@0.38.0(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)
       '@effect/platform':
-        specifier: ~0.94.1
+        specifier: 'catalog:'
         version: 0.94.1(effect@3.19.14)
       '@effect/platform-node':
-        specifier: ~0.104.0
+        specifier: 'catalog:'
         version: 0.104.0(@effect/cluster@0.56.1(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/workflow@0.16.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)
       '@octokit/auth-action':
-        specifier: ~6.0.2
+        specifier: 'catalog:'
         version: 6.0.2
       '@octokit/rest':
-        specifier: ~22.0.1
+        specifier: 'catalog:'
         version: 22.0.1
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../eslint
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       effect:
-        specifier: ~3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       nx:
-        specifier: ~22.3.3
+        specifier: 'catalog:'
         version: 22.3.3(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.18))
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
 
   tools/spec-lib:
     devDependencies:
       '@alloy-js/cli':
-        specifier: ~0.22.0
+        specifier: 'catalog:'
         version: 0.22.0
       '@alloy-js/core':
-        specifier: ~0.22.0
+        specifier: 'catalog:'
         version: 0.22.0
       '@alloy-js/typescript':
-        specifier: ~0.22.0
+        specifier: 'catalog:'
         version: 0.22.0
       '@bufbuild/protobuf':
-        specifier: ~2.10.2
+        specifier: 'catalog:'
         version: 2.10.2
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../eslint
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       '@typespec/emitter-framework':
-        specifier: ~0.14.0
+        specifier: 'catalog:'
         version: 0.14.0(@alloy-js/core@0.22.0)(@alloy-js/csharp@0.21.0)(@alloy-js/typescript@0.22.0)(@typespec/compiler@1.7.1(@types/node@25.0.3))
       effect:
-        specifier: ~3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       prettier:
-        specifier: ~3.7.4
+        specifier: 'catalog:'
         version: 3.7.4
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
 
   tools/storybook:
     dependencies:
       effect:
-        specifier: 3.19.14
+        specifier: 'catalog:'
         version: 3.19.14
       react:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3
       react-dom:
-        specifier: 19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
     devDependencies:
       '@storybook/addon-docs':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(@types/react@19.2.7)(esbuild@0.27.2)(rollup@4.55.1)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@storybook/react':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)
       '@storybook/react-vite':
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(esbuild@0.27.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(rollup@4.55.1)(storybook@10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@tailwindcss/vite':
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../eslint
       '@types/node':
-        specifier: ~25.0.3
+        specifier: 'catalog:'
         version: 25.0.3
       '@types/react':
-        specifier: ~19.2.7
+        specifier: 'catalog:'
         version: 19.2.7
       '@types/react-dom':
-        specifier: ~19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.7)
       '@vitejs/plugin-react':
-        specifier: ~5.1.2
+        specifier: 'catalog:'
         version: 5.1.2(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       babel-plugin-react-compiler:
-        specifier: 19.1.0-rc.3
+        specifier: 'catalog:'
         version: 19.1.0-rc.3
       storybook:
-        specifier: ~10.1.11
+        specifier: 'catalog:'
         version: 10.1.11(@testing-library/dom@10.4.1)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       tailwindcss:
-        specifier: ~4.1.18
+        specifier: 'catalog:'
         version: 4.1.18
       typescript:
-        specifier: ~5.9.3
+        specifier: 'catalog:'
         version: 5.9.3
       vite:
-        specifier: ~7.3.1
+        specifier: 'catalog:'
         version: 7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
 packages:
@@ -792,8 +1170,8 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@aikidosec/safe-chain@1.3.4':
-    resolution: {integrity: sha512-6zImqTubN1LPNZ8I+Vdhkcx70Zi+0rpQ2WmERuynt97LrdvqEouD7fPD01gdzkRMjmXtaDjdgK7nv4CypmHTFQ==}
+  '@aikidosec/safe-chain@1.4.0':
+    resolution: {integrity: sha512-me+R8atYLE8zWdgmR6QDAbnYvm/zYtXvgITWDC5Oxd4n/U/FTBkOVR5dLRchyybA8g+DphsZqs4SZzn09+ff+g==}
     hasBin: true
 
   '@alloy-js/babel-plugin-jsx-dom-expressions@0.39.1':
@@ -9750,7 +10128,7 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@aikidosec/safe-chain@1.3.4':
+  '@aikidosec/safe-chain@1.4.0':
     dependencies:
       certifi: 14.5.15
       chalk: 5.4.1
@@ -14491,7 +14869,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 25.0.3
+      '@types/node': 22.19.3
       '@types/responselike': 1.0.3
 
   '@types/chai@5.2.3':
@@ -14555,7 +14933,7 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 25.0.3
+      '@types/node': 22.19.3
 
   '@types/lodash@4.17.21': {}
 
@@ -14607,7 +14985,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 25.0.3
+      '@types/node': 22.19.3
 
   '@types/semver@7.5.8': {}
 
@@ -14616,7 +14994,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 25.0.3
+      '@types/node': 22.19.3
     optional: true
 
   '@typescript-eslint/eslint-plugin@8.52.0(@typescript-eslint/parser@8.52.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)':
