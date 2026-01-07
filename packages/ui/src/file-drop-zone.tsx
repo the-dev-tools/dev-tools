@@ -9,8 +9,7 @@ import { tw } from './tailwind-literal';
 import { composeTailwindRenderProps, formatSize } from './utils';
 
 export interface FileDropZoneProps
-  extends Omit<RAC.FileTriggerProps, 'children'>,
-    Pick<RAC.DropZoneProps, 'className' | 'isDisabled'> {
+  extends Omit<RAC.FileTriggerProps, 'children'>, Pick<RAC.DropZoneProps, 'className' | 'isDisabled'> {
   files?: File[] | undefined;
   onChange?: (files: File[] | undefined) => void;
 }

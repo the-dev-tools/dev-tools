@@ -12,14 +12,14 @@
     "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts"
   },
   "devDependencies": {
-    "@bufbuild/buf": "~1.62.1",
+    "@bufbuild/buf": "~1.63.0",
     "@bufbuild/protobuf": "~2.10.2",
     "@bufbuild/protoc-gen-es": "~2.10.2",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/spec-lib": "workspace:^",
-    "@types/node": "~24.6.1",
-    "effect": "~3.18.1",
-    "prettier": "~3.6.2",
+    "@types/node": "~25.0.3",
+    "effect": "~3.19.14",
+    "prettier": "~3.7.4",
     "typescript": "~5.9.3"
   }
 }

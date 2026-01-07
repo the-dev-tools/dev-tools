@@ -12,8 +12,7 @@ import { tw } from './tailwind-literal';
 import { composeTailwindRenderProps } from './utils';
 
 export interface TreeItemProps<T extends object>
-  extends Omit<RAC.TreeItemProps, 'children' | 'textValue'>,
-    RefAttributes<HTMLDivElement> {
+  extends Omit<RAC.TreeItemProps, 'children' | 'textValue'>, RefAttributes<HTMLDivElement> {
   childItems?: ReactNode;
   children: RAC.TreeItemContentProps['children'];
   isExpanded?: boolean;

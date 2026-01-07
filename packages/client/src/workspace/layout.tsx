@@ -6,7 +6,7 @@ import { Config, pipe, Runtime } from 'effect';
 import { idEqual, Ulid } from 'id128';
 import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiPlus } from 'react-icons/fi';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
@@ -40,6 +40,10 @@ export const WorkspaceLayout = () => {
     [workspaceCollection, workspaceId],
   ).data;
 
+  const workspaceSidebarLayout = useDefaultLayout({ id: 'workspace-sidebar' });
+
+  const workspaceOutletLayout = useDefaultLayout({ id: 'workspace-outlet' });
+
   if (!workspace) return null;
 
   const baseRoute: ToOptions = { params: { workspaceIdCan }, to: workspaceRouteApi.id };
@@ -64,12 +68,12 @@ export const WorkspaceLayout = () => {
         </>
       }
     >
-      <PanelGroup autoSaveId='workspace-sidebar' direction='horizontal'>
+      <PanelGroup {...workspaceSidebarLayout} orientation='horizontal'>
         <Panel
           className={tw`flex flex-col bg-slate-50`}
-          defaultSize={20}
-          maxSize={40}
-          minSize={10}
+          defaultSize='20%'
+          maxSize='40%'
+          minSize='10%'
           style={{ overflowY: 'auto' }}
         >
           <EnvironmentsWidget />
@@ -111,8 +115,8 @@ export const WorkspaceLayout = () => {
 
         <PanelResizeHandle direction='horizontal' />
 
-        <Panel defaultSize={80}>
-          <PanelGroup autoSaveId='workspace-outlet' direction='vertical'>
+        <Panel defaultSize='80%'>
+          <PanelGroup {...workspaceOutletLayout} orientation='vertical'>
             <div className={tw`-mt-px pt-2`}>
               <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsAtom={context.tabsAtom} />
             </div>

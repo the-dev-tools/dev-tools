@@ -87,13 +87,13 @@ export const EnvironmentsWidget = () => {
       <Select
         aria-label='Environment'
         items={environments}
-        onSelectionChange={(selectedEnvironmentIdCan) => {
+        onChange={(selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
           workspaceCollection.utils.update({ selectedEnvironmentId, workspaceId });
         }}
-        selectedKey={selectedEnvironmentIdCan}
         triggerClassName={tw`justify-start p-0`}
         triggerVariant='ghost'
+        value={selectedEnvironmentIdCan}
       >
         {(item) => {
           const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();

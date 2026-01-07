@@ -14,10 +14,8 @@ export const panelResizeHandleStyles = tv({
   },
 });
 
-export interface PanelResizeHandleProps
-  extends RRP.PanelResizeHandleProps,
-    VariantProps<typeof panelResizeHandleStyles> {}
+export interface PanelResizeHandleProps extends RRP.SeparatorProps, VariantProps<typeof panelResizeHandleStyles> {}
 
 export const PanelResizeHandle = (props: PanelResizeHandleProps) => (
-  <RRP.PanelResizeHandle {...props} className={panelResizeHandleStyles(props)} />
+  <RRP.Separator {...props} className={panelResizeHandleStyles(props)} />
 );

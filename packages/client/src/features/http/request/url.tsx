@@ -143,12 +143,12 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
         aria-label='Method'
         isDisabled={isReadOnly}
         items={pipe(Struct.omit(HttpMethodSchema.value, 0), Record.values)}
-        onSelectionChange={(method) => {
+        onChange={(method) => {
           if (typeof method !== 'number') return;
           setMethod(method);
         }}
-        selectedKey={method ?? HttpMethod.UNSPECIFIED}
         triggerClassName={tw`border-none p-0`}
+        value={method ?? HttpMethod.UNSPECIFIED}
       >
         {(_) => (
           <SelectItem id={_.number} textValue={_.localName}>

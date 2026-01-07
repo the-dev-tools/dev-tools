@@ -130,7 +130,8 @@ interface FileTreeContext {
 const FileTreeContext = createContext({} as FileTreeContext);
 
 interface FileTreeProps
-  extends Omit<FileTreeContext, 'containerRef'>,
+  extends
+    Omit<FileTreeContext, 'containerRef'>,
     Pick<TreeProps<object>, 'onAction' | 'onSelectionChange' | 'selectedKeys' | 'selectionMode'> {}
 
 export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionMode, ...context }: FileTreeProps) => {
@@ -174,7 +175,7 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
 
     onItemDrop: async ({ items, target: { dropPosition, key: targetKey } }) => {
       const [item] = items;
-      if (dropPosition !== 'on' || !item || item.kind !== 'text' || items.length !== 1) return;
+      if (dropPosition !== 'on' || item?.kind !== 'text' || items.length !== 1) return;
 
       const source = fileCollection.get(await item.getText('key'));
       const target = fileCollection.get(targetKey.toString());

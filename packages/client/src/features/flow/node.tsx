@@ -7,7 +7,7 @@ import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useStat
 import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import {
@@ -378,6 +378,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
     ? executions
     : executions.filter((_) => Ulid.construct(_.nodeExecutionId).toCanonical() === selectedExecutionIdCan);
 
+  const nodeSettingsLayout = useDefaultLayout({ id: 'node-settings' });
+
   return (
     <div className={tw`flex h-full flex-col`}>
       <div className={tw`flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-2`}>
@@ -395,9 +397,9 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             aria-label='Node execution'
             isOpen={isExecListOpen}
             items={execItems}
+            onChange={setSelectedExecKey}
             onOpenChange={setIsExecListOpen}
-            onSelectionChange={setSelectedExecKey}
-            selectedKey={selectedExecKey}
+            value={selectedExecKey}
           >
             {(_) => {
               let key = Ulid.construct(_.nodeExecutionId).toCanonical();
@@ -415,8 +417,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         </Button>
       </div>
 
-      <PanelGroup autoSaveId='node-settings' className={tw`flex-1`} direction='horizontal'>
-        <Panel className={tw`flex min-h-0 flex-col`} defaultSize={30} maxSize={40} minSize={10}>
+      <PanelGroup {...nodeSettingsLayout} className={tw`flex-1`} orientation='horizontal'>
+        <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
           <div
             className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
           >
@@ -443,7 +445,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
 
         <PanelResizeHandle direction='horizontal' />
 
-        <Panel className={tw`flex min-h-0 flex-col`} defaultSize={40} maxSize={60} minSize={10}>
+        <Panel className={tw`flex min-h-0 flex-col`} defaultSize='40%' maxSize='60%' minSize='10%'>
           <div
             className={tw`
               flex items-center justify-between border-b border-slate-200 p-5 text-base leading-5 font-semibold
@@ -459,7 +461,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
 
         <PanelResizeHandle direction='horizontal' />
 
-        <Panel className={tw`flex min-h-0 flex-col`} defaultSize={30} maxSize={40} minSize={10}>
+        <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
           <div
             className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
           >

@@ -136,8 +136,10 @@ const connectionLineStyles = tv({
   },
 });
 
-interface ConnectionLineProps
-  extends Pick<XF.ConnectionLineComponentProps, 'fromPosition' | 'fromX' | 'fromY' | 'toPosition' | 'toX' | 'toY'> {
+interface ConnectionLineProps extends Pick<
+  XF.ConnectionLineComponentProps,
+  'fromPosition' | 'fromX' | 'fromY' | 'toPosition' | 'toX' | 'toY'
+> {
   connected?: boolean;
   state?: FlowItemState;
 }

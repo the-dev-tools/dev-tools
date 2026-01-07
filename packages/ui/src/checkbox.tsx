@@ -29,9 +29,7 @@ const checkboxStyles = tv({
 });
 
 export interface CheckboxProps
-  extends RAC.CheckboxProps,
-    RefAttributes<HTMLLabelElement>,
-    VariantProps<typeof checkboxStyles> {}
+  extends RAC.CheckboxProps, RefAttributes<HTMLLabelElement>, VariantProps<typeof checkboxStyles> {}
 
 export const Checkbox = ({ children, className, ...props }: CheckboxProps) => {
   const styles = checkboxStyles(props);
@@ -75,8 +73,8 @@ const IndeterminateIcon = () => (
 export interface CheckboxRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<CheckboxProps, ControllerPropKeys>,
-    UseControllerProps<TFieldValues, TName> {}
+>
+  extends Omit<CheckboxProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
 
 export const CheckboxRHF = <
   TFieldValues extends FieldValues = FieldValues,

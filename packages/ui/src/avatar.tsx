@@ -46,9 +46,7 @@ export const avatarStyles = tv({
 });
 
 export interface AvatarProps
-  extends AvatarTextProps,
-    Omit<ComponentProps<'div'>, keyof AvatarTextProps>,
-    VariantProps<typeof avatarStyles> {}
+  extends AvatarTextProps, Omit<ComponentProps<'div'>, keyof AvatarTextProps>, VariantProps<typeof avatarStyles> {}
 
 export const Avatar = ({ children, ...props }: AvatarProps) => (
   <div {...props} className={avatarStyles(props)}>
@@ -64,9 +62,7 @@ export const avatarButtonStyles = tv({
 });
 
 export interface AvatarButtonProps
-  extends AvatarTextProps,
-    Omit<RAC.ButtonProps, keyof AvatarTextProps>,
-    VariantProps<typeof avatarButtonStyles> {}
+  extends AvatarTextProps, Omit<RAC.ButtonProps, keyof AvatarTextProps>, VariantProps<typeof avatarButtonStyles> {}
 
 export const AvatarButton = ({ children, ...props }: AvatarButtonProps) => (
   <RAC.Button {...props} className={composeStyleProps(props, avatarButtonStyles)}>

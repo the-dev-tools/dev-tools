@@ -87,9 +87,7 @@ export const textInputFieldStyles = tv({
 });
 
 export interface TextInputFieldProps
-  extends Omit<TextFieldProps, 'children'>,
-    RefAttributes<HTMLInputElement>,
-    VariantProps<typeof textInputFieldStyles> {
+  extends Omit<TextFieldProps, 'children'>, RefAttributes<HTMLInputElement>, VariantProps<typeof textInputFieldStyles> {
   inputClassName?: RAC.InputProps['className'];
   placeholder?: RAC.InputProps['placeholder'];
 }
@@ -98,8 +96,8 @@ export const TextInputField = ({ className = '', inputClassName, placeholder, re
   <TextField {...props} className={className}>
     <RAC.Input
       className={composeStyleRenderProps(inputClassName, textInputFieldStyles, props)}
-      placeholder={placeholder}
       ref={ref}
+      {...(placeholder && { placeholder })}
     />
   </TextField>
 );
@@ -109,8 +107,8 @@ export const TextInputField = ({ className = '', inputClassName, placeholder, re
 export interface TextInputFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<TextInputFieldProps, ControllerPropKeys>,
-    UseControllerProps<TFieldValues, TName> {}
+>
+  extends Omit<TextInputFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
 
 export const TextInputFieldRHF = <
   TFieldValues extends FieldValues = FieldValues,
@@ -143,7 +141,8 @@ export const TextInputFieldRHF = <
 // Text area field
 
 export interface TextAreaFieldProps
-  extends Omit<TextFieldProps, 'children'>,
+  extends
+    Omit<TextFieldProps, 'children'>,
     RefAttributes<HTMLTextAreaElement>,
     VariantProps<typeof textInputFieldStyles> {}
 
@@ -158,8 +157,8 @@ export const TextAreaField = ({ className = '', ref, ...props }: TextAreaFieldPr
 export interface TextAreaFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<TextAreaFieldProps, ControllerPropKeys>,
-    UseControllerProps<TFieldValues, TName> {}
+>
+  extends Omit<TextAreaFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
 
 export const TextAreaFieldRHF = <
   TFieldValues extends FieldValues = FieldValues,

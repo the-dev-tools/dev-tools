@@ -16,8 +16,7 @@ export const listBoxStyles = tv({
 });
 
 export interface ListBoxProps<T>
-  extends Omit<RAC.ListBoxProps<T>, 'layout' | 'orientation'>,
-    VariantProps<typeof listBoxStyles> {}
+  extends Omit<RAC.ListBoxProps<T>, 'layout' | 'orientation'>, VariantProps<typeof listBoxStyles> {}
 
 export const ListBox = <T extends object>({ className, ...props }: ListBoxProps<T>) => (
   <RAC.ListBox className={composeStyleRenderProps(className, listBoxStyles)} {...props} />
@@ -50,7 +49,7 @@ export const ListBoxItem = ({ ...props }: ListBoxItemProps) => (
 );
 
 export const ListBoxItemLink: LinkComponent<ListBoxItemProps> = (props) => {
-  const linkProps = useLink(props as UseLinkProps);
+  const linkProps = useLink(props as UseLinkProps<'div'>);
   return <ListBoxItem {...(props as ListBoxItemProps)} {...linkProps} />;
 };
 

@@ -3,7 +3,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { Suspense, useRef } from 'react';
 import { useTab, useTabList, useTabPanel } from 'react-aria';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
 import { FlowVersion } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
@@ -56,9 +56,11 @@ export const FlowHistoryPage = () => {
   const tabListRef = useRef(null);
   const { tabListProps } = useTabList({ items: versions, orientation: 'vertical' }, state, tabListRef);
 
+  const flowHistoryLayout = useDefaultLayout({ id: 'flow-history' });
+
   return (
-    <PanelGroup autoSaveId='flow-history' direction='horizontal'>
-      <Panel defaultSize={80}>
+    <PanelGroup {...flowHistoryLayout} orientation='horizontal'>
+      <Panel defaultSize='80%'>
         {!state.selectedKey && <TopBar />}
         <TabPanel state={state} />
       </Panel>
@@ -67,9 +69,9 @@ export const FlowHistoryPage = () => {
 
       <Panel
         className={tw`flex flex-col bg-slate-50 p-4 tracking-tight`}
-        defaultSize={20}
-        maxSize={40}
-        minSize={10}
+        defaultSize='20%'
+        maxSize='40%'
+        minSize='10%'
         style={{ overflowY: 'auto' }}
       >
         <div className={tw`mb-4`}>

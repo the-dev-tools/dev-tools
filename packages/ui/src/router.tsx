@@ -5,6 +5,7 @@ import {
   LinkComponent as LinkComponentUpstream,
   ToOptions,
   useLinkProps,
+  UseLinkPropsOptions,
   useRouter,
 } from '@tanstack/react-router';
 import { Array, Effect, Match, Option, pipe, Runtime } from 'effect';
@@ -17,6 +18,7 @@ import React, {
   Suspense,
   SyntheticEvent,
   useEffect,
+  useRef,
 } from 'react';
 import { ListBox, ListBoxItem, RouterProvider, useDragAndDrop } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
@@ -37,10 +39,14 @@ export const AriaRouterProvider = ({ children }: PropsWithChildren) => (
 );
 
 const fauxEvent =
-  <E extends SyntheticEvent>(handler: React.EventHandler<E> | undefined, defaultEvent?: Partial<E>) =>
+  <E extends SyntheticEvent>(
+    handler: React.EventHandler<E> | undefined,
+    ref: React.RefObject<HTMLElement | null>,
+    defaultEvent?: Partial<E>,
+  ) =>
   (event?: object) =>
     handler?.({
-      currentTarget: {},
+      currentTarget: ref.current,
       defaultPrevented: false,
       preventDefault: () => undefined,
       ...defaultEvent,
@@ -194,22 +200,27 @@ const updateRef = <T,>(ref: Ref<T> | undefined, node: T | undefined) => {
   else if (ref) ref.current = node;
 };
 
-export interface UseLinkProps extends ActiveLinkOptions {
+export interface UseLinkProps<TComp = 'a'> extends ActiveLinkOptions<TComp> {
   children?: ((state: { isActive: boolean; isTransitioning: boolean }) => React.ReactNode) | React.ReactNode;
-  onAuxClick?: MouseEventHandler<HTMLDivElement>;
+  onAuxClick?: MouseEventHandler;
   ref?: Ref<unknown> | undefined;
 }
 
-export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLinkProps) => {
-  const _ = useLinkProps(props, refProp as Ref<Element>) as ComponentProps<'a'> & Record<string, unknown>;
+export const useLink = <TComp = 'a',>({ children, onAuxClick, ref: refProp, ...props }: UseLinkProps<TComp>) => {
+  const _ = useLinkProps(props as UseLinkPropsOptions, refProp as Ref<Element>) as ComponentProps<'a'> &
+    Record<string, unknown>;
+
+  const ref = useRef<HTMLElement>(null);
 
   const isActive = _['data-status'] === 'active';
   const isTransitioning = _['data-transitioning'] === 'transitioning';
 
-  const onAction = fauxEvent(_.onClick, { button: 0 });
+  // eslint-disable-next-line react-hooks/refs
+  const onAction = fauxEvent(_.onClick, ref, { button: 0 });
 
-  const ref = (node: unknown) => {
+  const refCallback = (node: unknown) => {
     updateRef(_.ref, node as HTMLAnchorElement);
+    ref.current = node as HTMLElement;
 
     let element: HTMLElement | undefined;
     if (node && typeof node === 'object' && 'addEventListener' in node) element = node as HTMLElement;
@@ -221,7 +232,7 @@ export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLin
 
     const onAuxClickHandler = (event: MouseEvent) => {
       event.preventDefault();
-      if (onAuxClick) fauxEvent(onAuxClick)(event);
+      if (onAuxClick) fauxEvent(onAuxClick, ref)(event);
       else onAction();
     };
 
@@ -235,7 +246,7 @@ export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLin
   };
 
   return {
-    ref,
+    ref: refCallback,
 
     children: typeof children === 'function' ? children({ isActive, isTransitioning }) : children,
     href: _.href!,
@@ -245,9 +256,12 @@ export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLin
     isTransitioning,
 
     onAction,
-    onFocus: fauxEvent(_.onFocus),
-    onHoverEnd: fauxEvent(_.onMouseLeave),
-    onHoverStart: fauxEvent(_.onMouseEnter),
+    // eslint-disable-next-line react-hooks/refs
+    onFocus: fauxEvent(_.onFocus, ref),
+    // eslint-disable-next-line react-hooks/refs
+    onHoverEnd: fauxEvent(_.onMouseLeave, ref),
+    // eslint-disable-next-line react-hooks/refs
+    onHoverStart: fauxEvent(_.onMouseEnter, ref),
   };
 };
 

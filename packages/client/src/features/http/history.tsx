@@ -2,7 +2,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import { Suspense } from 'react';
 import { Collection, Dialog, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { HttpResponseCollectionSchema, HttpVersionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Modal } from '@the-dev-tools/ui/modal';
@@ -131,9 +131,11 @@ const Version = ({ deltaHttpId, httpId }: VersionProps) => {
       [responseCollection, httpId],
     ).data ?? {};
 
+  const endpointVersionsLayout = useDefaultLayout({ id: 'endpoint-versions' });
+
   return (
-    <PanelGroup autoSaveId='endpoint-versions' direction='vertical'>
-      <Panel className={tw`flex h-full flex-col`} id='request' order={1}>
+    <PanelGroup {...endpointVersionsLayout} orientation='vertical'>
+      <Panel className={tw`flex h-full flex-col`} id='request'>
         <div className={tw`p-6 pb-2`}>
           <HttpUrl deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly />
         </div>
@@ -145,7 +147,7 @@ const Version = ({ deltaHttpId, httpId }: VersionProps) => {
         <>
           <PanelResizeHandle direction='vertical' />
 
-          <Panel defaultSize={40} id='response' order={2}>
+          <Panel defaultSize='40%' id='response'>
             <ResponsePanel fullWidth httpResponseId={httpResponseId}>
               <ResponseInfo httpResponseId={httpResponseId} />
             </ResponsePanel>

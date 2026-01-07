@@ -280,8 +280,8 @@ export interface DeltaCheckboxColumnProps<
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
   TData extends Partial<MessageShape<TOriginSchema['item']>>,
-> extends DeltaOptions<TOriginSchema, TDeltaSchema>,
-    Omit<DisplayColumnDef<TData>, 'id'> {
+>
+  extends DeltaOptions<TOriginSchema, TDeltaSchema>, Omit<DisplayColumnDef<TData>, 'id'> {
   isReadOnly?: boolean | undefined;
   valueKey: keyof Filter<MessageShape<TOriginSchema['item']>, boolean> & string;
 }
@@ -322,8 +322,8 @@ export interface DeltaTextFieldColumnProps<
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
   TData extends Partial<MessageShape<TOriginSchema['item']>>,
-> extends DeltaOptions<TOriginSchema, TDeltaSchema>,
-    Omit<DisplayColumnDef<TData>, 'id'> {
+>
+  extends DeltaOptions<TOriginSchema, TDeltaSchema>, Omit<DisplayColumnDef<TData>, 'id'> {
   isReadOnly?: boolean | undefined;
   valueKey: keyof Filter<MessageShape<TOriginSchema['item']>, string> & string;
 }
@@ -366,8 +366,8 @@ export interface DeltaReferenceColumnProps<
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
   TData extends Partial<MessageShape<TOriginSchema['item']>>,
-> extends DeltaOptions<TOriginSchema, TDeltaSchema>,
-    Omit<DisplayColumnDef<TData>, 'id'> {
+>
+  extends DeltaOptions<TOriginSchema, TDeltaSchema>, Omit<DisplayColumnDef<TData>, 'id'> {
   allowFiles?: boolean;
   fullExpression?: boolean;
   isReadOnly?: boolean | undefined;

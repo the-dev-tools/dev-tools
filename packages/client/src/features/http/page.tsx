@@ -1,5 +1,5 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { useApiCollection } from '~/api';
@@ -41,9 +41,11 @@ const Page = ({ deltaHttpId, httpId }: PageProps) => {
       [responseCollection, deltaHttpId, httpId],
     ).data ?? {};
 
+  const endpointLayout = useDefaultLayout({ id: 'endpoint' });
+
   return (
-    <PanelGroup autoSaveId='endpoint' direction='vertical'>
-      <Panel className='flex h-full flex-col' id='request' order={1}>
+    <PanelGroup {...endpointLayout} orientation='vertical'>
+      <Panel className='flex h-full flex-col' id='request'>
         <ReferenceContext value={{ httpId, workspaceId, ...(deltaHttpId && { deltaHttpId }) }}>
           <HttpTopBar deltaHttpId={deltaHttpId} httpId={httpId} />
 
@@ -55,7 +57,7 @@ const Page = ({ deltaHttpId, httpId }: PageProps) => {
         <>
           <PanelResizeHandle direction='vertical' />
 
-          <Panel defaultSize={40} id='response' order={2}>
+          <Panel defaultSize='40%' id='response'>
             <ResponsePanel fullWidth httpResponseId={httpResponseId}>
               <ResponseInfo httpResponseId={httpResponseId} />
             </ResponsePanel>

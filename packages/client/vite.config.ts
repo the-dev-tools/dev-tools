@@ -16,7 +16,7 @@ export default defineConfig({
       target: 'react',
       virtualRouteConfig: routes,
     }),
-    TSConfigPaths(),
+    TSConfigPaths({ configNames: ['tsconfig.json', 'tsconfig.lib.json'] }),
     ReactVite({ babel: { plugins: [['babel-plugin-react-compiler', {}]] } }),
     TailwindVite(),
     lezer() as Plugin,

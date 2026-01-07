@@ -26,8 +26,7 @@ export const Tag = ({ className, ...props }: TagProps) => (
 // Group
 
 export interface TagGroupProps<T>
-  extends Omit<RAC.TagGroupProps, 'children'>,
-    Omit<RAC.TagListProps<T>, 'className' | 'style'> {
+  extends Omit<RAC.TagGroupProps, 'children'>, Omit<RAC.TagListProps<T>, 'className' | 'style'> {
   label?: RAC.LabelProps['children'];
 }
 

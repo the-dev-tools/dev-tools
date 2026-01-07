@@ -10,8 +10,10 @@ interface SimpleCallOptions<I extends Protobuf.DescMessage> extends Omit<CallOpt
   transport: Transport;
 }
 
-export interface RequestOptions<I extends Protobuf.DescMessage, O extends Protobuf.DescMessage>
-  extends SimpleCallOptions<I> {
+export interface RequestOptions<
+  I extends Protobuf.DescMessage,
+  O extends Protobuf.DescMessage,
+> extends SimpleCallOptions<I> {
   method: Protobuf.DescMethodUnary<I, O>;
 }
 
@@ -25,8 +27,10 @@ export const request = <I extends Protobuf.DescMessage, O extends Protobuf.DescM
     _.contextValues,
   );
 
-export interface StreamOptions<I extends Protobuf.DescMessage, O extends Protobuf.DescMessage>
-  extends SimpleCallOptions<I> {
+export interface StreamOptions<
+  I extends Protobuf.DescMessage,
+  O extends Protobuf.DescMessage,
+> extends SimpleCallOptions<I> {
   method: Protobuf.DescMethodServerStreaming<I, O>;
 }
 

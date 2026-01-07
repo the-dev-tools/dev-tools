@@ -8,9 +8,8 @@ import prettier from 'eslint-config-prettier';
 import tailwindPlugin from 'eslint-plugin-better-tailwindcss';
 import { importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
-import perfectionistRaw from 'eslint-plugin-perfectionist';
-import react from 'eslint-plugin-react';
-// eslint-disable-next-line import-x/default
+import perfectionistPlugin from 'eslint-plugin-perfectionist';
+import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
@@ -43,35 +42,20 @@ const settings = defineConfig({
   },
 });
 
-const reactHooks = defineConfig({
-  extends: ['react-hooks/flat/recommended'],
-  plugins: { 'react-hooks': reactHooksPlugin },
-  // Opt-in additional rules
-  // https://react.dev/reference/eslint-plugin-react-hooks#additional-rules
-  rules: {
-    'react-hooks/component-hook-factories': 'error',
-    'react-hooks/config': 'error',
-    'react-hooks/error-boundaries': 'error',
-    'react-hooks/gating': 'error',
-    'react-hooks/globals': 'error',
-    'react-hooks/immutability': 'error',
-    'react-hooks/incompatible-library': 'warn',
-    'react-hooks/preserve-manual-memoization': 'error',
-    'react-hooks/purity': 'error',
-    'react-hooks/refs': 'error',
-    'react-hooks/set-state-in-effect': 'error',
-    'react-hooks/set-state-in-render': 'error',
-    'react-hooks/static-components': 'error',
-    'react-hooks/unsupported-syntax': 'error',
-    'react-hooks/use-memo': 'error',
-  },
-  settings: {
-    'react-hooks': {
-      // https://tanstack.com/db/latest/docs/guides/live-queries#reactive-updates
-      additionalEffectHooks: '(useLiveQuery|useLiveSuspenseQuery)',
+const react = defineConfig(
+  jsxA11y.flatConfigs.recommended,
+  reactPlugin.configs.flat['recommended']!,
+  reactPlugin.configs.flat['jsx-runtime']!,
+  reactHooksPlugin.configs.flat.recommended,
+  {
+    settings: {
+      'react-hooks': {
+        // https://tanstack.com/db/latest/docs/guides/live-queries#reactive-updates
+        additionalEffectHooks: '(useLiveQuery|useLiveSuspenseQuery)',
+      },
     },
   },
-});
+);
 
 const tailwind = defineConfig({
   plugins: { 'better-tailwindcss': tailwindPlugin },
@@ -89,11 +73,12 @@ const tailwind = defineConfig({
 });
 
 const perfectionist = defineConfig({
-  plugins: { perfectionist: perfectionistRaw },
+  plugins: { perfectionist: perfectionistPlugin },
   // Convert errors to warnings
-  rules: Record.map(perfectionistRaw.configs['recommended-natural'].rules ?? {}, (rule) => {
+  // eslint-disable-next-line import-x/no-named-as-default-member
+  rules: Record.map(perfectionistPlugin.configs['recommended-natural'].rules ?? {}, (rule) => {
     if (!Array.isArray(rule)) return 'warn';
-    return pipe(rule, Array.drop(1), Array.prepend('warn'));
+    return pipe(rule, Array.drop(1), Array.prepend('warn')) as ['warn', ...unknown[]];
   }),
   settings: {
     perfectionist: {
@@ -132,7 +117,7 @@ const rules = defineConfig({
 
     'perfectionist/sort-imports': [
       'warn',
-      { internalPattern: ['^@the-dev-tools/.*', '^~.*'], newlinesBetween: 'ignore' },
+      { internalPattern: ['^@the-dev-tools/.*', '^~.*'], newlinesBetween: 'ignore', newlinesInside: 'ignore' },
     ],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
     'perfectionist/sort-objects': [
@@ -173,11 +158,7 @@ export default defineConfig(
   importX.flatConfigs.typescript as Linter.Config,
   importX.flatConfigs.react as Linter.Config,
 
-  react.configs.flat['recommended']!,
-  react.configs.flat['jsx-runtime']!,
-  reactHooks,
-
-  jsxA11y.flatConfigs.recommended,
+  react,
 
   tailwind,
 

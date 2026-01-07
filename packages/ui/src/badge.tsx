@@ -26,7 +26,6 @@ export const badgeStyles = tv({
 });
 
 export interface BadgeProps
-  extends Omit<React.ComponentPropsWithoutRef<'div'>, 'color'>,
-    VariantProps<typeof badgeStyles> {}
+  extends Omit<React.ComponentPropsWithoutRef<'div'>, 'color'>, VariantProps<typeof badgeStyles> {}
 
 export const Badge = (props: BadgeProps) => <div {...props} className={badgeStyles(props)} />;

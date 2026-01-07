@@ -3,15 +3,6 @@
   "files": [],
   "references": [
     {
-      "path": "../../packages/worker-js"
-    },
-    {
-      "path": "../../packages/client"
-    },
-    {
-      "path": "../../tools/eslint"
-    },
-    {
       "path": "./tsconfig.lib.json"
     }
   ]

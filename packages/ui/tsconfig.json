@@ -3,12 +3,6 @@
   "files": [],
   "references": [
     {
-      "path": "../spec"
-    },
-    {
-      "path": "../../tools/eslint"
-    },
-    {
       "path": "./tsconfig.lib.json"
     }
   ]

@@ -46,8 +46,8 @@ export const NumberField = ({ className = '', groupClassName, label, ...props }:
 export interface NumberFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<NumberFieldProps, ControllerPropKeys>,
-    UseControllerProps<TFieldValues, TName> {}
+>
+  extends Omit<NumberFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
 
 export const NumberFieldRHF = <
   TFieldValues extends FieldValues = FieldValues,

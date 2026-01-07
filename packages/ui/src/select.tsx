@@ -14,15 +14,16 @@ import { composeTailwindRenderProps, composeTextValueProps } from './utils';
 
 // Root
 
-export interface SelectProps<T extends object>
-  extends Omit<RAC.SelectProps<T>, 'children'>,
+export interface SelectProps<T extends object, M extends 'multiple' | 'single' = 'single'>
+  extends
+    Omit<RAC.SelectProps<T, M>, 'children'>,
     Pick<ListBoxProps<T>, 'children' | 'items'>,
     RefAttributes<HTMLDivElement> {
   error?: FieldErrorProps['children'];
   label?: FieldLabelProps['children'];
+  renderValue?: RAC.SelectValueProps<T>['children'];
   triggerClassName?: ButtonProps['className'];
   triggerVariant?: ButtonProps['variant'];
-  value?: RAC.SelectValueProps<T>['children'];
 }
 
 export const Select = <T extends object>({
@@ -31,15 +32,15 @@ export const Select = <T extends object>({
   error,
   items,
   label,
+  renderValue,
   triggerClassName,
   triggerVariant,
-  value,
   ...props
 }: SelectProps<T>) => (
   <RAC.Select {...props} className={composeTailwindRenderProps(className, tw`group flex flex-col gap-1`)}>
     {label && <FieldLabel>{label}</FieldLabel>}
     <Button className={triggerClassName!} variant={triggerVariant}>
-      <RAC.SelectValue>{value}</RAC.SelectValue>
+      <RAC.SelectValue>{renderValue}</RAC.SelectValue>
       <FiChevronDown className={tw`-mr-1 size-4 text-slate-500 transition-transform group-open:rotate-180`} />
     </Button>
     {error && <FieldError>{error}</FieldError>}
@@ -70,8 +71,8 @@ export const SelectItem = (props: ListBoxItemProps) => (
 export interface SelectRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<SelectProps<TFieldValues>, ControllerPropKeys>,
-    UseControllerProps<TFieldValues, TName> {}
+>
+  extends Omit<SelectProps<TFieldValues>, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
 
 export const SelectRHF = <
   TFieldValues extends FieldValues = FieldValues,
@@ -93,9 +94,9 @@ export const SelectRHF = <
     isInvalid: fieldState.invalid,
     name: field.name,
     onBlur: field.onBlur,
-    onSelectionChange: field.onChange,
-    selectedKey: field.value,
+    onChange: field.onChange,
     validationBehavior: 'aria',
+    value: field.value,
   };
 
   return <Select {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;

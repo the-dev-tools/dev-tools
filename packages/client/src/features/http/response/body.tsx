@@ -106,9 +106,9 @@ const BodyPretty = ({ body }: BodyPrettyProps) => {
       <Select
         aria-label='Language'
         className='self-center justify-self-start'
-        onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
-        selectedKey={language}
+        onChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
         triggerClassName={tw`px-4 py-1`}
+        value={language}
       >
         {CodeMirrorMarkupLanguages.map((_) => (
           <SelectItem id={_} key={_}>

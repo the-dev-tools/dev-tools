@@ -175,7 +175,8 @@ const fieldStyles = tv({
 });
 
 interface ReferenceFieldProps
-  extends Partial<BaseCodeMirrorExtensionProps>,
+  extends
+    Partial<BaseCodeMirrorExtensionProps>,
     ReactCodeMirrorProps,
     RefAttributes<ReactCodeMirrorRef>,
     VariantProps<typeof fieldStyles> {}
@@ -236,8 +237,8 @@ export const ReferenceField = ({
 interface ReferenceFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<ReferenceFieldProps, ControllerPropKeys>,
-    UseControllerProps<TFieldValues, TName> {}
+>
+  extends Omit<ReferenceFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
 
 export const ReferenceFieldRHF = <
   TFieldValues extends FieldValues = FieldValues,

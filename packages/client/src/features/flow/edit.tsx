@@ -136,7 +136,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const { dropProps } = useDrop({
     onDrop: async ({ items, x, y }) => {
       const [item] = items;
-      if (!item || item.kind !== 'text' || !item.types.has('key') || items.length !== 1) return;
+      if (item?.kind !== 'text' || !item.types.has('key') || items.length !== 1) return;
 
       const file = fileCollection.get(await item.getText('key'));
 

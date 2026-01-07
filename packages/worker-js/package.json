@@ -8,15 +8,15 @@
   "exports": "./dist/main.cjs",
   "devDependencies": {
     "@bufbuild/protobuf": "~2.10.2",
-    "@connectrpc/connect": "~2.1.0",
-    "@effect/platform": "~0.92.1",
-    "@effect/platform-node": "~0.98.2",
+    "@connectrpc/connect": "~2.1.1",
+    "@effect/platform": "~0.94.1",
+    "@effect/platform-node": "~0.104.0",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/spec": "workspace:^",
-    "@types/node": "~24.6.1",
-    "effect": "~3.18.1",
-    "eslint": "~9.36.0",
-    "tsup": "~8.5.0",
+    "@types/node": "~25.0.3",
+    "effect": "~3.19.14",
+    "eslint": "~9.39.2",
+    "tsup": "~8.5.1",
     "typescript": "~5.9.3"
   }
 }
