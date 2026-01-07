@@ -7,7 +7,7 @@
 <h1 align="center">DevTools</h1>
 
 <p align="center">
-A free, source-available Postman-style API tester you run locally. Record browser requests, auto-generate chained tests, and ship them straight to your CI—no sign-ups, no cloud, just code.
+A free, open-source Postman-style API tester you run locally. Record browser requests, auto-generate chained tests, and ship them straight to your CI—no sign-ups, no cloud, just code.
 </p>
 
 <details>
@@ -112,19 +112,5 @@ We appreciate feedback and contribution to this repo! Before you get started, pl
 
 ## License
 
-This project is distributed under the **MIT License + Commons Clause** (source‑available).
+Distributed under the Apache 2.0 License. See `LICENSE` for more information.
 
-You are free to use, modify, and distribute the software under the MIT terms **except** as limited below.
-
-**Commons Clause Restriction**
-You may **not sell** the software **or** provide it (or any service whose value derives substantially from its functionality) as a hosted/SaaS offering without first obtaining a commercial licence.
-
-**Permitted without a commercial licence**
-
-- Local development and personal use
-- Internal business use (including self‑hosted CI/CD)
-- Commercial products that run entirely on the customer's own machines (non‑SaaS)
-
-For hosted or managed‑service use, contact **licensing@dev.tools**.
-
-See the [LICENSE](./LICENSE) file for full details.
