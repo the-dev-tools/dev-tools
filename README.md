@@ -38,13 +38,13 @@ DevTools combines the best aspects of Postman's visual interface with the securi
 
 ### Postman-Style Request Interface
 
-![Postman-style UI with form data](https://github.com/user-attachments/assets/98eb84ae-843c-4bd3-80af-6622dd7b000a)
+![Postman-style UI with form data](https://dev.tools/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Ffirst-request-jsonplaceholder-users-1.3351fec7.webp&w=1920&q=75)
 
 The DevTools interface provides a familiar Postman-like experience for working with API requests. The screenshot above shows the request editor interface with form data input, allowing you to easily build, test, and organize your API requests without the cloud dependency.
 
 ### Visual Flow Builder
 
-![Flow builder with request chaining](https://github.com/user-attachments/assets/ef9bbb76-3490-4a43-ad65-a75510501177)
+![Flow builder with request chaining](https://dev.tools/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fflow-canvas-overview.d549cd67.webp&w=1920&q=75)
 
 The flow builder allows you to visually chain API requests and create complex test scenarios. Connect different nodes to build your workflow:
 
@@ -116,7 +116,7 @@ This project is distributed under the **MIT License + Commons Clause** (sourceâ€
 
 You are free to use, modify, and distribute the software under the MIT terms **except** as limited below.
 
-**Commons Clause Restriction**  
+**Commons Clause Restriction**
 You may **not sell** the software **or** provide it (or any service whose value derives substantially from its functionality) as a hosted/SaaS offering without first obtaining a commercial licence.
 
 **Permitted without a commercial licence**
