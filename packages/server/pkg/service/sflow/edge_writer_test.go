@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,17 +57,17 @@ func TestEdgeWriter_UpdateEdgeState_ValidStates(t *testing.T) {
 
 	edgeID := idwrap.NewNow()
 	err = queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
-		ID:            edgeID,
-		FlowID:        flowID,
-		SourceID:      sourceID,
-		TargetID:      targetID,
-		SourceHandle:  0,
+		ID:           edgeID,
+		FlowID:       flowID,
+		SourceID:     sourceID,
+		TargetID:     targetID,
+		SourceHandle: 0,
 	})
 	require.NoError(t, err)
 
 	tests := []struct {
-		name     string
-		state    mflow.NodeState
+		name  string
+		state mflow.NodeState
 	}{
 		{
 			name:  "UNSPECIFIED state",
@@ -148,11 +148,11 @@ func TestEdgeWriter_UpdateEdgeState_InvalidStates(t *testing.T) {
 
 	edgeID := idwrap.NewNow()
 	err = queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
-		ID:            edgeID,
-		FlowID:        flowID,
-		SourceID:      sourceID,
-		TargetID:      targetID,
-		SourceHandle:  0,
+		ID:           edgeID,
+		FlowID:       flowID,
+		SourceID:     sourceID,
+		TargetID:     targetID,
+		SourceHandle: 0,
 	})
 	require.NoError(t, err)
 
@@ -241,11 +241,11 @@ func TestEdgeWriter_UpdateEdgeState_BoundaryValues(t *testing.T) {
 
 	edgeID := idwrap.NewNow()
 	err = queries.CreateFlowEdge(ctx, gen.CreateFlowEdgeParams{
-		ID:            edgeID,
-		FlowID:        flowID,
-		SourceID:      sourceID,
-		TargetID:      targetID,
-		SourceHandle:  0,
+		ID:           edgeID,
+		FlowID:       flowID,
+		SourceID:     sourceID,
+		TargetID:     targetID,
+		SourceHandle: 0,
 	})
 	require.NoError(t, err)
 

@@ -1,9 +1,9 @@
 package sortenabled_test
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/sort/sortenabled"
 	"reflect"
 	"testing"
-	"the-dev-tools/server/pkg/sort/sortenabled"
 )
 
 type MockEnabled struct {

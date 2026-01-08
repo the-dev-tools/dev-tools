@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 )
 
 // TestEvent is a simple event type for testing.

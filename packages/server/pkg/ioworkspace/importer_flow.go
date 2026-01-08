@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 )
 
 // importFlows imports flows from the bundle.

@@ -10,24 +10,24 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rlog"
-	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/mutation"
-	"the-dev-tools/server/pkg/patch"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	"the-dev-tools/spec/dist/buf/go/api/http/v1/httpv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/patch"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1/httpv1connect"
 )
 
 const (
@@ -228,9 +228,15 @@ type HttpServiceRPCReaders struct {
 }
 
 func (r *HttpServiceRPCReaders) Validate() error {
-	if r.Http == nil { return fmt.Errorf("http reader is required") }
-	if r.User == nil { return fmt.Errorf("user reader is required") }
-	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
+	if r.Http == nil {
+		return fmt.Errorf("http reader is required")
+	}
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
+	}
+	if r.Workspace == nil {
+		return fmt.Errorf("workspace reader is required")
+	}
 	return nil
 }
 
@@ -252,11 +258,21 @@ type HttpServiceRPCServices struct {
 }
 
 func (s *HttpServiceRPCServices) Validate() error {
-	if s.HttpBodyRaw == nil { return fmt.Errorf("http body raw service is required") }
-	if s.HttpSearchParam == nil { return fmt.Errorf("http search param service is required") }
-	if s.HttpBodyForm == nil { return fmt.Errorf("http body form service is required") }
-	if s.HttpBodyUrlEncoded == nil { return fmt.Errorf("http body url encoded service is required") }
-	if s.HttpAssert == nil { return fmt.Errorf("http assert service is required") }
+	if s.HttpBodyRaw == nil {
+		return fmt.Errorf("http body raw service is required")
+	}
+	if s.HttpSearchParam == nil {
+		return fmt.Errorf("http search param service is required")
+	}
+	if s.HttpBodyForm == nil {
+		return fmt.Errorf("http body form service is required")
+	}
+	if s.HttpBodyUrlEncoded == nil {
+		return fmt.Errorf("http body url encoded service is required")
+	}
+	if s.HttpAssert == nil {
+		return fmt.Errorf("http assert service is required")
+	}
 	return nil
 }
 
@@ -269,11 +285,21 @@ type HttpServiceRPCDeps struct {
 }
 
 func (d *HttpServiceRPCDeps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if err := d.Readers.Validate(); err != nil { return err }
-	if err := d.Services.Validate(); err != nil { return err }
-	if d.Resolver == nil { return fmt.Errorf("resolver is required") }
-	if d.Streamers == nil { return fmt.Errorf("streamers is required") }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if d.Resolver == nil {
+		return fmt.Errorf("resolver is required")
+	}
+	if d.Streamers == nil {
+		return fmt.Errorf("streamers is required")
+	}
 	return nil
 }
 
@@ -283,7 +309,7 @@ func New(deps HttpServiceRPCDeps) HttpServiceRPC {
 		panic(fmt.Sprintf("HttpServiceRPC Deps validation failed: %v", err))
 	}
 
-	return HttpServiceRPC {
+	return HttpServiceRPC{
 		DB:                        deps.DB,
 		httpReader:                deps.Readers.Http,
 		hs:                        deps.Services.Http,

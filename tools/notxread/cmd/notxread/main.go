@@ -2,7 +2,7 @@
 package main
 
 import (
-	"the-dev-tools/notxread"
+	"github.com/the-dev-tools/dev-tools/tools/notxread"
 
 	"golang.org/x/tools/go/analysis/singlechecker"
 )

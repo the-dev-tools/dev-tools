@@ -3,7 +3,7 @@ package notxread_test
 import (
 	"testing"
 
-	"the-dev-tools/notxread"
+	"github.com/the-dev-tools/dev-tools/tools/notxread"
 
 	"golang.org/x/tools/go/analysis/analysistest"
 )

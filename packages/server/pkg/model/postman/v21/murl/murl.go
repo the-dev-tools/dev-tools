@@ -1,7 +1,7 @@
 //nolint:revive // exported
 package murl
 
-import "the-dev-tools/server/pkg/model/postman/v21/mvariable"
+import "github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mvariable"
 
 type URL struct {
 	Version   string               `json:"version,omitempty"`

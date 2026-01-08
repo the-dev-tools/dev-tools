@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/testutil"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
 )
@@ -55,7 +55,7 @@ flows:
 		GetCollection: func(ctx context.Context, t *testing.T) []*mhttp.HTTP {
 			all, err := fixture.services.HttpService.GetByWorkspaceID(ctx, fixture.workspaceID)
 			require.NoError(t, err)
-			
+
 			var filtered []*mhttp.HTTP
 			for i := range all {
 				if all[i].Name == "SyncRequest" {
@@ -108,7 +108,7 @@ func TestYAMLImport_SQLiteLockContention(t *testing.T) {
 	}
 
 	fixture := newIntegrationTestFixture(t)
-	
+
 	createYAML := func(importID int) []byte {
 		// Unique workspace name per import ensures unique file paths and avoids deduplication
 		yamlData := []byte(fmt.Sprintf("workspace_name: Lock Test %d\nflows:\n  - name: Large Flow %d\n    steps:", importID, importID))
@@ -146,7 +146,7 @@ func TestYAMLImport_SQLiteLockContention(t *testing.T) {
 	}
 
 	go importFunc(1)
-	// Add a small delay to ensure they are handled sequentially due to the mutex if needed, 
+	// Add a small delay to ensure they are handled sequentially due to the mutex if needed,
 	// but the goal is to test contention.
 	time.Sleep(10 * time.Millisecond)
 	go importFunc(2)
@@ -158,18 +158,17 @@ func TestYAMLImport_SQLiteLockContention(t *testing.T) {
 
 	duration := time.Since(start)
 	t.Logf("Concurrent imports completed in %v", duration)
-	
+
 	all, err := fixture.services.HttpService.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
 	require.NoError(t, err)
-	
+
 	t.Logf("Found %d requests in database for workspace %s", len(all), fixture.workspaceID.String())
 	if len(all) < 100 {
 		for i, r := range all {
 			t.Logf("  [%d] %s: %s", i, r.Name, r.Url)
 		}
 	}
-	
+
 	// 50 requests per import * 2 imports = 100 requests
 	require.GreaterOrEqual(t, len(all), 100)
 }
-

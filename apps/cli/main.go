@@ -1,7 +1,7 @@
 package main
 
 import (
-	"the-dev-tools/cli/cmd"
+	"github.com/the-dev-tools/dev-tools/apps/cli/cmd"
 )
 
 func main() {

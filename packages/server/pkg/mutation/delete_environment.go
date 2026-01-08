@@ -3,7 +3,7 @@ package mutation
 import (
 	"context"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // DeleteEnvironment deletes an environment and collects cascade events for all variables.

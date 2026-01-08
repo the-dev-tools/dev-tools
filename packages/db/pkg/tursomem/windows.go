@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"the-dev-tools/db/pkg/sqlc"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc"
 
 	_ "modernc.org/sqlite"
 )

@@ -3,9 +3,9 @@ package ioworkspace
 import (
 	"fmt"
 
-	"the-dev-tools/server/pkg/flowgraph"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flowgraph"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 // Layout constants for node positioning (kept for backward compatibility)

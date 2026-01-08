@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sort"
 
-	"the-dev-tools/server/pkg/flowgraph"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flowgraph"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
 	"gopkg.in/yaml.v3"
 )

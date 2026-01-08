@@ -1,11 +1,11 @@
 package streamtest
 
 import (
-	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rflowv2"
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 )
 
 // MatchAny returns a matcher that accepts any event.

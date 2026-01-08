@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	globalv1 "the-dev-tools/spec/dist/buf/go/global/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	globalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/global/v1"
 )
 
 // ============================================================================
@@ -54,10 +54,10 @@ func TestHttpBodyFormDataDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 	deltaValue := "delta-value"
 	deltaForm := &mhttp.HTTPBodyForm{
 		ID:                   deltaFormID,
-		HttpID:               deltaHttpID,   // The Delta Request this override belongs to
-		ParentHttpBodyFormID: &baseFormID,   // The Base BodyForm this overrides
+		HttpID:               deltaHttpID, // The Delta Request this override belongs to
+		ParentHttpBodyFormID: &baseFormID, // The Base BodyForm this overrides
 		IsDelta:              true,
-		DeltaValue:           &deltaValue,   // Override
+		DeltaValue:           &deltaValue, // Override
 	}
 	require.NoError(t, f.handler.httpBodyFormService.Create(f.ctx, deltaForm), "failed to create delta form")
 
@@ -557,11 +557,11 @@ func TestHttpBodyUrlEncodedDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 	deltaUrlEncodedID := idwrap.NewNow()
 	deltaValue := "delta-value"
 	deltaUrlEncoded := &mhttp.HTTPBodyUrlencoded{
-		ID:                          deltaUrlEncodedID,
-		HttpID:                      deltaHttpID,        // The Delta Request this override belongs to
-		ParentHttpBodyUrlEncodedID:  &baseUrlEncodedID, // The Base BodyUrlEncoded this overrides
-		IsDelta:                     true,
-		DeltaValue:                  &deltaValue, // Override
+		ID:                         deltaUrlEncodedID,
+		HttpID:                     deltaHttpID,       // The Delta Request this override belongs to
+		ParentHttpBodyUrlEncodedID: &baseUrlEncodedID, // The Base BodyUrlEncoded this overrides
+		IsDelta:                    true,
+		DeltaValue:                 &deltaValue, // Override
 	}
 	require.NoError(t, f.handler.httpBodyUrlEncodedService.Create(f.ctx, deltaUrlEncoded), "failed to create delta url encoded")
 

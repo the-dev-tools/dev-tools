@@ -8,15 +8,15 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
-	environmentv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
-	filev1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	environmentv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
+	filev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
 // ToAPIEnvironment converts model Environment to API Environment

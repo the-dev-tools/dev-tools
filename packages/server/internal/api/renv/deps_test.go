@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 )
 
 func TestEnvRPCDeps_Validate(t *testing.T) {

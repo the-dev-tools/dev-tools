@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"

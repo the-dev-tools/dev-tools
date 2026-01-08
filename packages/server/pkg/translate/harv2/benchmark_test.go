@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/translate/harv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
 )
 
 // generateTestHAR creates a HAR file with specified number of entries

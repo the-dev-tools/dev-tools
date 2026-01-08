@@ -3,30 +3,30 @@ package rexportv2
 import (
 	"context"
 	"encoding/json"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"log/slog"
 	"testing"
-	"the-dev-tools/server/pkg/service/sflow"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rimportv2"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/testutil"
-	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
+	exportv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/export/v1"
 
 	"connectrpc.com/connect"
 )
@@ -145,24 +145,24 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	})
 
 	services := BaseTestServices{
-		UserService:              baseServices.UserService,
-		WorkspaceService:         baseServices.WorkspaceService,
-		WorkspaceUserService:     baseServices.WorkspaceUserService,
-		HttpService:              httpService,
-		FlowService:              flowService,
-		FileService:              *fileService,
-		HttpHeaderService:        httpHeaderService,
-		HttpSearchParamService:   httpSearchParamService,
-		HttpBodyFormService:      httpBodyFormService,
+		UserService:               baseServices.UserService,
+		WorkspaceService:          baseServices.WorkspaceService,
+		WorkspaceUserService:      baseServices.WorkspaceUserService,
+		HttpService:               httpService,
+		FlowService:               flowService,
+		FileService:               *fileService,
+		HttpHeaderService:         httpHeaderService,
+		HttpSearchParamService:    httpSearchParamService,
+		HttpBodyFormService:       httpBodyFormService,
 		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
-		HttpBodyRawService:       bodyService,
-		HttpAssertService:        httpAssertService,
-		NodeService:              &nodeService,
-		NodeRequestService:       &nodeRequestService,
-		EdgeService:              &edgeService,
-		EnvService:               envService,
-		VarService:               varService,
-		WorkspaceUserReader:      workspaceUserReader,
+		HttpBodyRawService:        bodyService,
+		HttpAssertService:         httpAssertService,
+		NodeService:               &nodeService,
+		NodeRequestService:        &nodeRequestService,
+		EdgeService:               &edgeService,
+		EnvService:                envService,
+		VarService:                varService,
+		WorkspaceUserReader:       workspaceUserReader,
 	}
 
 	return &integrationTestFixture{

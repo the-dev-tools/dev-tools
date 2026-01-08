@@ -3,8 +3,8 @@ package request
 import (
 	"testing"
 
-	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

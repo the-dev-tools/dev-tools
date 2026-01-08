@@ -4,11 +4,11 @@ package shttp
 import (
 	"context"
 	"database/sql"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"log/slog"
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/service/sworkspace"
 )
 
 var ErrNoHTTPFound = sql.ErrNoRows

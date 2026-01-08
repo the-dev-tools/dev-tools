@@ -2,7 +2,7 @@
 package main
 
 import (
-	"the-dev-tools/norawsql"
+	"github.com/the-dev-tools/dev-tools/tools/norawsql"
 
 	"golang.org/x/tools/go/analysis/singlechecker"
 )

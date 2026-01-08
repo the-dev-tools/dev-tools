@@ -8,19 +8,19 @@ import (
 	"sort"
 	"strings"
 
-	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
+	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/translate/harv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
 )
 
 // DefaultImporter implements the Importer interface using existing modern services
@@ -384,7 +384,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	httpIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
 	httpContentHashMap := make(map[idwrap.IDWrap]string)
 	deduplicatedHttpIDs := make(map[idwrap.IDWrap]bool)
-	
+
 	// 1.1 Resolve HTTP Requests (Read-only lookup)
 	if len(results.HTTPRequests) > 0 {
 		for i := range results.HTTPRequests {
@@ -449,7 +449,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	// 1.2 Resolve Files (Read-only lookup)
 	fileIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
 	deduplicatedFileIDs := make(map[idwrap.IDWrap]bool)
-	
+
 	if len(results.Files) > 0 {
 		// Build full paths for all files recursively
 		filesMap := make(map[idwrap.IDWrap]*mfile.File)
@@ -536,7 +536,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	// PHASE 2: Storage (Write)
 	// Now we start the transaction and perform only necessary inserts
-	
+
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to begin transaction: %w", err)

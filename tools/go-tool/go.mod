@@ -1,4 +1,4 @@
-module tools
+module github.com/the-dev-tools/dev-tools/tools/go-tool
 
 go 1.25
 
@@ -6,9 +6,9 @@ tool (
 	connectrpc.com/connect/cmd/protoc-gen-connect-go
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/sqlc-dev/sqlc/cmd/sqlc
+	github.com/the-dev-tools/dev-tools/tools/norawsql/cmd/norawsql
+	github.com/the-dev-tools/dev-tools/tools/notxread/cmd/notxread
 	google.golang.org/protobuf/cmd/protoc-gen-go
-	the-dev-tools/norawsql/cmd/norawsql
-	the-dev-tools/notxread/cmd/notxread
 )
 
 require (
@@ -205,6 +205,8 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tetafro/godot v1.5.4 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
+	github.com/the-dev-tools/dev-tools/tools/norawsql v0.0.0-00010101000000-000000000000 // indirect
+	github.com/the-dev-tools/dev-tools/tools/notxread v0.0.0-00010101000000-000000000000 // indirect
 	github.com/timakin/bodyclose v0.0.0-20241222091800-1db5c5ca4d67 // indirect
 	github.com/timonwong/loggercheck v0.11.0 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.11.0 // indirect
@@ -252,4 +254,9 @@ require (
 	modernc.org/sqlite v1.38.2 // indirect
 	mvdan.cc/gofumpt v0.9.1 // indirect
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
+)
+
+replace (
+	github.com/the-dev-tools/dev-tools/tools/norawsql => ../norawsql
+	github.com/the-dev-tools/dev-tools/tools/notxread => ../notxread
 )

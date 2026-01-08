@@ -3,8 +3,8 @@ package mutation
 import (
 	"context"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // FlowNodeInsertItem represents a flow node to insert.

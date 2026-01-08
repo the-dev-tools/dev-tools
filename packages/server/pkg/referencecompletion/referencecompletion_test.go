@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"the-dev-tools/server/pkg/referencecompletion"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/referencecompletion"
 )
 
 func TestAddPaths(t *testing.T) {

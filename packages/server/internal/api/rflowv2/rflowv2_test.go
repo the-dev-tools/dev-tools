@@ -13,19 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 const schema = `
@@ -270,16 +270,16 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, httpID, *nodeReq.HttpID)
 
-	    // Now create the base node (simulating out-of-order arrival)
-	    baseNode := mflow.Node{
-	        ID:        nodeID,
-	        FlowID:    flowID,
-	        Name:      "Start",
-	        NodeKind:  mflow.NODE_KIND_REQUEST,
-	        PositionX: 0,
-	        		PositionY: 0,
-	        	}
-	        	err = nodeService.CreateNode(ctx, baseNode)
+	// Now create the base node (simulating out-of-order arrival)
+	baseNode := mflow.Node{
+		ID:        nodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mflow.NODE_KIND_REQUEST,
+		PositionX: 0,
+		PositionY: 0,
+	}
+	err = nodeService.CreateNode(ctx, baseNode)
 	require.NoError(t, err, "Base node should be created after sub-node")
 
 	t.Log("Successfully inserted sub-node before base node - decoupled insert works!")

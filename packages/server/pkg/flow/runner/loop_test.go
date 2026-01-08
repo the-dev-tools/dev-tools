@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/flow/node/nfor"
-	"the-dev-tools/server/pkg/flow/node/nstart"
-	"the-dev-tools/server/pkg/flow/runner"
-	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nfor"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,11 +21,11 @@ import (
 
 // trackingNode is a simple node that records when it runs
 type trackingNode struct {
-	id     idwrap.IDWrap
-	name   string
-	mu     *sync.Mutex
-	log    *[]string
-	delay  time.Duration
+	id    idwrap.IDWrap
+	name  string
+	mu    *sync.Mutex
+	log   *[]string
+	delay time.Duration
 }
 
 func newTrackingNode(name string, mu *sync.Mutex, log *[]string, delay time.Duration) *trackingNode {
@@ -49,7 +49,7 @@ func (n *trackingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	*n.log = append(*n.log, n.name)
-	
+
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, n.id, mflow.HandleThen)
 	return node.FlowNodeResult{NextNodeID: nextID}
 }
@@ -65,10 +65,10 @@ func TestLoopExecutionOrder(t *testing.T) {
 
 	// Create nodes
 	startNode := nstart.New(idwrap.NewNow(), "Start")
-	
+
 	// Loop node: 3 iterations
 	loopNode := nfor.New(idwrap.NewNow(), "Loop", 3, 10*time.Second, mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-	
+
 	// Child nodes inside the loop
 	// We add a small delay to node A to simulate work and potential race conditions
 	nodeA := newTrackingNode("Node A", &mu, &executionLog, 10*time.Millisecond)
@@ -99,7 +99,7 @@ func TestLoopExecutionOrder(t *testing.T) {
 
 	// Setup variable system
 	varSystem := make(map[string]any)
-	
+
 	// Execution context
 	ctx := context.Background()
 	req := &node.FlowNodeRequest{
@@ -127,15 +127,15 @@ func TestLoopExecutionOrder(t *testing.T) {
 
 	// Verify actual execution order
 	expectedExec := []string{"Node A", "Node B", "Node A", "Node B", "Node A", "Node B"}
-	
+
 	mu.Lock()
 	defer mu.Unlock()
 	assert.Equal(t, expectedExec, executionLog, "Physical execution order mismatch")
-	
+
 	// Verify Log Event Order
 	logMu.Lock()
 	defer logMu.Unlock()
-	
+
 	var eventNames []string
 	for _, e := range logEvents {
 		// Filter out Loop events themselves, just check child nodes
@@ -143,7 +143,7 @@ func TestLoopExecutionOrder(t *testing.T) {
 			eventNames = append(eventNames, e.Name)
 		}
 	}
-	
+
 	assert.Equal(t, expectedExec, eventNames, "Log event emission order mismatch")
 	if !assert.ObjectsAreEqual(expectedExec, eventNames) {
 		fmt.Printf("Expected Events: %v\nActual Events:   %v\n", expectedExec, eventNames)

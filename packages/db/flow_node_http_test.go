@@ -6,9 +6,9 @@ import (
 	"log"
 	"testing"
 
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	_ "modernc.org/sqlite"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
 )
 
 func TestUpdateFlowNodeHTTPUpsert(t *testing.T) {

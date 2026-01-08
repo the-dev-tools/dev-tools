@@ -9,15 +9,15 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/mutation"
-	"the-dev-tools/server/pkg/patch"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/patch"
 
-	"the-dev-tools/server/pkg/service/shttp"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
 // streamHttpHeaderDeltaSync streams HTTP header delta events to the client

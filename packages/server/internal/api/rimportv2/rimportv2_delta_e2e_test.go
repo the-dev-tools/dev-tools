@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
 )

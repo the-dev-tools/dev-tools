@@ -2,8 +2,8 @@ package zstdcompress_test
 
 import (
 	"bytes"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/zstdcompress"
 	"testing"
-	"the-dev-tools/server/pkg/zstdcompress"
 )
 
 func TestZstdDecompressor_Read(t *testing.T) {

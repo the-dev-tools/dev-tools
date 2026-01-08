@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"time"
 
-	idwrap "the-dev-tools/server/pkg/idwrap"
+	idwrap "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 type Environment struct {

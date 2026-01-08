@@ -11,19 +11,19 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/mutation"
-	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
-	"the-dev-tools/spec/dist/buf/go/api/file_system/v1/file_systemv1connect"
+	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/permcheck"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1/file_systemv1connect"
 )
 
 const (
@@ -43,7 +43,6 @@ type FileEvent struct {
 	File *apiv1.File
 	Name string
 }
-
 
 type FileServiceRPC struct {
 	DB *sql.DB

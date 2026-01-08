@@ -2,9 +2,9 @@
 package mrequest
 
 import (
-	"the-dev-tools/server/pkg/model/postman/v21/mauth"
-	"the-dev-tools/server/pkg/model/postman/v21/mbody"
-	"the-dev-tools/server/pkg/model/postman/v21/mheader"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mbody"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mheader"
 )
 
 type Request struct {

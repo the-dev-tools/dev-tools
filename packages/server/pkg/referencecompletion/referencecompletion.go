@@ -4,13 +4,13 @@ package referencecompletion
 import (
 	"errors"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/fuzzyfinder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/reference"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"the-dev-tools/server/pkg/fuzzyfinder"
-	"the-dev-tools/server/pkg/reference"
 )
 
 const ArrayStringValuePrefix = "Array"

@@ -2,7 +2,7 @@
 package mflow
 
 import (
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // FlowVariable represents a variable associated with a flow

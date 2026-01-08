@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/flow/tracking"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
 
 	"github.com/stretchr/testify/require"
 )

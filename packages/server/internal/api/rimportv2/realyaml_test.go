@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"the-dev-tools/server/pkg/model/mfile"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"

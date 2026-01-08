@@ -3,7 +3,7 @@ package mflow
 
 import (
 	"errors"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 type EdgeHandle = int32
@@ -16,49 +16,49 @@ type EdgeHandle = int32
 */
 
 const (
-        HandleUnspecified EdgeHandle = iota
-        HandleThen
-        HandleElse
-        HandleLoop
-        HandleLength
+	HandleUnspecified EdgeHandle = iota
+	HandleThen
+	HandleElse
+	HandleLoop
+	HandleLength
 )
 
 var ErrEdgeNotFound = errors.New("edge not found")
 
 type Edge struct {
-        ID            idwrap.IDWrap
-        FlowID        idwrap.IDWrap
-        SourceID      idwrap.IDWrap
-        TargetID      idwrap.IDWrap
-        SourceHandler EdgeHandle
-        State         NodeState
+	ID            idwrap.IDWrap
+	FlowID        idwrap.IDWrap
+	SourceID      idwrap.IDWrap
+	TargetID      idwrap.IDWrap
+	SourceHandler EdgeHandle
+	State         NodeState
 }
 
 type (
-        EdgesMap map[idwrap.IDWrap]map[EdgeHandle][]idwrap.IDWrap
+	EdgesMap map[idwrap.IDWrap]map[EdgeHandle][]idwrap.IDWrap
 )
 
 func GetNextNodeID(edgesMap EdgesMap, sourceID idwrap.IDWrap, handle EdgeHandle) []idwrap.IDWrap {
-        edges, ok := edgesMap[sourceID]
-        if !ok {
-                return nil
-        }
-        edge, ok := edges[handle]
-        if !ok {
-                return nil
-        }
+	edges, ok := edgesMap[sourceID]
+	if !ok {
+		return nil
+	}
+	edge, ok := edges[handle]
+	if !ok {
+		return nil
+	}
 
-        return edge
+	return edge
 }
 
 func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle) Edge {
-        return Edge{
-                ID:            id,
-                SourceID:      sourceID,
-                TargetID:      targetID,
-                SourceHandler: sourceHandlerID,
-                State:         NODE_STATE_UNSPECIFIED,
-        }
+	return Edge{
+		ID:            id,
+		SourceID:      sourceID,
+		TargetID:      targetID,
+		SourceHandler: sourceHandlerID,
+		State:         NODE_STATE_UNSPECIFIED,
+	}
 }
 func NewEdges(edges ...Edge) []Edge {
 	return edges

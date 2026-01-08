@@ -9,21 +9,21 @@ import (
 	"sync"
 	"time"
 
-	"the-dev-tools/cli/internal/model"
-	"the-dev-tools/cli/internal/reporter"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/model"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
 
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/flow/node/nrequest"
-	"the-dev-tools/server/pkg/flow/runner"
-	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
-	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
 	// Service interfaces
-	"the-dev-tools/server/pkg/flow/flowbuilder"
-	"the-dev-tools/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"

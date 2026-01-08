@@ -2,10 +2,10 @@ package httpclient_test
 
 import (
 	"encoding/json"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"net/http"
 	"reflect"
 	"testing"
-	"the-dev-tools/server/pkg/httpclient"
 )
 
 func TestConvertResponseToVar(t *testing.T) {

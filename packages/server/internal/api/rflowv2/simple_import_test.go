@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"

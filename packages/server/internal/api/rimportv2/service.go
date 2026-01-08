@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/translate/harv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
 )
 
 // Error types moved from errors.go
@@ -140,9 +140,9 @@ func DefaultConstraints() *ImportConstraints {
 
 // ImportResults represents the complete results of an import operation
 type ImportResults struct {
-	Flow      *mflow.Flow
-	HTTPReqs  []*mhttp.HTTP
-	Files     []*mfile.File // ALL files: HTTP, folders, AND flow files (ContentType=Flow)
+	Flow     *mflow.Flow
+	HTTPReqs []*mhttp.HTTP
+	Files    []*mfile.File // ALL files: HTTP, folders, AND flow files (ContentType=Flow)
 
 	HTTPHeaders        []*mhttp.HTTPHeader
 	HTTPSearchParams   []*mhttp.HTTPSearchParam
@@ -166,7 +166,7 @@ type ImportResults struct {
 	MissingData ImportMissingDataKind
 
 	// Tracking for deduplication to prevent redundant sync events
-	DeduplicatedFiles   map[idwrap.IDWrap]bool
+	DeduplicatedFiles    map[idwrap.IDWrap]bool
 	DeduplicatedHTTPReqs map[idwrap.IDWrap]bool
 }
 
@@ -662,22 +662,22 @@ func buildImportResults(tr *TranslationResult, workspaceID idwrap.IDWrap) *Impor
 	}
 
 	return &ImportResults{
-		Flow:               flow,
-		HTTPReqs:           httpReqsPtr,
-		Files:              filesPtr,
-		HTTPHeaders:        headersPtr,
-		HTTPSearchParams:   paramsPtr,
-		HTTPBodyForms:      bodyFormsPtr,
-		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
-		HTTPBodyRaws:       bodyRawsPtr,
-		HTTPAsserts:        assertsPtr,
-		Nodes:              tr.Nodes,
-		RequestNodes:       tr.RequestNodes,
-		Edges:              tr.Edges,
-		Domains:            tr.Domains,
-		WorkspaceID:        workspaceID,
-		MissingData:        ImportMissingDataKind_UNSPECIFIED,
-		DeduplicatedFiles:   make(map[idwrap.IDWrap]bool),
+		Flow:                 flow,
+		HTTPReqs:             httpReqsPtr,
+		Files:                filesPtr,
+		HTTPHeaders:          headersPtr,
+		HTTPSearchParams:     paramsPtr,
+		HTTPBodyForms:        bodyFormsPtr,
+		HTTPBodyUrlEncoded:   bodyUrlEncodedPtr,
+		HTTPBodyRaws:         bodyRawsPtr,
+		HTTPAsserts:          assertsPtr,
+		Nodes:                tr.Nodes,
+		RequestNodes:         tr.RequestNodes,
+		Edges:                tr.Edges,
+		Domains:              tr.Domains,
+		WorkspaceID:          workspaceID,
+		MissingData:          ImportMissingDataKind_UNSPECIFIED,
+		DeduplicatedFiles:    make(map[idwrap.IDWrap]bool),
 		DeduplicatedHTTPReqs: make(map[idwrap.IDWrap]bool),
 	}
 }

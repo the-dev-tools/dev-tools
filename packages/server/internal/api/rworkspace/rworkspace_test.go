@@ -9,22 +9,22 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/mutation"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/streamregistry"
-	"the-dev-tools/server/pkg/testutil"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
-	envapiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/streamregistry"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
+	envapiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/workspace/v1"
 )
 
 type workspaceFixture struct {
@@ -353,7 +353,6 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	}
 }
-
 
 func TestWorkspaceInsertPublishesEnvironmentEvent(t *testing.T) {
 	t.Parallel()
