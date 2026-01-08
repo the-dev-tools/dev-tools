@@ -83,9 +83,8 @@ catalog:
   builder-util-runtime: 9.5.1
   effect: 3.19.14
   electron: 39.2.7
-  electron-builder: 26.4.0
+  electron-builder: 26.3.1
   electron-devtools-installer: 4.0.0
-  electron-updater: 6.7.3
   electron-vite: 5.0.0
   eslint: 9.39.2
   eslint-config-prettier: 10.1.8

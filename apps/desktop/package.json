@@ -25,7 +25,7 @@
     "@vitejs/plugin-react": "catalog:",
     "builder-util-runtime": "catalog:",
     "effect": "catalog:",
-    "electron-updater": "catalog:",
+    "electron-updater": "6.7.3",
     "react": "catalog:",
     "react-dom": "catalog:",
     "undici": "catalog:",
