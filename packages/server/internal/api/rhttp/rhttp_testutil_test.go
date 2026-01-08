@@ -9,20 +9,20 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
 
 // RHttpTestContext provides a unified test environment for rhttp integration tests.
@@ -35,19 +35,19 @@ type RHttpTestContext struct {
 	WorkspaceID idwrap.IDWrap
 
 	// Services for direct DB access/verification
-	WS   sworkspace.WorkspaceService
-	US   suser.UserService
+	WS    sworkspace.WorkspaceService
+	US    suser.UserService
 	HTTPS shttp.HTTPService
-	HHS  shttp.HttpHeaderService
-	HSPS *shttp.HttpSearchParamService
-	HBFS *shttp.HttpBodyFormService
-	HBUS *shttp.HttpBodyUrlEncodedService
-	HAS  *shttp.HttpAssertService
-	HRPS shttp.HttpResponseService
-	HBRS *shttp.HttpBodyRawService
-	FS   *sfile.FileService
-	ES   senv.EnvService
-	VS   senv.VariableService
+	HHS   shttp.HttpHeaderService
+	HSPS  *shttp.HttpSearchParamService
+	HBFS  *shttp.HttpBodyFormService
+	HBUS  *shttp.HttpBodyUrlEncodedService
+	HAS   *shttp.HttpAssertService
+	HRPS  shttp.HttpResponseService
+	HBRS  *shttp.HttpBodyRawService
+	FS    *sfile.FileService
+	ES    senv.EnvService
+	VS    senv.VariableService
 
 	Streamers *HttpStreamers
 }

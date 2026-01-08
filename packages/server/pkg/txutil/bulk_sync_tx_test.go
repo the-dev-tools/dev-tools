@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/db/pkg/sqlitemem"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
 )
 
 // Test types

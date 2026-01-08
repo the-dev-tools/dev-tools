@@ -2,7 +2,7 @@
 package mwcompress
 
 import (
-	"the-dev-tools/server/pkg/zstdcompress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/zstdcompress"
 
 	"connectrpc.com/connect"
 )

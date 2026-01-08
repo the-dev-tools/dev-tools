@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/translate/harv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
 )
 
 // newHARTranslator creates a new HAR translator (private method)

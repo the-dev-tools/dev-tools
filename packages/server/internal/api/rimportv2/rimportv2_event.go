@@ -3,17 +3,17 @@ package rimportv2
 import (
 	"context"
 
-	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rflowv2"
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/eventsync"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventsync"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 // publishEvents publishes real-time sync events for imported entities.

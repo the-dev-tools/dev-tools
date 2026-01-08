@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"the-dev-tools/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 )
 
 // defaultSubscriberBuffer is set to 4096 to handle bulk operations (like HAR import)

@@ -3,9 +3,9 @@ package depfinder_test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/depfinder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"testing"
-	"the-dev-tools/server/pkg/depfinder"
-	"the-dev-tools/server/pkg/idwrap"
 )
 
 func TestNewDepFinder(t *testing.T) {

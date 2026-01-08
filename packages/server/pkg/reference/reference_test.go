@@ -1,10 +1,10 @@
 package reference_test
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/reference"
 	"reflect"
 	"sort"
 	"testing"
-	"the-dev-tools/server/pkg/reference"
 )
 
 func sortReferences(refs []reference.ReferenceTreeItem) {

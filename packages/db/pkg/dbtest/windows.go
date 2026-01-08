@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"the-dev-tools/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
 
 func GetTestDB(ctx context.Context) (*sql.DB, error) {

@@ -7,6 +7,7 @@ use (
 	./packages/spec
 	./tools/benchmark
 	./tools/go-tool
+	./tools/modmigrate
 	./tools/norawsql
 	./tools/notxread
 )

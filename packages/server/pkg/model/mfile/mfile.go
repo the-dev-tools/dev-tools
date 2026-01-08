@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // ContentType represents the type of content stored in a file

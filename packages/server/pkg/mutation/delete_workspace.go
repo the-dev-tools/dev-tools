@@ -3,7 +3,7 @@ package mutation
 import (
 	"context"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // DeleteWorkspace deletes a workspace and collects cascade events for all children.

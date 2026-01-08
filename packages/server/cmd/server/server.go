@@ -16,44 +16,44 @@ import (
 
 	"connectrpc.com/connect"
 
-	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/db/pkg/tursolocal"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/middleware/mwcodec"
-	"the-dev-tools/server/internal/api/middleware/mwcompress"
-	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/internal/api/rexportv2"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rflowv2"
-	"the-dev-tools/server/internal/api/rhealth"
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/api/rimportv2"
-	"the-dev-tools/server/internal/api/rlog"
-	"the-dev-tools/server/internal/api/rreference"
+	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/tursolocal"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcodec"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcompress"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhealth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
 
-	"the-dev-tools/server/internal/api/rworkspace"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/mutation"
-	"the-dev-tools/server/pkg/streamregistry"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	envapiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
-	filesystemv1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/streamregistry"
+	envapiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
+	filesystemv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/workspace/v1"
 )
 
 // workspaceImporterAdapter implements rflowv2.WorkspaceImporter using rimportv2 service
@@ -131,21 +131,21 @@ func run() error {
 	// Initialize Services
 	workspaceService := sworkspace.NewWorkspaceService(queries)
 	workspaceReader := sworkspace.NewWorkspaceReader(currentDB)
-	
+
 	workspaceUserService := sworkspace.NewUserService(queries)
 	userReader := sworkspace.NewUserReader(currentDB)
-	
+
 	userService := suser.New(queries)
 	// No dedicated userReader service struct yet, we use the reader from userService or just pass queries
-	
+
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
-	
+
 	variableService := senv.NewVariableService(queries, logger)
 	varReader := senv.NewVariableReader(currentDB, logger)
-	
+
 	environmentService := senv.NewEnvironmentService(queries, logger)
 	envReader := senv.NewEnvReader(currentDB, logger)
-	
+
 	httpService := shttp.New(queries, logger)
 	httpReader := shttp.NewReader(currentDB, logger, &workspaceUserService)
 
@@ -164,25 +164,25 @@ func run() error {
 	// Flow
 	flowService := sflow.NewFlowService(queries)
 	flowReader := sflow.NewFlowReader(currentDB)
-	
+
 	flowEdgeService := sflow.NewEdgeService(queries)
 	flowEdgeReader := sflow.NewEdgeReader(currentDB)
-	
+
 	flowVariableService := sflow.NewFlowVariableService(queries)
 	flowVariableReader := sflow.NewFlowVariableReader(currentDB)
 
 	// nodes
 	flowNodeService := sflow.NewNodeService(queries)
 	nodeReader := sflow.NewNodeReader(currentDB)
-	
+
 	flowNodeRequestSevice := sflow.NewNodeRequestService(queries)
 	flowNodeRequestReader := sflow.NewNodeRequestReader(currentDB)
-	
+
 	flowNodeForService := sflow.NewNodeForService(queries)
 	flowNodeForeachService := sflow.NewNodeForEachService(queries)
 	flowNodeConditionService := sflow.NewNodeIfService(queries)
 	flowNodeNodeJsService := sflow.NewNodeJsService(queries)
-	
+
 	nodeExecutionService := sflow.NewNodeExecutionService(queries)
 	nodeExecutionReader := sflow.NewNodeExecutionReader(currentDB)
 

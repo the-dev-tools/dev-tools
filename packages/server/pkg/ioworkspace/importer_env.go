@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 )
 
 // importEnvironments imports environments from the bundle.

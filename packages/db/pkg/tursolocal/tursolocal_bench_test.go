@@ -16,7 +16,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"the-dev-tools/db/pkg/sqlc"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc"
 )
 
 // openCurrent mirrors the exported constructor so benchmarks capture the default configuration.

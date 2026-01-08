@@ -6,11 +6,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
-	"the-dev-tools/db/pkg/sqlc"
 
 	_ "modernc.org/sqlite"
 )

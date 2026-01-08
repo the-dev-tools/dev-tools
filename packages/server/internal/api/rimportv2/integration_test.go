@@ -1,36 +1,36 @@
 package rimportv2
 
 import (
-	"the-dev-tools/server/pkg/service/senv"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rflowv2"
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/testutil"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
 )
@@ -56,38 +56,25 @@ type integrationTestFixture struct {
 }
 
 type IntegrationTestStreamers struct {
+	Flow eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 
-	Flow       eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	Node eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
 
-	Node       eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	Edge eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
 
-	Edge       eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
-
-	Http       eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	Http eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 
 	HttpHeader eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 
-
-
 	HttpSearchParam eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
-
-
 
 	HttpBodyForm eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
 
-
-
 	HttpBodyUrlEncoded eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
-
-
 
 	HttpBodyRaw eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
 
-
-
 	HttpAssert eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
-
-
 
 	File eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
@@ -96,11 +83,7 @@ type IntegrationTestStreamers struct {
 	EnvVar eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
 }
 
-
-
 // BaseTestServices wraps the testutil services for easier access
-
-
 
 type BaseTestServices struct {
 	UserService          suser.UserService
@@ -111,149 +94,77 @@ type BaseTestServices struct {
 	FlowService          sflow.FlowService
 }
 
-
-
 // newIntegrationTestFixture creates a complete test environment for integration tests
-
-
 
 func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
-
-
 	t.Helper()
-
-
 
 	ctx := context.Background()
 
-
-
 	base := testutil.CreateBaseDB(ctx, t)
-
-
 
 	t.Cleanup(base.Close)
 
-
-
 	// Get base services
-
-
 
 	baseServices := base.GetBaseServices()
 
-
-
 	logger := base.Logger()
-
-
 
 	// Create additional services needed for import
 
-
-
 	httpService := shttp.New(base.Queries, logger)
-
-
 
 	flowService := sflow.NewFlowService(base.Queries)
 
-
-
 	fileService := sfile.New(base.Queries, logger)
-
-
 
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 
-
-
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
-
-
 
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 
-
-
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
-
-
 
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 
-
-
 	httpAssertService := shttp.NewHttpAssertService(base.Queries)
-
-
 
 	nodeService := sflow.NewNodeService(base.Queries)
 
-
-
 	nodeRequestService := sflow.NewNodeRequestService(base.Queries)
-
-
 
 	edgeService := sflow.NewEdgeService(base.Queries)
 
-
-
 	envService := senv.NewEnvironmentService(base.Queries, logger)
-
-
 
 	varService := senv.NewVariableService(base.Queries, logger)
 
-
-
 	// Create streamers
-
-
 
 	streamers := IntegrationTestStreamers{
 
-
-
 		Flow: memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
-
-
 
 		Node: memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
 
-
-
 		Edge: memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
 
-
-
-		Http:       memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
+		Http: memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
 
 		HttpHeader: memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
 
-
-
 		HttpSearchParam: memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
-
-
 
 		HttpBodyForm: memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent](),
 
-
-
 		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
-
-
 
 		HttpBodyRaw: memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
 
-
-
 		HttpAssert: memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent](),
-
-
 
 		File: memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 
@@ -261,8 +172,6 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 		EnvVar: memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent](),
 	}
-
-
 
 	// Create user and workspace
 	userID := idwrap.NewNow()

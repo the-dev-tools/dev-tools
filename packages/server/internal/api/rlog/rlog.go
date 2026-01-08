@@ -10,12 +10,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/idwrap"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
-	"the-dev-tools/spec/dist/buf/go/api/log/v1/logv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/log/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/log/v1/logv1connect"
 )
 
 const (

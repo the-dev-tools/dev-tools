@@ -41,11 +41,11 @@ linters:
   settings:
     importas:
       alias:
-        - pkg: the-dev-tools/server/pkg/model/mhttp
+        - pkg: github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp
           alias: mhttp
-        - pkg: the-dev-tools/server/pkg/service/shttp
+        - pkg: github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp
           alias: shttp
-        - pkg: the-dev-tools/db/pkg/sqlc/gen
+        - pkg: github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen
           alias: gen
     testifylint:
       enable-all: true

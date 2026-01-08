@@ -3,10 +3,10 @@ package collection_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mpostmancollection"
 	"os"
 	"path/filepath"
 	"testing"
-	"the-dev-tools/server/pkg/model/postman/v21/mpostmancollection"
 )
 
 func TestCollection(t *testing.T) {

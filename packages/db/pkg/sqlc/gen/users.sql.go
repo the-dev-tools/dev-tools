@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	idwrap "the-dev-tools/server/pkg/idwrap"
+	idwrap "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 const createUser = `-- name: CreateUser :exec

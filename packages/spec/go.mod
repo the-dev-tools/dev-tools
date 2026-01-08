@@ -1,4 +1,4 @@
-module the-dev-tools/spec
+module github.com/the-dev-tools/dev-tools/packages/spec
 
 go 1.25
 

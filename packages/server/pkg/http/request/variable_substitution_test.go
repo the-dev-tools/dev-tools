@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"the-dev-tools/server/pkg/http/request"
-	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/varsystem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
 )

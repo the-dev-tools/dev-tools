@@ -6,8 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"the-dev-tools/db/pkg/sqlc"
-	"the-dev-tools/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"
 	_ "modernc.org/sqlite"

@@ -1,7 +1,7 @@
 //nolint:revive // exported
 package muser
 
-import "the-dev-tools/server/pkg/idwrap"
+import "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 
 type ProviderType int8
 

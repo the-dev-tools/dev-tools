@@ -9,10 +9,10 @@ import (
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/translate/tcurlv2"
-	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tcurlv2"
+	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 )
 
 // ImportYAMLFlow imports a YAML flow definition into the workspace

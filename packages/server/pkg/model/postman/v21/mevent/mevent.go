@@ -1,7 +1,7 @@
 //nolint:revive // exported
 package mevent
 
-import "the-dev-tools/server/pkg/model/postman/v21/murl"
+import "github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/murl"
 
 type Script struct {
 	ID   string   `json:"id,omitempty"`

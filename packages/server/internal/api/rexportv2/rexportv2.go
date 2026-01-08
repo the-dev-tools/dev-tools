@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"log/slog"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
-	"the-dev-tools/spec/dist/buf/go/api/export/v1/exportv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	exportv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/export/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/export/v1/exportv1connect"
 
 	"connectrpc.com/connect"
 )
@@ -158,23 +158,35 @@ type ExportV2RPC struct {
 }
 
 type ExportV2Deps struct {
-	DB          *sql.DB
-	Queries     *gen.Queries
-	Workspace   sworkspace.WorkspaceService
-	User        suser.UserService
-	Http        *shttp.HTTPService
-	Flow        *sflow.FlowService
-	File        *sfile.FileService
-	Logger      *slog.Logger
+	DB        *sql.DB
+	Queries   *gen.Queries
+	Workspace sworkspace.WorkspaceService
+	User      suser.UserService
+	Http      *shttp.HTTPService
+	Flow      *sflow.FlowService
+	File      *sfile.FileService
+	Logger    *slog.Logger
 }
 
 func (d *ExportV2Deps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if d.Queries == nil { return fmt.Errorf("queries is required") }
-	if d.Http == nil { return fmt.Errorf("http service is required") }
-	if d.Flow == nil { return fmt.Errorf("flow service is required") }
-	if d.File == nil { return fmt.Errorf("file service is required") }
-	if d.Logger == nil { return fmt.Errorf("logger is required") }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if d.Queries == nil {
+		return fmt.Errorf("queries is required")
+	}
+	if d.Http == nil {
+		return fmt.Errorf("http service is required")
+	}
+	if d.Flow == nil {
+		return fmt.Errorf("flow service is required")
+	}
+	if d.File == nil {
+		return fmt.Errorf("file service is required")
+	}
+	if d.Logger == nil {
+		return fmt.Errorf("logger is required")
+	}
 	return nil
 }
 

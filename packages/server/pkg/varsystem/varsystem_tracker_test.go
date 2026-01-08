@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/varsystem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
 )

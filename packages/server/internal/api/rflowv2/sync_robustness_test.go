@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 // TestSync_DeleteRobustness verifies that Delete events are published
@@ -117,12 +117,12 @@ func TestSync_DeleteRobustness(t *testing.T) {
 	})
 
 	t.Run("Edge Delete robustness", func(t *testing.T) {
-		// We don't have an edgeStream in setupTestServiceWithStreams, 
+		// We don't have an edgeStream in setupTestServiceWithStreams,
 		// but setupTestServiceWithStreams uses setupTestServiceWithStreams etc.
 		// Actually I should probably check if FlowServiceV2RPC has edgeStream configured in setup.
 		// setupTestServiceWithStreams only subscribes to nodeStream.
-		
-		// For now, NodeStream is what I'm testing mostly. 
+
+		// For now, NodeStream is what I'm testing mostly.
 		// But I've updated Edge and Variables to use CommitAndPublish.
 	})
 }

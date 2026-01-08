@@ -6,10 +6,10 @@ import (
 	"errors"
 	"sort"
 
-	"the-dev-tools/server/pkg/delta"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/delta"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 )
 
 // RequestResolver defines the interface for resolving HTTP requests with their delta overlays.

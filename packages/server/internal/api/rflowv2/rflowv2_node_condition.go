@@ -11,10 +11,10 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/mutation"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 // --- Condition Node ---
@@ -413,7 +413,6 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 	default:
 		return nil, nil
 	}
-
 
 	return &flowv1.NodeConditionSyncResponse{
 		Items: []*flowv1.NodeConditionSync{syncEvent},

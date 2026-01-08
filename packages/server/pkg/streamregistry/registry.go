@@ -3,7 +3,7 @@
 // automatic event publishing after successful transaction commits.
 package streamregistry
 
-import "the-dev-tools/server/pkg/mutation"
+import "github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 
 // Handler publishes a mutation event to the appropriate stream.
 // Each handler has closure access to the concrete streamer it needs.

@@ -3,8 +3,8 @@ package mocknode
 
 import (
 	"context"
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"time"
 )
 

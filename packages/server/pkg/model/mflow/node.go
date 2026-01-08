@@ -2,20 +2,21 @@
 package mflow
 
 import (
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 type NodeKind = int32
 
 const (
-        NODE_KIND_UNSPECIFIED  NodeKind = 0
-        NODE_KIND_MANUAL_START NodeKind = 1
-        NODE_KIND_REQUEST      NodeKind = 2
-        NODE_KIND_CONDITION    NodeKind = 3
-        NODE_KIND_FOR          NodeKind = 4
-        NODE_KIND_FOR_EACH     NodeKind = 5
-        NODE_KIND_JS           NodeKind = 6
+	NODE_KIND_UNSPECIFIED  NodeKind = 0
+	NODE_KIND_MANUAL_START NodeKind = 1
+	NODE_KIND_REQUEST      NodeKind = 2
+	NODE_KIND_CONDITION    NodeKind = 3
+	NODE_KIND_FOR          NodeKind = 4
+	NODE_KIND_FOR_EACH     NodeKind = 5
+	NODE_KIND_JS           NodeKind = 6
 )
+
 type NodeState = int8
 
 const (

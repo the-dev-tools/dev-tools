@@ -6,13 +6,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/db/pkg/sqlitemem"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 )
 
 func TestDeduplicator_ResolveHTTP(t *testing.T) {
@@ -95,42 +95,36 @@ func TestDeduplicator_ResolveFile(t *testing.T) {
 	}
 	path := "/api"
 
-		resultID, isNew, err := dedup.ResolveFile(ctx, folder, path)
+	resultID, isNew, err := dedup.ResolveFile(ctx, folder, path)
 
-		require.NoError(t, err)
+	require.NoError(t, err)
 
-		require.True(t, isNew)
+	require.True(t, isNew)
 
-		require.Equal(t, folder.ID, resultID)
+	require.Equal(t, folder.ID, resultID)
 
-	
+	// Scenario 2: Cache Hit (Memory)
 
-		// Scenario 2: Cache Hit (Memory)
+	// Should not hit DB
 
-		// Should not hit DB
+	resultIDCached, isNewCached, err := dedup.ResolveFile(ctx, folder, path)
 
-		resultIDCached, isNewCached, err := dedup.ResolveFile(ctx, folder, path)
+	require.NoError(t, err)
 
-		require.NoError(t, err)
+	require.False(t, isNewCached)
 
-		require.False(t, isNewCached)
+	require.Equal(t, folder.ID, resultIDCached)
 
-		require.Equal(t, folder.ID, resultIDCached)
+	// Scenario 3: New Deduplicator (DB Hit)
 
-	
+	dedup2 := NewDeduplicator(httpSvc, *fileSvc, nil)
 
-		// Scenario 3: New Deduplicator (DB Hit)
+	resultIDDB, isNewDB, err := dedup2.ResolveFile(ctx, folder, path)
 
-		dedup2 := NewDeduplicator(httpSvc, *fileSvc, nil)
+	require.NoError(t, err)
 
-		resultIDDB, isNewDB, err := dedup2.ResolveFile(ctx, folder, path)
+	require.False(t, isNewDB)
 
-		require.NoError(t, err)
+	require.Equal(t, folder.ID, resultIDDB, "Should find existing ID in DB")
 
-		require.False(t, isNewDB)
-
-		require.Equal(t, folder.ID, resultIDDB, "Should find existing ID in DB")
-
-	}
-
-	
+}

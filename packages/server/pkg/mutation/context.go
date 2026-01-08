@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
 
 // Context manages a mutation transaction with automatic cascade event collection.

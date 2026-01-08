@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 
 	"github.com/stretchr/testify/require"
 )

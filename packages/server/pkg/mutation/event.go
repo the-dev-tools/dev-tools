@@ -1,6 +1,6 @@
 package mutation
 
-import "the-dev-tools/server/pkg/idwrap"
+import "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 
 // EntityType identifies the type of entity being mutated.
 // Using uint16 for compact storage and no string comparisons at runtime.

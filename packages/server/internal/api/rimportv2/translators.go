@@ -10,16 +10,16 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/translate/harv2"
-	"the-dev-tools/server/pkg/translate/tcurlv2"
-	"the-dev-tools/server/pkg/translate/tpostmanv2"
-	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tcurlv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tpostmanv2"
+	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 )
 
 // TranslationResult represents the unified result from any translator

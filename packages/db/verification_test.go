@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	_ "modernc.org/sqlite"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
 )
 
 // TestHTTPChildEntityVerification verifies that all HTTP child entity tables work correctly

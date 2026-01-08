@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,8 +43,8 @@ func TestNodeWriter_UpdateNodeState_ValidStates(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name     string
-		state    mflow.NodeState
+		name  string
+		state mflow.NodeState
 	}{
 		{
 			name:  "UNSPECIFIED state",

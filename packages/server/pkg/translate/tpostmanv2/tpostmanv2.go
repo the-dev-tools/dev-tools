@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/depfinder"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/depfinder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
 // PostmanResolved contains all resolved HTTP requests and associated data from a Postman collection
@@ -936,7 +936,7 @@ func createDeltaBodyRaw(originalRaw *mhttp.HTTPBodyRaw, newRaw *mhttp.HTTPBodyRa
 // folderContext tracks URL-based folders during Postman import
 type folderContext struct {
 	folderMap     map[string]idwrap.IDWrap // path -> folder ID
-	folderFileMap map[string]mfile.File   // path -> folder file
+	folderFileMap map[string]mfile.File    // path -> folder file
 	workspaceID   idwrap.IDWrap
 }
 

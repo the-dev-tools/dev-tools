@@ -1,8 +1,8 @@
 package stag
 
 import (
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/model/mtag"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mtag"
 )
 
 func ConvertDBToModel(item gen.Tag) mtag.Tag {

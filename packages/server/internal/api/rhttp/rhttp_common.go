@@ -12,13 +12,13 @@ import (
 
 	"connectrpc.com/connect"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
 func ptrToNullString(s *string) sql.NullString {
@@ -34,7 +34,6 @@ func ptrToNullFloat64(f *float32) sql.NullFloat64 {
 	}
 	return sql.NullFloat64{Float64: float64(*f), Valid: true}
 }
-
 
 // isForeignKeyConstraintError checks if the error is a foreign key constraint violation
 func isForeignKeyConstraintError(err error) bool {
@@ -261,5 +260,3 @@ func (h *HttpServiceRPC) getStatusText(statusCode int) string {
 }
 
 // constructAssertionExpression constructs an expression from key and value
-
-

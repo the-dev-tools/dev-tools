@@ -2,10 +2,10 @@
 package mpostmancollection
 
 import (
-	"the-dev-tools/server/pkg/model/postman/v21/mauth"
-	"the-dev-tools/server/pkg/model/postman/v21/mevent"
-	"the-dev-tools/server/pkg/model/postman/v21/mitem"
-	"the-dev-tools/server/pkg/model/postman/v21/mvariable"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mevent"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mitem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/postman/v21/mvariable"
 )
 
 type Info struct {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc"
 	"net/url"
 	"os"
 	"path/filepath"
-	"the-dev-tools/db/pkg/sqlc"
 
 	_ "modernc.org/sqlite"
 )
@@ -55,9 +55,9 @@ func NewSQLiteLocal(ctx context.Context, dbName, path, encryptionKey string) (*s
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
-    // Allow ample concurrent readers alongside a single writer in WAL mode
-    db.SetMaxOpenConns(50)
-    db.SetMaxIdleConns(50)
+	// Allow ample concurrent readers alongside a single writer in WAL mode
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(50)
 	err = db.Ping()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)

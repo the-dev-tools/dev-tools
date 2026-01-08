@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"the-dev-tools/server/pkg/idwrap"
 	"github.com/stretchr/testify/require"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func TestConvertPostmanCollection_RealWorldGalaxy(t *testing.T) {

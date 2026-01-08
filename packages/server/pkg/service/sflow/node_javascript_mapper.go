@@ -1,8 +1,8 @@
 package sflow
 
 import (
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 // INFO: for some reason sqlc generate `Js` as `J`, will check later why it is not working

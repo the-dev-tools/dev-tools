@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"log/slog"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
 
 // IOWorkspaceService provides import/export operations for workspaces.

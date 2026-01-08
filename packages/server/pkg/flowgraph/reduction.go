@@ -3,8 +3,8 @@ package flowgraph
 import (
 	"slices"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 // DefaultMaxEdgesForReduction is the default threshold for skipping transitive reduction.

@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	globalv1 "the-dev-tools/spec/dist/buf/go/global/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	globalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/global/v1"
 )
 
 func TestHttpSearchParamDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
@@ -52,11 +52,11 @@ func TestHttpSearchParamDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 	deltaOrder := float64(2.5)
 	deltaParam := &mhttp.HTTPSearchParam{
 		ID:                      deltaParamID,
-		HttpID:                  deltaHttpID,   // The Delta Request this override belongs to
+		HttpID:                  deltaHttpID,  // The Delta Request this override belongs to
 		ParentHttpSearchParamID: &baseParamID, // The Base Param this overrides
 		IsDelta:                 true,
-		DeltaValue:              &deltaValue,       // Override value
-		DeltaDisplayOrder:       &deltaOrder,       // Override order
+		DeltaValue:              &deltaValue, // Override value
+		DeltaDisplayOrder:       &deltaOrder, // Override order
 	}
 	// Create the delta param
 	require.NoError(t, f.handler.httpSearchParamService.Create(f.ctx, deltaParam), "failed to create delta param")

@@ -1,26 +1,26 @@
 package rhttp
 
 import (
-	"the-dev-tools/server/pkg/service/senv"
 	"context"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/testutil"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
 // TestHttpSync_DeltaIsolation verifies that "Base" streams and "Delta" streams are correctly isolated.
@@ -438,7 +438,7 @@ func TestHttpSync_SparsePatch(t *testing.T) {
 				{
 					DeltaHttpId: deltaHttpID.Bytes(),
 					Name: &apiv1.HttpDeltaUpdate_NameUnion{
-						Kind: apiv1.HttpDeltaUpdate_NameUnion_KIND_VALUE,
+						Kind:  apiv1.HttpDeltaUpdate_NameUnion_KIND_VALUE,
 						Value: &newName,
 					},
 					// Method and Url are omitted (undefined)
@@ -641,7 +641,7 @@ func TestHttpSync_SparsePatch_URL(t *testing.T) {
 				{
 					DeltaHttpId: deltaHttpID.Bytes(),
 					Url: &apiv1.HttpDeltaUpdate_UrlUnion{
-						Kind: apiv1.HttpDeltaUpdate_UrlUnion_KIND_VALUE,
+						Kind:  apiv1.HttpDeltaUpdate_UrlUnion_KIND_VALUE,
 						Value: &newUrl,
 					},
 				},
