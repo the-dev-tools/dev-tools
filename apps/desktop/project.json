@@ -2,15 +2,5 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
   "name": "desktop",
-  "projectType": "application",
-  "targets": {
-    "build": {
-      "dependsOn": ["spec:build", "^build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "npm run build",
-        "cwd": "apps/desktop"
-      }
-    }
-  }
+  "projectType": "application"
 }
