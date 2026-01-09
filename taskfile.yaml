@@ -83,18 +83,20 @@ tasks:
     cmd: nx release plan --onlyTouched=false --projects={{.project}}
 
   benchmark:run:
-    desc: Run benchmarks
+    desc: Run benchmarks (standard go test)
     cmds:
       - mkdir -p .bench
-      - go run tools/benchmark/*.go run --output .bench/current.json {{.CLI_ARGS}}
+      - go test -bench=. -benchmem -run=^$ -count=3 -timeout=30m ./packages/server/... ./packages/db/... ./apps/cli/... | tee .bench/current.txt
+      - go run tools/benchmark/*.go parse --input .bench/current.txt --output .bench/current.json
 
   benchmark:baseline:
     desc: Run benchmarks and save as baseline
     cmds:
       - mkdir -p .bench
-      - go run tools/benchmark/*.go run --output .bench/baseline.json {{.CLI_ARGS}}
+      - go test -bench=. -benchmem -run=^$ -count=3 -timeout=30m ./packages/server/... ./packages/db/... ./apps/cli/... | tee .bench/baseline.txt
+      - go run tools/benchmark/*.go parse --input .bench/baseline.txt --output .bench/baseline.json
 
   benchmark:compare:
     desc: Compare current results with baseline
     cmds:
-      - go run tools/benchmark/*.go compare --baseline .bench/baseline.json --current .bench/current.json
+      - go run tools/benchmark/*.go compare --baseline .bench/baseline.txt --current .bench/current.txt --output-json .bench/comparison.json --output-md .bench/comparison.md

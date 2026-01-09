@@ -4,10 +4,21 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 )
+
+// ParseBenchmarksFromFile reads benchmark output from a file and returns structured results
+func ParseBenchmarksFromFile(path string) ([]BenchmarkResult, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+	return ParseBenchmarks(f)
+}
 
 // ParseBenchmarks reads benchmark output from a reader and returns structured results
 func ParseBenchmarks(r io.Reader) ([]BenchmarkResult, error) {

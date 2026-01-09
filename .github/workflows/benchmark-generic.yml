@@ -89,11 +89,16 @@ jobs:
         run: |
           mkdir -p bench_data
 
-          # Use our new tool
-          go run tools/benchmark/*.go run \
-            --count=${{ steps.target.outputs.count }} \
-            --output=bench_data/current.json \
-            ${{ steps.target.outputs.packages }}
+          # Run benchmarks using standard go test
+          go test -bench=. -benchmem -run=^$ \
+            -count=${{ steps.target.outputs.count }} \
+            -timeout=30m \
+            ${{ steps.target.outputs.packages }} | tee bench_data/current.txt
+
+          # Parse to JSON for artifact storage and comparison
+          go run tools/benchmark/*.go parse \
+            --input=bench_data/current.txt \
+            --output=bench_data/current.json
 
       - name: Download Baseline Artifacts
         if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch')
@@ -117,14 +122,18 @@ jobs:
           if [ ! -f "bench_data/previous/current.json" ]; then
             echo "⚠️ No baseline artifact found. Running baseline on current checkout (approximate)..."
             # Ideally we would checkout 'main' here, but for simplicity in this V1 we might skip or warn.
-            # A robust implementation would fetch the base commit. 
+            # A robust implementation would fetch the base commit.
             # For now, let's skip comparison if missing, UNLESS forced.
              if [ "${{ github.event.inputs.force_comparison }}" == "true" ]; then
                 echo "Running baseline benchmarks..."
-                go run tools/benchmark/*.go run \
-                  --count=${{ steps.target.outputs.count }} \
-                  --output=bench_data/baseline.json \
-                  ${{ steps.target.outputs.packages }}
+                go test -bench=. -benchmem -run=^$ \
+                  -count=${{ steps.target.outputs.count }} \
+                  -timeout=30m \
+                  ${{ steps.target.outputs.packages }} | tee bench_data/baseline.txt
+
+                go run tools/benchmark/*.go parse \
+                  --input=bench_data/baseline.txt \
+                  --output=bench_data/baseline.json
              else
                 echo "Skipping baseline generation."
              fi
