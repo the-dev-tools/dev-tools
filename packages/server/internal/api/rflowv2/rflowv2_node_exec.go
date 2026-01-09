@@ -9,13 +9,13 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 func (s *FlowServiceV2RPC) NodeExecutionCollection(

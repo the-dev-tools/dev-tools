@@ -2,8 +2,8 @@ package shttp
 
 import (
 	"context"
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
 type HttpResponseWriter struct {

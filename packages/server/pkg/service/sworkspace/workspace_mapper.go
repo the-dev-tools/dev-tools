@@ -1,9 +1,9 @@
 package sworkspace
 
 import (
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"time"
 )
 

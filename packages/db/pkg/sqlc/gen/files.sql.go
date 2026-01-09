@@ -10,7 +10,7 @@ import (
 	"database/sql"
 	"strings"
 
-	idwrap "the-dev-tools/server/pkg/idwrap"
+	idwrap "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 const createFile = `-- name: CreateFile :exec

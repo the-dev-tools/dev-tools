@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
 const MethodGET = "GET"

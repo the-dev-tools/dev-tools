@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/db/pkg/sqlitemem"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
 )
 
 func TestStoreMarkStartedInsertsAndUpdates(t *testing.T) {

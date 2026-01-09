@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"the-dev-tools/cli/internal/model"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/model"
 
-	"the-dev-tools/server/pkg/flow/runner"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 type FlowStartInfo struct {

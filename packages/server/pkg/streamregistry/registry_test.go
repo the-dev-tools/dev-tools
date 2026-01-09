@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/db/pkg/dbtest"
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 )
 
 // TestRegistry_PublishAll verifies Registry routes events to correct handlers.

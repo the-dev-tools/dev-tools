@@ -10,24 +10,24 @@ import (
 
 	"connectrpc.com/connect"
 
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/api/rlog"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/flow/flowbuilder"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/mutation"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
-	"the-dev-tools/spec/dist/buf/go/api/flow/v1/flowv1connect"
-	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1/flowv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
 
 // FlowTopic identifies the workspace whose flows are being published.
@@ -215,65 +215,107 @@ const (
 )
 
 type FlowServiceV2Readers struct {
-	Workspace      *sworkspace.WorkspaceReader
-	Flow           *sflow.FlowReader
-	Node           *sflow.NodeReader
-	Env            *senv.EnvReader
-	Http           *shttp.Reader
-	Edge           *sflow.EdgeReader
-	NodeRequest    *sflow.NodeRequestReader
-	FlowVariable   *sflow.FlowVariableReader
-	NodeExecution  *sflow.NodeExecutionReader
-	HttpResponse   *shttp.HttpResponseReader
+	Workspace     *sworkspace.WorkspaceReader
+	Flow          *sflow.FlowReader
+	Node          *sflow.NodeReader
+	Env           *senv.EnvReader
+	Http          *shttp.Reader
+	Edge          *sflow.EdgeReader
+	NodeRequest   *sflow.NodeRequestReader
+	FlowVariable  *sflow.FlowVariableReader
+	NodeExecution *sflow.NodeExecutionReader
+	HttpResponse  *shttp.HttpResponseReader
 }
 
 func (r *FlowServiceV2Readers) Validate() error {
-	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
-	if r.Flow == nil { return fmt.Errorf("flow reader is required") }
-	if r.Node == nil { return fmt.Errorf("node reader is required") }
-	if r.Env == nil { return fmt.Errorf("env reader is required") }
-	if r.Http == nil { return fmt.Errorf("http reader is required") }
-	if r.Edge == nil { return fmt.Errorf("edge reader is required") }
+	if r.Workspace == nil {
+		return fmt.Errorf("workspace reader is required")
+	}
+	if r.Flow == nil {
+		return fmt.Errorf("flow reader is required")
+	}
+	if r.Node == nil {
+		return fmt.Errorf("node reader is required")
+	}
+	if r.Env == nil {
+		return fmt.Errorf("env reader is required")
+	}
+	if r.Http == nil {
+		return fmt.Errorf("http reader is required")
+	}
+	if r.Edge == nil {
+		return fmt.Errorf("edge reader is required")
+	}
 	return nil
 }
 
 type FlowServiceV2Services struct {
-	Workspace      *sworkspace.WorkspaceService
-	Flow           *sflow.FlowService
-	Edge           *sflow.EdgeService
-	Node           *sflow.NodeService
-	NodeRequest    *sflow.NodeRequestService
-	NodeFor        *sflow.NodeForService
-	NodeForEach    *sflow.NodeForEachService
-	NodeIf         *sflow.NodeIfService
-	NodeJs         *sflow.NodeJsService
-	NodeExecution  *sflow.NodeExecutionService
-	FlowVariable   *sflow.FlowVariableService
-	Env            *senv.EnvironmentService
-	Var            *senv.VariableService
-	Http           *shttp.HTTPService
-	HttpBodyRaw    *shttp.HttpBodyRawService
-	HttpResponse   shttp.HttpResponseService
-	File           *sfile.FileService
-	Importer       WorkspaceImporter
+	Workspace     *sworkspace.WorkspaceService
+	Flow          *sflow.FlowService
+	Edge          *sflow.EdgeService
+	Node          *sflow.NodeService
+	NodeRequest   *sflow.NodeRequestService
+	NodeFor       *sflow.NodeForService
+	NodeForEach   *sflow.NodeForEachService
+	NodeIf        *sflow.NodeIfService
+	NodeJs        *sflow.NodeJsService
+	NodeExecution *sflow.NodeExecutionService
+	FlowVariable  *sflow.FlowVariableService
+	Env           *senv.EnvironmentService
+	Var           *senv.VariableService
+	Http          *shttp.HTTPService
+	HttpBodyRaw   *shttp.HttpBodyRawService
+	HttpResponse  shttp.HttpResponseService
+	File          *sfile.FileService
+	Importer      WorkspaceImporter
 }
 
 func (s *FlowServiceV2Services) Validate() error {
-	if s.Workspace == nil { return fmt.Errorf("workspace service is required") }
-	if s.Flow == nil { return fmt.Errorf("flow service is required") }
-	if s.Edge == nil { return fmt.Errorf("edge service is required") }
-	if s.Node == nil { return fmt.Errorf("node service is required") }
-	if s.NodeRequest == nil { return fmt.Errorf("node request service is required") }
-	if s.NodeFor == nil { return fmt.Errorf("node for service is required") }
-	if s.NodeForEach == nil { return fmt.Errorf("node for each service is required") }
-	if s.NodeIf == nil { return fmt.Errorf("node if service is required") }
-	if s.NodeJs == nil { return fmt.Errorf("node js service is required") }
-	if s.NodeExecution == nil { return fmt.Errorf("node execution service is required") }
-	if s.FlowVariable == nil { return fmt.Errorf("flow variable service is required") }
-	if s.Env == nil { return fmt.Errorf("env service is required") }
-	if s.Var == nil { return fmt.Errorf("var service is required") }
-	if s.Http == nil { return fmt.Errorf("http service is required") }
-	if s.HttpBodyRaw == nil { return fmt.Errorf("http body raw service is required") }
+	if s.Workspace == nil {
+		return fmt.Errorf("workspace service is required")
+	}
+	if s.Flow == nil {
+		return fmt.Errorf("flow service is required")
+	}
+	if s.Edge == nil {
+		return fmt.Errorf("edge service is required")
+	}
+	if s.Node == nil {
+		return fmt.Errorf("node service is required")
+	}
+	if s.NodeRequest == nil {
+		return fmt.Errorf("node request service is required")
+	}
+	if s.NodeFor == nil {
+		return fmt.Errorf("node for service is required")
+	}
+	if s.NodeForEach == nil {
+		return fmt.Errorf("node for each service is required")
+	}
+	if s.NodeIf == nil {
+		return fmt.Errorf("node if service is required")
+	}
+	if s.NodeJs == nil {
+		return fmt.Errorf("node js service is required")
+	}
+	if s.NodeExecution == nil {
+		return fmt.Errorf("node execution service is required")
+	}
+	if s.FlowVariable == nil {
+		return fmt.Errorf("flow variable service is required")
+	}
+	if s.Env == nil {
+		return fmt.Errorf("env service is required")
+	}
+	if s.Var == nil {
+		return fmt.Errorf("var service is required")
+	}
+	if s.Http == nil {
+		return fmt.Errorf("http service is required")
+	}
+	if s.HttpBodyRaw == nil {
+		return fmt.Errorf("http body raw service is required")
+	}
 	return nil
 }
 
@@ -306,22 +348,32 @@ type FlowServiceV2Deps struct {
 }
 
 func (d *FlowServiceV2Deps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if err := d.Readers.Validate(); err != nil { return err }
-	if err := d.Services.Validate(); err != nil { return err }
-	if d.Resolver == nil { return fmt.Errorf("resolver is required") }
-	if d.Logger == nil { return fmt.Errorf("logger is required") }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if d.Resolver == nil {
+		return fmt.Errorf("resolver is required")
+	}
+	if d.Logger == nil {
+		return fmt.Errorf("logger is required")
+	}
 	return nil
 }
 
 type FlowServiceV2RPC struct {
 	DB *sql.DB
 
-	wsReader *sworkspace.WorkspaceReader
-	fsReader *sflow.FlowReader
-	nsReader *sflow.NodeReader
-	vsReader *senv.EnvReader
-	hsReader *shttp.Reader
+	wsReader       *sworkspace.WorkspaceReader
+	fsReader       *sflow.FlowReader
+	nsReader       *sflow.NodeReader
+	vsReader       *senv.EnvReader
+	hsReader       *shttp.Reader
 	flowEdgeReader *sflow.EdgeReader
 
 	ws       *sworkspace.WorkspaceService

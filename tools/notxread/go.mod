@@ -1,4 +1,4 @@
-module the-dev-tools/notxread
+module github.com/the-dev-tools/dev-tools/tools/notxread
 
 go 1.24.0
 

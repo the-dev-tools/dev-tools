@@ -11,18 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 // setupTestServiceWithStreams creates a test service with all specialized streams configured
@@ -196,9 +196,12 @@ func collectNodeEvents(eventChan <-chan NodeEvent, count int, timeout time.Durat
 	for i := 0; i < count; i++ {
 		select {
 		case evt, ok := <-eventChan:
-			if !ok { return events }
+			if !ok {
+				return events
+			}
 			events = append(events, evt)
-		case <-timer.C: return events
+		case <-timer.C:
+			return events
 		}
 	}
 	return events
@@ -211,9 +214,12 @@ func collectConditionEvents(eventChan <-chan ConditionEvent, count int, timeout 
 	for i := 0; i < count; i++ {
 		select {
 		case evt, ok := <-eventChan:
-			if !ok { return events }
+			if !ok {
+				return events
+			}
 			events = append(events, evt)
-		case <-timer.C: return events
+		case <-timer.C:
+			return events
 		}
 	}
 	return events
@@ -226,9 +232,12 @@ func collectForEachEvents(eventChan <-chan ForEachEvent, count int, timeout time
 	for i := 0; i < count; i++ {
 		select {
 		case evt, ok := <-eventChan:
-			if !ok { return events }
+			if !ok {
+				return events
+			}
 			events = append(events, evt)
-		case <-timer.C: return events
+		case <-timer.C:
+			return events
 		}
 	}
 	return events
@@ -241,9 +250,12 @@ func collectJsEvents(eventChan <-chan JsEvent, count int, timeout time.Duration)
 	for i := 0; i < count; i++ {
 		select {
 		case evt, ok := <-eventChan:
-			if !ok { return events }
+			if !ok {
+				return events
+			}
 			events = append(events, evt)
-		case <-timer.C: return events
+		case <-timer.C:
+			return events
 		}
 	}
 	return events

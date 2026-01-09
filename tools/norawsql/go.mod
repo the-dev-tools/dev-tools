@@ -1,4 +1,4 @@
-module the-dev-tools/norawsql
+module github.com/the-dev-tools/dev-tools/tools/norawsql
 
 go 1.24.0
 

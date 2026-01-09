@@ -6,9 +6,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 // YamlFlowFormatV2 represents the modern YAML structure for simplified workflows
@@ -53,12 +53,12 @@ type YamlFlowFlowV2 struct {
 // YamlStepWrapper handles the polymorphic step list
 // A step is a map with a single key that identifies the type
 type YamlStepWrapper struct {
-	Request      *YamlStepRequest `yaml:"request,omitempty"`
-	If           *YamlStepIf      `yaml:"if,omitempty"`
-	For          *YamlStepFor     `yaml:"for,omitempty"`
-	ForEach      *YamlStepForEach `yaml:"for_each,omitempty"`
-	JS           *YamlStepJS      `yaml:"js,omitempty"`
-	ManualStart  *YamlStepCommon  `yaml:"manual_start,omitempty"`
+	Request     *YamlStepRequest `yaml:"request,omitempty"`
+	If          *YamlStepIf      `yaml:"if,omitempty"`
+	For         *YamlStepFor     `yaml:"for,omitempty"`
+	ForEach     *YamlStepForEach `yaml:"for_each,omitempty"`
+	JS          *YamlStepJS      `yaml:"js,omitempty"`
+	ManualStart *YamlStepCommon  `yaml:"manual_start,omitempty"`
 }
 
 // Common fields for all step types
@@ -344,6 +344,7 @@ type YamlFlowDataV2 struct {
 	ForEachNodes   []mflow.NodeForEach
 	JSNodes        []mflow.NodeJS
 }
+
 // YamlVariableV2 represents a variable during parsing
 type YamlVariableV2 struct {
 	VarKey string

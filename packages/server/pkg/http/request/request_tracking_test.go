@@ -1,11 +1,11 @@
 package request_test
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	"testing"
-	"the-dev-tools/server/pkg/http/request"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
 )

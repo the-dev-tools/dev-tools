@@ -9,20 +9,20 @@ import (
 	"sync"
 	"time"
 
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/internal/api/rfile"
-	"the-dev-tools/server/internal/api/rflowv2"
-	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/pkg/eventstream"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
-	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
 )
@@ -49,17 +49,39 @@ type ImportServices struct {
 
 func (s *ImportServices) Validate() error {
 	// Http is a pointer to struct in DefaultImporter
-	if s.Http == nil { return fmt.Errorf("http service is required") }
-	if s.Flow == nil { return fmt.Errorf("flow service is required") }
-	if s.File == nil { return fmt.Errorf("file service is required") }
-	if s.HttpSearchParam == nil { return fmt.Errorf("http search param service is required") }
-	if s.HttpBodyForm == nil { return fmt.Errorf("http body form service is required") }
-	if s.HttpBodyUrlEncoded == nil { return fmt.Errorf("http body url encoded service is required") }
-	if s.HttpBodyRaw == nil { return fmt.Errorf("http body raw service is required") }
-	if s.HttpAssert == nil { return fmt.Errorf("http assert service is required") }
-	if s.Node == nil { return fmt.Errorf("node service is required") }
-	if s.NodeRequest == nil { return fmt.Errorf("node request service is required") }
-	if s.Edge == nil { return fmt.Errorf("edge service is required") }
+	if s.Http == nil {
+		return fmt.Errorf("http service is required")
+	}
+	if s.Flow == nil {
+		return fmt.Errorf("flow service is required")
+	}
+	if s.File == nil {
+		return fmt.Errorf("file service is required")
+	}
+	if s.HttpSearchParam == nil {
+		return fmt.Errorf("http search param service is required")
+	}
+	if s.HttpBodyForm == nil {
+		return fmt.Errorf("http body form service is required")
+	}
+	if s.HttpBodyUrlEncoded == nil {
+		return fmt.Errorf("http body url encoded service is required")
+	}
+	if s.HttpBodyRaw == nil {
+		return fmt.Errorf("http body raw service is required")
+	}
+	if s.HttpAssert == nil {
+		return fmt.Errorf("http assert service is required")
+	}
+	if s.Node == nil {
+		return fmt.Errorf("node service is required")
+	}
+	if s.NodeRequest == nil {
+		return fmt.Errorf("node request service is required")
+	}
+	if s.Edge == nil {
+		return fmt.Errorf("edge service is required")
+	}
 	return nil
 }
 
@@ -81,18 +103,24 @@ type ImportStreamers struct {
 }
 
 func (s *ImportStreamers) Validate() error {
-	if s.Flow == nil { return fmt.Errorf("flow stream is required") }
-	if s.Http == nil { return fmt.Errorf("http stream is required") }
-	if s.File == nil { return fmt.Errorf("file stream is required") }
+	if s.Flow == nil {
+		return fmt.Errorf("flow stream is required")
+	}
+	if s.Http == nil {
+		return fmt.Errorf("http stream is required")
+	}
+	if s.File == nil {
+		return fmt.Errorf("file stream is required")
+	}
 	return nil
 }
 
 type ImportV2Deps struct {
-	DB         *sql.DB
-	Logger     *slog.Logger
-	Services   ImportServices
-	Readers    ImportV2Readers
-	Streamers  ImportStreamers
+	DB        *sql.DB
+	Logger    *slog.Logger
+	Services  ImportServices
+	Readers   ImportV2Readers
+	Streamers ImportStreamers
 }
 
 type ImportV2Readers struct {
@@ -101,17 +129,31 @@ type ImportV2Readers struct {
 }
 
 func (r *ImportV2Readers) Validate() error {
-	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
-	if r.User == nil { return fmt.Errorf("user reader is required") }
+	if r.Workspace == nil {
+		return fmt.Errorf("workspace reader is required")
+	}
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
+	}
 	return nil
 }
 
 func (d *ImportV2Deps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if d.Logger == nil { return fmt.Errorf("logger is required") }
-	if err := d.Services.Validate(); err != nil { return err }
-	if err := d.Readers.Validate(); err != nil { return err }
-	if err := d.Streamers.Validate(); err != nil { return err }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if d.Logger == nil {
+		return fmt.Errorf("logger is required")
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
+	if err := d.Streamers.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -124,7 +166,7 @@ type ImportV2RPC struct {
 	us       suser.UserService
 	importMu sync.Mutex
 
-	wsReader *sworkspace.WorkspaceReader
+	wsReader   *sworkspace.WorkspaceReader
 	userReader *sworkspace.UserReader
 
 	// Streamers for real-time updates

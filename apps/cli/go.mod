@@ -1,4 +1,4 @@
-module the-dev-tools/cli
+module github.com/the-dev-tools/dev-tools/apps/cli
 
 go 1.25
 
@@ -7,16 +7,10 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.20.0
+	github.com/the-dev-tools/dev-tools/packages/db v0.0.0
+	github.com/the-dev-tools/dev-tools/packages/server v0.0.0
+	github.com/the-dev-tools/dev-tools/packages/spec v0.0.0
 	gopkg.in/yaml.v3 v3.0.1
-	the-dev-tools/db v0.0.0
-	the-dev-tools/server v0.0.0
-	the-dev-tools/spec v0.0.0-00010101000000-000000000000
-)
-
-replace (
-	the-dev-tools/db => ../../packages/db
-	the-dev-tools/server => ../../packages/server
-	the-dev-tools/spec => ../../packages/spec
 )
 
 require (
@@ -51,4 +45,10 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.40.1 // indirect
+)
+
+replace (
+	github.com/the-dev-tools/dev-tools/packages/db => ../../packages/db
+	github.com/the-dev-tools/dev-tools/packages/server => ../../packages/server
+	github.com/the-dev-tools/dev-tools/packages/spec => ../../packages/spec
 )

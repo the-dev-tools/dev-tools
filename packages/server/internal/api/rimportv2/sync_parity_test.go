@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	filesystemv1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
+	filesystemv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
 )
@@ -212,10 +212,10 @@ func TestImport_SyncParity_MixedImport(t *testing.T) {
 	_, err = fixture.rpc.Import(fixture.ctx, req2)
 	require.NoError(t, err)
 
-	// Count events - should receive events for NEW requests in harData2, 
+	// Count events - should receive events for NEW requests in harData2,
 	// but NOT for any that might have overlapped with harData1 (if any).
 	// harData2 created via createMultiEntryHAR has different URLs than harData1.
-	
+
 	newRequestEvents := 0
 	timeout := time.After(500 * time.Millisecond)
 loop2:
@@ -227,8 +227,8 @@ loop2:
 			break loop2
 		}
 	}
-	
-	// createMultiEntryHAR creates 3 entries. 
+
+	// createMultiEntryHAR creates 3 entries.
 	// harv2 processes each entry twice (Base + Delta), so we expect events for them.
 	// We expect 3 base requests + 3 delta requests = 6 events.
 	require.Equal(t, 6, newRequestEvents, "Should receive sync events only for new requests")

@@ -3,7 +3,7 @@ package shttp
 import (
 	"database/sql"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // Utility functions for type conversions used across all shttp services

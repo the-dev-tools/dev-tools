@@ -3,10 +3,10 @@ package stag
 import (
 	"context"
 	"database/sql"
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mtag"
-	"the-dev-tools/server/pkg/translate/tgeneric"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mtag"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tgeneric"
 )
 
 type Writer struct {

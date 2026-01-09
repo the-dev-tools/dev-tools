@@ -4,20 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"the-dev-tools/server/pkg/service/sflow"
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 
-	"the-dev-tools/server/pkg/testutil"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 )
 
 type flowExecutionFixture struct {

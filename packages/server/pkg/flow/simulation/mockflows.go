@@ -4,10 +4,10 @@ package simulation
 import (
 	"time"
 
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/flow/node/mocknode"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/mocknode"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 // MockFlowParams defines the parameters for creating mock flows

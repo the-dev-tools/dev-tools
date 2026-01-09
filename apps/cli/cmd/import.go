@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"the-dev-tools/cli/internal/common"
-	"the-dev-tools/cli/internal/importer"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/translate/harv2"
-	tcurlv2 "the-dev-tools/server/pkg/translate/tcurlv2"
-	"the-dev-tools/server/pkg/translate/tpostmanv2"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/importer"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
+	tcurlv2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tcurlv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tpostmanv2"
 
 	"github.com/spf13/cobra"
 )

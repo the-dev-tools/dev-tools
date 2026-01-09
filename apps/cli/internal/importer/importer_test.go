@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"testing"
 
-	"the-dev-tools/cli/internal/common"
-	"the-dev-tools/cli/internal/importer"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/importer"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func TestRunImport_FailsOnMissingWorkspace(t *testing.T) {

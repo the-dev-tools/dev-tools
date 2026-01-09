@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/flow/node/mocknode"
-	"the-dev-tools/server/pkg/flow/runner"
-	flowlocalrunner "the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/mocknode"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	flowlocalrunner "github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 
 	"github.com/stretchr/testify/require"
 )

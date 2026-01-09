@@ -4,9 +4,9 @@ package reference
 import (
 	"errors"
 	"fmt"
+	referencev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/reference/v1"
 	"reflect"
 	"strings"
-	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 )
 
 type ReferenceKeyKind int32

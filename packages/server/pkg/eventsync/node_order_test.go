@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 func TestComputeNodeOrder_EmptyNodes(t *testing.T) {
@@ -30,7 +30,7 @@ func TestComputeNodeOrder_LinearChain(t *testing.T) {
 	req2ID := idwrap.NewNow()
 
 	nodes := []mflow.Node{
-		{ID: req2ID, NodeKind: mflow.NODE_KIND_REQUEST},  // Out of order
+		{ID: req2ID, NodeKind: mflow.NODE_KIND_REQUEST}, // Out of order
 		{ID: startID, NodeKind: mflow.NODE_KIND_MANUAL_START},
 		{ID: req1ID, NodeKind: mflow.NODE_KIND_REQUEST},
 	}

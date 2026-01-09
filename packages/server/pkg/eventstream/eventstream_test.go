@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 )
 
 type testTopic struct {

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func TestRegisterAndListOrdersByID(t *testing.T) {

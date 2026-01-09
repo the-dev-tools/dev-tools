@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sync"
 
-	"the-dev-tools/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 )
 
 // PublishFunc is a function that publishes an event.

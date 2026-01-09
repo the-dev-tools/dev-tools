@@ -14,18 +14,18 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
-	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/internal/api/rlog"
-	"the-dev-tools/server/pkg/flow/node/nrequest"
-	"the-dev-tools/server/pkg/flow/runner"
-	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
-	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/service/sflow"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
-	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
+	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	logv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/log/v1"
 )
 
 func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -622,12 +622,12 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// This follows SQLite best practices of keeping transactions short and doing reads outside when possible.
 
 	type nodeConfig struct {
-		sourceNode   mflow.Node
-		requestData  *mflow.NodeRequest
-		forData      *mflow.NodeFor
-		forEachData  *mflow.NodeForEach
+		sourceNode    mflow.Node
+		requestData   *mflow.NodeRequest
+		forData       *mflow.NodeFor
+		forEachData   *mflow.NodeForEach
 		conditionData *mflow.NodeIf
-		jsData       *mflow.NodeJS
+		jsData        *mflow.NodeJS
 	}
 
 	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))

@@ -4,7 +4,7 @@ package rflowv2
 import (
 	"context"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // WorkspaceImporter defines the interface for importing workspace data

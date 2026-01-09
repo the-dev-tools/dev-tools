@@ -7,10 +7,10 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/converter"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
 
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
 func (h *HttpServiceRPC) HttpResponseCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpResponseCollectionResponse], error) {

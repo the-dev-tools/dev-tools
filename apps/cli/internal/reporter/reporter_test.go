@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/cli/internal/model"
-	"the-dev-tools/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/model"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 func TestParseReportSpecsDefault(t *testing.T) {

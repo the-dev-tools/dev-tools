@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"the-dev-tools/cli/internal/common"
-	"the-dev-tools/db/pkg/sqlitemem"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // ImportCallback is the function signature for the actual import logic

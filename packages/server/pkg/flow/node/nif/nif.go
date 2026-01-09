@@ -4,12 +4,12 @@ package nif
 import (
 	"context"
 	"fmt"
-	"the-dev-tools/server/pkg/expression"
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/varsystem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 type NodeIf struct {

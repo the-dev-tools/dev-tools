@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // TestNewValidator tests the validator constructor

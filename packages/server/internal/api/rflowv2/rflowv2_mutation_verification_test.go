@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/mutation"
-	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
 // eventRecorder captures events published by the mutation system.

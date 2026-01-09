@@ -7,14 +7,14 @@ import (
 	"log/slog"
 	"strings"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 )
 
 // Interfaces

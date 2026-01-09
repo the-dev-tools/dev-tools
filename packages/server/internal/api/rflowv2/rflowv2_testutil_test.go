@@ -9,18 +9,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/db/pkg/dbtest"
-	gen "the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/flow/flowbuilder"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/dbtest"
+	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
 
 // RFlowTestContext provides a unified test environment for rflowv2 integration tests.
@@ -34,13 +34,13 @@ type RFlowTestContext struct {
 	FlowID      idwrap.IDWrap
 
 	// Services for direct DB access/verification
-	WS  sworkspace.WorkspaceService
-	FS  sflow.FlowService
-	NS  sflow.NodeService
-	ES  sflow.EdgeService
-	FVS sflow.FlowVariableService
-	NRS sflow.NodeRequestService
-	NFS sflow.NodeForService
+	WS   sworkspace.WorkspaceService
+	FS   sflow.FlowService
+	NS   sflow.NodeService
+	ES   sflow.EdgeService
+	FVS  sflow.FlowVariableService
+	NRS  sflow.NodeRequestService
+	NFS  sflow.NodeForService
 	NFES sflow.NodeForEachService
 	NIFS *sflow.NodeIfService
 	NJSS sflow.NodeJsService

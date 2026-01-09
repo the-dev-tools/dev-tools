@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"the-dev-tools/server/pkg/reference"
-	"the-dev-tools/server/pkg/referencecompletion"
-	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/reference"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/referencecompletion"
+	referencev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/reference/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"

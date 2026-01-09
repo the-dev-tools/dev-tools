@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/stoken"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/stoken"
 
 	"connectrpc.com/connect"
 	"github.com/golang-jwt/jwt/v5"

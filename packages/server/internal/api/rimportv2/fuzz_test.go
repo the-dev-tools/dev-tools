@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // FuzzFormatDetector fuzzes the format detection logic to ensure it doesn't panic or hang

@@ -8,17 +8,17 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/http/resolver"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/testutil"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	globalv1 "the-dev-tools/spec/dist/buf/go/global/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	globalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/global/v1"
 )
 
 func TestHttpDelta_ChildEntities_SparsePatch(t *testing.T) {

@@ -1,9 +1,9 @@
 package fuzzyfinder_test
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/fuzzyfinder"
 	"reflect"
 	"testing"
-	"the-dev-tools/server/pkg/fuzzyfinder"
 )
 
 func TestRankFind(t *testing.T) {

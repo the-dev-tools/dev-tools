@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/internal/api/rhttp"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
-	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	importv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/import/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

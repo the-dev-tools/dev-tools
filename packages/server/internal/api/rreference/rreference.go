@@ -7,23 +7,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/reference"
-	"the-dev-tools/server/pkg/referencecompletion"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/sort/sortenabled"
-	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
-	"the-dev-tools/spec/dist/buf/go/api/reference/v1/referencev1connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/permcheck"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/reference"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/referencecompletion"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/sort/sortenabled"
+	referencev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/reference/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/reference/v1/referencev1connect"
 
-	"the-dev-tools/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 
 	"connectrpc.com/connect"
 )
@@ -65,17 +65,39 @@ type ReferenceServiceRPCReaders struct {
 }
 
 func (r *ReferenceServiceRPCReaders) Validate() error {
-	if r.User == nil { return fmt.Errorf("user reader is required") }
-	if r.Workspace == nil { return fmt.Errorf("workspace reader is required") }
-	if r.Env == nil { return fmt.Errorf("env reader is required") }
-	if r.Variable == nil { return fmt.Errorf("variable reader is required") }
-	if r.Flow == nil { return fmt.Errorf("flow reader is required") }
-	if r.Node == nil { return fmt.Errorf("node reader is required") }
-	if r.NodeRequest == nil { return fmt.Errorf("node request reader is required") }
-	if r.FlowVariable == nil { return fmt.Errorf("flow variable reader is required") }
-	if r.FlowEdge == nil { return fmt.Errorf("flow edge reader is required") }
-	if r.NodeExecution == nil { return fmt.Errorf("node execution reader is required") }
-	if r.HttpResponse == nil { return fmt.Errorf("http response reader is required") }
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
+	}
+	if r.Workspace == nil {
+		return fmt.Errorf("workspace reader is required")
+	}
+	if r.Env == nil {
+		return fmt.Errorf("env reader is required")
+	}
+	if r.Variable == nil {
+		return fmt.Errorf("variable reader is required")
+	}
+	if r.Flow == nil {
+		return fmt.Errorf("flow reader is required")
+	}
+	if r.Node == nil {
+		return fmt.Errorf("node reader is required")
+	}
+	if r.NodeRequest == nil {
+		return fmt.Errorf("node request reader is required")
+	}
+	if r.FlowVariable == nil {
+		return fmt.Errorf("flow variable reader is required")
+	}
+	if r.FlowEdge == nil {
+		return fmt.Errorf("flow edge reader is required")
+	}
+	if r.NodeExecution == nil {
+		return fmt.Errorf("node execution reader is required")
+	}
+	if r.HttpResponse == nil {
+		return fmt.Errorf("http response reader is required")
+	}
 	return nil
 }
 
@@ -85,8 +107,12 @@ type ReferenceServiceRPCDeps struct {
 }
 
 func (d *ReferenceServiceRPCDeps) Validate() error {
-	if d.DB == nil { return fmt.Errorf("db is required") }
-	if err := d.Readers.Validate(); err != nil { return err }
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -776,68 +802,69 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						creator.AddWithKey(currentNode.Name, nodeVarsMap)
 					}
 
-				                case mflow.NODE_KIND_REQUEST:
-									// REQUEST nodes can reference their own response and request directly (without prefix)
-									var nodeData interface{}
-									hasExecutionData := false
-				
-									// Try to get the current node's execution data
-									executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
-									if err == nil && len(executions) > 0 {
-										// Use the latest execution (first one, as they're ordered by ID DESC)
-										latestExecution := &executions[0]
-				
-										if true {
-											// Decompress data if needed
-											data := latestExecution.OutputData
-											if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
-												decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
-												if err == nil {
-													data = decompressed
-												}
-											}
-				
-											// Try to unmarshal as generic JSON
-											var genericOutput interface{}
-											if err := json.Unmarshal(data, &genericOutput); err == nil {
-												nodeData = genericOutput
-												hasExecutionData = true
-											}
-										}
+				case mflow.NODE_KIND_REQUEST:
+					// REQUEST nodes can reference their own response and request directly (without prefix)
+					var nodeData interface{}
+					hasExecutionData := false
+
+					// Try to get the current node's execution data
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						// Use the latest execution (first one, as they're ordered by ID DESC)
+						latestExecution := &executions[0]
+
+						if true {
+							// Decompress data if needed
+							data := latestExecution.OutputData
+							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+								decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+								if err == nil {
+									data = decompressed
+								}
+							}
+
+							// Try to unmarshal as generic JSON
+							var genericOutput interface{}
+							if err := json.Unmarshal(data, &genericOutput); err == nil {
+								nodeData = genericOutput
+								hasExecutionData = true
+							}
+						}
+					}
+
+					dataAdded := false
+					if hasExecutionData && nodeData != nil {
+						// Extract the node-specific data
+						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+							if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
+								// Add the entire node data at ROOT level
+								// This allows direct access to response.* and request.*
+								if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
+									// Add all variables from the node directly at root
+									for key, value := range nodeVars {
+										creator.AddWithKey(key, value)
 									}
-				
-									dataAdded := false
-									if hasExecutionData && nodeData != nil {
-										// Extract the node-specific data
-										if nodeMap, ok := nodeData.(map[string]interface{}); ok {
-											if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
-												// Add the entire node data at ROOT level
-												// This allows direct access to response.* and request.*
-												if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
-													// Add all variables from the node directly at root
-													for key, value := range nodeVars {
-														creator.AddWithKey(key, value)
-													}
-													dataAdded = true
-												}
-											}
-										}
-									}
-				
-									if !dataAdded {
-										// No execution data, provide the schema at root level
-										creator.AddWithKey("request", map[string]interface{}{
-											"headers": map[string]string{},
-											"queries": map[string]string{},
-											"body":    "string",
-										})
-										creator.AddWithKey("response", map[string]interface{}{
-											"status":   200,
-											"body":     map[string]interface{}{},
-											"headers":  map[string]string{},
-											"duration": 0,
-										})
-									}				}
+									dataAdded = true
+								}
+							}
+						}
+					}
+
+					if !dataAdded {
+						// No execution data, provide the schema at root level
+						creator.AddWithKey("request", map[string]interface{}{
+							"headers": map[string]string{},
+							"queries": map[string]string{},
+							"body":    "string",
+						})
+						creator.AddWithKey("response", map[string]interface{}{
+							"status":   200,
+							"body":     map[string]interface{}{},
+							"headers":  map[string]string{},
+							"duration": 0,
+						})
+					}
+				}
 			}
 		}
 	}

@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/zstdcompress"
 	"io"
 	"sync"
-	"the-dev-tools/server/pkg/zstdcompress"
 
 	"github.com/andybalholm/brotli"
 )

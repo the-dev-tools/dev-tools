@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func TestConvertSimplifiedYAML_FlatBody(t *testing.T) {
@@ -29,7 +29,7 @@ flows:
 
 	require.NoError(t, err)
 	require.Len(t, result.HTTPRequests, 1)
-	
+
 	// Verification: We expect a JSON body containing the fields
 	require.NotEmpty(t, result.HTTPBodyRaw, "Body should not be empty")
 	bodyStr := string(result.HTTPBodyRaw[0].RawData)
@@ -59,7 +59,7 @@ flows:
 	result, err := ConvertSimplifiedYAML([]byte(yamlData), opts)
 
 	require.NoError(t, err, "Numeric/Boolean headers should not cause error")
-	
+
 	foundCount := false
 	foundActive := false
 	for _, h := range result.HTTPHeaders {

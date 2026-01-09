@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 )
 
 // EventType represents the type of sync event (insert, update, delete).

@@ -5,13 +5,13 @@ package rhttp
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
-	"the-dev-tools/server/pkg/idwrap"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	"time"
 
 	"connectrpc.com/connect"

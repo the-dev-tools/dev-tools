@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"the-dev-tools/server/pkg/depfinder"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/translate/harv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/depfinder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
 
 	"github.com/stretchr/testify/require"
 )
@@ -516,13 +516,13 @@ func TestFlowGraphGeneration(t *testing.T) {
 		require.NotZero(t, node.HttpID, "Each node should reference an HTTP request")
 	}
 	// Also verify MNode structure
-		for _, node := range resolved.Nodes {
-			nodeIDs[node.ID] = true
-			if node.NodeKind == mflow.NODE_KIND_MANUAL_START {
-				continue
-			}
-			require.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
+	for _, node := range resolved.Nodes {
+		nodeIDs[node.ID] = true
+		if node.NodeKind == mflow.NODE_KIND_MANUAL_START {
+			continue
 		}
+		require.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
+	}
 
 	// Verify edges exist for sequential requests
 	require.NotEmpty(t, resolved.Edges, "Should have edges for sequential requests")
@@ -637,12 +637,12 @@ func TestNodeLevelCalculation(t *testing.T) {
 	require.Len(t, resolved.Nodes, 5, "Should have 5 visualization nodes (Start + 4 requests)")
 
 	// Verify that nodes have proper positioning fields (they start at 0,0 and will be positioned by layout)
-		for _, node := range resolved.Nodes {
-			if node.NodeKind == mflow.NODE_KIND_MANUAL_START {
-				continue
-			}
-			require.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
+	for _, node := range resolved.Nodes {
+		if node.NodeKind == mflow.NODE_KIND_MANUAL_START {
+			continue
 		}
+		require.Equal(t, mflow.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
+	}
 }
 
 func TestMultipleEntriesComplexFlow(t *testing.T) {

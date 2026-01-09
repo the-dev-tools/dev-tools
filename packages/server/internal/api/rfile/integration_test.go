@@ -6,11 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/suser"
-	apiv1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 )
 
 // TestFileValidation tests file validation logic

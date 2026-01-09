@@ -3,12 +3,12 @@ package varsystem
 
 import (
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tgeneric"
 	"maps"
 	"os"
 	"reflect"
 	"strings"
-	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 var (

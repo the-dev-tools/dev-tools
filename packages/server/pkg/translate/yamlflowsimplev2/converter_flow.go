@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/ioworkspace"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/varsystem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 // processFlow processes a single flow and returns the generated data

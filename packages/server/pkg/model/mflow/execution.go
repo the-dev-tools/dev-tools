@@ -3,8 +3,8 @@ package mflow
 
 import (
 	"encoding/json"
-	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 type NodeExecution struct {

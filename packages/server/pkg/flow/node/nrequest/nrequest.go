@@ -4,15 +4,15 @@ package nrequest
 import (
 	"context"
 	"fmt"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/response"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	"log/slog"
-	"the-dev-tools/server/pkg/flow/node"
-	"the-dev-tools/server/pkg/http/request"
-	"the-dev-tools/server/pkg/http/response"
-	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/varsystem"
 )
 
 type NodeRequest struct {
