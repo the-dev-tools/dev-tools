@@ -485,7 +485,7 @@ func TestHttpBodyUrlEncodedSync_Streaming(t *testing.T) {
 		err := f.handler.streamHttpBodyUrlEncodedSync(ctx, f.userID, func(resp *httpv1.HttpBodyUrlEncodedSyncResponse) error {
 			msgCh <- resp
 			return nil
-		})
+		}, nil)
 		errCh <- err
 		close(msgCh)
 	}()

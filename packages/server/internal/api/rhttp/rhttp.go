@@ -874,10 +874,10 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedSync(ctx context.Context, req *connec
 		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	return h.streamHttpBodyUrlEncodedSync(ctx, userID, stream.Send)
+	return h.streamHttpBodyUrlEncodedSync(ctx, userID, stream.Send, nil)
 }
 
-func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyUrlEncodedSyncResponse) error) error {
+func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyUrlEncodedSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	// Filter for workspace-based access control
@@ -915,7 +915,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 

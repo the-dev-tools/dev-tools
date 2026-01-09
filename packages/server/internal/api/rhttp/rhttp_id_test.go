@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 
@@ -522,15 +523,21 @@ func TestHttpBodyUrlEncodedOrderRoundTrip(t *testing.T) {
 	// Test 2: Verify order via Sync stream
 	msgCh := make(chan *httpv1.HttpBodyUrlEncodedSyncResponse, 10)
 	errCh := make(chan error, 1)
+	readyCh := make(chan struct{})
 
 	go func() {
 		err := f.handler.streamHttpBodyUrlEncodedSync(ctx, f.userID, func(resp *httpv1.HttpBodyUrlEncodedSyncResponse) error {
 			msgCh <- resp
 			return nil
+		}, &eventstream.BulkOptions{
+			Ready: readyCh,
 		})
 		errCh <- err
 		close(msgCh)
 	}()
+
+	// Wait for stream to be ready
+	<-readyCh
 
 	// Update the urlencoded entry to trigger a sync event
 	newOrder := float32(88.8)
