@@ -3,7 +3,10 @@
     cache-nix-action.url = "github:nix-community/cache-nix-action";
     flake-parts.url = "github:hercules-ci/flake-parts";
     gha-nix-develop.url = "github:nicknovitski/nix-develop";
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # Switch back to unstable once this PR lands
+    # https://github.com/NixOS/nixpkgs/pull/465669
+    # https://github.com/NixOS/nixpkgs/issues/376958
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     systems.url = "github:nix-systems/default";
 
     # Follows
