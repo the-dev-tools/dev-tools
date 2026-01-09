@@ -1,3 +1,15 @@
+## 0.1.2 (2026-01-09)
+
+### 🩹 Fixes
+
+- Manually unpack Go binaries from desktop Electron ASAR archive ([#15](https://github.com/the-dev-tools/dev-tools/pull/15))
+
+### ❤️ Thank You
+
+- DANG QUOC SON
+- quocson95 @quocson95
+- Tomas Zaluckij @Tomaszal
+
 ## 0.1.1 (2026-01-08)
 
 ### 🩹 Fixes
