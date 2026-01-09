@@ -179,7 +179,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
           icon={<IfIcon />}
           onAction={() => {
             const nodeId = Ulid.generate().bytes;
-            conditionCollection.utils.insert({ nodeId });
+            conditionCollection.utils.insert({ nodeId: Uint8Array.from(nodeId) });
             insertNode({ handleKind, kind: NodeKind.CONDITION, name: 'if', nodeId, position, sourceId, targetId });
           }}
           title='If'
@@ -190,7 +190,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
           icon={<ForIcon />}
           onAction={() => {
             const nodeId = Ulid.generate().bytes;
-            forCollection.utils.insert({ nodeId });
+            forCollection.utils.insert({ nodeId: Uint8Array.from(nodeId) });
             insertNode({ handleKind, kind: NodeKind.FOR, name: 'for', nodeId, position, sourceId, targetId });
           }}
           title='For loop'
@@ -201,7 +201,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
           icon={<ForIcon />}
           onAction={() => {
             const nodeId = Ulid.generate().bytes;
-            forEachCollection.utils.insert({ nodeId });
+            forEachCollection.utils.insert({ nodeId: Uint8Array.from(nodeId) });
             insertNode({ handleKind, kind: NodeKind.FOR_EACH, name: 'for_each', nodeId, position, sourceId, targetId });
           }}
           title='For each loop'
@@ -229,7 +229,7 @@ const AddCoreNodeSidebar = (props: AddNodeSidebarProps) => {
           icon={<FiTerminal />}
           onAction={() => {
             const nodeId = Ulid.generate().bytes;
-            jsCollection.utils.insert({ nodeId });
+            jsCollection.utils.insert({ nodeId: Uint8Array.from(nodeId) });
             insertNode({ handleKind, kind: NodeKind.JS, name: 'js', nodeId, position, sourceId, targetId });
           }}
           title='JavaScript'
@@ -279,7 +279,7 @@ const AddHttpRequestNodeSidebar = ({ handleKind, position, previous, sourceId, t
             });
 
             const nodeId = Ulid.generate().bytes;
-            nodeHttpCollection.utils.insert({ httpId, nodeId });
+            nodeHttpCollection.utils.insert({ httpId, nodeId: Uint8Array.from(nodeId) });
             insertNode({ handleKind, kind: NodeKind.HTTP, name: 'http', nodeId, position, sourceId, targetId });
           }}
         >
@@ -303,7 +303,7 @@ const AddHttpRequestNodeSidebar = ({ handleKind, position, previous, sourceId, t
             return;
           }
 
-          nodeHttpCollection.utils.insert(data);
+          nodeHttpCollection.utils.insert({ ...data, nodeId: Uint8Array.from(nodeId) });
           insertNode({ handleKind, kind: NodeKind.HTTP, name: 'http', nodeId, position, sourceId, targetId });
         }}
         showControls

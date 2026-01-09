@@ -161,7 +161,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
         nodeHttpCollection.utils.insert({
           httpId: file.fileId,
-          nodeId,
+          nodeId: Uint8Array.from(nodeId),
         });
 
         nodeCollection.utils.insert({
@@ -179,7 +179,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         nodeHttpCollection.utils.insert({
           deltaHttpId: file.fileId,
           httpId: file.parentId!,
-          nodeId,
+          nodeId: Uint8Array.from(nodeId),
         });
 
         nodeCollection.utils.insert({
