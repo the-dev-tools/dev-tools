@@ -1,3 +1,13 @@
+## 0.1.3 (2026-01-09)
+
+### 🩹 Fixes
+
+- Add a 'diagnostics' command to help debug Electron issues ([e9a962ed](https://github.com/the-dev-tools/dev-tools/commit/e9a962ed))
+
+### ❤️ Thank You
+
+- Tomas Zaluckij @Tomaszal
+
 ## 0.1.2 (2026-01-09)
 
 ### 🩹 Fixes
