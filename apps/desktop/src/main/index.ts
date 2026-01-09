@@ -1,4 +1,4 @@
-import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
+import { Command, FetchHttpClient, FileSystem, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime } from 'effect';
@@ -7,6 +7,7 @@ import { autoUpdater } from 'electron-updater';
 import child_process from 'node:child_process';
 import os from 'node:os';
 import { Agent } from 'undici';
+import packageJson from '../../package.json';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
 // Workaround to allow unlimited concurrent HTTP/1.1 connections
@@ -256,22 +257,56 @@ const desktop = pipe(
 );
 
 const args = process.argv.slice(process.defaultApp ? 2 : 1);
-const cli = pipe(
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
+const cli = Effect.gen(function* () {
+  const path = yield* Path.Path;
 
-    const dist = yield* pipe(
-      import.meta.resolve('@the-dev-tools/cli'),
-      Url.fromString,
-      Effect.flatMap(path.fromFileUrl),
-    );
+  const dist = yield* pipe(import.meta.resolve('@the-dev-tools/cli'), Url.fromString, Effect.flatMap(path.fromFileUrl));
 
-    yield* execFile(path.join(dist, 'cli'), args);
+  yield* execFile(path.join(dist, 'cli'), args);
 
-    app.quit();
-  }),
-);
+  app.quit();
+});
 
-const main = args.length > 0 ? cli : desktop;
+const logPath = Effect.fn(function* (title: string, path: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const exists = yield* pipe(fs.access(path, { ok: true }), Effect.isSuccess);
+  yield* Effect.log(`${title} - ${path} - [${exists ? 'OK' : 'N/A'}]`);
+});
+
+const diagnostics = Effect.gen(function* () {
+  const path = yield* Path.Path;
+
+  yield* Effect.log(`version ${packageJson.version}`);
+
+  yield* logPath('__dirname', __dirname);
+
+  yield* logPath('cwd', process.cwd());
+
+  yield* logPath('app.getAppPath()', app.getAppPath());
+
+  const root = path.join(app.getAppPath(), '../..');
+  yield* logPath('root', root);
+
+  yield* logPath('import.meta.filename', import.meta.filename);
+
+  const resolvedPath = import.meta.resolve('.');
+  yield* Effect.log(`import.meta.resolve - ${resolvedPath}`);
+
+  const serverPath = yield* pipe(
+    import.meta.resolve('@the-dev-tools/server'),
+    Url.fromString,
+    Effect.flatMap(path.fromFileUrl),
+  );
+  yield* logPath('@the-dev-tools/server', serverPath);
+  yield* logPath('@the-dev-tools/server unpacked', serverPath.replaceAll('app.asar', 'app.asar.unpacked'));
+
+  app.quit();
+});
+
+const main = Effect.gen(function* () {
+  if (args[0] === 'diagnostics') return yield* diagnostics;
+  if (args.length > 0) return yield* cli;
+  return yield* desktop;
+});
 
 pipe(main, Effect.provide(NodeContext.layer), Effect.provide(FetchHttpClient.layer), NodeRuntime.runMain);
