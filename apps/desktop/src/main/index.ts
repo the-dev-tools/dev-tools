@@ -1,10 +1,9 @@
 import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
-import { Config, Console, Effect, pipe, Runtime } from 'effect';
+import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import child_process from 'node:child_process';
 import os from 'node:os';
 import { Agent } from 'undici';
 import { CustomUpdateProvider, UpdateOptions } from './update';
@@ -99,19 +98,6 @@ const createWindow = Effect.gen(function* () {
   }
 });
 
-// Only 'child_process.execFile' is supported for executing binaries inside ASAR archives
-// https://www.electronjs.org/docs/latest/tutorial/asar-archives#executing-binaries-inside-asar-archive
-const execFile = (file: string, args?: string[], options?: child_process.ExecFileOptions) =>
-  Effect.async<void, child_process.ExecFileException>((resume) => {
-    child_process.execFile(file, args, options, (error, stdout, stderr) => {
-      Effect.gen(function* () {
-        if (stdout) console.log(stdout);
-        if (stderr) console.error(stderr);
-        if (error) yield* Effect.fail(error);
-      }).pipe(resume);
-    });
-  });
-
 const server = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -122,16 +108,22 @@ const server = pipe(
       Effect.flatMap(path.fromFileUrl),
     );
 
-    yield* execFile(path.join(dist, 'server'), undefined, {
-      env: {
+    yield* pipe(
+      path.join(dist, 'server'),
+      String.replaceAll('app.asar', 'app.asar.unpacked'),
+      Command.make,
+      Command.env({
         // TODO: we probably shouldn't encrypt local database
         DB_ENCRYPTION_KEY: 'secret',
         DB_MODE: 'local',
         DB_NAME: 'state',
         DB_PATH: app.getPath('userData'),
         HMAC_SECRET: 'secret',
-      },
-    });
+      }),
+      Command.stdout('inherit'),
+      Command.stderr('inherit'),
+      Command.exitCode,
+    );
 
     yield* Effect.interrupt;
   }),
@@ -266,7 +258,9 @@ const cli = pipe(
       Effect.flatMap(path.fromFileUrl),
     );
 
-    yield* execFile(path.join(dist, 'cli'), args);
+    const bin = pipe(path.join(dist, 'cli'), String.replaceAll('app.asar', 'app.asar.unpacked'));
+
+    yield* pipe(Command.make(bin, ...args), Command.stdout('inherit'), Command.stderr('inherit'), Command.exitCode);
 
     app.quit();
   }),
