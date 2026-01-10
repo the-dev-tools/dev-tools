@@ -13,7 +13,10 @@
       "cache": false,
       "options": {
         "cwd": "{projectRoot}",
-        "command": "go build -o dist/server cmd/server/server.go"
+        "command": "go build -o dist/server cmd/server/server.go",
+        "env": {
+          "CGO_ENABLED": "0"
+        }
       }
     },
     "build-ci": {
@@ -22,7 +25,10 @@
       "cache": true,
       "options": {
         "cwd": "{projectRoot}",
-        "command": "go build -o dist/server cmd/server/server.go"
+        "command": "go build -o dist/server cmd/server/server.go",
+        "env": {
+          "CGO_ENABLED": "0"
+        }
       }
     },
     "dev": {
