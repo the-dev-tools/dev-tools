@@ -24,7 +24,10 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "command": "go build -o dist/cli main.go"
+        "command": "go build -o dist/cli main.go",
+        "env": {
+          "CGO_ENABLED": "0"
+        }
       },
       "dependsOn": ["copy-worker"]
     },
