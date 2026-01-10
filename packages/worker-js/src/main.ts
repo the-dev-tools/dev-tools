@@ -29,6 +29,13 @@ NodeJsExecutorService(connectRouter);
 //   - WORKER_PORT: port number (tcp mode, defaults to 9090)
 
 const WorkerServerUdsLive = Effect.gen(function* () {
+  if (os.platform() === 'win32') {
+    return yield* pipe(
+      NodeHttpServer.layer(createServer, { path: '\\\\.\\pipe\\the-dev-tools_worker-js.socket' }),
+      Layer.build,
+    );
+  }
+
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
 

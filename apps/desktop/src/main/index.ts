@@ -167,11 +167,14 @@ const onReady = Effect.gen(function* () {
   });
   yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());
 
+  let socketPath = path.join(os.tmpdir(), 'the-dev-tools', 'server.socket');
+  if (os.platform() === 'win32') socketPath = '\\\\.\\pipe\\the-dev-tools_server.socket';
+
   // Redirect server IPC into a UDS
   // https://nodejs.org/api/globals.html#custom-dispatcher
   // https://undici.nodejs.org/#/docs/api/Client?id=parameter-connectoptions
   const dispatcher = new Agent({
-    socketPath: path.join(os.tmpdir(), 'the-dev-tools', 'server.socket'),
+    socketPath,
 
     // Disable timeout for sync streams
     bodyTimeout: 0,
