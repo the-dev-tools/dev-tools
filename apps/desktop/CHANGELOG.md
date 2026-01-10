@@ -1,3 +1,13 @@
+## 0.1.4 (2026-01-10)
+
+### 🩹 Fixes
+
+- Fix Go binary linking ([64a948af](https://github.com/the-dev-tools/dev-tools/commit/64a948af))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.1.3 (2026-01-09)
 
 ### 🩹 Fixes
