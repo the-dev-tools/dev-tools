@@ -2,13 +2,9 @@
 package api
 
 import (
-	"context"
-	"log"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/rs/cors"
@@ -71,14 +67,19 @@ const (
 	ServerModeTCP = "tcp"
 )
 
-// DefaultServerSocketPath returns the default path for the server Unix socket.
-func DefaultServerSocketPath() string {
-	return filepath.Join(os.TempDir(), "the-dev-tools", "server.socket")
-}
-
-// DefaultWorkerSocketPath returns the default path for the worker-js Unix socket.
-func DefaultWorkerSocketPath() string {
-	return filepath.Join(os.TempDir(), "the-dev-tools", "worker-js.socket")
+func newH2CServer(mux *http.ServeMux) *http.Server {
+	return &http.Server{
+		// NOTE: ConnectRPC requires an address even for Unix sockets.
+		// Use a placeholder address since actual routing is via socket.
+		Addr:              "the-dev-tools:0",
+		ReadHeaderTimeout: 10 * time.Second,
+		// INFO: Use h2c so we can serve HTTP/2 without TLS.
+		Handler: h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
+			IdleTimeout:          0,
+			MaxConcurrentStreams: 100000,
+			MaxHandlers:          0,
+		}),
+	}
 }
 
 // ListenServices starts the server listening on either a Unix socket or TCP port.
@@ -104,75 +105,17 @@ func ListenServices(services []Service, port string) error {
 	case ServerModeTCP:
 		return listenTCP(mux, port)
 	case ServerModeUDS:
-		return listenUnix(mux)
+		return listenIPC(mux)
 	default:
 		slog.Warn("Unknown SERVER_MODE, falling back to uds", "mode", mode)
-		return listenUnix(mux)
+		return listenIPC(mux)
 	}
 }
 
 func listenTCP(mux *http.ServeMux, port string) error {
-	srv := &http.Server{
-		Addr:              ":" + port,
-		ReadHeaderTimeout: 10 * time.Second,
-		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		Handler: h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
-			IdleTimeout:          0,
-			MaxConcurrentStreams: 100000,
-			MaxHandlers:          0,
-		}),
-	}
+	srv := newH2CServer(mux)
+	srv.Addr = ":" + port
 
 	slog.Info("Server listening on TCP", "port", port)
 	return srv.ListenAndServe()
-}
-
-func listenUnix(mux *http.ServeMux) error {
-	socketPath := os.Getenv("SERVER_SOCKET_PATH")
-	if socketPath == "" {
-		socketPath = DefaultServerSocketPath()
-	}
-
-	srv := &http.Server{
-		// NOTE: ConnectRPC requires an address even for Unix sockets.
-		// Use a placeholder address since actual routing is via socket.
-		Addr:              "the-dev-tools:0",
-		ReadHeaderTimeout: 10 * time.Second,
-		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		Handler: h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
-			IdleTimeout:          0,
-			MaxConcurrentStreams: 100000,
-			MaxHandlers:          0,
-		}),
-	}
-
-	socketDir := filepath.Dir(socketPath)
-
-	// Create socket directory if it doesn't exist
-	if err := os.MkdirAll(socketDir, 0o750); err != nil {
-		return err
-	}
-
-	// Remove stale socket file if present (e.g., from a previous crash)
-	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
-		slog.Warn("Failed to remove stale socket", "path", socketPath, "error", err)
-	}
-
-	// Create Unix socket listener
-	lc := net.ListenConfig{}
-	socket, err := lc.Listen(context.Background(), "unix", socketPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	slog.Info("Server listening on Unix socket", "path", socketPath)
-
-	// Ensure socket cleanup on server close
-	srv.RegisterOnShutdown(func() {
-		if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
-			slog.Warn("Failed to remove socket on shutdown", "path", socketPath, "error", err)
-		}
-	})
-
-	return srv.Serve(socket)
 }

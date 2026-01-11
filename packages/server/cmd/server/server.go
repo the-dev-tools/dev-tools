@@ -400,15 +400,14 @@ func run() error {
 		jsHTTPClient = &http.Client{
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					dialer := net.Dialer{}
-					return dialer.DialContext(ctx, "unix", workerSocketPath)
+					return api.DialWorker(ctx, workerSocketPath)
 				},
 			},
 		}
 		// NOTE: ConnectRPC requires an address even for Unix sockets.
 		// Use placeholder since actual routing is via socket.
 		jsBaseURL = "http://the-dev-tools:0"
-		slog.Info("Connecting to worker-js via Unix socket", "path", workerSocketPath)
+		slog.Info("Connecting to worker-js via socket", "path", workerSocketPath)
 	}
 
 	jsClient := node_js_executorv1connect.NewNodeJsExecutorServiceClient(
