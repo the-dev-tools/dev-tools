@@ -1,3 +1,14 @@
+## 0.1.5 (2026-01-11)
+
+### 🩹 Fixes
+
+- Revert to manual ASAR binary unpacking and execution due to issues on Windows and MacOS ([6646917a](https://github.com/the-dev-tools/dev-tools/commit/6646917a))
+- Fix Windows RPC issues by switching to named pipes ([e72a8a65](https://github.com/the-dev-tools/dev-tools/commit/e72a8a65))
+
+### ❤️ Thank You
+
+- Tomas Zaluckij @Tomaszal
+
 ## 0.1.4 (2026-01-10)
 
 ### 🩹 Fixes
