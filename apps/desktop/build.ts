@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 const config: Configuration = {
   artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
-  asarUnpack: ['resources/**'],
+  asarUnpack: [
+    'resources/**',
+    '**/node_modules/@the-dev-tools/server/dist/server',
+    '**/node_modules/@the-dev-tools/cli/dist/cli',
+  ],
   extraMetadata: {
     name: 'DevTools',
   },

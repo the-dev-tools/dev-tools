@@ -97,7 +97,6 @@ const rules = defineConfig({
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
     '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
-    '@typescript-eslint/no-invalid-void-type': 'off', // re-enable once improved https://github.com/typescript-eslint/typescript-eslint/issues/8113
     '@typescript-eslint/no-meaningless-void-operator': 'off',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
