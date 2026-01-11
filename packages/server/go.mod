@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	connectrpc.com/connect v1.19.1
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/andybalholm/brotli v1.2.0
 	github.com/expr-lang/expr v1.17.7
 	github.com/goccy/go-json v0.10.5
