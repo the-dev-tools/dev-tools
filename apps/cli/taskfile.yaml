@@ -6,8 +6,6 @@ vars:
   VERSION: v1.0.0
   BIN_DIR: dist
   SOURCE_PATH: main.go
-  PLATFORMS:
-    sh: jq --raw-output 'keys[]' platforms.json
 
 tasks:
   copy:worker:
@@ -31,6 +29,8 @@ tasks:
 
   build:release:
     desc: Build release binary with version and platform
+    env:
+      CGO_ENABLED: 0
     vars:
       VERSION_DEFAULT:
         sh: node -e "console.log(require('./package.json').version)"
@@ -52,35 +52,3 @@ tasks:
       - cmd: cmd /c rd /s /q "{{.BIN_DIR}}"
         platforms: [windows]
         ignore_error: true
-
-  build:*:
-    desc: Build for specified platform
-    vars:
-      PLATFORM: '{{index .MATCH 0}}'
-      ENV:
-        sh: >-
-          jq --raw-output \
-            '."{{.PLATFORM}}".go
-              | to_entries
-              | map("\(.key)=\(.value)")
-              | join(" ")' \
-            platforms.json
-      BINARY_SUFFIX:
-        sh: >-
-          jq --raw-output \
-            '."{{.PLATFORM}}"."binary-suffix" // ""' \
-            platforms.json
-    cmds:
-      - >-
-        {{.ENV}} go build \
-          -ldflags="-X main.Version={{.VERSION}}" \
-          -o {{.BIN_DIR}}/{{.APP_NAME}}-{{.PLATFORM}}{{.BINARY_SUFFIX}} \
-          {{.SOURCE_PATH}}
-
-  build:all:
-    desc: Build for all platforms
-
-    deps:
-      - for:
-          var: PLATFORMS
-        task: 'build:{{.ITEM}}'

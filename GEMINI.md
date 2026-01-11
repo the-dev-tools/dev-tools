@@ -29,6 +29,8 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Tools Directory (`tools/`):**
   - `benchmark/`: Go benchmarking tool for performance testing.
   - `norawsql/`: Custom Go linter to detect raw SQL (enforces sqlc usage).
+  - `notxread/`: Custom Go linter to detect non-TX-bound reads in transactions (prevents SQLite deadlocks).
+  - `modmigrate/`: Tool to migrate Go module paths to idiomatic GitHub paths.
   - `spec-lib/`: TypeSpec emitter library for custom code generation.
   - `eslint/`: Shared ESLint configuration package.
   - `storybook/`: Storybook configuration and composition.
@@ -43,7 +45,8 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Storybook:** `task storybook` (component library dev).
 - **Spec Generation:** `pnpm nx run spec:build` (run after editing `.tsp` files; outputs to `packages/spec/dist`).
 - **Database:** `pnpm nx run db:generate` (run after editing `sqlc.yaml` or `.sql` files).
-- **CLI Release:** `cd apps/cli && task build:release` (builds local binary to `apps/cli/dist`).
+- **Version Plan:** `task version-plan` (create a version plan for release management).
+- **CLI Release:** `cd apps/cli && task build:release` (builds local binary).
 
 ### Testing & Quality
 - **Lint:** `task lint` (runs ESLint, formatting checks).
@@ -118,6 +121,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Flow Engine & Nodes:** Read `packages/server/docs/specs/FLOW.md` for details on the execution engine, node types, and variable system.
 - **HTTP & Proxy:** Read `packages/server/docs/specs/HTTP.md` for request recording, execution, and import/export logic.
 - **Real-time Sync:** Read `packages/server/docs/specs/SYNC.md` for the Deep dive into the Real-time Sync / TanStack DB pattern and Event Streaming.
+- **Mutation System:** Read `packages/server/docs/specs/MUTATION.md` for details on automatic cascade event collection and transaction management.
 - **Service Architecture:** Read `packages/server/docs/specs/BACKEND_ARCHITECTURE_V2.md` for Reader/Writer service pattern and Fetch-Check-Act concurrency pattern.
 - **Bulk Operations:** Read `packages/server/docs/specs/BULK_SYNC_TRANSACTION_WRAPPERS.md` for bulk sync transaction patterns.
 
