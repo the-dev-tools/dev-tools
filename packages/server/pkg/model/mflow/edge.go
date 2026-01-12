@@ -20,6 +20,9 @@ const (
 	HandleThen
 	HandleElse
 	HandleLoop
+	HandleAiModel
+	HandleAiMemory
+	HandleAiTools
 	HandleLength
 )
 

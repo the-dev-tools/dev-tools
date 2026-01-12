@@ -26,6 +26,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhealth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
@@ -43,6 +44,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
@@ -160,6 +162,10 @@ func run() error {
 
 	// File Service
 	fileService := sfile.New(queries, logger)
+
+	// Credential Service
+	credentialService := scredential.NewCredentialService(queries, logger)
+	credentialReader := scredential.NewCredentialReader(currentDB, logger)
 
 	// Flow
 	flowService := sflow.NewFlowService(queries)
@@ -500,6 +506,16 @@ func run() error {
 	})
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
+	credentialSrv := rcredential.New(rcredential.CredentialRPCDeps{
+		DB:        currentDB,
+		Service:   credentialService,
+		User:      userService,
+		Workspace: workspaceService,
+		Reader:    credentialReader,
+		Streamer:  streamers.Credential,
+	})
+	newServiceManager.AddService(rcredential.CreateService(credentialSrv, optionsAll))
+
 	// Reference Service
 	refServiceRPC := rreference.NewReferenceServiceRPC(rreference.ReferenceServiceRPCDeps{
 		DB: currentDB,
@@ -646,6 +662,7 @@ type Streamers struct {
 	Js                  eventstream.SyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent]
 	Execution           eventstream.SyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]
 	File                eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+	Credential          eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent]
 }
 
 func NewStreamers() *Streamers {
@@ -676,6 +693,7 @@ func NewStreamers() *Streamers {
 		Js:                  memory.NewInMemorySyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent](),
 		Execution:           memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent](),
 		File:                memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
+		Credential:          memory.NewInMemorySyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent](),
 	}
 }
 
@@ -706,6 +724,7 @@ func (s *Streamers) Shutdown() {
 	s.Js.Shutdown()
 	s.Execution.Shutdown()
 	s.File.Shutdown()
+	s.Credential.Shutdown()
 }
 
 // registerCascadeHandlers registers all handlers needed for cascade deletion events.
