@@ -17,6 +17,7 @@ const (
 	ContentTypeHTTP      ContentType = 1 // http
 	ContentTypeHTTPDelta ContentType = 2 // http delta (draft/overlay)
 	ContentTypeFlow      ContentType = 3 // flow
+	ContentTypeCredential ContentType = 4 // credential
 )
 
 // String returns the string representation of ContentType
@@ -30,6 +31,8 @@ func (ct ContentType) String() string {
 		return "http"
 	case ContentTypeHTTPDelta:
 		return "http_delta"
+	case ContentTypeCredential:
+		return "credential"
 	default:
 		return "unknown"
 	}
@@ -79,6 +82,11 @@ func (f File) IsFlow() bool {
 	return f.ContentType == ContentTypeFlow
 }
 
+// IsCredential returns true if the file contains a credential
+func (f File) IsCredential() bool {
+	return f.ContentType == ContentTypeCredential
+}
+
 // IsRoot returns true if the file has no parent folder
 func (f File) IsRoot() bool {
 	return f.ParentID == nil
@@ -120,6 +128,8 @@ func ContentTypeFromString(s string) ContentType {
 		return ContentTypeHTTP
 	case "http_delta":
 		return ContentTypeHTTPDelta
+	case "credential":
+		return ContentTypeCredential
 	default:
 		return ContentTypeUnknown
 	}
@@ -127,7 +137,7 @@ func ContentTypeFromString(s string) ContentType {
 
 // IsValidContentType checks if the content type is valid
 func IsValidContentType(kind ContentType) bool {
-	return kind == ContentTypeFolder || kind == ContentTypeFlow || kind == ContentTypeHTTP || kind == ContentTypeHTTPDelta
+	return kind == ContentTypeFolder || kind == ContentTypeFlow || kind == ContentTypeHTTP || kind == ContentTypeHTTPDelta || kind == ContentTypeCredential
 }
 
 // IDEquals checks if two IDWrap values are equal

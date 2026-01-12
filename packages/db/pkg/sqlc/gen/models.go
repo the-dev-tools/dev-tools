@@ -11,6 +11,31 @@ import (
 	idwrap "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
+type Credential struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+	Kind        int8
+}
+
+type CredentialAnthropic struct {
+	CredentialID idwrap.IDWrap
+	ApiKey       string
+	BaseUrl      sql.NullString
+}
+
+type CredentialGemini struct {
+	CredentialID idwrap.IDWrap
+	ApiKey       string
+	BaseUrl      sql.NullString
+}
+
+type CredentialOpenai struct {
+	CredentialID idwrap.IDWrap
+	Token        string
+	BaseUrl      sql.NullString
+}
+
 type Environment struct {
 	ID           idwrap.IDWrap
 	WorkspaceID  idwrap.IDWrap
@@ -59,6 +84,11 @@ type FlowNode struct {
 	PositionX float64
 	PositionY float64
 	State     int8
+}
+
+type FlowNodeAi struct {
+	FlowNodeID idwrap.IDWrap
+	Prompt     string
 }
 
 type FlowNodeCondition struct {

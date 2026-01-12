@@ -46,6 +46,11 @@ func (c *Context) DeleteFile(ctx context.Context, file FileDeleteItem) error {
 			if err := c.deleteFlowContent(ctx, *file.ContentID, file.WorkspaceID); err != nil {
 				return err
 			}
+		case mfile.ContentTypeCredential:
+			// Credential - cascade to provider details
+			if err := c.q.DeleteCredential(ctx, *file.ContentID); err != nil {
+				return err
+			}
 		case mfile.ContentTypeFolder:
 			// Content deletion handled by recursion above (folders don't have separate content tables)
 		}
@@ -104,6 +109,11 @@ func (c *Context) DeleteFileBatch(ctx context.Context, items []FileDeleteItem) e
 					ID:          *item.ContentID,
 					WorkspaceID: item.WorkspaceID,
 				})
+			case mfile.ContentTypeCredential:
+				// Credentials don't have a batch delete helper yet, delete one by one
+				if err := c.q.DeleteCredential(ctx, *item.ContentID); err != nil {
+					return err
+				}
 			}
 		}
 	}
