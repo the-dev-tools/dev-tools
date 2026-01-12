@@ -109,7 +109,7 @@ const server = pipe(
     );
 
     yield* pipe(
-      path.join(dist, 'server'),
+      path.join(dist, os.platform() === 'win32' ? 'server.exe' : 'server'),
       String.replaceAll('app.asar', 'app.asar.unpacked'),
       Command.make,
       Command.env({
@@ -261,7 +261,10 @@ const cli = pipe(
       Effect.flatMap(path.fromFileUrl),
     );
 
-    const bin = pipe(path.join(dist, 'cli'), String.replaceAll('app.asar', 'app.asar.unpacked'));
+    const bin = pipe(
+      path.join(dist, os.platform() === 'win32' ? 'cli.exe' : 'cli'),
+      String.replaceAll('app.asar', 'app.asar.unpacked'),
+    );
 
     yield* pipe(Command.make(bin, ...args), Command.stdout('inherit'), Command.stderr('inherit'), Command.exitCode);
 

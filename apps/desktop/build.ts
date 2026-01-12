@@ -8,8 +8,8 @@ const config: Configuration = {
   artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
   asarUnpack: [
     'resources/**',
-    '**/node_modules/@the-dev-tools/server/dist/server',
-    '**/node_modules/@the-dev-tools/cli/dist/cli',
+    '**/node_modules/@the-dev-tools/server/dist/server*',
+    '**/node_modules/@the-dev-tools/cli/dist/cli*',
   ],
   extraMetadata: {
     name: 'DevTools',
