@@ -1,3 +1,13 @@
+## 0.1.6 (2026-01-12)
+
+### 🩹 Fixes
+
+- Fix Windows binary path ([2f37717b](https://github.com/the-dev-tools/dev-tools/commit/2f37717b))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.1.5 (2026-01-11)
 
 ### 🩹 Fixes
