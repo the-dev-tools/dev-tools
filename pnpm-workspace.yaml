@@ -157,6 +157,7 @@ overrides:
   '@types/eslint': '-'
 
 patchedDependencies:
+  '@effect/platform-node-shared': patches/@effect__platform-node-shared.patch
   '@nx/eslint': patches/@nx__eslint.patch
   '@react-stately/table': patches/@react-stately__table.patch
 

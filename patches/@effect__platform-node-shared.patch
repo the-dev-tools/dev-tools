@@ -1,0 +1,28 @@
+diff --git a/dist/esm/internal/commandExecutor.js b/dist/esm/internal/commandExecutor.js
+index 0b60da66c81ca7b6d40f31d1f33b26d6d76a277e..47ac3b8d63db4f5537e8d5657a95363abdc99701 100644
+--- a/dist/esm/internal/commandExecutor.js
++++ b/dist/esm/internal/commandExecutor.js
+@@ -46,7 +46,8 @@ const runCommand = fileSystem => command => {
+               ...process.env,
+               ...Object.fromEntries(command.env)
+             },
+-            detached: process.platform !== "win32"
++            detached: process.platform !== "win32",
++            windowsHide: true
+           });
+           handle.on("error", err => {
+             resume(Effect.fail(toPlatformError("spawn", err, command)));
+diff --git a/src/internal/commandExecutor.ts b/src/internal/commandExecutor.ts
+index a0cb175f517f1385bd017e0d9f9e391487380737..8b34d5adcaf2080d0cabab45cda9b7a932d7fab4 100644
+--- a/src/internal/commandExecutor.ts
++++ b/src/internal/commandExecutor.ts
+@@ -69,7 +69,8 @@ const runCommand =
+                   cwd: Option.getOrElse(command.cwd, constUndefined),
+                   shell: command.shell,
+                   env: { ...process.env, ...Object.fromEntries(command.env) },
+-                  detached: process.platform !== "win32"
++                  detached: process.platform !== "win32",
++                  windowsHide: true
+                 })
+                 handle.on("error", (err) => {
+                   resume(Effect.fail(toPlatformError("spawn", err, command)))
