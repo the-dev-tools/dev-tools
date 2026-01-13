@@ -9,32 +9,36 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/googleai"
 	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-func checkLiveTest(t *testing.T, keyName string) string {
-	if os.Getenv("RUN_AI_INTEGRATION_TESTS") != "true" {
-		t.Skip("Skipping live AI integration test (RUN_AI_INTEGRATION_TESTS != true)")
-	}
-	key := os.Getenv(keyName)
-	if key == "" {
-		t.Skipf("Skipping live test: %s not set", keyName)
-	}
-	return key
-}
-
 func TestNodeAI_LiveOpenAI(t *testing.T) {
-	apiKey := checkLiveTest(t, "OPENAI_API_KEY")
+	apiKey := RequireEnv(t, "OPENAI_API_KEY")
+	baseUrl := os.Getenv("OPENAI_BASE_URL")
+	modelName := os.Getenv("OPENAI_MODEL")
+
 	ctx := context.Background()
 
-	llm, err := openai.New(openai.WithToken(apiKey))
+	opts := []openai.Option{
+		openai.WithToken(apiKey),
+	}
+	if baseUrl != "" {
+		opts = append(opts, openai.WithBaseURL(baseUrl))
+	}
+	if modelName != "" {
+		opts = append(opts, openai.WithModel(modelName))
+	}
+
+	llm, err := openai.New(opts...)
 	assert.NoError(t, err)
 
-	n := New(idwrap.NewNow(), "OPENAI_AGENT", "What is the value of 'test_var'? Use get_variable.", nil, nil)
-	n.Model = llm
+	n := New(idwrap.NewNow(), "OPENAI_AGENT", mflow.AiModelGpt52Pro, "", idwrap.IDWrap{}, "What is the value of 'test_var'? Use get_variable.", 0, nil)
+	n.LLM = llm
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -53,14 +57,14 @@ func TestNodeAI_LiveOpenAI(t *testing.T) {
 }
 
 func TestNodeAI_LiveGemini(t *testing.T) {
-	apiKey := checkLiveTest(t, "GEMINI_API_KEY")
+	apiKey := RequireEnv(t, "GEMINI_API_KEY")
 	ctx := context.Background()
 
 	llm, err := googleai.New(ctx, googleai.WithAPIKey(apiKey))
 	assert.NoError(t, err)
 
-	n := New(idwrap.NewNow(), "GEMINI_AGENT", "Greet the user {{user_name}}. Then tell me what is in 'secret_code' variable.", nil, nil)
-	n.Model = llm
+	n := New(idwrap.NewNow(), "GEMINI_AGENT", mflow.AiModelGemini3Pro, "", idwrap.IDWrap{}, "Greet the user {{user_name}}. Then tell me what is in 'secret_code' variable.", 0, nil)
+	n.LLM = llm
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -81,14 +85,14 @@ func TestNodeAI_LiveGemini(t *testing.T) {
 }
 
 func TestNodeAI_LiveAnthropic(t *testing.T) {
-	apiKey := checkLiveTest(t, "ANTHROPIC_API_KEY")
+	apiKey := RequireEnv(t, "ANTHROPIC_API_KEY")
 	ctx := context.Background()
 
 	llm, err := anthropic.New(anthropic.WithToken(apiKey))
 	assert.NoError(t, err)
 
-	n := New(idwrap.NewNow(), "ANTHROPIC_AGENT", "Say 'Claude is here'.", nil, nil)
-	n.Model = llm
+	n := New(idwrap.NewNow(), "ANTHROPIC_AGENT", mflow.AiModelClaudeOpus45, "", idwrap.IDWrap{}, "Say 'Claude is here'.", 0, nil)
+	n.LLM = llm
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),

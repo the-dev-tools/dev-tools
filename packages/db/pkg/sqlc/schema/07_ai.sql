@@ -37,9 +37,10 @@ CREATE TABLE credential_anthropic (
 
 CREATE TABLE flow_node_ai (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  model INT8 NOT NULL, -- AiModel enum: 0=Gpt52Instant, 1=Gpt52Thinking, 2=Gpt52Pro, 3=Gpt52Codex, 4=O3, 5=O4Mini, 6=ClaudeOpus45, 7=ClaudeSonnet45, 8=ClaudeHaiku45, 9=Gemini3Pro, 10=Gemini3Flash
+  model INT8 NOT NULL, -- AiModel enum: 0=Gpt52Instant, 1=Gpt52Thinking, 2=Gpt52Pro, 3=Gpt52Codex, 4=O3, 5=O4Mini, 6=ClaudeOpus45, 7=ClaudeSonnet45, 8=ClaudeHaiku45, 9=Gemini3Pro, 10=Gemini3Flash, 11=Custom
   credential_id BLOB NOT NULL,
   prompt TEXT NOT NULL,
+  max_iterations INT NOT NULL DEFAULT 5,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE CASCADE
 );

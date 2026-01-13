@@ -74,7 +74,7 @@ func TestNodeAIRun(t *testing.T) {
 		return len(msg) == 3 // Prompt + AssistantToolCall + ToolResponse
 	}), mock.Anything).Return(resp2, nil)
 
-	n := New(nodeID, "AI_NODE", mflow.AiModelGpt52Instant, idwrap.IDWrap{}, "hello {{user_name}}", nil)
+	n := New(nodeID, "AI_NODE", mflow.AiModelGpt52Instant, "", idwrap.IDWrap{}, "hello {{user_name}}", 0, nil)
 	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
@@ -101,7 +101,7 @@ func TestNodeAI_MissingProviderFactory(t *testing.T) {
 	nodeID := idwrap.NewNow()
 
 	// No LLM override, no ProviderFactory
-	n := New(nodeID, "AI_NODE", mflow.AiModelGpt52Instant, idwrap.IDWrap{}, "hello", nil)
+	n := New(nodeID, "AI_NODE", mflow.AiModelGpt52Instant, "", idwrap.IDWrap{}, "hello", 0, nil)
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -182,7 +182,7 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 		return len(msgs) > 1 // Has tool response
 	}), mock.Anything).Return(resp2, nil).Once()
 
-	n := New(nodeID, "AI_NODE", mflow.AiModelClaudeOpus45, idwrap.IDWrap{}, "Get all users", nil)
+	n := New(nodeID, "AI_NODE", mflow.AiModelClaudeOpus45, "", idwrap.IDWrap{}, "Get all users", 0, nil)
 	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
@@ -236,10 +236,10 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 		},
 	}
 
-	// Allow up to 5 calls (the loop limit)
-	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(toolCallResp, nil).Times(5)
+	// Allow up to 3 calls
+	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(toolCallResp, nil).Times(3)
 
-	n := New(nodeID, "AI_NODE", mflow.AiModelGemini3Flash, idwrap.IDWrap{}, "Loop forever", nil)
+	n := New(nodeID, "AI_NODE", mflow.AiModelGemini3Flash, "", idwrap.IDWrap{}, "Loop forever", 3, nil)
 	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
@@ -250,10 +250,10 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 	}
 
 	res := n.RunSync(ctx, req)
-	// Should complete without error (just stops after 5 iterations)
+	// Should complete without error (just stops after 3 iterations)
 	assert.NoError(t, res.Err)
 
-	mm.AssertNumberOfCalls(t, "GenerateContent", 5)
+	mm.AssertNumberOfCalls(t, "GenerateContent", 3)
 }
 
 func TestNodeAI_MultipleToolCalls(t *testing.T) {
@@ -305,7 +305,7 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 		return len(msgs) > 1
 	}), mock.Anything).Return(resp2, nil).Once()
 
-	n := New(nodeID, "AI_NODE", mflow.AiModelO3, idwrap.IDWrap{}, "Get both vars", nil)
+	n := New(nodeID, "AI_NODE", mflow.AiModelO3, "", idwrap.IDWrap{}, "Get both vars", 0, nil)
 	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
@@ -326,7 +326,7 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 	mm.AssertExpectations(t)
 }
 
-func TestNodeAI_ToolExecutionError(t *testing.T) {
+func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
 
@@ -349,9 +349,25 @@ func TestNodeAI_ToolExecutionError(t *testing.T) {
 		},
 	}
 
-	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(resp1, nil)
+	// Mock: LLM sees the error and decides to stop with an explanation
+	resp2 := &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				StopReason: "stop",
+				Content:    "The tool failed, so I am stopping.",
+			},
+		},
+	}
 
-	n := New(nodeID, "AI_NODE", mflow.AiModelGpt52Pro, idwrap.IDWrap{}, "Call bad tool", nil)
+	mm.On("GenerateContent", mock.Anything, mock.MatchedBy(func(msgs []llms.MessageContent) bool {
+		return len(msgs) == 1
+	}), mock.Anything).Return(resp1, nil)
+
+	mm.On("GenerateContent", mock.Anything, mock.MatchedBy(func(msgs []llms.MessageContent) bool {
+		return len(msgs) > 1
+	}), mock.Anything).Return(resp2, nil)
+
+	n := New(nodeID, "AI_NODE", mflow.AiModelGpt52Pro, "", idwrap.IDWrap{}, "Call bad tool", 0, nil)
 	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
@@ -360,9 +376,10 @@ func TestNodeAI_ToolExecutionError(t *testing.T) {
 	}
 
 	res := n.RunSync(ctx, req)
-	assert.Error(t, res.Err)
-	assert.Contains(t, res.Err.Error(), "tool execution failed")
-	assert.Contains(t, res.Err.Error(), "nonexistent_tool")
+	assert.NoError(t, res.Err)
+
+	val, _ := node.ReadNodeVar(req, "AI_NODE", "text")
+	assert.Equal(t, "The tool failed, so I am stopping.", val)
 }
 
 func TestNodeAI_LLMError(t *testing.T) {
@@ -377,7 +394,7 @@ func TestNodeAI_LLMError(t *testing.T) {
 		errors.New("API rate limit exceeded"),
 	)
 
-	n := New(nodeID, "AI_NODE", mflow.AiModelClaudeSonnet45, idwrap.IDWrap{}, "hello", nil)
+	n := New(nodeID, "AI_NODE", mflow.AiModelClaudeSonnet45, "", idwrap.IDWrap{}, "hello", 0, nil)
 	n.LLM = mm
 
 	req := &node.FlowNodeRequest{

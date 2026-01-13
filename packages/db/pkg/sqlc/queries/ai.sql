@@ -133,7 +133,10 @@ WHERE
 -- name: GetFlowNodeAI :one
 SELECT
   flow_node_id,
-  prompt
+  model,
+  credential_id,
+  prompt,
+  max_iterations
 FROM
   flow_node_ai
 WHERE
@@ -142,14 +145,17 @@ LIMIT 1;
 
 -- name: CreateFlowNodeAI :exec
 INSERT INTO
-  flow_node_ai (flow_node_id, prompt)
+  flow_node_ai (flow_node_id, model, credential_id, prompt, max_iterations)
 VALUES
-  (?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeAI :exec
 UPDATE flow_node_ai
 SET
-  prompt = ?
+  model = ?,
+  credential_id = ?,
+  prompt = ?,
+  max_iterations = ?
 WHERE
   flow_node_id = ?;
 

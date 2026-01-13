@@ -23,10 +23,11 @@ func NewNodeTool(target node.FlowNode, req *node.FlowNodeRequest) *NodeTool {
 }
 
 func (nt *NodeTool) AsLangChainTool() llms.Tool {
+	name := sanitizeToolName(nt.TargetNode.GetName())
 	return llms.Tool{
 		Type: "function",
 		Function: &llms.FunctionDefinition{
-			Name:        nt.TargetNode.GetName(),
+			Name:        name,
 			Description: fmt.Sprintf("Executes the flow node: %s", nt.TargetNode.GetName()),
 			Parameters: map[string]any{
 				"type":       "object",

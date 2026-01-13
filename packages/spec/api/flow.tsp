@@ -89,9 +89,13 @@ enum AiModel {
   // Google - Gemini 3 family
   Gemini3Pro,
   Gemini3Flash,
+
+  Custom,
 }
 
 enum FlowItemState {
+// ... (skip lines to match context if needed, but easier to do separate calls)
+
   Running,
   Success,
   Failure,
@@ -157,9 +161,10 @@ model NodeJs {
 @TanStackDB.collection
 model NodeAi {
   @primaryKey nodeId: Id;
-  model: AiModel;
+  `model`: AiModel;
   @foreignKey credentialId: Id;
   prompt: string;
+  maxIterations: int32;
 }
 
 @TanStackDB.collection(#{ isReadOnly: true })

@@ -20,14 +20,22 @@ type WorkspaceCredentials struct {
 	GeminiKey    string
 }
 
+// ICredentialService defines the read operations required by the factory
+type ICredentialService interface {
+	GetCredential(ctx context.Context, id idwrap.IDWrap) (*mcredential.Credential, error)
+	GetCredentialOpenAI(ctx context.Context, id idwrap.IDWrap) (*mcredential.CredentialOpenAI, error)
+	GetCredentialGemini(ctx context.Context, id idwrap.IDWrap) (*mcredential.CredentialGemini, error)
+	GetCredentialAnthropic(ctx context.Context, id idwrap.IDWrap) (*mcredential.CredentialAnthropic, error)
+}
+
 type LLMProviderFactory struct {
-	service     *CredentialService
+	service     ICredentialService
 	credentials *WorkspaceCredentials
 }
 
-func NewLLMProviderFactory(service CredentialService) *LLMProviderFactory {
+func NewLLMProviderFactory(service ICredentialService) *LLMProviderFactory {
 	return &LLMProviderFactory{
-		service: &service,
+		service: service,
 	}
 }
 
@@ -39,7 +47,7 @@ func NewLLMProviderFactoryWithCredentials(creds *WorkspaceCredentials) *LLMProvi
 }
 
 // CreateModelWithCredential creates an LLM client using the specified model and credential
-func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiModel mflow.AiModel, credentialID idwrap.IDWrap) (llms.Model, error) {
+func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiModel mflow.AiModel, customModel string, credentialID idwrap.IDWrap) (llms.Model, error) {
 	if f.service == nil {
 		return nil, fmt.Errorf("credential service not configured")
 	}
@@ -49,22 +57,40 @@ func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiMo
 		return nil, fmt.Errorf("failed to get credential: %w", err)
 	}
 
-	modelStr := aiModel.ModelString()
-	provider := aiModel.Provider()
+	var modelStr string
+	var provider string
 
-	// Validate that credential matches the model's provider
-	credProvider := ""
-	switch cred.Kind {
-	case mcredential.CREDENTIAL_KIND_OPENAI:
-		credProvider = "openai"
-	case mcredential.CREDENTIAL_KIND_GEMINI:
-		credProvider = "google"
-	case mcredential.CREDENTIAL_KIND_ANTHROPIC:
-		credProvider = "anthropic"
-	}
+	if aiModel == mflow.AiModelCustom {
+		modelStr = customModel
+		// For custom models, we rely on the credential to determine the provider
+		switch cred.Kind {
+		case mcredential.CREDENTIAL_KIND_OPENAI:
+			provider = "openai"
+		case mcredential.CREDENTIAL_KIND_GEMINI:
+			provider = "google"
+		case mcredential.CREDENTIAL_KIND_ANTHROPIC:
+			provider = "anthropic"
+		default:
+			return nil, fmt.Errorf("unknown provider for custom model with credential kind: %v", cred.Kind)
+		}
+	} else {
+		modelStr = aiModel.ModelString()
+		provider = aiModel.Provider()
 
-	if credProvider != provider {
-		return nil, fmt.Errorf("credential type (%s) does not match model provider (%s)", credProvider, provider)
+		// Validate that credential matches the model's provider
+		credProvider := ""
+		switch cred.Kind {
+		case mcredential.CREDENTIAL_KIND_OPENAI:
+			credProvider = "openai"
+		case mcredential.CREDENTIAL_KIND_GEMINI:
+			credProvider = "google"
+		case mcredential.CREDENTIAL_KIND_ANTHROPIC:
+			credProvider = "anthropic"
+		}
+
+		if credProvider != provider {
+			return nil, fmt.Errorf("credential type (%s) does not match model provider (%s)", credProvider, provider)
+		}
 	}
 
 	switch cred.Kind {

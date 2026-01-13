@@ -211,19 +211,29 @@ func TestAiAndCredentials(t *testing.T) {
 	t.Run("FlowNodeAiCRUD", func(t *testing.T) {
 		flowID := idwrap.NewNow()
 		nodeID := idwrap.NewNow()
+		credID := idwrap.NewNow()
+
+		// Create Credential for FK
+		err := queries.CreateCredential(ctx, gen.CreateCredentialParams{
+			ID:          credID,
+			WorkspaceID: workspaceID,
+			Name:        "Test Cred",
+			Kind:        0,
+		})
+		if err != nil {
+			t.Fatalf("failed to create credential: %v", err)
+		}
 
 		// Setup Flow and Node
 		if _, err := db.ExecContext(ctx, "INSERT INTO flow (id, workspace_id, name) VALUES (?, ?, ?)", flowID.Bytes(), workspaceID.Bytes(), "Flow"); err != nil {
 			t.Fatalf("failed to insert flow: %v", err)
 		}
-		// Kind 4 = AI Node? Wait, I should check NodeKind in spec.
-		// enum NodeKind { For, ForEach, Js, Ai }
-		// 0=For, 1=ForEach, 2=Js, 3=Ai
-		err := queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
+		
+		err = queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 			ID:        nodeID,
 			FlowID:    flowID,
 			Name:      "AI Task",
-			NodeKind:  3, // Ai
+			NodeKind:  6, // Ai
 			PositionX: 100,
 			PositionY: 200,
 		})
@@ -233,8 +243,11 @@ func TestAiAndCredentials(t *testing.T) {
 
 		// Create FlowNodeAI
 		err = queries.CreateFlowNodeAI(ctx, gen.CreateFlowNodeAIParams{
-			FlowNodeID: nodeID,
-			Prompt:     "Summarize this: {{input}}",
+			FlowNodeID:    nodeID,
+			Model:         0,
+			CredentialID:  credID.Bytes(),
+			Prompt:        "Summarize this: {{input}}",
+			MaxIterations: 5,
 		})
 		if err != nil {
 			t.Fatalf("failed to create flow node ai: %v", err)
@@ -248,11 +261,17 @@ func TestAiAndCredentials(t *testing.T) {
 		if nodeAi.Prompt != "Summarize this: {{input}}" {
 			t.Errorf("unexpected prompt")
 		}
+		if nodeAi.MaxIterations != 5 {
+			t.Errorf("unexpected max iterations")
+		}
 
 		// Update
 		err = queries.UpdateFlowNodeAI(ctx, gen.UpdateFlowNodeAIParams{
-			FlowNodeID: nodeID,
-			Prompt:     "Updated prompt",
+			FlowNodeID:    nodeID,
+			Model:         0,
+			CredentialID:  credID.Bytes(),
+			Prompt:        "Updated prompt",
+			MaxIterations: 10,
 		})
 		if err != nil {
 			t.Fatalf("failed to update flow node ai: %v", err)
@@ -261,6 +280,9 @@ func TestAiAndCredentials(t *testing.T) {
 		nodeAi, _ = queries.GetFlowNodeAI(ctx, nodeID)
 		if nodeAi.Prompt != "Updated prompt" {
 			t.Errorf("update failed")
+		}
+		if nodeAi.MaxIterations != 10 {
+			t.Errorf("update failed max iterations")
 		}
 
 		// Delete
