@@ -8,6 +8,8 @@ import (
 	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/googleai"
 	"github.com/tmc/langchaingo/llms/openai"
+	"google.golang.org/api/option"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -117,6 +119,9 @@ func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiMo
 			googleai.WithAPIKey(geminiCred.ApiKey),
 			googleai.WithDefaultModel(modelStr),
 		}
+		if geminiCred.BaseUrl != nil {
+			opts = append(opts, googleai.WithClientOptions(option.WithEndpoint(*geminiCred.BaseUrl)))
+		}
 		return googleai.New(ctx, opts...)
 
 	case mcredential.CREDENTIAL_KIND_ANTHROPIC:
@@ -169,9 +174,7 @@ func (f *LLMProviderFactory) CreateModel(ctx context.Context, credentialID idwra
 			googleai.WithAPIKey(geminiCred.ApiKey),
 		}
 		if geminiCred.BaseUrl != nil {
-			// Note: LangChain Go googleai might not support custom base URL yet, 
-			// checking common option names.
-			// opts = append(opts, googleai.WithBaseURL(*geminiCred.BaseUrl))
+			opts = append(opts, googleai.WithClientOptions(option.WithEndpoint(*geminiCred.BaseUrl)))
 		}
 
 		return googleai.New(ctx, opts...)

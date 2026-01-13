@@ -35,5 +35,3 @@ coverage.out
 packages/server/server
 tools/collect_go_failures.py
 /server
-# Conductor
-conductor/
