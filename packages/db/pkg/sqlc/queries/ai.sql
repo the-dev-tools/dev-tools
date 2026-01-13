@@ -44,7 +44,8 @@ WHERE
 SELECT
   credential_id,
   token,
-  base_url
+  base_url,
+  encryption_type
 FROM
   credential_openai
 WHERE
@@ -53,15 +54,16 @@ LIMIT 1;
 
 -- name: CreateCredentialOpenAI :exec
 INSERT INTO
-  credential_openai (credential_id, token, base_url)
+  credential_openai (credential_id, token, base_url, encryption_type)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateCredentialOpenAI :exec
 UPDATE credential_openai
 SET
   token = ?,
-  base_url = ?
+  base_url = ?,
+  encryption_type = ?
 WHERE
   credential_id = ?;
 
@@ -74,7 +76,8 @@ WHERE
 SELECT
   credential_id,
   api_key,
-  base_url
+  base_url,
+  encryption_type
 FROM
   credential_gemini
 WHERE
@@ -83,15 +86,16 @@ LIMIT 1;
 
 -- name: CreateCredentialGemini :exec
 INSERT INTO
-  credential_gemini (credential_id, api_key, base_url)
+  credential_gemini (credential_id, api_key, base_url, encryption_type)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateCredentialGemini :exec
 UPDATE credential_gemini
 SET
   api_key = ?,
-  base_url = ?
+  base_url = ?,
+  encryption_type = ?
 WHERE
   credential_id = ?;
 
@@ -104,7 +108,8 @@ WHERE
 SELECT
   credential_id,
   api_key,
-  base_url
+  base_url,
+  encryption_type
 FROM
   credential_anthropic
 WHERE
@@ -113,15 +118,16 @@ LIMIT 1;
 
 -- name: CreateCredentialAnthropic :exec
 INSERT INTO
-  credential_anthropic (credential_id, api_key, base_url)
+  credential_anthropic (credential_id, api_key, base_url, encryption_type)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?);
 
 -- name: UpdateCredentialAnthropic :exec
 UPDATE credential_anthropic
 SET
   api_key = ?,
-  base_url = ?
+  base_url = ?,
+  encryption_type = ?
 WHERE
   credential_id = ?;
 

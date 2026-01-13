@@ -2,7 +2,9 @@ package scredential
 
 import (
 	"database/sql"
+
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 )
 
@@ -24,80 +26,94 @@ func ConvertCredentialToDB(mc mcredential.Credential) gen.Credential {
 	}
 }
 
-func ConvertDBToCredentialOpenAI(c gen.CredentialOpenai) *mcredential.CredentialOpenAI {
+// ConvertDBToCredentialOpenAIRaw converts DB row to model with raw secret (bytes).
+// Caller is responsible for decryption using the EncryptionType.
+func ConvertDBToCredentialOpenAIRaw(c gen.CredentialOpenai) (*mcredential.CredentialOpenAI, []byte) {
 	var baseUrl *string
 	if c.BaseUrl.Valid {
 		baseUrl = &c.BaseUrl.String
 	}
 
 	return &mcredential.CredentialOpenAI{
-		CredentialID: c.CredentialID,
-		Token:        c.Token,
-		BaseUrl:      baseUrl,
-	}
+		CredentialID:   c.CredentialID,
+		Token:          "", // Will be set by caller after decryption
+		BaseUrl:        baseUrl,
+		EncryptionType: credvault.EncryptionType(c.EncryptionType),
+	}, c.Token
 }
 
-func ConvertCredentialOpenAIToDB(mc mcredential.CredentialOpenAI) gen.CredentialOpenai {
+// ConvertCredentialOpenAIToDB converts model to DB row with encrypted secret.
+// Caller is responsible for encrypting the secret before calling.
+func ConvertCredentialOpenAIToDB(mc mcredential.CredentialOpenAI, encryptedToken []byte) gen.CredentialOpenai {
 	var baseUrl sql.NullString
 	if mc.BaseUrl != nil {
 		baseUrl = sql.NullString{String: *mc.BaseUrl, Valid: true}
 	}
 
 	return gen.CredentialOpenai{
-		CredentialID: mc.CredentialID,
-		Token:        mc.Token,
-		BaseUrl:      baseUrl,
+		CredentialID:   mc.CredentialID,
+		Token:          encryptedToken,
+		BaseUrl:        baseUrl,
+		EncryptionType: int8(mc.EncryptionType),
 	}
 }
 
-func ConvertDBToCredentialGemini(c gen.CredentialGemini) *mcredential.CredentialGemini {
+// ConvertDBToCredentialGeminiRaw converts DB row to model with raw secret (bytes).
+func ConvertDBToCredentialGeminiRaw(c gen.CredentialGemini) (*mcredential.CredentialGemini, []byte) {
 	var baseUrl *string
 	if c.BaseUrl.Valid {
 		baseUrl = &c.BaseUrl.String
 	}
 
 	return &mcredential.CredentialGemini{
-		CredentialID: c.CredentialID,
-		ApiKey:       c.ApiKey,
-		BaseUrl:      baseUrl,
-	}
+		CredentialID:   c.CredentialID,
+		ApiKey:         "", // Will be set by caller after decryption
+		BaseUrl:        baseUrl,
+		EncryptionType: credvault.EncryptionType(c.EncryptionType),
+	}, c.ApiKey
 }
 
-func ConvertCredentialGeminiToDB(mc mcredential.CredentialGemini) gen.CredentialGemini {
+// ConvertCredentialGeminiToDB converts model to DB row with encrypted secret.
+func ConvertCredentialGeminiToDB(mc mcredential.CredentialGemini, encryptedKey []byte) gen.CredentialGemini {
 	var baseUrl sql.NullString
 	if mc.BaseUrl != nil {
 		baseUrl = sql.NullString{String: *mc.BaseUrl, Valid: true}
 	}
 
 	return gen.CredentialGemini{
-		CredentialID: mc.CredentialID,
-		ApiKey:       mc.ApiKey,
-		BaseUrl:      baseUrl,
+		CredentialID:   mc.CredentialID,
+		ApiKey:         encryptedKey,
+		BaseUrl:        baseUrl,
+		EncryptionType: int8(mc.EncryptionType),
 	}
 }
 
-func ConvertDBToCredentialAnthropic(c gen.CredentialAnthropic) *mcredential.CredentialAnthropic {
+// ConvertDBToCredentialAnthropicRaw converts DB row to model with raw secret (bytes).
+func ConvertDBToCredentialAnthropicRaw(c gen.CredentialAnthropic) (*mcredential.CredentialAnthropic, []byte) {
 	var baseUrl *string
 	if c.BaseUrl.Valid {
 		baseUrl = &c.BaseUrl.String
 	}
 
 	return &mcredential.CredentialAnthropic{
-		CredentialID: c.CredentialID,
-		ApiKey:       c.ApiKey,
-		BaseUrl:      baseUrl,
-	}
+		CredentialID:   c.CredentialID,
+		ApiKey:         "", // Will be set by caller after decryption
+		BaseUrl:        baseUrl,
+		EncryptionType: credvault.EncryptionType(c.EncryptionType),
+	}, c.ApiKey
 }
 
-func ConvertCredentialAnthropicToDB(mc mcredential.CredentialAnthropic) gen.CredentialAnthropic {
+// ConvertCredentialAnthropicToDB converts model to DB row with encrypted secret.
+func ConvertCredentialAnthropicToDB(mc mcredential.CredentialAnthropic, encryptedKey []byte) gen.CredentialAnthropic {
 	var baseUrl sql.NullString
 	if mc.BaseUrl != nil {
 		baseUrl = sql.NullString{String: *mc.BaseUrl, Valid: true}
 	}
 
 	return gen.CredentialAnthropic{
-		CredentialID: mc.CredentialID,
-		ApiKey:       mc.ApiKey,
-		BaseUrl:      baseUrl,
+		CredentialID:   mc.CredentialID,
+		ApiKey:         encryptedKey,
+		BaseUrl:        baseUrl,
+		EncryptionType: int8(mc.EncryptionType),
 	}
 }

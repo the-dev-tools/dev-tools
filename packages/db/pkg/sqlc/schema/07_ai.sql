@@ -16,22 +16,25 @@ CREATE INDEX credential_workspace_idx ON credential (workspace_id);
 
 CREATE TABLE credential_openai (
   credential_id BLOB NOT NULL PRIMARY KEY,
-  token TEXT NOT NULL,
+  token BLOB NOT NULL, -- Encrypted or plaintext depending on encryption_type
   base_url TEXT,
+  encryption_type INT8 NOT NULL DEFAULT 0, -- 0=None, 1=XChaCha20-Poly1305, 2=AES-256-GCM
   FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE CASCADE
 );
 
 CREATE TABLE credential_gemini (
   credential_id BLOB NOT NULL PRIMARY KEY,
-  api_key TEXT NOT NULL,
+  api_key BLOB NOT NULL, -- Encrypted or plaintext depending on encryption_type
   base_url TEXT,
+  encryption_type INT8 NOT NULL DEFAULT 0, -- 0=None, 1=XChaCha20-Poly1305, 2=AES-256-GCM
   FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE CASCADE
 );
 
 CREATE TABLE credential_anthropic (
   credential_id BLOB NOT NULL PRIMARY KEY,
-  api_key TEXT NOT NULL,
+  api_key BLOB NOT NULL, -- Encrypted or plaintext depending on encryption_type
   base_url TEXT,
+  encryption_type INT8 NOT NULL DEFAULT 0, -- 0=None, 1=XChaCha20-Poly1305, 2=AES-256-GCM
   FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE CASCADE
 );
 
