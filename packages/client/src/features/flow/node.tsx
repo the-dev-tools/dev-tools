@@ -1,9 +1,16 @@
 import { create } from '@bufbuild/protobuf';
-import { debounceStrategy, eq, useLiveQuery, usePacedMutations } from '@tanstack/react-db';
+import {
+  createCollection,
+  debounceStrategy,
+  eq,
+  localOnlyCollectionOptions,
+  useLiveQuery,
+  usePacedMutations,
+} from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
-import { Array, HashMap, HashSet, Match, Option, pipe } from 'effect';
+import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
+import { ReactNode, useContext, useState } from 'react';
 import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
@@ -30,61 +37,72 @@ import { rootRouteApi } from '~/routes';
 import { eqStruct, pick } from '~/utils/tanstack-db';
 import { FlowContext } from './context';
 
-export interface NodeStateContext {
-  setNodeSelection: Dispatch<SetStateAction<HashSet.HashSet<string>>>;
-}
+class NodeClient extends Schema.Class<NodeClient>('NodeClient')({
+  dimensions: pipe(
+    Schema.Struct({ height: Schema.Number, width: Schema.Number }),
+    Schema.optionalWith({ default: () => ({ height: 0, width: 0 }) }),
+  ),
+  nodeId: Schema.Uint8ArrayFromSelf,
+  selected: pipe(Schema.Boolean, Schema.optionalWith({ default: () => false })),
+}) {}
 
-export const NodeStateContext = createContext({} as NodeStateContext);
+export const nodeClientCollection = createCollection(
+  localOnlyCollectionOptions({
+    getKey: (_) => Ulid.construct(_.nodeId).toCanonical(),
+    schema: Schema.standardSchemaV1(NodeClient),
+  }),
+);
 
 export const useNodesState = () => {
   const { transport } = rootRouteApi.useRouteContext();
   const { flowId } = useContext(FlowContext);
 
-  const collection = useApiCollection(NodeCollectionSchema);
+  const nodeServerCollection = useApiCollection(NodeCollectionSchema);
 
-  const [selection, setSelection] = useState(HashSet.empty<string>());
-  const [dimensions, setDimensions] = useState(HashMap.empty<string, { height: number; width: number }>());
+  const items: XF.Node[] = useLiveQuery(
+    (_) => {
+      const server = _.from({ server: nodeServerCollection })
+        .where((_) => eq(_.server.flowId, flowId))
+        .fn.select((_) => ({ ..._.server, nodeId: Ulid.construct(_.server.nodeId).toCanonical() }));
 
-  const items = pipe(
-    useLiveQuery(
-      (_) =>
-        _.from({ item: collection })
-          .where((_) => eq(_.item.flowId, flowId))
-          .select((_) => pick(_.item, 'nodeId', 'position', 'kind')),
-      [flowId, collection],
-    ).data,
-    Array.map((_): XF.Node => {
-      const id = Ulid.construct(_.nodeId).toCanonical();
-      return {
-        data: {},
-        id,
-        measured: pipe(
-          HashMap.get(dimensions, id),
-          Option.getOrElse(() => ({ height: 0, width: 0 })),
-        ),
-        origin: [0.5, 0],
-        position: _.position,
-        selected: HashSet.has(selection, id),
-        type: _.kind.toString(),
-      };
-    }),
-  );
+      const client = _.from({ client: nodeClientCollection }).fn.select((_) => ({
+        // eslint-disable-next-line @typescript-eslint/no-misused-spread
+        ..._.client,
+        nodeId: Ulid.construct(_.client.nodeId).toCanonical(),
+      }));
+
+      return _.from({ server })
+        .join({ client }, (_) => eq(_.server.nodeId, _.client.nodeId))
+        .fn.select(
+          (_): XF.Node => ({
+            data: {},
+            id: _.server.nodeId,
+            measured: _.client?.dimensions ?? { height: 0, width: 0 },
+            origin: [0.5, 0],
+            position: _.server.position,
+            selected: _.client?.selected ?? false,
+            type: _.server.kind.toString(),
+          }),
+        );
+    },
+    [flowId, nodeServerCollection],
+  ).data;
 
   const handlePositionChange = usePacedMutations<XF.NodePositionChange>({
     mutationFn: async ({ transaction }) => {
       const mutationTime = Date.now();
       const items = transaction.mutations.map((_) => ({
-        ...collection.utils.parseKeyUnsafe(_.key as string),
+        ...nodeServerCollection.utils.parseKeyUnsafe(_.key as string),
         ..._.changes,
       }));
       await Connect.request({ input: { items }, method: FlowService.method.nodeUpdate, transport });
-      await collection.utils.waitForSync(mutationTime);
+      await nodeServerCollection.utils.waitForSync(mutationTime);
     },
     onMutate: (_) => {
       if (!_.position) return;
       const { x, y } = _.position;
-      const key = collection.utils.getKey({ nodeId: Ulid.fromCanonical(_.id).bytes });
-      collection.update(key, (_) => {
+      const key = nodeServerCollection.utils.getKey({ nodeId: Ulid.fromCanonical(_.id).bytes });
+      nodeServerCollection.update(key, (_) => {
         _.position.x = x;
         _.position.y = y;
       });
@@ -95,36 +113,33 @@ export const useNodesState = () => {
   const onChange: XF.OnNodesChange = (_) => {
     const changes = Array.groupBy(_, (_) => _.type) as { [T in XF.NodeChange as T['type']]?: T[] };
 
-    setSelection(
-      HashSet.mutate(
-        (selection) =>
-          void changes.select?.forEach((_) => {
-            if (_.selected) HashSet.add(selection, _.id);
-            else HashSet.remove(selection, _.id);
-          }),
-      ),
-    );
+    changes.select?.forEach(({ id, selected }) => {
+      if (!nodeClientCollection.has(id)) nodeClientCollection.insert({ nodeId: Ulid.fromCanonical(id).bytes });
+      nodeClientCollection.update(id, (_) => (_.selected = selected));
+    });
 
-    setDimensions(
-      HashMap.mutate(
-        (dimensions) =>
-          void changes.dimensions?.forEach((_) => {
-            if (_.dimensions) HashMap.set(dimensions, _.id, _.dimensions);
-          }),
-      ),
-    );
+    changes.dimensions?.forEach(({ dimensions, id }) => {
+      if (!dimensions) return;
+      if (!nodeClientCollection.has(id)) nodeClientCollection.insert({ nodeId: Ulid.fromCanonical(id).bytes });
+      nodeClientCollection.update(id, (_) => (_.dimensions = dimensions));
+    });
 
     changes.position?.forEach(handlePositionChange);
 
-    if (changes.remove?.length)
+    if (changes.remove?.length) {
       pipe(
-        changes.remove,
-        Array.map((_) => collection.utils.getKeyObject({ nodeId: Ulid.fromCanonical(_.id).bytes })),
-        (_) => collection.utils.delete(_),
+        changes.remove.map((_) => nodeServerCollection.utils.getKeyObject({ nodeId: Ulid.fromCanonical(_.id).bytes })),
+        nodeServerCollection.utils.delete,
       );
+
+      pipe(
+        changes.remove.map((_) => _.id),
+        nodeClientCollection.delete,
+      );
+    }
   };
 
-  return { nodes: items, onNodesChange: onChange, setNodeSelection: setSelection };
+  return { nodes: items, onNodesChange: onChange };
 };
 
 const nodeBodyStyles = tv({

@@ -52,7 +52,7 @@ import { pick, queryCollection } from '~/utils/tanstack-db';
 import { AddNodeSidebar } from './add-node';
 import { FlowContext } from './context';
 import { ConnectionLine, edgeTypes, useEdgeState } from './edge';
-import { NodeStateContext, useNodesState } from './node';
+import { useNodesState } from './node';
 import { ConditionNode, ConditionSettings } from './nodes/condition';
 import { ForNode, ForSettings } from './nodes/for';
 import { ForEachNode, ForEachSettings } from './nodes/for-each';
@@ -121,7 +121,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const ref = useRef<HTMLDivElement>(null);
 
-  const { nodes, onNodesChange, setNodeSelection } = useNodesState();
+  const { nodes, onNodesChange } = useNodesState();
   const { edges, onEdgesChange } = useEdgeState();
   const { onViewportChange, viewport } = useViewport();
 
@@ -197,7 +197,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const statusBarEndSlot = document.getElementById('statusBarEndSlot');
 
   return (
-    <NodeStateContext value={{ setNodeSelection }}>
+    <>
       {statusBarEndSlot &&
         createPortal(
           <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
@@ -249,7 +249,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         />
         {children}
       </XF.ReactFlow>
-    </NodeStateContext>
+    </>
   );
 };
 

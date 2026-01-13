@@ -1,9 +1,9 @@
 import { create } from '@bufbuild/protobuf';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import { createCollection, eq, localOnlyCollectionOptions, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
-import { Array, HashSet, pipe } from 'effect';
+import { Array, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { useContext, useState } from 'react';
+import { useContext } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
 import { EdgeSchema, FlowItemState, HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
@@ -15,52 +15,69 @@ import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from './context';
 import { HandleHalo } from './handle';
 
+class EdgeClient extends Schema.Class<EdgeClient>('EdgeClient')({
+  edgeId: Schema.Uint8ArrayFromSelf,
+  selected: pipe(Schema.Boolean, Schema.optionalWith({ default: () => false })),
+}) {}
+
+export const edgeClientCollection = createCollection(
+  localOnlyCollectionOptions({
+    getKey: (_) => Ulid.construct(_.edgeId).toCanonical(),
+    schema: Schema.standardSchemaV1(EdgeClient),
+  }),
+);
+
 export const useEdgeState = () => {
   const { flowId } = useContext(FlowContext);
 
-  const collection = useApiCollection(EdgeCollectionSchema);
+  const edgeServerCollection = useApiCollection(EdgeCollectionSchema);
 
-  const [selection, setSelection] = useState(HashSet.empty<string>());
+  const items = useLiveQuery(
+    (_) => {
+      const server = _.from({ server: edgeServerCollection })
+        .where((_) => eq(_.server.flowId, flowId))
+        .fn.select((_) => ({ ..._.server, edgeId: Ulid.construct(_.server.edgeId).toCanonical() }));
 
-  const items = pipe(
-    useLiveQuery(
-      (_) =>
-        _.from({ item: collection })
-          .where((_) => eq(_.item.flowId, flowId))
-          .select((_) => pick(_.item, 'edgeId', 'sourceId', 'sourceHandle', 'targetId')),
-      [collection, flowId],
-    ).data,
-    Array.map((_): XF.Edge => {
-      const id = Ulid.construct(_.edgeId).toCanonical();
-      return {
-        id,
-        selected: HashSet.has(selection, id),
-        source: Ulid.construct(_.sourceId).toCanonical(),
-        sourceHandle: _.sourceHandle === HandleKind.UNSPECIFIED ? null : _.sourceHandle.toString(),
-        target: Ulid.construct(_.targetId).toCanonical(),
-      };
-    }),
-  );
+      const client = _.from({ client: edgeClientCollection }).fn.select((_) => ({
+        // eslint-disable-next-line @typescript-eslint/no-misused-spread
+        ..._.client,
+        edgeId: Ulid.construct(_.client.edgeId).toCanonical(),
+      }));
+
+      return _.from({ server })
+        .join({ client }, (_) => eq(_.server.edgeId, _.client.edgeId))
+        .fn.select(
+          (_): XF.Edge => ({
+            id: _.server.edgeId,
+            selected: _.client?.selected ?? false,
+            source: Ulid.construct(_.server.sourceId).toCanonical(),
+            sourceHandle: _.server.sourceHandle === HandleKind.UNSPECIFIED ? null : _.server.sourceHandle.toString(),
+            target: Ulid.construct(_.server.targetId).toCanonical(),
+          }),
+        );
+    },
+    [edgeServerCollection, flowId],
+  ).data;
 
   const onChange: XF.OnEdgesChange = (_) => {
     const changes = Array.groupBy(_, (_) => _.type) as { [T in XF.EdgeChange as T['type']]?: T[] };
 
-    setSelection(
-      HashSet.mutate(
-        (selection) =>
-          void changes.select?.forEach((_) => {
-            if (_.selected) HashSet.add(selection, _.id);
-            else HashSet.remove(selection, _.id);
-          }),
-      ),
-    );
+    changes.select?.forEach(({ id, selected }) => {
+      if (!edgeClientCollection.has(id)) edgeClientCollection.insert({ edgeId: Ulid.fromCanonical(id).bytes });
+      edgeClientCollection.update(id, (_) => (_.selected = selected));
+    });
 
-    if (changes.remove?.length)
+    if (changes.remove?.length) {
       pipe(
-        changes.remove,
-        Array.map((_) => collection.utils.getKeyObject({ edgeId: Ulid.fromCanonical(_.id).bytes })),
-        (_) => collection.utils.delete(_),
+        changes.remove.map((_) => edgeServerCollection.utils.getKeyObject({ edgeId: Ulid.fromCanonical(_.id).bytes })),
+        edgeServerCollection.utils.delete,
       );
+
+      pipe(
+        changes.remove.map((_) => _.id),
+        edgeClientCollection.delete,
+      );
+    }
   };
 
   return { edges: items, onEdgesChange: onChange };
