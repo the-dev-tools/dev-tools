@@ -41,3 +41,23 @@ func TestVariableTools(t *testing.T) {
 		assert.Equal(t, float64(123), val) // json.Unmarshal defaults to float64 for numbers
 	})
 }
+
+func TestSanitizeToolName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"plain", "my_tool", "my_tool"},
+		{"with spaces", "my tool", "my_tool"},
+		{"special chars", "my-tool! @#$", "my-tool_____"},
+		{"leading/trailing", "  tool  ", "__tool__"},
+		{"alphanumeric", "Tool123", "Tool123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, sanitizeToolName(tt.input))
+		})
+	}
+}

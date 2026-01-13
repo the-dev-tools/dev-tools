@@ -4,10 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 )
+
+var toolNameRegex = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+
+func sanitizeToolName(name string) string {
+	return toolNameRegex.ReplaceAllString(name, "_")
+}
 
 // getVariableTool allows the agent to read a variable from the flow's context.
 func getVariableTool(req *node.FlowNodeRequest) llms.Tool {

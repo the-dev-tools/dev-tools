@@ -87,8 +87,11 @@ type FlowNode struct {
 }
 
 type FlowNodeAi struct {
-	FlowNodeID idwrap.IDWrap
-	Prompt     string
+	FlowNodeID    idwrap.IDWrap
+	Model         int8
+	CredentialID  []byte
+	Prompt        string
+	MaxIterations int32
 }
 
 type FlowNodeCondition struct {

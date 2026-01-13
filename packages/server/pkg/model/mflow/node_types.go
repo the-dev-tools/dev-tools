@@ -86,6 +86,9 @@ const (
 	// Google - Gemini 3 family
 	AiModelGemini3Pro
 	AiModelGemini3Flash
+
+	// Custom
+	AiModelCustom
 )
 
 // ModelString returns the API model string for the LLM provider
@@ -113,6 +116,8 @@ func (m AiModel) ModelString() string {
 		return "gemini-3-pro"
 	case AiModelGemini3Flash:
 		return "gemini-3-flash"
+	case AiModelCustom:
+		return "" // Handled via CustomModel field
 	default:
 		return "gpt-5.2-instant"
 	}
@@ -127,14 +132,18 @@ func (m AiModel) Provider() string {
 		return "anthropic"
 	case AiModelGemini3Pro, AiModelGemini3Flash:
 		return "google"
+	case AiModelCustom:
+		return "custom"
 	default:
 		return "openai"
 	}
 }
 
 type NodeAI struct {
-	FlowNodeID   idwrap.IDWrap
-	Model        AiModel
-	CredentialID idwrap.IDWrap
-	Prompt       string
+	FlowNodeID    idwrap.IDWrap
+	Model         AiModel
+	CustomModel   string
+	CredentialID  idwrap.IDWrap
+	Prompt        string
+	MaxIterations int32
 }

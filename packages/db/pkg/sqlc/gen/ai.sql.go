@@ -92,18 +92,27 @@ func (q *Queries) CreateCredentialOpenAI(ctx context.Context, arg CreateCredenti
 
 const createFlowNodeAI = `-- name: CreateFlowNodeAI :exec
 INSERT INTO
-  flow_node_ai (flow_node_id, prompt)
+  flow_node_ai (flow_node_id, model, credential_id, prompt, max_iterations)
 VALUES
-  (?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeAIParams struct {
-	FlowNodeID idwrap.IDWrap
-	Prompt     string
+	FlowNodeID    idwrap.IDWrap
+	Model         int8
+	CredentialID  []byte
+	Prompt        string
+	MaxIterations int32
 }
 
 func (q *Queries) CreateFlowNodeAI(ctx context.Context, arg CreateFlowNodeAIParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeAIStmt, createFlowNodeAI, arg.FlowNodeID, arg.Prompt)
+	_, err := q.exec(ctx, q.createFlowNodeAIStmt, createFlowNodeAI,
+		arg.FlowNodeID,
+		arg.Model,
+		arg.CredentialID,
+		arg.Prompt,
+		arg.MaxIterations,
+	)
 	return err
 }
 
@@ -287,7 +296,10 @@ func (q *Queries) GetCredentialsByWorkspaceID(ctx context.Context, workspaceID i
 const getFlowNodeAI = `-- name: GetFlowNodeAI :one
 SELECT
   flow_node_id,
-  prompt
+  model,
+  credential_id,
+  prompt,
+  max_iterations
 FROM
   flow_node_ai
 WHERE
@@ -298,7 +310,13 @@ LIMIT 1
 func (q *Queries) GetFlowNodeAI(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeAi, error) {
 	row := q.queryRow(ctx, q.getFlowNodeAIStmt, getFlowNodeAI, flowNodeID)
 	var i FlowNodeAi
-	err := row.Scan(&i.FlowNodeID, &i.Prompt)
+	err := row.Scan(
+		&i.FlowNodeID,
+		&i.Model,
+		&i.CredentialID,
+		&i.Prompt,
+		&i.MaxIterations,
+	)
 	return i, err
 }
 
@@ -385,17 +403,29 @@ func (q *Queries) UpdateCredentialOpenAI(ctx context.Context, arg UpdateCredenti
 const updateFlowNodeAI = `-- name: UpdateFlowNodeAI :exec
 UPDATE flow_node_ai
 SET
-  prompt = ?
+  model = ?,
+  credential_id = ?,
+  prompt = ?,
+  max_iterations = ?
 WHERE
   flow_node_id = ?
 `
 
 type UpdateFlowNodeAIParams struct {
-	Prompt     string
-	FlowNodeID idwrap.IDWrap
+	Model         int8
+	CredentialID  []byte
+	Prompt        string
+	MaxIterations int32
+	FlowNodeID    idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeAI(ctx context.Context, arg UpdateFlowNodeAIParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeAIStmt, updateFlowNodeAI, arg.Prompt, arg.FlowNodeID)
+	_, err := q.exec(ctx, q.updateFlowNodeAIStmt, updateFlowNodeAI,
+		arg.Model,
+		arg.CredentialID,
+		arg.Prompt,
+		arg.MaxIterations,
+		arg.FlowNodeID,
+	)
 	return err
 }

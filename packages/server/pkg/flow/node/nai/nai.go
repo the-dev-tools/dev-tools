@@ -13,24 +13,28 @@ import (
 )
 
 type NodeAI struct {
-	FlowNodeID   idwrap.IDWrap
-	Name         string
-	AiModel      mflow.AiModel
-	CredentialID idwrap.IDWrap
-	Prompt       string
+	FlowNodeID    idwrap.IDWrap
+	Name          string
+	AiModel       mflow.AiModel
+	CustomModel   string
+	CredentialID  idwrap.IDWrap
+	Prompt        string
+	MaxIterations int32
 	// ProviderFactory creates LLM clients from credentials
 	ProviderFactory *scredential.LLMProviderFactory
 	// Override model for testing
 	LLM llms.Model
 }
 
-func New(id idwrap.IDWrap, name string, aiModel mflow.AiModel, credentialID idwrap.IDWrap, prompt string, factory *scredential.LLMProviderFactory) *NodeAI {
+func New(id idwrap.IDWrap, name string, aiModel mflow.AiModel, customModel string, credentialID idwrap.IDWrap, prompt string, maxIterations int32, factory *scredential.LLMProviderFactory) *NodeAI {
 	return &NodeAI{
 		FlowNodeID:      id,
 		Name:            name,
 		AiModel:         aiModel,
+		CustomModel:     customModel,
 		CredentialID:    credentialID,
 		Prompt:          prompt,
+		MaxIterations:   maxIterations,
 		ProviderFactory: factory,
 	}
 }
@@ -57,7 +61,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 
 		var err error
-		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, n.AiModel, n.CredentialID)
+		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, n.AiModel, n.CustomModel, n.CredentialID)
 		if err != nil {
 			return node.FlowNodeResult{
 				NextNodeID: next,
@@ -86,7 +90,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 		nt := NewNodeTool(targetNode, req)
 		lcTools = append(lcTools, nt.AsLangChainTool())
-		toolMap[targetNode.GetName()] = nt
+		toolMap[sanitizeToolName(targetNode.GetName())] = nt
 	}
 
 	// 3. Initialize Agent
@@ -147,7 +151,11 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	}
 
 	var finalResponse string
-	for range 5 { // Limit to 5 iterations
+	maxIters := int(n.MaxIterations)
+	if maxIters <= 0 {
+		maxIters = 5
+	}
+	for range maxIters {
 		resp, err := model.GenerateContent(ctx, messages, options...)
 		if err != nil {
 			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("agent error: %w", err)}
@@ -172,7 +180,8 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		for _, tc := range choice.ToolCalls {
 			result, err := executor(ctx, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
 			if err != nil {
-				return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("tool execution failed: %w", err)}
+				// Feed the error back to the LLM instead of failing the node
+				result = fmt.Sprintf("Error: %v", err)
 			}
 			
 			// Add tool response to history

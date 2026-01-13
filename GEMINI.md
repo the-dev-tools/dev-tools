@@ -78,6 +78,24 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Seeding:** Use `BaseTestServices.CreateTempCollection` to quickly seed workspace/user/collection state.
 - **Parallelism:** Safe to use `t.Parallel()` *only* if each subtest creates its own independent DB.
 
+### Go Integration Testing Pattern
+Use this pattern for tests that require external services (APIs, Cloud), cost money, or are too slow for standard CI.
+
+- **Naming Convention:** Start files with `integration_` (e.g., `integration_providers_test.go`).
+- **Build Tags:** Use specific tags to exclude from default `go test`.
+  - Example: `//go:build ai_integration`
+- **Safety Guard:** Always check an explicit environment variable at the start of the test to prevent accidental execution.
+  - Example: `if os.Getenv("RUN_XX_INTEGRATION") != "true" { t.Skip() }`
+- **Example Implementation (AI Node):**
+  - **Location:** `packages/server/pkg/flow/node/nai/integration_*.go`
+  - **Tag:** `ai_integration`
+  - **Guard:** `RUN_AI_INTEGRATION_TESTS=true`
+  - **Env Vars:**
+    - `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`
+    - `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`
+    - `GEMINI_API_KEY`
+  - **Command:** `RUN_AI_INTEGRATION_TESTS=true OPENAI_API_KEY=sk-... go test -tags ai_integration -v ./packages/server/pkg/flow/node/nai`
+
 ### TypeScript/React (Client/Desktop)
 - **State/Effects:** Effect-TS and TanStack Query.
 - **Styling:** Tailwind CSS v4. Co-located with components.
