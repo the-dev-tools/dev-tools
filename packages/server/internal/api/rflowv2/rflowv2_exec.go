@@ -628,6 +628,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		forEachData   *mflow.NodeForEach
 		conditionData *mflow.NodeIf
 		jsData        *mflow.NodeJS
+		aiData        *mflow.NodeAI
 	}
 
 	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))
@@ -673,6 +674,14 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			} else if jsData != nil {
 				config.jsData = jsData
 			}
+
+		case mflow.NODE_KIND_AI:
+			aiData, err := s.nais.GetNodeAI(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get ai node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if aiData != nil {
+				config.aiData = aiData
+			}
 		}
 
 		nodeConfigs = append(nodeConfigs, config)
@@ -693,6 +702,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	nfesWriter := s.nfes.TX(tx)
 	nifsWriter := s.nifs.TX(tx)
 	njssWriter := s.njss.TX(tx)
+	var naisWriter *sflow.NodeAIService
+	if s.nais != nil {
+		txService := s.nais.TX(tx)
+		naisWriter = &txService
+	}
 	edgeWriter := s.es.TX(tx)
 	varWriter := s.fvs.TX(tx)
 
@@ -828,6 +842,32 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				FlowID: versionFlowID,
 				Node:   serializeNodeJs(newJsData),
 			})
+
+		case mflow.NODE_KIND_AI:
+			// Skip if AI service is not available
+			if naisWriter == nil {
+				s.logger.Warn("NodeAI service not available, skipping AI node config", "node_id", sourceNode.ID.String())
+			} else {
+				// Always create AI node config with defaults
+				newAIData := mflow.NodeAI{
+					FlowNodeID:    newNodeID,
+					Model:         mflow.AiModelGpt52Instant, // default model
+					Prompt:        "",                        // default empty
+					MaxIterations: 5,                         // default
+				}
+				if config.aiData != nil {
+					// Override with actual values
+					newAIData.Model = config.aiData.Model
+					newAIData.CustomModel = config.aiData.CustomModel
+					newAIData.CredentialID = config.aiData.CredentialID
+					newAIData.Prompt = config.aiData.Prompt
+					newAIData.MaxIterations = config.aiData.MaxIterations
+				}
+				if err := naisWriter.CreateNodeAI(ctx, newAIData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create ai node: %w", err)
+				}
+				// AI node events are handled through nodeStream subscription
+			}
 		}
 
 		// Collect base node event

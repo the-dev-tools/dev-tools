@@ -73,30 +73,34 @@ enum NodeKind {
 enum AiModel {
   // OpenAI - GPT-5.2 family
   Gpt52Instant,
+
   Gpt52Thinking,
   Gpt52Pro,
   Gpt52Codex,
 
   // OpenAI - Reasoning models
   O3,
+
   O4Mini,
 
   // Anthropic - Claude 4.5 family
   ClaudeOpus45,
+
   ClaudeSonnet45,
   ClaudeHaiku45,
 
   // Google - Gemini 3 family
   Gemini3Pro,
-  Gemini3Flash,
 
+  Gemini3Flash,
   Custom,
 }
 
 enum FlowItemState {
-// ... (skip lines to match context if needed, but easier to do separate calls)
+  // ... (skip lines to match context if needed, but easier to do separate calls)
 
   Running,
+
   Success,
   Failure,
   Canceled,

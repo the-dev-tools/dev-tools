@@ -68,7 +68,7 @@ func (w *CredentialWriter) CreateCredentialOpenAI(ctx context.Context, cred *mcr
 		CredentialID:   cred.CredentialID,
 		Token:          tokenBytes,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(encType),
+		EncryptionType: encType,
 	})
 }
 
@@ -87,7 +87,7 @@ func (w *CredentialWriter) CreateCredentialGemini(ctx context.Context, cred *mcr
 		CredentialID:   cred.CredentialID,
 		ApiKey:         keyBytes,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(encType),
+		EncryptionType: encType,
 	})
 }
 
@@ -106,7 +106,7 @@ func (w *CredentialWriter) CreateCredentialAnthropic(ctx context.Context, cred *
 		CredentialID:   cred.CredentialID,
 		ApiKey:         keyBytes,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(encType),
+		EncryptionType: encType,
 	})
 }
 
@@ -133,7 +133,7 @@ func (w *CredentialWriter) UpdateCredentialOpenAI(ctx context.Context, cred *mcr
 		CredentialID:   cred.CredentialID,
 		Token:          tokenBytes,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(encType),
+		EncryptionType: encType,
 	})
 }
 
@@ -152,7 +152,7 @@ func (w *CredentialWriter) UpdateCredentialGemini(ctx context.Context, cred *mcr
 		CredentialID:   cred.CredentialID,
 		ApiKey:         keyBytes,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(encType),
+		EncryptionType: encType,
 	})
 }
 
@@ -171,7 +171,7 @@ func (w *CredentialWriter) UpdateCredentialAnthropic(ctx context.Context, cred *
 		CredentialID:   cred.CredentialID,
 		ApiKey:         keyBytes,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(encType),
+		EncryptionType: encType,
 	})
 }
 

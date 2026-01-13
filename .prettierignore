@@ -3,6 +3,7 @@
 *.har
 AGENTS.md
 CHANGELOG.md
+conductor/
 dist
 flake.lock
 GEMINI.md

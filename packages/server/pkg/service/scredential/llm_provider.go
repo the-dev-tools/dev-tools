@@ -63,17 +63,7 @@ func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiMo
 
 	if aiModel == mflow.AiModelCustom {
 		modelStr = customModel
-		// For custom models, we rely on the credential to determine the provider
-		switch cred.Kind {
-		case mcredential.CREDENTIAL_KIND_OPENAI:
-			provider = "openai"
-		case mcredential.CREDENTIAL_KIND_GEMINI:
-			provider = "google"
-		case mcredential.CREDENTIAL_KIND_ANTHROPIC:
-			provider = "anthropic"
-		default:
-			return nil, fmt.Errorf("unknown provider for custom model with credential kind: %v", cred.Kind)
-		}
+		// For custom models, provider is determined by credential kind below
 	} else {
 		modelStr = aiModel.ModelString()
 		provider = aiModel.Provider()

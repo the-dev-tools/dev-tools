@@ -29,7 +29,7 @@ func TestAiAndCredentials(t *testing.T) {
 
 	t.Run("CredentialCRUD", func(t *testing.T) {
 		credID := idwrap.NewNow()
-		
+
 		// Create
 		err := queries.CreateCredential(ctx, gen.CreateCredentialParams{
 			ID:          credID,
@@ -42,9 +42,10 @@ func TestAiAndCredentials(t *testing.T) {
 		}
 
 		err = queries.CreateCredentialOpenAI(ctx, gen.CreateCredentialOpenAIParams{
-			CredentialID: credID,
-			Token:        "sk-12345",
-			BaseUrl:      sql.NullString{Valid: false},
+			CredentialID:   credID,
+			Token:          []byte("sk-12345"),
+			BaseUrl:        sql.NullString{Valid: false},
+			EncryptionType: 0, // No encryption for tests
 		})
 		if err != nil {
 			t.Fatalf("failed to create credential openai: %v", err)
@@ -63,22 +64,23 @@ func TestAiAndCredentials(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get credential openai: %v", err)
 		}
-		if credOpenAI.Token != "sk-12345" {
-			t.Errorf("expected token 'sk-12345', got '%s'", credOpenAI.Token)
+		if string(credOpenAI.Token) != "sk-12345" {
+			t.Errorf("expected token 'sk-12345', got '%s'", string(credOpenAI.Token))
 		}
 
 		// Update
 		err = queries.UpdateCredentialOpenAI(ctx, gen.UpdateCredentialOpenAIParams{
-			CredentialID: credID,
-			Token:        "sk-updated",
-			BaseUrl:      sql.NullString{String: "https://api.openai.com/v1", Valid: true},
+			CredentialID:   credID,
+			Token:          []byte("sk-updated"),
+			BaseUrl:        sql.NullString{String: "https://api.openai.com/v1", Valid: true},
+			EncryptionType: 0,
 		})
 		if err != nil {
 			t.Fatalf("failed to update credential openai: %v", err)
 		}
 
 		credOpenAI, _ = queries.GetCredentialOpenAI(ctx, credID)
-		if credOpenAI.Token != "sk-updated" || credOpenAI.BaseUrl.String != "https://api.openai.com/v1" {
+		if string(credOpenAI.Token) != "sk-updated" || credOpenAI.BaseUrl.String != "https://api.openai.com/v1" {
 			t.Errorf("update failed")
 		}
 
@@ -109,9 +111,10 @@ func TestAiAndCredentials(t *testing.T) {
 		}
 
 		err = queries.CreateCredentialGemini(ctx, gen.CreateCredentialGeminiParams{
-			CredentialID: credID,
-			ApiKey:       "gemini-123",
-			BaseUrl:      sql.NullString{Valid: false},
+			CredentialID:   credID,
+			ApiKey:         []byte("gemini-123"),
+			BaseUrl:        sql.NullString{Valid: false},
+			EncryptionType: 0,
 		})
 		if err != nil {
 			t.Fatalf("failed to create credential gemini: %v", err)
@@ -128,20 +131,21 @@ func TestAiAndCredentials(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get credential gemini: %v", err)
 		}
-		assert.Equal(t, "gemini-123", credGemini.ApiKey)
+		assert.Equal(t, "gemini-123", string(credGemini.ApiKey))
 
 		// Update
 		err = queries.UpdateCredentialGemini(ctx, gen.UpdateCredentialGeminiParams{
-			CredentialID: credID,
-			ApiKey:       "gemini-updated",
-			BaseUrl:      sql.NullString{String: "https://gemini.api", Valid: true},
+			CredentialID:   credID,
+			ApiKey:         []byte("gemini-updated"),
+			BaseUrl:        sql.NullString{String: "https://gemini.api", Valid: true},
+			EncryptionType: 0,
 		})
 		if err != nil {
 			t.Fatalf("failed to update credential gemini: %v", err)
 		}
 
 		credGemini, _ = queries.GetCredentialGemini(ctx, credID)
-		assert.Equal(t, "gemini-updated", credGemini.ApiKey)
+		assert.Equal(t, "gemini-updated", string(credGemini.ApiKey))
 		assert.Equal(t, "https://gemini.api", credGemini.BaseUrl.String)
 
 		// Delete
@@ -166,9 +170,10 @@ func TestAiAndCredentials(t *testing.T) {
 		}
 
 		err = queries.CreateCredentialAnthropic(ctx, gen.CreateCredentialAnthropicParams{
-			CredentialID: credID,
-			ApiKey:       "claude-123",
-			BaseUrl:      sql.NullString{Valid: false},
+			CredentialID:   credID,
+			ApiKey:         []byte("claude-123"),
+			BaseUrl:        sql.NullString{Valid: false},
+			EncryptionType: 0,
 		})
 		if err != nil {
 			t.Fatalf("failed to create credential anthropic: %v", err)
@@ -185,20 +190,21 @@ func TestAiAndCredentials(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get credential anthropic: %v", err)
 		}
-		assert.Equal(t, "claude-123", credAnthropic.ApiKey)
+		assert.Equal(t, "claude-123", string(credAnthropic.ApiKey))
 
 		// Update
 		err = queries.UpdateCredentialAnthropic(ctx, gen.UpdateCredentialAnthropicParams{
-			CredentialID: credID,
-			ApiKey:       "claude-updated",
-			BaseUrl:      sql.NullString{String: "https://anthropic.api", Valid: true},
+			CredentialID:   credID,
+			ApiKey:         []byte("claude-updated"),
+			BaseUrl:        sql.NullString{String: "https://anthropic.api", Valid: true},
+			EncryptionType: 0,
 		})
 		if err != nil {
 			t.Fatalf("failed to update credential anthropic: %v", err)
 		}
 
 		credAnthropic, _ = queries.GetCredentialAnthropic(ctx, credID)
-		assert.Equal(t, "claude-updated", credAnthropic.ApiKey)
+		assert.Equal(t, "claude-updated", string(credAnthropic.ApiKey))
 		assert.Equal(t, "https://anthropic.api", credAnthropic.BaseUrl.String)
 
 		// Delete
@@ -228,7 +234,7 @@ func TestAiAndCredentials(t *testing.T) {
 		if _, err := db.ExecContext(ctx, "INSERT INTO flow (id, workspace_id, name) VALUES (?, ?, ?)", flowID.Bytes(), workspaceID.Bytes(), "Flow"); err != nil {
 			t.Fatalf("failed to insert flow: %v", err)
 		}
-		
+
 		err = queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 			ID:        nodeID,
 			FlowID:    flowID,

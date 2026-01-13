@@ -35,6 +35,7 @@ const (
 	EntityFlowNodeForEach
 	EntityFlowNodeCondition
 	EntityFlowNodeJS
+	EntityFlowNodeAI
 	EntityFlowEdge
 	EntityFlowVariable
 	EntityFlowTag
@@ -51,6 +52,21 @@ const (
 	OpUpdate
 	OpDelete
 )
+
+// String returns the string representation of the operation.
+// Used for event type in sync streaming ("insert", "update", "delete").
+func (o Operation) String() string {
+	switch o {
+	case OpInsert:
+		return "insert"
+	case OpUpdate:
+		return "update"
+	case OpDelete:
+		return "delete"
+	default:
+		return ""
+	}
+}
 
 // Event represents a single mutation event.
 // Events are collected during a mutation transaction and published on commit.
