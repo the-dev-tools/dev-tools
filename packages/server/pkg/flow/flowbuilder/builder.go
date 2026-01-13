@@ -10,6 +10,7 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nfor"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nforeach"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nif"
@@ -21,6 +22,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
@@ -34,13 +36,15 @@ type Builder struct {
 	NodeForEach *sflow.NodeForEachService
 	NodeIf      *sflow.NodeIfService
 	NodeJS      *sflow.NodeJsService
+	NodeAI      *sflow.NodeAIService
 
 	Workspace    *sworkspace.WorkspaceService
 	Variable     *senv.VariableService
 	FlowVariable *sflow.FlowVariableService
 
-	Resolver resolver.RequestResolver
-	Logger   *slog.Logger
+	Resolver           resolver.RequestResolver
+	Logger             *slog.Logger
+	LLMProviderFactory *scredential.LLMProviderFactory
 }
 
 func New(
@@ -50,24 +54,28 @@ func New(
 	nfes *sflow.NodeForEachService,
 	nifs *sflow.NodeIfService,
 	njss *sflow.NodeJsService,
+	nais *sflow.NodeAIService,
 	ws *sworkspace.WorkspaceService,
 	vs *senv.VariableService,
 	fvs *sflow.FlowVariableService,
 	resolver resolver.RequestResolver,
 	logger *slog.Logger,
+	llmFactory *scredential.LLMProviderFactory,
 ) *Builder {
 	return &Builder{
-		Node:         ns,
-		NodeRequest:  nrs,
-		NodeFor:      nfs,
-		NodeForEach:  nfes,
-		NodeIf:       nifs,
-		NodeJS:       njss,
-		Workspace:    ws,
-		Variable:     vs,
-		FlowVariable: fvs,
-		Resolver:     resolver,
-		Logger:       logger,
+		Node:               ns,
+		NodeRequest:        nrs,
+		NodeFor:            nfs,
+		NodeForEach:        nfes,
+		NodeIf:             nifs,
+		NodeJS:             njss,
+		NodeAI:             nais,
+		Workspace:          ws,
+		Variable:           vs,
+		FlowVariable:       fvs,
+		Resolver:           resolver,
+		Logger:             logger,
+		LLMProviderFactory: llmFactory,
 	}
 }
 
@@ -178,6 +186,35 @@ func (b *Builder) BuildNodes(
 					}
 				}
 				flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), jsClient)
+			}
+		case mflow.NODE_KIND_AI:
+			aiCfg, err := b.NodeAI.GetNodeAI(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if aiCfg == nil {
+				// Default AI node with empty prompt
+				flowNodeMap[nodeModel.ID] = nai.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					mflow.AiModelGpt52Instant,
+					"",
+					idwrap.IDWrap{},
+					"",
+					5,
+					b.LLMProviderFactory,
+				)
+			} else {
+				flowNodeMap[nodeModel.ID] = nai.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					aiCfg.Model,
+					aiCfg.CustomModel,
+					aiCfg.CredentialID,
+					aiCfg.Prompt,
+					aiCfg.MaxIterations,
+					b.LLMProviderFactory,
+				)
 			}
 		default:
 			return nil, idwrap.IDWrap{}, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)

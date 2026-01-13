@@ -67,11 +67,13 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		&forEachService,
 		ifService,
 		&jsService,
+		nil, // NodeAIService
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
 		logger,
+		nil, // LLMProviderFactory
 	)
 
 	svc := &FlowServiceV2RPC{

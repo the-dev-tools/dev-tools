@@ -23,10 +23,10 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcodec"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcompress"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
-	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhealth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
@@ -42,9 +42,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
@@ -164,8 +164,8 @@ func run() error {
 	fileService := sfile.New(queries, logger)
 
 	// Credential Service
-	credentialService := scredential.NewCredentialService(queries, logger)
-	credentialReader := scredential.NewCredentialReader(currentDB, logger)
+	credentialService := scredential.NewCredentialService(queries)
+	credentialReader := scredential.NewCredentialReader(currentDB)
 
 	// Flow
 	flowService := sflow.NewFlowService(queries)
@@ -188,6 +188,7 @@ func run() error {
 	flowNodeForeachService := sflow.NewNodeForEachService(queries)
 	flowNodeConditionService := sflow.NewNodeIfService(queries)
 	flowNodeNodeJsService := sflow.NewNodeJsService(queries)
+	flowNodeAIService := sflow.NewNodeAIService(queries)
 
 	nodeExecutionService := sflow.NewNodeExecutionService(queries)
 	nodeExecutionReader := sflow.NewNodeExecutionReader(currentDB)
@@ -445,6 +446,7 @@ func run() error {
 			NodeForEach:   &flowNodeForeachService,
 			NodeIf:        flowNodeConditionService,
 			NodeJs:        &flowNodeNodeJsService,
+			NodeAI:        &flowNodeAIService,
 			NodeExecution: &nodeExecutionService,
 			FlowVariable:  &flowVariableService,
 			Env:           &environmentService,
@@ -454,6 +456,7 @@ func run() error {
 			HttpResponse:  httpResponseService,
 			File:          fileService,
 			Importer:      workspaceImporter,
+			Credential:    credentialService,
 		},
 		Streamers: rflowv2.FlowServiceV2Streamers{
 			Flow:               streamers.Flow,
@@ -465,6 +468,7 @@ func run() error {
 			Condition:          streamers.Condition,
 			ForEach:            streamers.ForEach,
 			Js:                 streamers.Js,
+			Ai:                 streamers.Ai,
 			Execution:          streamers.Execution,
 			HttpResponse:       streamers.HttpResponse,
 			HttpResponseHeader: streamers.HttpResponseHeader,
@@ -660,6 +664,7 @@ type Streamers struct {
 	Condition           eventstream.SyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent]
 	ForEach             eventstream.SyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent]
 	Js                  eventstream.SyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent]
+	Ai                  eventstream.SyncStreamer[rflowv2.AiTopic, rflowv2.AiEvent]
 	Execution           eventstream.SyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]
 	File                eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 	Credential          eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent]
@@ -691,6 +696,7 @@ func NewStreamers() *Streamers {
 		Condition:           memory.NewInMemorySyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent](),
 		ForEach:             memory.NewInMemorySyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent](),
 		Js:                  memory.NewInMemorySyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent](),
+		Ai:                  memory.NewInMemorySyncStreamer[rflowv2.AiTopic, rflowv2.AiEvent](),
 		Execution:           memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent](),
 		File:                memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 		Credential:          memory.NewInMemorySyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent](),
@@ -722,6 +728,7 @@ func (s *Streamers) Shutdown() {
 	s.Condition.Shutdown()
 	s.ForEach.Shutdown()
 	s.Js.Shutdown()
+	s.Ai.Shutdown()
 	s.Execution.Shutdown()
 	s.File.Shutdown()
 	s.Credential.Shutdown()

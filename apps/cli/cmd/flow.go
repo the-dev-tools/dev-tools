@@ -151,11 +151,13 @@ var yamlflowRunCmd = &cobra.Command{
 			&services.NodeForEach,
 			&services.NodeIf,
 			&services.NodeJS,
+			nil, // NodeAIService - not yet supported in CLI
 			&services.Workspace,
 			&services.Variable,
 			&services.FlowVariable,
 			resolver,
 			services.Logger,
+			nil, // LLMProviderFactory - not yet supported in CLI
 		)
 
 		if !quietMode {

@@ -20,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
@@ -180,38 +181,44 @@ type nodeJsWithFlow struct {
 	baseNode *mflow.Node
 }
 
+// Shared event type strings for all entity types.
+// Using mutation.Operation.String() values for consistency.
 const (
-	flowEventInsert = "insert"
-	flowEventUpdate = "update"
-	flowEventDelete = "delete"
+	eventTypeInsert = "insert"
+	eventTypeUpdate = "update"
+	eventTypeDelete = "delete"
+)
 
-	nodeEventInsert = "insert"
-	nodeEventUpdate = "update"
-	nodeEventDelete = "delete"
-
-	edgeEventInsert = "insert"
-	edgeEventUpdate = "update"
-	edgeEventDelete = "delete"
-
-	flowVarEventInsert = "insert"
-	flowVarEventUpdate = "update"
-	flowVarEventDelete = "delete"
-
-	flowVersionEventInsert = "insert"
-	flowVersionEventUpdate = "update"
-	flowVersionEventDelete = "delete"
-
-	forEventInsert = "insert"
-	forEventUpdate = "update"
-	forEventDelete = "delete"
-
-	jsEventInsert = "insert"
-	jsEventUpdate = "update"
-	jsEventDelete = "delete"
-
-	executionEventInsert = "insert"
-	executionEventUpdate = "update"
-	executionEventDelete = "delete"
+// Legacy aliases - all entities now use the shared constants above.
+// These are kept for readability but all point to the same values.
+const (
+	flowEventInsert        = eventTypeInsert
+	flowEventUpdate        = eventTypeUpdate
+	flowEventDelete        = eventTypeDelete
+	nodeEventInsert        = eventTypeInsert
+	nodeEventUpdate        = eventTypeUpdate
+	nodeEventDelete        = eventTypeDelete
+	edgeEventInsert        = eventTypeInsert
+	edgeEventUpdate        = eventTypeUpdate
+	edgeEventDelete        = eventTypeDelete
+	flowVarEventInsert     = eventTypeInsert
+	flowVarEventUpdate     = eventTypeUpdate
+	flowVarEventDelete     = eventTypeDelete
+	flowVersionEventInsert = eventTypeInsert
+	flowVersionEventUpdate = eventTypeUpdate
+	flowVersionEventDelete = eventTypeDelete
+	forEventInsert         = eventTypeInsert
+	forEventUpdate         = eventTypeUpdate
+	forEventDelete         = eventTypeDelete
+	jsEventInsert          = eventTypeInsert
+	jsEventUpdate          = eventTypeUpdate
+	jsEventDelete          = eventTypeDelete
+	executionEventInsert   = eventTypeInsert
+	executionEventUpdate   = eventTypeUpdate
+	executionEventDelete   = eventTypeDelete
+	aiEventInsert          = eventTypeInsert
+	aiEventUpdate          = eventTypeUpdate
+	aiEventDelete          = eventTypeDelete
 )
 
 type FlowServiceV2Readers struct {
@@ -259,6 +266,7 @@ type FlowServiceV2Services struct {
 	NodeForEach   *sflow.NodeForEachService
 	NodeIf        *sflow.NodeIfService
 	NodeJs        *sflow.NodeJsService
+	NodeAI        *sflow.NodeAIService
 	NodeExecution *sflow.NodeExecutionService
 	FlowVariable  *sflow.FlowVariableService
 	Env           *senv.EnvironmentService
@@ -268,6 +276,7 @@ type FlowServiceV2Services struct {
 	HttpResponse  shttp.HttpResponseService
 	File          *sfile.FileService
 	Importer      WorkspaceImporter
+	Credential    scredential.CredentialService
 }
 
 func (s *FlowServiceV2Services) Validate() error {
@@ -329,6 +338,7 @@ type FlowServiceV2Streamers struct {
 	Condition          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
 	ForEach            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	Js                 eventstream.SyncStreamer[JsTopic, JsEvent]
+	Ai                 eventstream.SyncStreamer[AiTopic, AiEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	HttpResponse       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	HttpResponseHeader eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
@@ -385,6 +395,7 @@ type FlowServiceV2RPC struct {
 	nfes     *sflow.NodeForEachService
 	nifs     *sflow.NodeIfService
 	njss     *sflow.NodeJsService
+	nais     *sflow.NodeAIService
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
@@ -405,6 +416,7 @@ type FlowServiceV2RPC struct {
 	conditionStream          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
 	forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
+	aiStream                 eventstream.SyncStreamer[AiTopic, AiEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
@@ -429,11 +441,14 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		panic(fmt.Sprintf("FlowServiceV2 Deps validation failed: %v", err))
 	}
 
+	// Create LLM provider factory if credential service is available
+	llmFactory := scredential.NewLLMProviderFactory(&deps.Services.Credential)
+
 	builder := flowbuilder.New(
 		deps.Services.Node, deps.Services.NodeRequest, deps.Services.NodeFor, deps.Services.NodeForEach,
-		deps.Services.NodeIf, deps.Services.NodeJs,
+		deps.Services.NodeIf, deps.Services.NodeJs, deps.Services.NodeAI,
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
-		deps.Resolver, deps.Logger,
+		deps.Resolver, deps.Logger, llmFactory,
 	)
 
 	return &FlowServiceV2RPC{
@@ -453,6 +468,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		nfes:                     deps.Services.NodeForEach,
 		nifs:                     deps.Services.NodeIf,
 		njss:                     deps.Services.NodeJs,
+		nais:                     deps.Services.NodeAI,
 		nes:                      deps.Services.NodeExecution,
 		fvs:                      deps.Services.FlowVariable,
 		envs:                     deps.Services.Env,
@@ -472,6 +488,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		conditionStream:          deps.Streamers.Condition,
 		forEachStream:            deps.Streamers.ForEach,
 		jsStream:                 deps.Streamers.Js,
+		aiStream:                 deps.Streamers.Ai,
 		executionStream:          deps.Streamers.Execution,
 		httpResponseStream:       deps.Streamers.HttpResponse,
 		httpResponseHeaderStream: deps.Streamers.HttpResponseHeader,
@@ -505,6 +522,7 @@ func (s *FlowServiceV2RPC) mutationPublisher() mutation.Publisher {
 		conditionStream: s.conditionStream,
 		forEachStream:   s.forEachStream,
 		jsStream:        s.jsStream,
+		aiStream:        s.aiStream,
 	}
 }
 
@@ -518,6 +536,7 @@ type rflowPublisher struct {
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
 	forEachStream   eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	jsStream        eventstream.SyncStreamer[JsTopic, JsEvent]
+	aiStream        eventstream.SyncStreamer[AiTopic, AiEvent]
 }
 
 func (p *rflowPublisher) PublishAll(events []mutation.Event) {
@@ -538,6 +557,8 @@ func (p *rflowPublisher) PublishAll(events []mutation.Event) {
 			p.publishNodeForEach(evt)
 		case mutation.EntityFlowNodeJS:
 			p.publishNodeJs(evt)
+		case mutation.EntityFlowNodeAI:
+			p.publishNodeAI(evt)
 		case mutation.EntityFlowEdge:
 			p.publishEdge(evt)
 		case mutation.EntityFlowVariable:
@@ -869,6 +890,39 @@ func (p *rflowPublisher) publishNodeJs(evt mutation.Event) {
 
 	if node != nil {
 		p.jsStream.Publish(JsTopic{FlowID: evt.ParentID}, JsEvent{
+			Type:   eventType,
+			FlowID: evt.ParentID,
+			Node:   node,
+		})
+	}
+}
+
+// AI event constants are defined in the shared constants block above
+
+func (p *rflowPublisher) publishNodeAI(evt mutation.Event) {
+	if p.aiStream == nil {
+		return
+	}
+	var node *flowv1.NodeAi
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		if evt.Op == mutation.OpInsert {
+			eventType = aiEventInsert
+		} else {
+			eventType = aiEventUpdate
+		}
+		if n, ok := evt.Payload.(mflow.NodeAI); ok {
+			node = serializeNodeAI(n)
+		}
+	case mutation.OpDelete:
+		eventType = aiEventDelete
+		node = &flowv1.NodeAi{NodeId: evt.ID.Bytes()}
+	}
+
+	if node != nil {
+		p.aiStream.Publish(AiTopic{FlowID: evt.ParentID}, AiEvent{
 			Type:   eventType,
 			FlowID: evt.ParentID,
 			Node:   node,

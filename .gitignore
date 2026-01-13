@@ -1,5 +1,6 @@
 .claude
 .ai
+conductor
 .direnv
 .env.*.local
 .env.keys

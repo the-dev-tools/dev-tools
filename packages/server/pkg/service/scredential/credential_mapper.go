@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 )
 
@@ -38,7 +37,7 @@ func ConvertDBToCredentialOpenAIRaw(c gen.CredentialOpenai) (*mcredential.Creden
 		CredentialID:   c.CredentialID,
 		Token:          "", // Will be set by caller after decryption
 		BaseUrl:        baseUrl,
-		EncryptionType: credvault.EncryptionType(c.EncryptionType),
+		EncryptionType: c.EncryptionType,
 	}, c.Token
 }
 
@@ -54,7 +53,7 @@ func ConvertCredentialOpenAIToDB(mc mcredential.CredentialOpenAI, encryptedToken
 		CredentialID:   mc.CredentialID,
 		Token:          encryptedToken,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(mc.EncryptionType),
+		EncryptionType: mc.EncryptionType,
 	}
 }
 
@@ -69,7 +68,7 @@ func ConvertDBToCredentialGeminiRaw(c gen.CredentialGemini) (*mcredential.Creden
 		CredentialID:   c.CredentialID,
 		ApiKey:         "", // Will be set by caller after decryption
 		BaseUrl:        baseUrl,
-		EncryptionType: credvault.EncryptionType(c.EncryptionType),
+		EncryptionType: c.EncryptionType,
 	}, c.ApiKey
 }
 
@@ -84,7 +83,7 @@ func ConvertCredentialGeminiToDB(mc mcredential.CredentialGemini, encryptedKey [
 		CredentialID:   mc.CredentialID,
 		ApiKey:         encryptedKey,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(mc.EncryptionType),
+		EncryptionType: mc.EncryptionType,
 	}
 }
 
@@ -99,7 +98,7 @@ func ConvertDBToCredentialAnthropicRaw(c gen.CredentialAnthropic) (*mcredential.
 		CredentialID:   c.CredentialID,
 		ApiKey:         "", // Will be set by caller after decryption
 		BaseUrl:        baseUrl,
-		EncryptionType: credvault.EncryptionType(c.EncryptionType),
+		EncryptionType: c.EncryptionType,
 	}, c.ApiKey
 }
 
@@ -114,6 +113,6 @@ func ConvertCredentialAnthropicToDB(mc mcredential.CredentialAnthropic, encrypte
 		CredentialID:   mc.CredentialID,
 		ApiKey:         encryptedKey,
 		BaseUrl:        baseUrl,
-		EncryptionType: int8(mc.EncryptionType),
+		EncryptionType: mc.EncryptionType,
 	}
 }

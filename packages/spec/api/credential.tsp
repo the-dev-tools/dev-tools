@@ -11,6 +11,7 @@ enum CredentialKind {
 @TanStackDB.collection
 model Credential {
   @primaryKey credentialId: Id;
+  @foreignKey @visibility(Lifecycle.Create) workspaceId: Id;
   name: string;
   kind: CredentialKind;
 }
@@ -25,7 +26,11 @@ model GetCredentialOpenAiRequest {
   credentialId: Id;
 }
 
-op GetCredentialOpenAi(...GetCredentialOpenAiRequest): CredentialOpenAi;
+model GetCredentialOpenAiResponse {
+  ...CredentialOpenAi;
+}
+
+op GetCredentialOpenAi(...GetCredentialOpenAiRequest): GetCredentialOpenAiResponse;
 
 model CredentialGemini {
   @primaryKey credentialId: Id;
@@ -37,7 +42,11 @@ model GetCredentialGeminiRequest {
   credentialId: Id;
 }
 
-op GetCredentialGemini(...GetCredentialGeminiRequest): CredentialGemini;
+model GetCredentialGeminiResponse {
+  ...CredentialGemini;
+}
+
+op GetCredentialGemini(...GetCredentialGeminiRequest): GetCredentialGeminiResponse;
 
 model CredentialAnthropic {
   @primaryKey credentialId: Id;
@@ -49,4 +58,8 @@ model GetCredentialAnthropicRequest {
   credentialId: Id;
 }
 
-op GetCredentialAnthropic(...GetCredentialAnthropicRequest): CredentialAnthropic;
+model GetCredentialAnthropicResponse {
+  ...CredentialAnthropic;
+}
+
+op GetCredentialAnthropic(...GetCredentialAnthropicRequest): GetCredentialAnthropicResponse;

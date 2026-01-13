@@ -88,11 +88,13 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		&nfesService,
 		nifsService,
 		&njssService,
+		nil, // NodeAIService - not needed for non-AI tests
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
 		logger,
+		nil, // LLMProviderFactory - not needed for non-AI tests
 	)
 
 	// Initialize RPC Service

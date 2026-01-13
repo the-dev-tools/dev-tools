@@ -9,4 +9,5 @@ LICENSE
 pnpm-lock.yaml
 scoop.json
 .ai/
+conductor/
 GEMINI.md
