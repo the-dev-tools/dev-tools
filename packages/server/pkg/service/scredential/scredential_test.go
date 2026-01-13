@@ -20,7 +20,7 @@ func TestCredentialService(t *testing.T) {
 	defer cleanup()
 
 	queries := gen.New(db)
-	service := NewCredentialService(queries, nil)
+	service := NewCredentialService(queries) // Uses default logger
 
 	workspaceID := idwrap.NewNow()
 	// Seed workspace

@@ -38,55 +38,73 @@ func (q *Queries) CreateCredential(ctx context.Context, arg CreateCredentialPara
 
 const createCredentialAnthropic = `-- name: CreateCredentialAnthropic :exec
 INSERT INTO
-  credential_anthropic (credential_id, api_key, base_url)
+  credential_anthropic (credential_id, api_key, base_url, encryption_type)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateCredentialAnthropicParams struct {
-	CredentialID idwrap.IDWrap
-	ApiKey       string
-	BaseUrl      sql.NullString
+	CredentialID   idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
 }
 
 func (q *Queries) CreateCredentialAnthropic(ctx context.Context, arg CreateCredentialAnthropicParams) error {
-	_, err := q.exec(ctx, q.createCredentialAnthropicStmt, createCredentialAnthropic, arg.CredentialID, arg.ApiKey, arg.BaseUrl)
+	_, err := q.exec(ctx, q.createCredentialAnthropicStmt, createCredentialAnthropic,
+		arg.CredentialID,
+		arg.ApiKey,
+		arg.BaseUrl,
+		arg.EncryptionType,
+	)
 	return err
 }
 
 const createCredentialGemini = `-- name: CreateCredentialGemini :exec
 INSERT INTO
-  credential_gemini (credential_id, api_key, base_url)
+  credential_gemini (credential_id, api_key, base_url, encryption_type)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateCredentialGeminiParams struct {
-	CredentialID idwrap.IDWrap
-	ApiKey       string
-	BaseUrl      sql.NullString
+	CredentialID   idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
 }
 
 func (q *Queries) CreateCredentialGemini(ctx context.Context, arg CreateCredentialGeminiParams) error {
-	_, err := q.exec(ctx, q.createCredentialGeminiStmt, createCredentialGemini, arg.CredentialID, arg.ApiKey, arg.BaseUrl)
+	_, err := q.exec(ctx, q.createCredentialGeminiStmt, createCredentialGemini,
+		arg.CredentialID,
+		arg.ApiKey,
+		arg.BaseUrl,
+		arg.EncryptionType,
+	)
 	return err
 }
 
 const createCredentialOpenAI = `-- name: CreateCredentialOpenAI :exec
 INSERT INTO
-  credential_openai (credential_id, token, base_url)
+  credential_openai (credential_id, token, base_url, encryption_type)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?)
 `
 
 type CreateCredentialOpenAIParams struct {
-	CredentialID idwrap.IDWrap
-	Token        string
-	BaseUrl      sql.NullString
+	CredentialID   idwrap.IDWrap
+	Token          []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
 }
 
 func (q *Queries) CreateCredentialOpenAI(ctx context.Context, arg CreateCredentialOpenAIParams) error {
-	_, err := q.exec(ctx, q.createCredentialOpenAIStmt, createCredentialOpenAI, arg.CredentialID, arg.Token, arg.BaseUrl)
+	_, err := q.exec(ctx, q.createCredentialOpenAIStmt, createCredentialOpenAI,
+		arg.CredentialID,
+		arg.Token,
+		arg.BaseUrl,
+		arg.EncryptionType,
+	)
 	return err
 }
 
@@ -200,7 +218,8 @@ const getCredentialAnthropic = `-- name: GetCredentialAnthropic :one
 SELECT
   credential_id,
   api_key,
-  base_url
+  base_url,
+  encryption_type
 FROM
   credential_anthropic
 WHERE
@@ -211,7 +230,12 @@ LIMIT 1
 func (q *Queries) GetCredentialAnthropic(ctx context.Context, credentialID idwrap.IDWrap) (CredentialAnthropic, error) {
 	row := q.queryRow(ctx, q.getCredentialAnthropicStmt, getCredentialAnthropic, credentialID)
 	var i CredentialAnthropic
-	err := row.Scan(&i.CredentialID, &i.ApiKey, &i.BaseUrl)
+	err := row.Scan(
+		&i.CredentialID,
+		&i.ApiKey,
+		&i.BaseUrl,
+		&i.EncryptionType,
+	)
 	return i, err
 }
 
@@ -219,7 +243,8 @@ const getCredentialGemini = `-- name: GetCredentialGemini :one
 SELECT
   credential_id,
   api_key,
-  base_url
+  base_url,
+  encryption_type
 FROM
   credential_gemini
 WHERE
@@ -230,7 +255,12 @@ LIMIT 1
 func (q *Queries) GetCredentialGemini(ctx context.Context, credentialID idwrap.IDWrap) (CredentialGemini, error) {
 	row := q.queryRow(ctx, q.getCredentialGeminiStmt, getCredentialGemini, credentialID)
 	var i CredentialGemini
-	err := row.Scan(&i.CredentialID, &i.ApiKey, &i.BaseUrl)
+	err := row.Scan(
+		&i.CredentialID,
+		&i.ApiKey,
+		&i.BaseUrl,
+		&i.EncryptionType,
+	)
 	return i, err
 }
 
@@ -238,7 +268,8 @@ const getCredentialOpenAI = `-- name: GetCredentialOpenAI :one
 SELECT
   credential_id,
   token,
-  base_url
+  base_url,
+  encryption_type
 FROM
   credential_openai
 WHERE
@@ -249,7 +280,12 @@ LIMIT 1
 func (q *Queries) GetCredentialOpenAI(ctx context.Context, credentialID idwrap.IDWrap) (CredentialOpenai, error) {
 	row := q.queryRow(ctx, q.getCredentialOpenAIStmt, getCredentialOpenAI, credentialID)
 	var i CredentialOpenai
-	err := row.Scan(&i.CredentialID, &i.Token, &i.BaseUrl)
+	err := row.Scan(
+		&i.CredentialID,
+		&i.Token,
+		&i.BaseUrl,
+		&i.EncryptionType,
+	)
 	return i, err
 }
 
@@ -344,19 +380,26 @@ const updateCredentialAnthropic = `-- name: UpdateCredentialAnthropic :exec
 UPDATE credential_anthropic
 SET
   api_key = ?,
-  base_url = ?
+  base_url = ?,
+  encryption_type = ?
 WHERE
   credential_id = ?
 `
 
 type UpdateCredentialAnthropicParams struct {
-	ApiKey       string
-	BaseUrl      sql.NullString
-	CredentialID idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
+	CredentialID   idwrap.IDWrap
 }
 
 func (q *Queries) UpdateCredentialAnthropic(ctx context.Context, arg UpdateCredentialAnthropicParams) error {
-	_, err := q.exec(ctx, q.updateCredentialAnthropicStmt, updateCredentialAnthropic, arg.ApiKey, arg.BaseUrl, arg.CredentialID)
+	_, err := q.exec(ctx, q.updateCredentialAnthropicStmt, updateCredentialAnthropic,
+		arg.ApiKey,
+		arg.BaseUrl,
+		arg.EncryptionType,
+		arg.CredentialID,
+	)
 	return err
 }
 
@@ -364,19 +407,26 @@ const updateCredentialGemini = `-- name: UpdateCredentialGemini :exec
 UPDATE credential_gemini
 SET
   api_key = ?,
-  base_url = ?
+  base_url = ?,
+  encryption_type = ?
 WHERE
   credential_id = ?
 `
 
 type UpdateCredentialGeminiParams struct {
-	ApiKey       string
-	BaseUrl      sql.NullString
-	CredentialID idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
+	CredentialID   idwrap.IDWrap
 }
 
 func (q *Queries) UpdateCredentialGemini(ctx context.Context, arg UpdateCredentialGeminiParams) error {
-	_, err := q.exec(ctx, q.updateCredentialGeminiStmt, updateCredentialGemini, arg.ApiKey, arg.BaseUrl, arg.CredentialID)
+	_, err := q.exec(ctx, q.updateCredentialGeminiStmt, updateCredentialGemini,
+		arg.ApiKey,
+		arg.BaseUrl,
+		arg.EncryptionType,
+		arg.CredentialID,
+	)
 	return err
 }
 
@@ -384,19 +434,26 @@ const updateCredentialOpenAI = `-- name: UpdateCredentialOpenAI :exec
 UPDATE credential_openai
 SET
   token = ?,
-  base_url = ?
+  base_url = ?,
+  encryption_type = ?
 WHERE
   credential_id = ?
 `
 
 type UpdateCredentialOpenAIParams struct {
-	Token        string
-	BaseUrl      sql.NullString
-	CredentialID idwrap.IDWrap
+	Token          []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
+	CredentialID   idwrap.IDWrap
 }
 
 func (q *Queries) UpdateCredentialOpenAI(ctx context.Context, arg UpdateCredentialOpenAIParams) error {
-	_, err := q.exec(ctx, q.updateCredentialOpenAIStmt, updateCredentialOpenAI, arg.Token, arg.BaseUrl, arg.CredentialID)
+	_, err := q.exec(ctx, q.updateCredentialOpenAIStmt, updateCredentialOpenAI,
+		arg.Token,
+		arg.BaseUrl,
+		arg.EncryptionType,
+		arg.CredentialID,
+	)
 	return err
 }
 

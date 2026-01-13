@@ -1,9 +1,12 @@
 package scredential
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 )
@@ -36,19 +39,31 @@ func TestCredentialOpenAIMapper(t *testing.T) {
 	baseUrl := "https://api.openai.com"
 
 	mo := mcredential.CredentialOpenAI{
-		CredentialID: id,
-		Token:        "sk-123",
-		BaseUrl:      &baseUrl,
+		CredentialID:   id,
+		Token:          "sk-123",
+		BaseUrl:        &baseUrl,
+		EncryptionType: credvault.EncryptionNone,
 	}
 
-	dbo := ConvertCredentialOpenAIToDB(mo)
+	// Simulate plaintext (no encryption)
+	tokenBytes := []byte(mo.Token)
+	dbo := ConvertCredentialOpenAIToDB(mo, tokenBytes)
 	assert.Equal(t, id, dbo.CredentialID)
-	assert.Equal(t, "sk-123", dbo.Token)
+	assert.Equal(t, tokenBytes, dbo.Token)
 	assert.True(t, dbo.BaseUrl.Valid)
 	assert.Equal(t, baseUrl, dbo.BaseUrl.String)
+	assert.Equal(t, int8(credvault.EncryptionNone), dbo.EncryptionType)
 
-	mo2 := ConvertDBToCredentialOpenAI(dbo)
-	assert.Equal(t, mo.CredentialID, mo2.CredentialID)
-	assert.Equal(t, mo.Token, mo2.Token)
-	assert.Equal(t, *mo.BaseUrl, *mo2.BaseUrl)
+	// Test DB to Model conversion
+	dbRow := gen.CredentialOpenai{
+		CredentialID:   id,
+		Token:          []byte("sk-456"),
+		BaseUrl:        sql.NullString{String: baseUrl, Valid: true},
+		EncryptionType: int8(credvault.EncryptionNone),
+	}
+	mo2, rawToken := ConvertDBToCredentialOpenAIRaw(dbRow)
+	assert.Equal(t, id, mo2.CredentialID)
+	assert.Equal(t, []byte("sk-456"), rawToken)
+	assert.Equal(t, baseUrl, *mo2.BaseUrl)
+	assert.Equal(t, credvault.EncryptionNone, mo2.EncryptionType)
 }

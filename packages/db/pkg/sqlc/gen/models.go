@@ -19,21 +19,24 @@ type Credential struct {
 }
 
 type CredentialAnthropic struct {
-	CredentialID idwrap.IDWrap
-	ApiKey       string
-	BaseUrl      sql.NullString
+	CredentialID   idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
 }
 
 type CredentialGemini struct {
-	CredentialID idwrap.IDWrap
-	ApiKey       string
-	BaseUrl      sql.NullString
+	CredentialID   idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
 }
 
 type CredentialOpenai struct {
-	CredentialID idwrap.IDWrap
-	Token        string
-	BaseUrl      sql.NullString
+	CredentialID   idwrap.IDWrap
+	Token          []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
 }
 
 type Environment struct {

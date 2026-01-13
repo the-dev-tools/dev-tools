@@ -1,6 +1,7 @@
 package mcredential
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
@@ -20,19 +21,22 @@ type Credential struct {
 }
 
 type CredentialOpenAI struct {
-	CredentialID idwrap.IDWrap
-	Token        string
-	BaseUrl      *string
+	CredentialID   idwrap.IDWrap
+	Token          string // Decrypted plaintext at model layer
+	BaseUrl        *string
+	EncryptionType credvault.EncryptionType
 }
 
 type CredentialGemini struct {
-	CredentialID idwrap.IDWrap
-	ApiKey       string
-	BaseUrl      *string
+	CredentialID   idwrap.IDWrap
+	ApiKey         string // Decrypted plaintext at model layer
+	BaseUrl        *string
+	EncryptionType credvault.EncryptionType
 }
 
 type CredentialAnthropic struct {
-	CredentialID idwrap.IDWrap
-	ApiKey       string
-	BaseUrl      *string
+	CredentialID   idwrap.IDWrap
+	ApiKey         string // Decrypted plaintext at model layer
+	BaseUrl        *string
+	EncryptionType credvault.EncryptionType
 }
