@@ -138,6 +138,8 @@ func toAPIFileKind(kind mfile.ContentType) apiv1.FileKind {
 		return apiv1.FileKind_FILE_KIND_HTTP_DELTA
 	case mfile.ContentTypeFlow:
 		return apiv1.FileKind_FILE_KIND_FLOW
+	case mfile.ContentTypeCredential:
+		return apiv1.FileKind_FILE_KIND_CREDENTIAL
 	default:
 		return apiv1.FileKind_FILE_KIND_UNSPECIFIED
 	}
@@ -154,6 +156,8 @@ func fromAPIFileKind(kind apiv1.FileKind) mfile.ContentType {
 		return mfile.ContentTypeHTTPDelta
 	case apiv1.FileKind_FILE_KIND_FLOW:
 		return mfile.ContentTypeFlow
+	case apiv1.FileKind_FILE_KIND_CREDENTIAL:
+		return mfile.ContentTypeCredential
 	default:
 		return mfile.ContentTypeUnknown
 	}

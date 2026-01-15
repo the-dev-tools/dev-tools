@@ -356,17 +356,12 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				if !ok {
 					continue
 				}
+				// Note: Model configuration is now via connected Model nodes (n8n-style)
+				// YAML export only includes prompt and maxIterations
 				aiStep := &YamlStepAI{
 					YamlStepCommon: common,
-					Model:          aiNode.Model.ModelString(),
-					CustomModel:    aiNode.CustomModel,
-					CredentialID:   aiNode.CredentialID.String(),
 					Prompt:         aiNode.Prompt,
 					MaxIterations:  int(aiNode.MaxIterations),
-				}
-				// Use "custom" as model string if it's a custom model
-				if aiNode.Model == mflow.AiModelCustom {
-					aiStep.Model = "custom"
 				}
 				stepWrapper.AI = aiStep
 

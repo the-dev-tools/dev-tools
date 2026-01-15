@@ -68,6 +68,12 @@ enum NodeKind {
   ForEach,
   Js,
   Ai,
+  AiModel,
+  AiMemory,
+}
+
+enum AiMemoryType {
+  WindowBuffer,
 }
 
 enum AiModel {
@@ -165,10 +171,24 @@ model NodeJs {
 @TanStackDB.collection
 model NodeAi {
   @primaryKey nodeId: Id;
-  `model`: AiModel;
-  @foreignKey credentialId: Id;
   prompt: string;
   maxIterations: int32;
+}
+
+@TanStackDB.collection
+model NodeAiModel {
+  @primaryKey nodeId: Id;
+  @foreignKey credentialId: Id;
+  `model`: AiModel;
+  temperature?: float32;
+  maxTokens?: int32;
+}
+
+@TanStackDB.collection
+model NodeAiMemory {
+  @primaryKey nodeId: Id;
+  memoryType: AiMemoryType;
+  windowSize: int32;
 }
 
 @TanStackDB.collection(#{ isReadOnly: true })

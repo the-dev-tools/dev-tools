@@ -40,10 +40,25 @@ CREATE TABLE credential_anthropic (
 
 CREATE TABLE flow_node_ai (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  model INT8 NOT NULL, -- AiModel enum: 0=Gpt52Instant, 1=Gpt52Thinking, 2=Gpt52Pro, 3=Gpt52Codex, 4=O3, 5=O4Mini, 6=ClaudeOpus45, 7=ClaudeSonnet45, 8=ClaudeHaiku45, 9=Gemini3Pro, 10=Gemini3Flash, 11=Custom
-  credential_id BLOB NOT NULL,
   prompt TEXT NOT NULL,
   max_iterations INT NOT NULL DEFAULT 5,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+);
+
+-- Model Node: LLM configuration that can be connected to AI Agent nodes via HandleAiModel edge
+CREATE TABLE flow_node_model (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  credential_id BLOB NOT NULL,
+  model INT8 NOT NULL, -- AiModel enum (same as flow_node_ai)
+  temperature REAL, -- Optional: 0.0-2.0, NULL means use provider default
+  max_tokens INT, -- Optional: max output tokens, NULL means use provider default
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE CASCADE
+);
+
+-- Memory Node: Conversation memory configuration that can be connected to AI Agent nodes via HandleAiMemory edge
+CREATE TABLE flow_node_memory (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  memory_type INT8 NOT NULL, -- AiMemoryType enum: 0 = WindowBuffer
+  window_size INT NOT NULL -- For WindowBuffer: number of messages to retain
 );

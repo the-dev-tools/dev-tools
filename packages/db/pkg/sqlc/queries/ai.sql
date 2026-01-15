@@ -139,8 +139,6 @@ WHERE
 -- name: GetFlowNodeAI :one
 SELECT
   flow_node_id,
-  model,
-  credential_id,
   prompt,
   max_iterations
 FROM
@@ -151,15 +149,13 @@ LIMIT 1;
 
 -- name: CreateFlowNodeAI :exec
 INSERT INTO
-  flow_node_ai (flow_node_id, model, credential_id, prompt, max_iterations)
+  flow_node_ai (flow_node_id, prompt, max_iterations)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?);
 
 -- name: UpdateFlowNodeAI :exec
 UPDATE flow_node_ai
 SET
-  model = ?,
-  credential_id = ?,
   prompt = ?,
   max_iterations = ?
 WHERE
@@ -167,5 +163,71 @@ WHERE
 
 -- name: DeleteFlowNodeAI :exec
 DELETE FROM flow_node_ai
+WHERE
+  flow_node_id = ?;
+
+-- NodeModel (Model Node) queries
+-- name: GetFlowNodeModel :one
+SELECT
+  flow_node_id,
+  credential_id,
+  model,
+  temperature,
+  max_tokens
+FROM
+  flow_node_model
+WHERE
+  flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeModel :exec
+INSERT INTO
+  flow_node_model (flow_node_id, credential_id, model, temperature, max_tokens)
+VALUES
+  (?, ?, ?, ?, ?);
+
+-- name: UpdateFlowNodeModel :exec
+UPDATE flow_node_model
+SET
+  credential_id = ?,
+  model = ?,
+  temperature = ?,
+  max_tokens = ?
+WHERE
+  flow_node_id = ?;
+
+-- name: DeleteFlowNodeModel :exec
+DELETE FROM flow_node_model
+WHERE
+  flow_node_id = ?;
+
+-- NodeMemory (Memory Node) queries
+-- name: GetFlowNodeMemory :one
+SELECT
+  flow_node_id,
+  memory_type,
+  window_size
+FROM
+  flow_node_memory
+WHERE
+  flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeMemory :exec
+INSERT INTO
+  flow_node_memory (flow_node_id, memory_type, window_size)
+VALUES
+  (?, ?, ?);
+
+-- name: UpdateFlowNodeMemory :exec
+UPDATE flow_node_memory
+SET
+  memory_type = ?,
+  window_size = ?
+WHERE
+  flow_node_id = ?;
+
+-- name: DeleteFlowNodeMemory :exec
+DELETE FROM flow_node_memory
 WHERE
   flow_node_id = ?;

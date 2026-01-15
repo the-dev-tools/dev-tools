@@ -23,8 +23,11 @@ var (
 	ErrCiphertextTooShort = errors.New("credvault: ciphertext too short")
 	ErrUnsupportedType    = errors.New("credvault: unsupported encryption type")
 
-	// defaultKey is a static key for basic obfuscation (not secure, but not plaintext).
-	defaultKey = [KeySize]byte{} // All zeros, unexported to prevent mutation
+	// defaultKey is a static all-zeros key used when no master key is configured.
+	// This provides basic obfuscation (secrets are not stored in plaintext) but is NOT
+	// cryptographically secure. In production, configure a proper master key via environment.
+	// TODO(config): Master key will be loaded from secure configuration (env var or secret manager).
+	defaultKey = [KeySize]byte{}
 )
 
 // Vault handles encryption and decryption of credential secrets.

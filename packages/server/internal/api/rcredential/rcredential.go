@@ -8,13 +8,16 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
@@ -27,6 +30,7 @@ type CredentialRPC struct {
 	cs scredential.CredentialService
 	us suser.UserService
 	ws sworkspace.WorkspaceService
+	fs *sfile.FileService
 
 	credReader *scredential.CredentialReader
 
@@ -47,6 +51,7 @@ type CredentialRPCDeps struct {
 	Service   scredential.CredentialService
 	User      suser.UserService
 	Workspace sworkspace.WorkspaceService
+	File      *sfile.FileService
 	Reader    *scredential.CredentialReader
 	Streamer  eventstream.SyncStreamer[CredentialTopic, CredentialEvent]
 }
@@ -57,6 +62,7 @@ func New(deps CredentialRPCDeps) CredentialRPC {
 		cs:         deps.Service,
 		us:         deps.User,
 		ws:         deps.Workspace,
+		fs:         deps.File,
 		credReader: deps.Reader,
 		credStream: deps.Streamer,
 	}
@@ -233,6 +239,15 @@ func (s *CredentialRPC) CredentialInsert(
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
+	// FETCH phase: Validate all items before transaction
+	type credItem struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		cred        *mcredential.Credential
+		file        *mfile.File
+	}
+	var items []credItem
+
 	for _, item := range req.Msg.GetItems() {
 		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
 		if err != nil {
@@ -244,29 +259,74 @@ func (s *CredentialRPC) CredentialInsert(
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check user has access to workspace
+		// CHECK phase: Verify workspace access
 		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 		if err != nil || !belongs {
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("access denied"))
 		}
 
-		// Create base credential only
-		// Provider-specific data (tokens/API keys) must be set via separate calls
+		// Build credential model
 		cred := &mcredential.Credential{
 			ID:          credID,
 			WorkspaceID: workspaceID,
 			Name:        item.GetName(),
 			Kind:        mcredential.CredentialKind(int8(item.GetKind())), //nolint:gosec // G115: Kind is a small enum (0-2)
 		}
-		if err := s.cs.CreateCredential(ctx, cred); err != nil {
+
+		// Build file model to link credential into file tree
+		// FileID is new, ContentID points to the credential
+		fileID := idwrap.NewNow()
+		file := &mfile.File{
+			ID:          fileID,
+			WorkspaceID: workspaceID,
+			ParentID:    nil, // Root level by default
+			ContentID:   &credID,
+			ContentType: mfile.ContentTypeCredential,
+			Name:        cred.Name,
+			Order:       0, // Default order
+		}
+
+		items = append(items, credItem{
+			credID:      credID,
+			workspaceID: workspaceID,
+			cred:        cred,
+			file:        file,
+		})
+	}
+
+	// ACT phase: Create File and Credential records in transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	// Use transaction-scoped services
+	csTx := s.cs.TX(tx)
+	fsTx := s.fs.TX(tx)
+
+	for _, item := range items {
+		// Create credential first (content)
+		if err := csTx.CreateCredential(ctx, item.cred); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish event
+		// Create file record to link into tree
+		if err := fsTx.CreateFile(ctx, item.file); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish events for real-time sync
+	for _, item := range items {
 		if s.credStream != nil {
-			s.credStream.Publish(CredentialTopic{WorkspaceID: workspaceID}, CredentialEvent{
+			s.credStream.Publish(CredentialTopic{WorkspaceID: item.workspaceID}, CredentialEvent{
 				Type:       "insert",
-				Credential: converter.ToAPICredential(*cred),
+				Credential: converter.ToAPICredential(*item.cred),
 			})
 		}
 	}
@@ -283,6 +343,15 @@ func (s *CredentialRPC) CredentialUpdate(
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
+	// FETCH phase: Gather and validate all items before transaction
+	type updateItem struct {
+		credID      idwrap.IDWrap
+		existing    *mcredential.Credential
+		nameChanged bool
+		newName     string
+	}
+	var items []updateItem
+
 	for _, item := range req.Msg.GetItems() {
 		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
 		if err != nil {
@@ -298,25 +367,66 @@ func (s *CredentialRPC) CredentialUpdate(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// CHECK phase: Verify ownership
 		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, existing.WorkspaceID)
 		if err != nil || !belongs {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
 		}
 
-		// Update base credential only
-		// Provider-specific data (tokens/API keys) must be updated via separate calls
-		if item.Name != nil {
+		ui := updateItem{
+			credID:   credID,
+			existing: existing,
+		}
+
+		// Track name change for file sync
+		if item.Name != nil && *item.Name != existing.Name {
+			ui.nameChanged = true
+			ui.newName = *item.Name
 			existing.Name = *item.Name
 		}
-		if err := s.cs.UpdateCredential(ctx, existing); err != nil {
+
+		items = append(items, ui)
+	}
+
+	// ACT phase: Update credential and file in transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+	fsTx := s.fs.TX(tx)
+
+	for _, item := range items {
+		// Update credential
+		if err := csTx.UpdateCredential(ctx, item.existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish event
+		// If name changed, update the file record too
+		if item.nameChanged {
+			file, err := fsTx.GetFileByContentID(ctx, item.credID)
+			if err == nil && file != nil {
+				file.Name = item.newName
+				if err := fsTx.UpdateFile(ctx, file); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+			// If file not found, that's OK - credential can exist without file entry
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish events after commit
+	for _, item := range items {
 		if s.credStream != nil {
-			s.credStream.Publish(CredentialTopic{WorkspaceID: existing.WorkspaceID}, CredentialEvent{
+			s.credStream.Publish(CredentialTopic{WorkspaceID: item.existing.WorkspaceID}, CredentialEvent{
 				Type:       "update",
-				Credential: converter.ToAPICredential(*existing),
+				Credential: converter.ToAPICredential(*item.existing),
 			})
 		}
 	}
@@ -333,6 +443,13 @@ func (s *CredentialRPC) CredentialDelete(
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
+	// FETCH phase: Gather and validate all items before transaction
+	type deleteItem struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+	}
+	var items []deleteItem
+
 	for _, item := range req.Msg.GetItems() {
 		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
 		if err != nil {
@@ -348,21 +465,54 @@ func (s *CredentialRPC) CredentialDelete(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// CHECK phase: Verify ownership
 		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, existing.WorkspaceID)
 		if err != nil || !belongs {
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
 		}
 
-		// Delete credential (provider-specific cascade handled by DB)
-		if err := s.cs.DeleteCredential(ctx, credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		items = append(items, deleteItem{
+			credID:      credID,
+			workspaceID: existing.WorkspaceID,
+		})
+	}
+
+	// ACT phase: Delete file and credential in transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+	fsTx := s.fs.TX(tx)
+
+	for _, item := range items {
+		// Delete file record first (no FK constraint from files to credentials)
+		file, err := fsTx.GetFileByContentID(ctx, item.credID)
+		if err == nil && file != nil {
+			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		// If file not found, that's OK - proceed with credential deletion
+
+		// Delete credential (provider-specific cascade handled by DB FK)
+		if err := csTx.DeleteCredential(ctx, item.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+	}
 
-		// Publish event
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish events after commit
+	for _, item := range items {
 		if s.credStream != nil {
-			s.credStream.Publish(CredentialTopic{WorkspaceID: existing.WorkspaceID}, CredentialEvent{
+			s.credStream.Publish(CredentialTopic{WorkspaceID: item.workspaceID}, CredentialEvent{
 				Type:       "delete",
-				Credential: &credentialv1.Credential{CredentialId: credID.Bytes()},
+				Credential: &credentialv1.Credential{CredentialId: item.credID.Bytes()},
 			})
 		}
 	}

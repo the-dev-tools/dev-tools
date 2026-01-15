@@ -16,48 +16,58 @@ import (
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
-// --- AI Node ---
+// --- Model Node ---
 
-func (s *FlowServiceV2RPC) NodeAiCollection(
+func serializeNodeModel(m mflow.NodeModel) *flowv1.NodeAiModel {
+	return &flowv1.NodeAiModel{
+		NodeId:       m.FlowNodeID.Bytes(),
+		CredentialId: m.CredentialID.Bytes(),
+		Model:        flowv1.AiModel(m.Model),
+		Temperature:  m.Temperature,
+		MaxTokens:    m.MaxTokens,
+	}
+}
+
+func (s *FlowServiceV2RPC) NodeAiModelCollection(
 	ctx context.Context,
 	_ *connect.Request[emptypb.Empty],
-) (*connect.Response[flowv1.NodeAiCollectionResponse], error) {
+) (*connect.Response[flowv1.NodeAiModelCollectionResponse], error) {
 	flows, err := s.listAccessibleFlows(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var items []*flowv1.NodeAi
+	var items []*flowv1.NodeAiModel
 	for _, flow := range flows {
 		nodes, err := s.nsReader.GetNodesByFlowID(ctx, flow.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, node := range nodes {
-			if node.NodeKind != mflow.NODE_KIND_AI {
+			if node.NodeKind != mflow.NODE_KIND_AI_MODEL {
 				continue
 			}
-			nodeAI, err := s.nais.GetNodeAI(ctx, node.ID)
+			nodeModel, err := s.nms.GetNodeModel(ctx, node.ID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					continue
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			items = append(items, serializeNodeAI(*nodeAI))
+			items = append(items, serializeNodeModel(*nodeModel))
 		}
 	}
 
-	return connect.NewResponse(&flowv1.NodeAiCollectionResponse{Items: items}), nil
+	return connect.NewResponse(&flowv1.NodeAiModelCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeAiInsert(
+func (s *FlowServiceV2RPC) NodeAiModelInsert(
 	ctx context.Context,
-	req *connect.Request[flowv1.NodeAiInsertRequest],
+	req *connect.Request[flowv1.NodeAiModelInsertRequest],
 ) (*connect.Response[emptypb.Empty], error) {
 	type insertData struct {
 		nodeID      idwrap.IDWrap
-		model       mflow.NodeAI
+		model       mflow.NodeModel
 		baseNode    *mflow.Node
 		flowID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
@@ -70,10 +80,17 @@ func (s *FlowServiceV2RPC) NodeAiInsert(
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		model := mflow.NodeAI{
-			FlowNodeID:    nodeID,
-			Prompt:        item.GetPrompt(),
-			MaxIterations: item.GetMaxIterations(),
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid credential id: %w", err))
+		}
+
+		model := mflow.NodeModel{
+			FlowNodeID:   nodeID,
+			CredentialID: credID,
+			Model:        mflow.AiModel(int8(item.GetModel())), //nolint:gosec // G115: Model is a small enum
+			Temperature:  item.Temperature,
+			MaxTokens:    item.MaxTokens,
 		}
 
 		baseNode, _ := s.ns.GetNode(ctx, nodeID)
@@ -107,16 +124,16 @@ func (s *FlowServiceV2RPC) NodeAiInsert(
 	}
 	defer mut.Rollback()
 
-	naisWriter := s.nais.TX(mut.TX())
+	nmsWriter := s.nms.TX(mut.TX())
 
 	for _, data := range validatedItems {
-		if err := naisWriter.CreateNodeAI(ctx, data.model); err != nil {
+		if err := nmsWriter.CreateNodeModel(ctx, data.model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		if data.baseNode != nil {
 			mut.Track(mutation.Event{
-				Entity:      mutation.EntityFlowNodeAI,
+				Entity:      mutation.EntityFlowNodeModel,
 				Op:          mutation.OpInsert,
 				ID:          data.nodeID,
 				WorkspaceID: data.workspaceID,
@@ -133,13 +150,13 @@ func (s *FlowServiceV2RPC) NodeAiInsert(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeAiUpdate(
+func (s *FlowServiceV2RPC) NodeAiModelUpdate(
 	ctx context.Context,
-	req *connect.Request[flowv1.NodeAiUpdateRequest],
+	req *connect.Request[flowv1.NodeAiModelUpdateRequest],
 ) (*connect.Response[emptypb.Empty], error) {
 	type updateData struct {
 		nodeID      idwrap.IDWrap
-		updated     mflow.NodeAI
+		updated     mflow.NodeModel
 		baseNode    *mflow.Node
 		workspaceID idwrap.IDWrap
 	}
@@ -151,10 +168,48 @@ func (s *FlowServiceV2RPC) NodeAiUpdate(
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		updated := mflow.NodeAI{
-			FlowNodeID:    nodeID,
-			Prompt:        item.GetPrompt(),
-			MaxIterations: item.GetMaxIterations(),
+		// Get existing model
+		existing, err := s.nms.GetNodeModel(ctx, nodeID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updated := *existing
+
+		// Apply optional updates
+		if item.CredentialId != nil {
+			credID, err := idwrap.NewFromBytes(item.CredentialId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid credential id: %w", err))
+			}
+			updated.CredentialID = credID
+		}
+
+		if item.Model != nil {
+			updated.Model = mflow.AiModel(int8(*item.Model)) //nolint:gosec // G115: Model is a small enum
+		}
+
+		// Handle temperature union
+		if item.Temperature != nil {
+			switch item.Temperature.Kind {
+			case flowv1.NodeAiModelUpdate_TemperatureUnion_KIND_VALUE:
+				updated.Temperature = item.Temperature.Value
+			case flowv1.NodeAiModelUpdate_TemperatureUnion_KIND_UNSET:
+				updated.Temperature = nil
+			}
+		}
+
+		// Handle max_tokens union
+		if item.MaxTokens != nil {
+			switch item.MaxTokens.Kind {
+			case flowv1.NodeAiModelUpdate_MaxTokensUnion_KIND_VALUE:
+				updated.MaxTokens = item.MaxTokens.Value
+			case flowv1.NodeAiModelUpdate_MaxTokensUnion_KIND_UNSET:
+				updated.MaxTokens = nil
+			}
 		}
 
 		baseNode, _ := s.ns.GetNode(ctx, nodeID)
@@ -185,16 +240,16 @@ func (s *FlowServiceV2RPC) NodeAiUpdate(
 	}
 	defer mut.Rollback()
 
-	naisWriter := s.nais.TX(mut.TX())
+	nmsWriter := s.nms.TX(mut.TX())
 
 	for _, data := range validatedItems {
-		if err := naisWriter.UpdateNodeAI(ctx, data.updated); err != nil {
+		if err := nmsWriter.UpdateNodeModel(ctx, data.updated); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		if data.baseNode != nil {
 			mut.Track(mutation.Event{
-				Entity:      mutation.EntityFlowNodeAI,
+				Entity:      mutation.EntityFlowNodeModel,
 				Op:          mutation.OpUpdate,
 				ID:          data.nodeID,
 				WorkspaceID: data.workspaceID,
@@ -211,9 +266,9 @@ func (s *FlowServiceV2RPC) NodeAiUpdate(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeAiDelete(
+func (s *FlowServiceV2RPC) NodeAiModelDelete(
 	ctx context.Context,
-	req *connect.Request[flowv1.NodeAiDeleteRequest],
+	req *connect.Request[flowv1.NodeAiModelDeleteRequest],
 ) (*connect.Response[emptypb.Empty], error) {
 	type deleteData struct {
 		nodeID idwrap.IDWrap
@@ -249,15 +304,15 @@ func (s *FlowServiceV2RPC) NodeAiDelete(
 	}
 	defer mut.Rollback()
 
-	naisWriter := s.nais.TX(mut.TX())
+	nmsWriter := s.nms.TX(mut.TX())
 
 	for _, data := range validatedItems {
-		if err := naisWriter.DeleteNodeAI(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err := nmsWriter.DeleteNodeModel(ctx, data.nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		mut.Track(mutation.Event{
-			Entity:   mutation.EntityFlowNodeAI,
+			Entity:   mutation.EntityFlowNodeModel,
 			Op:       mutation.OpDelete,
 			ID:       data.nodeID,
 			ParentID: data.flowID,
@@ -271,29 +326,29 @@ func (s *FlowServiceV2RPC) NodeAiDelete(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// AiTopic identifies the flow whose AI nodes are being published.
-type AiTopic struct {
+// ModelTopic identifies the flow whose Model nodes are being published.
+type ModelTopic struct {
 	FlowID idwrap.IDWrap
 }
 
-// AiEvent describes an AI node change for sync streaming.
-type AiEvent struct {
+// ModelEvent describes a Model node change for sync streaming.
+type ModelEvent struct {
 	Type   string
 	FlowID idwrap.IDWrap
-	Node   *flowv1.NodeAi
+	Node   *flowv1.NodeAiModel
 }
 
-func (s *FlowServiceV2RPC) NodeAiSync(
+func (s *FlowServiceV2RPC) NodeAiModelSync(
 	ctx context.Context,
 	_ *connect.Request[emptypb.Empty],
-	stream *connect.ServerStream[flowv1.NodeAiSyncResponse],
+	stream *connect.ServerStream[flowv1.NodeAiModelSyncResponse],
 ) error {
-	return s.streamNodeAISync(ctx, stream.Send)
+	return s.streamNodeModelSync(ctx, stream.Send)
 }
 
-func (s *FlowServiceV2RPC) streamNodeAISync(
+func (s *FlowServiceV2RPC) streamNodeModelSync(
 	ctx context.Context,
-	send func(*flowv1.NodeAiSyncResponse) error,
+	send func(*flowv1.NodeAiModelSyncResponse) error,
 ) error {
 	flows, err := s.listAccessibleFlows(ctx)
 	if err != nil {
@@ -301,51 +356,53 @@ func (s *FlowServiceV2RPC) streamNodeAISync(
 	}
 
 	// Build initial collection
-	var items []*flowv1.NodeAi
+	var items []*flowv1.NodeAiModel
 	for _, flow := range flows {
 		nodes, err := s.nsReader.GetNodesByFlowID(ctx, flow.ID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return connect.NewError(connect.CodeInternal, err)
 		}
 		for _, node := range nodes {
-			if node.NodeKind != mflow.NODE_KIND_AI {
+			if node.NodeKind != mflow.NODE_KIND_AI_MODEL {
 				continue
 			}
-			nodeAI, err := s.nais.GetNodeAI(ctx, node.ID)
+			nodeModel, err := s.nms.GetNodeModel(ctx, node.ID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					continue
 				}
 				return connect.NewError(connect.CodeInternal, err)
 			}
-			items = append(items, serializeNodeAI(*nodeAI))
+			items = append(items, serializeNodeModel(*nodeModel))
 		}
 	}
 
 	// Convert to sync items format
-	syncItems := make([]*flowv1.NodeAiSync, 0, len(items))
+	syncItems := make([]*flowv1.NodeAiModelSync, 0, len(items))
 	for _, item := range items {
-		syncItems = append(syncItems, &flowv1.NodeAiSync{
-			Value: &flowv1.NodeAiSync_ValueUnion{
-				Kind: flowv1.NodeAiSync_ValueUnion_KIND_UPSERT,
-				Upsert: &flowv1.NodeAiSyncUpsert{
-					NodeId:        item.NodeId,
-					Prompt:        item.Prompt,
-					MaxIterations: item.MaxIterations,
+		syncItems = append(syncItems, &flowv1.NodeAiModelSync{
+			Value: &flowv1.NodeAiModelSync_ValueUnion{
+				Kind: flowv1.NodeAiModelSync_ValueUnion_KIND_UPSERT,
+				Upsert: &flowv1.NodeAiModelSyncUpsert{
+					NodeId:       item.NodeId,
+					CredentialId: item.CredentialId,
+					Model:        item.Model,
+					Temperature:  item.Temperature,
+					MaxTokens:    item.MaxTokens,
 				},
 			},
 		})
 	}
 
 	// Send initial collection as upsert items
-	if err := send(&flowv1.NodeAiSyncResponse{
+	if err := send(&flowv1.NodeAiModelSyncResponse{
 		Items: syncItems,
 	}); err != nil {
 		return err
 	}
 
-	// Real-time streaming: subscribe to AI node events
-	if s.aiStream == nil {
+	// Real-time streaming: subscribe to Model node events
+	if s.modelStream == nil {
 		// No streamer available, wait for context cancellation
 		<-ctx.Done()
 		return nil
@@ -357,8 +414,8 @@ func (s *FlowServiceV2RPC) streamNodeAISync(
 		flowIDSet[flow.ID.String()] = true
 	}
 
-	// Subscribe to AI node changes
-	eventCh, err := s.aiStream.Subscribe(ctx, func(topic AiTopic) bool {
+	// Subscribe to Model node changes
+	eventCh, err := s.modelStream.Subscribe(ctx, func(topic ModelTopic) bool {
 		return flowIDSet[topic.FlowID.String()]
 	})
 	if err != nil {
@@ -375,31 +432,33 @@ func (s *FlowServiceV2RPC) streamNodeAISync(
 				return nil
 			}
 
-			var syncItem *flowv1.NodeAiSync
+			var syncItem *flowv1.NodeAiModelSync
 			switch evt.Payload.Type {
-			case aiEventInsert, aiEventUpdate:
-				syncItem = &flowv1.NodeAiSync{
-					Value: &flowv1.NodeAiSync_ValueUnion{
-						Kind: flowv1.NodeAiSync_ValueUnion_KIND_UPSERT,
-						Upsert: &flowv1.NodeAiSyncUpsert{
-							NodeId:        evt.Payload.Node.NodeId,
-							Prompt:        evt.Payload.Node.Prompt,
-							MaxIterations: evt.Payload.Node.MaxIterations,
+			case eventTypeInsert, eventTypeUpdate:
+				syncItem = &flowv1.NodeAiModelSync{
+					Value: &flowv1.NodeAiModelSync_ValueUnion{
+						Kind: flowv1.NodeAiModelSync_ValueUnion_KIND_UPSERT,
+						Upsert: &flowv1.NodeAiModelSyncUpsert{
+							NodeId:       evt.Payload.Node.NodeId,
+							CredentialId: evt.Payload.Node.CredentialId,
+							Model:        evt.Payload.Node.Model,
+							Temperature:  evt.Payload.Node.Temperature,
+							MaxTokens:    evt.Payload.Node.MaxTokens,
 						},
 					},
 				}
-			case aiEventDelete:
-				syncItem = &flowv1.NodeAiSync{
-					Value: &flowv1.NodeAiSync_ValueUnion{
-						Kind:   flowv1.NodeAiSync_ValueUnion_KIND_DELETE,
-						Delete: &flowv1.NodeAiSyncDelete{NodeId: evt.Payload.Node.NodeId},
+			case eventTypeDelete:
+				syncItem = &flowv1.NodeAiModelSync{
+					Value: &flowv1.NodeAiModelSync_ValueUnion{
+						Kind:   flowv1.NodeAiModelSync_ValueUnion_KIND_DELETE,
+						Delete: &flowv1.NodeAiModelSyncDelete{NodeId: evt.Payload.Node.NodeId},
 					},
 				}
 			}
 
 			if syncItem != nil {
-				if err := send(&flowv1.NodeAiSyncResponse{
-					Items: []*flowv1.NodeAiSync{syncItem},
+				if err := send(&flowv1.NodeAiModelSyncResponse{
+					Items: []*flowv1.NodeAiModelSync{syncItem},
 				}); err != nil {
 					return err
 				}

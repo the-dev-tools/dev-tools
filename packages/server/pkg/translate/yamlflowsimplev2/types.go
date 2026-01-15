@@ -105,11 +105,8 @@ type YamlStepJS struct {
 
 type YamlStepAI struct {
 	YamlStepCommon `yaml:",inline"`
-	Model          string `yaml:"model"`                      // Model identifier (e.g., "gpt-5.2-instant", "claude-sonnet-4-5")
-	CustomModel    string `yaml:"custom_model,omitempty"`     // Custom model string when Model is "custom"
-	CredentialID   string `yaml:"credential_id"`              // Reference to credential by name or ID
-	Prompt         string `yaml:"prompt"`                     // The prompt template
-	MaxIterations  int    `yaml:"max_iterations,omitempty"`   // Max agent iterations (default 5)
+	Prompt         string `yaml:"prompt"`                   // The prompt template
+	MaxIterations  int    `yaml:"max_iterations,omitempty"` // Max agent iterations (default 5)
 }
 
 // YamlFlowVariableV2 represents a flow variable

@@ -6,6 +6,8 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmodel"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
@@ -15,9 +17,6 @@ import (
 type NodeAI struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
-	AiModel       mflow.AiModel
-	CustomModel   string
-	CredentialID  idwrap.IDWrap
 	Prompt        string
 	MaxIterations int32
 	// ProviderFactory creates LLM clients from credentials
@@ -26,13 +25,10 @@ type NodeAI struct {
 	LLM llms.Model
 }
 
-func New(id idwrap.IDWrap, name string, aiModel mflow.AiModel, customModel string, credentialID idwrap.IDWrap, prompt string, maxIterations int32, factory *scredential.LLMProviderFactory) *NodeAI {
+func New(id idwrap.IDWrap, name string, prompt string, maxIterations int32, factory *scredential.LLMProviderFactory) *NodeAI {
 	return &NodeAI{
 		FlowNodeID:      id,
 		Name:            name,
-		AiModel:         aiModel,
-		CustomModel:     customModel,
-		CredentialID:    credentialID,
 		Prompt:          prompt,
 		MaxIterations:   maxIterations,
 		ProviderFactory: factory,
@@ -50,18 +46,51 @@ func (n NodeAI) GetName() string {
 func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	next := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)
 
-	// 1. Resolve LLM Model
+	// 1. REQUIRED: Get connected Model node via HandleAiModel edge
+	modelNodeIDs := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleAiModel)
+	if len(modelNodeIDs) == 0 {
+		return node.FlowNodeResult{
+			NextNodeID: next,
+			Err:        fmt.Errorf("AI Agent requires a connected Model node"),
+		}
+	}
+
+	modelNode, ok := req.NodeMap[modelNodeIDs[0]].(*nmodel.NodeModel)
+	if !ok {
+		return node.FlowNodeResult{
+			NextNodeID: next,
+			Err:        fmt.Errorf("connected node is not a Model node"),
+		}
+	}
+
+	// Use model configuration from connected Model node
+	aiModel := modelNode.Model
+	customModel := modelNode.CustomModel
+	credentialID := modelNode.CredentialID
+	temperature := modelNode.Temperature
+	maxTokens := modelNode.MaxTokens
+
+	// 2. OPTIONAL: Get connected Memory node via HandleAiMemory edge
+	var memoryNode *nmemory.NodeMemory
+	memoryNodeIDs := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleAiMemory)
+	if len(memoryNodeIDs) > 0 {
+		if mn, ok := req.NodeMap[memoryNodeIDs[0]].(*nmemory.NodeMemory); ok {
+			memoryNode = mn
+		}
+	}
+
+	// 3. Resolve LLM Model
 	model := n.LLM
 	if model == nil {
 		if n.ProviderFactory == nil {
 			return node.FlowNodeResult{
 				NextNodeID: next,
-				Err:        fmt.Errorf("LLM provider factory is missing"),
+				Err:        fmt.Errorf("AI Agent node requires LLM provider factory - ensure a Model node is connected and credentials are configured"),
 			}
 		}
 
 		var err error
-		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, n.AiModel, n.CustomModel, n.CredentialID)
+		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, aiModel, customModel, credentialID)
 		if err != nil {
 			return node.FlowNodeResult{
 				NextNodeID: next,
@@ -70,7 +99,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 	}
 
-	// 2. Discover and Wrap Tools
+	// 4. Discover and Wrap Tools
 	lcTools := []llms.Tool{
 		getVariableTool(req),
 		setVariableTool(req),
@@ -93,13 +122,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		toolMap[sanitizeToolName(targetNode.GetName())] = nt
 	}
 
-	// 3. Initialize Agent
-	// Use LangChain's Structured Config or manual loop. 
-	// For simplicity and full control over our custom NodeTool execution, 
-	// we'll use a standard LLM completion with tools for now, 
-	// or properly integrate with agents.NewToolUser.
-	
-	// We need to map our handle functions
+	// 5. Initialize Agent executor
 	executor := func(ctx context.Context, name string, args string) (string, error) {
 		switch name {
 		case "get_variable":
@@ -114,42 +137,56 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 	}
 
-	// 4. Run Agent Loop
-	// Note: langchaingo's Agent support is evolving. 
-	// We'll use GenerateContent with tool support.
-	
-	// TODO: Replace placeholders in prompt with variables from req.VarMap
-	
-	// For now, let's stick to model.Call until we have a more robust agent loop implemented.
-	// But let's at least pass the tools to the call.
-	
+	// Build LLM options with temperature/maxTokens from Model node
 	options := []llms.CallOption{
 		llms.WithTools(lcTools),
 	}
+	if temperature != nil {
+		options = append(options, llms.WithTemperature(float64(*temperature)))
+	}
+	if maxTokens != nil {
+		options = append(options, llms.WithMaxTokens(int(*maxTokens)))
+	}
 
-	// Actually calling the model with tool support requires GenerateContent.
-	// completion, err := model.Call(ctx, n.Prompt, options...)
-	
-	// Let's refine the RunSync to use GenerateContent for proper tool use.
-	
-	// --- AGENT LOOP START ---
-	// Resolve prompt variables
+	// 6. Resolve prompt variables
 	vm := varsystem.NewVarMapFromAnyMap(req.VarMap)
 	resolvedPrompt, err := vm.ReplaceVars(n.Prompt)
 	if err != nil {
-		// Log warning but continue with raw prompt if resolution fails partially? 
-		// Actually ReplaceVars returns error if key not found.
-		// For AI nodes, we might want to be more lenient or just use raw prompt as fallback.
+		// Use raw prompt as fallback if variable resolution fails
 		resolvedPrompt = n.Prompt
 	}
 
-	messages := []llms.MessageContent{
-		{
-			Role:  llms.ChatMessageTypeHuman,
-			Parts: []llms.ContentPart{llms.TextPart(resolvedPrompt)},
-		},
+	// 7. Build messages with memory context
+	messages := []llms.MessageContent{}
+
+	// Add conversation history from Memory node if connected
+	if memoryNode != nil {
+		for _, msg := range memoryNode.GetMessages() {
+			var role llms.ChatMessageType
+			switch msg.Role {
+			case "user":
+				role = llms.ChatMessageTypeHuman
+			case "assistant":
+				role = llms.ChatMessageTypeAI
+			case "system":
+				role = llms.ChatMessageTypeSystem
+			default:
+				role = llms.ChatMessageTypeHuman
+			}
+			messages = append(messages, llms.MessageContent{
+				Role:  role,
+				Parts: []llms.ContentPart{llms.TextPart(msg.Content)},
+			})
+		}
 	}
 
+	// Add current prompt
+	messages = append(messages, llms.MessageContent{
+		Role:  llms.ChatMessageTypeHuman,
+		Parts: []llms.ContentPart{llms.TextPart(resolvedPrompt)},
+	})
+
+	// 8. Run Agent Loop
 	var finalResponse string
 	maxIters := int(n.MaxIterations)
 	if maxIters <= 0 {
@@ -183,7 +220,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 				// Feed the error back to the LLM instead of failing the node
 				result = fmt.Sprintf("Error: %v", err)
 			}
-			
+
 			// Add tool response to history
 			messages = append(messages, llms.MessageContent{
 				Role: llms.ChatMessageTypeTool,
@@ -197,13 +234,18 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			})
 		}
 	}
-	// --- AGENT LOOP END ---
 
-	// 5. Store Result
+	// 9. Update memory with the conversation if Memory node is connected
+	if memoryNode != nil {
+		memoryNode.AddMessage("user", resolvedPrompt)
+		memoryNode.AddMessage("assistant", finalResponse)
+	}
+
+	// 10. Store Result
 	resultMap := map[string]interface{}{
 		"text": finalResponse,
 	}
-	
+
 	if req.VariableTracker != nil {
 		if err := node.WriteNodeVarBulkWithTracking(req, n.Name, resultMap, req.VariableTracker); err != nil {
 			return node.FlowNodeResult{

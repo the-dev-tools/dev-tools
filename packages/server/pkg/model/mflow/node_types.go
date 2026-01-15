@@ -179,9 +179,33 @@ func AiModelFromString(s string) AiModel {
 
 type NodeAI struct {
 	FlowNodeID    idwrap.IDWrap
-	Model         AiModel
-	CustomModel   string
-	CredentialID  idwrap.IDWrap
 	Prompt        string
 	MaxIterations int32
+}
+
+// --- Model Node ---
+// NodeModel is a passive configuration node that provides LLM settings to connected AI Agent nodes.
+// It connects via HandleAiModel edge and allows visual separation of model config from AI logic.
+type NodeModel struct {
+	FlowNodeID   idwrap.IDWrap
+	CredentialID idwrap.IDWrap
+	Model        AiModel
+	Temperature  *float32 // nil means use provider default
+	MaxTokens    *int32   // nil means use provider default
+}
+
+// --- Memory Node ---
+// AiMemoryType represents the type of conversation memory
+type AiMemoryType int8
+
+const (
+	AiMemoryTypeWindowBuffer AiMemoryType = 0 // Keeps last N messages
+)
+
+// NodeMemory is a passive configuration node that provides conversation memory to connected AI Agent nodes.
+// It connects via HandleAiMemory edge and manages conversation history.
+type NodeMemory struct {
+	FlowNodeID idwrap.IDWrap
+	MemoryType AiMemoryType
+	WindowSize int32
 }

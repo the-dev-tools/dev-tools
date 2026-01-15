@@ -169,6 +169,22 @@ func (r *Reader) CheckWorkspaceID(ctx context.Context, fileID, workspaceID idwra
 	return fileWorkspaceID.Compare(workspaceID) == 0, nil
 }
 
+// GetFileByContentID retrieves a file by its content ID
+func (r *Reader) GetFileByContentID(ctx context.Context, contentID idwrap.IDWrap) (*mfile.File, error) {
+	r.logger.Debug("Getting file by content ID", "content_id", contentID.String())
+
+	file, err := r.queries.GetFileByContentID(ctx, &contentID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			r.logger.Debug("File not found for content ID", "content_id", contentID.String())
+			return nil, ErrFileNotFound
+		}
+		return nil, fmt.Errorf("failed to get file by content ID: %w", err)
+	}
+
+	return ConvertToModelFile(file), nil
+}
+
 func (r *Reader) isDescendant(ctx context.Context, descendantID, ancestorID idwrap.IDWrap) (bool, error) {
 	currentID := descendantID
 	// Limit recursion depth to prevent infinite loops in case of existing corruption

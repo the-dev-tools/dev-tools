@@ -78,6 +78,8 @@ func TestFlowRun_Logging(t *testing.T) {
 		ifService,
 		&jsService,
 		nil, // NodeAIService
+		nil, // NodeModelService
+		nil, // NodeMemoryService
 		&wsService,
 		&varService,
 		&flowVarService,

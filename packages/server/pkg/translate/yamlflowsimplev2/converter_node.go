@@ -118,9 +118,7 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			if strings.TrimSpace(stepWrapper.AI.Prompt) == "" {
 				return nil, NewYamlFlowErrorV2("missing required prompt", "ai", i)
 			}
-			if strings.TrimSpace(stepWrapper.AI.CredentialID) == "" {
-				return nil, NewYamlFlowErrorV2("missing required credential_id", "ai", i)
-			}
+			// Note: Model configuration is now via connected Model nodes (n8n-style)
 			if err := processAIStructStep(stepWrapper.AI, nodeID, flowID, opts, result); err != nil {
 				return nil, err
 			}
@@ -322,7 +320,7 @@ func processJSStructStep(step *YamlStepJS, nodeID, flowID idwrap.IDWrap, result 
 	return nil
 }
 
-func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
+func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, _ ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
 	flowNode := mflow.Node{
 		ID:       nodeID,
 		FlowID:   flowID,
@@ -330,26 +328,6 @@ func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, opts Co
 		NodeKind: mflow.NODE_KIND_AI,
 	}
 	result.FlowNodes = append(result.FlowNodes, flowNode)
-
-	// Parse model string to AiModel enum
-	model := mflow.AiModelFromString(step.Model)
-
-	// Resolve credential ID from name using the credential map
-	var credentialID idwrap.IDWrap
-	if opts.CredentialMap != nil {
-		if id, ok := opts.CredentialMap[step.CredentialID]; ok {
-			credentialID = id
-		} else {
-			return NewYamlFlowErrorV2(fmt.Sprintf("credential '%s' not found", step.CredentialID), "credential_id", step.CredentialID)
-		}
-	} else {
-		// Try to parse as ID directly (hex string)
-		var err error
-		credentialID, err = idwrap.NewText(step.CredentialID)
-		if err != nil {
-			return NewYamlFlowErrorV2(fmt.Sprintf("invalid credential_id '%s': must be a valid ID or credential name (provide CredentialMap in options)", step.CredentialID), "credential_id", step.CredentialID)
-		}
-	}
 
 	// Default max iterations to 5 if not specified
 	maxIterations := step.MaxIterations
@@ -361,11 +339,10 @@ func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, opts Co
 		maxIterations = 100
 	}
 
+	// Note: Model configuration is now handled via connected Model nodes (n8n-style)
+	// The YAML AI step only contains prompt and maxIterations
 	aiNode := mflow.NodeAI{
 		FlowNodeID:    nodeID,
-		Model:         model,
-		CustomModel:   step.CustomModel,
-		CredentialID:  credentialID,
 		Prompt:        step.Prompt,
 		MaxIterations: int32(maxIterations), //nolint:gosec // validated above
 	}

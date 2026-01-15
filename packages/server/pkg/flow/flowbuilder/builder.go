@@ -15,6 +15,8 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nforeach"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nif"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/njs"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmodel"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -37,6 +39,8 @@ type Builder struct {
 	NodeIf      *sflow.NodeIfService
 	NodeJS      *sflow.NodeJsService
 	NodeAI      *sflow.NodeAIService
+	NodeModel   *sflow.NodeModelService
+	NodeMemory  *sflow.NodeMemoryService
 
 	Workspace    *sworkspace.WorkspaceService
 	Variable     *senv.VariableService
@@ -55,6 +59,8 @@ func New(
 	nifs *sflow.NodeIfService,
 	njss *sflow.NodeJsService,
 	nais *sflow.NodeAIService,
+	nms *sflow.NodeModelService,
+	nmems *sflow.NodeMemoryService,
 	ws *sworkspace.WorkspaceService,
 	vs *senv.VariableService,
 	fvs *sflow.FlowVariableService,
@@ -70,6 +76,8 @@ func New(
 		NodeIf:             nifs,
 		NodeJS:             njss,
 		NodeAI:             nais,
+		NodeModel:          nms,
+		NodeMemory:         nmems,
 		Workspace:          ws,
 		Variable:           vs,
 		FlowVariable:       fvs,
@@ -197,9 +205,6 @@ func (b *Builder) BuildNodes(
 				flowNodeMap[nodeModel.ID] = nai.New(
 					nodeModel.ID,
 					nodeModel.Name,
-					mflow.AiModelGpt52Instant,
-					"",
-					idwrap.IDWrap{},
 					"",
 					5,
 					b.LLMProviderFactory,
@@ -208,12 +213,57 @@ func (b *Builder) BuildNodes(
 				flowNodeMap[nodeModel.ID] = nai.New(
 					nodeModel.ID,
 					nodeModel.Name,
-					aiCfg.Model,
-					aiCfg.CustomModel,
-					aiCfg.CredentialID,
 					aiCfg.Prompt,
 					aiCfg.MaxIterations,
 					b.LLMProviderFactory,
+				)
+			}
+		case mflow.NODE_KIND_AI_MODEL:
+			modelCfg, err := b.NodeModel.GetNodeModel(ctx, nodeModel.ID)
+			if err != nil && !errors.Is(err, sflow.ErrNoNodeModelFound) {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if modelCfg == nil {
+				// Default Model node
+				flowNodeMap[nodeModel.ID] = nmodel.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					idwrap.IDWrap{},
+					mflow.AiModelGpt52Instant,
+					"",
+					nil,
+					nil,
+				)
+			} else {
+				flowNodeMap[nodeModel.ID] = nmodel.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					modelCfg.CredentialID,
+					modelCfg.Model,
+					"", // TODO(persistent-kv): CustomModel will be stored when persistent key-value store is implemented
+					modelCfg.Temperature,
+					modelCfg.MaxTokens,
+				)
+			}
+		case mflow.NODE_KIND_AI_MEMORY:
+			memoryCfg, err := b.NodeMemory.GetNodeMemory(ctx, nodeModel.ID)
+			if err != nil && !errors.Is(err, sflow.ErrNoNodeMemoryFound) {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if memoryCfg == nil {
+				// Default Memory node with window buffer of 10 messages
+				flowNodeMap[nodeModel.ID] = nmemory.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					mflow.AiMemoryTypeWindowBuffer,
+					10,
+				)
+			} else {
+				flowNodeMap[nodeModel.ID] = nmemory.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					memoryCfg.MemoryType,
+					memoryCfg.WindowSize,
 				)
 			}
 		default:

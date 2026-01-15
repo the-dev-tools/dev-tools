@@ -91,8 +91,6 @@ type FlowNode struct {
 
 type FlowNodeAi struct {
 	FlowNodeID    idwrap.IDWrap
-	Model         int8
-	CredentialID  []byte
 	Prompt        string
 	MaxIterations int32
 }
@@ -126,6 +124,20 @@ type FlowNodeJ struct {
 	FlowNodeID       idwrap.IDWrap
 	Code             []byte
 	CodeCompressType int8
+}
+
+type FlowNodeMemory struct {
+	FlowNodeID []byte
+	MemoryType int8
+	WindowSize int32
+}
+
+type FlowNodeModel struct {
+	FlowNodeID   []byte
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
 }
 
 type FlowTag struct {
