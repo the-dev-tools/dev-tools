@@ -16,6 +16,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 
@@ -144,6 +145,9 @@ var yamlflowRunCmd = &cobra.Command{
 			services.HTTPAssert,
 		)
 
+		// Create LLM provider factory for AI nodes
+		llmFactory := scredential.NewLLMProviderFactory(&services.Credential)
+
 		builder := flowbuilder.New(
 			&services.Node,
 			&services.NodeRequest,
@@ -151,13 +155,13 @@ var yamlflowRunCmd = &cobra.Command{
 			&services.NodeForEach,
 			&services.NodeIf,
 			&services.NodeJS,
-			nil, // NodeAIService - not yet supported in CLI
+			&services.NodeAI,
 			&services.Workspace,
 			&services.Variable,
 			&services.FlowVariable,
 			resolver,
 			services.Logger,
-			nil, // LLMProviderFactory - not yet supported in CLI
+			llmFactory,
 		)
 
 		if !quietMode {

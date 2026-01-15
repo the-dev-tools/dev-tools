@@ -55,6 +55,9 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.JS != nil:
 			nodeName = stepWrapper.JS.Name
 			dependsOn = stepWrapper.JS.DependsOn
+		case stepWrapper.AI != nil:
+			nodeName = stepWrapper.AI.Name
+			dependsOn = stepWrapper.AI.DependsOn
 		case stepWrapper.ManualStart != nil:
 			nodeName = stepWrapper.ManualStart.Name
 			dependsOn = stepWrapper.ManualStart.DependsOn
@@ -109,6 +112,16 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 				return nil, NewYamlFlowErrorV2("missing required code", "js", i)
 			}
 			if err := processJSStructStep(stepWrapper.JS, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.AI != nil:
+			if strings.TrimSpace(stepWrapper.AI.Prompt) == "" {
+				return nil, NewYamlFlowErrorV2("missing required prompt", "ai", i)
+			}
+			if strings.TrimSpace(stepWrapper.AI.CredentialID) == "" {
+				return nil, NewYamlFlowErrorV2("missing required credential_id", "ai", i)
+			}
+			if err := processAIStructStep(stepWrapper.AI, nodeID, flowID, opts, result); err != nil {
 				return nil, err
 			}
 		case stepWrapper.ManualStart != nil:
@@ -306,5 +319,56 @@ func processJSStructStep(step *YamlStepJS, nodeID, flowID idwrap.IDWrap, result 
 		Code:       []byte(strings.TrimSpace(step.Code)),
 	}
 	result.FlowJSNodes = append(result.FlowJSNodes, jsNode)
+	return nil
+}
+
+func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_AI,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Parse model string to AiModel enum
+	model := mflow.AiModelFromString(step.Model)
+
+	// Resolve credential ID from name using the credential map
+	var credentialID idwrap.IDWrap
+	if opts.CredentialMap != nil {
+		if id, ok := opts.CredentialMap[step.CredentialID]; ok {
+			credentialID = id
+		} else {
+			return NewYamlFlowErrorV2(fmt.Sprintf("credential '%s' not found", step.CredentialID), "credential_id", step.CredentialID)
+		}
+	} else {
+		// Try to parse as ID directly (hex string)
+		var err error
+		credentialID, err = idwrap.NewText(step.CredentialID)
+		if err != nil {
+			return NewYamlFlowErrorV2(fmt.Sprintf("invalid credential_id '%s': must be a valid ID or credential name (provide CredentialMap in options)", step.CredentialID), "credential_id", step.CredentialID)
+		}
+	}
+
+	// Default max iterations to 5 if not specified
+	maxIterations := step.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = 5
+	}
+	// Cap max iterations to prevent overflow
+	if maxIterations > 100 {
+		maxIterations = 100
+	}
+
+	aiNode := mflow.NodeAI{
+		FlowNodeID:    nodeID,
+		Model:         model,
+		CustomModel:   step.CustomModel,
+		CredentialID:  credentialID,
+		Prompt:        step.Prompt,
+		MaxIterations: int32(maxIterations), //nolint:gosec // validated above
+	}
+	result.FlowAINodes = append(result.FlowAINodes, aiNode)
 	return nil
 }

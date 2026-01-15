@@ -100,6 +100,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		jsNodeMap[n.FlowNodeID] = n
 	}
 
+	aiNodeMap := make(map[idwrap.IDWrap]mflow.NodeAI)
+	for _, n := range data.FlowAINodes {
+		aiNodeMap[n.FlowNodeID] = n
+	}
+
 	// Edges Map (Source -> []Edge)
 	edgesBySource := make(map[idwrap.IDWrap][]mflow.Edge)
 	edgesByTarget := make(map[idwrap.IDWrap][]mflow.Edge)
@@ -346,6 +351,25 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 				stepWrapper.JS = jsStep
 
+			case mflow.NODE_KIND_AI:
+				aiNode, ok := aiNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				aiStep := &YamlStepAI{
+					YamlStepCommon: common,
+					Model:          aiNode.Model.ModelString(),
+					CustomModel:    aiNode.CustomModel,
+					CredentialID:   aiNode.CredentialID.String(),
+					Prompt:         aiNode.Prompt,
+					MaxIterations:  int(aiNode.MaxIterations),
+				}
+				// Use "custom" as model string if it's a custom model
+				if aiNode.Model == mflow.AiModelCustom {
+					aiStep.Model = "custom"
+				}
+				stepWrapper.AI = aiStep
+
 			case mflow.NODE_KIND_MANUAL_START:
 				if node.ID == startNodeID {
 					stepWrapper.ManualStart = &common
@@ -357,7 +381,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			// Add to flow
 			// Because stepWrapper has pointer fields, "empty" fields are nil
 			// Checking if any field is set (simplified check, assume one set if we got here)
-			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil || stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.ManualStart != nil
+			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil || stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil || stepWrapper.ManualStart != nil
 			if isValid {
 				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}

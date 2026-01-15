@@ -58,6 +58,7 @@ type YamlStepWrapper struct {
 	For         *YamlStepFor     `yaml:"for,omitempty"`
 	ForEach     *YamlStepForEach `yaml:"for_each,omitempty"`
 	JS          *YamlStepJS      `yaml:"js,omitempty"`
+	AI          *YamlStepAI      `yaml:"ai,omitempty"`
 	ManualStart *YamlStepCommon  `yaml:"manual_start,omitempty"`
 }
 
@@ -100,6 +101,15 @@ type YamlStepForEach struct {
 type YamlStepJS struct {
 	YamlStepCommon `yaml:",inline"`
 	Code           string `yaml:"code"`
+}
+
+type YamlStepAI struct {
+	YamlStepCommon `yaml:",inline"`
+	Model          string `yaml:"model"`                      // Model identifier (e.g., "gpt-5.2-instant", "claude-sonnet-4-5")
+	CustomModel    string `yaml:"custom_model,omitempty"`     // Custom model string when Model is "custom"
+	CredentialID   string `yaml:"credential_id"`              // Reference to credential by name or ID
+	Prompt         string `yaml:"prompt"`                     // The prompt template
+	MaxIterations  int    `yaml:"max_iterations,omitempty"`   // Max agent iterations (default 5)
 }
 
 // YamlFlowVariableV2 represents a flow variable
@@ -325,6 +335,10 @@ type ConvertOptionsV2 struct {
 	CompressionType   compress.CompressType
 	GenerateFiles     bool
 	FileOrder         int
+
+	// CredentialMap maps credential names to their IDs for AI node resolution.
+	// If nil, credential_id in YAML must be a valid ID string.
+	CredentialMap map[string]idwrap.IDWrap
 }
 
 // YamlFlowDataV2 contains the intermediate data structure during YAML parsing
@@ -343,6 +357,7 @@ type YamlFlowDataV2 struct {
 	ForNodes       []mflow.NodeFor
 	ForEachNodes   []mflow.NodeForEach
 	JSNodes        []mflow.NodeJS
+	AINodes        []mflow.NodeAI
 }
 
 // YamlVariableV2 represents a variable during parsing

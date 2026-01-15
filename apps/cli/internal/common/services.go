@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
@@ -36,6 +37,10 @@ type Services struct {
 	NodeForEach sflow.NodeForEachService
 	NodeIf      sflow.NodeIfService
 	NodeJS      sflow.NodeJsService
+	NodeAI      sflow.NodeAIService
+
+	// Credentials
+	Credential scredential.CredentialService
 
 	// HTTP (V2)
 	HTTP               shttp.HTTPService
@@ -77,6 +82,10 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		NodeForEach: sflow.NewNodeForEachService(queries),
 		NodeIf:      *sflow.NewNodeIfService(queries),
 		NodeJS:      sflow.NewNodeJsService(queries),
+		NodeAI:      sflow.NewNodeAIService(queries),
+
+		// Credentials
+		Credential: scredential.NewCredentialService(queries),
 
 		// HTTP (V2)
 		HTTP:               shttp.New(queries, logger),
