@@ -65,6 +65,11 @@ type NodeForEach struct {
 
 // --- AI Node ---
 
+// Model string constants
+const (
+	ModelStringGpt52Instant = "gpt-5.2-instant"
+)
+
 type AiModel int8
 
 const (
@@ -95,7 +100,7 @@ const (
 func (m AiModel) ModelString() string {
 	switch m {
 	case AiModelGpt52Instant:
-		return "gpt-5.2-instant"
+		return ModelStringGpt52Instant
 	case AiModelGpt52Thinking:
 		return "gpt-5.2-thinking"
 	case AiModelGpt52Pro:
@@ -119,7 +124,7 @@ func (m AiModel) ModelString() string {
 	case AiModelCustom:
 		return "" // Handled via CustomModel field
 	default:
-		return "gpt-5.2-instant"
+		return ModelStringGpt52Instant
 	}
 }
 
@@ -136,6 +141,39 @@ func (m AiModel) Provider() string {
 		return "custom"
 	default:
 		return "openai"
+	}
+}
+
+// AiModelFromString parses a model string and returns the corresponding AiModel.
+// Returns AiModelCustom if the string doesn't match any known model.
+func AiModelFromString(s string) AiModel {
+	switch s {
+	case ModelStringGpt52Instant:
+		return AiModelGpt52Instant
+	case "gpt-5.2-thinking":
+		return AiModelGpt52Thinking
+	case "gpt-5.2-pro":
+		return AiModelGpt52Pro
+	case "gpt-5.2-codex":
+		return AiModelGpt52Codex
+	case "o3":
+		return AiModelO3
+	case "o4-mini":
+		return AiModelO4Mini
+	case "claude-opus-4-5":
+		return AiModelClaudeOpus45
+	case "claude-sonnet-4-5":
+		return AiModelClaudeSonnet45
+	case "claude-haiku-4-5":
+		return AiModelClaudeHaiku45
+	case "gemini-3-pro":
+		return AiModelGemini3Pro
+	case "gemini-3-flash":
+		return AiModelGemini3Flash
+	case "custom", "":
+		return AiModelCustom
+	default:
+		return AiModelCustom
 	}
 }
 

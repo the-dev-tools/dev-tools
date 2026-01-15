@@ -225,3 +225,21 @@ func (s *IOWorkspaceService) importFlowJSNodes(ctx context.Context, nodeJSServic
 	}
 	return nil
 }
+
+// importFlowAINodes imports flow AI nodes from the bundle.
+func (s *IOWorkspaceService) importFlowAINodes(ctx context.Context, nodeAIService sflow.NodeAIService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, aiNode := range bundle.FlowAINodes {
+		// Remap flow node ID
+		if newNodeID, ok := result.NodeIDMap[aiNode.FlowNodeID]; ok {
+			aiNode.FlowNodeID = newNodeID
+		}
+
+		// Create AI node
+		if err := nodeAIService.CreateNodeAI(ctx, aiNode); err != nil {
+			return fmt.Errorf("failed to create flow AI node: %w", err)
+		}
+
+		result.FlowAINodesCreated++
+	}
+	return nil
+}

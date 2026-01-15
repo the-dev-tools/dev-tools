@@ -32,6 +32,7 @@ type ImportResult struct {
 	FlowForNodesCreated       int
 	FlowForEachNodesCreated   int
 	FlowJSNodesCreated        int
+	FlowAINodesCreated        int
 	EnvironmentsCreated       int
 	EnvironmentVarsCreated    int
 
@@ -79,6 +80,7 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	nodeForService := sflow.NewNodeForService(s.queries).TX(tx)
 	nodeForEachService := sflow.NewNodeForEachService(s.queries).TX(tx)
 	nodeJSService := sflow.NewNodeJsService(s.queries).TX(tx)
+	nodeAIService := sflow.NewNodeAIService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
 	envService := senv.NewEnvironmentService(s.queries, nil).TX(tx)
@@ -205,6 +207,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		if len(bundle.FlowJSNodes) > 0 {
 			if err := s.importFlowJSNodes(ctx, nodeJSService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow JS nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowAINodes) > 0 {
+			if err := s.importFlowAINodes(ctx, nodeAIService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow AI nodes: %w", err)
 			}
 		}
 	}
