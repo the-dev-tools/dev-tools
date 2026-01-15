@@ -29,11 +29,9 @@ func (w *NodeAIWriter) CreateNodeAI(ctx context.Context, n mflow.NodeAI) error {
 func (w *NodeAIWriter) UpdateNodeAI(ctx context.Context, n mflow.NodeAI) error {
 	dbNode := ConvertNodeAiToDB(n)
 	return w.queries.UpdateFlowNodeAI(ctx, gen.UpdateFlowNodeAIParams{
-		FlowNodeID:    dbNode.FlowNodeID,
-		Model:         dbNode.Model,
-		CredentialID:  dbNode.CredentialID,
 		Prompt:        dbNode.Prompt,
 		MaxIterations: dbNode.MaxIterations,
+		FlowNodeID:    dbNode.FlowNodeID,
 	})
 }
 

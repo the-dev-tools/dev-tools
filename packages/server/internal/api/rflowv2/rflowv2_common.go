@@ -119,8 +119,6 @@ func serializeNodeJs(n mflow.NodeJS) *flowv1.NodeJs {
 func serializeNodeAI(n mflow.NodeAI) *flowv1.NodeAi {
 	return &flowv1.NodeAi{
 		NodeId:        n.FlowNodeID.Bytes(),
-		Model:         flowv1.AiModel(n.Model), //nolint:gosec // G115
-		CredentialId:  n.CredentialID.Bytes(),
 		Prompt:        n.Prompt,
 		MaxIterations: n.MaxIterations,
 	}

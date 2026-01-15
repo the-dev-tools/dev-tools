@@ -133,6 +133,11 @@ func (s *FileService) Reader() *Reader {
 	return s.reader
 }
 
+// GetFileByContentID retrieves a file by its content ID
+func (s *FileService) GetFileByContentID(ctx context.Context, contentID idwrap.IDWrap) (*mfile.File, error) {
+	return s.reader.GetFileByContentID(ctx, contentID)
+}
+
 // Helper functions
 
 func getIDString(id *idwrap.IDWrap) string {

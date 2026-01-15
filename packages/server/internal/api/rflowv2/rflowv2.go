@@ -267,6 +267,8 @@ type FlowServiceV2Services struct {
 	NodeIf        *sflow.NodeIfService
 	NodeJs        *sflow.NodeJsService
 	NodeAI        *sflow.NodeAIService
+	NodeModel     *sflow.NodeModelService
+	NodeMemory    *sflow.NodeMemoryService
 	NodeExecution *sflow.NodeExecutionService
 	FlowVariable  *sflow.FlowVariableService
 	Env           *senv.EnvironmentService
@@ -339,6 +341,8 @@ type FlowServiceV2Streamers struct {
 	ForEach            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	Js                 eventstream.SyncStreamer[JsTopic, JsEvent]
 	Ai                 eventstream.SyncStreamer[AiTopic, AiEvent]
+	Model              eventstream.SyncStreamer[ModelTopic, ModelEvent]
+	Memory             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	HttpResponse       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	HttpResponseHeader eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
@@ -396,6 +400,8 @@ type FlowServiceV2RPC struct {
 	nifs     *sflow.NodeIfService
 	njss     *sflow.NodeJsService
 	nais     *sflow.NodeAIService
+	nms      *sflow.NodeModelService
+	nmems    *sflow.NodeMemoryService
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
@@ -417,6 +423,8 @@ type FlowServiceV2RPC struct {
 	forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
 	aiStream                 eventstream.SyncStreamer[AiTopic, AiEvent]
+	modelStream              eventstream.SyncStreamer[ModelTopic, ModelEvent]
+	memoryStream             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
@@ -447,6 +455,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 	builder := flowbuilder.New(
 		deps.Services.Node, deps.Services.NodeRequest, deps.Services.NodeFor, deps.Services.NodeForEach,
 		deps.Services.NodeIf, deps.Services.NodeJs, deps.Services.NodeAI,
+		deps.Services.NodeModel, deps.Services.NodeMemory,
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
 		deps.Resolver, deps.Logger, llmFactory,
 	)
@@ -469,6 +478,8 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		nifs:                     deps.Services.NodeIf,
 		njss:                     deps.Services.NodeJs,
 		nais:                     deps.Services.NodeAI,
+		nms:                      deps.Services.NodeModel,
+		nmems:                    deps.Services.NodeMemory,
 		nes:                      deps.Services.NodeExecution,
 		fvs:                      deps.Services.FlowVariable,
 		envs:                     deps.Services.Env,
@@ -489,6 +500,8 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		forEachStream:            deps.Streamers.ForEach,
 		jsStream:                 deps.Streamers.Js,
 		aiStream:                 deps.Streamers.Ai,
+		modelStream:              deps.Streamers.Model,
+		memoryStream:             deps.Streamers.Memory,
 		executionStream:          deps.Streamers.Execution,
 		httpResponseStream:       deps.Streamers.HttpResponse,
 		httpResponseHeaderStream: deps.Streamers.HttpResponseHeader,

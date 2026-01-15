@@ -848,18 +848,13 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			if naisWriter == nil {
 				s.logger.Warn("NodeAI service not available, skipping AI node config", "node_id", sourceNode.ID.String())
 			} else {
-				// Always create AI node config with defaults
+				// Create AI node config (model/credential now via connected Model node)
 				newAIData := mflow.NodeAI{
 					FlowNodeID:    newNodeID,
-					Model:         mflow.AiModelGpt52Instant, // default model
-					Prompt:        "",                        // default empty
-					MaxIterations: 5,                         // default
+					Prompt:        "",
+					MaxIterations: 5,
 				}
 				if config.aiData != nil {
-					// Override with actual values
-					newAIData.Model = config.aiData.Model
-					newAIData.CustomModel = config.aiData.CustomModel
-					newAIData.CredentialID = config.aiData.CredentialID
 					newAIData.Prompt = config.aiData.Prompt
 					newAIData.MaxIterations = config.aiData.MaxIterations
 				}

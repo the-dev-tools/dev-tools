@@ -110,26 +110,62 @@ func (q *Queries) CreateCredentialOpenAI(ctx context.Context, arg CreateCredenti
 
 const createFlowNodeAI = `-- name: CreateFlowNodeAI :exec
 INSERT INTO
-  flow_node_ai (flow_node_id, model, credential_id, prompt, max_iterations)
+  flow_node_ai (flow_node_id, prompt, max_iterations)
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?)
 `
 
 type CreateFlowNodeAIParams struct {
 	FlowNodeID    idwrap.IDWrap
-	Model         int8
-	CredentialID  []byte
 	Prompt        string
 	MaxIterations int32
 }
 
 func (q *Queries) CreateFlowNodeAI(ctx context.Context, arg CreateFlowNodeAIParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeAIStmt, createFlowNodeAI,
+	_, err := q.exec(ctx, q.createFlowNodeAIStmt, createFlowNodeAI, arg.FlowNodeID, arg.Prompt, arg.MaxIterations)
+	return err
+}
+
+const createFlowNodeMemory = `-- name: CreateFlowNodeMemory :exec
+INSERT INTO
+  flow_node_memory (flow_node_id, memory_type, window_size)
+VALUES
+  (?, ?, ?)
+`
+
+type CreateFlowNodeMemoryParams struct {
+	FlowNodeID []byte
+	MemoryType int8
+	WindowSize int32
+}
+
+func (q *Queries) CreateFlowNodeMemory(ctx context.Context, arg CreateFlowNodeMemoryParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeMemoryStmt, createFlowNodeMemory, arg.FlowNodeID, arg.MemoryType, arg.WindowSize)
+	return err
+}
+
+const createFlowNodeModel = `-- name: CreateFlowNodeModel :exec
+INSERT INTO
+  flow_node_model (flow_node_id, credential_id, model, temperature, max_tokens)
+VALUES
+  (?, ?, ?, ?, ?)
+`
+
+type CreateFlowNodeModelParams struct {
+	FlowNodeID   []byte
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
+}
+
+func (q *Queries) CreateFlowNodeModel(ctx context.Context, arg CreateFlowNodeModelParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeModelStmt, createFlowNodeModel,
 		arg.FlowNodeID,
-		arg.Model,
 		arg.CredentialID,
-		arg.Prompt,
-		arg.MaxIterations,
+		arg.Model,
+		arg.Temperature,
+		arg.MaxTokens,
 	)
 	return err
 }
@@ -186,6 +222,28 @@ WHERE
 
 func (q *Queries) DeleteFlowNodeAI(ctx context.Context, flowNodeID idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeAIStmt, deleteFlowNodeAI, flowNodeID)
+	return err
+}
+
+const deleteFlowNodeMemory = `-- name: DeleteFlowNodeMemory :exec
+DELETE FROM flow_node_memory
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeMemory(ctx context.Context, flowNodeID []byte) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeMemoryStmt, deleteFlowNodeMemory, flowNodeID)
+	return err
+}
+
+const deleteFlowNodeModel = `-- name: DeleteFlowNodeModel :exec
+DELETE FROM flow_node_model
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeModel(ctx context.Context, flowNodeID []byte) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeModelStmt, deleteFlowNodeModel, flowNodeID)
 	return err
 }
 
@@ -332,8 +390,6 @@ func (q *Queries) GetCredentialsByWorkspaceID(ctx context.Context, workspaceID i
 const getFlowNodeAI = `-- name: GetFlowNodeAI :one
 SELECT
   flow_node_id,
-  model,
-  credential_id,
   prompt,
   max_iterations
 FROM
@@ -346,12 +402,54 @@ LIMIT 1
 func (q *Queries) GetFlowNodeAI(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeAi, error) {
 	row := q.queryRow(ctx, q.getFlowNodeAIStmt, getFlowNodeAI, flowNodeID)
 	var i FlowNodeAi
+	err := row.Scan(&i.FlowNodeID, &i.Prompt, &i.MaxIterations)
+	return i, err
+}
+
+const getFlowNodeMemory = `-- name: GetFlowNodeMemory :one
+SELECT
+  flow_node_id,
+  memory_type,
+  window_size
+FROM
+  flow_node_memory
+WHERE
+  flow_node_id = ?
+LIMIT 1
+`
+
+// NodeMemory (Memory Node) queries
+func (q *Queries) GetFlowNodeMemory(ctx context.Context, flowNodeID []byte) (FlowNodeMemory, error) {
+	row := q.queryRow(ctx, q.getFlowNodeMemoryStmt, getFlowNodeMemory, flowNodeID)
+	var i FlowNodeMemory
+	err := row.Scan(&i.FlowNodeID, &i.MemoryType, &i.WindowSize)
+	return i, err
+}
+
+const getFlowNodeModel = `-- name: GetFlowNodeModel :one
+SELECT
+  flow_node_id,
+  credential_id,
+  model,
+  temperature,
+  max_tokens
+FROM
+  flow_node_model
+WHERE
+  flow_node_id = ?
+LIMIT 1
+`
+
+// NodeModel (Model Node) queries
+func (q *Queries) GetFlowNodeModel(ctx context.Context, flowNodeID []byte) (FlowNodeModel, error) {
+	row := q.queryRow(ctx, q.getFlowNodeModelStmt, getFlowNodeModel, flowNodeID)
+	var i FlowNodeModel
 	err := row.Scan(
 		&i.FlowNodeID,
-		&i.Model,
 		&i.CredentialID,
-		&i.Prompt,
-		&i.MaxIterations,
+		&i.Model,
+		&i.Temperature,
+		&i.MaxTokens,
 	)
 	return i, err
 }
@@ -460,8 +558,6 @@ func (q *Queries) UpdateCredentialOpenAI(ctx context.Context, arg UpdateCredenti
 const updateFlowNodeAI = `-- name: UpdateFlowNodeAI :exec
 UPDATE flow_node_ai
 SET
-  model = ?,
-  credential_id = ?,
   prompt = ?,
   max_iterations = ?
 WHERE
@@ -469,19 +565,61 @@ WHERE
 `
 
 type UpdateFlowNodeAIParams struct {
-	Model         int8
-	CredentialID  []byte
 	Prompt        string
 	MaxIterations int32
 	FlowNodeID    idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeAI(ctx context.Context, arg UpdateFlowNodeAIParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeAIStmt, updateFlowNodeAI,
-		arg.Model,
+	_, err := q.exec(ctx, q.updateFlowNodeAIStmt, updateFlowNodeAI, arg.Prompt, arg.MaxIterations, arg.FlowNodeID)
+	return err
+}
+
+const updateFlowNodeMemory = `-- name: UpdateFlowNodeMemory :exec
+UPDATE flow_node_memory
+SET
+  memory_type = ?,
+  window_size = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeMemoryParams struct {
+	MemoryType int8
+	WindowSize int32
+	FlowNodeID []byte
+}
+
+func (q *Queries) UpdateFlowNodeMemory(ctx context.Context, arg UpdateFlowNodeMemoryParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeMemoryStmt, updateFlowNodeMemory, arg.MemoryType, arg.WindowSize, arg.FlowNodeID)
+	return err
+}
+
+const updateFlowNodeModel = `-- name: UpdateFlowNodeModel :exec
+UPDATE flow_node_model
+SET
+  credential_id = ?,
+  model = ?,
+  temperature = ?,
+  max_tokens = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeModelParams struct {
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
+	FlowNodeID   []byte
+}
+
+func (q *Queries) UpdateFlowNodeModel(ctx context.Context, arg UpdateFlowNodeModelParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeModelStmt, updateFlowNodeModel,
 		arg.CredentialID,
-		arg.Prompt,
-		arg.MaxIterations,
+		arg.Model,
+		arg.Temperature,
+		arg.MaxTokens,
 		arg.FlowNodeID,
 	)
 	return err

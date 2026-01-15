@@ -36,12 +36,17 @@ const (
 	EntityFlowNodeCondition
 	EntityFlowNodeJS
 	EntityFlowNodeAI
+	EntityFlowNodeModel
+	EntityFlowNodeMemory
 	EntityFlowEdge
 	EntityFlowVariable
 	EntityFlowTag
 
 	// File system
 	EntityFile
+
+	// Credential entities
+	EntityCredential
 )
 
 // Operation identifies the type of mutation.
