@@ -126,6 +126,32 @@ func (q *Queries) CreateFlowNodeAI(ctx context.Context, arg CreateFlowNodeAIPara
 	return err
 }
 
+const createFlowNodeAiProvider = `-- name: CreateFlowNodeAiProvider :exec
+INSERT INTO
+  flow_node_ai_provider (flow_node_id, credential_id, model, temperature, max_tokens)
+VALUES
+  (?, ?, ?, ?, ?)
+`
+
+type CreateFlowNodeAiProviderParams struct {
+	FlowNodeID   []byte
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
+}
+
+func (q *Queries) CreateFlowNodeAiProvider(ctx context.Context, arg CreateFlowNodeAiProviderParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeAiProviderStmt, createFlowNodeAiProvider,
+		arg.FlowNodeID,
+		arg.CredentialID,
+		arg.Model,
+		arg.Temperature,
+		arg.MaxTokens,
+	)
+	return err
+}
+
 const createFlowNodeMemory = `-- name: CreateFlowNodeMemory :exec
 INSERT INTO
   flow_node_memory (flow_node_id, memory_type, window_size)
@@ -141,32 +167,6 @@ type CreateFlowNodeMemoryParams struct {
 
 func (q *Queries) CreateFlowNodeMemory(ctx context.Context, arg CreateFlowNodeMemoryParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeMemoryStmt, createFlowNodeMemory, arg.FlowNodeID, arg.MemoryType, arg.WindowSize)
-	return err
-}
-
-const createFlowNodeModel = `-- name: CreateFlowNodeModel :exec
-INSERT INTO
-  flow_node_model (flow_node_id, credential_id, model, temperature, max_tokens)
-VALUES
-  (?, ?, ?, ?, ?)
-`
-
-type CreateFlowNodeModelParams struct {
-	FlowNodeID   []byte
-	CredentialID []byte
-	Model        int8
-	Temperature  sql.NullFloat64
-	MaxTokens    sql.NullInt64
-}
-
-func (q *Queries) CreateFlowNodeModel(ctx context.Context, arg CreateFlowNodeModelParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeModelStmt, createFlowNodeModel,
-		arg.FlowNodeID,
-		arg.CredentialID,
-		arg.Model,
-		arg.Temperature,
-		arg.MaxTokens,
-	)
 	return err
 }
 
@@ -225,6 +225,17 @@ func (q *Queries) DeleteFlowNodeAI(ctx context.Context, flowNodeID idwrap.IDWrap
 	return err
 }
 
+const deleteFlowNodeAiProvider = `-- name: DeleteFlowNodeAiProvider :exec
+DELETE FROM flow_node_ai_provider
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeAiProvider(ctx context.Context, flowNodeID []byte) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeAiProviderStmt, deleteFlowNodeAiProvider, flowNodeID)
+	return err
+}
+
 const deleteFlowNodeMemory = `-- name: DeleteFlowNodeMemory :exec
 DELETE FROM flow_node_memory
 WHERE
@@ -233,17 +244,6 @@ WHERE
 
 func (q *Queries) DeleteFlowNodeMemory(ctx context.Context, flowNodeID []byte) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeMemoryStmt, deleteFlowNodeMemory, flowNodeID)
-	return err
-}
-
-const deleteFlowNodeModel = `-- name: DeleteFlowNodeModel :exec
-DELETE FROM flow_node_model
-WHERE
-  flow_node_id = ?
-`
-
-func (q *Queries) DeleteFlowNodeModel(ctx context.Context, flowNodeID []byte) error {
-	_, err := q.exec(ctx, q.deleteFlowNodeModelStmt, deleteFlowNodeModel, flowNodeID)
 	return err
 }
 
@@ -406,6 +406,34 @@ func (q *Queries) GetFlowNodeAI(ctx context.Context, flowNodeID idwrap.IDWrap) (
 	return i, err
 }
 
+const getFlowNodeAiProvider = `-- name: GetFlowNodeAiProvider :one
+SELECT
+  flow_node_id,
+  credential_id,
+  model,
+  temperature,
+  max_tokens
+FROM
+  flow_node_ai_provider
+WHERE
+  flow_node_id = ?
+LIMIT 1
+`
+
+// NodeAiProvider (AI Provider Node) queries
+func (q *Queries) GetFlowNodeAiProvider(ctx context.Context, flowNodeID []byte) (FlowNodeAiProvider, error) {
+	row := q.queryRow(ctx, q.getFlowNodeAiProviderStmt, getFlowNodeAiProvider, flowNodeID)
+	var i FlowNodeAiProvider
+	err := row.Scan(
+		&i.FlowNodeID,
+		&i.CredentialID,
+		&i.Model,
+		&i.Temperature,
+		&i.MaxTokens,
+	)
+	return i, err
+}
+
 const getFlowNodeMemory = `-- name: GetFlowNodeMemory :one
 SELECT
   flow_node_id,
@@ -423,34 +451,6 @@ func (q *Queries) GetFlowNodeMemory(ctx context.Context, flowNodeID []byte) (Flo
 	row := q.queryRow(ctx, q.getFlowNodeMemoryStmt, getFlowNodeMemory, flowNodeID)
 	var i FlowNodeMemory
 	err := row.Scan(&i.FlowNodeID, &i.MemoryType, &i.WindowSize)
-	return i, err
-}
-
-const getFlowNodeModel = `-- name: GetFlowNodeModel :one
-SELECT
-  flow_node_id,
-  credential_id,
-  model,
-  temperature,
-  max_tokens
-FROM
-  flow_node_model
-WHERE
-  flow_node_id = ?
-LIMIT 1
-`
-
-// NodeModel (Model Node) queries
-func (q *Queries) GetFlowNodeModel(ctx context.Context, flowNodeID []byte) (FlowNodeModel, error) {
-	row := q.queryRow(ctx, q.getFlowNodeModelStmt, getFlowNodeModel, flowNodeID)
-	var i FlowNodeModel
-	err := row.Scan(
-		&i.FlowNodeID,
-		&i.CredentialID,
-		&i.Model,
-		&i.Temperature,
-		&i.MaxTokens,
-	)
 	return i, err
 }
 
@@ -575,6 +575,36 @@ func (q *Queries) UpdateFlowNodeAI(ctx context.Context, arg UpdateFlowNodeAIPara
 	return err
 }
 
+const updateFlowNodeAiProvider = `-- name: UpdateFlowNodeAiProvider :exec
+UPDATE flow_node_ai_provider
+SET
+  credential_id = ?,
+  model = ?,
+  temperature = ?,
+  max_tokens = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeAiProviderParams struct {
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
+	FlowNodeID   []byte
+}
+
+func (q *Queries) UpdateFlowNodeAiProvider(ctx context.Context, arg UpdateFlowNodeAiProviderParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeAiProviderStmt, updateFlowNodeAiProvider,
+		arg.CredentialID,
+		arg.Model,
+		arg.Temperature,
+		arg.MaxTokens,
+		arg.FlowNodeID,
+	)
+	return err
+}
+
 const updateFlowNodeMemory = `-- name: UpdateFlowNodeMemory :exec
 UPDATE flow_node_memory
 SET
@@ -592,35 +622,5 @@ type UpdateFlowNodeMemoryParams struct {
 
 func (q *Queries) UpdateFlowNodeMemory(ctx context.Context, arg UpdateFlowNodeMemoryParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeMemoryStmt, updateFlowNodeMemory, arg.MemoryType, arg.WindowSize, arg.FlowNodeID)
-	return err
-}
-
-const updateFlowNodeModel = `-- name: UpdateFlowNodeModel :exec
-UPDATE flow_node_model
-SET
-  credential_id = ?,
-  model = ?,
-  temperature = ?,
-  max_tokens = ?
-WHERE
-  flow_node_id = ?
-`
-
-type UpdateFlowNodeModelParams struct {
-	CredentialID []byte
-	Model        int8
-	Temperature  sql.NullFloat64
-	MaxTokens    sql.NullInt64
-	FlowNodeID   []byte
-}
-
-func (q *Queries) UpdateFlowNodeModel(ctx context.Context, arg UpdateFlowNodeModelParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeModelStmt, updateFlowNodeModel,
-		arg.CredentialID,
-		arg.Model,
-		arg.Temperature,
-		arg.MaxTokens,
-		arg.FlowNodeID,
-	)
 	return err
 }

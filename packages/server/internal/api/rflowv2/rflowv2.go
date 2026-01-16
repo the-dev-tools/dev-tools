@@ -267,7 +267,7 @@ type FlowServiceV2Services struct {
 	NodeIf        *sflow.NodeIfService
 	NodeJs        *sflow.NodeJsService
 	NodeAI        *sflow.NodeAIService
-	NodeModel     *sflow.NodeModelService
+	NodeAiProvider *sflow.NodeAiProviderService
 	NodeMemory    *sflow.NodeMemoryService
 	NodeExecution *sflow.NodeExecutionService
 	FlowVariable  *sflow.FlowVariableService
@@ -309,6 +309,15 @@ func (s *FlowServiceV2Services) Validate() error {
 	if s.NodeJs == nil {
 		return fmt.Errorf("node js service is required")
 	}
+	if s.NodeAI == nil {
+		return fmt.Errorf("node AI service is required")
+	}
+	if s.NodeAiProvider == nil {
+		return fmt.Errorf("node ai provider service is required")
+	}
+	if s.NodeMemory == nil {
+		return fmt.Errorf("node memory service is required")
+	}
 	if s.NodeExecution == nil {
 		return fmt.Errorf("node execution service is required")
 	}
@@ -341,7 +350,7 @@ type FlowServiceV2Streamers struct {
 	ForEach            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	Js                 eventstream.SyncStreamer[JsTopic, JsEvent]
 	Ai                 eventstream.SyncStreamer[AiTopic, AiEvent]
-	Model              eventstream.SyncStreamer[ModelTopic, ModelEvent]
+	AiProvider         eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
 	Memory             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	HttpResponse       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
@@ -400,7 +409,7 @@ type FlowServiceV2RPC struct {
 	nifs     *sflow.NodeIfService
 	njss     *sflow.NodeJsService
 	nais     *sflow.NodeAIService
-	nms      *sflow.NodeModelService
+	naps     *sflow.NodeAiProviderService
 	nmems    *sflow.NodeMemoryService
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
@@ -423,7 +432,7 @@ type FlowServiceV2RPC struct {
 	forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
 	aiStream                 eventstream.SyncStreamer[AiTopic, AiEvent]
-	modelStream              eventstream.SyncStreamer[ModelTopic, ModelEvent]
+	aiProviderStream         eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
 	memoryStream             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
@@ -455,7 +464,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 	builder := flowbuilder.New(
 		deps.Services.Node, deps.Services.NodeRequest, deps.Services.NodeFor, deps.Services.NodeForEach,
 		deps.Services.NodeIf, deps.Services.NodeJs, deps.Services.NodeAI,
-		deps.Services.NodeModel, deps.Services.NodeMemory,
+		deps.Services.NodeAiProvider, deps.Services.NodeMemory,
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
 		deps.Resolver, deps.Logger, llmFactory,
 	)
@@ -478,7 +487,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		nifs:                     deps.Services.NodeIf,
 		njss:                     deps.Services.NodeJs,
 		nais:                     deps.Services.NodeAI,
-		nms:                      deps.Services.NodeModel,
+		naps:                     deps.Services.NodeAiProvider,
 		nmems:                    deps.Services.NodeMemory,
 		nes:                      deps.Services.NodeExecution,
 		fvs:                      deps.Services.FlowVariable,
@@ -500,7 +509,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		forEachStream:            deps.Streamers.ForEach,
 		jsStream:                 deps.Streamers.Js,
 		aiStream:                 deps.Streamers.Ai,
-		modelStream:              deps.Streamers.Model,
+		aiProviderStream:         deps.Streamers.AiProvider,
 		memoryStream:             deps.Streamers.Memory,
 		executionStream:          deps.Streamers.Execution,
 		httpResponseStream:       deps.Streamers.HttpResponse,

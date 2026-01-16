@@ -78,6 +78,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowNodeAIStmt, err = db.PrepareContext(ctx, createFlowNodeAI); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeAI: %w", err)
 	}
+	if q.createFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, createFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeAiProvider: %w", err)
+	}
 	if q.createFlowNodeConditionStmt, err = db.PrepareContext(ctx, createFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeCondition: %w", err)
 	}
@@ -95,9 +98,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createFlowNodeMemoryStmt, err = db.PrepareContext(ctx, createFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeMemory: %w", err)
-	}
-	if q.createFlowNodeModelStmt, err = db.PrepareContext(ctx, createFlowNodeModel); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateFlowNodeModel: %w", err)
 	}
 	if q.createFlowNodesBulkStmt, err = db.PrepareContext(ctx, createFlowNodesBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodesBulk: %w", err)
@@ -216,6 +216,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteFlowNodeAIStmt, err = db.PrepareContext(ctx, deleteFlowNodeAI); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeAI: %w", err)
 	}
+	if q.deleteFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, deleteFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeAiProvider: %w", err)
+	}
 	if q.deleteFlowNodeConditionStmt, err = db.PrepareContext(ctx, deleteFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeCondition: %w", err)
 	}
@@ -233,9 +236,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowNodeMemoryStmt, err = db.PrepareContext(ctx, deleteFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeMemory: %w", err)
-	}
-	if q.deleteFlowNodeModelStmt, err = db.PrepareContext(ctx, deleteFlowNodeModel); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteFlowNodeModel: %w", err)
 	}
 	if q.deleteFlowTagStmt, err = db.PrepareContext(ctx, deleteFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowTag: %w", err)
@@ -387,6 +387,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowNodeAIStmt, err = db.PrepareContext(ctx, getFlowNodeAI); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeAI: %w", err)
 	}
+	if q.getFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, getFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeAiProvider: %w", err)
+	}
 	if q.getFlowNodeConditionStmt, err = db.PrepareContext(ctx, getFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeCondition: %w", err)
 	}
@@ -404,9 +407,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowNodeMemoryStmt, err = db.PrepareContext(ctx, getFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeMemory: %w", err)
-	}
-	if q.getFlowNodeModelStmt, err = db.PrepareContext(ctx, getFlowNodeModel); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFlowNodeModel: %w", err)
 	}
 	if q.getFlowNodesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowNodesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodesByFlowID: %w", err)
@@ -720,6 +720,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeAIStmt, err = db.PrepareContext(ctx, updateFlowNodeAI); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeAI: %w", err)
 	}
+	if q.updateFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, updateFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeAiProvider: %w", err)
+	}
 	if q.updateFlowNodeConditionStmt, err = db.PrepareContext(ctx, updateFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeCondition: %w", err)
 	}
@@ -740,9 +743,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateFlowNodeMemoryStmt, err = db.PrepareContext(ctx, updateFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeMemory: %w", err)
-	}
-	if q.updateFlowNodeModelStmt, err = db.PrepareContext(ctx, updateFlowNodeModel); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateFlowNodeModel: %w", err)
 	}
 	if q.updateFlowNodeStateStmt, err = db.PrepareContext(ctx, updateFlowNodeState); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeState: %w", err)
@@ -938,6 +938,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createFlowNodeAIStmt: %w", cerr)
 		}
 	}
+	if q.createFlowNodeAiProviderStmt != nil {
+		if cerr := q.createFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.createFlowNodeConditionStmt != nil {
 		if cerr := q.createFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeConditionStmt: %w", cerr)
@@ -966,11 +971,6 @@ func (q *Queries) Close() error {
 	if q.createFlowNodeMemoryStmt != nil {
 		if cerr := q.createFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeMemoryStmt: %w", cerr)
-		}
-	}
-	if q.createFlowNodeModelStmt != nil {
-		if cerr := q.createFlowNodeModelStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createFlowNodeModelStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodesBulkStmt != nil {
@@ -1168,6 +1168,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteFlowNodeAIStmt: %w", cerr)
 		}
 	}
+	if q.deleteFlowNodeAiProviderStmt != nil {
+		if cerr := q.deleteFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.deleteFlowNodeConditionStmt != nil {
 		if cerr := q.deleteFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeConditionStmt: %w", cerr)
@@ -1196,11 +1201,6 @@ func (q *Queries) Close() error {
 	if q.deleteFlowNodeMemoryStmt != nil {
 		if cerr := q.deleteFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeMemoryStmt: %w", cerr)
-		}
-	}
-	if q.deleteFlowNodeModelStmt != nil {
-		if cerr := q.deleteFlowNodeModelStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteFlowNodeModelStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowTagStmt != nil {
@@ -1453,6 +1453,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowNodeAIStmt: %w", cerr)
 		}
 	}
+	if q.getFlowNodeAiProviderStmt != nil {
+		if cerr := q.getFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.getFlowNodeConditionStmt != nil {
 		if cerr := q.getFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeConditionStmt: %w", cerr)
@@ -1481,11 +1486,6 @@ func (q *Queries) Close() error {
 	if q.getFlowNodeMemoryStmt != nil {
 		if cerr := q.getFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeMemoryStmt: %w", cerr)
-		}
-	}
-	if q.getFlowNodeModelStmt != nil {
-		if cerr := q.getFlowNodeModelStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFlowNodeModelStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodesByFlowIDStmt != nil {
@@ -2008,6 +2008,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeAIStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowNodeAiProviderStmt != nil {
+		if cerr := q.updateFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowNodeConditionStmt != nil {
 		if cerr := q.updateFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeConditionStmt: %w", cerr)
@@ -2041,11 +2046,6 @@ func (q *Queries) Close() error {
 	if q.updateFlowNodeMemoryStmt != nil {
 		if cerr := q.updateFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeMemoryStmt: %w", cerr)
-		}
-	}
-	if q.updateFlowNodeModelStmt != nil {
-		if cerr := q.updateFlowNodeModelStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateFlowNodeModelStmt: %w", cerr)
 		}
 	}
 	if q.updateFlowNodeStateStmt != nil {
@@ -2270,13 +2270,13 @@ type Queries struct {
 	createFlowEdgeStmt                         *sql.Stmt
 	createFlowNodeStmt                         *sql.Stmt
 	createFlowNodeAIStmt                       *sql.Stmt
+	createFlowNodeAiProviderStmt               *sql.Stmt
 	createFlowNodeConditionStmt                *sql.Stmt
 	createFlowNodeForStmt                      *sql.Stmt
 	createFlowNodeForEachStmt                  *sql.Stmt
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
 	createFlowNodeMemoryStmt                   *sql.Stmt
-	createFlowNodeModelStmt                    *sql.Stmt
 	createFlowNodesBulkStmt                    *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createFlowVariableStmt                     *sql.Stmt
@@ -2316,13 +2316,13 @@ type Queries struct {
 	deleteFlowEdgeStmt                         *sql.Stmt
 	deleteFlowNodeStmt                         *sql.Stmt
 	deleteFlowNodeAIStmt                       *sql.Stmt
+	deleteFlowNodeAiProviderStmt               *sql.Stmt
 	deleteFlowNodeConditionStmt                *sql.Stmt
 	deleteFlowNodeForStmt                      *sql.Stmt
 	deleteFlowNodeForEachStmt                  *sql.Stmt
 	deleteFlowNodeHTTPStmt                     *sql.Stmt
 	deleteFlowNodeJsStmt                       *sql.Stmt
 	deleteFlowNodeMemoryStmt                   *sql.Stmt
-	deleteFlowNodeModelStmt                    *sql.Stmt
 	deleteFlowTagStmt                          *sql.Stmt
 	deleteFlowVariableStmt                     *sql.Stmt
 	deleteHTTPStmt                             *sql.Stmt
@@ -2373,13 +2373,13 @@ type Queries struct {
 	getFlowEdgesByFlowIDsStmt                  *sql.Stmt
 	getFlowNodeStmt                            *sql.Stmt
 	getFlowNodeAIStmt                          *sql.Stmt
+	getFlowNodeAiProviderStmt                  *sql.Stmt
 	getFlowNodeConditionStmt                   *sql.Stmt
 	getFlowNodeForStmt                         *sql.Stmt
 	getFlowNodeForEachStmt                     *sql.Stmt
 	getFlowNodeHTTPStmt                        *sql.Stmt
 	getFlowNodeJsStmt                          *sql.Stmt
 	getFlowNodeMemoryStmt                      *sql.Stmt
-	getFlowNodeModelStmt                       *sql.Stmt
 	getFlowNodesByFlowIDStmt                   *sql.Stmt
 	getFlowNodesByFlowIDsStmt                  *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
@@ -2484,6 +2484,7 @@ type Queries struct {
 	updateFlowEdgeStateStmt                    *sql.Stmt
 	updateFlowNodeStmt                         *sql.Stmt
 	updateFlowNodeAIStmt                       *sql.Stmt
+	updateFlowNodeAiProviderStmt               *sql.Stmt
 	updateFlowNodeConditionStmt                *sql.Stmt
 	updateFlowNodeForStmt                      *sql.Stmt
 	updateFlowNodeForEachStmt                  *sql.Stmt
@@ -2491,7 +2492,6 @@ type Queries struct {
 	updateFlowNodeIDMappingStmt                *sql.Stmt
 	updateFlowNodeJsStmt                       *sql.Stmt
 	updateFlowNodeMemoryStmt                   *sql.Stmt
-	updateFlowNodeModelStmt                    *sql.Stmt
 	updateFlowNodeStateStmt                    *sql.Stmt
 	updateFlowVariableStmt                     *sql.Stmt
 	updateFlowVariableOrderStmt                *sql.Stmt
@@ -2549,13 +2549,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowEdgeStmt:                         q.createFlowEdgeStmt,
 		createFlowNodeStmt:                         q.createFlowNodeStmt,
 		createFlowNodeAIStmt:                       q.createFlowNodeAIStmt,
+		createFlowNodeAiProviderStmt:               q.createFlowNodeAiProviderStmt,
 		createFlowNodeConditionStmt:                q.createFlowNodeConditionStmt,
 		createFlowNodeForStmt:                      q.createFlowNodeForStmt,
 		createFlowNodeForEachStmt:                  q.createFlowNodeForEachStmt,
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
 		createFlowNodeMemoryStmt:                   q.createFlowNodeMemoryStmt,
-		createFlowNodeModelStmt:                    q.createFlowNodeModelStmt,
 		createFlowNodesBulkStmt:                    q.createFlowNodesBulkStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createFlowVariableStmt:                     q.createFlowVariableStmt,
@@ -2595,13 +2595,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteFlowEdgeStmt:                         q.deleteFlowEdgeStmt,
 		deleteFlowNodeStmt:                         q.deleteFlowNodeStmt,
 		deleteFlowNodeAIStmt:                       q.deleteFlowNodeAIStmt,
+		deleteFlowNodeAiProviderStmt:               q.deleteFlowNodeAiProviderStmt,
 		deleteFlowNodeConditionStmt:                q.deleteFlowNodeConditionStmt,
 		deleteFlowNodeForStmt:                      q.deleteFlowNodeForStmt,
 		deleteFlowNodeForEachStmt:                  q.deleteFlowNodeForEachStmt,
 		deleteFlowNodeHTTPStmt:                     q.deleteFlowNodeHTTPStmt,
 		deleteFlowNodeJsStmt:                       q.deleteFlowNodeJsStmt,
 		deleteFlowNodeMemoryStmt:                   q.deleteFlowNodeMemoryStmt,
-		deleteFlowNodeModelStmt:                    q.deleteFlowNodeModelStmt,
 		deleteFlowTagStmt:                          q.deleteFlowTagStmt,
 		deleteFlowVariableStmt:                     q.deleteFlowVariableStmt,
 		deleteHTTPStmt:                             q.deleteHTTPStmt,
@@ -2652,13 +2652,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowEdgesByFlowIDsStmt:                  q.getFlowEdgesByFlowIDsStmt,
 		getFlowNodeStmt:                            q.getFlowNodeStmt,
 		getFlowNodeAIStmt:                          q.getFlowNodeAIStmt,
+		getFlowNodeAiProviderStmt:                  q.getFlowNodeAiProviderStmt,
 		getFlowNodeConditionStmt:                   q.getFlowNodeConditionStmt,
 		getFlowNodeForStmt:                         q.getFlowNodeForStmt,
 		getFlowNodeForEachStmt:                     q.getFlowNodeForEachStmt,
 		getFlowNodeHTTPStmt:                        q.getFlowNodeHTTPStmt,
 		getFlowNodeJsStmt:                          q.getFlowNodeJsStmt,
 		getFlowNodeMemoryStmt:                      q.getFlowNodeMemoryStmt,
-		getFlowNodeModelStmt:                       q.getFlowNodeModelStmt,
 		getFlowNodesByFlowIDStmt:                   q.getFlowNodesByFlowIDStmt,
 		getFlowNodesByFlowIDsStmt:                  q.getFlowNodesByFlowIDsStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
@@ -2763,6 +2763,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowEdgeStateStmt:                    q.updateFlowEdgeStateStmt,
 		updateFlowNodeStmt:                         q.updateFlowNodeStmt,
 		updateFlowNodeAIStmt:                       q.updateFlowNodeAIStmt,
+		updateFlowNodeAiProviderStmt:               q.updateFlowNodeAiProviderStmt,
 		updateFlowNodeConditionStmt:                q.updateFlowNodeConditionStmt,
 		updateFlowNodeForStmt:                      q.updateFlowNodeForStmt,
 		updateFlowNodeForEachStmt:                  q.updateFlowNodeForEachStmt,
@@ -2770,7 +2771,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeIDMappingStmt:                q.updateFlowNodeIDMappingStmt,
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
 		updateFlowNodeMemoryStmt:                   q.updateFlowNodeMemoryStmt,
-		updateFlowNodeModelStmt:                    q.updateFlowNodeModelStmt,
 		updateFlowNodeStateStmt:                    q.updateFlowNodeStateStmt,
 		updateFlowVariableStmt:                     q.updateFlowVariableStmt,
 		updateFlowVariableOrderStmt:                q.updateFlowVariableOrderStmt,

@@ -8,7 +8,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-func ConvertDBToNodeModel(nf gen.FlowNodeModel) *mflow.NodeModel {
+func ConvertDBToNodeAiProvider(nf gen.FlowNodeAiProvider) *mflow.NodeAiProvider {
 	nodeID, _ := idwrap.NewFromBytes(nf.FlowNodeID)
 	credID, _ := idwrap.NewFromBytes(nf.CredentialID)
 
@@ -25,7 +25,7 @@ func ConvertDBToNodeModel(nf gen.FlowNodeModel) *mflow.NodeModel {
 		maxTokens = &mt
 	}
 
-	return &mflow.NodeModel{
+	return &mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
 		CredentialID: credID,
 		Model:        mflow.AiModel(nf.Model),
@@ -34,7 +34,7 @@ func ConvertDBToNodeModel(nf gen.FlowNodeModel) *mflow.NodeModel {
 	}
 }
 
-func ConvertNodeModelToDB(mn mflow.NodeModel) gen.FlowNodeModel {
+func ConvertNodeAiProviderToDB(mn mflow.NodeAiProvider) gen.FlowNodeAiProvider {
 	var temp sql.NullFloat64
 	if mn.Temperature != nil {
 		temp = sql.NullFloat64{Float64: float64(*mn.Temperature), Valid: true}
@@ -45,7 +45,7 @@ func ConvertNodeModelToDB(mn mflow.NodeModel) gen.FlowNodeModel {
 		maxTokens = sql.NullInt64{Int64: int64(*mn.MaxTokens), Valid: true}
 	}
 
-	return gen.FlowNodeModel{
+	return gen.FlowNodeAiProvider{
 		FlowNodeID:   mn.FlowNodeID.Bytes(),
 		CredentialID: mn.CredentialID.Bytes(),
 		Model:        int8(mn.Model),

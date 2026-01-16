@@ -118,6 +118,9 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	nodeForService := sflow.NewNodeForService(queries)
 	nodeForEachService := sflow.NewNodeForEachService(queries)
 	nodeIfService := sflow.NewNodeIfService(queries)
+	nodeAIService := sflow.NewNodeAIService(queries)
+	nodeAiProviderService := sflow.NewNodeAiProviderService(queries)
+	nodeMemoryService := sflow.NewNodeMemoryService(queries)
 
 	// Environment and variable services
 	envService := senv.NewEnvironmentService(queries, logger)
@@ -154,6 +157,9 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 			NodeForEach:   &nodeForEachService,
 			NodeIf:        nodeIfService,
 			NodeJs:        &nodeNodeJsService,
+			NodeAI:        &nodeAIService,
+			NodeAiProvider:     &nodeAiProviderService,
+			NodeMemory:    &nodeMemoryService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,

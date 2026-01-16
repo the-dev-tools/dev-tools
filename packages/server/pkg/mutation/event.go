@@ -36,7 +36,7 @@ const (
 	EntityFlowNodeCondition
 	EntityFlowNodeJS
 	EntityFlowNodeAI
-	EntityFlowNodeModel
+	EntityFlowNodeAiProvider
 	EntityFlowNodeMemory
 	EntityFlowEdge
 	EntityFlowVariable

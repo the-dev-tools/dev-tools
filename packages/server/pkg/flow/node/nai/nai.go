@@ -7,7 +7,7 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmodel"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
@@ -46,29 +46,29 @@ func (n NodeAI) GetName() string {
 func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	next := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)
 
-	// 1. REQUIRED: Get connected Model node via HandleAiModel edge
-	modelNodeIDs := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleAiModel)
-	if len(modelNodeIDs) == 0 {
+	// 1. REQUIRED: Get connected AI Provider node via HandleAiProvider edge
+	providerNodeIDs := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleAiProvider)
+	if len(providerNodeIDs) == 0 {
 		return node.FlowNodeResult{
 			NextNodeID: next,
-			Err:        fmt.Errorf("AI Agent requires a connected Model node"),
+			Err:        fmt.Errorf("AI Agent requires a connected AI Provider node"),
 		}
 	}
 
-	modelNode, ok := req.NodeMap[modelNodeIDs[0]].(*nmodel.NodeModel)
+	providerNode, ok := req.NodeMap[providerNodeIDs[0]].(*naiprovider.NodeAiProvider)
 	if !ok {
 		return node.FlowNodeResult{
 			NextNodeID: next,
-			Err:        fmt.Errorf("connected node is not a Model node"),
+			Err:        fmt.Errorf("connected node is not an AI Provider node"),
 		}
 	}
 
-	// Use model configuration from connected Model node
-	aiModel := modelNode.Model
-	customModel := modelNode.CustomModel
-	credentialID := modelNode.CredentialID
-	temperature := modelNode.Temperature
-	maxTokens := modelNode.MaxTokens
+	// Use model configuration from connected AI Provider node
+	aiModel := providerNode.Model
+	customModel := providerNode.CustomModel
+	credentialID := providerNode.CredentialID
+	temperature := providerNode.Temperature
+	maxTokens := providerNode.MaxTokens
 
 	// 2. OPTIONAL: Get connected Memory node via HandleAiMemory edge
 	var memoryNode *nmemory.NodeMemory
@@ -85,7 +85,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		if n.ProviderFactory == nil {
 			return node.FlowNodeResult{
 				NextNodeID: next,
-				Err:        fmt.Errorf("AI Agent node requires LLM provider factory - ensure a Model node is connected and credentials are configured"),
+				Err:        fmt.Errorf("AI Agent node requires LLM provider factory - ensure an AI Provider node is connected and credentials are configured"),
 			}
 		}
 
@@ -137,7 +137,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 	}
 
-	// Build LLM options with temperature/maxTokens from Model node
+	// Build LLM options with temperature/maxTokens from AI Provider node
 	options := []llms.CallOption{
 		llms.WithTools(lcTools),
 	}
@@ -196,6 +196,10 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		resp, err := model.GenerateContent(ctx, messages, options...)
 		if err != nil {
 			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("agent error: %w", err)}
+		}
+
+		if len(resp.Choices) == 0 {
+			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("LLM returned empty response (no choices)")}
 		}
 
 		choice := resp.Choices[0]

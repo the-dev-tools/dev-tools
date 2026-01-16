@@ -14,13 +14,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-// WorkspaceCredentials holds API keys for all providers at workspace level
-type WorkspaceCredentials struct {
-	OpenAIKey    string
-	AnthropicKey string
-	GeminiKey    string
-}
-
 // ICredentialService defines the read operations required by the factory
 type ICredentialService interface {
 	GetCredential(ctx context.Context, id idwrap.IDWrap) (*mcredential.Credential, error)
@@ -30,20 +23,12 @@ type ICredentialService interface {
 }
 
 type LLMProviderFactory struct {
-	service     ICredentialService
-	credentials *WorkspaceCredentials
+	service ICredentialService
 }
 
 func NewLLMProviderFactory(service ICredentialService) *LLMProviderFactory {
 	return &LLMProviderFactory{
 		service: service,
-	}
-}
-
-// NewLLMProviderFactoryWithCredentials creates a factory with workspace-level credentials
-func NewLLMProviderFactoryWithCredentials(creds *WorkspaceCredentials) *LLMProviderFactory {
-	return &LLMProviderFactory{
-		credentials: creds,
 	}
 }
 

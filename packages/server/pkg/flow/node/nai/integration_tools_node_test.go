@@ -50,8 +50,9 @@ func TestNodeAI_LiveNodesAsTools(t *testing.T) {
 
 	// 1. Create Nodes
 	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	toolNodeID := idwrap.NewNow()
-	
+
 	toolNodeName := "ExecuteSecretOperation"
 	mockToolNode := &simpleMockNode{
 		ID:   toolNodeID,
@@ -61,22 +62,27 @@ func TestNodeAI_LiveNodesAsTools(t *testing.T) {
 	// 2. Configure AI Node
 	// Prompt explicitly asks to use the connected tool
 	prompt := fmt.Sprintf("Please run the tool named '%s' and tell me what the result was.", toolNodeName)
-	
+
 	// Note: We don't need the factory here because we inject the LLM directly
-	n := New(aiNodeID, "AI_AGENT", mflow.AiModelGpt52Pro, "", idwrap.IDWrap{}, prompt, 0, nil)
-	n.LLM = llm
+	aiNode := New(aiNodeID, "AI_AGENT", prompt, 5, nil)
+	aiNode.LLM = llm
+
+	// Create AI Provider node
+	providerNode := CreateTestAiProviderNode(providerNodeID)
 
 	// 3. Setup Request with Connection
-	// Connect AI Node -> Tool Node via HandleAiTools
+	// Connect AI Node -> Provider via HandleAiProvider, Tool Node via HandleAiTools
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiTools: []idwrap.IDWrap{toolNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+			mflow.HandleAiTools:    []idwrap.IDWrap{toolNodeID},
 		},
 	}
-	
+
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		aiNodeID:   n,
-		toolNodeID: mockToolNode,
+		aiNodeID:       aiNode,
+		providerNodeID: providerNode,
+		toolNodeID:     mockToolNode,
 	}
 
 	req := &node.FlowNodeRequest{
@@ -88,11 +94,11 @@ func TestNodeAI_LiveNodesAsTools(t *testing.T) {
 
 	// 4. Run
 	t.Logf("Running AI Node with attached tool: %s", toolNodeName)
-	res := n.RunSync(ctx, req)
+	res := aiNode.RunSync(ctx, req)
 	assert.NoError(t, res.Err)
 
 	// 5. Verification
-	
+
 	// Check if the mock tool actually ran (it writes to var map)
 	toolOutput, ok := req.VarMap[toolNodeName]
 	assert.True(t, ok, "Tool node should have written to VarMap")
@@ -102,7 +108,7 @@ func TestNodeAI_LiveNodesAsTools(t *testing.T) {
 	val, err := node.ReadNodeVar(req, "AI_AGENT", "text")
 	assert.NoError(t, err)
 	t.Logf("AI Response: %v", val)
-	
+
 	// The AI should mention the success or the specific output text
 	assert.Contains(t, val, "Successful")
 }

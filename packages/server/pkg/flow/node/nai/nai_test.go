@@ -12,7 +12,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/mocknode"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmodel"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
@@ -31,9 +31,9 @@ func (m *mockModel) GenerateContent(ctx context.Context, messages []llms.Message
 	return args.Get(0).(*llms.ContentResponse), args.Error(1)
 }
 
-// createTestModelNode creates a Model node for testing
-func createTestModelNode(id, credentialID idwrap.IDWrap) *nmodel.NodeModel {
-	return &nmodel.NodeModel{
+// createTestAiProviderNode creates a AI Provider node for testing
+func createTestAiProviderNode(id, credentialID idwrap.IDWrap) *naiprovider.NodeAiProvider {
+	return &naiprovider.NodeAiProvider{
 		FlowNodeID:   id,
 		Name:         "Test Model",
 		CredentialID: credentialID,
@@ -44,7 +44,7 @@ func createTestModelNode(id, credentialID idwrap.IDWrap) *nmodel.NodeModel {
 func TestNodeAIRun(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
@@ -88,18 +88,18 @@ func TestNodeAIRun(t *testing.T) {
 		return len(msg) == 3 // Prompt + AssistantToolCall + ToolResponse
 	}), mock.Anything).Return(resp2, nil)
 
-	// Create Model node
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	// Create AI Provider node
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
-	// Setup edge map with Model node
+	// Setup edge map with AI Provider node
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	n := New(nodeID, "AI_NODE", "hello {{user_name}}", 0, nil)
@@ -130,7 +130,7 @@ func TestNodeAI_MissingModelNode(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
 
-	// No Model node connected - should error
+	// No AI Provider node connected - should error
 	n := New(nodeID, "AI_NODE", "hello", 0, nil)
 
 	req := &node.FlowNodeRequest{
@@ -142,26 +142,26 @@ func TestNodeAI_MissingModelNode(t *testing.T) {
 
 	res := n.RunSync(ctx, req)
 	assert.Error(t, res.Err)
-	assert.Contains(t, res.Err.Error(), "AI Agent requires a connected Model node")
+	assert.Contains(t, res.Err.Error(), "AI Agent requires a connected AI Provider node")
 }
 
 func TestNodeAI_MissingProviderFactory(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
-	// Model node connected but no LLM override and no ProviderFactory
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	// AI Provider node connected but no LLM override and no ProviderFactory
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	n := New(nodeID, "AI_NODE", "hello", 0, nil)
@@ -181,7 +181,7 @@ func TestNodeAI_MissingProviderFactory(t *testing.T) {
 func TestNodeAI_WithConnectedTools(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 	httpNodeID := idwrap.NewNow()
 
@@ -201,13 +201,13 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 		name:     httpNodeName,
 	}
 
-	// Create Model node
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	// Create AI Provider node
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
-	// Setup edge map: AI node -> HTTP node via HandleAiTools, Model via HandleAiModel
+	// Setup edge map: AI node -> HTTP node via HandleAiTools, Model via HandleAiProvider
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 			mflow.HandleAiTools: []idwrap.IDWrap{httpNodeID},
 		},
 	}
@@ -215,7 +215,7 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 	// Setup node map
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		httpNodeID:  customHttpNode,
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	// Mock: LLM calls the GetUsers tool
@@ -288,7 +288,7 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 func TestNodeAI_MaxIterations(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
@@ -313,16 +313,16 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 	// Allow up to 3 calls
 	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(toolCallResp, nil).Times(3)
 
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	n := New(nodeID, "AI_NODE", "Loop forever", 3, nil)
@@ -347,7 +347,7 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 func TestNodeAI_MultipleToolCalls(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
@@ -395,16 +395,16 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 		return len(msgs) > 1
 	}), mock.Anything).Return(resp2, nil).Once()
 
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	n := New(nodeID, "AI_NODE", "Get both vars", 0, nil)
@@ -433,7 +433,7 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
@@ -473,16 +473,16 @@ func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 		return len(msgs) > 1
 	}), mock.Anything).Return(resp2, nil)
 
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	n := New(nodeID, "AI_NODE", "Call bad tool", 0, nil)
@@ -505,7 +505,7 @@ func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 func TestNodeAI_LLMError(t *testing.T) {
 	ctx := context.Background()
 	nodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
@@ -516,16 +516,16 @@ func TestNodeAI_LLMError(t *testing.T) {
 		errors.New("API rate limit exceeded"),
 	)
 
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	n := New(nodeID, "AI_NODE", "hello", 0, nil)
@@ -567,16 +567,16 @@ func (n *namedMockNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) 
 func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 	ctx := context.Background()
 	aiNodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
 
-	// Model node provides configuration
+	// AI Provider node provides configuration
 	temp := float32(0.3)
 	maxTokens := int32(1024)
-	modelNode := &nmodel.NodeModel{
-		FlowNodeID:   modelNodeID,
+	providerNode := &naiprovider.NodeAiProvider{
+		FlowNodeID:   providerNodeID,
 		Name:         "OpenAI Model",
 		CredentialID: credentialID,
 		Model:        mflow.AiModelGpt52Pro,
@@ -585,15 +585,15 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 		MaxTokens:    &maxTokens,
 	}
 
-	// Setup edge map: Model node connects to AI node via HandleAiModel
+	// Setup edge map: AI Provider node connects to AI node via HandleAiProvider
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiModel: []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID: modelNode,
+		providerNodeID: providerNode,
 	}
 
 	// Mock LLM response
@@ -608,7 +608,7 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 
 	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(resp, nil)
 
-	// AI node requires Model node (no internal model config)
+	// AI node requires AI Provider node (no internal model config)
 	n := New(aiNodeID, "AI_NODE", "Say hello", 0, nil)
 	n.LLM = mm
 
@@ -632,14 +632,14 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 func TestNodeAI_WithConnectedMemoryNode(t *testing.T) {
 	ctx := context.Background()
 	aiNodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 	memoryNodeID := idwrap.NewNow()
 
 	mm := new(mockModel)
 
-	// Model node
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	// AI Provider node
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	// Memory node provides conversation history
 	memoryNode := nmemory.New(memoryNodeID, "Conversation Memory", mflow.AiMemoryTypeWindowBuffer, 10)
@@ -647,16 +647,16 @@ func TestNodeAI_WithConnectedMemoryNode(t *testing.T) {
 	memoryNode.AddMessage("user", "Hi, my name is Alice")
 	memoryNode.AddMessage("assistant", "Hello Alice! Nice to meet you.")
 
-	// Setup edge map: Model node and Memory node connect to AI node
+	// Setup edge map: AI Provider node and Memory node connect to AI node
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiModel:  []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider:  []idwrap.IDWrap{providerNodeID},
 			mflow.HandleAiMemory: []idwrap.IDWrap{memoryNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID:  modelNode,
+		providerNodeID:  providerNode,
 		memoryNodeID: memoryNode,
 	}
 
@@ -705,16 +705,16 @@ func TestNodeAI_WithConnectedMemoryNode(t *testing.T) {
 func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 	ctx := context.Background()
 	aiNodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	memoryNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 
 	mm := new(mockModel)
 
-	// Model node configuration
+	// AI Provider node configuration
 	temp := float32(0.5)
-	modelNode := &nmodel.NodeModel{
-		FlowNodeID:   modelNodeID,
+	providerNode := &naiprovider.NodeAiProvider{
+		FlowNodeID:   providerNodeID,
 		Name:         "Claude Model",
 		CredentialID: credentialID,
 		Model:        mflow.AiModelClaudeOpus45,
@@ -729,13 +729,13 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 	// Setup edges
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiModel:  []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider:  []idwrap.IDWrap{providerNodeID},
 			mflow.HandleAiMemory: []idwrap.IDWrap{memoryNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID:  modelNode,
+		providerNodeID:  providerNode,
 		memoryNodeID: memoryNode,
 	}
 
@@ -753,7 +753,7 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 		return len(msgs) == 3
 	}), mock.Anything).Return(resp, nil)
 
-	// AI node requires Model node
+	// AI node requires AI Provider node
 	n := New(aiNodeID, "AI_NODE", "Current question", 0, nil)
 	n.LLM = mm
 
@@ -777,14 +777,14 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 func TestNodeAI_MemoryWindowEnforcement(t *testing.T) {
 	ctx := context.Background()
 	aiNodeID := idwrap.NewNow()
-	modelNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	credentialID := idwrap.NewNow()
 	memoryNodeID := idwrap.NewNow()
 
 	mm := new(mockModel)
 
-	// Model node
-	modelNode := createTestModelNode(modelNodeID, credentialID)
+	// AI Provider node
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
 	// Memory node with small window size
 	memoryNode := nmemory.New(memoryNodeID, "Memory", mflow.AiMemoryTypeWindowBuffer, 3)
@@ -795,13 +795,13 @@ func TestNodeAI_MemoryWindowEnforcement(t *testing.T) {
 
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiModel:  []idwrap.IDWrap{modelNodeID},
+			mflow.HandleAiProvider:  []idwrap.IDWrap{providerNodeID},
 			mflow.HandleAiMemory: []idwrap.IDWrap{memoryNodeID},
 		},
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		modelNodeID:  modelNode,
+		providerNodeID:  providerNode,
 		memoryNodeID: memoryNode,
 	}
 

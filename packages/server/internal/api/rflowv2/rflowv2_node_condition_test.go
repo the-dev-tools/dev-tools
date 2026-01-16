@@ -69,7 +69,7 @@ func TestNodeCondition_CRUD(t *testing.T) {
 		ifService,
 		&jsService,
 		nil, // NodeAIService
-		nil, // NodeModelService
+		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		&wsService,
 		&varService,

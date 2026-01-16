@@ -51,6 +51,9 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 			forEachService := sflow.NewNodeForEachService(queries)
 			ifService := sflow.NewNodeIfService(queries)
 			jsService := sflow.NewNodeJsService(queries)
+			aiService := sflow.NewNodeAIService(queries)
+			aiProviderService := sflow.NewNodeAiProviderService(queries)
+			memoryService := sflow.NewNodeMemoryService(queries)
 			flowVarService := sflow.NewFlowVariableService(queries)
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 			envService := senv.NewEnvironmentService(queries, logger)
@@ -81,6 +84,9 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 					NodeForEach:   &forEachService,
 					NodeIf:        ifService,
 					NodeJs:        &jsService,
+					NodeAI:        &aiService,
+					NodeAiProvider:     &aiProviderService,
+					NodeMemory:    &memoryService,
 					NodeExecution: &nodeExecService,
 					FlowVariable:  &flowVarService,
 					Env:           &envService,
@@ -194,6 +200,9 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 			forEachService := sflow.NewNodeForEachService(queries)
 			ifService := sflow.NewNodeIfService(queries)
 			jsService := sflow.NewNodeJsService(queries)
+			aiService := sflow.NewNodeAIService(queries)
+			aiProviderService := sflow.NewNodeAiProviderService(queries)
+			memoryService := sflow.NewNodeMemoryService(queries)
 			flowVarService := sflow.NewFlowVariableService(queries)
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 			envService := senv.NewEnvironmentService(queries, logger)
@@ -224,6 +233,9 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 					NodeForEach:   &forEachService,
 					NodeIf:        ifService,
 					NodeJs:        &jsService,
+					NodeAI:        &aiService,
+					NodeAiProvider:     &aiProviderService,
+					NodeMemory:    &memoryService,
 					NodeExecution: &nodeExecService,
 					FlowVariable:  &flowVarService,
 					Env:           &envService,

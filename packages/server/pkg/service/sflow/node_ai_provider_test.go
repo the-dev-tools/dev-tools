@@ -13,7 +13,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-func setupNodeModelTest(t *testing.T) (context.Context, *sql.DB, *gen.Queries, idwrap.IDWrap, idwrap.IDWrap) {
+func setupNodeAiProviderTest(t *testing.T) (context.Context, *sql.DB, *gen.Queries, idwrap.IDWrap, idwrap.IDWrap) {
 	ctx := context.Background()
 	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
@@ -47,13 +47,13 @@ func setupNodeModelTest(t *testing.T) (context.Context, *sql.DB, *gen.Queries, i
 	})
 	require.NoError(t, err)
 
-	// Create base node (MODEL kind)
+	// Create base node (AI_PROVIDER kind)
 	nodeID := idwrap.NewNow()
 	err = queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 		ID:        nodeID,
 		FlowID:    flowID,
-		Name:      "Test Model Node",
-		NodeKind:  int32(mflow.NODE_KIND_AI_MODEL),
+		Name:      "Test AI Provider Node",
+		NodeKind:  int32(mflow.NODE_KIND_AI_PROVIDER),
 		PositionX: 100,
 		PositionY: 200,
 	})
@@ -64,13 +64,13 @@ func setupNodeModelTest(t *testing.T) (context.Context, *sql.DB, *gen.Queries, i
 	return ctx, db, queries, nodeID, credentialID
 }
 
-func TestNodeModelMapper_RoundTrip(t *testing.T) {
+func TestNodeAiProviderMapper_RoundTrip(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	credID := idwrap.NewNow()
 	temp := float32(0.7)
 	maxTokens := int32(4096)
 
-	mn := mflow.NodeModel{
+	mn := mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
 		CredentialID: credID,
 		Model:        mflow.AiModelGpt52Pro,
@@ -78,7 +78,7 @@ func TestNodeModelMapper_RoundTrip(t *testing.T) {
 		MaxTokens:    &maxTokens,
 	}
 
-	dbn := ConvertNodeModelToDB(mn)
+	dbn := ConvertNodeAiProviderToDB(mn)
 	assert.Equal(t, nodeID.Bytes(), dbn.FlowNodeID)
 	assert.Equal(t, credID.Bytes(), dbn.CredentialID)
 	assert.Equal(t, int8(mflow.AiModelGpt52Pro), dbn.Model)
@@ -87,7 +87,7 @@ func TestNodeModelMapper_RoundTrip(t *testing.T) {
 	assert.True(t, dbn.MaxTokens.Valid)
 	assert.Equal(t, int64(4096), dbn.MaxTokens.Int64)
 
-	mn2 := ConvertDBToNodeModel(dbn)
+	mn2 := ConvertDBToNodeAiProvider(dbn)
 	assert.Equal(t, mn.FlowNodeID, mn2.FlowNodeID)
 	assert.Equal(t, mn.CredentialID, mn2.CredentialID)
 	assert.Equal(t, mn.Model, mn2.Model)
@@ -97,11 +97,11 @@ func TestNodeModelMapper_RoundTrip(t *testing.T) {
 	assert.Equal(t, *mn.MaxTokens, *mn2.MaxTokens)
 }
 
-func TestNodeModelMapper_NilFields(t *testing.T) {
+func TestNodeAiProviderMapper_NilFields(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	credID := idwrap.NewNow()
 
-	mn := mflow.NodeModel{
+	mn := mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
 		CredentialID: credID,
 		Model:        mflow.AiModelClaudeSonnet45,
@@ -109,25 +109,25 @@ func TestNodeModelMapper_NilFields(t *testing.T) {
 		MaxTokens:    nil,
 	}
 
-	dbn := ConvertNodeModelToDB(mn)
+	dbn := ConvertNodeAiProviderToDB(mn)
 	assert.False(t, dbn.Temperature.Valid)
 	assert.False(t, dbn.MaxTokens.Valid)
 
-	mn2 := ConvertDBToNodeModel(dbn)
+	mn2 := ConvertDBToNodeAiProvider(dbn)
 	assert.Nil(t, mn2.Temperature)
 	assert.Nil(t, mn2.MaxTokens)
 }
 
-func TestNodeModelService_CRUD(t *testing.T) {
-	ctx, db, queries, nodeID, credID := setupNodeModelTest(t)
+func TestNodeAiProviderService_CRUD(t *testing.T) {
+	ctx, db, queries, nodeID, credID := setupNodeAiProviderTest(t)
 
-	service := NewNodeModelService(queries)
+	service := NewNodeAiProviderService(queries)
 
 	temp := float32(0.8)
 	maxTokens := int32(2048)
 
 	// Create
-	model := mflow.NodeModel{
+	provider := mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
 		CredentialID: credID,
 		Model:        mflow.AiModelGemini3Flash,
@@ -140,14 +140,14 @@ func TestNodeModelService_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	writer := service.TX(tx)
 
-	err = writer.CreateNodeModel(ctx, model)
+	err = writer.CreateNodeAiProvider(ctx, provider)
 	require.NoError(t, err)
 
 	err = tx.Commit()
 	require.NoError(t, err)
 
 	// Read
-	retrieved, err := service.GetNodeModel(ctx, nodeID)
+	retrieved, err := service.GetNodeAiProvider(ctx, nodeID)
 	require.NoError(t, err)
 	assert.Equal(t, nodeID, retrieved.FlowNodeID)
 	assert.Equal(t, credID, retrieved.CredentialID)
@@ -159,21 +159,21 @@ func TestNodeModelService_CRUD(t *testing.T) {
 
 	// Update
 	newTemp := float32(0.5)
-	model.Temperature = &newTemp
-	model.Model = mflow.AiModelClaudeOpus45
+	provider.Temperature = &newTemp
+	provider.Model = mflow.AiModelClaudeOpus45
 
 	tx2, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	writer2 := service.TX(tx2)
 
-	err = writer2.UpdateNodeModel(ctx, model)
+	err = writer2.UpdateNodeAiProvider(ctx, provider)
 	require.NoError(t, err)
 
 	err = tx2.Commit()
 	require.NoError(t, err)
 
 	// Verify update
-	updated, err := service.GetNodeModel(ctx, nodeID)
+	updated, err := service.GetNodeAiProvider(ctx, nodeID)
 	require.NoError(t, err)
 	assert.Equal(t, mflow.AiModelClaudeOpus45, updated.Model)
 	require.NotNil(t, updated.Temperature)
@@ -184,23 +184,23 @@ func TestNodeModelService_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	writer3 := service.TX(tx3)
 
-	err = writer3.DeleteNodeModel(ctx, nodeID)
+	err = writer3.DeleteNodeAiProvider(ctx, nodeID)
 	require.NoError(t, err)
 
 	err = tx3.Commit()
 	require.NoError(t, err)
 
 	// Verify deletion
-	_, err = service.GetNodeModel(ctx, nodeID)
+	_, err = service.GetNodeAiProvider(ctx, nodeID)
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-func TestNodeModelService_GetNonExistent(t *testing.T) {
-	ctx, _, queries, _, _ := setupNodeModelTest(t)
+func TestNodeAiProviderService_GetNonExistent(t *testing.T) {
+	ctx, _, queries, _, _ := setupNodeAiProviderTest(t)
 
-	service := NewNodeModelService(queries)
+	service := NewNodeAiProviderService(queries)
 
 	nonExistentID := idwrap.NewNow()
-	_, err := service.GetNodeModel(ctx, nonExistentID)
+	_, err := service.GetNodeAiProvider(ctx, nonExistentID)
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 }

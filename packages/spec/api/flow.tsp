@@ -45,7 +45,7 @@ enum HandleKind {
   Then,
   Else,
   Loop,
-  AiModel,
+  AiProvider,
   AiMemory,
   AiTools,
 }
@@ -68,7 +68,7 @@ enum NodeKind {
   ForEach,
   Js,
   Ai,
-  AiModel,
+  AiProvider,
   AiMemory,
 }
 
@@ -176,7 +176,7 @@ model NodeAi {
 }
 
 @TanStackDB.collection
-model NodeAiModel {
+model NodeAiProvider {
   @primaryKey nodeId: Id;
   @foreignKey credentialId: Id;
   `model`: AiModel;

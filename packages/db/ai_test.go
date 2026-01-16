@@ -217,29 +217,17 @@ func TestAiAndCredentials(t *testing.T) {
 	t.Run("FlowNodeAiCRUD", func(t *testing.T) {
 		flowID := idwrap.NewNow()
 		nodeID := idwrap.NewNow()
-		credID := idwrap.NewNow()
-
-		// Create Credential for FK
-		err := queries.CreateCredential(ctx, gen.CreateCredentialParams{
-			ID:          credID,
-			WorkspaceID: workspaceID,
-			Name:        "Test Cred",
-			Kind:        0,
-		})
-		if err != nil {
-			t.Fatalf("failed to create credential: %v", err)
-		}
 
 		// Setup Flow and Node
 		if _, err := db.ExecContext(ctx, "INSERT INTO flow (id, workspace_id, name) VALUES (?, ?, ?)", flowID.Bytes(), workspaceID.Bytes(), "Flow"); err != nil {
 			t.Fatalf("failed to insert flow: %v", err)
 		}
 
-		err = queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
+		err := queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
 			ID:        nodeID,
 			FlowID:    flowID,
 			Name:      "AI Task",
-			NodeKind:  6, // Ai
+			NodeKind:  7, // AI node kind
 			PositionX: 100,
 			PositionY: 200,
 		})
@@ -247,11 +235,9 @@ func TestAiAndCredentials(t *testing.T) {
 			t.Fatalf("failed to create flow node: %v", err)
 		}
 
-		// Create FlowNodeAI
+		// Create FlowNodeAI (only has prompt and max_iterations now)
 		err = queries.CreateFlowNodeAI(ctx, gen.CreateFlowNodeAIParams{
 			FlowNodeID:    nodeID,
-			Model:         0,
-			CredentialID:  credID.Bytes(),
 			Prompt:        "Summarize this: {{input}}",
 			MaxIterations: 5,
 		})
@@ -274,8 +260,6 @@ func TestAiAndCredentials(t *testing.T) {
 		// Update
 		err = queries.UpdateFlowNodeAI(ctx, gen.UpdateFlowNodeAIParams{
 			FlowNodeID:    nodeID,
-			Model:         0,
-			CredentialID:  credID.Bytes(),
 			Prompt:        "Updated prompt",
 			MaxIterations: 10,
 		})
@@ -295,6 +279,86 @@ func TestAiAndCredentials(t *testing.T) {
 		err = queries.DeleteFlowNodeAI(ctx, nodeID)
 		if err != nil {
 			t.Fatalf("failed to delete flow node ai: %v", err)
+		}
+	})
+
+	t.Run("FlowNodeAiProviderCRUD", func(t *testing.T) {
+		flowID := idwrap.NewNow()
+		nodeID := idwrap.NewNow()
+		credID := idwrap.NewNow()
+
+		// Create Credential for FK
+		err := queries.CreateCredential(ctx, gen.CreateCredentialParams{
+			ID:          credID,
+			WorkspaceID: workspaceID,
+			Name:        "Test Cred",
+			Kind:        0,
+		})
+		if err != nil {
+			t.Fatalf("failed to create credential: %v", err)
+		}
+
+		// Setup Flow and Node
+		if _, err := db.ExecContext(ctx, "INSERT INTO flow (id, workspace_id, name) VALUES (?, ?, ?)", flowID.Bytes(), workspaceID.Bytes(), "Flow Provider"); err != nil {
+			t.Fatalf("failed to insert flow: %v", err)
+		}
+
+		err = queries.CreateFlowNode(ctx, gen.CreateFlowNodeParams{
+			ID:        nodeID,
+			FlowID:    flowID,
+			Name:      "AI Provider",
+			NodeKind:  8, // AI Provider node kind
+			PositionX: 100,
+			PositionY: 200,
+		})
+		if err != nil {
+			t.Fatalf("failed to create flow node: %v", err)
+		}
+
+		// Create FlowNodeAiProvider
+		err = queries.CreateFlowNodeAiProvider(ctx, gen.CreateFlowNodeAiProviderParams{
+			FlowNodeID:   nodeID.Bytes(),
+			CredentialID: credID.Bytes(),
+			Model:        0, // GPT model
+			Temperature:  sql.NullFloat64{Float64: 0.7, Valid: true},
+			MaxTokens:    sql.NullInt64{Int64: 4096, Valid: true},
+		})
+		if err != nil {
+			t.Fatalf("failed to create flow node ai provider: %v", err)
+		}
+
+		// Read
+		provider, err := queries.GetFlowNodeAiProvider(ctx, nodeID.Bytes())
+		if err != nil {
+			t.Fatalf("failed to get flow node ai provider: %v", err)
+		}
+		assert.Equal(t, int8(0), provider.Model)
+		assert.True(t, provider.Temperature.Valid)
+		assert.InDelta(t, 0.7, provider.Temperature.Float64, 0.001)
+		assert.True(t, provider.MaxTokens.Valid)
+		assert.Equal(t, int64(4096), provider.MaxTokens.Int64)
+
+		// Update
+		err = queries.UpdateFlowNodeAiProvider(ctx, gen.UpdateFlowNodeAiProviderParams{
+			FlowNodeID:   nodeID.Bytes(),
+			CredentialID: credID.Bytes(),
+			Model:        1, // Different model
+			Temperature:  sql.NullFloat64{Float64: 0.5, Valid: true},
+			MaxTokens:    sql.NullInt64{Int64: 2048, Valid: true},
+		})
+		if err != nil {
+			t.Fatalf("failed to update flow node ai provider: %v", err)
+		}
+
+		provider, _ = queries.GetFlowNodeAiProvider(ctx, nodeID.Bytes())
+		assert.Equal(t, int8(1), provider.Model)
+		assert.InDelta(t, 0.5, provider.Temperature.Float64, 0.001)
+		assert.Equal(t, int64(2048), provider.MaxTokens.Int64)
+
+		// Delete
+		err = queries.DeleteFlowNodeAiProvider(ctx, nodeID.Bytes())
+		if err != nil {
+			t.Fatalf("failed to delete flow node ai provider: %v", err)
 		}
 	})
 }

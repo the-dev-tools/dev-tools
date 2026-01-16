@@ -12,6 +12,9 @@ import (
 	"github.com/tmc/langchaingo/llms/anthropic"
 	"github.com/tmc/langchaingo/llms/googleai"
 	"github.com/tmc/langchaingo/llms/openai"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 // RequireIntegration checks if the integration test flag is set.
@@ -31,6 +34,18 @@ func RequireEnv(t *testing.T, key string) string {
 		t.Skipf("Skipping test: %s not set", key)
 	}
 	return val
+}
+
+// CreateTestAiProviderNode creates an AI Provider node for integration testing.
+// This is required because AI Agent nodes need a connected AI Provider node.
+func CreateTestAiProviderNode(id idwrap.IDWrap) *naiprovider.NodeAiProvider {
+	credentialID := idwrap.NewNow() // Dummy credential ID - not used when LLM is injected
+	return &naiprovider.NodeAiProvider{
+		FlowNodeID:   id,
+		Name:         "Test Provider",
+		CredentialID: credentialID,
+		Model:        mflow.AiModelGpt52Instant,
+	}
 }
 
 // SetupGenericIntegrationTest creates an LLM client based on available environment variables.

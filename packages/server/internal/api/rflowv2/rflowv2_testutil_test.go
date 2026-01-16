@@ -89,7 +89,7 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		nifsService,
 		&njssService,
 		nil, // NodeAIService - not needed for non-AI tests
-		nil, // NodeModelService - not needed for non-AI tests
+		nil, // NodeAiProviderService - not needed for non-AI tests
 		nil, // NodeMemoryService - not needed for non-AI tests
 		&wsService,
 		&varService,

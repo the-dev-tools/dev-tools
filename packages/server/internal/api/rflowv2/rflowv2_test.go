@@ -168,6 +168,9 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	forEachService := sflow.NewNodeForEachService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
+	aiService := sflow.NewNodeAIService(queries)
+	aiProviderService := sflow.NewNodeAiProviderService(queries)
+	memoryService := sflow.NewNodeMemoryService(queries)
 	varService := senv.NewVariableService(queries, logger)
 	envService := senv.NewEnvironmentService(queries, logger)
 
@@ -200,6 +203,9 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 			NodeForEach:   &forEachService,
 			NodeIf:        ifService,
 			NodeJs:        &jsService,
+			NodeAI:        &aiService,
+			NodeAiProvider:     &aiProviderService,
+			NodeMemory:    &memoryService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -309,6 +315,9 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	forEachService := sflow.NewNodeForEachService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
+	aiService := sflow.NewNodeAIService(queries)
+	aiProviderService := sflow.NewNodeAiProviderService(queries)
+	memoryService := sflow.NewNodeMemoryService(queries)
 	varService := senv.NewVariableService(queries, logger)
 	envService := senv.NewEnvironmentService(queries, logger)
 
@@ -341,6 +350,9 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 			NodeForEach:   &forEachService,
 			NodeIf:        ifService,
 			NodeJs:        &jsService,
+			NodeAI:        &aiService,
+			NodeAiProvider:     &aiProviderService,
+			NodeMemory:    &memoryService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -456,6 +468,9 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	forEachService := sflow.NewNodeForEachService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
+	aiService := sflow.NewNodeAIService(queries)
+	aiProviderService := sflow.NewNodeAiProviderService(queries)
+	memoryService := sflow.NewNodeMemoryService(queries)
 	varService := senv.NewVariableService(queries, logger)
 	envService := senv.NewEnvironmentService(queries, logger)
 
@@ -488,6 +503,9 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 			NodeForEach:   &forEachService,
 			NodeIf:        ifService,
 			NodeJs:        &jsService,
+			NodeAI:        &aiService,
+			NodeAiProvider:     &aiProviderService,
+			NodeMemory:    &memoryService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
