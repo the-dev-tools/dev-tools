@@ -37,14 +37,31 @@ func TestNodeAI_LiveOpenAI(t *testing.T) {
 	llm, err := openai.New(opts...)
 	assert.NoError(t, err)
 
-	n := New(idwrap.NewNow(), "OPENAI_AGENT", mflow.AiModelGpt52Pro, "", idwrap.IDWrap{}, "What is the value of 'test_var'? Use get_variable.", 0, nil)
+	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+
+	n := New(aiNodeID, "OPENAI_AGENT", "What is the value of 'test_var'? Use get_variable.", 5, nil)
 	n.LLM = llm
+
+	providerNode := CreateTestAiProviderNode(providerNodeID)
+
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		providerNodeID: providerNode,
+	}
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
 			"test_var": "Hello from DevTools!",
 		},
 		ReadWriteLock: &sync.RWMutex{},
+		EdgeSourceMap: edgeMap,
+		NodeMap:       nodeMap,
 	}
 
 	res := n.RunSync(ctx, req)
@@ -60,11 +77,29 @@ func TestNodeAI_LiveGemini(t *testing.T) {
 	apiKey := RequireEnv(t, "GEMINI_API_KEY")
 	ctx := context.Background()
 
-	llm, err := googleai.New(ctx, googleai.WithAPIKey(apiKey))
+	llm, err := googleai.New(ctx,
+		googleai.WithAPIKey(apiKey),
+		googleai.WithDefaultModel("gemini-2.5-flash"), // Use Gemini 2.5 Flash (stable)
+	)
 	assert.NoError(t, err)
 
-	n := New(idwrap.NewNow(), "GEMINI_AGENT", mflow.AiModelGemini3Pro, "", idwrap.IDWrap{}, "Greet the user {{user_name}}. Then tell me what is in 'secret_code' variable.", 0, nil)
+	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+
+	n := New(aiNodeID, "GEMINI_AGENT", "Greet the user {{user_name}}. Then tell me what is in 'secret_code' variable.", 5, nil)
 	n.LLM = llm
+
+	providerNode := CreateTestAiProviderNode(providerNodeID)
+
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		providerNodeID: providerNode,
+	}
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -72,6 +107,8 @@ func TestNodeAI_LiveGemini(t *testing.T) {
 			"secret_code": "INTEGRATION_SUCCESS",
 		},
 		ReadWriteLock: &sync.RWMutex{},
+		EdgeSourceMap: edgeMap,
+		NodeMap:       nodeMap,
 	}
 
 	res := n.RunSync(ctx, req)
@@ -88,15 +125,35 @@ func TestNodeAI_LiveAnthropic(t *testing.T) {
 	apiKey := RequireEnv(t, "ANTHROPIC_API_KEY")
 	ctx := context.Background()
 
-	llm, err := anthropic.New(anthropic.WithToken(apiKey))
+	llm, err := anthropic.New(
+		anthropic.WithToken(apiKey),
+		anthropic.WithModel("claude-sonnet-4-20250514"), // Use Claude Sonnet 4
+	)
 	assert.NoError(t, err)
 
-	n := New(idwrap.NewNow(), "ANTHROPIC_AGENT", mflow.AiModelClaudeOpus45, "", idwrap.IDWrap{}, "Say 'Claude is here'.", 0, nil)
+	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+
+	n := New(aiNodeID, "ANTHROPIC_AGENT", "Say 'Claude is here'.", 5, nil)
 	n.LLM = llm
+
+	providerNode := CreateTestAiProviderNode(providerNodeID)
+
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		providerNodeID: providerNode,
+	}
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
 		ReadWriteLock: &sync.RWMutex{},
+		EdgeSourceMap: edgeMap,
+		NodeMap:       nodeMap,
 	}
 
 	res := n.RunSync(ctx, req)

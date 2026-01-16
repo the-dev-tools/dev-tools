@@ -68,7 +68,7 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		ifService,
 		&jsService,
 		nil, // NodeAIService
-		nil, // NodeModelService
+		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		&wsService,
 		&varService,

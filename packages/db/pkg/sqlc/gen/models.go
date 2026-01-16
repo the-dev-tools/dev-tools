@@ -95,6 +95,14 @@ type FlowNodeAi struct {
 	MaxIterations int32
 }
 
+type FlowNodeAiProvider struct {
+	FlowNodeID   []byte
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
+}
+
 type FlowNodeCondition struct {
 	FlowNodeID idwrap.IDWrap
 	Expression string
@@ -130,14 +138,6 @@ type FlowNodeMemory struct {
 	FlowNodeID []byte
 	MemoryType int8
 	WindowSize int32
-}
-
-type FlowNodeModel struct {
-	FlowNodeID   []byte
-	CredentialID []byte
-	Model        int8
-	Temperature  sql.NullFloat64
-	MaxTokens    sql.NullInt64
 }
 
 type FlowTag struct {

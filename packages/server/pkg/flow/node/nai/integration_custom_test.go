@@ -9,49 +9,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/tmc/langchaingo/llms/anthropic"
+	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 )
 
-// mockCredentialService implements scredential.ICredentialService
-type mockCredentialService struct {
-	mock.Mock
-}
-
-func (m *mockCredentialService) GetCredential(ctx context.Context, id idwrap.IDWrap) (*mcredential.Credential, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*mcredential.Credential), args.Error(1)
-}
-
-func (m *mockCredentialService) GetCredentialOpenAI(ctx context.Context, id idwrap.IDWrap) (*mcredential.CredentialOpenAI, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*mcredential.CredentialOpenAI), args.Error(1)
-}
-
-func (m *mockCredentialService) GetCredentialGemini(ctx context.Context, id idwrap.IDWrap) (*mcredential.CredentialGemini, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*mcredential.CredentialGemini), args.Error(1)
-}
-
-func (m *mockCredentialService) GetCredentialAnthropic(ctx context.Context, id idwrap.IDWrap) (*mcredential.CredentialAnthropic, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*mcredential.CredentialAnthropic), args.Error(1)
-}
-
 func TestNodeAI_LiveCustom_Generic(t *testing.T) {
-	// This generic test verifies that the "Custom Model" feature works with ANY provider
+	// This generic test verifies that custom model configurations work with ANY provider
 	// that is compatible with OpenAI or Anthropic SDKs, using standard env vars.
+	RequireIntegration(t)
 
-	// Priority: Anthropic -> OpenAI -> Skip
+	// Priority: Anthropic with custom base -> OpenAI with custom base -> Skip
 	var apiKey, baseUrl, modelName string
-	var credKind mcredential.CredentialKind
+	var providerType string
 
 	if os.Getenv("ANTHROPIC_BASE_URL") != "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
@@ -60,19 +32,19 @@ func TestNodeAI_LiveCustom_Generic(t *testing.T) {
 		}
 		baseUrl = os.Getenv("ANTHROPIC_BASE_URL")
 		modelName = os.Getenv("ANTHROPIC_MODEL")
-		credKind = mcredential.CREDENTIAL_KIND_ANTHROPIC
+		providerType = "anthropic"
 	} else if os.Getenv("OPENAI_BASE_URL") != "" {
 		apiKey = os.Getenv("OPENAI_API_KEY")
 		baseUrl = os.Getenv("OPENAI_BASE_URL")
 		modelName = os.Getenv("OPENAI_MODEL")
-		credKind = mcredential.CREDENTIAL_KIND_OPENAI
+		providerType = "openai"
 	} else {
 		// Fallback/Legacy logic for direct tests
 		apiKey = os.Getenv("MINIMAX_API_KEY")
 		if apiKey != "" {
 			baseUrl = "https://api.minimax.io/v1"
 			modelName = "MiniMax-M2.1"
-			credKind = mcredential.CREDENTIAL_KIND_OPENAI
+			providerType = "openai"
 		}
 	}
 
@@ -84,53 +56,93 @@ func TestNodeAI_LiveCustom_Generic(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	credID := idwrap.NewNow()
-	
-	// 1. Setup Mock Credential Service
-	mockService := new(mockCredentialService)
-	
-	mockService.On("GetCredential", mock.Anything, credID).Return(&mcredential.Credential{
-		ID:   credID,
-		Name: "CustomProvider",
-		Kind: credKind,
-	}, nil)
 
-	// Mock specific credential details based on kind
-	if credKind == mcredential.CREDENTIAL_KIND_ANTHROPIC {
-		mockService.On("GetCredentialAnthropic", mock.Anything, credID).Return(&mcredential.CredentialAnthropic{
-			CredentialID: credID,
-			ApiKey:       apiKey,
-			BaseUrl:      &baseUrl,
-		}, nil)
-	} else if credKind == mcredential.CREDENTIAL_KIND_OPENAI {
-		mockService.On("GetCredentialOpenAI", mock.Anything, credID).Return(&mcredential.CredentialOpenAI{
-			CredentialID: credID,
-			Token:        apiKey,
-			BaseUrl:      &baseUrl,
-		}, nil)
+	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+
+	// Create AI Provider node
+	providerNode := CreateTestAiProviderNode(providerNodeID)
+
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+		},
 	}
 
-	// 2. Create Factory
-	factory := scredential.NewLLMProviderFactory(mockService)
-
-	// 3. Create Node with Custom Model
-	n := New(idwrap.NewNow(), "CUSTOM_AI_NODE", mflow.AiModelCustom, modelName, credID, "Say 'Hello' and state your model name.", 0, factory)
-
-	req := &node.FlowNodeRequest{
-		VarMap:        make(map[string]any),
-		ReadWriteLock: &sync.RWMutex{},
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		providerNodeID: providerNode,
 	}
 
-	// 4. Run
-	t.Logf("Running AI Node with Custom Model: %s (Provider: %v) at %s", modelName, credKind, baseUrl)
-	res := n.RunSync(ctx, req)
-	
-	if res.Err != nil {
-		t.Fatalf("Node execution failed: %v", res.Err)
-	}
+	if providerType == "anthropic" {
+		opts := []anthropic.Option{
+			anthropic.WithToken(apiKey),
+			anthropic.WithBaseURL(baseUrl),
+		}
+		if modelName != "" {
+			opts = append(opts, anthropic.WithModel(modelName))
+		}
+		llm, err := anthropic.New(opts...)
+		if err != nil {
+			t.Fatalf("Failed to create Anthropic client: %v", err)
+		}
 
-	val, err := node.ReadNodeVar(req, "CUSTOM_AI_NODE", "text")
-	assert.NoError(t, err)
-	t.Logf("Response: %v", val)
-	assert.NotEmpty(t, val)
+		// Create and run node
+		n := New(aiNodeID, "CUSTOM_AI_NODE", "Say 'Hello' and state your model name.", 5, nil)
+		n.LLM = llm
+
+		req := &node.FlowNodeRequest{
+			VarMap:        make(map[string]any),
+			ReadWriteLock: &sync.RWMutex{},
+			EdgeSourceMap: edgeMap,
+			NodeMap:       nodeMap,
+		}
+
+		t.Logf("Running AI Node with Custom Model: %s (Provider: %s) at %s", modelName, providerType, baseUrl)
+		res := n.RunSync(ctx, req)
+
+		if res.Err != nil {
+			t.Fatalf("Node execution failed: %v", res.Err)
+		}
+
+		val, err := node.ReadNodeVar(req, "CUSTOM_AI_NODE", "text")
+		assert.NoError(t, err)
+		t.Logf("Response: %v", val)
+		assert.NotEmpty(t, val)
+	} else {
+		// OpenAI-compatible provider
+		opts := []openai.Option{
+			openai.WithToken(apiKey),
+			openai.WithBaseURL(baseUrl),
+		}
+		if modelName != "" {
+			opts = append(opts, openai.WithModel(modelName))
+		}
+		llm, err := openai.New(opts...)
+		if err != nil {
+			t.Fatalf("Failed to create OpenAI client: %v", err)
+		}
+
+		// Create and run node
+		n := New(aiNodeID, "CUSTOM_AI_NODE", "Say 'Hello' and state your model name.", 5, nil)
+		n.LLM = llm
+
+		req := &node.FlowNodeRequest{
+			VarMap:        make(map[string]any),
+			ReadWriteLock: &sync.RWMutex{},
+			EdgeSourceMap: edgeMap,
+			NodeMap:       nodeMap,
+		}
+
+		t.Logf("Running AI Node with Custom Model: %s (Provider: %s) at %s", modelName, providerType, baseUrl)
+		res := n.RunSync(ctx, req)
+
+		if res.Err != nil {
+			t.Fatalf("Node execution failed: %v", res.Err)
+		}
+
+		val, err := node.ReadNodeVar(req, "CUSTOM_AI_NODE", "text")
+		assert.NoError(t, err)
+		t.Logf("Response: %v", val)
+		assert.NotEmpty(t, val)
+	}
 }

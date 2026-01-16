@@ -73,6 +73,9 @@ func TestExecutionCache(t *testing.T) {
 	nodeForEachService := sflow.NewNodeForEachService(queries)
 	nodeIfService := sflow.NewNodeIfService(queries)
 	nodeNodeJsService := sflow.NewNodeJsService(queries)
+	nodeAIService := sflow.NewNodeAIService(queries)
+	nodeAiProviderService := sflow.NewNodeAiProviderService(queries)
+	nodeMemoryService := sflow.NewNodeMemoryService(queries)
 	envService := senv.NewEnvironmentService(queries, logger)
 	varService := senv.NewVariableService(queries, logger)
 
@@ -111,6 +114,9 @@ func TestExecutionCache(t *testing.T) {
 			NodeForEach:   &nodeForEachService,
 			NodeIf:        nodeIfService,
 			NodeJs:        &nodeNodeJsService,
+			NodeAI:        &nodeAIService,
+			NodeAiProvider:     &nodeAiProviderService,
+			NodeMemory:    &nodeMemoryService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,

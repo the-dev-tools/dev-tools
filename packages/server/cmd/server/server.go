@@ -189,6 +189,8 @@ func run() error {
 	flowNodeConditionService := sflow.NewNodeIfService(queries)
 	flowNodeNodeJsService := sflow.NewNodeJsService(queries)
 	flowNodeAIService := sflow.NewNodeAIService(queries)
+	flowNodeAiProviderService := sflow.NewNodeAiProviderService(queries)
+	flowNodeMemoryService := sflow.NewNodeMemoryService(queries)
 
 	nodeExecutionService := sflow.NewNodeExecutionService(queries)
 	nodeExecutionReader := sflow.NewNodeExecutionReader(currentDB)
@@ -447,6 +449,8 @@ func run() error {
 			NodeIf:        flowNodeConditionService,
 			NodeJs:        &flowNodeNodeJsService,
 			NodeAI:        &flowNodeAIService,
+			NodeAiProvider: &flowNodeAiProviderService,
+			NodeMemory:    &flowNodeMemoryService,
 			NodeExecution: &nodeExecutionService,
 			FlowVariable:  &flowVariableService,
 			Env:           &environmentService,
@@ -469,6 +473,8 @@ func run() error {
 			ForEach:            streamers.ForEach,
 			Js:                 streamers.Js,
 			Ai:                 streamers.Ai,
+			AiProvider:         streamers.AiProvider,
+			Memory:             streamers.Memory,
 			Execution:          streamers.Execution,
 			HttpResponse:       streamers.HttpResponse,
 			HttpResponseHeader: streamers.HttpResponseHeader,
@@ -665,6 +671,8 @@ type Streamers struct {
 	ForEach             eventstream.SyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent]
 	Js                  eventstream.SyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent]
 	Ai                  eventstream.SyncStreamer[rflowv2.AiTopic, rflowv2.AiEvent]
+	AiProvider          eventstream.SyncStreamer[rflowv2.AiProviderTopic, rflowv2.AiProviderEvent]
+	Memory              eventstream.SyncStreamer[rflowv2.MemoryTopic, rflowv2.MemoryEvent]
 	Execution           eventstream.SyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]
 	File                eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 	Credential          eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent]
@@ -697,6 +705,8 @@ func NewStreamers() *Streamers {
 		ForEach:             memory.NewInMemorySyncStreamer[rflowv2.ForEachTopic, rflowv2.ForEachEvent](),
 		Js:                  memory.NewInMemorySyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent](),
 		Ai:                  memory.NewInMemorySyncStreamer[rflowv2.AiTopic, rflowv2.AiEvent](),
+		AiProvider:          memory.NewInMemorySyncStreamer[rflowv2.AiProviderTopic, rflowv2.AiProviderEvent](),
+		Memory:              memory.NewInMemorySyncStreamer[rflowv2.MemoryTopic, rflowv2.MemoryEvent](),
 		Execution:           memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent](),
 		File:                memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 		Credential:          memory.NewInMemorySyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent](),
@@ -729,6 +739,8 @@ func (s *Streamers) Shutdown() {
 	s.ForEach.Shutdown()
 	s.Js.Shutdown()
 	s.Ai.Shutdown()
+	s.AiProvider.Shutdown()
+	s.Memory.Shutdown()
 	s.Execution.Shutdown()
 	s.File.Shutdown()
 	s.Credential.Shutdown()

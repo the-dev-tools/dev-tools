@@ -16,7 +16,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nif"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/njs"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmodel"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -39,7 +39,7 @@ type Builder struct {
 	NodeIf      *sflow.NodeIfService
 	NodeJS      *sflow.NodeJsService
 	NodeAI      *sflow.NodeAIService
-	NodeModel   *sflow.NodeModelService
+	NodeAiProvider *sflow.NodeAiProviderService
 	NodeMemory  *sflow.NodeMemoryService
 
 	Workspace    *sworkspace.WorkspaceService
@@ -59,7 +59,7 @@ func New(
 	nifs *sflow.NodeIfService,
 	njss *sflow.NodeJsService,
 	nais *sflow.NodeAIService,
-	nms *sflow.NodeModelService,
+	naps *sflow.NodeAiProviderService,
 	nmems *sflow.NodeMemoryService,
 	ws *sworkspace.WorkspaceService,
 	vs *senv.VariableService,
@@ -76,7 +76,7 @@ func New(
 		NodeIf:             nifs,
 		NodeJS:             njss,
 		NodeAI:             nais,
-		NodeModel:          nms,
+		NodeAiProvider:     naps,
 		NodeMemory:         nmems,
 		Workspace:          ws,
 		Variable:           vs,
@@ -218,14 +218,14 @@ func (b *Builder) BuildNodes(
 					b.LLMProviderFactory,
 				)
 			}
-		case mflow.NODE_KIND_AI_MODEL:
-			modelCfg, err := b.NodeModel.GetNodeModel(ctx, nodeModel.ID)
-			if err != nil && !errors.Is(err, sflow.ErrNoNodeModelFound) {
+		case mflow.NODE_KIND_AI_PROVIDER:
+			providerCfg, err := b.NodeAiProvider.GetNodeAiProvider(ctx, nodeModel.ID)
+			if err != nil && !errors.Is(err, sflow.ErrNoNodeAiProviderFound) {
 				return nil, idwrap.IDWrap{}, err
 			}
-			if modelCfg == nil {
-				// Default Model node
-				flowNodeMap[nodeModel.ID] = nmodel.New(
+			if providerCfg == nil {
+				// Default AI Provider node
+				flowNodeMap[nodeModel.ID] = naiprovider.New(
 					nodeModel.ID,
 					nodeModel.Name,
 					idwrap.IDWrap{},
@@ -235,14 +235,14 @@ func (b *Builder) BuildNodes(
 					nil,
 				)
 			} else {
-				flowNodeMap[nodeModel.ID] = nmodel.New(
+				flowNodeMap[nodeModel.ID] = naiprovider.New(
 					nodeModel.ID,
 					nodeModel.Name,
-					modelCfg.CredentialID,
-					modelCfg.Model,
+					providerCfg.CredentialID,
+					providerCfg.Model,
 					"", // TODO(persistent-kv): CustomModel will be stored when persistent key-value store is implemented
-					modelCfg.Temperature,
-					modelCfg.MaxTokens,
+					providerCfg.Temperature,
+					providerCfg.MaxTokens,
 				)
 			}
 		case mflow.NODE_KIND_AI_MEMORY:

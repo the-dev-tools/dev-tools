@@ -16,7 +16,7 @@ const (
 	NODE_KIND_FOR_EACH     NodeKind = 5
 	NODE_KIND_JS           NodeKind = 6
 	NODE_KIND_AI           NodeKind = 7
-	NODE_KIND_AI_MODEL     NodeKind = 8
+	NODE_KIND_AI_PROVIDER  NodeKind = 8
 	NODE_KIND_AI_MEMORY    NodeKind = 9
 )
 

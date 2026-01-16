@@ -46,6 +46,7 @@ func TestNodeAI_LiveMultiStepFlow(t *testing.T) {
 
 	// 1. Create Nodes
 	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	nodeUserID := idwrap.NewNow()
 	nodeLoginID := idwrap.NewNow()
 	nodeDataID := idwrap.NewNow()
@@ -96,23 +97,28 @@ func TestNodeAI_LiveMultiStepFlow(t *testing.T) {
 		3. Run 'FetchData' (it will automatically read the token from step 2).
 		4. Return the final secret.
 	`
-	
-	// 4. Create AI Node
-	aiNode := New(aiNodeID, "AI_ORCHESTRATOR", mflow.AiModelCustom, modelName, credID, prompt, 0, factory)
-	n.LLM = llm
 
-	// 3. Connect Edges
+	// 3. Create AI Node
+	aiNode := New(aiNodeID, "AI_ORCHESTRATOR", prompt, 10, nil)
+	aiNode.LLM = llm
+
+	// Create AI Provider node
+	providerNode := CreateTestAiProviderNode(providerNodeID)
+
+	// 4. Connect Edges
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiTools: []idwrap.IDWrap{nodeUserID, nodeLoginID, nodeDataID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+			mflow.HandleAiTools:    []idwrap.IDWrap{nodeUserID, nodeLoginID, nodeDataID},
 		},
 	}
-	
+
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		aiNodeID:    n,
-		nodeUserID:  fetchUserNode,
-		nodeLoginID: loginNode,
-		nodeDataID:  fetchDataNode,
+		aiNodeID:       aiNode,
+		providerNodeID: providerNode,
+		nodeUserID:     fetchUserNode,
+		nodeLoginID:    loginNode,
+		nodeDataID:     fetchDataNode,
 	}
 
 	req := &node.FlowNodeRequest{
@@ -122,15 +128,15 @@ func TestNodeAI_LiveMultiStepFlow(t *testing.T) {
 		NodeMap:       nodeMap,
 	}
 
-	// 4. Run
+	// 5. Run
 	t.Logf("Running Multi-Step AI Flow...")
-	res := n.RunSync(ctx, req)
+	res := aiNode.RunSync(ctx, req)
 	assert.NoError(t, res.Err)
 
-	// 5. Verify
+	// 6. Verify
 	val, err := node.ReadNodeVar(req, "AI_ORCHESTRATOR", "text")
 	assert.NoError(t, err)
 	t.Logf("Final AI Response: %v", val)
-	
+
 	assert.Contains(t, val, "MISSION_COMPLETED", "AI should retrieve the final secret")
 }

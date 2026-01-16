@@ -183,10 +183,10 @@ type NodeAI struct {
 	MaxIterations int32
 }
 
-// --- Model Node ---
-// NodeModel is a passive configuration node that provides LLM settings to connected AI Agent nodes.
-// It connects via HandleAiModel edge and allows visual separation of model config from AI logic.
-type NodeModel struct {
+// --- AI Provider Node ---
+// NodeAiProvider is a passive configuration node that provides LLM settings to connected AI Agent nodes.
+// It connects via HandleAiProvider edge and allows visual separation of model config from AI logic.
+type NodeAiProvider struct {
 	FlowNodeID   idwrap.IDWrap
 	CredentialID idwrap.IDWrap
 	Model        AiModel

@@ -45,8 +45,8 @@ CREATE TABLE flow_node_ai (
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
--- Model Node: LLM configuration that can be connected to AI Agent nodes via HandleAiModel edge
-CREATE TABLE flow_node_model (
+-- AI Provider Node: LLM configuration that can be connected to AI Agent nodes via HandleAiProvider edge
+CREATE TABLE flow_node_ai_provider (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   credential_id BLOB NOT NULL,
   model INT8 NOT NULL, -- AiModel enum (same as flow_node_ai)

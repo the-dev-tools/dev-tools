@@ -166,8 +166,8 @@ DELETE FROM flow_node_ai
 WHERE
   flow_node_id = ?;
 
--- NodeModel (Model Node) queries
--- name: GetFlowNodeModel :one
+-- NodeAiProvider (AI Provider Node) queries
+-- name: GetFlowNodeAiProvider :one
 SELECT
   flow_node_id,
   credential_id,
@@ -175,19 +175,19 @@ SELECT
   temperature,
   max_tokens
 FROM
-  flow_node_model
+  flow_node_ai_provider
 WHERE
   flow_node_id = ?
 LIMIT 1;
 
--- name: CreateFlowNodeModel :exec
+-- name: CreateFlowNodeAiProvider :exec
 INSERT INTO
-  flow_node_model (flow_node_id, credential_id, model, temperature, max_tokens)
+  flow_node_ai_provider (flow_node_id, credential_id, model, temperature, max_tokens)
 VALUES
   (?, ?, ?, ?, ?);
 
--- name: UpdateFlowNodeModel :exec
-UPDATE flow_node_model
+-- name: UpdateFlowNodeAiProvider :exec
+UPDATE flow_node_ai_provider
 SET
   credential_id = ?,
   model = ?,
@@ -196,8 +196,8 @@ SET
 WHERE
   flow_node_id = ?;
 
--- name: DeleteFlowNodeModel :exec
-DELETE FROM flow_node_model
+-- name: DeleteFlowNodeAiProvider :exec
+DELETE FROM flow_node_ai_provider
 WHERE
   flow_node_id = ?;
 

@@ -36,12 +36,19 @@ type NodeMemory struct {
 }
 
 // New creates a new NodeMemory with the given configuration.
+// For WindowBuffer memory type, windowSize must be at least 1.
+// Invalid windowSize values are automatically corrected to a minimum of 1.
 func New(
 	id idwrap.IDWrap,
 	name string,
 	memoryType mflow.AiMemoryType,
 	windowSize int32,
 ) *NodeMemory {
+	// Ensure windowSize is at least 1 for WindowBuffer type
+	if memoryType == mflow.AiMemoryTypeWindowBuffer && windowSize < 1 {
+		windowSize = 1
+	}
+
 	return &NodeMemory{
 		FlowNodeID: id,
 		Name:       name,

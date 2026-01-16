@@ -216,8 +216,9 @@ func (s *FlowServiceV2RPC) NodeAiDelete(
 	req *connect.Request[flowv1.NodeAiDeleteRequest],
 ) (*connect.Response[emptypb.Empty], error) {
 	type deleteData struct {
-		nodeID idwrap.IDWrap
-		flowID idwrap.IDWrap
+		nodeID      idwrap.IDWrap
+		flowID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
 	}
 	var validatedItems []deleteData
 
@@ -228,14 +229,19 @@ func (s *FlowServiceV2RPC) NodeAiDelete(
 		}
 
 		baseNode, _ := s.ns.GetNode(ctx, nodeID)
-		var flowID idwrap.IDWrap
+		var flowID, workspaceID idwrap.IDWrap
 		if baseNode != nil {
 			flowID = baseNode.FlowID
+			flow, err := s.fsReader.GetFlow(ctx, baseNode.FlowID)
+			if err == nil {
+				workspaceID = flow.WorkspaceID
+			}
 		}
 
 		validatedItems = append(validatedItems, deleteData{
-			nodeID: nodeID,
-			flowID: flowID,
+			nodeID:      nodeID,
+			flowID:      flowID,
+			workspaceID: workspaceID,
 		})
 	}
 
@@ -257,10 +263,11 @@ func (s *FlowServiceV2RPC) NodeAiDelete(
 		}
 
 		mut.Track(mutation.Event{
-			Entity:   mutation.EntityFlowNodeAI,
-			Op:       mutation.OpDelete,
-			ID:       data.nodeID,
-			ParentID: data.flowID,
+			Entity:      mutation.EntityFlowNodeAI,
+			Op:          mutation.OpDelete,
+			ID:          data.nodeID,
+			ParentID:    data.flowID,
+			WorkspaceID: data.workspaceID,
 		})
 	}
 

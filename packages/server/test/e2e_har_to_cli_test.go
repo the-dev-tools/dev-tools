@@ -269,7 +269,7 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		cli.NodeIf,
 		cli.NodeJS,
 		nil, // NodeAIService
-		nil, // NodeModelService
+		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		cli.Workspace,
 		cli.Variable,

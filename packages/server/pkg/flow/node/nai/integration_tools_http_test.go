@@ -44,11 +44,11 @@ func (n *mockHttpNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			"Content-Type": "application/json",
 		},
 	}
-	
+
 	req.VarMap[n.Name] = map[string]interface{}{
 		"response": response,
 	}
-	
+
 	return node.FlowNodeResult{
 		NextNodeID: []idwrap.IDWrap{},
 	}
@@ -65,8 +65,9 @@ func TestNodeAI_LiveHTTPTool(t *testing.T) {
 
 	// 1. Setup Nodes
 	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
 	httpNodeID := idwrap.NewNow()
-	
+
 	httpNodeName := "FetchUserProfile"
 	httpNode := &mockHttpNode{
 		ID:   httpNodeID,
@@ -80,20 +81,25 @@ func TestNodeAI_LiveHTTPTool(t *testing.T) {
 		2. Extract the username and role from the response.
 		3. Tell me if this user is an admin.
 	`, httpNodeName)
-	
-	n := New(aiNodeID, "AI_AGENT", mflow.AiModelGpt52Pro, "", idwrap.IDWrap{}, prompt, 0, nil)
-	n.LLM = llm
+
+	aiNode := New(aiNodeID, "AI_AGENT", prompt, 5, nil)
+	aiNode.LLM = llm
+
+	// Create AI Provider node
+	providerNode := CreateTestAiProviderNode(providerNodeID)
 
 	// 3. Connect Nodes
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
-			mflow.HandleAiTools: []idwrap.IDWrap{httpNodeID},
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+			mflow.HandleAiTools:    []idwrap.IDWrap{httpNodeID},
 		},
 	}
-	
+
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		aiNodeID:   n,
-		httpNodeID: httpNode,
+		aiNodeID:       aiNode,
+		providerNodeID: providerNode,
+		httpNodeID:     httpNode,
 	}
 
 	req := &node.FlowNodeRequest{
@@ -105,7 +111,7 @@ func TestNodeAI_LiveHTTPTool(t *testing.T) {
 
 	// 4. Run
 	t.Logf("Running AI with HTTP Tool: %s", httpNodeName)
-	res := n.RunSync(ctx, req)
+	res := aiNode.RunSync(ctx, req)
 	assert.NoError(t, res.Err)
 
 	// 5. Verify
@@ -118,7 +124,7 @@ func TestNodeAI_LiveHTTPTool(t *testing.T) {
 	val, err := node.ReadNodeVar(req, "AI_AGENT", "text")
 	assert.NoError(t, err)
 	t.Logf("AI Response: %v", val)
-	
+
 	// Assertions on the AI's understanding
 	assert.Contains(t, val, "jdoe_dev", "AI should mention the username")
 	assert.Contains(t, val, "admin", "AI should identify the role")
