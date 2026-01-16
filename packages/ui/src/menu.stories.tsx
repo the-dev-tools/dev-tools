@@ -6,13 +6,13 @@ import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Avatar, AvatarProps } from './avatar';
 import { Button } from './button';
 import { ListBoxHeader } from './list-box';
-import { Menu, MenuItem, MenuItemLink, MenuItemProps } from './menu';
+import { Menu, MenuItem, MenuItemProps, MenuItemRouteLink } from './menu';
 import { Separator } from './separator';
 import { tw } from './tailwind-literal';
 
 const meta = {
   component: Menu,
-  subcomponents: { MenuItem, MenuItemLink, MenuTrigger, Separator },
+  subcomponents: { MenuItem, MenuItemRouteLink, MenuTrigger, Separator },
   tags: ['autodocs'],
 
   args: {

@@ -4,10 +4,10 @@ import { TransportProvider } from '@connectrpc/connect-query';
 import { Atom, Result, useAtomValue } from '@effect-atom/atom-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { ConfigProvider, Effect, Option, pipe, Record, Runtime } from 'effect';
+import { ConfigProvider, Effect, pipe, Record, Runtime } from 'effect';
 import { StrictMode } from 'react';
-import { AriaRouterProvider } from '@the-dev-tools/ui/router';
-import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
+import { UiProvider } from '@the-dev-tools/ui/provider';
+import { makeToastQueue } from '@the-dev-tools/ui/toast';
 import { ApiCollections } from '~/api';
 import { ApiTransport } from '~/api/transport';
 import { RouterContext } from '~/routes/context';
@@ -67,8 +67,7 @@ export const App = ({ finalizer }: AppProps) => {
     onInitial: () => <div>Loading...</div>,
     onSuccess: ({ value }) => {
       let _ = <RouterProvider context={value} router={router} />;
-      _ = <ToastQueueContext.Provider value={Option.some(value.toastQueue)}>{_}</ToastQueueContext.Provider>;
-      _ = <AriaRouterProvider>{_}</AriaRouterProvider>;
+      _ = <UiProvider toastQueue={value.toastQueue}>{_}</UiProvider>;
       _ = <QueryClientProvider client={value.queryClient}>{_}</QueryClientProvider>;
       _ = <TransportProvider transport={value.transport}>{_}</TransportProvider>;
       _ = <StrictMode>{_}</StrictMode>;

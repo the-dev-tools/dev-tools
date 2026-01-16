@@ -1,57 +1,13 @@
 import { Atom, Registry, useAtom } from '@effect-atom/atom-react';
-import {
-  ActiveLinkOptions,
-  AnyRouteMatch,
-  LinkComponent as LinkComponentUpstream,
-  ToOptions,
-  useLinkProps,
-  UseLinkPropsOptions,
-  useRouter,
-} from '@tanstack/react-router';
+import { AnyRouteMatch, ToOptions, useRouter } from '@tanstack/react-router';
 import { Array, Effect, Match, Option, pipe, Runtime } from 'effect';
-import React, {
-  ComponentProps,
-  MouseEventHandler,
-  PropsWithChildren,
-  ReactNode,
-  Ref,
-  Suspense,
-  SyntheticEvent,
-  useEffect,
-  useRef,
-} from 'react';
-import { ListBox, ListBoxItem, RouterProvider, useDragAndDrop } from 'react-aria-components';
+import { ReactNode, Suspense, useEffect } from 'react';
+import * as RAC from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
-import { twMerge } from 'tailwind-merge';
 import { Button } from './button';
+import * as Primitive from './primitives';
 import { DropIndicatorVertical } from './reorder';
 import { tw } from './tailwind-literal';
-
-declare module 'react-aria-components' {
-  interface RouterConfig {
-    href: unknown;
-    routerOptions: unknown;
-  }
-}
-
-export const AriaRouterProvider = ({ children }: PropsWithChildren) => (
-  <RouterProvider navigate={() => undefined}>{children}</RouterProvider>
-);
-
-const fauxEvent =
-  <E extends SyntheticEvent>(
-    handler: React.EventHandler<E> | undefined,
-    ref: React.RefObject<HTMLElement | null>,
-    defaultEvent?: Partial<E>,
-  ) =>
-  (event?: object) =>
-    handler?.({
-      currentTarget: ref.current,
-      defaultPrevented: false,
-      preventDefault: () => undefined,
-      ...defaultEvent,
-      ...event,
-    } as E);
 
 export interface Tab {
   id: string;
@@ -193,80 +149,6 @@ const useTabShortcuts = ({ baseRoute, runtime, tabsAtom }: UseTabShortcutsProps)
   }, [baseRoute, router, runtime, tabsAtom]);
 };
 
-// https://github.com/facebook/react/issues/29832#issuecomment-2490465022
-const updateRef = <T,>(ref: Ref<T> | undefined, node: T | undefined) => {
-  if (!node) return;
-  if (typeof ref === 'function') ref(node);
-  else if (ref) ref.current = node;
-};
-
-export interface UseLinkProps<TComp = 'a'> extends ActiveLinkOptions<TComp> {
-  children?: ((state: { isActive: boolean; isTransitioning: boolean }) => React.ReactNode) | React.ReactNode;
-  onAuxClick?: MouseEventHandler;
-  ref?: Ref<unknown> | undefined;
-}
-
-export const useLink = <TComp = 'a',>({ children, onAuxClick, ref: refProp, ...props }: UseLinkProps<TComp>) => {
-  const _ = useLinkProps(props as UseLinkPropsOptions, refProp as Ref<Element>) as ComponentProps<'a'> &
-    Record<string, unknown>;
-
-  const ref = useRef<HTMLElement>(null);
-
-  const isActive = _['data-status'] === 'active';
-  const isTransitioning = _['data-transitioning'] === 'transitioning';
-
-  // eslint-disable-next-line react-hooks/refs
-  const onAction = fauxEvent(_.onClick, ref, { button: 0 });
-
-  const refCallback = (node: unknown) => {
-    updateRef(_.ref, node as HTMLAnchorElement);
-    ref.current = node as HTMLElement;
-
-    let element: HTMLElement | undefined;
-    if (node && typeof node === 'object' && 'addEventListener' in node) element = node as HTMLElement;
-
-    const onClickHandler = (event: MouseEvent) => {
-      // Prevent opening links in external browser
-      if (event.ctrlKey) event.preventDefault();
-    };
-
-    const onAuxClickHandler = (event: MouseEvent) => {
-      event.preventDefault();
-      if (onAuxClick) fauxEvent(onAuxClick, ref)(event);
-      else onAction();
-    };
-
-    element?.addEventListener('click', onClickHandler);
-    element?.addEventListener('auxclick', onAuxClickHandler);
-
-    return () => {
-      element?.removeEventListener('click', onClickHandler);
-      element?.removeEventListener('auxclick', onAuxClickHandler);
-    };
-  };
-
-  return {
-    ref: refCallback,
-
-    children: typeof children === 'function' ? children({ isActive, isTransitioning }) : children,
-    href: _.href!,
-
-    isActive,
-    isDisabled: _['disabled'] === true,
-    isTransitioning,
-
-    onAction,
-    // eslint-disable-next-line react-hooks/refs
-    onFocus: fauxEvent(_.onFocus, ref),
-    // eslint-disable-next-line react-hooks/refs
-    onHoverEnd: fauxEvent(_.onMouseLeave, ref),
-    // eslint-disable-next-line react-hooks/refs
-    onHoverStart: fauxEvent(_.onMouseEnter, ref),
-  };
-};
-
-export type LinkComponent<T = object> = LinkComponentUpstream<(props: T) => ReactNode>;
-
 interface TabItemProps extends TabsRouteContext, ToOptions {
   id: string;
   tab: Tab;
@@ -275,26 +157,27 @@ interface TabItemProps extends TabsRouteContext, ToOptions {
 const TabItem = ({ baseRoute, id, runtime, tab, tabsAtom }: TabItemProps) => {
   const removeTab = useRemoveTab();
 
-  const { isActive, ...linkProps } = useLink({
-    ...tab.route,
-    onAuxClick: () => void removeTab({ baseRoute, id: tab.id, runtime, tabsAtom }),
-  });
-
   return (
-    <ListBoxItem
+    <Primitive.ListBoxItemRouteLink
+      {...tab.route}
       aria-label='Tab'
-      className={twMerge(
-        tw`
-          relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs
-          leading-4 font-medium tracking-tight text-slate-800
+      className={tw`
+        relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs
+        leading-4 font-medium tracking-tight text-slate-800
 
-          before:absolute before:-left-px before:h-6 before:w-px before:bg-gray-200
-        `,
-        !isActive && tw`border-b border-transparent border-b-gray-200 opacity-60`,
-        isActive && tw`rounded-t-md border border-gray-200 border-b-transparent bg-white`,
-      )}
+        not-route-active:border-b not-route-active:border-transparent not-route-active:border-b-gray-200
+        not-route-active:opacity-60
+
+        before:absolute before:-left-px before:h-6 before:w-px before:bg-gray-200
+
+        route-active:rounded-t-md route-active:border route-active:border-gray-200 route-active:border-b-transparent
+        route-active:bg-white
+      `}
       id={id}
-      {...linkProps}
+      onAuxClick={(event) => {
+        event.preventDefault();
+        void removeTab({ baseRoute, id: tab.id, runtime, tabsAtom });
+      }}
     >
       <div className={tw`flex min-w-0 flex-1 items-center gap-1.5`}>
         <Suspense fallback='Loading...'>{tab.node}</Suspense>
@@ -310,7 +193,7 @@ const TabItem = ({ baseRoute, id, runtime, tab, tabsAtom }: TabItemProps) => {
       >
         <FiX className={tw`size-4 text-slate-500`} />
       </Button>
-    </ListBoxItem>
+    </Primitive.ListBoxItemRouteLink>
   );
 };
 
@@ -321,7 +204,7 @@ export const RouteTabList = (props: RouteTabListProps) => {
 
   useTabShortcuts(props);
 
-  const { dragAndDropHooks } = useDragAndDrop({
+  const { dragAndDropHooks } = RAC.useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
     onReorder: ({ keys, target: { dropPosition, key } }) => {
       setTabs((tabs) =>
@@ -347,7 +230,7 @@ export const RouteTabList = (props: RouteTabListProps) => {
   });
 
   return (
-    <ListBox
+    <RAC.ListBox
       aria-label='Tabs'
       className={tw`
         relative flex h-11 w-full overflow-x-auto overflow-y-hidden
@@ -361,6 +244,6 @@ export const RouteTabList = (props: RouteTabListProps) => {
       style={{ scrollbarWidth: 'thin' }}
     >
       {(_) => <TabItem id={_.id} tab={_} {...props} />}
-    </ListBox>
+    </RAC.ListBox>
   );
 };

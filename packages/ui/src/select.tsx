@@ -52,9 +52,9 @@ export const Select = <T extends object>({
 
 // Item
 
-export interface SelectItemProps extends ListBoxItemProps {}
+export interface SelectItemProps<T = object> extends ListBoxItemProps<T> {}
 
-export const SelectItem = (props: ListBoxItemProps) => (
+export const SelectItem = <T extends object>(props: ListBoxItemProps<T>) => (
   <ListBoxItem {...props} {...composeTextValueProps(props)}>
     {RAC.composeRenderProps(props.children, (children) => (
       <>

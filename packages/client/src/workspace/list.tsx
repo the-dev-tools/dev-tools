@@ -14,7 +14,7 @@ import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/ap
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon } from '@the-dev-tools/ui/icons';
-import { Link } from '@the-dev-tools/ui/link';
+import { RouteLink } from '@the-dev-tools/ui/link';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
@@ -153,9 +153,9 @@ const Item = ({ containerRef, id }: ItemProps) => {
             )}
             ref={escapeRef}
           >
-            <Link params={{ workspaceIdCan: workspaceUlid.toCanonical() }} to={workspaceRouteApi.id}>
+            <RouteLink params={{ workspaceIdCan: workspaceUlid.toCanonical() }} to={workspaceRouteApi.id}>
               {name}
-            </Link>
+            </RouteLink>
           </div>
 
           {isEditing &&

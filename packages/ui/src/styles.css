@@ -15,3 +15,9 @@
 
   --text-md: 0.8125rem;
 }
+
+@custom-variant route-active {
+  &[data-status='active'] {
+    @slot;
+  }
+}

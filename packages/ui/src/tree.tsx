@@ -1,15 +1,15 @@
 import { type CollectionProps } from '@react-aria/collections';
-import { AnyRouter, LinkOptions, RegisteredRouter } from '@tanstack/react-router';
+import { HKT } from 'effect';
 import { ComponentProps, ReactNode, RefAttributes, useState } from 'react';
 import * as RAC from 'react-aria-components';
 import { FiMove } from 'react-icons/fi';
 import { Button } from './button';
 import { focusVisibleRingStyles } from './focus-ring';
 import { ChevronSolidDownIcon } from './icons';
-import { useLink, UseLinkProps } from './router';
 import { Spinner } from './spinner';
 import { tw } from './tailwind-literal';
 import { composeTailwindRenderProps } from './utils';
+import { createLinkGeneric } from './utils/link';
 
 export interface TreeItemProps<T extends object>
   extends Omit<RAC.TreeItemProps, 'children' | 'textValue'>, RefAttributes<HTMLDivElement> {
@@ -134,16 +134,8 @@ export const TreeItem = <T extends object>({
   );
 };
 
-export const TreeItemLink = <
-  T extends object,
-  TRouter extends AnyRouter = RegisteredRouter,
-  TFrom extends string = string,
-  TTo extends string | undefined = '.',
-  TMaskFrom extends string = TFrom,
-  TMaskTo extends string = '.',
->(
-  props: LinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & TreeItemProps<T>,
-) => {
-  const linkProps = useLink(props as UseLinkProps);
-  return <TreeItem {...props} {...linkProps} />;
-};
+export interface TreeItemTypeLambda extends HKT.TypeLambda {
+  readonly type: typeof TreeItem<this['Target'] extends object ? this['Target'] : never>;
+}
+
+export const TreeItemRouteLink = createLinkGeneric<TreeItemTypeLambda, object>(TreeItem);

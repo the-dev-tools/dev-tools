@@ -1,6 +1,6 @@
 import { Outlet } from '@tanstack/react-router';
 import { Suspense } from 'react';
-import { ButtonAsLink } from '@the-dev-tools/ui/button';
+import { ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -18,9 +18,9 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => (
         flex h-12 w-full flex-none items-center gap-4 bg-slate-950 px-4 text-sm font-semibold tracking-tight text-white
       `}
     >
-      <ButtonAsLink className={tw`p-0`} to={welcomeRouteApi.id} variant='ghost'>
+      <ButtonAsRouteLink className={tw`p-0`} to={welcomeRouteApi.id} variant='ghost'>
         <Logo className={tw`size-7`} />
-      </ButtonAsLink>
+      </ButtonAsRouteLink>
 
       <div className={tw`h-5 w-px bg-white/20`} />
 

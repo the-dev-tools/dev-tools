@@ -1,7 +1,7 @@
+import { createLink } from '@tanstack/react-router';
 import * as RAC from 'react-aria-components';
 import { tv, type VariantProps } from 'tailwind-variants';
 import { focusVisibleRingStyles } from './focus-ring';
-import { LinkComponent, useLink, UseLinkProps } from './router';
 import { Spinner } from './spinner';
 import { tw } from './tailwind-literal';
 import { composeStyleProps } from './utils';
@@ -77,7 +77,8 @@ const PendingIndicator = () => (
 
 export interface ButtonAsLinkProps extends RAC.LinkProps, VariantProps<typeof buttonStyles> {}
 
-export const ButtonAsLink: LinkComponent<ButtonAsLinkProps> = (props) => {
-  const { onAction, ...linkProps } = useLink(props as UseLinkProps);
-  return <RAC.Link {...props} {...linkProps} className={composeStyleProps(props, buttonStyles)} onPress={onAction} />;
-};
+export const ButtonAsLink = (props: ButtonAsLinkProps) => (
+  <RAC.Link {...props} className={composeStyleProps(props, buttonStyles)} />
+);
+
+export const ButtonAsRouteLink = createLink(ButtonAsLink);

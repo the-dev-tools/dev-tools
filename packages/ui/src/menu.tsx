@@ -1,12 +1,13 @@
+import { HKT } from 'effect';
 import { RefObject, useCallback, useRef, useState } from 'react';
 import * as RAC from 'react-aria-components';
 import { FiChevronRight } from 'react-icons/fi';
 import { tv, VariantProps } from 'tailwind-variants';
 import { listBoxItemStyles, listBoxStyles } from './list-box';
 import { Popover } from './popover';
-import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { composeStyleProps, composeStyleRenderProps } from './utils';
+import { createLinkGeneric } from './utils/link';
 
 // Root
 
@@ -72,9 +73,9 @@ export const useContextMenuState = () => {
 
 export const menuItemStyles = tv({ extend: listBoxItemStyles });
 
-export interface MenuItemProps extends RAC.MenuItemProps, VariantProps<typeof menuItemStyles> {}
+export interface MenuItemProps<T = object> extends RAC.MenuItemProps<T>, VariantProps<typeof menuItemStyles> {}
 
-export const MenuItem = ({ children, ...props }: MenuItemProps) => (
+export const MenuItem = <T extends object>({ children, ...props }: MenuItemProps<T>) => (
   <RAC.MenuItem {...props} className={composeStyleProps(props, menuItemStyles)}>
     {RAC.composeRenderProps(children, (children, { hasSubmenu }) => (
       <>
@@ -86,7 +87,8 @@ export const MenuItem = ({ children, ...props }: MenuItemProps) => (
   </RAC.MenuItem>
 );
 
-export const MenuItemLink: LinkComponent<MenuItemProps> = (props) => {
-  const linkProps = useLink(props as UseLinkProps);
-  return <MenuItem {...(props as MenuItemProps)} {...linkProps} />;
-};
+export interface MenuItemTypeLambda extends HKT.TypeLambda {
+  readonly type: typeof MenuItem<this['Target'] extends object ? this['Target'] : never>;
+}
+
+export const MenuItemRouteLink = createLinkGeneric<MenuItemTypeLambda, object>(MenuItem);

@@ -9,7 +9,7 @@ import { FiPlus } from 'react-icons/fi';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Avatar } from '@the-dev-tools/ui/avatar';
-import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { RouteTabList } from '@the-dev-tools/ui/router';
@@ -52,7 +52,7 @@ export const WorkspaceLayout = () => {
     <DashboardLayout
       navbar={
         <>
-          <ButtonAsLink
+          <ButtonAsRouteLink
             className={tw`-ml-3 gap-2 px-2 py-1`}
             params={{ workspaceIdCan }}
             to={workspaceRouteApi.id}
@@ -62,7 +62,7 @@ export const WorkspaceLayout = () => {
               {workspace.name}
             </Avatar>
             <span className={tw`text-xs leading-5 font-semibold tracking-tight`}>{workspace.name}</span>
-          </ButtonAsLink>
+          </ButtonAsRouteLink>
 
           <div className='flex-1' />
         </>
@@ -79,7 +79,7 @@ export const WorkspaceLayout = () => {
           <EnvironmentsWidget />
 
           <div className={tw`flex flex-1 flex-col gap-2 overflow-auto p-1.5`}>
-            <ButtonAsLink
+            <ButtonAsRouteLink
               className={tw`flex items-center justify-start gap-2 px-2.5 py-1.5`}
               params={{ workspaceIdCan }}
               to={workspaceRouteApi.id}
@@ -87,7 +87,7 @@ export const WorkspaceLayout = () => {
             >
               <OverviewIcon className={tw`size-5 text-slate-500`} />
               <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>Overview</h2>
-            </ButtonAsLink>
+            </ButtonAsRouteLink>
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-slate-500`} />

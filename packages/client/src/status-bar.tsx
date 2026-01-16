@@ -9,7 +9,7 @@ import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import { LogLevel, LogSchema } from '@the-dev-tools/spec/buf/api/log/v1/log_pb';
 import { LogCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/log';
-import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -38,7 +38,7 @@ export const StatusBar = () => {
 
   const bar = (
     <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
-      <ButtonAsLink
+      <ButtonAsRouteLink
         className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
         search={(_) => ({ ..._, showLogs: showLogs ? undefined : true })}
         to='.'
@@ -46,7 +46,7 @@ export const StatusBar = () => {
       >
         <FiTerminal className={tw`size-3`} />
         <span>Logs</span>
-      </ButtonAsLink>
+      </ButtonAsRouteLink>
 
       <div className={tw`flex-1`} />
 
@@ -70,9 +70,14 @@ export const StatusBar = () => {
 
           {separator}
 
-          <ButtonAsLink className={tw`p-0.5`} search={(_) => ({ ..._, showLogs: undefined })} to='.' variant='ghost'>
+          <ButtonAsRouteLink
+            className={tw`p-0.5`}
+            search={(_) => ({ ..._, showLogs: undefined })}
+            to='.'
+            variant='ghost'
+          >
             <FiX className={tw`size-4 text-slate-500`} />
-          </ButtonAsLink>
+          </ButtonAsRouteLink>
         </>
       )}
     </div>

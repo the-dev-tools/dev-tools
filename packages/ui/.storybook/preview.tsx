@@ -1,7 +1,7 @@
 import { Preview } from '@storybook/react-vite';
 import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
-import { AriaRouterProvider } from '../src/router';
+import { UiProvider } from '../src/provider';
 
 import '../src/styles.css';
 
@@ -12,7 +12,7 @@ const preview: Preview = {
       const router = createRouter({ routeTree: rootRoute });
 
       let _ = <RouterProvider router={router} />;
-      _ = <AriaRouterProvider>{_}</AriaRouterProvider>;
+      _ = <UiProvider>{_}</UiProvider>;
       _ = <StrictMode>{_}</StrictMode>;
       return _;
     },

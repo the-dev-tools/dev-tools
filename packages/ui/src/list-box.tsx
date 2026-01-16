@@ -1,11 +1,12 @@
+import { HKT } from 'effect';
 import { ComponentProps } from 'react';
 import * as RAC from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
 import { focusVisibleRingStyles } from './focus-ring';
-import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { composeStyleProps, composeStyleRenderProps } from './utils';
+import { createLinkGeneric } from './utils/link';
 
 // Root
 
@@ -42,16 +43,17 @@ export const listBoxItemStyles = tv({
   },
 });
 
-export interface ListBoxItemProps extends RAC.ListBoxItemProps, VariantProps<typeof listBoxItemStyles> {}
+export interface ListBoxItemProps<T = object> extends RAC.ListBoxItemProps<T>, VariantProps<typeof listBoxItemStyles> {}
 
-export const ListBoxItem = ({ ...props }: ListBoxItemProps) => (
+export const ListBoxItem = <T extends object>({ ...props }: ListBoxItemProps<T>) => (
   <RAC.ListBoxItem {...props} className={composeStyleProps(props, listBoxItemStyles)} />
 );
 
-export const ListBoxItemLink: LinkComponent<ListBoxItemProps> = (props) => {
-  const linkProps = useLink(props as UseLinkProps<'div'>);
-  return <ListBoxItem {...(props as ListBoxItemProps)} {...linkProps} />;
-};
+export interface ListBoxItemTypeLambda extends HKT.TypeLambda {
+  readonly type: typeof ListBoxItem<this['Target'] extends object ? this['Target'] : never>;
+}
+
+export const ListBoxItemRouteLink = createLinkGeneric<ListBoxItemTypeLambda, object>(ListBoxItem);
 
 // Header
 

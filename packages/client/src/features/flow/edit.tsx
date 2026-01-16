@@ -27,7 +27,7 @@ import {
   NodeCollectionSchema,
   NodeHttpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -310,14 +310,14 @@ export const TopBar = ({ children }: TopBarProps) => {
 
       {children}
 
-      <ButtonAsLink
+      <ButtonAsRouteLink
         className={twJoin(tw`px-1 py-0 text-slate-800`, matchRoute({ to: flowHistoryRouteApi.id }) && tw`bg-slate-200`)}
         params={{ flowIdCan, workspaceIdCan }}
         to={matchRoute({ to: flowHistoryRouteApi.id }) ? flowLayoutRouteApi.id : flowHistoryRouteApi.id}
         variant='ghost'
       >
         <FiClock className={tw`size-4 text-slate-500`} /> Flows History
-      </ButtonAsLink>
+      </ButtonAsRouteLink>
 
       <MenuTrigger {...menuTriggerProps}>
         <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>

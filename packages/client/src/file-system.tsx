@@ -38,7 +38,7 @@ import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
+import { TreeItem, TreeItemProps, TreeItemRouteLink } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useApiCollection } from '~/api';
 import { useConnectMutation } from '~/api/connect-query';
@@ -522,7 +522,7 @@ const HttpFile = ({ id }: FileItemProps) => {
     textValue: name,
   } satisfies TreeItemProps<(typeof files)[number]>;
 
-  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
 const HttpDeltaFile = ({ id }: FileItemProps) => {
@@ -676,7 +676,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
     textValue: name ?? '',
   } satisfies TreeItemProps<object>;
 
-  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
 const FlowFile = ({ id }: FileItemProps) => {
@@ -778,5 +778,5 @@ const FlowFile = ({ id }: FileItemProps) => {
     textValue: name,
   } satisfies TreeItemProps<object>;
 
-  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
