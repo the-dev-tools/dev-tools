@@ -1,8 +1,8 @@
 import { QueryErrorResetBoundary } from '@tanstack/react-query';
 import { createFileRoute, ErrorComponent, Outlet } from '@tanstack/react-router';
 import { Ulid } from 'id128';
-import { addTab } from '@the-dev-tools/ui/router';
 import { FlowTab, flowTabId } from '~/features/flow';
+import { openTab } from '~/tabs';
 
 /* eslint-disable perfectionist/sort-objects */
 export const Route = createFileRoute('/workspace/$workspaceIdCan/flow/$flowIdCan')({
@@ -12,12 +12,12 @@ export const Route = createFileRoute('/workspace/$workspaceIdCan/flow/$flowIdCan
   },
   component: RouteComponent,
   errorComponent: (props) => <ErrorComponent {...props} />,
-  onEnter: (match) => {
+  onEnter: async (match) => {
     if (!match.loaderData) return;
 
     const { flowId } = match.loaderData;
 
-    addTab({
+    await openTab({
       id: flowTabId(flowId),
       match,
       node: <FlowTab flowId={flowId} />,

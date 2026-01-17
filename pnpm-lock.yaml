@@ -847,9 +847,6 @@ importers:
       '@bufbuild/protobuf':
         specifier: 'catalog:'
         version: 2.10.2
-      '@effect-atom/atom-react':
-        specifier: 'catalog:'
-        version: 0.4.4(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)(react@19.2.3)(scheduler@0.27.0)
       '@fontsource-variable/dm-sans':
         specifier: 'catalog:'
         version: 5.2.8

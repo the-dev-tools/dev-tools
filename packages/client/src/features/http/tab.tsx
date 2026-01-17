@@ -2,10 +2,10 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { useEffect } from 'react';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
-import { useRemoveTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { httpRouteApi, workspaceRouteApi } from '~/routes';
+import { useCloseTab } from '~/tabs';
 import { useDeltaState } from '~/utils/delta';
 import { eqStruct } from '~/utils/tanstack-db';
 
@@ -20,7 +20,7 @@ export const httpTabId = ({ deltaHttpId, httpId }: HttpTabProps) =>
 export const HttpTab = ({ deltaHttpId, httpId }: HttpTabProps) => {
   const context = workspaceRouteApi.useRouteContext();
 
-  const removeTab = useRemoveTab();
+  const closeTab = useCloseTab();
 
   const httpCollection = useApiCollection(HttpCollectionSchema);
 
@@ -31,8 +31,8 @@ export const HttpTab = ({ deltaHttpId, httpId }: HttpTabProps) => {
     ).data !== undefined;
 
   useEffect(() => {
-    if (!httpExists) void removeTab({ ...context, id: httpTabId({ httpId }) });
-  }, [context, httpExists, httpId, removeTab]);
+    if (!httpExists) void closeTab(httpTabId({ httpId }));
+  }, [context, httpExists, httpId, closeTab]);
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
@@ -43,8 +43,8 @@ export const HttpTab = ({ deltaHttpId, httpId }: HttpTabProps) => {
     ).data !== undefined;
 
   useEffect(() => {
-    if (deltaHttpId && !deltaExists) void removeTab({ ...context, id: httpTabId({ deltaHttpId, httpId }) });
-  }, [context, deltaExists, deltaHttpId, httpId, removeTab]);
+    if (deltaHttpId && !deltaExists) void closeTab(httpTabId({ deltaHttpId, httpId }));
+  }, [context, deltaExists, deltaHttpId, httpId, closeTab]);
 
   const deltaOptions = {
     deltaId: deltaHttpId,

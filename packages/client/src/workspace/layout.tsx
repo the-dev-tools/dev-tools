@@ -1,7 +1,7 @@
 'use no memo'; // TODO: fix collection tree incorrect first render with compiler
 
 import { useLiveQuery } from '@tanstack/react-db';
-import { Outlet, ToOptions } from '@tanstack/react-router';
+import { Outlet,  } from '@tanstack/react-router';
 import { Config, pipe, Runtime } from 'effect';
 import { idEqual, Ulid } from 'id128';
 import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -12,12 +12,12 @@ import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { RouteTabList } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api';
 import { FileCreateMenu, FileTree } from '~/file-system';
 import { rootRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';
+import { RouteTabList } from '~tabs';
 import { DashboardLayout } from '../dashboard';
 import { EnvironmentsWidget } from '../environment';
 import { StatusBar } from '../status-bar';
@@ -27,7 +27,7 @@ export const WorkspaceLayout = () => {
 
   const { workspaceId } = workspaceRouteApi.useLoaderData();
   const { workspaceIdCan } = workspaceRouteApi.useParams();
-  const context = workspaceRouteApi.useRouteContext();
+  // const context = workspaceRouteApi.useRouteContext();
 
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
@@ -46,7 +46,7 @@ export const WorkspaceLayout = () => {
 
   if (!workspace) return null;
 
-  const baseRoute: ToOptions = { params: { workspaceIdCan }, to: workspaceRouteApi.id };
+  // const baseRoute: ToOptions = { params: { workspaceIdCan }, to: workspaceRouteApi.id };
 
   return (
     <DashboardLayout
@@ -118,7 +118,7 @@ export const WorkspaceLayout = () => {
         <Panel defaultSize='80%'>
           <PanelGroup {...workspaceOutletLayout} orientation='vertical'>
             <div className={tw`-mt-px pt-2`}>
-              <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsAtom={context.tabsAtom} />
+              <RouteTabList />
             </div>
             <Panel>
               <Outlet />

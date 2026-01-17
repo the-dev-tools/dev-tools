@@ -8,17 +8,8 @@ interface OrderableItem {
   order: number;
 }
 
-export const handleCollectionReorder =
-  <T extends OrderableItem>(
-    collection: Collection<
-      T,
-      string,
-      {
-        getKeyObject: (input: T) => Partial<T>;
-        update: (input: OrderableItem) => void;
-      }
-    >,
-  ) =>
+export const handleCollectionReorderBasic =
+  <T extends OrderableItem>(collection: Collection<T, string>, callback: (item: T, order: number) => void) =>
   async ({ keys, target: { dropPosition, key } }: DroppableCollectionReorderEvent): Promise<void> => {
     if (dropPosition === 'on') return;
 
@@ -55,7 +46,7 @@ export const handleCollectionReorder =
         Option.getOrElse(() => Protobuf.MAX_FLOAT * -1),
       );
       const newOrder = target.order - (target.order - beforeTargetOrder) / 2;
-      collection.utils.update({ ...collection.utils.getKeyObject(source), order: newOrder });
+      callback(source, newOrder);
     }
 
     if (dropPosition === 'after') {
@@ -73,9 +64,24 @@ export const handleCollectionReorder =
         Option.getOrElse(() => Protobuf.MAX_FLOAT),
       );
       const newOrder = target.order + (afterTargetOrder - target.order) / 2;
-      collection.utils.update({ ...collection.utils.getKeyObject(source), order: newOrder });
+      callback(source, newOrder);
     }
   };
+
+export const handleCollectionReorder = <T extends OrderableItem>(
+  collection: Collection<
+    T,
+    string,
+    {
+      getKeyObject: (input: T) => Partial<T>;
+      update: (input: OrderableItem) => void;
+    }
+  >,
+) =>
+  handleCollectionReorderBasic(
+    collection,
+    (item, order) => void collection.utils.update({ ...collection.utils.getKeyObject(item), order }),
+  );
 
 export const getNextOrder = async <T extends OrderableItem>(collection: Collection<T, string>): Promise<number> => {
   const lastOrder = pipe(
