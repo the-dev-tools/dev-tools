@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"sync"
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -16,12 +18,21 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1/credentialv1connect"
+)
+
+// Event type constants
+const (
+	eventTypeInsert = "insert"
+	eventTypeUpdate = "update"
+	eventTypeDelete = "delete"
 )
 
 type CredentialRPC struct {
@@ -34,8 +45,15 @@ type CredentialRPC struct {
 
 	credReader *scredential.CredentialReader
 
-	credStream eventstream.SyncStreamer[CredentialTopic, CredentialEvent]
+	credStream      eventstream.SyncStreamer[CredentialTopic, CredentialEvent]
+	openAiStream    eventstream.SyncStreamer[CredentialOpenAiTopic, CredentialOpenAiEvent]
+	geminiStream    eventstream.SyncStreamer[CredentialGeminiTopic, CredentialGeminiEvent]
+	anthropicStream eventstream.SyncStreamer[CredentialAnthropicTopic, CredentialAnthropicEvent]
+
+	publisher mutation.Publisher // Unified publisher for cascade delete events
 }
+
+// --- Credential Topics and Events ---
 
 type CredentialTopic struct {
 	WorkspaceID idwrap.IDWrap
@@ -46,25 +64,124 @@ type CredentialEvent struct {
 	Credential *credentialv1.Credential
 }
 
+type CredentialOpenAiTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type CredentialOpenAiEvent struct {
+	Type   string
+	Secret *credentialv1.CredentialOpenAi
+}
+
+type CredentialGeminiTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type CredentialGeminiEvent struct {
+	Type   string
+	Secret *credentialv1.CredentialGemini
+}
+
+type CredentialAnthropicTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type CredentialAnthropicEvent struct {
+	Type   string
+	Secret *credentialv1.CredentialAnthropic
+}
+
+// --- Dependencies ---
+
+type CredentialRPCServices struct {
+	Credential scredential.CredentialService
+	User       suser.UserService
+	Workspace  sworkspace.WorkspaceService
+	File       *sfile.FileService
+}
+
+func (s *CredentialRPCServices) Validate() error {
+	if s.File == nil {
+		return fmt.Errorf("file service is required")
+	}
+	return nil
+}
+
+type CredentialRPCReaders struct {
+	Credential *scredential.CredentialReader
+}
+
+func (r *CredentialRPCReaders) Validate() error {
+	if r.Credential == nil {
+		return fmt.Errorf("credential reader is required")
+	}
+	return nil
+}
+
+type CredentialRPCStreamers struct {
+	Credential eventstream.SyncStreamer[CredentialTopic, CredentialEvent]
+	OpenAi     eventstream.SyncStreamer[CredentialOpenAiTopic, CredentialOpenAiEvent]
+	Gemini     eventstream.SyncStreamer[CredentialGeminiTopic, CredentialGeminiEvent]
+	Anthropic  eventstream.SyncStreamer[CredentialAnthropicTopic, CredentialAnthropicEvent]
+}
+
+func (s *CredentialRPCStreamers) Validate() error {
+	if s.Credential == nil {
+		return fmt.Errorf("credential stream is required")
+	}
+	if s.OpenAi == nil {
+		return fmt.Errorf("openai stream is required")
+	}
+	if s.Gemini == nil {
+		return fmt.Errorf("gemini stream is required")
+	}
+	if s.Anthropic == nil {
+		return fmt.Errorf("anthropic stream is required")
+	}
+	return nil
+}
+
 type CredentialRPCDeps struct {
 	DB        *sql.DB
-	Service   scredential.CredentialService
-	User      suser.UserService
-	Workspace sworkspace.WorkspaceService
-	File      *sfile.FileService
-	Reader    *scredential.CredentialReader
-	Streamer  eventstream.SyncStreamer[CredentialTopic, CredentialEvent]
+	Services  CredentialRPCServices
+	Readers   CredentialRPCReaders
+	Streamers CredentialRPCStreamers
+	Publisher mutation.Publisher // Unified publisher for cascade delete events
+}
+
+func (d *CredentialRPCDeps) Validate() error {
+	if d.DB == nil {
+		return fmt.Errorf("db is required")
+	}
+	if err := d.Services.Validate(); err != nil {
+		return err
+	}
+	if err := d.Readers.Validate(); err != nil {
+		return err
+	}
+	if err := d.Streamers.Validate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func New(deps CredentialRPCDeps) CredentialRPC {
+	if err := deps.Validate(); err != nil {
+		panic(fmt.Sprintf("CredentialRPC Deps validation failed: %v", err))
+	}
+
 	return CredentialRPC{
-		DB:         deps.DB,
-		cs:         deps.Service,
-		us:         deps.User,
-		ws:         deps.Workspace,
-		fs:         deps.File,
-		credReader: deps.Reader,
-		credStream: deps.Streamer,
+		DB:              deps.DB,
+		cs:              deps.Services.Credential,
+		us:              deps.Services.User,
+		ws:              deps.Services.Workspace,
+		fs:              deps.Services.File,
+		credReader:      deps.Readers.Credential,
+		credStream:      deps.Streamers.Credential,
+		openAiStream:    deps.Streamers.OpenAi,
+		geminiStream:    deps.Streamers.Gemini,
+		anthropicStream: deps.Streamers.Anthropic,
+		publisher:       deps.Publisher,
 	}
 }
 
@@ -73,10 +190,10 @@ func CreateService(srv CredentialRPC, options []connect.HandlerOption) (*api.Ser
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (s *CredentialRPC) CredentialCollection(
-	ctx context.Context,
-	_ *connect.Request[emptypb.Empty],
-) (*connect.Response[credentialv1.CredentialCollectionResponse], error) {
+// --- Helper Methods ---
+
+// getAccessibleWorkspaces returns all workspaces the user has access to
+func (s *CredentialRPC) getAccessibleWorkspaces(ctx context.Context) ([]mworkspace.Workspace, error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
@@ -85,6 +202,43 @@ func (s *CredentialRPC) CredentialCollection(
 	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return workspaces, nil
+}
+
+// getCredentialWorkspaceID retrieves the workspace ID for a credential and verifies access
+func (s *CredentialRPC) getCredentialWorkspaceID(ctx context.Context, credID idwrap.IDWrap) (idwrap.IDWrap, error) {
+	cred, err := s.credReader.GetCredential(ctx, credID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return idwrap.IDWrap{}, connect.NewError(connect.CodeNotFound, err)
+		}
+		return idwrap.IDWrap{}, connect.NewError(connect.CodeInternal, err)
+	}
+
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return idwrap.IDWrap{}, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, cred.WorkspaceID)
+	if err != nil || !belongs {
+		return idwrap.IDWrap{}, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
+	}
+
+	return cred.WorkspaceID, nil
+}
+
+// --- Credential Collection CRUD+Sync ---
+
+func (s *CredentialRPC) CredentialCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[credentialv1.CredentialCollectionResponse], error) {
+	workspaces, err := s.getAccessibleWorkspaces(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	var items []*credentialv1.Credential
@@ -99,135 +253,6 @@ func (s *CredentialRPC) CredentialCollection(
 	}
 
 	return connect.NewResponse(&credentialv1.CredentialCollectionResponse{Items: items}), nil
-}
-
-func (s *CredentialRPC) GetCredentialOpenAi(
-	ctx context.Context,
-	req *connect.Request[credentialv1.GetCredentialOpenAiRequest],
-) (*connect.Response[credentialv1.GetCredentialOpenAiResponse], error) {
-	credID, err := idwrap.NewFromBytes(req.Msg.CredentialId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	cred, err := s.credReader.GetCredential(ctx, credID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, cred.WorkspaceID)
-	if err != nil || !belongs {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
-	}
-
-	openai, err := s.credReader.GetCredentialOpenAI(ctx, credID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	apiOpenAI := converter.ToAPICredentialOpenAI(*openai)
-	return connect.NewResponse(&credentialv1.GetCredentialOpenAiResponse{
-		CredentialId: apiOpenAI.CredentialId,
-		Token:        apiOpenAI.Token,
-		BaseUrl:      apiOpenAI.BaseUrl,
-	}), nil
-}
-
-func (s *CredentialRPC) GetCredentialGemini(
-	ctx context.Context,
-	req *connect.Request[credentialv1.GetCredentialGeminiRequest],
-) (*connect.Response[credentialv1.GetCredentialGeminiResponse], error) {
-	credID, err := idwrap.NewFromBytes(req.Msg.CredentialId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	cred, err := s.credReader.GetCredential(ctx, credID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, cred.WorkspaceID)
-	if err != nil || !belongs {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
-	}
-
-	gemini, err := s.credReader.GetCredentialGemini(ctx, credID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	apiGemini := converter.ToAPICredentialGemini(*gemini)
-	return connect.NewResponse(&credentialv1.GetCredentialGeminiResponse{
-		CredentialId: apiGemini.CredentialId,
-		ApiKey:       apiGemini.ApiKey,
-		BaseUrl:      apiGemini.BaseUrl,
-	}), nil
-}
-
-func (s *CredentialRPC) GetCredentialAnthropic(
-	ctx context.Context,
-	req *connect.Request[credentialv1.GetCredentialAnthropicRequest],
-) (*connect.Response[credentialv1.GetCredentialAnthropicResponse], error) {
-	credID, err := idwrap.NewFromBytes(req.Msg.CredentialId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	cred, err := s.credReader.GetCredential(ctx, credID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, cred.WorkspaceID)
-	if err != nil || !belongs {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
-	}
-
-	anthropic, err := s.credReader.GetCredentialAnthropic(ctx, credID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	apiAnthropic := converter.ToAPICredentialAnthropic(*anthropic)
-	return connect.NewResponse(&credentialv1.GetCredentialAnthropicResponse{
-		CredentialId: apiAnthropic.CredentialId,
-		ApiKey:       apiAnthropic.ApiKey,
-		BaseUrl:      apiAnthropic.BaseUrl,
-	}), nil
 }
 
 func (s *CredentialRPC) CredentialInsert(
@@ -270,7 +295,7 @@ func (s *CredentialRPC) CredentialInsert(
 			ID:          credID,
 			WorkspaceID: workspaceID,
 			Name:        item.GetName(),
-			Kind:        mcredential.CredentialKind(int8(item.GetKind())), //nolint:gosec // G115: Kind is a small enum (0-2)
+			Kind:        converter.ToModelCredentialKind(item.GetKind()),
 		}
 
 		// Build file model to link credential into file tree
@@ -325,7 +350,7 @@ func (s *CredentialRPC) CredentialInsert(
 	for _, item := range items {
 		if s.credStream != nil {
 			s.credStream.Publish(CredentialTopic{WorkspaceID: item.workspaceID}, CredentialEvent{
-				Type:       "insert",
+				Type:       eventTypeInsert,
 				Credential: converter.ToAPICredential(*item.cred),
 			})
 		}
@@ -425,7 +450,7 @@ func (s *CredentialRPC) CredentialUpdate(
 	for _, item := range items {
 		if s.credStream != nil {
 			s.credStream.Publish(CredentialTopic{WorkspaceID: item.existing.WorkspaceID}, CredentialEvent{
-				Type:       "update",
+				Type:       eventTypeUpdate,
 				Credential: converter.ToAPICredential(*item.existing),
 			})
 		}
@@ -447,6 +472,7 @@ func (s *CredentialRPC) CredentialDelete(
 	type deleteItem struct {
 		credID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
+		fileID      *idwrap.IDWrap // May be nil if file not found
 	}
 	var items []deleteItem
 
@@ -471,31 +497,48 @@ func (s *CredentialRPC) CredentialDelete(
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
 		}
 
+		// Look up file ID for cascade event publishing
+		var fileID *idwrap.IDWrap
+		file, err := s.fs.GetFileByContentID(ctx, credID)
+		if err == nil && file != nil {
+			fileID = &file.ID
+		}
+
 		items = append(items, deleteItem{
 			credID:      credID,
 			workspaceID: existing.WorkspaceID,
+			fileID:      fileID,
 		})
 	}
 
-	// ACT phase: Delete file and credential in transaction
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// ACT phase: Delete file and credential using mutation system
+	var opts []mutation.Option
+	if s.publisher != nil {
+		opts = append(opts, mutation.WithPublisher(s.publisher))
+	}
+	mut := mutation.New(s.DB, opts...)
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	csTx := s.cs.TX(tx)
-	fsTx := s.fs.TX(tx)
+	csTx := s.cs.TX(mut.TX())
+	fsTx := s.fs.TX(mut.TX())
 
 	for _, item := range items {
 		// Delete file record first (no FK constraint from files to credentials)
-		file, err := fsTx.GetFileByContentID(ctx, item.credID)
-		if err == nil && file != nil {
-			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if item.fileID != nil {
+			// Register file delete event for cascade publishing
+			mut.Track(mutation.Event{
+				Entity:      mutation.EntityFile,
+				Op:          mutation.OpDelete,
+				ID:          *item.fileID,
+				WorkspaceID: item.workspaceID,
+			})
+			if err := fsTx.DeleteFile(ctx, *item.fileID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
-		// If file not found, that's OK - proceed with credential deletion
 
 		// Delete credential (provider-specific cascade handled by DB FK)
 		if err := csTx.DeleteCredential(ctx, item.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -503,15 +546,15 @@ func (s *CredentialRPC) CredentialDelete(
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Publish events after commit
+	// Publish credential events after commit (mutation system handles file events)
 	for _, item := range items {
 		if s.credStream != nil {
 			s.credStream.Publish(CredentialTopic{WorkspaceID: item.workspaceID}, CredentialEvent{
-				Type:       "delete",
+				Type:       eventTypeDelete,
 				Credential: &credentialv1.Credential{CredentialId: item.credID.Bytes()},
 			})
 		}
@@ -522,54 +565,1158 @@ func (s *CredentialRPC) CredentialDelete(
 
 func (s *CredentialRPC) CredentialSync(
 	ctx context.Context,
-	req *connect.Request[emptypb.Empty],
+	_ *connect.Request[emptypb.Empty],
 	stream *connect.ServerStream[credentialv1.CredentialSyncResponse],
 ) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
+	return s.streamCredentialSync(ctx, userID, stream.Send)
+}
+
+func (s *CredentialRPC) streamCredentialSync(
+	ctx context.Context,
+	userID idwrap.IDWrap,
+	send func(*credentialv1.CredentialSyncResponse) error,
+) error {
+	// Build set of accessible workspace IDs for filtering
+	var workspaceSet sync.Map
+
+	filter := func(topic CredentialTopic) bool {
+		_, ok := workspaceSet.Load(topic.WorkspaceID.String())
+		return ok
+	}
+
+	// Load initial workspaces
+	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	for _, ws := range workspaces {
+		workspaceSet.Store(ws.ID.String(), true)
+	}
+
+	// Real-time streaming: subscribe to credential events
+	if s.credStream == nil {
+		<-ctx.Done()
+		return nil
+	}
+
+	eventCh, err := s.credStream.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events as they come
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case evt, ok := <-eventCh:
+			if !ok {
+				return nil
+			}
+
+			var syncItem *credentialv1.CredentialSync
+			switch evt.Payload.Type {
+			case eventTypeInsert, eventTypeUpdate:
+				syncItem = &credentialv1.CredentialSync{
+					Value: &credentialv1.CredentialSync_ValueUnion{
+						Kind: credentialv1.CredentialSync_ValueUnion_KIND_UPSERT,
+						Upsert: &credentialv1.CredentialSyncUpsert{
+							CredentialId: evt.Payload.Credential.CredentialId,
+							Name:         evt.Payload.Credential.Name,
+							Kind:         evt.Payload.Credential.Kind,
+						},
+					},
+				}
+			case eventTypeDelete:
+				syncItem = &credentialv1.CredentialSync{
+					Value: &credentialv1.CredentialSync_ValueUnion{
+						Kind:   credentialv1.CredentialSync_ValueUnion_KIND_DELETE,
+						Delete: &credentialv1.CredentialSyncDelete{CredentialId: evt.Payload.Credential.CredentialId},
+					},
+				}
+			}
+
+			if syncItem != nil {
+				if err := send(&credentialv1.CredentialSyncResponse{
+					Items: []*credentialv1.CredentialSync{syncItem},
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+// --- CredentialOpenAi Collection CRUD+Sync ---
+
+func (s *CredentialRPC) CredentialOpenAiCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[credentialv1.CredentialOpenAiCollectionResponse], error) {
+	workspaces, err := s.getAccessibleWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*credentialv1.CredentialOpenAi
+	for _, ws := range workspaces {
+		creds, err := s.credReader.ListCredentials(ctx, ws.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, c := range creds {
+			if c.Kind != mcredential.CREDENTIAL_KIND_OPENAI {
+				continue
+			}
+			openai, err := s.credReader.GetCredentialOpenAI(ctx, c.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			items = append(items, converter.ToAPICredentialOpenAI(*openai))
+		}
+	}
+
+	return connect.NewResponse(&credentialv1.CredentialOpenAiCollectionResponse{Items: items}), nil
+}
+
+func (s *CredentialRPC) CredentialOpenAiInsert(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialOpenAiInsertRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type insertData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		openai      *mcredential.CredentialOpenAI
+	}
+	var validatedItems []insertData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			return nil, err
+		}
+
+		openai := &mcredential.CredentialOpenAI{
+			CredentialID: credID,
+			Token:        item.GetToken(),
+		}
+		if item.BaseUrl != nil {
+			openai.BaseUrl = item.BaseUrl
+		}
+
+		validatedItems = append(validatedItems, insertData{
+			credID:      credID,
+			workspaceID: workspaceID,
+			openai:      openai,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+
+	for _, data := range validatedItems {
+		if err := csTx.CreateCredentialOpenAI(ctx, data.openai); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish events after commit
+	for _, data := range validatedItems {
+		if s.openAiStream != nil {
+			s.openAiStream.Publish(CredentialOpenAiTopic{WorkspaceID: data.workspaceID}, CredentialOpenAiEvent{
+				Type:   eventTypeInsert,
+				Secret: converter.ToAPICredentialOpenAI(*data.openai),
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialOpenAiUpdate(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialOpenAiUpdateRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type updateData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		updated     *mcredential.CredentialOpenAI
+	}
+	var validatedItems []updateData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			return nil, err
+		}
+
+		existing, err := s.credReader.GetCredentialOpenAI(ctx, credID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updated := *existing
+
+		if item.Token != nil {
+			updated.Token = *item.Token
+		}
+
+		if item.BaseUrl != nil {
+			switch item.BaseUrl.Kind {
+			case credentialv1.CredentialOpenAiUpdate_BaseUrlUnion_KIND_VALUE:
+				updated.BaseUrl = item.BaseUrl.Value
+			case credentialv1.CredentialOpenAiUpdate_BaseUrlUnion_KIND_UNSET:
+				updated.BaseUrl = nil
+			}
+		}
+
+		validatedItems = append(validatedItems, updateData{
+			credID:      credID,
+			workspaceID: workspaceID,
+			updated:     &updated,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+
+	for _, data := range validatedItems {
+		if err := csTx.UpdateCredentialOpenAI(ctx, data.updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish events after commit
+	for _, data := range validatedItems {
+		if s.openAiStream != nil {
+			s.openAiStream.Publish(CredentialOpenAiTopic{WorkspaceID: data.workspaceID}, CredentialOpenAiEvent{
+				Type:   eventTypeUpdate,
+				Secret: converter.ToAPICredentialOpenAI(*data.updated),
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialOpenAiDelete(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialOpenAiDeleteRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type deleteData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+	}
+	var validatedItems []deleteData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			// If credential doesn't exist, skip (already deleted)
+			if connect.CodeOf(err) == connect.CodeNotFound {
+				continue
+			}
+			return nil, err
+		}
+
+		validatedItems = append(validatedItems, deleteData{
+			credID:      credID,
+			workspaceID: workspaceID,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// Note: We delete the parent credential which cascades to delete the OpenAI secret
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+	fsTx := s.fs.TX(tx)
+
+	for _, data := range validatedItems {
+		// Delete file record first
+		file, err := fsTx.GetFileByContentID(ctx, data.credID)
+		if err == nil && file != nil {
+			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
+		// Delete credential (cascades to OpenAI secret)
+		if err := csTx.DeleteCredential(ctx, data.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish events after commit
+	for _, data := range validatedItems {
+		if s.openAiStream != nil {
+			s.openAiStream.Publish(CredentialOpenAiTopic{WorkspaceID: data.workspaceID}, CredentialOpenAiEvent{
+				Type:   eventTypeDelete,
+				Secret: &credentialv1.CredentialOpenAi{CredentialId: data.credID.Bytes()},
+			})
+		}
+		// Also publish credential delete event
+		if s.credStream != nil {
+			s.credStream.Publish(CredentialTopic{WorkspaceID: data.workspaceID}, CredentialEvent{
+				Type:       eventTypeDelete,
+				Credential: &credentialv1.Credential{CredentialId: data.credID.Bytes()},
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialOpenAiSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[credentialv1.CredentialOpenAiSyncResponse],
+) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+	return s.streamCredentialOpenAiSync(ctx, userID, stream.Send)
+}
+
+func (s *CredentialRPC) streamCredentialOpenAiSync(
+	ctx context.Context,
+	userID idwrap.IDWrap,
+	send func(*credentialv1.CredentialOpenAiSyncResponse) error,
+) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic CredentialOpenAiTopic) bool {
+		_, ok := workspaceSet.Load(topic.WorkspaceID.String())
+		return ok
+	}
 
 	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	for _, ws := range workspaces {
+		workspaceSet.Store(ws.ID.String(), true)
+	}
 
-	// Build initial collection
-	var items []*credentialv1.Credential
+	if s.openAiStream == nil {
+		<-ctx.Done()
+		return nil
+	}
+
+	eventCh, err := s.openAiStream.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case evt, ok := <-eventCh:
+			if !ok {
+				return nil
+			}
+
+			var syncItem *credentialv1.CredentialOpenAiSync
+			switch evt.Payload.Type {
+			case eventTypeInsert, eventTypeUpdate:
+				syncItem = &credentialv1.CredentialOpenAiSync{
+					Value: &credentialv1.CredentialOpenAiSync_ValueUnion{
+						Kind: credentialv1.CredentialOpenAiSync_ValueUnion_KIND_UPSERT,
+						Upsert: &credentialv1.CredentialOpenAiSyncUpsert{
+							CredentialId: evt.Payload.Secret.CredentialId,
+							Token:        evt.Payload.Secret.Token,
+							BaseUrl:      evt.Payload.Secret.BaseUrl,
+						},
+					},
+				}
+			case eventTypeDelete:
+				syncItem = &credentialv1.CredentialOpenAiSync{
+					Value: &credentialv1.CredentialOpenAiSync_ValueUnion{
+						Kind:   credentialv1.CredentialOpenAiSync_ValueUnion_KIND_DELETE,
+						Delete: &credentialv1.CredentialOpenAiSyncDelete{CredentialId: evt.Payload.Secret.CredentialId},
+					},
+				}
+			}
+
+			if syncItem != nil {
+				if err := send(&credentialv1.CredentialOpenAiSyncResponse{
+					Items: []*credentialv1.CredentialOpenAiSync{syncItem},
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+// --- CredentialGemini Collection CRUD+Sync ---
+
+func (s *CredentialRPC) CredentialGeminiCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[credentialv1.CredentialGeminiCollectionResponse], error) {
+	workspaces, err := s.getAccessibleWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*credentialv1.CredentialGemini
 	for _, ws := range workspaces {
 		creds, err := s.credReader.ListCredentials(ctx, ws.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, c := range creds {
-			items = append(items, converter.ToAPICredential(c))
+			if c.Kind != mcredential.CREDENTIAL_KIND_GEMINI {
+				continue
+			}
+			gemini, err := s.credReader.GetCredentialGemini(ctx, c.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			items = append(items, converter.ToAPICredentialGemini(*gemini))
 		}
 	}
 
-	// Convert to sync items format
-	syncItems := make([]*credentialv1.CredentialSync, 0, len(items))
-	for _, item := range items {
-		syncItems = append(syncItems, &credentialv1.CredentialSync{
-			Value: &credentialv1.CredentialSync_ValueUnion{
-				Kind: credentialv1.CredentialSync_ValueUnion_KIND_UPSERT,
-				Upsert: &credentialv1.CredentialSyncUpsert{
-					CredentialId: item.CredentialId,
-					Name:         item.Name,
-					Kind:         item.Kind,
-				},
-			},
+	return connect.NewResponse(&credentialv1.CredentialGeminiCollectionResponse{Items: items}), nil
+}
+
+func (s *CredentialRPC) CredentialGeminiInsert(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialGeminiInsertRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type insertData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		gemini      *mcredential.CredentialGemini
+	}
+	var validatedItems []insertData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			return nil, err
+		}
+
+		gemini := &mcredential.CredentialGemini{
+			CredentialID: credID,
+			ApiKey:       item.GetApiKey(),
+		}
+		if item.BaseUrl != nil {
+			gemini.BaseUrl = item.BaseUrl
+		}
+
+		validatedItems = append(validatedItems, insertData{
+			credID:      credID,
+			workspaceID: workspaceID,
+			gemini:      gemini,
 		})
 	}
 
-	// Send initial collection as upsert items
-	if err := stream.Send(&credentialv1.CredentialSyncResponse{
-		Items: syncItems,
-	}); err != nil {
-		return err
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 
-	// Wait for context cancellation (real-time streaming not yet implemented)
-	<-ctx.Done()
-	return nil
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+
+	for _, data := range validatedItems {
+		if err := csTx.CreateCredentialGemini(ctx, data.gemini); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, data := range validatedItems {
+		if s.geminiStream != nil {
+			s.geminiStream.Publish(CredentialGeminiTopic{WorkspaceID: data.workspaceID}, CredentialGeminiEvent{
+				Type:   eventTypeInsert,
+				Secret: converter.ToAPICredentialGemini(*data.gemini),
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialGeminiUpdate(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialGeminiUpdateRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type updateData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		updated     *mcredential.CredentialGemini
+	}
+	var validatedItems []updateData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			return nil, err
+		}
+
+		existing, err := s.credReader.GetCredentialGemini(ctx, credID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updated := *existing
+
+		if item.ApiKey != nil {
+			updated.ApiKey = *item.ApiKey
+		}
+
+		if item.BaseUrl != nil {
+			switch item.BaseUrl.Kind {
+			case credentialv1.CredentialGeminiUpdate_BaseUrlUnion_KIND_VALUE:
+				updated.BaseUrl = item.BaseUrl.Value
+			case credentialv1.CredentialGeminiUpdate_BaseUrlUnion_KIND_UNSET:
+				updated.BaseUrl = nil
+			}
+		}
+
+		validatedItems = append(validatedItems, updateData{
+			credID:      credID,
+			workspaceID: workspaceID,
+			updated:     &updated,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+
+	for _, data := range validatedItems {
+		if err := csTx.UpdateCredentialGemini(ctx, data.updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, data := range validatedItems {
+		if s.geminiStream != nil {
+			s.geminiStream.Publish(CredentialGeminiTopic{WorkspaceID: data.workspaceID}, CredentialGeminiEvent{
+				Type:   eventTypeUpdate,
+				Secret: converter.ToAPICredentialGemini(*data.updated),
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialGeminiDelete(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialGeminiDeleteRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type deleteData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+	}
+	var validatedItems []deleteData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			if connect.CodeOf(err) == connect.CodeNotFound {
+				continue
+			}
+			return nil, err
+		}
+
+		validatedItems = append(validatedItems, deleteData{
+			credID:      credID,
+			workspaceID: workspaceID,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+	fsTx := s.fs.TX(tx)
+
+	for _, data := range validatedItems {
+		file, err := fsTx.GetFileByContentID(ctx, data.credID)
+		if err == nil && file != nil {
+			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
+		if err := csTx.DeleteCredential(ctx, data.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, data := range validatedItems {
+		if s.geminiStream != nil {
+			s.geminiStream.Publish(CredentialGeminiTopic{WorkspaceID: data.workspaceID}, CredentialGeminiEvent{
+				Type:   eventTypeDelete,
+				Secret: &credentialv1.CredentialGemini{CredentialId: data.credID.Bytes()},
+			})
+		}
+		if s.credStream != nil {
+			s.credStream.Publish(CredentialTopic{WorkspaceID: data.workspaceID}, CredentialEvent{
+				Type:       eventTypeDelete,
+				Credential: &credentialv1.Credential{CredentialId: data.credID.Bytes()},
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialGeminiSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[credentialv1.CredentialGeminiSyncResponse],
+) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+	return s.streamCredentialGeminiSync(ctx, userID, stream.Send)
+}
+
+func (s *CredentialRPC) streamCredentialGeminiSync(
+	ctx context.Context,
+	userID idwrap.IDWrap,
+	send func(*credentialv1.CredentialGeminiSyncResponse) error,
+) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic CredentialGeminiTopic) bool {
+		_, ok := workspaceSet.Load(topic.WorkspaceID.String())
+		return ok
+	}
+
+	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	for _, ws := range workspaces {
+		workspaceSet.Store(ws.ID.String(), true)
+	}
+
+	if s.geminiStream == nil {
+		<-ctx.Done()
+		return nil
+	}
+
+	eventCh, err := s.geminiStream.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case evt, ok := <-eventCh:
+			if !ok {
+				return nil
+			}
+
+			var syncItem *credentialv1.CredentialGeminiSync
+			switch evt.Payload.Type {
+			case eventTypeInsert, eventTypeUpdate:
+				syncItem = &credentialv1.CredentialGeminiSync{
+					Value: &credentialv1.CredentialGeminiSync_ValueUnion{
+						Kind: credentialv1.CredentialGeminiSync_ValueUnion_KIND_UPSERT,
+						Upsert: &credentialv1.CredentialGeminiSyncUpsert{
+							CredentialId: evt.Payload.Secret.CredentialId,
+							ApiKey:       evt.Payload.Secret.ApiKey,
+							BaseUrl:      evt.Payload.Secret.BaseUrl,
+						},
+					},
+				}
+			case eventTypeDelete:
+				syncItem = &credentialv1.CredentialGeminiSync{
+					Value: &credentialv1.CredentialGeminiSync_ValueUnion{
+						Kind:   credentialv1.CredentialGeminiSync_ValueUnion_KIND_DELETE,
+						Delete: &credentialv1.CredentialGeminiSyncDelete{CredentialId: evt.Payload.Secret.CredentialId},
+					},
+				}
+			}
+
+			if syncItem != nil {
+				if err := send(&credentialv1.CredentialGeminiSyncResponse{
+					Items: []*credentialv1.CredentialGeminiSync{syncItem},
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+// --- CredentialAnthropic Collection CRUD+Sync ---
+
+func (s *CredentialRPC) CredentialAnthropicCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[credentialv1.CredentialAnthropicCollectionResponse], error) {
+	workspaces, err := s.getAccessibleWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*credentialv1.CredentialAnthropic
+	for _, ws := range workspaces {
+		creds, err := s.credReader.ListCredentials(ctx, ws.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, c := range creds {
+			if c.Kind != mcredential.CREDENTIAL_KIND_ANTHROPIC {
+				continue
+			}
+			anthropic, err := s.credReader.GetCredentialAnthropic(ctx, c.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			items = append(items, converter.ToAPICredentialAnthropic(*anthropic))
+		}
+	}
+
+	return connect.NewResponse(&credentialv1.CredentialAnthropicCollectionResponse{Items: items}), nil
+}
+
+func (s *CredentialRPC) CredentialAnthropicInsert(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialAnthropicInsertRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type insertData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		anthropic   *mcredential.CredentialAnthropic
+	}
+	var validatedItems []insertData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			return nil, err
+		}
+
+		anthropic := &mcredential.CredentialAnthropic{
+			CredentialID: credID,
+			ApiKey:       item.GetApiKey(),
+		}
+		if item.BaseUrl != nil {
+			anthropic.BaseUrl = item.BaseUrl
+		}
+
+		validatedItems = append(validatedItems, insertData{
+			credID:      credID,
+			workspaceID: workspaceID,
+			anthropic:   anthropic,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+
+	for _, data := range validatedItems {
+		if err := csTx.CreateCredentialAnthropic(ctx, data.anthropic); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, data := range validatedItems {
+		if s.anthropicStream != nil {
+			s.anthropicStream.Publish(CredentialAnthropicTopic{WorkspaceID: data.workspaceID}, CredentialAnthropicEvent{
+				Type:   eventTypeInsert,
+				Secret: converter.ToAPICredentialAnthropic(*data.anthropic),
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialAnthropicUpdate(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialAnthropicUpdateRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type updateData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+		updated     *mcredential.CredentialAnthropic
+	}
+	var validatedItems []updateData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			return nil, err
+		}
+
+		existing, err := s.credReader.GetCredentialAnthropic(ctx, credID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updated := *existing
+
+		if item.ApiKey != nil {
+			updated.ApiKey = *item.ApiKey
+		}
+
+		if item.BaseUrl != nil {
+			switch item.BaseUrl.Kind {
+			case credentialv1.CredentialAnthropicUpdate_BaseUrlUnion_KIND_VALUE:
+				updated.BaseUrl = item.BaseUrl.Value
+			case credentialv1.CredentialAnthropicUpdate_BaseUrlUnion_KIND_UNSET:
+				updated.BaseUrl = nil
+			}
+		}
+
+		validatedItems = append(validatedItems, updateData{
+			credID:      credID,
+			workspaceID: workspaceID,
+			updated:     &updated,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+
+	for _, data := range validatedItems {
+		if err := csTx.UpdateCredentialAnthropic(ctx, data.updated); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, data := range validatedItems {
+		if s.anthropicStream != nil {
+			s.anthropicStream.Publish(CredentialAnthropicTopic{WorkspaceID: data.workspaceID}, CredentialAnthropicEvent{
+				Type:   eventTypeUpdate,
+				Secret: converter.ToAPICredentialAnthropic(*data.updated),
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialAnthropicDelete(
+	ctx context.Context,
+	req *connect.Request[credentialv1.CredentialAnthropicDeleteRequest],
+) (*connect.Response[emptypb.Empty], error) {
+	type deleteData struct {
+		credID      idwrap.IDWrap
+		workspaceID idwrap.IDWrap
+	}
+	var validatedItems []deleteData
+
+	for _, item := range req.Msg.GetItems() {
+		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
+		if err != nil {
+			if connect.CodeOf(err) == connect.CodeNotFound {
+				continue
+			}
+			return nil, err
+		}
+
+		validatedItems = append(validatedItems, deleteData{
+			credID:      credID,
+			workspaceID: workspaceID,
+		})
+	}
+
+	if len(validatedItems) == 0 {
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	csTx := s.cs.TX(tx)
+	fsTx := s.fs.TX(tx)
+
+	for _, data := range validatedItems {
+		file, err := fsTx.GetFileByContentID(ctx, data.credID)
+		if err == nil && file != nil {
+			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
+		if err := csTx.DeleteCredential(ctx, data.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, data := range validatedItems {
+		if s.anthropicStream != nil {
+			s.anthropicStream.Publish(CredentialAnthropicTopic{WorkspaceID: data.workspaceID}, CredentialAnthropicEvent{
+				Type:   eventTypeDelete,
+				Secret: &credentialv1.CredentialAnthropic{CredentialId: data.credID.Bytes()},
+			})
+		}
+		if s.credStream != nil {
+			s.credStream.Publish(CredentialTopic{WorkspaceID: data.workspaceID}, CredentialEvent{
+				Type:       eventTypeDelete,
+				Credential: &credentialv1.Credential{CredentialId: data.credID.Bytes()},
+			})
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *CredentialRPC) CredentialAnthropicSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[credentialv1.CredentialAnthropicSyncResponse],
+) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+	return s.streamCredentialAnthropicSync(ctx, userID, stream.Send)
+}
+
+func (s *CredentialRPC) streamCredentialAnthropicSync(
+	ctx context.Context,
+	userID idwrap.IDWrap,
+	send func(*credentialv1.CredentialAnthropicSyncResponse) error,
+) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic CredentialAnthropicTopic) bool {
+		_, ok := workspaceSet.Load(topic.WorkspaceID.String())
+		return ok
+	}
+
+	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	for _, ws := range workspaces {
+		workspaceSet.Store(ws.ID.String(), true)
+	}
+
+	if s.anthropicStream == nil {
+		<-ctx.Done()
+		return nil
+	}
+
+	eventCh, err := s.anthropicStream.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case evt, ok := <-eventCh:
+			if !ok {
+				return nil
+			}
+
+			var syncItem *credentialv1.CredentialAnthropicSync
+			switch evt.Payload.Type {
+			case eventTypeInsert, eventTypeUpdate:
+				syncItem = &credentialv1.CredentialAnthropicSync{
+					Value: &credentialv1.CredentialAnthropicSync_ValueUnion{
+						Kind: credentialv1.CredentialAnthropicSync_ValueUnion_KIND_UPSERT,
+						Upsert: &credentialv1.CredentialAnthropicSyncUpsert{
+							CredentialId: evt.Payload.Secret.CredentialId,
+							ApiKey:       evt.Payload.Secret.ApiKey,
+							BaseUrl:      evt.Payload.Secret.BaseUrl,
+						},
+					},
+				}
+			case eventTypeDelete:
+				syncItem = &credentialv1.CredentialAnthropicSync{
+					Value: &credentialv1.CredentialAnthropicSync_ValueUnion{
+						Kind:   credentialv1.CredentialAnthropicSync_ValueUnion_KIND_DELETE,
+						Delete: &credentialv1.CredentialAnthropicSyncDelete{CredentialId: evt.Payload.Secret.CredentialId},
+					},
+				}
+			}
+
+			if syncItem != nil {
+				if err := send(&credentialv1.CredentialAnthropicSyncResponse{
+					Items: []*credentialv1.CredentialAnthropicSync{syncItem},
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
 }

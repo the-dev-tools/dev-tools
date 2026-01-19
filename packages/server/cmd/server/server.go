@@ -517,12 +517,23 @@ func run() error {
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
 	credentialSrv := rcredential.New(rcredential.CredentialRPCDeps{
-		DB:        currentDB,
-		Service:   credentialService,
-		User:      userService,
-		Workspace: workspaceService,
-		Reader:    credentialReader,
-		Streamer:  streamers.Credential,
+		DB: currentDB,
+		Services: rcredential.CredentialRPCServices{
+			Credential: credentialService,
+			User:       userService,
+			Workspace:  workspaceService,
+			File:       fileService,
+		},
+		Readers: rcredential.CredentialRPCReaders{
+			Credential: credentialReader,
+		},
+		Streamers: rcredential.CredentialRPCStreamers{
+			Credential: streamers.Credential,
+			OpenAi:     streamers.CredentialOpenAi,
+			Gemini:     streamers.CredentialGemini,
+			Anthropic:  streamers.CredentialAnthropic,
+		},
+		Publisher: registry,
 	})
 	newServiceManager.AddService(rcredential.CreateService(credentialSrv, optionsAll))
 
@@ -676,6 +687,9 @@ type Streamers struct {
 	Execution           eventstream.SyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]
 	File                eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 	Credential          eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent]
+	CredentialOpenAi    eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent]
+	CredentialGemini    eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent]
+	CredentialAnthropic eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent]
 }
 
 func NewStreamers() *Streamers {
@@ -710,6 +724,9 @@ func NewStreamers() *Streamers {
 		Execution:           memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent](),
 		File:                memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 		Credential:          memory.NewInMemorySyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent](),
+		CredentialOpenAi:    memory.NewInMemorySyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent](),
+		CredentialGemini:    memory.NewInMemorySyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent](),
+		CredentialAnthropic: memory.NewInMemorySyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent](),
 	}
 }
 
@@ -744,6 +761,9 @@ func (s *Streamers) Shutdown() {
 	s.Execution.Shutdown()
 	s.File.Shutdown()
 	s.Credential.Shutdown()
+	s.CredentialOpenAi.Shutdown()
+	s.CredentialGemini.Shutdown()
+	s.CredentialAnthropic.Shutdown()
 }
 
 // registerCascadeHandlers registers all handlers needed for cascade deletion events.

@@ -435,6 +435,20 @@ func ToAPICredentialKind(kind mcredential.CredentialKind) credentialv1.Credentia
 	}
 }
 
+// ToModelCredentialKind converts API CredentialKind to model CredentialKind
+func ToModelCredentialKind(kind credentialv1.CredentialKind) mcredential.CredentialKind {
+	switch kind {
+	case credentialv1.CredentialKind_CREDENTIAL_KIND_OPEN_AI:
+		return mcredential.CREDENTIAL_KIND_OPENAI
+	case credentialv1.CredentialKind_CREDENTIAL_KIND_GEMINI:
+		return mcredential.CREDENTIAL_KIND_GEMINI
+	case credentialv1.CredentialKind_CREDENTIAL_KIND_ANTHROPIC:
+		return mcredential.CREDENTIAL_KIND_ANTHROPIC
+	default:
+		return mcredential.CREDENTIAL_KIND_OPENAI // Default to OpenAI
+	}
+}
+
 // ToAPIErrorHandling converts model ErrorHandling to API ErrorHandling
 func ToAPIErrorHandling(eh mflow.ErrorHandling) flowv1.ErrorHandling {
 	switch eh {

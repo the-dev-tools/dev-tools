@@ -1,6 +1,7 @@
 package streamtest
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
@@ -297,4 +298,182 @@ func (v *Verifier) ExpectFile(
 		matcher,
 	)
 	return v
+}
+
+// --- Credential helpers ---
+
+// ExpectCredential adds an expectation for credential events.
+func (v *Verifier) ExpectCredential(
+	stream eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent],
+	eventType EventType,
+	count CountConstraint,
+	matcher func(rcredential.CredentialEvent) bool,
+) *Verifier {
+	if matcher == nil {
+		matcher = MatchAny[rcredential.CredentialEvent]()
+	}
+	Expect(v, "Credential", stream, eventType, count,
+		func(e rcredential.CredentialEvent) string { return e.Type },
+		matcher,
+	)
+	return v
+}
+
+// ExpectCredentialInsert is a shorthand for ExpectCredential with Insert type.
+func (v *Verifier) ExpectCredentialInsert(
+	stream eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialEvent) bool,
+) *Verifier {
+	return v.ExpectCredential(stream, Insert, count, matcher)
+}
+
+// ExpectCredentialUpdate is a shorthand for ExpectCredential with Update type.
+func (v *Verifier) ExpectCredentialUpdate(
+	stream eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialEvent) bool,
+) *Verifier {
+	return v.ExpectCredential(stream, Update, count, matcher)
+}
+
+// ExpectCredentialDelete is a shorthand for ExpectCredential with Delete type.
+func (v *Verifier) ExpectCredentialDelete(
+	stream eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialEvent) bool,
+) *Verifier {
+	return v.ExpectCredential(stream, Delete, count, matcher)
+}
+
+// ExpectCredentialOpenAi adds an expectation for credential OpenAI events.
+func (v *Verifier) ExpectCredentialOpenAi(
+	stream eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent],
+	eventType EventType,
+	count CountConstraint,
+	matcher func(rcredential.CredentialOpenAiEvent) bool,
+) *Verifier {
+	if matcher == nil {
+		matcher = MatchAny[rcredential.CredentialOpenAiEvent]()
+	}
+	Expect(v, "CredentialOpenAi", stream, eventType, count,
+		func(e rcredential.CredentialOpenAiEvent) string { return e.Type },
+		matcher,
+	)
+	return v
+}
+
+// ExpectCredentialOpenAiInsert is a shorthand for ExpectCredentialOpenAi with Insert type.
+func (v *Verifier) ExpectCredentialOpenAiInsert(
+	stream eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialOpenAiEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialOpenAi(stream, Insert, count, matcher)
+}
+
+// ExpectCredentialOpenAiUpdate is a shorthand for ExpectCredentialOpenAi with Update type.
+func (v *Verifier) ExpectCredentialOpenAiUpdate(
+	stream eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialOpenAiEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialOpenAi(stream, Update, count, matcher)
+}
+
+// ExpectCredentialOpenAiDelete is a shorthand for ExpectCredentialOpenAi with Delete type.
+func (v *Verifier) ExpectCredentialOpenAiDelete(
+	stream eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialOpenAiEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialOpenAi(stream, Delete, count, matcher)
+}
+
+// ExpectCredentialGemini adds an expectation for credential Gemini events.
+func (v *Verifier) ExpectCredentialGemini(
+	stream eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent],
+	eventType EventType,
+	count CountConstraint,
+	matcher func(rcredential.CredentialGeminiEvent) bool,
+) *Verifier {
+	if matcher == nil {
+		matcher = MatchAny[rcredential.CredentialGeminiEvent]()
+	}
+	Expect(v, "CredentialGemini", stream, eventType, count,
+		func(e rcredential.CredentialGeminiEvent) string { return e.Type },
+		matcher,
+	)
+	return v
+}
+
+// ExpectCredentialGeminiInsert is a shorthand for ExpectCredentialGemini with Insert type.
+func (v *Verifier) ExpectCredentialGeminiInsert(
+	stream eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialGeminiEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialGemini(stream, Insert, count, matcher)
+}
+
+// ExpectCredentialGeminiUpdate is a shorthand for ExpectCredentialGemini with Update type.
+func (v *Verifier) ExpectCredentialGeminiUpdate(
+	stream eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialGeminiEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialGemini(stream, Update, count, matcher)
+}
+
+// ExpectCredentialGeminiDelete is a shorthand for ExpectCredentialGemini with Delete type.
+func (v *Verifier) ExpectCredentialGeminiDelete(
+	stream eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialGeminiEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialGemini(stream, Delete, count, matcher)
+}
+
+// ExpectCredentialAnthropic adds an expectation for credential Anthropic events.
+func (v *Verifier) ExpectCredentialAnthropic(
+	stream eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent],
+	eventType EventType,
+	count CountConstraint,
+	matcher func(rcredential.CredentialAnthropicEvent) bool,
+) *Verifier {
+	if matcher == nil {
+		matcher = MatchAny[rcredential.CredentialAnthropicEvent]()
+	}
+	Expect(v, "CredentialAnthropic", stream, eventType, count,
+		func(e rcredential.CredentialAnthropicEvent) string { return e.Type },
+		matcher,
+	)
+	return v
+}
+
+// ExpectCredentialAnthropicInsert is a shorthand for ExpectCredentialAnthropic with Insert type.
+func (v *Verifier) ExpectCredentialAnthropicInsert(
+	stream eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialAnthropicEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialAnthropic(stream, Insert, count, matcher)
+}
+
+// ExpectCredentialAnthropicUpdate is a shorthand for ExpectCredentialAnthropic with Update type.
+func (v *Verifier) ExpectCredentialAnthropicUpdate(
+	stream eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialAnthropicEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialAnthropic(stream, Update, count, matcher)
+}
+
+// ExpectCredentialAnthropicDelete is a shorthand for ExpectCredentialAnthropic with Delete type.
+func (v *Verifier) ExpectCredentialAnthropicDelete(
+	stream eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent],
+	count CountConstraint,
+	matcher func(rcredential.CredentialAnthropicEvent) bool,
+) *Verifier {
+	return v.ExpectCredentialAnthropic(stream, Delete, count, matcher)
 }

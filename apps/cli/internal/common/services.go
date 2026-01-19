@@ -37,9 +37,9 @@ type Services struct {
 	NodeForEach sflow.NodeForEachService
 	NodeIf      sflow.NodeIfService
 	NodeJS      sflow.NodeJsService
-	NodeAI      sflow.NodeAIService
-	NodeModel   sflow.NodeModelService
-	NodeMemory  sflow.NodeMemoryService
+	NodeAI         sflow.NodeAIService
+	NodeAiProvider sflow.NodeAiProviderService
+	NodeMemory     sflow.NodeMemoryService
 
 	// Credentials
 	Credential scredential.CredentialService
@@ -84,9 +84,9 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		NodeForEach: sflow.NewNodeForEachService(queries),
 		NodeIf:      *sflow.NewNodeIfService(queries),
 		NodeJS:      sflow.NewNodeJsService(queries),
-		NodeAI:      sflow.NewNodeAIService(queries),
-		NodeModel:   sflow.NewNodeModelService(queries),
-		NodeMemory:  sflow.NewNodeMemoryService(queries),
+		NodeAI:         sflow.NewNodeAIService(queries),
+		NodeAiProvider: sflow.NewNodeAiProviderService(queries),
+		NodeMemory:     sflow.NewNodeMemoryService(queries),
 
 		// Credentials
 		Credential: scredential.NewCredentialService(queries),

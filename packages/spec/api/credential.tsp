@@ -16,50 +16,23 @@ model Credential {
   kind: CredentialKind;
 }
 
+@TanStackDB.collection
 model CredentialOpenAi {
   @primaryKey credentialId: Id;
   token: string;
   baseUrl?: string;
 }
 
-model GetCredentialOpenAiRequest {
-  credentialId: Id;
-}
-
-model GetCredentialOpenAiResponse {
-  ...CredentialOpenAi;
-}
-
-op GetCredentialOpenAi(...GetCredentialOpenAiRequest): GetCredentialOpenAiResponse;
-
+@TanStackDB.collection
 model CredentialGemini {
   @primaryKey credentialId: Id;
   apiKey: string;
   baseUrl?: string;
 }
 
-model GetCredentialGeminiRequest {
-  credentialId: Id;
-}
-
-model GetCredentialGeminiResponse {
-  ...CredentialGemini;
-}
-
-op GetCredentialGemini(...GetCredentialGeminiRequest): GetCredentialGeminiResponse;
-
+@TanStackDB.collection
 model CredentialAnthropic {
   @primaryKey credentialId: Id;
   apiKey: string;
   baseUrl?: string;
 }
-
-model GetCredentialAnthropicRequest {
-  credentialId: Id;
-}
-
-model GetCredentialAnthropicResponse {
-  ...CredentialAnthropic;
-}
-
-op GetCredentialAnthropic(...GetCredentialAnthropicRequest): GetCredentialAnthropicResponse;
