@@ -1,12 +1,12 @@
+.ai/
 .golangci.yml
-AGENTS.md
 *.har
-**/routes/__tree.tsx
+AGENTS.md
 CHANGELOG.md
 dist
 flake.lock
+GEMINI.md
 LICENSE
 pnpm-lock.yaml
+route-tree.gen.ts
 scoop.json
-.ai/
-GEMINI.md

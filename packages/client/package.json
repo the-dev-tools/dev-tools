@@ -6,9 +6,8 @@
     "dev": "vite"
   },
   "exports": {
-    ".": "./src/app.tsx",
-    "./assets/*": "./assets/*",
-    "./favicon": "./src/favicon.ts"
+    ".": "./src/app/index.tsx",
+    "./assets/*": "./assets/*"
   },
   "dependencies": {
     "@bufbuild/protobuf": "catalog:",

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "jsx": "react-jsx",
-    "paths": { "~*": ["./src/*"] },
+    "paths": { "~/*": ["./src/*"] },
     "types": ["vite/client"]
   },
   "include": [".", ".storybook/*"],
