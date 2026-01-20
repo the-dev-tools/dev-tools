@@ -69,9 +69,15 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		Context: contextValue,
 	}))
 	if err != nil {
+		// Extract the actual error message from ConnectError to avoid "internal:" prefix
+		var connectErr *connect.Error
+		errMsg := err.Error()
+		if errors.As(err, &connectErr) {
+			errMsg = connectErr.Message()
+		}
 		return node.FlowNodeResult{
 			NextNodeID: next,
-			Err:        fmt.Errorf("JS execution failed: %w", err),
+			Err:        fmt.Errorf("JS execution failed: %s", errMsg),
 		}
 	}
 
