@@ -1745,10 +1745,7 @@ flows:
 	t.Logf("Found %d nodes in flow", len(nodes))
 
 	// Create readers for node implementations
-	jsReader := sflow.NewNodeJsReaderFromQueries(fixture.base.Queries)
-	ifReader := sflow.NewNodeIfReaderFromQueries(fixture.base.Queries)
-	forReader := sflow.NewNodeForReaderFromQueries(fixture.base.Queries)
-	forEachReader := sflow.NewNodeForEachReaderFromQueries(fixture.base.Queries)
+	readers := sflow.NewNodeReaders(fixture.base.Queries)
 
 	// Track found implementations
 	var jsNodesFound int
@@ -1761,7 +1758,7 @@ flows:
 
 		switch node.NodeKind {
 		case mflow.NODE_KIND_JS:
-			jsNode, err := jsReader.GetNodeJS(fixture.ctx, node.ID)
+			jsNode, err := readers.JS.GetNodeJS(fixture.ctx, node.ID)
 			require.NoError(t, err, "Should be able to read JS node")
 			require.NotNil(t, jsNode, "JS node implementation should exist for node %s", node.Name)
 			require.NotEmpty(t, jsNode.Code, "JS node should have code for node %s", node.Name)
@@ -1769,7 +1766,7 @@ flows:
 			jsNodesFound++
 
 		case mflow.NODE_KIND_CONDITION:
-			ifNode, err := ifReader.GetNodeIf(fixture.ctx, node.ID)
+			ifNode, err := readers.If.GetNodeIf(fixture.ctx, node.ID)
 			require.NoError(t, err, "Should be able to read if node")
 			require.NotNil(t, ifNode, "If node implementation should exist for node %s", node.Name)
 			require.NotEmpty(t, ifNode.Condition, "If node should have condition for node %s", node.Name)
@@ -1777,7 +1774,7 @@ flows:
 			ifNodesFound++
 
 		case mflow.NODE_KIND_FOR:
-			forNode, err := forReader.GetNodeFor(fixture.ctx, node.ID)
+			forNode, err := readers.For.GetNodeFor(fixture.ctx, node.ID)
 			require.NoError(t, err, "Should be able to read for node")
 			require.NotNil(t, forNode, "For node implementation should exist for node %s", node.Name)
 			require.NotEmpty(t, forNode.IterCount, "For node should have iter_count for node %s", node.Name)
@@ -1785,7 +1782,7 @@ flows:
 			forNodesFound++
 
 		case mflow.NODE_KIND_FOR_EACH:
-			forEachNode, err := forEachReader.GetNodeForEach(fixture.ctx, node.ID)
+			forEachNode, err := readers.ForEach.GetNodeForEach(fixture.ctx, node.ID)
 			require.NoError(t, err, "Should be able to read for_each node")
 			require.NotNil(t, forEachNode, "ForEach node implementation should exist for node %s", node.Name)
 			require.NotEmpty(t, forEachNode.IterExpression, "ForEach node should have items expression for node %s", node.Name)
@@ -1950,10 +1947,7 @@ flows:
 			flowID := flows[0].ID
 
 			// Count node implementations
-			jsReader := sflow.NewNodeJsReaderFromQueries(fixture.base.Queries)
-			ifReader := sflow.NewNodeIfReaderFromQueries(fixture.base.Queries)
-			forReader := sflow.NewNodeForReaderFromQueries(fixture.base.Queries)
-			forEachReader := sflow.NewNodeForEachReaderFromQueries(fixture.base.Queries)
+			readers := sflow.NewNodeReaders(fixture.base.Queries)
 			flowVarService := sflow.NewFlowVariableService(fixture.base.Queries)
 
 			nodes, err := fixture.rpc.NodeService.GetNodesByFlowID(ctx, flowID)
@@ -1963,22 +1957,22 @@ flows:
 			for _, node := range nodes {
 				switch node.NodeKind {
 				case mflow.NODE_KIND_JS:
-					js, _ := jsReader.GetNodeJS(ctx, node.ID)
+					js, _ := readers.JS.GetNodeJS(ctx, node.ID)
 					if js != nil {
 						gotJS++
 					}
 				case mflow.NODE_KIND_CONDITION:
-					cond, _ := ifReader.GetNodeIf(ctx, node.ID)
+					cond, _ := readers.If.GetNodeIf(ctx, node.ID)
 					if cond != nil {
 						gotIf++
 					}
 				case mflow.NODE_KIND_FOR:
-					f, _ := forReader.GetNodeFor(ctx, node.ID)
+					f, _ := readers.For.GetNodeFor(ctx, node.ID)
 					if f != nil {
 						gotFor++
 					}
 				case mflow.NODE_KIND_FOR_EACH:
-					fe, _ := forEachReader.GetNodeForEach(ctx, node.ID)
+					fe, _ := readers.ForEach.GetNodeForEach(ctx, node.ID)
 					if fe != nil {
 						gotForEach++
 					}
