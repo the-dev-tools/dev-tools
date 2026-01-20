@@ -14,6 +14,11 @@ type NodeAIWriter struct {
 	queries *gen.Queries
 }
 
+// NewNodeAIWriter creates a writer from a transaction.
+func NewNodeAIWriter(tx gen.DBTX) *NodeAIWriter {
+	return &NodeAIWriter{queries: gen.New(tx)}
+}
+
 // NewNodeAIWriterFromQueries creates a writer from existing queries.
 func NewNodeAIWriterFromQueries(queries *gen.Queries) *NodeAIWriter {
 	return &NodeAIWriter{queries: queries}

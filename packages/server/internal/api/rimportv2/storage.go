@@ -554,6 +554,12 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txNodeService := imp.nodeService.TX(tx)
 	txNodeRequestService := imp.nodeRequestService.TX(tx)
 	txEdgeService := imp.edgeService.TX(tx)
+	txNodeJsWriter := sflow.NewNodeJsWriter(tx)
+	txNodeIfWriter := sflow.NewNodeIfWriter(tx)
+	txNodeForWriter := sflow.NewNodeForWriter(tx)
+	txNodeForEachWriter := sflow.NewNodeForEachWriter(tx)
+	txNodeAIWriter := sflow.NewNodeAIWriter(tx)
+	txFlowVariableWriter := sflow.NewFlowVariableWriter(tx)
 
 	// 2.1 Update IDs and Store HTTP Requests
 	for i := range results.HTTPRequests {
@@ -704,6 +710,54 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for _, reqNode := range results.RequestNodes {
 			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
 				return nil, nil, nil, nil, fmt.Errorf("failed to store request node: %w", err)
+			}
+		}
+	}
+	// Store JS nodes
+	if len(results.JSNodes) > 0 {
+		for _, jsNode := range results.JSNodes {
+			if err := txNodeJsWriter.CreateNodeJS(ctx, jsNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store JS node: %w", err)
+			}
+		}
+	}
+	// Store condition/if nodes
+	if len(results.ConditionNodes) > 0 {
+		for _, condNode := range results.ConditionNodes {
+			if err := txNodeIfWriter.CreateNodeIf(ctx, condNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store condition node: %w", err)
+			}
+		}
+	}
+	// Store for nodes
+	if len(results.ForNodes) > 0 {
+		for _, forNode := range results.ForNodes {
+			if err := txNodeForWriter.CreateNodeFor(ctx, forNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store for node: %w", err)
+			}
+		}
+	}
+	// Store foreach nodes
+	if len(results.ForEachNodes) > 0 {
+		for _, forEachNode := range results.ForEachNodes {
+			if err := txNodeForEachWriter.CreateNodeForEach(ctx, forEachNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store foreach node: %w", err)
+			}
+		}
+	}
+	// Store AI nodes
+	if len(results.AINodes) > 0 {
+		for _, aiNode := range results.AINodes {
+			if err := txNodeAIWriter.CreateNodeAI(ctx, aiNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store AI node: %w", err)
+			}
+		}
+	}
+	// Store flow variables
+	if len(results.FlowVariables) > 0 {
+		for _, flowVar := range results.FlowVariables {
+			if err := txFlowVariableWriter.CreateFlowVariable(ctx, flowVar); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store flow variable: %w", err)
 			}
 		}
 	}
