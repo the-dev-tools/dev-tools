@@ -16,6 +16,7 @@ import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDot
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteImport } from './../../pages/flow/routes/flow/$flowIdCan/route'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRouteImport } from './../../pages/http/routes/http/$httpIdCan/index'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRouteImport } from './../../pages/flow/routes/flow/$flowIdCan/index'
+import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRouteImport } from './../../pages/credential/routes/credential/$credentialIdCan/index'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRouteImport } from './../../pages/flow/routes/flow/$flowIdCan/history'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRouteImport } from './../../pages/http/routes/http/$httpIdCan/delta.$deltaHttpIdCan'
 
@@ -78,6 +79,15 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoute
         dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRoute,
     } as any,
   )
+const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute =
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRouteImport.update(
+    {
+      id: '/(credential)/credential/$credentialIdCan/',
+      path: '/credential/$credentialIdCan/',
+      getParentRoute: () =>
+        dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRoute,
+    } as any,
+  )
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRoute =
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRouteImport.update(
     {
@@ -104,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteWithChildren
   '/workspace/$workspaceIdCan/http/$httpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRouteWithChildren
   '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRoute
+  '/workspace/$workspaceIdCan/credential/$credentialIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute
   '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRoute
@@ -112,6 +123,7 @@ export interface FileRoutesByTo {
   '/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute
   '/workspace/$workspaceIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRoute
   '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRoute
+  '/workspace/$workspaceIdCan/credential/$credentialIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRoute
@@ -124,6 +136,7 @@ export interface FileRoutesById {
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteWithChildren
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRouteWithChildren
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/history': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRoute
+  '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(credential)/credential/$credentialIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/delta/$deltaHttpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRoute
@@ -137,6 +150,7 @@ export interface FileRouteTypes {
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+    | '/workspace/$workspaceIdCan/credential/$credentialIdCan'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
     | '/workspace/$workspaceIdCan/http/$httpIdCan/'
     | '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan'
@@ -145,6 +159,7 @@ export interface FileRouteTypes {
     | '/'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+    | '/workspace/$workspaceIdCan/credential/$credentialIdCan'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan'
@@ -156,6 +171,7 @@ export interface FileRouteTypes {
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/history'
+    | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(credential)/credential/$credentialIdCan/'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/delta/$deltaHttpIdCan'
@@ -217,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRouteImport
       parentRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRoute
     }
+    '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(credential)/credential/$credentialIdCan/': {
+      id: '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(credential)/credential/$credentialIdCan/'
+      path: '/credential/$credentialIdCan'
+      fullPath: '/workspace/$workspaceIdCan/credential/$credentialIdCan'
+      preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRouteImport
+      parentRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRoute
+    }
     '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/history': {
       id: '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/history'
       path: '/history'
@@ -274,6 +297,7 @@ interface dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorks
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRoute
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteWithChildren
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRouteWithChildren
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute
 }
 
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteChildren: dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteChildren =
@@ -284,6 +308,8 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspace
       dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteWithChildren,
     dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRoute:
       dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRouteWithChildren,
+    dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute:
+      dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute,
   }
 
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteWithChildren =
