@@ -8,13 +8,20 @@ import {
   MessageValidType,
 } from '@bufbuild/protobuf';
 import { Code, ConnectError, Transport } from '@connectrpc/connect';
-import { CollectionConfig, createCollection, createOptimisticAction, Transaction } from '@tanstack/react-db';
+import {
+  CollectionConfig,
+  createCollection,
+  createOptimisticAction,
+  createPacedMutations,
+  debounceStrategy,
+  Transaction,
+} from '@tanstack/react-db';
 import { Array, Effect, HashMap, Match, pipe, Predicate, Record, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { UnsetSchema } from '@the-dev-tools/spec/buf/global/v1/global_pb';
 import { schemas_v1_api } from '@the-dev-tools/spec/tanstack-db/v1/api';
 import { request, stream } from './connect-rpc';
-import { createAlike, draftDelta, mergeDelta, MessageUnion, toUnion, validate } from './protobuf';
+import { createAlike, createDelta, draftDelta, mergeDelta, MessageUnion, toUnion, validate } from './protobuf';
 import { ApiTransport } from './transport';
 
 export interface ApiCollectionSchema {
@@ -191,14 +198,21 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
       });
     };
 
-    type Operations = {
-      [Key in keyof TSchema['operations']]: (
-        input: TSchema['operations'][Key] extends DescMethodUnary<infer Input>
-          ? MessageInitShape<Input> extends { items?: (infer Item)[] }
-            ? Item | Item[]
-            : never
-          : never,
-      ) => Transaction;
+    type Operation<Key extends keyof TSchema['operations']> = (
+      input: TSchema['operations'][Key] extends DescMethodUnary<infer Input>
+        ? MessageInitShape<Input> extends { items?: (infer Item)[] }
+          ? Item | Item[]
+          : never
+        : never,
+    ) => Transaction;
+
+    type UpdatePaced = TSchema['operations']['update'] extends DescMethodUnary
+      ? { updatePaced: Operation<'update'> }
+      : // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+        {};
+
+    type Operations = UpdatePaced & {
+      [Key in keyof TSchema['operations']]: Operation<Key>;
     };
 
     const operations = {} as Operations;
@@ -242,6 +256,33 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
               }),
           );
         },
+      });
+
+      (operations as { updatePaced: Operation<'update'> }).updatePaced = createPacedMutations({
+        mutationFn: async ({ transaction }) => {
+          const mutationTime = Date.now();
+          const items = transaction.mutations.map((_) =>
+            createDelta(update.input.field['items']!.message!, {
+              ...parseKeyUnsafe(_.key as string),
+              ..._.changes,
+            }),
+          );
+          await request({ input: { items }, method: update, transport });
+          await waitForSync(mutationTime);
+        },
+        onMutate: (input) => {
+          pipe(
+            Array.ensure(input),
+            (_) => create(update.input, { items: _ }) as Message & { items: Item[] },
+            (_) =>
+              Array.map(_.items, (delta) => {
+                params.collection.update(getKey(delta), (draft: Item) => {
+                  draftDelta(draft, delta, UnsetSchema);
+                });
+              }),
+          );
+        },
+        strategy: debounceStrategy({ wait: 200 }),
       });
     }
 

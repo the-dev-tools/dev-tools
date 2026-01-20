@@ -133,3 +133,15 @@ export const draftDelta = (
     return (draft[key] = deltaValue);
   });
 };
+
+// TODO: improve types
+export const createDelta = <T extends DescMessage>(schema: T, value: Record<string, unknown>) => {
+  const delta = Record.map(value, (value, key) => {
+    if (!isUnionDesc(schema.field[key]?.message)) return value;
+    // TODO: deduplicate spec union kind enums and un-hardcode numeric value
+    if (!value) return { kind: 183079996 /* UNSET */, unset: 0 };
+    return { kind: 165745230 /* VALUE */, value };
+  });
+
+  return create(schema, delta as never);
+};
