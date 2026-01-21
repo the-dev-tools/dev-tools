@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"connectrpc.com/connect"
@@ -20,6 +21,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/tursolocal"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/migrations"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcodec"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcompress"
@@ -653,6 +655,20 @@ func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 	if cleanup == nil {
 		cleanup = func() {}
 	}
+
+	// Run database migrations before returning the connection.
+	// Migrations are idempotent and track state in schema_migrations table.
+	dbFilePath := filepath.Join(dbPath, dbName+".db")
+	migrationCfg := migrations.Config{
+		DatabasePath: dbFilePath,
+		DataDir:      dbPath,
+		Logger:       slog.Default(),
+	}
+	if err := migrations.Run(ctx, localDB.WriteDB, migrationCfg); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	return localDB.WriteDB, cleanup, nil
 }
 
