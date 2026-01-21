@@ -813,6 +813,10 @@ importers:
         version: link:../spec
 
   packages/spec:
+    dependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.14
     devDependencies:
       '@bufbuild/buf':
         specifier: 'catalog:'
@@ -832,12 +836,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
-      effect:
-        specifier: 'catalog:'
-        version: 3.19.14
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

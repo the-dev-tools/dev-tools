@@ -4,12 +4,25 @@
   "type": "module",
   "files": [
     "dist",
+    "src",
     "go.mod",
     "go.sum"
   ],
   "exports": {
     "./buf/*": "./dist/buf/typescript/*.ts",
-    "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts"
+    "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts",
+    "./tools": "./src/tools/index.ts",
+    "./tools/schemas": "./dist/tools/schemas.ts",
+    "./tools/common": "./src/tools/common.ts",
+    "./tools/mutation": "./src/tools/mutation.ts",
+    "./tools/exploration": "./src/tools/exploration.ts",
+    "./tools/execution": "./src/tools/execution.ts"
+  },
+  "scripts": {
+    "generate:schemas": "tsx src/tools/generate.ts"
+  },
+  "dependencies": {
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@bufbuild/buf": "catalog:",
@@ -18,8 +31,8 @@
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/spec-lib": "workspace:^",
     "@types/node": "catalog:",
-    "effect": "catalog:",
     "prettier": "catalog:",
+    "tsx": "^4.19.0",
     "typescript": "catalog:"
   }
 }
