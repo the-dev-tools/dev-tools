@@ -17,6 +17,11 @@
       "types": "./dist/src/tanstack-db/index.d.ts",
       "default": "./dist/src/tanstack-db/index.js",
       "typespec": "./src/tanstack-db/main.tsp"
+    },
+    "./ai-tools": {
+      "types": "./dist/src/ai-tools/index.d.ts",
+      "default": "./dist/src/ai-tools/index.js",
+      "typespec": "./src/ai-tools/main.tsp"
     }
   },
   "devDependencies": {

@@ -8,16 +8,16 @@
 
 import { JSONSchema, Schema } from 'effect';
 
-// Re-export all schemas for direct use
+// Re-export common schemas and generated tool schemas
 export * from './common.ts';
-export * from './execution.ts';
-export * from './exploration.ts';
-export * from './mutation.ts';
+export * from '../../dist/ai-tools/v1/execution.ts';
+export * from '../../dist/ai-tools/v1/exploration.ts';
+export * from '../../dist/ai-tools/v1/mutation.ts';
 
-// Import schema groups
-import { ExecutionSchemas } from './execution.ts';
-import { ExplorationSchemas } from './exploration.ts';
-import { MutationSchemas } from './mutation.ts';
+// Import schema groups from generated files
+import { ExecutionSchemas } from '../../dist/ai-tools/v1/execution.ts';
+import { ExplorationSchemas } from '../../dist/ai-tools/v1/exploration.ts';
+import { MutationSchemas } from '../../dist/ai-tools/v1/mutation.ts';
 
 // =============================================================================
 // Tool Definition Type
