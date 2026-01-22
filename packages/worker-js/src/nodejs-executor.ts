@@ -1,6 +1,7 @@
 import { fromJson, type JsonValue, toJson } from '@bufbuild/protobuf';
 import { ValueSchema } from '@bufbuild/protobuf/wkt';
 import { Code, ConnectError, type ConnectRouter } from '@connectrpc/connect';
+import { Array, Match, pipe, Predicate, Record } from 'effect';
 import { SourceTextModule } from 'node:vm';
 import { NodeJsExecutorService as NodeJsExecutorServiceSchema } from '@the-dev-tools/spec/buf/api/node_js_executor/v1/node_js_executor_pb';
 
@@ -38,8 +39,16 @@ export const NodeJsExecutorService = (router: ConnectRouter) =>
       }
 
       result = await Promise.resolve(result);
-      result ??= null; // convert undefined to null
 
-      return { result: fromJson(ValueSchema, result as JsonValue) };
+      return { result: fromJson(ValueSchema, toJsonValue(result)) };
     },
   });
+
+const toJsonValue = (value: unknown): JsonValue =>
+  pipe(
+    Match.value(value),
+    Match.whenOr(Predicate.isString, Predicate.isNumber, Predicate.isBoolean, (_) => _),
+    Match.when(Array.isArray, Array.map(toJsonValue)),
+    Match.when(Predicate.isRecord, Record.map(toJsonValue)),
+    Match.orElse(() => null),
+  );
