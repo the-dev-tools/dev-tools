@@ -1,20 +1,35 @@
+import { useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Match, pipe } from 'effect';
-import { use, useRef } from 'react';
+import { ReactNode, use, useRef } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { focusVisibleRingStyles } from '@the-dev-tools/ui/focus-ring';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { AddNodeSidebar } from './add-node';
+import { useApiCollection } from '~/shared/api';
+import { eqStruct, pick } from '~/shared/lib';
+import { AddNodeSidebar, AddNodeSidebarProps } from './add-node';
 import { FlowContext } from './context';
 
-interface HandleProps extends Omit<XF.HandleProps, 'children' | 'className' | 'id'> {
+interface HandleProps extends Omit<XF.HandleProps, 'children' | 'id'> {
+  alwaysVisible?: boolean;
   kind?: HandleKind;
   nodeId: Uint8Array;
+  nodeOffset?: { x?: number; y?: number };
+  Sidebar?: (props: AddNodeSidebarProps) => ReactNode;
 }
 
-export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }: HandleProps) => {
+export const Handle = ({
+  alwaysVisible,
+  className,
+  kind = HandleKind.UNSPECIFIED,
+  nodeId,
+  nodeOffset,
+  Sidebar = AddNodeSidebar,
+  ...handleProps
+}: HandleProps) => {
   const { position, type } = handleProps;
   const { setSidebar } = use(FlowContext);
   const { screenToFlowPosition } = XF.useReactFlow();
@@ -28,10 +43,26 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
     Match.when(HandleKind.ELSE, () => 'Else'),
     Match.when(HandleKind.THEN, () => 'Then'),
     Match.when(HandleKind.LOOP, () => 'Loop'),
+    Match.when(HandleKind.AI_PROVIDER, () => 'Provider'),
+    Match.when(HandleKind.AI_MEMORY, () => 'Memory'),
+    Match.when(HandleKind.AI_TOOLS, () => 'Tools'),
     Match.orElse(() => null),
   );
 
-  const isConnected = XF.useNodeConnections({ ...(id && { handleId: id }), handleType: type }).length > 0;
+  const edgeCollection = useApiCollection(EdgeCollectionSchema);
+
+  const isConnected =
+    useLiveQuery(
+      (_) => {
+        let query = _.from({ item: edgeCollection });
+
+        if (type === 'source') query = query.where(eqStruct({ sourceHandle: kind, sourceId: nodeId }));
+        else query = query.where(eqStruct({ targetId: nodeId }));
+
+        return query.select((_) => pick(_.item, 'edgeId')).findOne();
+      },
+      [edgeCollection, kind, nodeId, type],
+    ).data !== undefined;
 
   return (
     <XF.Handle
@@ -41,12 +72,13 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
         position === XF.Position.Left && tw`right-auto`,
         position === XF.Position.Bottom && tw`top-auto`,
         position === XF.Position.Top && tw`bottom-auto`,
+        className,
       )}
       id={id}
       ref={ref}
       {...handleProps}
     >
-      {!isConnected && (
+      {(!isConnected || alwaysVisible) && (
         <>
           <HandleHalo />
 
@@ -85,14 +117,22 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
 
                   if (box) {
                     nodePosition = screenToFlowPosition({ x: box.x + box.width / 2, y: box.y });
-                    if (position === XF.Position.Right) nodePosition.x += 250;
-                    if (position === XF.Position.Left) nodePosition.x -= 250;
-                    if (position === XF.Position.Bottom) nodePosition.y += 150;
-                    if (position === XF.Position.Top) nodePosition.y -= 150;
-                    if (position === XF.Position.Bottom || position === XF.Position.Top) nodePosition.x += 150;
+
+                    if (nodeOffset?.x !== undefined) nodePosition.x += nodeOffset.x;
+                    else {
+                      if (position === XF.Position.Right) nodePosition.x += 250;
+                      if (position === XF.Position.Left) nodePosition.x -= 250;
+                      if (position === XF.Position.Bottom || position === XF.Position.Top) nodePosition.x += 150;
+                    }
+
+                    if (nodeOffset?.y !== undefined) nodePosition.y += nodeOffset.y;
+                    else {
+                      if (position === XF.Position.Bottom) nodePosition.y += 200;
+                      if (position === XF.Position.Top) nodePosition.y -= 200;
+                    }
                   }
 
-                  setSidebar?.(<AddNodeSidebar handleKind={kind} position={nodePosition} sourceId={nodeId} />);
+                  setSidebar?.(<Sidebar handleKind={kind} position={nodePosition} sourceId={nodeId} />);
                 }}
               >
                 <FiPlus className={tw`size-3 text-slate-800`} />
@@ -112,7 +152,11 @@ export const Handle = ({ kind = HandleKind.UNSPECIFIED, nodeId, ...handleProps }
             position === XF.Position.Top && tw`-translate-y-full`,
           )}
         >
-          <div className={tw`mx-4 my-3 rounded-sm bg-white p-1 text-xs leading-4 tracking-tight text-slate-500`}>
+          <div
+            className={tw`
+              mx-4 my-3 rounded-sm bg-white p-1 text-xs leading-4 tracking-tight whitespace-nowrap text-slate-500
+            `}
+          >
             {label}
           </div>
         </div>

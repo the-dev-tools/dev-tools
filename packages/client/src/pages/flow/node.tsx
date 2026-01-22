@@ -329,18 +329,22 @@ export interface NodeSettingsProps {
   nodeId: Uint8Array;
 }
 
-interface NodeSettingsBodyProps {
+interface NodeSettingsContainerProps {
   children: ReactNode;
-  input?: (nodeExecutionId: Uint8Array) => ReactNode;
+  className?: string;
+  headerSlot?: ReactNode;
   nodeId: Uint8Array;
-  output?: (nodeExecutionId: Uint8Array) => ReactNode;
-  settingsHeader?: ReactNode;
   title: string;
 }
 
-export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHeader, title }: NodeSettingsBodyProps) => {
+export const NodeSettingsContainer = ({
+  children,
+  className,
+  headerSlot,
+  nodeId,
+  title,
+}: NodeSettingsContainerProps) => {
   const nodeCollection = useApiCollection(NodeCollectionSchema);
-  const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
 
   const { name } =
     useLiveQuery(
@@ -351,6 +355,44 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
           .findOne(),
       [nodeCollection, nodeId],
     ).data ?? create(NodeSchema);
+
+  return (
+    <div className={tw`flex h-full flex-col`}>
+      <div className={tw`flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-2`}>
+        <div className='min-w-0'>
+          <div className={tw`text-md leading-5 text-slate-400`}>{name}</div>
+          <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>{title}</div>
+        </div>
+
+        <NodeStateIndicator nodeId={nodeId} />
+
+        <div className={tw`flex-1`} />
+
+        {headerSlot}
+
+        <div className={tw`w-4`} />
+
+        <Button className={tw`p-1`} slot='close' variant='ghost'>
+          <FiX className={tw`size-5 text-slate-500`} />
+        </Button>
+      </div>
+
+      <div className={twMerge(tw`size-full p-5`, className)}>{children}</div>
+    </div>
+  );
+};
+
+interface NodeSettingsBodyProps {
+  children: ReactNode;
+  input?: (nodeExecutionId: Uint8Array) => ReactNode;
+  nodeId: Uint8Array;
+  output?: (nodeExecutionId: Uint8Array) => ReactNode;
+  settingsHeader?: ReactNode;
+  title: string;
+}
+
+export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHeader, title }: NodeSettingsBodyProps) => {
+  const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
 
   const { data: executions } = useLiveQuery(
     (_) => {
@@ -396,18 +438,10 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
   const nodeSettingsLayout = useDefaultLayout({ id: 'node-settings' });
 
   return (
-    <div className={tw`flex h-full flex-col`}>
-      <div className={tw`flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-2`}>
-        <div className='min-w-0'>
-          <div className={tw`text-md leading-5 text-slate-400`}>{name}</div>
-          <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>{title}</div>
-        </div>
-
-        <NodeStateIndicator nodeId={nodeId} />
-
-        <div className={tw`flex-1`} />
-
-        {executions.length > 1 && (
+    <NodeSettingsContainer
+      className={tw`p-0`}
+      headerSlot={
+        executions.length > 1 && (
           <Select
             aria-label='Node execution'
             isOpen={isExecListOpen}
@@ -423,15 +457,11 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
               return <SelectItem id={key}>{_.name}</SelectItem>;
             }}
           </Select>
-        )}
-
-        <div className={tw`w-4`} />
-
-        <Button className={tw`p-1`} slot='close' variant='ghost'>
-          <FiX className={tw`size-5 text-slate-500`} />
-        </Button>
-      </div>
-
+        )
+      }
+      nodeId={nodeId}
+      title={title}
+    >
       <PanelGroup {...nodeSettingsLayout} className={tw`flex-1`} orientation='horizontal'>
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
           <div
@@ -502,7 +532,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
           </div>
         </Panel>
       </PanelGroup>
-    </div>
+    </NodeSettingsContainer>
   );
 };
 

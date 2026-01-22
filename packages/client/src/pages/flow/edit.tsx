@@ -46,12 +46,22 @@ import {
   useFormTableAddRow,
 } from '~/features/form-table';
 import { request, useApiCollection } from '~/shared/api';
-import { getNextOrder, handleCollectionReorder, pick, queryCollection } from '~/shared/lib';
+import { eqStruct, getNextOrder, handleCollectionReorder, pick, queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { AddNodeSidebar } from './add-node';
 import { FlowContext } from './context';
 import { ConnectionLine, edgeTypes, useEdgeState } from './edge';
 import { useNodesState } from './node';
+import {
+  AiMemoryNode,
+  AiMemorySettings,
+  AiMemorySidebar,
+  AiNode,
+  AiProviderNode,
+  AiProviderSettings,
+  AiProviderSidebar,
+  AiSettings,
+} from './nodes/ai';
 import { ConditionNode, ConditionSettings } from './nodes/condition';
 import { ForNode, ForSettings } from './nodes/for';
 import { ForEachNode, ForEachSettings } from './nodes/for-each';
@@ -61,6 +71,9 @@ import { ManualStartNode } from './nodes/manual-start';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
 export const nodeTypes: XF.NodeTypes = {
+  [NodeKind.AI]: AiNode,
+  [NodeKind.AI_MEMORY]: AiMemoryNode,
+  [NodeKind.AI_PROVIDER]: AiProviderNode,
   [NodeKind.CONDITION]: ConditionNode,
   [NodeKind.FOR]: ForNode,
   [NodeKind.FOR_EACH]: ForEachNode,
@@ -124,14 +137,27 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const { edges, onEdgesChange } = useEdgeState();
   const { onViewportChange, viewport } = useViewport();
 
-  const onConnect: XF.OnConnect = (_) =>
-    void edgeCollection.utils.insert({
+  const onConnect: XF.OnConnect = async (_) => {
+    const sourceHandle: HandleKind = _.sourceHandle ? parseInt(_.sourceHandle) : 0;
+    const targetId = Ulid.fromCanonical(_.target).bytes;
+
+    const [targetNode] = await queryCollection((_) =>
+      _.from({ item: nodeCollection })
+        .where(eqStruct({ nodeId: targetId }))
+        .findOne(),
+    );
+
+    if (sourceHandle === HandleKind.AI_PROVIDER && targetNode?.kind !== NodeKind.AI_PROVIDER) return;
+    if (sourceHandle === HandleKind.AI_MEMORY && targetNode?.kind !== NodeKind.AI_MEMORY) return;
+
+    edgeCollection.utils.insert({
       edgeId: Ulid.generate().bytes,
       flowId,
-      sourceHandle: _.sourceHandle ? parseInt(_.sourceHandle) : 0,
+      sourceHandle,
       sourceId: Ulid.fromCanonical(_.source).bytes,
-      targetId: Ulid.fromCanonical(_.target).bytes,
+      targetId,
     });
+  };
 
   const onConnectEnd: XF.OnConnectEnd = (event, { fromHandle, fromNode, isValid }) => {
     if (!(event instanceof MouseEvent)) return;
@@ -140,9 +166,13 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
     const sourceId = Ulid.fromCanonical(fromNode.id).bytes;
     const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    const handleKind = !fromHandle?.id ? HandleKind.UNSPECIFIED : parseInt(fromHandle.id);
+    const handleKind: HandleKind = !fromHandle?.id ? HandleKind.UNSPECIFIED : parseInt(fromHandle.id);
 
-    setSidebar?.(<AddNodeSidebar handleKind={handleKind} position={position} sourceId={sourceId} />);
+    let Sidebar = AddNodeSidebar;
+    if (handleKind === HandleKind.AI_PROVIDER) Sidebar = AiProviderSidebar;
+    if (handleKind === HandleKind.AI_MEMORY) Sidebar = AiMemorySidebar;
+
+    setSidebar?.(<Sidebar handleKind={handleKind} position={position} sourceId={sourceId} />);
   };
 
   const { dropProps } = useDrop({
@@ -526,6 +556,9 @@ const useNodeEditDialog = () => {
       Match.when({ kind: NodeKind.FOR }, (_) => <ForSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.JS }, (_) => <JavaScriptSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.HTTP }, (_) => <HttpSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.AI }, (_) => <AiSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.AI_PROVIDER }, (_) => <AiProviderSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.AI_MEMORY }, (_) => <AiMemorySettings nodeId={nodeId} />),
       Match.orElse(() => null),
     );
 
