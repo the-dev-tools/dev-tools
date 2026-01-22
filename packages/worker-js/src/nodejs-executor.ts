@@ -8,39 +8,49 @@ import { NodeJsExecutorService as NodeJsExecutorServiceSchema } from '@the-dev-t
 export const NodeJsExecutorService = (router: ConnectRouter) =>
   router.service(NodeJsExecutorServiceSchema, {
     nodeJsExecutorRun: async (request) => {
-      const module = new SourceTextModule(request.code);
-
-      await module.link(() => {
-        throw new ConnectError('Importing dependencies is not supported', Code.Unimplemented);
-      });
+      const stackTraceLimit = Error.stackTraceLimit;
 
       try {
+        Error.stackTraceLimit = 1;
+
+        const module = new SourceTextModule(request.code);
+
+        await module.link(() => {
+          throw new ConnectError('Importing dependencies is not supported', Code.Unimplemented);
+        });
+
         await module.evaluate();
-      } catch (error) {
-        if (error instanceof Error) {
-          throw new ConnectError(`${error.name}: ${error.message}`);
-        } else {
-          throw new ConnectError('Failed to evaluate JavaScript');
+
+        if (!('default' in module.namespace)) {
+          // ? Can be implemented in the future via CDN imports
+          // https://dev.to/mxfellner/dynamic-import-with-http-urls-in-node-js-7og
+          throw new ConnectError('Default export must be present', Code.InvalidArgument);
         }
+
+        let result = module.namespace.default;
+
+        if (typeof result === 'function') {
+          const context = request.context ? toJson(ValueSchema, request.context) : {};
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          result = result(context);
+        }
+
+        result = await Promise.resolve(result);
+
+        return { result: fromJson(ValueSchema, toJsonValue(result)) };
+      } catch (error) {
+        if (error instanceof ConnectError) throw error;
+
+        if (error instanceof Error) {
+          let message = error.stack;
+          message ??= `${error.name}: ${error.message}`;
+          throw new ConnectError(message);
+        }
+
+        throw new ConnectError('Failed to evaluate JavaScript');
+      } finally {
+        Error.stackTraceLimit = stackTraceLimit;
       }
-
-      if (!('default' in module.namespace)) {
-        // ? Can be implemented in the future via CDN imports
-        // https://dev.to/mxfellner/dynamic-import-with-http-urls-in-node-js-7og
-        throw new ConnectError('Default export must be present', Code.InvalidArgument);
-      }
-
-      let result = module.namespace.default;
-
-      if (typeof result === 'function') {
-        const context = request.context ? toJson(ValueSchema, request.context) : {};
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        result = result(context);
-      }
-
-      result = await Promise.resolve(result);
-
-      return { result: fromJson(ValueSchema, toJsonValue(result)) };
     },
   });
 
