@@ -33,7 +33,7 @@ const createWindow = Effect.gen(function* () {
   const mainWindow = new BrowserWindow({
     height: 600,
     icon,
-    title: 'DevTools',
+    title: 'DevTools Studio',
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
     },
