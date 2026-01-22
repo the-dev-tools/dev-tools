@@ -10,7 +10,14 @@ import (
 
 func ConvertDBToNodeAiProvider(nf gen.FlowNodeAiProvider) *mflow.NodeAiProvider {
 	nodeID, _ := idwrap.NewFromBytes(nf.FlowNodeID)
-	credID, _ := idwrap.NewFromBytes(nf.CredentialID)
+
+	var credID *idwrap.IDWrap
+	if len(nf.CredentialID) > 0 {
+		id, err := idwrap.NewFromBytes(nf.CredentialID)
+		if err == nil {
+			credID = &id
+		}
+	}
 
 	var temp *float32
 	if nf.Temperature.Valid {
@@ -45,9 +52,14 @@ func ConvertNodeAiProviderToDB(mn mflow.NodeAiProvider) gen.FlowNodeAiProvider {
 		maxTokens = sql.NullInt64{Int64: int64(*mn.MaxTokens), Valid: true}
 	}
 
+	var credentialID []byte
+	if mn.CredentialID != nil {
+		credentialID = mn.CredentialID.Bytes()
+	}
+
 	return gen.FlowNodeAiProvider{
 		FlowNodeID:   mn.FlowNodeID.Bytes(),
-		CredentialID: mn.CredentialID.Bytes(),
+		CredentialID: credentialID,
 		Model:        int8(mn.Model),
 		Temperature:  temp,
 		MaxTokens:    maxTokens,

@@ -535,30 +535,34 @@ var _ flowv1connect.FlowServiceHandler = (*FlowServiceV2RPC)(nil)
 // mutationPublisher returns a unified publisher for flow-related mutation events.
 func (s *FlowServiceV2RPC) mutationPublisher() mutation.Publisher {
 	return &rflowPublisher{
-		flowStream:      s.flowStream,
-		nodeStream:      s.nodeStream,
-		edgeStream:      s.edgeStream,
-		varStream:       s.varStream,
-		versionStream:   s.versionStream,
-		forStream:       s.forStream,
-		conditionStream: s.conditionStream,
-		forEachStream:   s.forEachStream,
-		jsStream:        s.jsStream,
-		aiStream:        s.aiStream,
+		flowStream:       s.flowStream,
+		nodeStream:       s.nodeStream,
+		edgeStream:       s.edgeStream,
+		varStream:        s.varStream,
+		versionStream:    s.versionStream,
+		forStream:        s.forStream,
+		conditionStream:  s.conditionStream,
+		forEachStream:    s.forEachStream,
+		jsStream:         s.jsStream,
+		aiStream:         s.aiStream,
+		aiProviderStream: s.aiProviderStream,
+		memoryStream:     s.memoryStream,
 	}
 }
 
 type rflowPublisher struct {
-	flowStream      eventstream.SyncStreamer[FlowTopic, FlowEvent]
-	nodeStream      eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream      eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream       eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-	versionStream   eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-	forStream       eventstream.SyncStreamer[ForTopic, ForEvent]
-	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
-	forEachStream   eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
-	jsStream        eventstream.SyncStreamer[JsTopic, JsEvent]
-	aiStream        eventstream.SyncStreamer[AiTopic, AiEvent]
+	flowStream       eventstream.SyncStreamer[FlowTopic, FlowEvent]
+	nodeStream       eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream       eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream        eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream    eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	forStream        eventstream.SyncStreamer[ForTopic, ForEvent]
+	conditionStream  eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	forEachStream    eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	jsStream         eventstream.SyncStreamer[JsTopic, JsEvent]
+	aiStream         eventstream.SyncStreamer[AiTopic, AiEvent]
+	aiProviderStream eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
+	memoryStream     eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 }
 
 func (p *rflowPublisher) PublishAll(events []mutation.Event) {
@@ -581,6 +585,10 @@ func (p *rflowPublisher) PublishAll(events []mutation.Event) {
 			p.publishNodeJs(evt)
 		case mutation.EntityFlowNodeAI:
 			p.publishNodeAI(evt)
+		case mutation.EntityFlowNodeAiProvider:
+			p.publishNodeAiProvider(evt)
+		case mutation.EntityFlowNodeMemory:
+			p.publishNodeMemory(evt)
 		case mutation.EntityFlowEdge:
 			p.publishEdge(evt)
 		case mutation.EntityFlowVariable:
@@ -945,6 +953,68 @@ func (p *rflowPublisher) publishNodeAI(evt mutation.Event) {
 
 	if node != nil {
 		p.aiStream.Publish(AiTopic{FlowID: evt.ParentID}, AiEvent{
+			Type:   eventType,
+			FlowID: evt.ParentID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeAiProvider(evt mutation.Event) {
+	if p.aiProviderStream == nil {
+		return
+	}
+	var node *flowv1.NodeAiProvider
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		if evt.Op == mutation.OpInsert {
+			eventType = eventTypeInsert
+		} else {
+			eventType = eventTypeUpdate
+		}
+		if n, ok := evt.Payload.(mflow.NodeAiProvider); ok {
+			node = serializeNodeAiProvider(n)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		node = &flowv1.NodeAiProvider{NodeId: evt.ID.Bytes()}
+	}
+
+	if node != nil {
+		p.aiProviderStream.Publish(AiProviderTopic{FlowID: evt.ParentID}, AiProviderEvent{
+			Type:   eventType,
+			FlowID: evt.ParentID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeMemory(evt mutation.Event) {
+	if p.memoryStream == nil {
+		return
+	}
+	var node *flowv1.NodeAiMemory
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		if evt.Op == mutation.OpInsert {
+			eventType = eventTypeInsert
+		} else {
+			eventType = eventTypeUpdate
+		}
+		if n, ok := evt.Payload.(mflow.NodeMemory); ok {
+			node = serializeNodeMemory(n)
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		node = &flowv1.NodeAiMemory{NodeId: evt.ID.Bytes()}
+	}
+
+	if node != nil {
+		p.memoryStream.Publish(MemoryTopic{FlowID: evt.ParentID}, MemoryEvent{
 			Type:   eventType,
 			FlowID: evt.ParentID,
 			Node:   node,

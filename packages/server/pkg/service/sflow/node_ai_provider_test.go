@@ -72,7 +72,7 @@ func TestNodeAiProviderMapper_RoundTrip(t *testing.T) {
 
 	mn := mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
-		CredentialID: credID,
+		CredentialID: &credID,
 		Model:        mflow.AiModelGpt52Pro,
 		Temperature:  &temp,
 		MaxTokens:    &maxTokens,
@@ -89,7 +89,8 @@ func TestNodeAiProviderMapper_RoundTrip(t *testing.T) {
 
 	mn2 := ConvertDBToNodeAiProvider(dbn)
 	assert.Equal(t, mn.FlowNodeID, mn2.FlowNodeID)
-	assert.Equal(t, mn.CredentialID, mn2.CredentialID)
+	require.NotNil(t, mn2.CredentialID)
+	assert.Equal(t, *mn.CredentialID, *mn2.CredentialID)
 	assert.Equal(t, mn.Model, mn2.Model)
 	require.NotNil(t, mn2.Temperature)
 	assert.InDelta(t, *mn.Temperature, *mn2.Temperature, 0.001)
@@ -103,7 +104,7 @@ func TestNodeAiProviderMapper_NilFields(t *testing.T) {
 
 	mn := mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
-		CredentialID: credID,
+		CredentialID: &credID,
 		Model:        mflow.AiModelClaudeSonnet45,
 		Temperature:  nil,
 		MaxTokens:    nil,
@@ -118,6 +119,24 @@ func TestNodeAiProviderMapper_NilFields(t *testing.T) {
 	assert.Nil(t, mn2.MaxTokens)
 }
 
+func TestNodeAiProviderMapper_NilCredentialID(t *testing.T) {
+	nodeID := idwrap.NewNow()
+
+	mn := mflow.NodeAiProvider{
+		FlowNodeID:   nodeID,
+		CredentialID: nil, // No credential set
+		Model:        mflow.AiModelClaudeSonnet45,
+		Temperature:  nil,
+		MaxTokens:    nil,
+	}
+
+	dbn := ConvertNodeAiProviderToDB(mn)
+	assert.Empty(t, dbn.CredentialID)
+
+	mn2 := ConvertDBToNodeAiProvider(dbn)
+	assert.Nil(t, mn2.CredentialID)
+}
+
 func TestNodeAiProviderService_CRUD(t *testing.T) {
 	ctx, db, queries, nodeID, credID := setupNodeAiProviderTest(t)
 
@@ -129,7 +148,7 @@ func TestNodeAiProviderService_CRUD(t *testing.T) {
 	// Create
 	provider := mflow.NodeAiProvider{
 		FlowNodeID:   nodeID,
-		CredentialID: credID,
+		CredentialID: &credID,
 		Model:        mflow.AiModelGemini3Flash,
 		Temperature:  &temp,
 		MaxTokens:    &maxTokens,
@@ -150,7 +169,8 @@ func TestNodeAiProviderService_CRUD(t *testing.T) {
 	retrieved, err := service.GetNodeAiProvider(ctx, nodeID)
 	require.NoError(t, err)
 	assert.Equal(t, nodeID, retrieved.FlowNodeID)
-	assert.Equal(t, credID, retrieved.CredentialID)
+	require.NotNil(t, retrieved.CredentialID)
+	assert.Equal(t, credID, *retrieved.CredentialID)
 	assert.Equal(t, mflow.AiModelGemini3Flash, retrieved.Model)
 	require.NotNil(t, retrieved.Temperature)
 	assert.InDelta(t, 0.8, *retrieved.Temperature, 0.001)

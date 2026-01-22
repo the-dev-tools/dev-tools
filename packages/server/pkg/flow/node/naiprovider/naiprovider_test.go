@@ -19,11 +19,12 @@ func TestNewNodeAiProvider(t *testing.T) {
 	temp := float32(0.7)
 	maxTokens := int32(4096)
 
-	n := New(id, "TestAiProvider", credID, mflow.AiModelGpt52Instant, "", &temp, &maxTokens)
+	n := New(id, "TestAiProvider", &credID, mflow.AiModelGpt52Instant, "", &temp, &maxTokens)
 
 	assert.Equal(t, id, n.GetID())
 	assert.Equal(t, "TestAiProvider", n.GetName())
-	assert.Equal(t, credID, n.CredentialID)
+	require.NotNil(t, n.CredentialID)
+	assert.Equal(t, credID, *n.CredentialID)
 	assert.Equal(t, mflow.AiModelGpt52Instant, n.Model)
 	assert.Equal(t, "", n.CustomModel)
 	require.NotNil(t, n.Temperature)
@@ -36,7 +37,7 @@ func TestNewNodeAiProvider_NilOptionalFields(t *testing.T) {
 	id := idwrap.NewNow()
 	credID := idwrap.NewNow()
 
-	n := New(id, "TestAiProvider", credID, mflow.AiModelClaudeSonnet45, "custom-model", nil, nil)
+	n := New(id, "TestAiProvider", &credID, mflow.AiModelClaudeSonnet45, "custom-model", nil, nil)
 
 	assert.Equal(t, id, n.GetID())
 	assert.Equal(t, "TestAiProvider", n.GetName())
@@ -46,12 +47,21 @@ func TestNewNodeAiProvider_NilOptionalFields(t *testing.T) {
 	assert.Nil(t, n.MaxTokens)
 }
 
+func TestNewNodeAiProvider_NilCredentialID(t *testing.T) {
+	id := idwrap.NewNow()
+
+	n := New(id, "TestAiProvider", nil, mflow.AiModelClaudeSonnet45, "", nil, nil)
+
+	assert.Equal(t, id, n.GetID())
+	assert.Nil(t, n.CredentialID)
+}
+
 func TestNodeAiProvider_RunSync_PassesThrough(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	nextID := idwrap.NewNow()
 	credID := idwrap.NewNow()
 
-	n := New(nodeID, "AiProvider", credID, mflow.AiModelGemini3Flash, "", nil, nil)
+	n := New(nodeID, "AiProvider", &credID, mflow.AiModelGemini3Flash, "", nil, nil)
 
 	// Setup edge map for pass-through
 	edgeMap := mflow.EdgesMap{
@@ -77,7 +87,7 @@ func TestNodeAiProvider_RunSync_NoNextNode(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	credID := idwrap.NewNow()
 
-	n := New(nodeID, "AiProvider", credID, mflow.AiModelO3, "", nil, nil)
+	n := New(nodeID, "AiProvider", &credID, mflow.AiModelO3, "", nil, nil)
 
 	req := &node.FlowNodeRequest{
 		EdgeSourceMap: mflow.EdgesMap{},
@@ -95,7 +105,7 @@ func TestNodeAiProvider_RunAsync(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	credID := idwrap.NewNow()
 
-	n := New(nodeID, "AiProvider", credID, mflow.AiModelClaudeOpus45, "", nil, nil)
+	n := New(nodeID, "AiProvider", &credID, mflow.AiModelClaudeOpus45, "", nil, nil)
 
 	req := &node.FlowNodeRequest{
 		EdgeSourceMap: mflow.EdgesMap{},
@@ -125,7 +135,7 @@ func TestNodeAiProvider_AllModelTypes(t *testing.T) {
 			id := idwrap.NewNow()
 			credID := idwrap.NewNow()
 
-			n := New(id, "AiProvider", credID, model, "", nil, nil)
+			n := New(id, "AiProvider", &credID, model, "", nil, nil)
 			assert.Equal(t, model, n.Model)
 		})
 	}

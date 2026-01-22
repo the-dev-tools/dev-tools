@@ -224,11 +224,11 @@ func (b *Builder) BuildNodes(
 				return nil, idwrap.IDWrap{}, err
 			}
 			if providerCfg == nil {
-				// Default AI Provider node
+				// Default AI Provider node (no credential set)
 				flowNodeMap[nodeModel.ID] = naiprovider.New(
 					nodeModel.ID,
 					nodeModel.Name,
-					idwrap.IDWrap{},
+					nil, // No credential set yet
 					mflow.AiModelGpt52Instant,
 					"",
 					nil,
@@ -238,7 +238,7 @@ func (b *Builder) BuildNodes(
 				flowNodeMap[nodeModel.ID] = naiprovider.New(
 					nodeModel.ID,
 					nodeModel.Name,
-					providerCfg.CredentialID,
+					providerCfg.CredentialID, // Already a *idwrap.IDWrap
 					providerCfg.Model,
 					"", // TODO(persistent-kv): CustomModel will be stored when persistent key-value store is implemented
 					providerCfg.Temperature,

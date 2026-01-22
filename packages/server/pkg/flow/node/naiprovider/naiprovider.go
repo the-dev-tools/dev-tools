@@ -17,7 +17,7 @@ import (
 type NodeAiProvider struct {
 	FlowNodeID   idwrap.IDWrap
 	Name         string
-	CredentialID idwrap.IDWrap
+	CredentialID *idwrap.IDWrap // Optional: nil means no credential set yet
 	Model        mflow.AiModel
 	CustomModel  string   // Used when Model == AiModelCustom
 	Temperature  *float32 // Optional: nil means use provider default
@@ -28,7 +28,7 @@ type NodeAiProvider struct {
 func New(
 	id idwrap.IDWrap,
 	name string,
-	credentialID idwrap.IDWrap,
+	credentialID *idwrap.IDWrap,
 	model mflow.AiModel,
 	customModel string,
 	temperature *float32,

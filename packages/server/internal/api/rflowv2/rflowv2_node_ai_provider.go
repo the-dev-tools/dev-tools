@@ -19,9 +19,14 @@ import (
 // --- AI Provider Node ---
 
 func serializeNodeAiProvider(m mflow.NodeAiProvider) *flowv1.NodeAiProvider {
+	var credentialID []byte
+	if m.CredentialID != nil {
+		credentialID = m.CredentialID.Bytes()
+	}
+
 	return &flowv1.NodeAiProvider{
 		NodeId:       m.FlowNodeID.Bytes(),
-		CredentialId: m.CredentialID.Bytes(),
+		CredentialId: credentialID,
 		Model:        flowv1.AiModel(m.Model),
 		Temperature:  m.Temperature,
 		MaxTokens:    m.MaxTokens,
@@ -80,9 +85,14 @@ func (s *FlowServiceV2RPC) NodeAiProviderInsert(
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		credID, err := idwrap.NewFromBytes(item.GetCredentialId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid credential id: %w", err))
+		// CredentialID is optional - can be set later via update
+		var credID *idwrap.IDWrap
+		if len(item.GetCredentialId()) > 0 {
+			id, err := idwrap.NewFromBytes(item.GetCredentialId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid credential id: %w", err))
+			}
+			credID = &id
 		}
 
 		provider := mflow.NodeAiProvider{
@@ -181,11 +191,16 @@ func (s *FlowServiceV2RPC) NodeAiProviderUpdate(
 
 		// Apply optional updates
 		if item.CredentialId != nil {
-			credID, err := idwrap.NewFromBytes(item.CredentialId)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid credential id: %w", err))
+			if len(item.CredentialId) > 0 {
+				credID, err := idwrap.NewFromBytes(item.CredentialId)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid credential id: %w", err))
+				}
+				updated.CredentialID = &credID
+			} else {
+				// Empty bytes means unset the credential
+				updated.CredentialID = nil
 			}
-			updated.CredentialID = credID
 		}
 
 		if item.Model != nil {

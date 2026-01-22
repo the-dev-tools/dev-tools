@@ -188,7 +188,7 @@ type NodeAI struct {
 // It connects via HandleAiProvider edge and allows visual separation of model config from AI logic.
 type NodeAiProvider struct {
 	FlowNodeID   idwrap.IDWrap
-	CredentialID idwrap.IDWrap
+	CredentialID *idwrap.IDWrap // nil means no credential set yet
 	Model        AiModel
 	Temperature  *float32 // nil means use provider default
 	MaxTokens    *int32   // nil means use provider default

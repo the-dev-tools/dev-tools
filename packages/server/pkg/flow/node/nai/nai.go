@@ -66,7 +66,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	// Use model configuration from connected AI Provider node
 	aiModel := providerNode.Model
 	customModel := providerNode.CustomModel
-	credentialID := providerNode.CredentialID
+	credentialID := providerNode.CredentialID // Can be nil if not set
 	temperature := providerNode.Temperature
 	maxTokens := providerNode.MaxTokens
 
@@ -89,8 +89,15 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			}
 		}
 
+		if credentialID == nil {
+			return node.FlowNodeResult{
+				NextNodeID: next,
+				Err:        fmt.Errorf("AI Provider node has no credential configured - please set a credential on the connected AI Provider node"),
+			}
+		}
+
 		var err error
-		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, aiModel, customModel, credentialID)
+		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, aiModel, customModel, *credentialID)
 		if err != nil {
 			return node.FlowNodeResult{
 				NextNodeID: next,

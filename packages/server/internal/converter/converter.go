@@ -371,6 +371,10 @@ func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 		return flowv1.NodeKind_NODE_KIND_JS
 	case mflow.NODE_KIND_AI:
 		return flowv1.NodeKind_NODE_KIND_AI
+	case mflow.NODE_KIND_AI_PROVIDER:
+		return flowv1.NodeKind_NODE_KIND_AI_PROVIDER
+	case mflow.NODE_KIND_AI_MEMORY:
+		return flowv1.NodeKind_NODE_KIND_AI_MEMORY
 	default:
 		return flowv1.NodeKind_NODE_KIND_UNSPECIFIED
 	}

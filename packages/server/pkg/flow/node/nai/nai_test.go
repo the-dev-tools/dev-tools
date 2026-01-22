@@ -36,7 +36,7 @@ func createTestAiProviderNode(id, credentialID idwrap.IDWrap) *naiprovider.NodeA
 	return &naiprovider.NodeAiProvider{
 		FlowNodeID:   id,
 		Name:         "Test Model",
-		CredentialID: credentialID,
+		CredentialID: &credentialID,
 		Model:        mflow.AiModelGpt52Instant,
 	}
 }
@@ -578,7 +578,7 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 	providerNode := &naiprovider.NodeAiProvider{
 		FlowNodeID:   providerNodeID,
 		Name:         "OpenAI Model",
-		CredentialID: credentialID,
+		CredentialID: &credentialID,
 		Model:        mflow.AiModelGpt52Pro,
 		CustomModel:  "",
 		Temperature:  &temp,
@@ -716,7 +716,7 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 	providerNode := &naiprovider.NodeAiProvider{
 		FlowNodeID:   providerNodeID,
 		Name:         "Claude Model",
-		CredentialID: credentialID,
+		CredentialID: &credentialID,
 		Model:        mflow.AiModelClaudeOpus45,
 		Temperature:  &temp,
 	}
