@@ -6,6 +6,7 @@ import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, protocol, 
 import { autoUpdater } from 'electron-updater';
 import os from 'node:os';
 import { Agent } from 'undici';
+import icon from '../../build/icon.ico?asset';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
 // Workaround to allow unlimited concurrent HTTP/1.1 connections
@@ -31,11 +32,7 @@ const createWindow = Effect.gen(function* () {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     height: 600,
-    icon: yield* pipe(
-      import.meta.resolve('@the-dev-tools/client/assets/favicon/favicon.ico'),
-      Url.fromString,
-      Effect.flatMap(path.fromFileUrl),
-    ),
+    icon,
     title: 'DevTools',
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
