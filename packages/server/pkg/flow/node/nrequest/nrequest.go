@@ -272,6 +272,66 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	return result
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts all variable references from URL, headers, query params, and body.
+func (nr *NodeRequest) GetRequiredVariables() []string {
+	var sources []string
+
+	// URL
+	sources = append(sources, nr.HttpReq.Url)
+
+	// Headers
+	for _, h := range nr.Headers {
+		if h.Enabled {
+			sources = append(sources, h.Key, h.Value)
+		}
+	}
+
+	// Query params
+	for _, p := range nr.Params {
+		if p.Enabled {
+			sources = append(sources, p.Key, p.Value)
+		}
+	}
+
+	// Raw body
+	if nr.RawBody != nil && len(nr.RawBody.RawData) > 0 {
+		sources = append(sources, string(nr.RawBody.RawData))
+	}
+
+	// Form body
+	for _, f := range nr.FormBody {
+		if f.Enabled {
+			sources = append(sources, f.Key, f.Value)
+		}
+	}
+
+	// URL encoded body
+	for _, u := range nr.UrlBody {
+		if u.Enabled {
+			sources = append(sources, u.Key, u.Value)
+		}
+	}
+
+	return varsystem.ExtractVarKeysFromMultiple(sources...)
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this HTTP node produces.
+func (nr *NodeRequest) GetOutputVariables() []string {
+	return []string{
+		"response.status",
+		"response.body",
+		"response.headers",
+		"response.duration",
+		"request.method",
+		"request.url",
+		"request.headers",
+		"request.queries",
+		"request.body",
+	}
+}
+
 func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), mflow.HandleUnspecified)
 	result := node.FlowNodeResult{

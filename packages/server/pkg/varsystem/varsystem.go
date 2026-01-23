@@ -377,3 +377,62 @@ func resolveIndirectValue(value string) (string, error) {
 	}
 	return value, nil
 }
+
+// ExtractVarKeys extracts all variable keys from a string without resolving them.
+// Returns a deduplicated list of variable keys (e.g., "nodeName.field", "userId").
+// Skips special references like #env: and #file:.
+func ExtractVarKeys(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+	remaining := raw
+
+	for {
+		startIndex := strings.Index(remaining, menv.Prefix)
+		if startIndex == -1 {
+			break
+		}
+
+		endIndex := strings.Index(remaining[startIndex:], menv.Suffix)
+		if endIndex == -1 {
+			break
+		}
+
+		rawVar := remaining[startIndex : startIndex+endIndex+menv.SuffixSize]
+		if CheckIsVar(rawVar) {
+			key := strings.TrimSpace(GetVarKeyFromRaw(rawVar))
+			// Skip special references
+			if !IsFileReference(key) && !IsEnvReference(key) && key != "" {
+				if !seen[key] {
+					seen[key] = true
+					result = append(result, key)
+				}
+			}
+		}
+
+		remaining = remaining[startIndex+len(rawVar):]
+	}
+
+	return result
+}
+
+// ExtractVarKeysFromMultiple extracts variable keys from multiple strings and returns a deduplicated list.
+func ExtractVarKeysFromMultiple(strs ...string) []string {
+	seen := make(map[string]bool)
+	var result []string
+
+	for _, s := range strs {
+		keys := ExtractVarKeys(s)
+		for _, key := range keys {
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, key)
+			}
+		}
+	}
+
+	return result
+}

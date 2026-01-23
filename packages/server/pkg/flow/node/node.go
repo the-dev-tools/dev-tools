@@ -30,6 +30,19 @@ type FlowNode interface {
 	RunAsync(ctx context.Context, req *FlowNodeRequest, resultChan chan FlowNodeResult)
 }
 
+// VariableIntrospector is an optional interface that nodes can implement
+// to report what variables they require and what they output.
+// This enables AI agents to understand node dependencies.
+type VariableIntrospector interface {
+	// GetRequiredVariables returns variable references this node needs as input.
+	// Each entry is a full variable path like "nodeName.field" or "nodeName.response.body.id"
+	GetRequiredVariables() []string
+
+	// GetOutputVariables returns variable paths this node will produce.
+	// Each entry describes an output path like "response.body" or "response.status"
+	GetOutputVariables() []string
+}
+
 // LoopCoordinator marks nodes that orchestrate loop execution.
 type LoopCoordinator interface {
 	IsLoopCoordinator() bool

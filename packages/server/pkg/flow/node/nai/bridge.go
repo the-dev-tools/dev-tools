@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
@@ -34,14 +35,42 @@ func NewNodeTool(target node.FlowNode, req *node.FlowNodeRequest) *NodeTool {
 func (nt *NodeTool) AsLangChainTool() llms.Tool {
 	name := sanitizeToolName(nt.TargetNode.GetName())
 	nodeName := nt.TargetNode.GetName()
-	// Description explains that this executes ONLY this node (not any downstream nodes)
-	// and how to access the output via get_variable
-	description := fmt.Sprintf(
-		"Executes the flow node '%s'. This runs ONLY this specific node, not any nodes connected after it. "+
-			"After execution, the node's output is available via get_variable using paths like '%s.response.body' (for HTTP nodes) "+
-			"or '%s.<field>' for other node types. The tool returns the JSON output directly.",
-		nodeName, nodeName, nodeName,
-	)
+
+	// Build description with required variables if the node implements VariableIntrospector
+	var descParts []string
+	descParts = append(descParts, fmt.Sprintf("Executes the flow node '%s'.", nodeName))
+
+	// Check if node implements VariableIntrospector to get required variables
+	if introspector, ok := nt.TargetNode.(node.VariableIntrospector); ok {
+		requiredVars := introspector.GetRequiredVariables()
+		if len(requiredVars) > 0 {
+			descParts = append(descParts,
+				fmt.Sprintf("REQUIRED INPUT: Before calling, set these variables using set_variable: [%s].",
+					strings.Join(requiredVars, ", ")))
+		}
+
+		outputVars := introspector.GetOutputVariables()
+		if len(outputVars) > 0 {
+			// Show first few output paths as examples
+			examples := outputVars
+			if len(examples) > 3 {
+				examples = examples[:3]
+			}
+			var outputPaths []string
+			for _, v := range examples {
+				outputPaths = append(outputPaths, fmt.Sprintf("'%s.%s'", nodeName, v))
+			}
+			descParts = append(descParts,
+				fmt.Sprintf("OUTPUT: Available via get_variable at paths like %s.", strings.Join(outputPaths, ", ")))
+		}
+	} else {
+		// Fallback for nodes that don't implement VariableIntrospector
+		descParts = append(descParts,
+			fmt.Sprintf("After execution, output is available via get_variable using '%s.<field>'.", nodeName))
+	}
+
+	description := strings.Join(descParts, " ")
+
 	return llms.Tool{
 		Type: "function",
 		Function: &llms.FunctionDefinition{
