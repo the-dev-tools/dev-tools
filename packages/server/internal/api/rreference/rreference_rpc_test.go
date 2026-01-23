@@ -135,25 +135,25 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Test Completion
+	// Test Completion - search for env namespace
 	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		Start:       "env_var",
+		Start:       "env.env_var",
 	})
 
 	resp, err := svc.ReferenceCompletion(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	// Verify env_var_1 is present
+	// Verify env.env_var_1 is present (variables are under env namespace)
 	found := false
 	for _, item := range resp.Msg.Items {
-		if item.EndToken == "env_var_1" {
+		if item.EndToken == "env.env_var_1" {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "Expected env_var_1 in completions")
+	assert.True(t, found, "Expected env.env_var_1 in completions")
 }
 
 func TestReferenceCompletion_FlowNode(t *testing.T) {
@@ -220,10 +220,11 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 	require.NotNil(t, resp)
 
 	// Verify completions
-	var foundFlowVar, foundSourceNode, foundSelfNode bool
+	var foundEnvNamespace, foundSourceNode, foundSelfNode bool
 	for _, item := range resp.Msg.Items {
-		if item.EndToken == "flow_var_1" {
-			foundFlowVar = true
+		// Flow variables are now under env namespace
+		if item.EndToken == "env" || item.EndToken == "env.flow_var_1" {
+			foundEnvNamespace = true
 		}
 		if item.EndToken == "SourceRequest" {
 			foundSourceNode = true
@@ -233,7 +234,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 		}
 	}
 
-	assert.True(t, foundFlowVar, "Expected flow_var_1")
+	assert.True(t, foundEnvNamespace, "Expected env namespace with flow_var_1")
 	assert.True(t, foundSourceNode, "Expected SourceRequest")
 	assert.True(t, foundSelfNode, "Expected self reference (request/response)")
 }
@@ -295,10 +296,10 @@ func TestReferenceValue_Simple(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Request Value
+	// Request Value - use env namespace path
 	req := connect.NewRequest(&referencev1.ReferenceValueRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		Path:        "my_var",
+		Path:        "env.my_var",
 	})
 
 	resp, err := svc.ReferenceValue(ctx, req)

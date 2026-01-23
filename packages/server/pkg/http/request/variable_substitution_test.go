@@ -8,7 +8,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
 )
@@ -51,16 +50,14 @@ func TestPrepareHTTPRequest_JSONNumberSubstitution(t *testing.T) {
 		t.Errorf("Large integer lost precision/formatting. Expected '1234567890123456789', got '%s'", largeIDStr)
 	}
 
-	// 2. Setup Variable Map for Substitution
-	// This mimics how nrequest flattening would occur
-	varMapData := map[string]any{
+	// 2. Setup Variable Map for Substitution (hierarchical map)
+	varMap := map[string]any{
 		"prevNode": map[string]any{
 			"response": map[string]any{
 				"body": bodyMap,
 			},
 		},
 	}
-	varMap := varsystem.NewVarMapFromAnyMap(varMapData)
 
 	// 3. Test Substitution into a Request Body
 	// Case A: Unquoted substitution of the number (valid JSON for numbers)
@@ -98,12 +95,12 @@ func TestPrepareHTTPRequest_JSONNumberSubstitution(t *testing.T) {
 func TestPrepareHTTPRequest_UUIDSubstitution(t *testing.T) {
 	uuidVal := "8d98027f-8570-45cb-90ae-e8fa1d87dbf5"
 
-	varMapData := map[string]any{
+	// Hierarchical variable map
+	varMap := map[string]any{
 		"prevNode": map[string]any{
 			"id": uuidVal,
 		},
 	}
-	varMap := varsystem.NewVarMapFromAnyMap(varMapData)
 
 	// Case A: User puts quotes around variable (Correct for JSON strings)
 	templateQuoted := `{"id": "{{prevNode.id}}"}`

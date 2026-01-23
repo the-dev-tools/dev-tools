@@ -3,12 +3,13 @@ package varsystem
 
 import (
 	"fmt"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tgeneric"
 	"maps"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tgeneric"
 )
 
 var (
@@ -218,7 +219,14 @@ func (vmt *VarMapTracker) Get(varKey string) (menv.Variable, bool) {
 	return val, ok
 }
 
-// ReplaceVars tracks all variable reads during replacement and delegates to underlying VarMap
+// ReplaceVars tracks all variable reads during replacement and delegates to underlying VarMap.
+//
+// LIMITATION: Same as VarMap.ReplaceVars() - only simple key lookup, no expressions.
+//
+// RECOMMENDED: For full expression support with tracking, use expression.UnifiedEnv:
+//
+//	env := expression.NewUnifiedEnv(varMapCopy).WithTracking(tracker)
+//	result, err := env.Interpolate(raw)
 func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
@@ -314,8 +322,24 @@ func ReadEnvValueAsString(ref string) (string, error) {
 	return "", fmt.Errorf("environment variable %s: %w", name, ErrKeyNotFound)
 }
 
-// Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
-// returns google.com/api/v1/path
+// ReplaceVars replaces {{ varKey }} patterns with values from the VarMap.
+//
+// LIMITATION: This method only does simple key lookup. It does NOT support:
+//   - Expressions: {{ a + b }}, {{ count > 5 }}
+//   - Function calls: {{ now() }}, {{ len(items) }}
+//   - Only works with pre-flattened keys like "user.name" (not nested access)
+//
+// RECOMMENDED: Use expression.UnifiedEnv for full expression support:
+//
+//	// Old way (limited):
+//	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
+//	result, err := varMap.ReplaceVars(raw)
+//
+//	// New way (full expression support):
+//	env := expression.NewUnifiedEnv(varMapCopy)
+//	result, err := env.Interpolate(raw)
+//
+// Example: "{{ url }}/api/{{ version }}/path" returns "google.com/api/v1/path"
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {

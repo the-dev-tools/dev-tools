@@ -10,7 +10,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 func makeRequestResponse() request.RequestResponse {
@@ -47,9 +46,8 @@ func TestResponseCreateEvaluatesAssertions(t *testing.T) {
 	reqResp := makeRequestResponse()
 	httpResp := mhttp.HTTPResponse{ID: idwrap.NewNow(), HttpID: idwrap.NewNow()}
 	assertions := makeAssertions(1)
-	varMap := varsystem.NewVarMapFromAnyMap(map[string]any{})
 
-	out, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, varMap, nil)
+	out, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, map[string]any{})
 	if err != nil {
 		t.Fatalf("ResponseCreate returned error: %v", err)
 	}
@@ -66,11 +64,10 @@ func BenchmarkResponseCreateAssertions(b *testing.B) {
 	reqResp := makeRequestResponse()
 	httpResp := mhttp.HTTPResponse{ID: idwrap.NewNow(), HttpID: idwrap.NewNow()}
 	assertions := makeAssertions(100)
-	varMap := varsystem.NewVarMapFromAnyMap(map[string]any{})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, varMap, nil); err != nil {
+		if _, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, map[string]any{}); err != nil {
 			b.Fatalf("ResponseCreate error: %v", err)
 		}
 	}
@@ -93,9 +90,8 @@ func TestResponseCreateEvaluatesLoopVariables(t *testing.T) {
 		Enabled:   true,
 		CreatedAt: time.Now().Unix(),
 	}}
-	varMap := varsystem.NewVarMapFromAnyMap(flowVars)
 
-	out, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, varMap, flowVars)
+	out, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, flowVars)
 	if err != nil {
 		t.Fatalf("ResponseCreate returned error: %v", err)
 	}
@@ -122,9 +118,8 @@ func TestResponseCreateUnknownVariableProvidesHint(t *testing.T) {
 		Enabled:   true,
 		CreatedAt: time.Now().Unix(),
 	}}
-	varMap := varsystem.NewVarMapFromAnyMap(flowVars)
 
-	_, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, varMap, flowVars)
+	_, err := ResponseCreate(ctx, reqResp, httpResp, nil, assertions, flowVars)
 	if err == nil {
 		t.Fatalf("expected error for missing variable")
 	}

@@ -4,12 +4,12 @@ package nif
 import (
 	"context"
 	"fmt"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 type NodeIf struct {
@@ -42,38 +42,33 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	trueID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleThen)
 	falseID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleElse)
 	var result node.FlowNodeResult
+
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 
-	exprEnv := expression.NewEnv(varMapCopy)
+	// Build unified environment with optional tracking
+	env := expression.NewUnifiedEnv(varMapCopy)
+	if req.VariableTracker != nil {
+		env = env.WithTracking(req.VariableTracker)
+	}
 
-	// Normalize the condition expression
+	// Evaluate the condition expression (pure expr-lang, no {{ }} interpolation)
 	conditionExpr := n.Condition.Comparisons.Expression
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
-	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
-	if err != nil {
-		result.Err = fmt.Errorf("failed to normalize condition expression '%s': %w", conditionExpr, err)
-		return result
-	}
-
-	// Evaluate the condition expression using tracking if available
 	var ok bool
-	switch {
-	case normalizedExpression == "":
+	var err error
+	if conditionExpr == "" {
 		ok = false
-	case req.VariableTracker != nil:
-		ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
-	default:
-		ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
-	}
-	if err != nil {
-		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
-		return result
+	} else {
+		ok, err = env.EvalBool(ctx, conditionExpr)
+		if err != nil {
+			result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", conditionExpr, err)
+			return result
+		}
 	}
 
 	// Write the decision result
 	outputData := map[string]interface{}{
-		"condition": normalizedExpression,
+		"condition": conditionExpr,
 		"result":    ok,
 	}
 	if req.VariableTracker != nil {
@@ -105,37 +100,30 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 
-	exprEnv := expression.NewEnv(varMapCopy)
+	// Build unified environment with optional tracking
+	env := expression.NewUnifiedEnv(varMapCopy)
+	if req.VariableTracker != nil {
+		env = env.WithTracking(req.VariableTracker)
+	}
 
-	// Normalize the condition expression
+	// Evaluate the condition expression (pure expr-lang, no {{ }} interpolation)
 	conditionExpr := n.Condition.Comparisons.Expression
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
-	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
-	if err != nil {
-		result.Err = fmt.Errorf("failed to normalize condition expression '%s': %w", conditionExpr, err)
-		resultChan <- result
-		return
-	}
-
-	// Evaluate the condition expression using tracking if available
 	var ok bool
-	switch {
-	case normalizedExpression == "":
+	var err error
+	if conditionExpr == "" {
 		ok = false
-	case req.VariableTracker != nil:
-		ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
-	default:
-		ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
-	}
-	if err != nil {
-		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
-		resultChan <- result
-		return
+	} else {
+		ok, err = env.EvalBool(ctx, conditionExpr)
+		if err != nil {
+			result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", conditionExpr, err)
+			resultChan <- result
+			return
+		}
 	}
 
 	// Write the decision result
 	outputData := map[string]interface{}{
-		"condition": normalizedExpression,
+		"condition": conditionExpr,
 		"result":    ok,
 	}
 	if req.VariableTracker != nil {

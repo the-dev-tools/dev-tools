@@ -4,6 +4,9 @@ package nrequest
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/response"
@@ -11,8 +14,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
-	"log/slog"
 )
 
 type NodeRequest struct {
@@ -146,10 +147,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
-		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
 	if err != nil {
 		result.Err = err
 		return result
@@ -205,7 +205,8 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMap, varMapCopy)
+	// Create response with assertions evaluated using UnifiedEnv
+	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMapCopy)
 	if err != nil {
 		result.Err = err
 		return result
@@ -313,7 +314,7 @@ func (nr *NodeRequest) GetRequiredVariables() []string {
 		}
 	}
 
-	return varsystem.ExtractVarKeysFromMultiple(sources...)
+	return expression.ExtractVarKeysFromMultiple(sources...)
 }
 
 // GetOutputVariables implements node.VariableIntrospector.
@@ -341,10 +342,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
-		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
@@ -399,7 +399,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMap, varMapCopy)
+	// Create response with assertions evaluated using UnifiedEnv
+	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMapCopy)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

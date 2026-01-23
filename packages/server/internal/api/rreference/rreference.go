@@ -536,7 +536,10 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 	creator := referencecompletion.NewReferenceCompletionCreator()
 
-	// Workspace
+	// Environment variables namespace - collect all env vars under "env" key
+	envVarsMap := make(map[string]any)
+
+	// Workspace environment variables
 	if workspaceID != nil {
 		wsID := *workspaceID
 		rpcErr := permcheck.CheckPerm(true, mwauth.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
@@ -557,7 +560,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			// Filter to only include enabled variables
 			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
-				creator.AddWithKey(v.VarKey, v.Value)
+				// Add to env namespace map
+				envVarsMap[v.VarKey] = v.Value
 			}
 		}
 	}
@@ -610,7 +614,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		sortenabled.GetAllWithState(&flowVars, true)
 		for _, flowVar := range flowVars {
-			creator.AddWithKey(flowVar.Name, flowVar.Value)
+			// Add flow variables to env namespace (same as workspace env vars)
+			envVarsMap[flowVar.Name] = flowVar.Value
 		}
 
 		// Edges
@@ -869,6 +874,12 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 	}
 
+	// Add all environment variables under the "env" namespace
+	// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}
+	if len(envVarsMap) > 0 {
+		creator.AddWithKey("env", envVarsMap)
+	}
+
 	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
 
 	completions, err := convertReferenceCompletionItemsFn(items)
@@ -911,7 +922,10 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 	lookup := referencecompletion.NewReferenceCompletionLookup()
 
-	// Workspace
+	// Environment variables namespace - collect all env vars under "env" key
+	envVarsMapLookup := make(map[string]any)
+
+	// Workspace environment variables
 	if workspaceID != nil {
 		wsID := *workspaceID
 		rpcErr := permcheck.CheckPerm(true, mwauth.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
@@ -932,7 +946,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			// Filter to only include enabled variables
 			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
-				lookup.AddWithKey(v.VarKey, v.Value)
+				// Add to env namespace map
+				envVarsMapLookup[v.VarKey] = v.Value
 			}
 		}
 	}
@@ -985,7 +1000,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		sortenabled.GetAllWithState(&flowVars, true)
 		for _, flowVar := range flowVars {
-			lookup.AddWithKey(flowVar.Name, flowVar.Value)
+			// Add flow variables to env namespace (same as workspace env vars)
+			envVarsMapLookup[flowVar.Name] = flowVar.Value
 		}
 
 		// Edges
@@ -1202,6 +1218,12 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				}
 			}
 		}
+	}
+
+	// Add all environment variables under the "env" namespace
+	// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}
+	if len(envVarsMapLookup) > 0 {
+		lookup.AddWithKey("env", envVarsMapLookup)
 	}
 
 	value, err := lookup.GetValue(req.Msg.Path)

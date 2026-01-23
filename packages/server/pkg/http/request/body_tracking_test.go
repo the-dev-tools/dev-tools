@@ -4,20 +4,17 @@ import (
 	"testing"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestBodyTracking(t *testing.T) {
-	// Setup
-	varMap := varsystem.NewVarMap([]menv.Variable{
-		{ID: idwrap.NewNow(), VarKey: "bodyVar", Value: "replacedBody"},
-		{ID: idwrap.NewNow(), VarKey: "headerVar", Value: "replacedHeader"},
-	})
+	// Setup - hierarchical variable map
+	varMap := map[string]any{
+		"bodyVar":   "replacedBody",
+		"headerVar": "replacedHeader",
+	}
 
 	httpReq := mhttp.HTTP{
 		Method:   "POST",
@@ -70,9 +67,8 @@ func TestBodyTracking(t *testing.T) {
 // (not in URL or headers) are properly tracked. This is a regression test for
 // the issue where body variables were not being tracked while header variables were.
 func TestBodyOnlyVariableTracking(t *testing.T) {
-	// Setup: variable used ONLY in body, not in URL or headers
-	// Simulates referencing another request's response body
-	varMap := varsystem.NewVarMapFromAnyMap(map[string]any{
+	// Setup: hierarchical variable map with nested structure
+	varMap := map[string]any{
 		"prev_request": map[string]any{
 			"response": map[string]any{
 				"body": map[string]any{
@@ -80,7 +76,7 @@ func TestBodyOnlyVariableTracking(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
 
 	httpReq := mhttp.HTTP{
 		Method:   "POST",
