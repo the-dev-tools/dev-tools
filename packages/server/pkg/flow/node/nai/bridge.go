@@ -11,6 +11,15 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
+// DescribableNode is an optional interface that nodes can implement
+// to provide a user-defined description for AI tool discovery.
+// This is used by PoC #2 to allow users to customize how tools are described to the AI.
+type DescribableNode interface {
+	// GetDescription returns a user-defined description of what this node does,
+	// including required inputs and expected outputs.
+	GetDescription() string
+}
+
 // ToolExecuteResult contains the result of a tool execution
 type ToolExecuteResult struct {
 	Output      string
@@ -36,7 +45,61 @@ func (nt *NodeTool) AsLangChainTool() llms.Tool {
 	name := sanitizeToolName(nt.TargetNode.GetName())
 	nodeName := nt.TargetNode.GetName()
 
-	// Build description with required variables if the node implements VariableIntrospector
+	var description string
+
+	// PoC #4: Check if node implements AIParamProvider for typed parameters
+	// This gives AI the richest context with name, description, and type for each input
+	if paramProvider, ok := nt.TargetNode.(AIParamProvider); ok {
+		params := paramProvider.GetAIParams()
+		if len(params) > 0 {
+			// Get output vars if available
+			var outputVars []string
+			if introspector, ok := nt.TargetNode.(node.VariableIntrospector); ok {
+				outputVars = introspector.GetOutputVariables()
+			}
+
+			// Get base description if available
+			var baseDesc string
+			if describable, ok := nt.TargetNode.(DescribableNode); ok {
+				baseDesc = describable.GetDescription()
+			}
+
+			description = GenerateAIParamToolDescription(nodeName, baseDesc, params, outputVars)
+			return llms.Tool{
+				Type: "function",
+				Function: &llms.FunctionDefinition{
+					Name:        name,
+					Description: description,
+					Parameters: map[string]any{
+						"type":       "object",
+						"properties": map[string]any{},
+					},
+				},
+			}
+		}
+	}
+
+	// PoC #2: Check if node implements DescribableNode for user-defined description
+	if describable, ok := nt.TargetNode.(DescribableNode); ok {
+		customDesc := describable.GetDescription()
+		if customDesc != "" {
+			// Use the user-defined description directly
+			description = customDesc
+			return llms.Tool{
+				Type: "function",
+				Function: &llms.FunctionDefinition{
+					Name:        name,
+					Description: description,
+					Parameters: map[string]any{
+						"type":       "object",
+						"properties": map[string]any{},
+					},
+				},
+			}
+		}
+	}
+
+	// PoC #1: Build description with required variables if the node implements VariableIntrospector
 	var descParts []string
 	descParts = append(descParts, fmt.Sprintf("Executes the flow node '%s'.", nodeName))
 
@@ -69,7 +132,7 @@ func (nt *NodeTool) AsLangChainTool() llms.Tool {
 			fmt.Sprintf("After execution, output is available via get_variable using '%s.<field>'.", nodeName))
 	}
 
-	description := strings.Join(descParts, " ")
+	description = strings.Join(descParts, " ")
 
 	return llms.Tool{
 		Type: "function",

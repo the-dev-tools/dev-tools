@@ -27,6 +27,10 @@ type NodeAI struct {
 	ProviderFactory *scredential.LLMProviderFactory
 	// Override model for testing
 	LLM llms.Model
+	// EnableDiscoveryTool enables the discover_tools function (PoC #3)
+	EnableDiscoveryTool bool
+	// DiscoverToolCalls tracks how many times discover_tools was called (for metrics)
+	DiscoverToolCalls int
 }
 
 func New(id idwrap.IDWrap, name string, prompt string, maxIterations int32, factory *scredential.LLMProviderFactory) *NodeAI {
@@ -131,6 +135,11 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		toolMap[sanitizeToolName(targetNode.GetName())] = nt
 	}
 
+	// PoC #3: Add discover_tools if enabled
+	if n.EnableDiscoveryTool {
+		lcTools = append(lcTools, discoverToolsTool())
+	}
+
 	// 5. Initialize Agent executor using the flow runner (like ForEach does)
 	// This ensures proper status emission, AuxiliaryID propagation, and HTTP response linking
 	executor := func(ctx context.Context, name string, args string) (string, error) {
@@ -139,6 +148,10 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			return handleGetVariable(ctx, req, args)
 		case "set_variable":
 			return handleSetVariable(ctx, req, args)
+		case "discover_tools":
+			// PoC #3: Handle discover_tools call
+			n.DiscoverToolCalls++
+			return handleDiscoverTools(ctx, toolMap, args)
 		default:
 			tool, ok := toolMap[name]
 			if !ok {
