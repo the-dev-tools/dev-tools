@@ -40,6 +40,62 @@ func TestVariableTools(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, float64(123), val) // json.Unmarshal defaults to float64 for numbers
 	})
+
+	t.Run("set_and_get_nested_path", func(t *testing.T) {
+		// Test nested path access - this was the original bug
+		// AI node sets "ai_1.id" and other nodes need to access it via {{ ai_1.id }}
+
+		// Set a nested value
+		res, err := handleSetVariable(ctx, req, `{"key": "ai_1.id", "value": 42}`)
+		assert.NoError(t, err)
+		assert.Contains(t, res, "Successfully")
+
+		// Verify it's stored in a nested structure (not as flat key "ai_1.id")
+		ai1, ok := req.VarMap["ai_1"]
+		assert.True(t, ok, "ai_1 should exist as top-level key")
+		ai1Map, ok := ai1.(map[string]any)
+		assert.True(t, ok, "ai_1 should be a map")
+		assert.Equal(t, float64(42), ai1Map["id"])
+
+		// Get the nested value using dotted path
+		res, err = handleGetVariable(ctx, req, `{"key": "ai_1.id"}`)
+		assert.NoError(t, err)
+		assert.Equal(t, "42", res)
+
+		// Set another nested value on the same node
+		res, err = handleSetVariable(ctx, req, `{"key": "ai_1.name", "value": "test"}`)
+		assert.NoError(t, err)
+
+		// Both values should exist
+		res, err = handleGetVariable(ctx, req, `{"key": "ai_1.id"}`)
+		assert.NoError(t, err)
+		assert.Equal(t, "42", res)
+
+		res, err = handleGetVariable(ctx, req, `{"key": "ai_1.name"}`)
+		assert.NoError(t, err)
+		assert.Equal(t, `"test"`, res)
+	})
+
+	t.Run("get_deeply_nested_path", func(t *testing.T) {
+		// Test accessing deeply nested values like node outputs
+		req.VarMap["http_1"] = map[string]any{
+			"response": map[string]any{
+				"status": float64(200),
+				"body": map[string]any{
+					"id":   "abc123",
+					"name": "Test",
+				},
+			},
+		}
+
+		res, err := handleGetVariable(ctx, req, `{"key": "http_1.response.status"}`)
+		assert.NoError(t, err)
+		assert.Equal(t, "200", res)
+
+		res, err = handleGetVariable(ctx, req, `{"key": "http_1.response.body.id"}`)
+		assert.NoError(t, err)
+		assert.Equal(t, `"abc123"`, res)
+	})
 }
 
 func TestSanitizeToolName(t *testing.T) {

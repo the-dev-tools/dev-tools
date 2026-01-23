@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 )
 
@@ -71,9 +72,18 @@ func handleGetVariable(ctx context.Context, req *node.FlowNodeRequest, args stri
 		return "", err
 	}
 
-	val, err := node.ReadVarRawWithTracking(req, input.Key, req.VariableTracker)
-	if err != nil {
-		return "", fmt.Errorf("variable '%s' not found: %w", input.Key, err)
+	// Use ResolvePath for dotted keys to access nested structure compatible with expr-lang.
+	// expr-lang interprets "ai_1.id" as nested access (env["ai_1"]["id"]),
+	// so we need to resolve values from nested maps.
+	req.ReadWriteLock.RLock()
+	val, ok := expression.ResolvePath(req.VarMap, input.Key)
+	req.ReadWriteLock.RUnlock()
+	if !ok {
+		return "", fmt.Errorf("variable '%s' not found", input.Key)
+	}
+
+	if req.VariableTracker != nil {
+		req.VariableTracker.TrackRead(input.Key, val)
 	}
 
 	res, err := json.Marshal(val)
@@ -92,11 +102,15 @@ func handleSetVariable(ctx context.Context, req *node.FlowNodeRequest, args stri
 		return "", err
 	}
 
-	// If value is a string that looks like JSON, try to unmarshal it first
-	// so it's stored as a proper object in the map if possible.
-	// But node.WriteVar is generic.
-
-	node.WriteVar(req, input.Key, input.Value)
+	// Use SetPath for dotted keys to create nested structure compatible with expr-lang.
+	// expr-lang interprets "ai_1.id" as nested access (env["ai_1"]["id"]),
+	// so we need to store values in nested maps, not as flat keys.
+	req.ReadWriteLock.Lock()
+	err := expression.SetPath(req.VarMap, input.Key, input.Value)
+	req.ReadWriteLock.Unlock()
+	if err != nil {
+		return "", fmt.Errorf("failed to set variable '%s': %w", input.Key, err)
+	}
 
 	if req.VariableTracker != nil {
 		req.VariableTracker.TrackWrite(input.Key, input.Value)
@@ -220,7 +234,3 @@ func handleDiscoverTools(ctx context.Context, toolMap map[string]*NodeTool, args
 	return string(result), nil
 }
 
-// strings helper for case-insensitive contains
-func strings_Contains_CI(s, substr string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
-}

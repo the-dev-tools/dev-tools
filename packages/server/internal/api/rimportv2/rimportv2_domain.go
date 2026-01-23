@@ -285,17 +285,18 @@ func sanitizeVariableName(raw string) string {
 }
 
 // buildTemplatedURL creates a templated URL using the variable and suffix
+// Note: Environment variables are namespaced under "env" for expr-lang compatibility
 func buildTemplatedURL(variable, suffix string) string {
 	if variable == "" {
 		return suffix
 	}
 	if suffix == "" {
-		return fmt.Sprintf("{%s}", variable)
+		return fmt.Sprintf("{{env.%s}}", variable)
 	}
 	if !strings.HasPrefix(suffix, "/") && !strings.HasPrefix(suffix, "?") && !strings.HasPrefix(suffix, "#") {
 		suffix = "/" + suffix
 	}
-	return fmt.Sprintf("{%s}%s", variable, suffix)
+	return fmt.Sprintf("{{env.%s}}%s", variable, suffix)
 }
 
 // validateDomainData validates domain variable configuration
@@ -419,8 +420,9 @@ func replaceDomainInURL(urlStr string, domainToVar map[string]string) string {
 	}
 
 	// Build the new URL with variable reference
-	// {{VARIABLE}}/path?query#fragment
-	varRef := "{{" + varName + "}}"
+	// {{env.VARIABLE}}/path?query#fragment
+	// Note: Environment variables are namespaced under "env" for expr-lang compatibility
+	varRef := "{{env." + varName + "}}"
 
 	if pathAndMore == "" || pathAndMore == "/" {
 		return varRef
