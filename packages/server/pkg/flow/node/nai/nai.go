@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/tmc/langchaingo/llms"
@@ -161,26 +162,33 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			toolNodeID := tool.TargetNode.GetID()
 			toolNodeName := tool.TargetNode.GetName()
 
-			// Create a child request for single-node execution via the runner
-			// Empty edge map ensures only this node runs (no following edges)
-			emptyEdgeMap := make(mflow.EdgesMap)
+			// Build the tool chain: find all nodes reachable from the tool node
+			// This allows chained request nodes to execute as a single tool
+			chainNodeIDs := findDownstreamNodes(req.EdgeSourceMap, toolNodeID, n.FlowNodeID)
 
-			// Build minimal node map with just the tool node
-			toolNodeMap := map[idwrap.IDWrap]node.FlowNode{
-				toolNodeID: tool.TargetNode,
+			// Build edge map for the chain (only edges between chain nodes)
+			chainEdgeMap := buildChainEdgeMap(req.EdgeSourceMap, chainNodeIDs)
+
+			// Build node map for the chain
+			chainNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(chainNodeIDs))
+			for nodeID := range chainNodeIDs {
+				if n, ok := req.NodeMap[nodeID]; ok {
+					chainNodeMap[nodeID] = n
+				}
 			}
 
-			// Create child request for the tool execution
+			// Build predecessor map for proper scheduling
+			predecessorMap := flowlocalrunner.BuildPredecessorMap(chainEdgeMap)
+			pendingMap := node.BuildPendingMap(predecessorMap)
+
+			// Create child request for the tool chain execution
 			childReq := *req
-			childReq.EdgeSourceMap = emptyEdgeMap
-			childReq.NodeMap = toolNodeMap
-			childReq.PendingAtmoicMap = nil
+			childReq.EdgeSourceMap = chainEdgeMap
+			childReq.NodeMap = chainNodeMap
+			childReq.PendingAtmoicMap = pendingMap
 			childReq.ExecutionID = idwrap.NewMonotonic()
 			// Create a new RWMutex for the child request to avoid lock contention
 			childReq.ReadWriteLock = &sync.RWMutex{}
-
-			// Build empty predecessor map (tool node has no predecessors in this context)
-			predecessorMap := make(map[idwrap.IDWrap][]idwrap.IDWrap)
 
 			// Provide a no-op status func if LogPushFunc is nil (e.g., in tests)
 			statusFunc := req.LogPushFunc
@@ -191,20 +199,33 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			// Execute via runner - this handles status emission automatically including AuxiliaryID
 			err := flowlocalrunner.RunNodeSync(ctx, toolNodeID, &childReq, statusFunc, predecessorMap)
 
-			// Extract output from VarMap after execution
-			var output string
-			if data, ok := childReq.VarMap[toolNodeName]; ok {
-				jsonBytes, jsonErr := json.Marshal(data)
-				if jsonErr != nil {
-					output = fmt.Sprintf("Node '%s' executed successfully. Output not serializable: %v", toolNodeName, jsonErr)
-				} else {
-					output = string(jsonBytes)
+			// Extract outputs from all nodes in the chain
+			var outputs []string
+			for nodeID := range chainNodeIDs {
+				nodeName := ""
+				if n, ok := chainNodeMap[nodeID]; ok {
+					nodeName = n.GetName()
+				}
+				if nodeName == "" {
+					continue
 				}
 
-				// Copy the tool's output to the parent VarMap so it's accessible via {{NodeName.field}}
-				req.ReadWriteLock.Lock()
-				req.VarMap[toolNodeName] = data
-				req.ReadWriteLock.Unlock()
+				if data, ok := childReq.VarMap[nodeName]; ok {
+					// Copy node output to parent VarMap
+					req.ReadWriteLock.Lock()
+					req.VarMap[nodeName] = data
+					req.ReadWriteLock.Unlock()
+
+					// Add to output summary
+					if jsonBytes, jsonErr := json.Marshal(data); jsonErr == nil {
+						outputs = append(outputs, fmt.Sprintf("%s: %s", nodeName, string(jsonBytes)))
+					}
+				}
+			}
+
+			var output string
+			if len(outputs) > 0 {
+				output = fmt.Sprintf("Chain executed successfully. Results:\n%s", strings.Join(outputs, "\n"))
 			} else {
 				output = fmt.Sprintf("Node '%s' executed successfully. No output captured.", toolNodeName)
 			}
@@ -351,4 +372,70 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 func (n NodeAI) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	result := n.RunSync(ctx, req)
 	resultChan <- result
+}
+
+// findDownstreamNodes finds all nodes reachable from startNodeID via edges.
+// It excludes the excludeNodeID (typically the AI node itself) to prevent cycles.
+func findDownstreamNodes(edgeMap mflow.EdgesMap, startNodeID, excludeNodeID idwrap.IDWrap) map[idwrap.IDWrap]struct{} {
+	visited := make(map[idwrap.IDWrap]struct{})
+	queue := []idwrap.IDWrap{startNodeID}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if _, seen := visited[current]; seen {
+			continue
+		}
+		if current == excludeNodeID {
+			continue // Don't traverse back to the AI node
+		}
+
+		visited[current] = struct{}{}
+
+		// Find all nodes connected from current node
+		if handles, ok := edgeMap[current]; ok {
+			for _, targets := range handles {
+				for _, targetID := range targets {
+					if _, seen := visited[targetID]; !seen && targetID != excludeNodeID {
+						queue = append(queue, targetID)
+					}
+				}
+			}
+		}
+	}
+
+	return visited
+}
+
+// buildChainEdgeMap creates an edge map containing only edges between the given nodes.
+func buildChainEdgeMap(fullEdgeMap mflow.EdgesMap, chainNodes map[idwrap.IDWrap]struct{}) mflow.EdgesMap {
+	chainEdgeMap := make(mflow.EdgesMap)
+
+	for sourceID, handles := range fullEdgeMap {
+		// Only include edges from nodes in the chain
+		if _, inChain := chainNodes[sourceID]; !inChain {
+			continue
+		}
+
+		filteredHandles := make(map[mflow.EdgeHandle][]idwrap.IDWrap)
+		for handle, targets := range handles {
+			var filteredTargets []idwrap.IDWrap
+			for _, targetID := range targets {
+				// Only include targets that are in the chain
+				if _, inChain := chainNodes[targetID]; inChain {
+					filteredTargets = append(filteredTargets, targetID)
+				}
+			}
+			if len(filteredTargets) > 0 {
+				filteredHandles[handle] = filteredTargets
+			}
+		}
+
+		if len(filteredHandles) > 0 {
+			chainEdgeMap[sourceID] = filteredHandles
+		}
+	}
+
+	return chainEdgeMap
 }
