@@ -2,21 +2,16 @@
  * Tool Schema Definitions using Effect Schema
  *
  * Single source of truth for AI tool definitions.
- * Adding a new tool: just add to MutationSchemas/ExplorationSchemas/ExecutionSchemas.
- * Everything else is automatic.
+ * Mutation tools are auto-generated from @mutationTool decorator on collection models.
  */
 
 import { JSONSchema, Schema } from 'effect';
 
 // Re-export common schemas and generated tool schemas
 export * from './common.ts';
-export * from '../../dist/ai-tools/v1/execution.ts';
-export * from '../../dist/ai-tools/v1/exploration.ts';
 export * from '../../dist/ai-tools/v1/mutation.ts';
 
 // Import schema groups from generated files
-import { ExecutionSchemas } from '../../dist/ai-tools/v1/execution.ts';
-import { ExplorationSchemas } from '../../dist/ai-tools/v1/exploration.ts';
 import { MutationSchemas } from '../../dist/ai-tools/v1/mutation.ts';
 
 // =============================================================================
@@ -104,11 +99,9 @@ function schemaToToolDefinition<A, I, R>(schema: Schema.Schema<A, I, R>): ToolDe
 // =============================================================================
 
 export const mutationSchemas = Object.values(MutationSchemas).map(schemaToToolDefinition);
-export const explorationSchemas = Object.values(ExplorationSchemas).map(schemaToToolDefinition);
-export const executionSchemas = Object.values(ExecutionSchemas).map(schemaToToolDefinition);
 
 /** All tool schemas combined - ready for AI tool calling */
-export const allToolSchemas = [...explorationSchemas, ...mutationSchemas, ...executionSchemas];
+export const allToolSchemas = [...mutationSchemas];
 
 // =============================================================================
 // Effect Schemas (for runtime validation)
@@ -116,8 +109,6 @@ export const allToolSchemas = [...explorationSchemas, ...mutationSchemas, ...exe
 
 export const EffectSchemas = {
   Mutation: MutationSchemas,
-  Exploration: ExplorationSchemas,
-  Execution: ExecutionSchemas,
 } as const;
 
 // =============================================================================

@@ -1,11 +1,12 @@
 import { For, Indent, refkey, Show, SourceDirectory } from '@alloy-js/core';
 import { SourceFile, VarDeclaration } from '@alloy-js/typescript';
-import { EmitContext, getDoc, Model, ModelProperty } from '@typespec/compiler';
+import { EmitContext, getDoc, Model, ModelProperty, Program } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, pipe, Record, String } from 'effect';
 import { join } from 'node:path/posix';
-import { aiTools, AIToolOptions, ToolCategory } from './lib.js';
+import { primaryKeys } from '../core/index.jsx';
+import { aiTools, AIToolOptions, MutationToolOptions, mutationTools, ToolCategory } from './lib.js';
 
 export const $onEmit = async (context: EmitContext) => {
   const { emitterOutputDir, program } = context;
@@ -14,7 +15,8 @@ export const $onEmit = async (context: EmitContext) => {
 
   // Check if there are any AI tools to emit
   const tools = aiTools(program);
-  if (tools.size === 0) {
+  const mutations = mutationTools(program);
+  if (tools.size === 0 && mutations.size === 0) {
     return;
   }
 
@@ -29,10 +31,103 @@ export const $onEmit = async (context: EmitContext) => {
   );
 };
 
+interface ResolvedProperty {
+  optional: boolean;
+  property: ModelProperty;
+}
+
+interface ResolvedTool {
+  description?: string | undefined;
+  name: string;
+  properties: ResolvedProperty[];
+  title: string;
+}
+
+function isVisibleFor(property: ModelProperty, phase: 'Create' | 'Update'): boolean {
+  const visibilityDec = property.decorators.find(
+    (d) => d.decorator.name === '$visibility',
+  );
+  if (!visibilityDec) return true; // No restriction = visible everywhere
+
+  // Check if any of the visibility args matches our phase
+  return visibilityDec.args.some((arg) => {
+    const val = arg.value as { value?: { name?: string } } | undefined;
+    return val?.value?.name === phase;
+  });
+}
+
+function resolveToolProperties(program: Program, collectionModel: Model, toolDef: MutationToolOptions): ResolvedProperty[] {
+  const { exclude = [], operation, parent: parentName } = toolDef;
+
+  // Resolve parent model by name from the collection model's namespace
+  const parent = parentName ? collectionModel.namespace?.models.get(parentName) : undefined;
+
+  switch (operation) {
+    case 'Insert': {
+      const props: ResolvedProperty[] = [];
+      if (parent) {
+        for (const prop of parent.properties.values()) {
+          if (primaryKeys(program).has(prop)) continue;
+          if (!isVisibleFor(prop, 'Create')) continue;
+          if (exclude.includes(prop.name)) continue;
+          props.push({ optional: prop.optional, property: prop });
+        }
+      }
+      for (const prop of collectionModel.properties.values()) {
+        if (primaryKeys(program).has(prop)) continue;
+        if (!isVisibleFor(prop, 'Create')) continue;
+        if (exclude.includes(prop.name)) continue;
+        props.push({ optional: prop.optional, property: prop });
+      }
+      return props;
+    }
+    case 'Update': {
+      const props: ResolvedProperty[] = [];
+      for (const prop of collectionModel.properties.values()) {
+        if (!isVisibleFor(prop, 'Update')) continue;
+        if (primaryKeys(program).has(prop)) {
+          props.push({ optional: false, property: prop });
+        } else {
+          props.push({ optional: true, property: prop });
+        }
+      }
+      return props;
+    }
+    case 'Delete': {
+      const props: ResolvedProperty[] = [];
+      for (const prop of collectionModel.properties.values()) {
+        if (primaryKeys(program).has(prop)) {
+          props.push({ optional: false, property: prop });
+        }
+      }
+      return props;
+    }
+  }
+}
+
+function resolveMutationTools(program: Program): ResolvedTool[] {
+  const tools: ResolvedTool[] = [];
+
+  for (const [model, toolDefs] of mutationTools(program).entries()) {
+    for (const toolDef of toolDefs) {
+      const name = toolDef.name ?? `${toolDef.operation}${model.name}`;
+      const properties = resolveToolProperties(program, model, toolDef);
+      tools.push({
+        description: toolDef.description,
+        name,
+        properties,
+        title: toolDef.title,
+      });
+    }
+  }
+
+  return tools;
+}
+
 const CategoryFiles = () => {
   const { program } = useTsp();
 
-  // Group tools by category
+  // Group aiTool-decorated tools by category (for Exploration/Execution)
   const toolsByCategory = pipe(
     aiTools(program).entries(),
     Array.fromIterable,
@@ -40,11 +135,51 @@ const CategoryFiles = () => {
     Record.map(Array.map(([model, options]) => ({ model, options }))),
   );
 
-  const categories: ToolCategory[] = ['Mutation', 'Exploration', 'Execution'];
+  // Resolve mutation tools from @mutationTool decorator
+  const resolvedMutationTools = resolveMutationTools(program);
+
+  const allCategories: ToolCategory[] = ['Mutation', 'Exploration', 'Execution'];
 
   return (
-    <For each={categories}>
+    <For each={allCategories}>
       {(category) => {
+        if (category === 'Mutation') {
+          // Mutation tools from @mutationTool decorator
+          if (resolvedMutationTools.length === 0) return null;
+
+          return (
+            <SourceFile path="mutation.ts">
+              <ResolvedSchemaImports tools={resolvedMutationTools} />
+              {'\n'}
+              <For doubleHardline each={resolvedMutationTools} ender>
+                {(tool) => <ResolvedToolSchema tool={tool} />}
+              </For>
+
+              <VarDeclaration const export name="MutationSchemas" refkey={refkey('schemas', 'Mutation')}>
+                {'{'}
+                {'\n'}
+                <Indent>
+                  <For comma each={resolvedMutationTools} hardline>
+                    {(tool) => <>{tool.name}</>}
+                  </For>
+                  ,
+                </Indent>
+                {'\n'}
+                {'}'} as const
+              </VarDeclaration>
+              {'\n\n'}
+              <For each={resolvedMutationTools}>
+                {(tool) => (
+                  <>
+                    export type {tool.name} = typeof {tool.name}.Type;{'\n'}
+                  </>
+                )}
+              </For>
+            </SourceFile>
+          );
+        }
+
+        // Exploration/Execution tools from @aiTool decorator
         const tools = toolsByCategory[category] ?? [];
         if (tools.length === 0) return null;
 
@@ -123,6 +258,114 @@ const SchemaImports = ({ tools }: SchemaImportsProps) => {
         {'}'} from '../../../src/tools/common.ts';
         {'\n'}
       </Show>
+    </>
+  );
+};
+
+interface ResolvedSchemaImportsProps {
+  tools: ResolvedTool[];
+}
+
+const ResolvedSchemaImports = ({ tools }: ResolvedSchemaImportsProps) => {
+  const { program } = useTsp();
+
+  const commonImports = new Set<string>();
+
+  tools.forEach(({ properties }) => {
+    properties.forEach(({ property }) => {
+      const fieldSchema = getFieldSchema(property, program);
+      if (fieldSchema.importFrom === 'common') {
+        commonImports.add(fieldSchema.schemaName);
+      }
+    });
+  });
+
+  const commonImportList = Array.sort(Array.fromIterable(commonImports), String.Order);
+
+  return (
+    <>
+      import {'{'} Schema {'}'} from 'effect';
+      {'\n\n'}
+      <Show when={commonImportList.length > 0}>
+        import {'{'}
+        {'\n'}
+        <Indent>
+          <For comma each={commonImportList} hardline>
+            {(name) => <>{name}</>}
+          </For>
+        </Indent>
+        {'\n'}
+        {'}'} from '../../../src/tools/common.ts';
+        {'\n'}
+      </Show>
+    </>
+  );
+};
+
+const ResolvedToolSchema = ({ tool }: { tool: ResolvedTool }) => {
+  const identifier = String.uncapitalize(tool.name);
+
+  return (
+    <VarDeclaration const export name={tool.name} refkey={refkey('tool', tool.name)}>
+      Schema.Struct({'{'}
+      {'\n'}
+      <Indent>
+        <For comma each={tool.properties} hardline>
+          {({ optional, property }) => <ResolvedPropertySchema isOptional={optional} property={property} />}
+        </For>
+      </Indent>
+      {'\n'}
+      {'}'}).pipe(
+      {'\n'}
+      <Indent>
+        Schema.annotations({'{'}
+        {'\n'}
+        <Indent>
+          identifier: '{identifier}',{'\n'}
+          <Show when={!!tool.title}>title: '{tool.title}',{'\n'}</Show>
+          <Show when={!!tool.description}>description: {formatStringLiteral(tool.description ?? '')},{'\n'}</Show>
+        </Indent>
+        {'}'}),
+      </Indent>
+      {'\n'})
+    </VarDeclaration>
+  );
+};
+
+interface ResolvedPropertySchemaProps {
+  isOptional: boolean;
+  property: ModelProperty;
+}
+
+const ResolvedPropertySchema = ({ isOptional, property }: ResolvedPropertySchemaProps) => {
+  const { program } = useTsp();
+  const doc = getDoc(program, property);
+  const fieldSchema = getFieldSchema(property, program);
+
+  const schemaExpr = isOptional && !fieldSchema.includesOptional
+    ? `Schema.optional(${fieldSchema.expression})`
+    : fieldSchema.expression;
+
+  if (doc || fieldSchema.needsDescription) {
+    const description = doc ?? '';
+    return (
+      <>
+        {property.name}: {schemaExpr}.pipe(
+        {'\n'}
+        <Indent>
+          Schema.annotations({'{'}
+          {'\n'}
+          <Indent>description: {formatStringLiteral(description)},{'\n'}</Indent>
+          {'}'}),
+        </Indent>
+        {'\n'})
+      </>
+    );
+  }
+
+  return (
+    <>
+      {property.name}: {schemaExpr}
     </>
   );
 };

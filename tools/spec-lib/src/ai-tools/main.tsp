@@ -14,4 +14,21 @@ namespace DevTools.AITools {
   }
 
   extern dec aiTool(target: Reflection.Model, options: valueof AIToolOptions);
+
+  enum CrudOperation {
+    Insert,
+    Update,
+    Delete,
+  }
+
+  model MutationToolOptions {
+    operation: CrudOperation;
+    title: string;
+    name?: string;
+    description?: string;
+    parent?: string;
+    exclude?: string[];
+  }
+
+  extern dec mutationTool(target: Reflection.Model, ...tools: valueof MutationToolOptions[]);
 }

@@ -14,7 +14,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allToolSchemas, executionSchemas, explorationSchemas, mutationSchemas } from './index.ts';
+import { allToolSchemas, mutationSchemas } from './index.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,8 +35,6 @@ const jsonOutput = {
   tools: {
     all: allToolSchemas,
     mutation: mutationSchemas,
-    exploration: explorationSchemas,
-    execution: executionSchemas,
   },
 };
 
@@ -61,10 +59,6 @@ export const allToolSchemas = ${JSON.stringify(allToolSchemas, null, 2)} as cons
 
 export const mutationSchemas = ${JSON.stringify(mutationSchemas, null, 2)} as const;
 
-export const explorationSchemas = ${JSON.stringify(explorationSchemas, null, 2)} as const;
-
-export const executionSchemas = ${JSON.stringify(executionSchemas, null, 2)} as const;
-
 // Individual schema exports
 ${allToolSchemas
   .map(
@@ -84,6 +78,4 @@ console.log('✓ Generated dist/tools/schemas.ts');
 
 console.log('\nGenerated schemas summary:');
 console.log(`  Mutation tools: ${mutationSchemas.length}`);
-console.log(`  Exploration tools: ${explorationSchemas.length}`);
-console.log(`  Execution tools: ${executionSchemas.length}`);
 console.log(`  Total: ${allToolSchemas.length}`);
