@@ -95,8 +95,7 @@ func applyAITables(ctx context.Context, tx *sql.Tx) error {
 		CREATE TABLE IF NOT EXISTS flow_node_ai (
 			flow_node_id BLOB NOT NULL PRIMARY KEY,
 			prompt TEXT NOT NULL,
-			max_iterations INT NOT NULL DEFAULT 5,
-			FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+			max_iterations INT NOT NULL DEFAULT 5
 		)
 	`); err != nil {
 		return err
@@ -106,12 +105,10 @@ func applyAITables(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS flow_node_ai_provider (
 			flow_node_id BLOB NOT NULL PRIMARY KEY,
-			credential_id BLOB NOT NULL,
+			credential_id BLOB, -- Optional: NULL means no credential set yet
 			model INT8 NOT NULL, -- AiModel enum
 			temperature REAL, -- Optional: 0.0-2.0, NULL means use provider default
-			max_tokens INT, -- Optional: max output tokens, NULL means use provider default
-			FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-			FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE CASCADE
+			max_tokens INT -- Optional: max output tokens, NULL means use provider default
 		)
 	`); err != nil {
 		return err

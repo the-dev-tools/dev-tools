@@ -377,52 +377,6 @@ func (s *FlowServiceV2RPC) streamNodeAiProviderSync(
 		return err
 	}
 
-	// Build initial collection
-	var items []*flowv1.NodeAiProvider
-	for _, flow := range flows {
-		nodes, err := s.nsReader.GetNodesByFlowID(ctx, flow.ID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return connect.NewError(connect.CodeInternal, err)
-		}
-		for _, node := range nodes {
-			if node.NodeKind != mflow.NODE_KIND_AI_PROVIDER {
-				continue
-			}
-			nodeAiProvider, err := s.naps.GetNodeAiProvider(ctx, node.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return connect.NewError(connect.CodeInternal, err)
-			}
-			items = append(items, serializeNodeAiProvider(*nodeAiProvider))
-		}
-	}
-
-	// Convert to sync items format
-	syncItems := make([]*flowv1.NodeAiProviderSync, 0, len(items))
-	for _, item := range items {
-		syncItems = append(syncItems, &flowv1.NodeAiProviderSync{
-			Value: &flowv1.NodeAiProviderSync_ValueUnion{
-				Kind: flowv1.NodeAiProviderSync_ValueUnion_KIND_UPSERT,
-				Upsert: &flowv1.NodeAiProviderSyncUpsert{
-					NodeId:       item.NodeId,
-					CredentialId: item.CredentialId,
-					Model:        item.Model,
-					Temperature:  item.Temperature,
-					MaxTokens:    item.MaxTokens,
-				},
-			},
-		})
-	}
-
-	// Send initial collection as upsert items
-	if err := send(&flowv1.NodeAiProviderSyncResponse{
-		Items: syncItems,
-	}); err != nil {
-		return err
-	}
-
 	// Real-time streaming: subscribe to AI Provider node events
 	if s.aiProviderStream == nil {
 		// No streamer available, wait for context cancellation

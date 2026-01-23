@@ -78,9 +78,8 @@ enum AiMemoryType {
 
 enum AiModel {
   // OpenAI - GPT-5.2 family
-  Gpt52Instant,
+  Gpt52,
 
-  Gpt52Thinking,
   Gpt52Pro,
   Gpt52Codex,
 

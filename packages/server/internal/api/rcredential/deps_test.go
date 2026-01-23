@@ -6,7 +6,6 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 )
 
 func TestCredentialRPCDeps_Validate(t *testing.T) {
@@ -16,8 +15,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 	mockOpenAiStream := memory.NewInMemorySyncStreamer[CredentialOpenAiTopic, CredentialOpenAiEvent]()
 	mockGeminiStream := memory.NewInMemorySyncStreamer[CredentialGeminiTopic, CredentialGeminiEvent]()
 	mockAnthropicStream := memory.NewInMemorySyncStreamer[CredentialAnthropicTopic, CredentialAnthropicEvent]()
-	mockDB := &sql.DB{}         // Note: This is just for validation testing, not actual DB operations
-	mockFileService := &sfile.FileService{}
+	mockDB := &sql.DB{} // Note: This is just for validation testing, not actual DB operations
 
 	tests := []struct {
 		name    string
@@ -28,10 +26,8 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 		{
 			name: "valid deps - all required fields present",
 			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
 				},
@@ -47,10 +43,8 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 		{
 			name: "missing DB",
 			deps: CredentialRPCDeps{
-				DB: nil,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       nil,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
 				},
@@ -65,32 +59,10 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 			errMsg:  "db is required",
 		},
 		{
-			name: "missing file service",
-			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: nil,
-				},
-				Readers: CredentialRPCReaders{
-					Credential: mockCredReader,
-				},
-				Streamers: CredentialRPCStreamers{
-					Credential: mockCredStream,
-					OpenAi:     mockOpenAiStream,
-					Gemini:     mockGeminiStream,
-					Anthropic:  mockAnthropicStream,
-				},
-			},
-			wantErr: true,
-			errMsg:  "file service is required",
-		},
-		{
 			name: "missing credential reader",
 			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: nil,
 				},
@@ -107,10 +79,8 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 		{
 			name: "missing credential stream",
 			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
 				},
@@ -127,10 +97,8 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 		{
 			name: "missing openai stream",
 			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
 				},
@@ -147,10 +115,8 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 		{
 			name: "missing gemini stream",
 			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
 				},
@@ -167,10 +133,8 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 		{
 			name: "missing anthropic stream",
 			deps: CredentialRPCDeps{
-				DB: mockDB,
-				Services: CredentialRPCServices{
-					File: mockFileService,
-				},
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
 				},

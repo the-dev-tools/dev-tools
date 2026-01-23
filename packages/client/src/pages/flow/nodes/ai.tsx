@@ -189,8 +189,8 @@ const modelProviderMap = pipe(
       credentialKind: CredentialKind.OPEN_AI,
       credentialKindTitle: 'OpenAI',
       icon: <RiOpenaiFill />,
-      model: AiModel.GPT52_INSTANT,
-      title: 'GPT-5.2 Instant',
+      model: AiModel.GPT52,
+      title: 'GPT-5.2',
     },
     {
       credentialKind: CredentialKind.OPEN_AI,
@@ -198,13 +198,6 @@ const modelProviderMap = pipe(
       icon: <RiOpenaiFill />,
       model: AiModel.GPT52_PRO,
       title: 'GPT-5.2 Pro',
-    },
-    {
-      credentialKind: CredentialKind.OPEN_AI,
-      credentialKindTitle: 'OpenAI',
-      icon: <RiOpenaiFill />,
-      model: AiModel.GPT52_THINKING,
-      title: 'GPT-5.2 Thinking',
     },
     {
       credentialKind: CredentialKind.OPEN_AI,

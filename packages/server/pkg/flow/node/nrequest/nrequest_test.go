@@ -19,6 +19,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -504,6 +505,10 @@ func TestNodeRequestRunSyncSuccessSendsResponseID(t *testing.T) {
 	result := fixture.node.RunSync(context.Background(), fixture.flowReq)
 	require.NoError(t, result.Err, "expected success, got error")
 
+	// IMPORTANT: Verify AuxiliaryID is set in the result - this is used by the runner
+	// to link NodeExecution records to HTTP responses
+	require.NotNil(t, result.AuxiliaryID, "expected result.AuxiliaryID to be set")
+
 	select {
 	case resp := <-consumedChan:
 		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
@@ -514,6 +519,8 @@ func TestNodeRequestRunSyncSuccessSendsResponseID(t *testing.T) {
 			t.Errorf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
 			t.FailNow()
 		}
+		// Verify AuxiliaryID matches the response ID
+		assert.Equal(t, resp.Resp.HTTPResponse.ID, *result.AuxiliaryID, "AuxiliaryID should match HTTP response ID")
 	default:
 		t.Error("expected response side channel to receive entry")
 		t.FailNow()
@@ -528,12 +535,15 @@ func TestNodeRequestRunAsyncSuccessSendsResponseID(t *testing.T) {
 
 	fixture.node.RunAsync(context.Background(), fixture.flowReq, resultChan)
 
+	var result node.FlowNodeResult
 	select {
-	case result := <-resultChan:
+	case result = <-resultChan:
 		if result.Err != nil {
 			t.Errorf("expected async success, got error: %v", result.Err)
 			t.FailNow()
 		}
+		// IMPORTANT: Verify AuxiliaryID is set in the result
+		require.NotNil(t, result.AuxiliaryID, "expected result.AuxiliaryID to be set for async")
 	default:
 		t.Error("expected async result to be delivered")
 		t.FailNow()
@@ -549,6 +559,8 @@ func TestNodeRequestRunAsyncSuccessSendsResponseID(t *testing.T) {
 			t.Errorf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
 			t.FailNow()
 		}
+		// Verify AuxiliaryID matches the response ID
+		assert.Equal(t, resp.Resp.HTTPResponse.ID, *result.AuxiliaryID, "AuxiliaryID should match HTTP response ID for async")
 	default:
 		t.Error("expected async response side channel to receive entry")
 		t.FailNow()

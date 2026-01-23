@@ -22,7 +22,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -34,7 +33,6 @@ type credentialFixture struct {
 	handler CredentialRPC
 
 	cs     scredential.CredentialService
-	fs     *sfile.FileService
 	userID idwrap.IDWrap
 }
 
@@ -48,9 +46,6 @@ func newCredentialFixture(t *testing.T) *credentialFixture {
 	vault := credvault.NewDefault()
 	cs := scredential.NewCredentialService(base.Queries, scredential.WithVault(vault))
 	credReader := scredential.NewCredentialReader(base.DB, scredential.WithDecrypter(vault))
-
-	// Create file service
-	fs := sfile.New(base.Queries, base.Logger())
 
 	// Create streamers for events
 	credStream := memory.NewInMemorySyncStreamer[CredentialTopic, CredentialEvent]()
@@ -81,7 +76,6 @@ func newCredentialFixture(t *testing.T) *credentialFixture {
 			Credential: cs,
 			User:       services.UserService,
 			Workspace:  services.WorkspaceService,
-			File:       fs,
 		},
 		Readers: CredentialRPCReaders{
 			Credential: credReader,
@@ -101,7 +95,6 @@ func newCredentialFixture(t *testing.T) *credentialFixture {
 		base:    base,
 		handler: handler,
 		cs:      cs,
-		fs:      fs,
 		userID:  userID,
 	}
 }
@@ -189,11 +182,7 @@ func TestCredentialInsert_Success(t *testing.T) {
 	cred, err := f.cs.GetCredential(f.ctx, credID)
 	require.NoError(t, err)
 	require.Equal(t, "My OpenAI Key", cred.Name)
-
-	// Verify file was created
-	file, err := f.fs.GetFileByContentID(f.ctx, credID)
-	require.NoError(t, err)
-	require.Equal(t, "My OpenAI Key", file.Name)
+	require.Equal(t, mcredential.CREDENTIAL_KIND_OPENAI, cred.Kind)
 }
 
 func TestCredentialInsert_InvalidWorkspace(t *testing.T) {
@@ -252,11 +241,6 @@ func TestCredentialUpdate_Success(t *testing.T) {
 	cred, err := f.cs.GetCredential(f.ctx, credID)
 	require.NoError(t, err)
 	require.Equal(t, "Updated Name", cred.Name)
-
-	// Verify file name was also updated
-	file, err := f.fs.GetFileByContentID(f.ctx, credID)
-	require.NoError(t, err)
-	require.Equal(t, "Updated Name", file.Name)
 }
 
 func TestCredentialUpdate_NotFound(t *testing.T) {
@@ -296,10 +280,10 @@ func TestCredentialDelete_Success(t *testing.T) {
 	_, err := f.handler.CredentialInsert(f.ctx, insertReq)
 	require.NoError(t, err)
 
-	// Verify file exists
-	file, err := f.fs.GetFileByContentID(f.ctx, credID)
+	// Verify credential exists
+	cred, err := f.cs.GetCredential(f.ctx, credID)
 	require.NoError(t, err)
-	require.NotNil(t, file)
+	require.NotNil(t, cred)
 
 	// Delete credential
 	deleteReq := connect.NewRequest(&credentialv1.CredentialDeleteRequest{
@@ -314,11 +298,6 @@ func TestCredentialDelete_Success(t *testing.T) {
 	_, err = f.cs.GetCredential(f.ctx, credID)
 	require.Error(t, err)
 	require.ErrorIs(t, err, sql.ErrNoRows)
-
-	// Verify file was also deleted (cascade)
-	_, err = f.fs.GetFileByContentID(f.ctx, credID)
-	require.Error(t, err)
-	require.ErrorIs(t, err, sfile.ErrFileNotFound)
 }
 
 func TestCredentialDelete_AlreadyDeleted(t *testing.T) {

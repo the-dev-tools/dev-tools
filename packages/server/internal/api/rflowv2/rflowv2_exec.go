@@ -337,6 +337,25 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 				// Include timestamp in execution name for easy identification
 				executionName := fmt.Sprintf("%s - %s", status.Name, time.Now().Format("2006-01-02 15:04"))
+
+				// Debug: Log AuxiliaryID value being set
+				if status.AuxiliaryID != nil {
+					s.logger.Debug("Creating execution with AuxiliaryID",
+						"exec_id", execID.String(),
+						"node_id", status.NodeID.String(),
+						"node_name", status.Name,
+						"state", status.State,
+						"auxiliary_id", status.AuxiliaryID.String(),
+					)
+				} else {
+					s.logger.Debug("Creating execution without AuxiliaryID",
+						"exec_id", execID.String(),
+						"node_id", status.NodeID.String(),
+						"node_name", status.Name,
+						"state", status.State,
+					)
+				}
+
 				model := mflow.NodeExecution{
 					ID:         execID,
 					NodeID:     status.NodeID,

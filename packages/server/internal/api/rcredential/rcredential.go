@@ -17,11 +17,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
@@ -41,7 +39,6 @@ type CredentialRPC struct {
 	cs scredential.CredentialService
 	us suser.UserService
 	ws sworkspace.WorkspaceService
-	fs *sfile.FileService
 
 	credReader *scredential.CredentialReader
 
@@ -97,13 +94,9 @@ type CredentialRPCServices struct {
 	Credential scredential.CredentialService
 	User       suser.UserService
 	Workspace  sworkspace.WorkspaceService
-	File       *sfile.FileService
 }
 
 func (s *CredentialRPCServices) Validate() error {
-	if s.File == nil {
-		return fmt.Errorf("file service is required")
-	}
 	return nil
 }
 
@@ -175,7 +168,6 @@ func New(deps CredentialRPCDeps) CredentialRPC {
 		cs:              deps.Services.Credential,
 		us:              deps.Services.User,
 		ws:              deps.Services.Workspace,
-		fs:              deps.Services.File,
 		credReader:      deps.Readers.Credential,
 		credStream:      deps.Streamers.Credential,
 		openAiStream:    deps.Streamers.OpenAi,
@@ -269,7 +261,6 @@ func (s *CredentialRPC) CredentialInsert(
 		credID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
 		cred        *mcredential.Credential
-		file        *mfile.File
 	}
 	var items []credItem
 
@@ -298,46 +289,25 @@ func (s *CredentialRPC) CredentialInsert(
 			Kind:        converter.ToModelCredentialKind(item.GetKind()),
 		}
 
-		// Build file model to link credential into file tree
-		// FileID is new, ContentID points to the credential
-		fileID := idwrap.NewNow()
-		file := &mfile.File{
-			ID:          fileID,
-			WorkspaceID: workspaceID,
-			ParentID:    nil, // Root level by default
-			ContentID:   &credID,
-			ContentType: mfile.ContentTypeCredential,
-			Name:        cred.Name,
-			Order:       0, // Default order
-		}
-
 		items = append(items, credItem{
 			credID:      credID,
 			workspaceID: workspaceID,
 			cred:        cred,
-			file:        file,
 		})
 	}
 
-	// ACT phase: Create File and Credential records in transaction
+	// ACT phase: Create Credential records in transaction
+	// Note: File creation is handled by frontend via File collection
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	// Use transaction-scoped services
 	csTx := s.cs.TX(tx)
-	fsTx := s.fs.TX(tx)
 
 	for _, item := range items {
-		// Create credential first (content)
 		if err := csTx.CreateCredential(ctx, item.cred); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Create file record to link into tree
-		if err := fsTx.CreateFile(ctx, item.file); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
@@ -370,10 +340,8 @@ func (s *CredentialRPC) CredentialUpdate(
 
 	// FETCH phase: Gather and validate all items before transaction
 	type updateItem struct {
-		credID      idwrap.IDWrap
-		existing    *mcredential.Credential
-		nameChanged bool
-		newName     string
+		credID   idwrap.IDWrap
+		existing *mcredential.Credential
 	}
 	var items []updateItem
 
@@ -398,22 +366,19 @@ func (s *CredentialRPC) CredentialUpdate(
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
 		}
 
-		ui := updateItem{
-			credID:   credID,
-			existing: existing,
-		}
-
-		// Track name change for file sync
-		if item.Name != nil && *item.Name != existing.Name {
-			ui.nameChanged = true
-			ui.newName = *item.Name
+		// Apply updates
+		if item.Name != nil {
 			existing.Name = *item.Name
 		}
 
-		items = append(items, ui)
+		items = append(items, updateItem{
+			credID:   credID,
+			existing: existing,
+		})
 	}
 
-	// ACT phase: Update credential and file in transaction
+	// ACT phase: Update credential in transaction
+	// Note: File updates are handled by frontend via File collection
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -421,24 +386,10 @@ func (s *CredentialRPC) CredentialUpdate(
 	defer devtoolsdb.TxnRollback(tx)
 
 	csTx := s.cs.TX(tx)
-	fsTx := s.fs.TX(tx)
 
 	for _, item := range items {
-		// Update credential
 		if err := csTx.UpdateCredential(ctx, item.existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// If name changed, update the file record too
-		if item.nameChanged {
-			file, err := fsTx.GetFileByContentID(ctx, item.credID)
-			if err == nil && file != nil {
-				file.Name = item.newName
-				if err := fsTx.UpdateFile(ctx, file); err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-			}
-			// If file not found, that's OK - credential can exist without file entry
 		}
 	}
 
@@ -472,7 +423,6 @@ func (s *CredentialRPC) CredentialDelete(
 	type deleteItem struct {
 		credID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
-		fileID      *idwrap.IDWrap // May be nil if file not found
 	}
 	var items []deleteItem
 
@@ -497,60 +447,33 @@ func (s *CredentialRPC) CredentialDelete(
 			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
 		}
 
-		// Look up file ID for cascade event publishing
-		var fileID *idwrap.IDWrap
-		file, err := s.fs.GetFileByContentID(ctx, credID)
-		if err == nil && file != nil {
-			fileID = &file.ID
-		}
-
 		items = append(items, deleteItem{
 			credID:      credID,
 			workspaceID: existing.WorkspaceID,
-			fileID:      fileID,
 		})
 	}
 
-	// ACT phase: Delete file and credential using mutation system
-	var opts []mutation.Option
-	if s.publisher != nil {
-		opts = append(opts, mutation.WithPublisher(s.publisher))
-	}
-	mut := mutation.New(s.DB, opts...)
-	if err := mut.Begin(ctx); err != nil {
+	// ACT phase: Delete credential in transaction
+	// Note: File deletion is handled by frontend via File collection
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer mut.Rollback()
+	defer devtoolsdb.TxnRollback(tx)
 
-	csTx := s.cs.TX(mut.TX())
-	fsTx := s.fs.TX(mut.TX())
+	csTx := s.cs.TX(tx)
 
 	for _, item := range items {
-		// Delete file record first (no FK constraint from files to credentials)
-		if item.fileID != nil {
-			// Register file delete event for cascade publishing
-			mut.Track(mutation.Event{
-				Entity:      mutation.EntityFile,
-				Op:          mutation.OpDelete,
-				ID:          *item.fileID,
-				WorkspaceID: item.workspaceID,
-			})
-			if err := fsTx.DeleteFile(ctx, *item.fileID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
-
-		// Delete credential (provider-specific cascade handled by DB FK)
 		if err := csTx.DeleteCredential(ctx, item.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	if err := mut.Commit(ctx); err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Publish credential events after commit (mutation system handles file events)
+	// Publish credential events after commit
 	for _, item := range items {
 		if s.credStream != nil {
 			s.credStream.Publish(CredentialTopic{WorkspaceID: item.workspaceID}, CredentialEvent{
@@ -712,7 +635,8 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 			CredentialID: credID,
 			Token:        item.GetToken(),
 		}
-		if item.BaseUrl != nil {
+		// Only set BaseUrl if it's non-empty (empty string means use provider default)
+		if item.BaseUrl != nil && *item.BaseUrl != "" {
 			openai.BaseUrl = item.BaseUrl
 		}
 
@@ -797,7 +721,12 @@ func (s *CredentialRPC) CredentialOpenAiUpdate(
 		if item.BaseUrl != nil {
 			switch item.BaseUrl.Kind {
 			case credentialv1.CredentialOpenAiUpdate_BaseUrlUnion_KIND_VALUE:
-				updated.BaseUrl = item.BaseUrl.Value
+				// Empty string means use provider default (same as unset)
+				if item.BaseUrl.Value != nil && *item.BaseUrl.Value != "" {
+					updated.BaseUrl = item.BaseUrl.Value
+				} else {
+					updated.BaseUrl = nil
+				}
 			case credentialv1.CredentialOpenAiUpdate_BaseUrlUnion_KIND_UNSET:
 				updated.BaseUrl = nil
 			}
@@ -881,6 +810,7 @@ func (s *CredentialRPC) CredentialOpenAiDelete(
 	}
 
 	// Note: We delete the parent credential which cascades to delete the OpenAI secret
+	// Note: File deletion is handled by frontend via File collection
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -888,17 +818,8 @@ func (s *CredentialRPC) CredentialOpenAiDelete(
 	defer devtoolsdb.TxnRollback(tx)
 
 	csTx := s.cs.TX(tx)
-	fsTx := s.fs.TX(tx)
 
 	for _, data := range validatedItems {
-		// Delete file record first
-		file, err := fsTx.GetFileByContentID(ctx, data.credID)
-		if err == nil && file != nil {
-			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
-
 		// Delete credential (cascades to OpenAI secret)
 		if err := csTx.DeleteCredential(ctx, data.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1074,7 +995,8 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 			CredentialID: credID,
 			ApiKey:       item.GetApiKey(),
 		}
-		if item.BaseUrl != nil {
+		// Only set BaseUrl if it's non-empty (empty string means use provider default)
+		if item.BaseUrl != nil && *item.BaseUrl != "" {
 			gemini.BaseUrl = item.BaseUrl
 		}
 
@@ -1158,7 +1080,12 @@ func (s *CredentialRPC) CredentialGeminiUpdate(
 		if item.BaseUrl != nil {
 			switch item.BaseUrl.Kind {
 			case credentialv1.CredentialGeminiUpdate_BaseUrlUnion_KIND_VALUE:
-				updated.BaseUrl = item.BaseUrl.Value
+				// Empty string means use provider default (same as unset)
+				if item.BaseUrl.Value != nil && *item.BaseUrl.Value != "" {
+					updated.BaseUrl = item.BaseUrl.Value
+				} else {
+					updated.BaseUrl = nil
+				}
 			case credentialv1.CredentialGeminiUpdate_BaseUrlUnion_KIND_UNSET:
 				updated.BaseUrl = nil
 			}
@@ -1239,6 +1166,7 @@ func (s *CredentialRPC) CredentialGeminiDelete(
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 
+	// Note: File deletion is handled by frontend via File collection
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1246,16 +1174,8 @@ func (s *CredentialRPC) CredentialGeminiDelete(
 	defer devtoolsdb.TxnRollback(tx)
 
 	csTx := s.cs.TX(tx)
-	fsTx := s.fs.TX(tx)
 
 	for _, data := range validatedItems {
-		file, err := fsTx.GetFileByContentID(ctx, data.credID)
-		if err == nil && file != nil {
-			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
-
 		if err := csTx.DeleteCredential(ctx, data.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1428,7 +1348,8 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 			CredentialID: credID,
 			ApiKey:       item.GetApiKey(),
 		}
-		if item.BaseUrl != nil {
+		// Only set BaseUrl if it's non-empty (empty string means use provider default)
+		if item.BaseUrl != nil && *item.BaseUrl != "" {
 			anthropic.BaseUrl = item.BaseUrl
 		}
 
@@ -1512,7 +1433,12 @@ func (s *CredentialRPC) CredentialAnthropicUpdate(
 		if item.BaseUrl != nil {
 			switch item.BaseUrl.Kind {
 			case credentialv1.CredentialAnthropicUpdate_BaseUrlUnion_KIND_VALUE:
-				updated.BaseUrl = item.BaseUrl.Value
+				// Empty string means use provider default (same as unset)
+				if item.BaseUrl.Value != nil && *item.BaseUrl.Value != "" {
+					updated.BaseUrl = item.BaseUrl.Value
+				} else {
+					updated.BaseUrl = nil
+				}
 			case credentialv1.CredentialAnthropicUpdate_BaseUrlUnion_KIND_UNSET:
 				updated.BaseUrl = nil
 			}
@@ -1593,6 +1519,7 @@ func (s *CredentialRPC) CredentialAnthropicDelete(
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 
+	// Note: File deletion is handled by frontend via File collection
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1600,16 +1527,8 @@ func (s *CredentialRPC) CredentialAnthropicDelete(
 	defer devtoolsdb.TxnRollback(tx)
 
 	csTx := s.cs.TX(tx)
-	fsTx := s.fs.TX(tx)
 
 	for _, data := range validatedItems {
-		file, err := fsTx.GetFileByContentID(ctx, data.credID)
-		if err == nil && file != nil {
-			if err := fsTx.DeleteFile(ctx, file.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
-
 		if err := csTx.DeleteCredential(ctx, data.credID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

@@ -19,13 +19,13 @@ func TestNewNodeAiProvider(t *testing.T) {
 	temp := float32(0.7)
 	maxTokens := int32(4096)
 
-	n := New(id, "TestAiProvider", &credID, mflow.AiModelGpt52Instant, "", &temp, &maxTokens)
+	n := New(id, "TestAiProvider", &credID, mflow.AiModelGpt52, "", &temp, &maxTokens)
 
 	assert.Equal(t, id, n.GetID())
 	assert.Equal(t, "TestAiProvider", n.GetName())
 	require.NotNil(t, n.CredentialID)
 	assert.Equal(t, credID, *n.CredentialID)
-	assert.Equal(t, mflow.AiModelGpt52Instant, n.Model)
+	assert.Equal(t, mflow.AiModelGpt52, n.Model)
 	assert.Equal(t, "", n.CustomModel)
 	require.NotNil(t, n.Temperature)
 	assert.Equal(t, float32(0.7), *n.Temperature)
@@ -122,7 +122,7 @@ func TestNodeAiProvider_RunAsync(t *testing.T) {
 
 func TestNodeAiProvider_AllModelTypes(t *testing.T) {
 	models := []mflow.AiModel{
-		mflow.AiModelGpt52Instant,
+		mflow.AiModelGpt52,
 		mflow.AiModelGpt52Pro,
 		mflow.AiModelClaudeSonnet45,
 		mflow.AiModelClaudeOpus45,

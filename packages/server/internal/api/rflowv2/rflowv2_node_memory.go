@@ -329,50 +329,6 @@ func (s *FlowServiceV2RPC) streamNodeMemorySync(
 		return err
 	}
 
-	// Build initial collection
-	var items []*flowv1.NodeAiMemory
-	for _, flow := range flows {
-		nodes, err := s.nsReader.GetNodesByFlowID(ctx, flow.ID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return connect.NewError(connect.CodeInternal, err)
-		}
-		for _, node := range nodes {
-			if node.NodeKind != mflow.NODE_KIND_AI_MEMORY {
-				continue
-			}
-			nodeMemory, err := s.nmems.GetNodeMemory(ctx, node.ID)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					continue
-				}
-				return connect.NewError(connect.CodeInternal, err)
-			}
-			items = append(items, serializeNodeMemory(*nodeMemory))
-		}
-	}
-
-	// Convert to sync items format
-	syncItems := make([]*flowv1.NodeAiMemorySync, 0, len(items))
-	for _, item := range items {
-		syncItems = append(syncItems, &flowv1.NodeAiMemorySync{
-			Value: &flowv1.NodeAiMemorySync_ValueUnion{
-				Kind: flowv1.NodeAiMemorySync_ValueUnion_KIND_UPSERT,
-				Upsert: &flowv1.NodeAiMemorySyncUpsert{
-					NodeId:     item.NodeId,
-					MemoryType: item.MemoryType,
-					WindowSize: item.WindowSize,
-				},
-			},
-		})
-	}
-
-	// Send initial collection as upsert items
-	if err := send(&flowv1.NodeAiMemorySyncResponse{
-		Items: syncItems,
-	}); err != nil {
-		return err
-	}
-
 	// Real-time streaming: subscribe to Memory node events
 	if s.memoryStream == nil {
 		// No streamer available, wait for context cancellation

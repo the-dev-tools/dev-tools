@@ -67,15 +67,17 @@ type NodeForEach struct {
 
 // Model string constants
 const (
-	ModelStringGpt52Instant = "gpt-5.2-instant"
+	ModelStringGpt52 = "gpt-5.2"
 )
 
 type AiModel int8
 
 const (
+	// Unspecified - must be 0 to match proto enum
+	AiModelUnspecified AiModel = iota
+
 	// OpenAI - GPT-5.2 family
-	AiModelGpt52Instant AiModel = iota
-	AiModelGpt52Thinking
+	AiModelGpt52
 	AiModelGpt52Pro
 	AiModelGpt52Codex
 
@@ -99,10 +101,10 @@ const (
 // ModelString returns the API model string for the LLM provider
 func (m AiModel) ModelString() string {
 	switch m {
-	case AiModelGpt52Instant:
-		return ModelStringGpt52Instant
-	case AiModelGpt52Thinking:
-		return "gpt-5.2-thinking"
+	case AiModelUnspecified:
+		return "" // Unspecified model
+	case AiModelGpt52:
+		return ModelStringGpt52
 	case AiModelGpt52Pro:
 		return "gpt-5.2-pro"
 	case AiModelGpt52Codex:
@@ -118,20 +120,22 @@ func (m AiModel) ModelString() string {
 	case AiModelClaudeHaiku45:
 		return "claude-haiku-4-5"
 	case AiModelGemini3Pro:
-		return "gemini-3-pro"
+		return "gemini-3-pro-preview"
 	case AiModelGemini3Flash:
-		return "gemini-3-flash"
+		return "gemini-3-flash-preview"
 	case AiModelCustom:
 		return "" // Handled via CustomModel field
 	default:
-		return ModelStringGpt52Instant
+		return ModelStringGpt52
 	}
 }
 
 // Provider returns the provider type for the model
 func (m AiModel) Provider() string {
 	switch m {
-	case AiModelGpt52Instant, AiModelGpt52Thinking, AiModelGpt52Pro, AiModelGpt52Codex, AiModelO3, AiModelO4Mini:
+	case AiModelUnspecified:
+		return "" // Unspecified
+	case AiModelGpt52, AiModelGpt52Pro, AiModelGpt52Codex, AiModelO3, AiModelO4Mini:
 		return "openai"
 	case AiModelClaudeOpus45, AiModelClaudeSonnet45, AiModelClaudeHaiku45:
 		return "anthropic"
@@ -148,10 +152,8 @@ func (m AiModel) Provider() string {
 // Returns AiModelCustom if the string doesn't match any known model.
 func AiModelFromString(s string) AiModel {
 	switch s {
-	case ModelStringGpt52Instant:
-		return AiModelGpt52Instant
-	case "gpt-5.2-thinking":
-		return AiModelGpt52Thinking
+	case ModelStringGpt52:
+		return AiModelGpt52
 	case "gpt-5.2-pro":
 		return AiModelGpt52Pro
 	case "gpt-5.2-codex":
@@ -166,9 +168,9 @@ func AiModelFromString(s string) AiModel {
 		return AiModelClaudeSonnet45
 	case "claude-haiku-4-5":
 		return AiModelClaudeHaiku45
-	case "gemini-3-pro":
+	case "gemini-3-pro-preview":
 		return AiModelGemini3Pro
-	case "gemini-3-flash":
+	case "gemini-3-flash-preview":
 		return AiModelGemini3Flash
 	case "custom", "":
 		return AiModelCustom

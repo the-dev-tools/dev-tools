@@ -229,7 +229,7 @@ func (b *Builder) BuildNodes(
 					nodeModel.ID,
 					nodeModel.Name,
 					nil, // No credential set yet
-					mflow.AiModelGpt52Instant,
+					mflow.AiModelGpt52,
 					"",
 					nil,
 					nil,

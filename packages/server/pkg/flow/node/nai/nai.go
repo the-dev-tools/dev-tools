@@ -2,12 +2,16 @@ package nai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
@@ -113,9 +117,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	}
 
 	// Internal map for easy lookup during execution
-	toolMap := make(map[string]interface {
-		Execute(context.Context, string) (string, error)
-	})
+	toolMap := make(map[string]*NodeTool)
 
 	// Add connected nodes as tools
 	connectedNodeIDs := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleAiTools)
@@ -129,7 +131,8 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		toolMap[sanitizeToolName(targetNode.GetName())] = nt
 	}
 
-	// 5. Initialize Agent executor
+	// 5. Initialize Agent executor using the flow runner (like ForEach does)
+	// This ensures proper status emission, AuxiliaryID propagation, and HTTP response linking
 	executor := func(ctx context.Context, name string, args string) (string, error) {
 		switch name {
 		case "get_variable":
@@ -137,10 +140,63 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		case "set_variable":
 			return handleSetVariable(ctx, req, args)
 		default:
-			if tool, ok := toolMap[name]; ok {
-				return tool.Execute(ctx, args)
+			tool, ok := toolMap[name]
+			if !ok {
+				return "", fmt.Errorf("tool '%s' not found", name)
 			}
-			return "", fmt.Errorf("tool '%s' not found", name)
+
+			toolNodeID := tool.TargetNode.GetID()
+			toolNodeName := tool.TargetNode.GetName()
+
+			// Create a child request for single-node execution via the runner
+			// Empty edge map ensures only this node runs (no following edges)
+			emptyEdgeMap := make(mflow.EdgesMap)
+
+			// Build minimal node map with just the tool node
+			toolNodeMap := map[idwrap.IDWrap]node.FlowNode{
+				toolNodeID: tool.TargetNode,
+			}
+
+			// Create child request for the tool execution
+			childReq := *req
+			childReq.EdgeSourceMap = emptyEdgeMap
+			childReq.NodeMap = toolNodeMap
+			childReq.PendingAtmoicMap = nil
+			childReq.ExecutionID = idwrap.NewMonotonic()
+			// Create a new RWMutex for the child request to avoid lock contention
+			childReq.ReadWriteLock = &sync.RWMutex{}
+
+			// Build empty predecessor map (tool node has no predecessors in this context)
+			predecessorMap := make(map[idwrap.IDWrap][]idwrap.IDWrap)
+
+			// Provide a no-op status func if LogPushFunc is nil (e.g., in tests)
+			statusFunc := req.LogPushFunc
+			if statusFunc == nil {
+				statusFunc = func(s runner.FlowNodeStatus) {} // no-op
+			}
+
+			// Execute via runner - this handles status emission automatically including AuxiliaryID
+			err := flowlocalrunner.RunNodeSync(ctx, toolNodeID, &childReq, statusFunc, predecessorMap)
+
+			// Extract output from VarMap after execution
+			var output string
+			if data, ok := childReq.VarMap[toolNodeName]; ok {
+				jsonBytes, jsonErr := json.Marshal(data)
+				if jsonErr != nil {
+					output = fmt.Sprintf("Node '%s' executed successfully. Output not serializable: %v", toolNodeName, jsonErr)
+				} else {
+					output = string(jsonBytes)
+				}
+
+				// Copy the tool's output to the parent VarMap so it's accessible via {{NodeName.field}}
+				req.ReadWriteLock.Lock()
+				req.VarMap[toolNodeName] = data
+				req.ReadWriteLock.Unlock()
+			} else {
+				output = fmt.Sprintf("Node '%s' executed successfully. No output captured.", toolNodeName)
+			}
+
+			return output, err
 		}
 	}
 

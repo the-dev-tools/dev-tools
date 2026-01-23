@@ -41,8 +41,7 @@ CREATE TABLE credential_anthropic (
 CREATE TABLE flow_node_ai (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   prompt TEXT NOT NULL,
-  max_iterations INT NOT NULL DEFAULT 5,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  max_iterations INT NOT NULL DEFAULT 5
 );
 
 -- AI Provider Node: LLM configuration that can be connected to AI Agent nodes via HandleAiProvider edge
@@ -51,9 +50,7 @@ CREATE TABLE flow_node_ai_provider (
   credential_id BLOB, -- Optional: NULL means no credential set yet
   model INT8 NOT NULL, -- AiModel enum (same as flow_node_ai)
   temperature REAL, -- Optional: 0.0-2.0, NULL means use provider default
-  max_tokens INT, -- Optional: max output tokens, NULL means use provider default
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (credential_id) REFERENCES credential (id) ON DELETE SET NULL
+  max_tokens INT -- Optional: max output tokens, NULL means use provider default
 );
 
 -- Memory Node: Conversation memory configuration that can be connected to AI Agent nodes via HandleAiMemory edge

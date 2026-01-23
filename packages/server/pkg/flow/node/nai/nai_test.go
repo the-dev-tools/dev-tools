@@ -37,7 +37,7 @@ func createTestAiProviderNode(id, credentialID idwrap.IDWrap) *naiprovider.NodeA
 		FlowNodeID:   id,
 		Name:         "Test Model",
 		CredentialID: &credentialID,
-		Model:        mflow.AiModelGpt52Instant,
+		Model:        mflow.AiModelGpt52,
 	}
 }
 

@@ -37,6 +37,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -166,8 +167,9 @@ func run() error {
 	fileService := sfile.New(queries, logger)
 
 	// Credential Service
-	credentialService := scredential.NewCredentialService(queries)
-	credentialReader := scredential.NewCredentialReader(currentDB)
+	vault := credvault.NewDefault()
+	credentialService := scredential.NewCredentialService(queries, scredential.WithVault(vault))
+	credentialReader := scredential.NewCredentialReader(currentDB, scredential.WithDecrypter(vault))
 
 	// Flow
 	flowService := sflow.NewFlowService(queries)
@@ -524,7 +526,6 @@ func run() error {
 			Credential: credentialService,
 			User:       userService,
 			Workspace:  workspaceService,
-			File:       fileService,
 		},
 		Readers: rcredential.CredentialRPCReaders{
 			Credential: credentialReader,

@@ -79,7 +79,8 @@ func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiMo
 			openai.WithToken(openaiCred.Token),
 			openai.WithModel(modelStr),
 		}
-		if openaiCred.BaseUrl != nil {
+		// Only set BaseUrl if non-empty (empty string would break the API call)
+		if openaiCred.BaseUrl != nil && *openaiCred.BaseUrl != "" {
 			opts = append(opts, openai.WithBaseURL(*openaiCred.BaseUrl))
 		}
 		return openai.New(opts...)
@@ -105,7 +106,8 @@ func (f *LLMProviderFactory) CreateModelWithCredential(ctx context.Context, aiMo
 			anthropic.WithToken(anthropicCred.ApiKey),
 			anthropic.WithModel(modelStr),
 		}
-		if anthropicCred.BaseUrl != nil {
+		// Only set BaseUrl if non-empty (empty string would break the API call)
+		if anthropicCred.BaseUrl != nil && *anthropicCred.BaseUrl != "" {
 			opts = append(opts, anthropic.WithBaseURL(*anthropicCred.BaseUrl))
 		}
 		return anthropic.New(opts...)
@@ -131,7 +133,8 @@ func (f *LLMProviderFactory) CreateModel(ctx context.Context, credentialID idwra
 		opts := []openai.Option{
 			openai.WithToken(openaiCred.Token),
 		}
-		if openaiCred.BaseUrl != nil {
+		// Only set BaseUrl if non-empty (empty string would break the API call)
+		if openaiCred.BaseUrl != nil && *openaiCred.BaseUrl != "" {
 			opts = append(opts, openai.WithBaseURL(*openaiCred.BaseUrl))
 		}
 
@@ -157,7 +160,8 @@ func (f *LLMProviderFactory) CreateModel(ctx context.Context, credentialID idwra
 		opts := []anthropic.Option{
 			anthropic.WithToken(anthropicCred.ApiKey),
 		}
-		if anthropicCred.BaseUrl != nil {
+		// Only set BaseUrl if non-empty (empty string would break the API call)
+		if anthropicCred.BaseUrl != nil && *anthropicCred.BaseUrl != "" {
 			opts = append(opts, anthropic.WithBaseURL(*anthropicCred.BaseUrl))
 		}
 

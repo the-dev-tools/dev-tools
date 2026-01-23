@@ -217,6 +217,15 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	result.AuxiliaryID = &respCreate.HTTPResponse.ID
 
+	// Debug: Log that AuxiliaryID is being set in RunSync
+	if nr.logger != nil {
+		nr.logger.Debug("HTTP node RunSync setting AuxiliaryID",
+			"node_id", nr.FlownNodeID.String(),
+			"node_name", nr.Name,
+			"auxiliary_id", respCreate.HTTPResponse.ID.String(),
+		)
+	}
+
 	done := make(chan struct{})
 
 	// Check if any assertions failed
