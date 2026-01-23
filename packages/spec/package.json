@@ -14,6 +14,8 @@
     "./tools": "./src/tools/index.ts",
     "./tools/schemas": "./dist/tools/schemas.ts",
     "./tools/common": "./src/tools/common.ts",
+    "./tools/execution": "./dist/ai-tools/v1/execution.ts",
+    "./tools/exploration": "./dist/ai-tools/v1/exploration.ts",
     "./tools/mutation": "./dist/ai-tools/v1/mutation.ts"
   },
   "scripts": {

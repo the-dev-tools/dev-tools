@@ -31,4 +31,12 @@ namespace DevTools.AITools {
   }
 
   extern dec mutationTool(target: Reflection.Model, ...tools: valueof MutationToolOptions[]);
+
+  model ExplorationToolOptions {
+    name: string;
+    title: string;
+    description?: string;
+  }
+
+  extern dec explorationTool(target: Reflection.Model, ...tools: valueof ExplorationToolOptions[]);
 }

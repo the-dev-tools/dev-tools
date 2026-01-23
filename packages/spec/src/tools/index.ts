@@ -9,9 +9,13 @@ import { JSONSchema, Schema } from 'effect';
 
 // Re-export common schemas and generated tool schemas
 export * from './common.ts';
+export * from '../../dist/ai-tools/v1/execution.ts';
+export * from '../../dist/ai-tools/v1/exploration.ts';
 export * from '../../dist/ai-tools/v1/mutation.ts';
 
 // Import schema groups from generated files
+import { ExecutionSchemas } from '../../dist/ai-tools/v1/execution.ts';
+import { ExplorationSchemas } from '../../dist/ai-tools/v1/exploration.ts';
 import { MutationSchemas } from '../../dist/ai-tools/v1/mutation.ts';
 
 // =============================================================================
@@ -98,16 +102,22 @@ function schemaToToolDefinition<A, I, R>(schema: Schema.Schema<A, I, R>): ToolDe
 // Auto-generated Tool Definitions (no manual listing needed)
 // =============================================================================
 
+export const executionSchemas = Object.values(ExecutionSchemas).map(schemaToToolDefinition);
+
+export const explorationSchemas = Object.values(ExplorationSchemas).map(schemaToToolDefinition);
+
 export const mutationSchemas = Object.values(MutationSchemas).map(schemaToToolDefinition);
 
 /** All tool schemas combined - ready for AI tool calling */
-export const allToolSchemas = [...mutationSchemas];
+export const allToolSchemas = [...executionSchemas, ...explorationSchemas, ...mutationSchemas];
 
 // =============================================================================
 // Effect Schemas (for runtime validation)
 // =============================================================================
 
 export const EffectSchemas = {
+  Execution: ExecutionSchemas,
+  Exploration: ExplorationSchemas,
   Mutation: MutationSchemas,
 } as const;
 

@@ -6,7 +6,7 @@ import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, pipe, Record, String } from 'effect';
 import { join } from 'node:path/posix';
 import { primaryKeys } from '../core/index.jsx';
-import { aiTools, AIToolOptions, MutationToolOptions, mutationTools, ToolCategory } from './lib.js';
+import { aiTools, AIToolOptions, explorationTools, MutationToolOptions, mutationTools, ToolCategory } from './lib.js';
 
 export const $onEmit = async (context: EmitContext) => {
   const { emitterOutputDir, program } = context;
@@ -16,7 +16,8 @@ export const $onEmit = async (context: EmitContext) => {
   // Check if there are any AI tools to emit
   const tools = aiTools(program);
   const mutations = mutationTools(program);
-  if (tools.size === 0 && mutations.size === 0) {
+  const explorations = explorationTools(program);
+  if (tools.size === 0 && mutations.size === 0 && explorations.size === 0) {
     return;
   }
 
@@ -128,6 +129,26 @@ function resolveExplorationTools(program: Program): ResolvedTool[] {
       properties,
       title: `Get ${spacedName}`,
     });
+  }
+
+  // Custom exploration tools from @explorationTool decorator
+  for (const [model, toolDefs] of explorationTools(program).entries()) {
+    for (const toolDef of toolDefs) {
+      const properties: ResolvedProperty[] = [];
+      for (const prop of model.properties.values()) {
+        if (primaryKeys(program).has(prop)) {
+          properties.push({ optional: false, property: prop });
+        }
+      }
+      if (properties.length === 0) continue;
+
+      tools.push({
+        description: toolDef.description,
+        name: toolDef.name,
+        properties,
+        title: toolDef.title,
+      });
+    }
   }
 
   return tools;

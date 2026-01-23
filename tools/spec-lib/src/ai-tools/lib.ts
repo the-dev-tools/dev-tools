@@ -9,6 +9,7 @@ export const $lib = createTypeSpecLibrary({
 export const $decorators = {
   'DevTools.AITools': {
     aiTool,
+    explorationTool,
     mutationTool,
   },
 };
@@ -70,4 +71,27 @@ function mutationTool({ program }: DecoratorContext, target: Model, ...tools: Ra
     title: tool.title,
   }));
   mutationTools(program).set(target, resolved);
+}
+
+export interface ExplorationToolOptions {
+  description?: string | undefined;
+  name: string;
+  title: string;
+}
+
+export const explorationTools = makeStateMap<Model, ExplorationToolOptions[]>('explorationTools');
+
+interface RawExplorationToolOptions {
+  description?: string;
+  name: string;
+  title: string;
+}
+
+function explorationTool({ program }: DecoratorContext, target: Model, ...tools: RawExplorationToolOptions[]) {
+  const resolved: ExplorationToolOptions[] = tools.map((tool) => ({
+    description: tool.description,
+    name: tool.name,
+    title: tool.title,
+  }));
+  explorationTools(program).set(target, resolved);
 }

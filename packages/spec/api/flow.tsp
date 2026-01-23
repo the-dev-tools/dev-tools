@@ -2,6 +2,7 @@ using DevTools;
 
 namespace Api.Flow;
 
+@AITools.explorationTool(#{ name: "ValidateWorkflow", title: "Validate Workflow", description: "Validate a workflow by checking its structure, connections, and node configurations for errors." })
 @TanStackDB.collection
 model Flow {
   @primaryKey flowId: Id;
