@@ -40,6 +40,7 @@ model FlowVersion {
   @foreignKey flowId: Id;
 }
 
+@AITools.explorationTool(#{ name: "GetFlowVariable", title: "Get Flow Variable", description: "Get a flow variable by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Create Variable", name: "CreateVariable", description: "Create a new workflow variable that can be referenced in node expressions." },
   #{ operation: AITools.CrudOperation.Update, title: "Update Variable", name: "UpdateVariable", description: "Update an existing workflow variable." }
@@ -56,6 +57,7 @@ enum HandleKind {
   Loop,
 }
 
+@AITools.explorationTool(#{ name: "GetEdge", title: "Get Edge", description: "Get a edge by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Connect Nodes", name: "ConnectNodes", description: "Create an edge connection between two nodes. IMPORTANT: For sequential flows (Manual Start, JS, HTTP nodes), do NOT specify sourceHandle - omit it entirely. Only use sourceHandle for Condition nodes (then/else) and Loop nodes (loop/then)." },
   #{ operation: AITools.CrudOperation.Delete, title: "Disconnect Nodes", name: "DisconnectNodes", description: "Remove an edge connection between nodes." }
@@ -91,6 +93,7 @@ model Position {
   y: float32;
 }
 
+@AITools.explorationTool(#{ name: "GetNode", title: "Get Node", description: "Get a node by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Update, title: "Update Node Config", name: "UpdateNodeConfig", description: "Update general node properties like name or position." },
   #{ operation: AITools.CrudOperation.Delete, title: "Delete Node", name: "DeleteNode", description: "Delete a node from the workflow. Also removes all connected edges." }
@@ -106,6 +109,7 @@ model Node {
   @visibility(Lifecycle.Read) info?: string;
 }
 
+@AITools.explorationTool(#{ name: "GetNodeHttp", title: "Get Node Http", description: "Get a node http by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Create HTTP Node", name: "CreateHttpNode", parent: "Node", exclude: #["kind"], description: "Create a new HTTP request node that makes an API call." }
 )
@@ -121,6 +125,7 @@ enum ErrorHandling {
   Break,
 }
 
+@AITools.explorationTool(#{ name: "GetNodeFor", title: "Get Node For", description: "Get a node for by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Create For Loop Node", name: "CreateForNode", parent: "Node", exclude: #["kind"], description: "Create a for-loop node that iterates a fixed number of times." }
 )
@@ -132,6 +137,7 @@ model NodeFor {
   errorHandling: ErrorHandling;
 }
 
+@AITools.explorationTool(#{ name: "GetNodeForEach", title: "Get Node For Each", description: "Get a node for each by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Create ForEach Loop Node", name: "CreateForEachNode", parent: "Node", exclude: #["kind"], description: "Create a forEach node that iterates over an array or object." }
 )
@@ -143,6 +149,7 @@ model NodeForEach {
   errorHandling: ErrorHandling;
 }
 
+@AITools.explorationTool(#{ name: "GetNodeCondition", title: "Get Node Condition", description: "Get a node condition by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Create Condition Node", name: "CreateConditionNode", parent: "Node", exclude: #["kind"], description: "Create a condition node that routes flow based on a boolean expression. Has THEN and ELSE output handles." }
 )
@@ -152,6 +159,7 @@ model NodeCondition {
   condition: string;
 }
 
+@AITools.explorationTool(#{ name: "GetNodeJs", title: "Get Node Js", description: "Get a node js by its primary key." })
 @AITools.mutationTool(
   #{ operation: AITools.CrudOperation.Insert, title: "Create JavaScript Node", name: "CreateJsNode", parent: "Node", exclude: #["kind"], description: "Create a new JavaScript node in the workflow. JS nodes can transform data, make calculations, or perform custom logic." },
   #{ operation: AITools.CrudOperation.Update, title: "Update Node Code", name: "UpdateNodeCode", description: "Update the JavaScript code of a JS node." }
