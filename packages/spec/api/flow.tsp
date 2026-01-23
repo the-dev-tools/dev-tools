@@ -17,14 +17,18 @@ model FlowDuplicateRequest {
 
 op FlowDuplicate(...FlowDuplicateRequest): {};
 
+@AITools.aiTool(#{ category: AITools.ToolCategory.Execution, title: "Run Flow" })
+@doc("Execute a workflow from the start node.")
 model FlowRunRequest {
-  flowId: Id;
+  @doc("The ULID of the workflow to run") flowId: Id;
 }
 
 op FlowRun(...FlowRunRequest): {};
 
+@AITools.aiTool(#{ category: AITools.ToolCategory.Execution, title: "Stop Flow" })
+@doc("Stop a running workflow execution.")
 model FlowStopRequest {
-  flowId: Id;
+  @doc("The ULID of the workflow to stop") flowId: Id;
 }
 
 op FlowStop(...FlowStopRequest): {};

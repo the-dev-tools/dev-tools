@@ -105,6 +105,34 @@ function resolveToolProperties(program: Program, collectionModel: Model, toolDef
   }
 }
 
+function resolveExplorationTools(program: Program): ResolvedTool[] {
+  const tools: ResolvedTool[] = [];
+  const seen = new Set<string>();
+
+  for (const [model] of mutationTools(program).entries()) {
+    if (seen.has(model.name)) continue;
+    seen.add(model.name);
+
+    const properties: ResolvedProperty[] = [];
+    for (const prop of model.properties.values()) {
+      if (primaryKeys(program).has(prop)) {
+        properties.push({ optional: false, property: prop });
+      }
+    }
+    if (properties.length === 0) continue;
+
+    const spacedName = model.name.replace(/([a-z])([A-Z])/g, '$1 $2');
+    tools.push({
+      description: `Get a ${spacedName.toLowerCase()} by its primary key.`,
+      name: `Get${model.name}`,
+      properties,
+      title: `Get ${spacedName}`,
+    });
+  }
+
+  return tools;
+}
+
 function resolveMutationTools(program: Program): ResolvedTool[] {
   const tools: ResolvedTool[] = [];
 
@@ -137,6 +165,9 @@ const CategoryFiles = () => {
 
   // Resolve mutation tools from @mutationTool decorator
   const resolvedMutationTools = resolveMutationTools(program);
+
+  // Resolve exploration tools (auto-generated Get tools from @mutationTool models)
+  const resolvedExplorationTools = resolveExplorationTools(program);
 
   const allCategories: ToolCategory[] = ['Mutation', 'Exploration', 'Execution'];
 
@@ -179,7 +210,60 @@ const CategoryFiles = () => {
           );
         }
 
-        // Exploration/Execution tools from @aiTool decorator
+        if (category === 'Exploration') {
+          const aiToolModels = toolsByCategory[category] ?? [];
+          if (resolvedExplorationTools.length === 0 && aiToolModels.length === 0) return null;
+
+          return (
+            <SourceFile path="exploration.ts">
+              <ExplorationImports aiToolModels={aiToolModels} resolvedTools={resolvedExplorationTools} />
+              {'\n'}
+              <For doubleHardline each={resolvedExplorationTools} ender>
+                {(tool) => <ResolvedToolSchema tool={tool} />}
+              </For>
+
+              <Show when={aiToolModels.length > 0}>
+                <For doubleHardline each={aiToolModels} ender>
+                  {({ model, options }) => <ToolSchema model={model} options={options} />}
+                </For>
+              </Show>
+
+              <VarDeclaration const export name="ExplorationSchemas" refkey={refkey('schemas', 'Exploration')}>
+                {'{'}
+                {'\n'}
+                <Indent>
+                  <For comma each={resolvedExplorationTools} hardline>
+                    {(tool) => <>{tool.name}</>}
+                  </For>
+                  <Show when={resolvedExplorationTools.length > 0 && aiToolModels.length > 0}>,{'\n'}</Show>
+                  <For comma each={aiToolModels} hardline>
+                    {({ model }) => <>{model.name}</>}
+                  </For>
+                  ,
+                </Indent>
+                {'\n'}
+                {'}'} as const
+              </VarDeclaration>
+              {'\n\n'}
+              <For each={resolvedExplorationTools}>
+                {(tool) => (
+                  <>
+                    export type {tool.name} = typeof {tool.name}.Type;{'\n'}
+                  </>
+                )}
+              </For>
+              <For each={aiToolModels}>
+                {({ model }) => (
+                  <>
+                    export type {model.name} = typeof {model.name}.Type;{'\n'}
+                  </>
+                )}
+              </For>
+            </SourceFile>
+          );
+        }
+
+        // Execution tools from @aiTool decorator
         const tools = toolsByCategory[category] ?? [];
         if (tools.length === 0) return null;
 
@@ -277,6 +361,51 @@ const ResolvedSchemaImports = ({ tools }: ResolvedSchemaImportsProps) => {
       if (fieldSchema.importFrom === 'common') {
         commonImports.add(fieldSchema.schemaName);
       }
+    });
+  });
+
+  const commonImportList = Array.sort(Array.fromIterable(commonImports), String.Order);
+
+  return (
+    <>
+      import {'{'} Schema {'}'} from 'effect';
+      {'\n\n'}
+      <Show when={commonImportList.length > 0}>
+        import {'{'}
+        {'\n'}
+        <Indent>
+          <For comma each={commonImportList} hardline>
+            {(name) => <>{name}</>}
+          </For>
+        </Indent>
+        {'\n'}
+        {'}'} from '../../../src/tools/common.ts';
+        {'\n'}
+      </Show>
+    </>
+  );
+};
+
+interface ExplorationImportsProps {
+  aiToolModels: { model: Model; options: AIToolOptions }[];
+  resolvedTools: ResolvedTool[];
+}
+
+const ExplorationImports = ({ aiToolModels, resolvedTools }: ExplorationImportsProps) => {
+  const { program } = useTsp();
+  const commonImports = new Set<string>();
+
+  resolvedTools.forEach(({ properties }) => {
+    properties.forEach(({ property }) => {
+      const fieldSchema = getFieldSchema(property, program);
+      if (fieldSchema.importFrom === 'common') commonImports.add(fieldSchema.schemaName);
+    });
+  });
+
+  aiToolModels.forEach(({ model }) => {
+    model.properties.forEach((prop) => {
+      const fieldSchema = getFieldSchema(prop, program);
+      if (fieldSchema.importFrom === 'common') commonImports.add(fieldSchema.schemaName);
     });
   });
 
