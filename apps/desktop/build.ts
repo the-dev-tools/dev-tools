@@ -2,7 +2,6 @@ import { Command } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Config, Effect, pipe } from 'effect';
 import { build, type Configuration } from 'electron-builder';
-import { fileURLToPath } from 'node:url';
 
 const config: Configuration = {
   artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
@@ -12,10 +11,9 @@ const config: Configuration = {
     '**/node_modules/@the-dev-tools/cli/dist/cli*',
   ],
   extraMetadata: {
-    name: 'DevTools',
+    name: 'DevTools Studio',
   },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
-  icon: pipe(import.meta.resolve('@the-dev-tools/client/assets/favicon/favicon.png'), fileURLToPath),
   linux: {
     category: 'Development',
     target: ['AppImage'],
