@@ -68,7 +68,7 @@ model Edge {
   @foreignKey flowId: Id;
   @foreignKey sourceId: Id;
   @foreignKey targetId: Id;
-  sourceHandle: HandleKind;
+  sourceHandle?: HandleKind;
   @visibility(Lifecycle.Read) state: FlowItemState;
 }
 
@@ -95,7 +95,7 @@ model Position {
 
 @AITools.explorationTool(#{ name: "GetNode", title: "Get Node", description: "Get a node by its primary key." })
 @AITools.mutationTool(
-  #{ operation: AITools.CrudOperation.Update, title: "Update Node Config", name: "UpdateNodeConfig", description: "Update general node properties like name or position." },
+  #{ operation: AITools.CrudOperation.Update, title: "Update Node Config", name: "UpdateNodeConfig", exclude: #["kind"], description: "Update general node properties like name or position." },
   #{ operation: AITools.CrudOperation.Delete, title: "Delete Node", name: "DeleteNode", description: "Delete a node from the workflow. Also removes all connected edges." }
 )
 @TanStackDB.collection

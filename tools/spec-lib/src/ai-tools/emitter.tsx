@@ -85,6 +85,7 @@ function resolveToolProperties(program: Program, collectionModel: Model, toolDef
         if (primaryKeys(program).has(prop)) {
           props.push({ optional: false, property: prop });
         } else {
+          if (exclude.includes(prop.name)) continue;
           props.push({ optional: true, property: prop });
         }
       }
