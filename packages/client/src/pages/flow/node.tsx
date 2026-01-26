@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import {
   createCollection,
+  createLiveQueryCollection,
   debounceStrategy,
   eq,
   localOnlyCollectionOptions,
@@ -65,11 +66,14 @@ export const useNodesState = () => {
         .where((_) => eq(_.server.flowId, flowId))
         .fn.select((_) => ({ ..._.server, nodeId: Ulid.construct(_.server.nodeId).toCanonical() }));
 
-      const client = _.from({ client: nodeClientCollection }).fn.select((_) => ({
-        // eslint-disable-next-line @typescript-eslint/no-misused-spread
-        ..._.client,
-        nodeId: Ulid.construct(_.client.nodeId).toCanonical(),
-      }));
+      // This is suboptimal, but without creating a live query the data does not resolve sometimes for some reason
+      const client = createLiveQueryCollection((_) =>
+        _.from({ client: nodeClientCollection }).fn.select((_) => ({
+          // eslint-disable-next-line @typescript-eslint/no-misused-spread
+          ..._.client,
+          nodeId: Ulid.construct(_.client.nodeId).toCanonical(),
+        })),
+      );
 
       return _.from({ server })
         .join({ client }, (_) => eq(_.server.nodeId, _.client.nodeId))

@@ -1,5 +1,11 @@
 import { create } from '@bufbuild/protobuf';
-import { createCollection, eq, localOnlyCollectionOptions, useLiveQuery } from '@tanstack/react-db';
+import {
+  createCollection,
+  createLiveQueryCollection,
+  eq,
+  localOnlyCollectionOptions,
+  useLiveQuery,
+} from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Array, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -38,11 +44,14 @@ export const useEdgeState = () => {
         .where((_) => eq(_.server.flowId, flowId))
         .fn.select((_) => ({ ..._.server, edgeId: Ulid.construct(_.server.edgeId).toCanonical() }));
 
-      const client = _.from({ client: edgeClientCollection }).fn.select((_) => ({
-        // eslint-disable-next-line @typescript-eslint/no-misused-spread
-        ..._.client,
-        edgeId: Ulid.construct(_.client.edgeId).toCanonical(),
-      }));
+      // This is suboptimal, but without creating a live query the data does not resolve sometimes for some reason
+      const client = createLiveQueryCollection((_) =>
+        _.from({ client: edgeClientCollection }).fn.select((_) => ({
+          // eslint-disable-next-line @typescript-eslint/no-misused-spread
+          ..._.client,
+          edgeId: Ulid.construct(_.client.edgeId).toCanonical(),
+        })),
+      );
 
       return _.from({ server })
         .join({ client }, (_) => eq(_.server.edgeId, _.client.edgeId))
