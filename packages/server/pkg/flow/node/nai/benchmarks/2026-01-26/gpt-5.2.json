@@ -1,0 +1,169 @@
+{
+  "timestamp": "2026-01-26",
+  "provider": "openai",
+  "model": "gpt-5.2",
+  "scenarios": [
+    "Simple"
+  ],
+  "runs_per_test": 1,
+  "weights": {
+    "SuccessRate": 0.4,
+    "Efficiency": 0.3,
+    "Speed": 0.2,
+    "Reliability": 0.1
+  },
+  "scores": [
+    {
+      "rank": 1,
+      "poc_name": "POC6-FewShot",
+      "total_score": 100,
+      "success_count": 1,
+      "total_runs": 1,
+      "success_rate": 100,
+      "avg_tool_calls": 1,
+      "avg_duration_ms": 2386,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 100,
+      "reliability_score": 100
+    },
+    {
+      "rank": 2,
+      "poc_name": "POC5-AutoChain",
+      "total_score": 99.04543946345646,
+      "success_count": 1,
+      "total_runs": 1,
+      "success_rate": 100,
+      "avg_tool_calls": 1,
+      "avg_duration_ms": 2764,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 95.2271973172823,
+      "reliability_score": 100
+    },
+    {
+      "rank": 3,
+      "poc_name": "POC2-UserDesc",
+      "total_score": 97.51951551601208,
+      "success_count": 1,
+      "total_runs": 1,
+      "success_rate": 100,
+      "avg_tool_calls": 1,
+      "avg_duration_ms": 3369,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 87.5975775800604,
+      "reliability_score": 100
+    },
+    {
+      "rank": 4,
+      "poc_name": "POC4-TypedParam",
+      "total_score": 97.49413677356216,
+      "success_count": 1,
+      "total_runs": 1,
+      "success_rate": 100,
+      "avg_tool_calls": 1,
+      "avg_duration_ms": 3379,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 87.47068386781083,
+      "reliability_score": 100
+    },
+    {
+      "rank": 5,
+      "poc_name": "POC1-Introspect",
+      "total_score": 82.34995987987631,
+      "success_count": 1,
+      "total_runs": 1,
+      "success_rate": 100,
+      "avg_tool_calls": 1,
+      "avg_duration_ms": 9380,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 11.749799399381555,
+      "reliability_score": 100
+    },
+    {
+      "rank": 6,
+      "poc_name": "POC7-ReAct",
+      "total_score": 80,
+      "success_count": 1,
+      "total_runs": 1,
+      "success_rate": 100,
+      "avg_tool_calls": 1,
+      "avg_duration_ms": 10311,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 0,
+      "reliability_score": 100
+    }
+  ],
+  "raw_results": {
+    "POC1-Introspect-Simple": [
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 1,
+        "ErrorMessage": "",
+        "Duration": 9380347695,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC2-UserDesc-Simple": [
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 1,
+        "ErrorMessage": "",
+        "Duration": 3369252097,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC4-TypedParam-Simple": [
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 1,
+        "ErrorMessage": "",
+        "Duration": 3379308690,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC5-AutoChain-Simple": [
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 1,
+        "ErrorMessage": "",
+        "Duration": 2764588721,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC6-FewShot-Simple": [
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 1,
+        "ErrorMessage": "",
+        "Duration": 2386334092,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC7-ReAct-Simple": [
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 1,
+        "ErrorMessage": "",
+        "Duration": 10311543956,
+        "DiscoverCalls": 0
+      }
+    ]
+  }
+}

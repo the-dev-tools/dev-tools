@@ -1579,6 +1579,70 @@ Tell me if validation passed and the total value.`
 // Uses {{ ai('name', 'desc', 'type', 'source') }} for automatic data flow
 // =============================================================================
 
+// simpleScenarioPOC5 uses auto-chaining (same as POC4 for simple case)
+type simpleScenarioPOC5 struct {
+	GetUserNode *aiParamMockNode
+	NodeMap     map[idwrap.IDWrap]node.FlowNode
+	EdgeMap     mflow.EdgesMap
+	AINodeID    idwrap.IDWrap
+	ProviderID  idwrap.IDWrap
+}
+
+func setupSimpleScenarioPOC5(t *testing.T) *simpleScenarioPOC5 {
+	aiNodeID := idwrap.NewNow()
+	providerID := idwrap.NewNow()
+	getUserID := idwrap.NewNow()
+
+	// Simple scenario - no chaining needed, same as POC4
+	getUserNode := &aiParamMockNode{
+		ID:   getUserID,
+		Name: "GetUser",
+		AIParams: []AIParam{
+			{Name: "userId", Description: "The user ID to fetch", Type: AIParamTypeNumber, Required: true},
+		},
+		OutputVars: []string{"response.body.id", "response.body.name", "response.body.email"},
+		RunFunc: func(req *node.FlowNodeRequest) (any, error) {
+			vm := varsystem.NewVarMapFromAnyMap(req.VarMap)
+			userIDStr, err := vm.ReplaceVars("{{ai_1.userId}}")
+			if err != nil {
+				return nil, fmt.Errorf("userId not set: %w", err)
+			}
+			return map[string]any{
+				"response": map[string]any{
+					"status": 200,
+					"body": map[string]any{
+						"id":    userIDStr,
+						"name":  "John Doe",
+						"email": "john.doe@example.com",
+					},
+				},
+			}, nil
+		},
+	}
+
+	providerNode := CreateTestAiProviderNode(providerID)
+
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerID},
+			mflow.HandleAiTools:    []idwrap.IDWrap{getUserID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		providerID: providerNode,
+		getUserID:  getUserNode,
+	}
+
+	return &simpleScenarioPOC5{
+		GetUserNode: getUserNode,
+		NodeMap:     nodeMap,
+		EdgeMap:     edgeMap,
+		AINodeID:    aiNodeID,
+		ProviderID:  providerID,
+	}
+}
+
 // mediumScenarioPOC5 uses auto-chaining with source hints
 type mediumScenarioPOC5 struct {
 	GetUserNode     *aiParamMockNode

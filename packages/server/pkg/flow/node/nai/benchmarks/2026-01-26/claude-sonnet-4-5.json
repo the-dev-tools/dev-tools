@@ -1,0 +1,539 @@
+{
+  "timestamp": "2026-01-26",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-5-20250929",
+  "scenarios": [
+    "Simple",
+    "Medium",
+    "Complex"
+  ],
+  "runs_per_test": 2,
+  "weights": {
+    "SuccessRate": 0.4,
+    "Efficiency": 0.3,
+    "Speed": 0.2,
+    "Reliability": 0.1
+  },
+  "scores": [
+    {
+      "rank": 1,
+      "poc_name": "POC3-Discovery",
+      "total_score": 98.47653430596095,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 1689,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 92.38267152980477,
+      "reliability_score": 100
+    },
+    {
+      "rank": 2,
+      "poc_name": "POC6-FewShot",
+      "total_score": 97.03002193872398,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 2108,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 85.1501096936199,
+      "reliability_score": 100
+    },
+    {
+      "rank": 3,
+      "poc_name": "POC4-TypedParam",
+      "total_score": 96.65532317761125,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 2216,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 83.27661588805628,
+      "reliability_score": 100
+    },
+    {
+      "rank": 4,
+      "poc_name": "POC5-AutoChain",
+      "total_score": 95.66948921507694,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 2502,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 78.34744607538465,
+      "reliability_score": 100
+    },
+    {
+      "rank": 5,
+      "poc_name": "POC2-UserDesc",
+      "total_score": 94.7250976887323,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 2776,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 73.62548844366154,
+      "reliability_score": 100
+    },
+    {
+      "rank": 6,
+      "poc_name": "POC7-ReAct",
+      "total_score": 93.9818489382466,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 2991,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 69.90924469123297,
+      "reliability_score": 100
+    },
+    {
+      "rank": 7,
+      "poc_name": "POC1-Introspect",
+      "total_score": 93.0317799970128,
+      "success_count": 6,
+      "total_runs": 6,
+      "success_rate": 100,
+      "avg_tool_calls": 0,
+      "avg_duration_ms": 3266,
+      "success_score": 100,
+      "efficiency_score": 100,
+      "speed_score": 65.15889998506404,
+      "reliability_score": 100
+    }
+  ],
+  "raw_results": {
+    "POC1-Introspect-Complex": [
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2908297776,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2890076193,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC1-Introspect-Medium": [
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2416022645,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2397521652,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC1-Introspect-Simple": [
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 7041875228,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC1-Introspect",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1946128744,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC2-UserDesc-Complex": [
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 3398921796,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 3175769156,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC2-UserDesc-Medium": [
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2669188143,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2945327262,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC2-UserDesc-Simple": [
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2522482433,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC2-UserDesc",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1944975018,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC3-Discovery-Complex": [
+      {
+        "POCName": "POC3-Discovery",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1844097133,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC3-Discovery",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1449525752,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC3-Discovery-Medium": [
+      {
+        "POCName": "POC3-Discovery",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1703607617,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC3-Discovery",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1248005898,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC3-Discovery-Simple": [
+      {
+        "POCName": "POC3-Discovery",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2559452607,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC3-Discovery",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1331374733,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC4-TypedParam-Complex": [
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2662054058,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2611113357,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC4-TypedParam-Medium": [
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2085056357,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2049736026,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC4-TypedParam-Simple": [
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1946173815,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC4-TypedParam",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1947487914,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC5-AutoChain-Complex": [
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2834160115,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2479302609,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC5-AutoChain-Medium": [
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2972378467,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2563760781,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC5-AutoChain-Simple": [
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2119351522,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC5-AutoChain",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2046205983,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC6-FewShot-Complex": [
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2361438025,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2293752116,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC6-FewShot-Medium": [
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1713751428,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2252747380,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC6-FewShot-Simple": [
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2292661696,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC6-FewShot",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 1735984185,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC7-ReAct-Complex": [
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 3587570021,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Complex",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 3453057198,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC7-ReAct-Medium": [
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2541196423,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Medium",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 3010977333,
+        "DiscoverCalls": 0
+      }
+    ],
+    "POC7-ReAct-Simple": [
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2755712759,
+        "DiscoverCalls": 0
+      },
+      {
+        "POCName": "POC7-ReAct",
+        "Scenario": "Simple",
+        "Success": true,
+        "ToolCalls": 0,
+        "ErrorMessage": "",
+        "Duration": 2600035914,
+        "DiscoverCalls": 0
+      }
+    ]
+  }
+}
