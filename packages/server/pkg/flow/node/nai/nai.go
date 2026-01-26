@@ -299,23 +299,40 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("LLM returned empty response (no choices)")}
 		}
 
-		choice := resp.Choices[0]
-		if choice.StopReason == "stop" || len(choice.ToolCalls) == 0 {
-			finalResponse = choice.Content
+		// Collect text content and tool calls from ALL choices
+		// Anthropic returns multiple choices: one with text, another with tool calls
+		var textContent string
+		var allToolCalls []llms.ToolCall
+
+		for _, choice := range resp.Choices {
+			if choice.Content != "" {
+				textContent = choice.Content
+			}
+			allToolCalls = append(allToolCalls, choice.ToolCalls...)
+		}
+
+		// Check if we should stop (no tool calls to execute)
+		// Stop reasons: "stop" (OpenAI), "end_turn" (Anthropic) = final response
+		// Continue reasons: "tool_calls" (OpenAI), "tool_use" (Anthropic) = need to execute tools
+		if len(allToolCalls) == 0 {
+			finalResponse = textContent
 			break
 		}
 
-		// Add assistant's tool call to history
+		// Add assistant's response to history
+		// HACK: langchaingo's Anthropic handler only reads Parts[0], so we must
+		// put ToolCalls first and skip text content when there are tool calls.
+		// https://github.com/tmc/langchaingo/issues/1468
 		assistantMsg := llms.MessageContent{
 			Role: llms.ChatMessageTypeAI,
 		}
-		for _, tc := range choice.ToolCalls {
+		for _, tc := range allToolCalls {
 			assistantMsg.Parts = append(assistantMsg.Parts, tc)
 		}
 		messages = append(messages, assistantMsg)
 
 		// Execute tools
-		for _, tc := range choice.ToolCalls {
+		for _, tc := range allToolCalls {
 			result, err := executor(ctx, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
 			if err != nil {
 				// Feed the error back to the LLM instead of failing the node
