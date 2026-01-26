@@ -93,10 +93,12 @@ export const Position = Schema.Struct({
   }),
 );
 
-export const OptionalPosition = Schema.optional(Position).pipe(
-  Schema.annotations({
-    description: 'Position on the canvas (optional)',
-  }),
+export const OptionalPosition = Schema.optional(
+  Position.pipe(
+    Schema.annotations({
+      description: 'Position on the canvas (optional)',
+    }),
+  ),
 );
 
 // =============================================================================

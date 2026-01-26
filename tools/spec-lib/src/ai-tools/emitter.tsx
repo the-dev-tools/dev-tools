@@ -302,15 +302,15 @@ const PropertySchema = ({ isOptional, property }: PropertySchemaProps) => {
   const doc = getDoc(program, property);
   const fieldSchema = getFieldSchema(property, program);
 
-  const schemaExpr = isOptional && !fieldSchema.includesOptional
-    ? `Schema.optional(${fieldSchema.expression})`
-    : fieldSchema.expression;
+  const needsOptionalWrapper = isOptional && !fieldSchema.includesOptional;
 
   if (doc || fieldSchema.needsDescription) {
     const description = doc ?? '';
-    return (
+    // When optional, wrap the annotated inner schema with Schema.optional()
+    // Schema.optional() returns a PropertySignature that can't be piped
+    const annotatedInner = (
       <>
-        {property.name}: {schemaExpr}.pipe(
+        {fieldSchema.expression}.pipe(
         {'\n'}
         <Indent>
           Schema.annotations({'{'}
@@ -321,7 +321,25 @@ const PropertySchema = ({ isOptional, property }: PropertySchemaProps) => {
         {'\n'})
       </>
     );
+
+    if (needsOptionalWrapper) {
+      return (
+        <>
+          {property.name}: Schema.optional({annotatedInner})
+        </>
+      );
+    }
+
+    return (
+      <>
+        {property.name}: {annotatedInner}
+      </>
+    );
   }
+
+  const schemaExpr = needsOptionalWrapper
+    ? `Schema.optional(${fieldSchema.expression})`
+    : fieldSchema.expression;
 
   return (
     <>

@@ -40,8 +40,8 @@ function resolveRefs(obj: unknown, defs: Record<string, unknown>): unknown {
   const record = obj as Record<string, unknown>;
 
   // Handle $ref
-  if ('$ref' in record && typeof record.$ref === 'string') {
-    const defName = record.$ref.replace('#/$defs/', '');
+  if ('$ref' in record && typeof record['$ref'] === 'string') {
+    const defName = record['$ref'].replace('#/$defs/', '');
     const resolved = defs[defName];
     if (resolved) {
       const { $ref: _, ...rest } = record;
@@ -50,8 +50,8 @@ function resolveRefs(obj: unknown, defs: Record<string, unknown>): unknown {
   }
 
   // Handle allOf with single $ref (common Effect pattern)
-  if ('allOf' in record && Array.isArray(record.allOf) && record.allOf.length === 1) {
-    const first = record.allOf[0] as Record<string, unknown>;
+  if ('allOf' in record && Array.isArray(record['allOf']) && record['allOf'].length === 1) {
+    const first = record['allOf'][0] as Record<string, unknown>;
     if ('$ref' in first) {
       const { allOf: _, ...rest } = record;
       return { ...(resolveRefs(first, defs) as Record<string, unknown>), ...rest };
@@ -102,11 +102,17 @@ function schemaToToolDefinition<A, I, R>(schema: Schema.Schema<A, I, R>): ToolDe
 // Auto-generated Tool Definitions (no manual listing needed)
 // =============================================================================
 
-export const executionSchemas = Object.values(ExecutionSchemas).map(schemaToToolDefinition);
+export const executionSchemas = Object.values(ExecutionSchemas).map((s) =>
+  schemaToToolDefinition(s as Schema.Schema<unknown, unknown>),
+);
 
-export const explorationSchemas = Object.values(ExplorationSchemas).map(schemaToToolDefinition);
+export const explorationSchemas = Object.values(ExplorationSchemas).map((s) =>
+  schemaToToolDefinition(s as Schema.Schema<unknown, unknown>),
+);
 
-export const mutationSchemas = Object.values(MutationSchemas).map(schemaToToolDefinition);
+export const mutationSchemas = Object.values(MutationSchemas).map((s) =>
+  schemaToToolDefinition(s as Schema.Schema<unknown, unknown>),
+);
 
 /** All tool schemas combined - ready for AI tool calling */
 export const allToolSchemas = [...executionSchemas, ...explorationSchemas, ...mutationSchemas];
