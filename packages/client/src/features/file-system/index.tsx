@@ -16,6 +16,7 @@ import {
   useDragAndDrop,
 } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
+import { RiAnthropicFill, RiGeminiFill, RiOpenaiFill } from 'react-icons/ri';
 import { TbGauge } from 'react-icons/tb';
 import { twJoin } from 'tailwind-merge';
 import { Credential, CredentialKind, CredentialSchema } from '@the-dev-tools/spec/buf/api/credential/v1/credential_pb';
@@ -378,7 +379,9 @@ const FolderFile = ({ id }: FileItemProps) => {
     >
       {({ isExpanded }) => (
         <>
-          {isExpanded ? (
+          {name === 'Credentials' ? (
+            <TbGauge className={tw`size-4 text-slate-500`} />
+          ) : isExpanded ? (
             <FolderOpenedIcon className={tw`size-4 text-slate-500`} />
           ) : (
             <FiFolder className={tw`size-4 text-slate-500`} />
@@ -880,12 +883,12 @@ const CredentialFile = ({ id }: FileItemProps) => {
 
   const credentialCollection = useApiCollection(CredentialCollectionSchema);
 
-  const { name } =
+  const { kind, name } =
     useLiveQuery(
       (_) =>
         _.from({ item: credentialCollection })
           .where(eqStruct({ credentialId }))
-          .select((_) => pick(_.item, 'name'))
+          .select((_) => pick(_.item, 'name', 'kind'))
           .findOne(),
       [credentialCollection, credentialId],
     ).data ?? create(CredentialSchema);
@@ -909,7 +912,13 @@ const CredentialFile = ({ id }: FileItemProps) => {
 
   const content = (
     <>
-      <TbGauge className={tw`size-4 text-slate-500`} />
+      {pipe(
+        Match.value(kind),
+        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 text-slate-500`} />),
+        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 text-slate-500`} />),
+        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 text-slate-500`} />),
+        Match.orElse(() => <TbGauge className={tw`size-4 text-slate-500`} />),
+      )}
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
