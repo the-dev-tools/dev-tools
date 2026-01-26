@@ -59,7 +59,8 @@ enum HandleKind {
 
 @AITools.explorationTool(#{ name: "GetEdge", title: "Get Edge", description: "Get a edge by its primary key." })
 @AITools.mutationTool(
-  #{ operation: AITools.CrudOperation.Insert, title: "Connect Nodes", name: "ConnectNodes", description: "Create an edge connection between two nodes. IMPORTANT: For sequential flows (Manual Start, JS, HTTP nodes), do NOT specify sourceHandle - omit it entirely. Only use sourceHandle for Condition nodes (then/else) and Loop nodes (loop/then)." },
+  #{ operation: AITools.CrudOperation.Insert, title: "Connect Sequential Nodes", name: "ConnectSequentialNodes", exclude: #["sourceHandle"], description: "Connect two nodes in a sequential flow. Use this for ManualStart, JavaScript, and HTTP nodes which have a single output." },
+  #{ operation: AITools.CrudOperation.Insert, title: "Connect Branching Nodes", name: "ConnectBranchingNodes", description: "Connect a branching node (Condition, For, ForEach) to another node. Requires sourceHandle: 'then' or 'else' for Condition nodes, 'then' or 'loop' for For/ForEach nodes." },
   #{ operation: AITools.CrudOperation.Delete, title: "Disconnect Nodes", name: "DisconnectNodes", description: "Remove an edge connection between nodes." }
 )
 @TanStackDB.collection
@@ -68,7 +69,7 @@ model Edge {
   @foreignKey flowId: Id;
   @foreignKey sourceId: Id;
   @foreignKey targetId: Id;
-  sourceHandle?: HandleKind;
+  sourceHandle: HandleKind;
   @visibility(Lifecycle.Read) state: FlowItemState;
 }
 
