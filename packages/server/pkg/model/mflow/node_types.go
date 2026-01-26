@@ -119,10 +119,12 @@ func (m AiModel) ModelString() string {
 		return "claude-sonnet-4-5"
 	case AiModelClaudeHaiku45:
 		return "claude-haiku-4-5"
+	// HACK: Using 2.5 instead of 3.0 due to langchaingo bug
+	// https://github.com/tmc/langchaingo/issues/1464
 	case AiModelGemini3Pro:
-		return "gemini-3-pro-preview"
+		return "gemini-2.5-pro"
 	case AiModelGemini3Flash:
-		return "gemini-3-flash-preview"
+		return "gemini-2.5-flash"
 	case AiModelCustom:
 		return "" // Handled via CustomModel field
 	default:
@@ -168,9 +170,9 @@ func AiModelFromString(s string) AiModel {
 		return AiModelClaudeSonnet45
 	case "claude-haiku-4-5":
 		return AiModelClaudeHaiku45
-	case "gemini-3-pro-preview":
+	case "gemini-2.5-pro":
 		return AiModelGemini3Pro
-	case "gemini-3-flash-preview":
+	case "gemini-2.5-flash":
 		return AiModelGemini3Flash
 	case "custom", "":
 		return AiModelCustom
