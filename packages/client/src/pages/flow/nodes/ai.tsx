@@ -424,6 +424,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
                 </Button>
 
                 <FileTree
+                  kind={FileKind.CREDENTIAL}
                   onAction={(key) => {
                     const file = fileCollection.get(key.toString())!;
                     if (file.kind !== FileKind.CREDENTIAL) return;

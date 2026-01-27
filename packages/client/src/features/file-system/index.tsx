@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, isUndefined, or, useLiveQuery } from '@tanstack/react-db';
 import { linkOptions, ToOptions, useMatchRoute, useNavigate, useRouter } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
@@ -209,6 +209,7 @@ const CreateCredentialSubmenu = ({ navigate: toNavigate, parentFolderId }: FileC
 
 interface FileTreeContext {
   containerRef: RefObject<HTMLDivElement | null>;
+  kind?: FileKind;
   navigate?: boolean;
   showControls?: boolean;
 }
@@ -222,17 +223,21 @@ interface FileTreeProps
 
 export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionMode, ...context }: FileTreeProps) => {
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+  const { kind } = context;
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { data: files } = useLiveQuery(
-    (_) =>
-      _.from({ file: fileCollection })
-        .where((_) => eq(_.file.workspaceId, workspaceId))
-        .where((_) => isUndefined(_.file.parentId))
-        .orderBy((_) => _.file.order)
-        .select((_) => pick(_.file, 'fileId', 'order')),
-    [fileCollection, workspaceId],
+    (_) => {
+      let query = _.from({ file: fileCollection }).where((_) =>
+        and(eq(_.file.workspaceId, workspaceId), isUndefined(_.file.parentId)),
+      );
+
+      if (kind) query = query.where((_) => or(eq(_.file.kind, kind), eq(_.file.kind, FileKind.FOLDER)));
+
+      return query.orderBy((_) => _.file.order).select((_) => pick(_.file, 'fileId', 'order'));
+    },
+    [fileCollection, kind, workspaceId],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -335,6 +340,8 @@ const FileItem = ({ id }: FileItemProps) => {
 const FolderFile = ({ id }: FileItemProps) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
 
+  const { containerRef, kind, showControls } = useContext(FileTreeContext);
+
   const { fileId: folderId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
 
   const folderCollection = useApiCollection(FolderCollectionSchema);
@@ -350,15 +357,15 @@ const FolderFile = ({ id }: FileItemProps) => {
     ).data ?? create(FolderSchema);
 
   const { data: files } = useLiveQuery(
-    (_) =>
-      _.from({ file: fileCollection })
-        .where((_) => eq(_.file.parentId, folderId))
-        .orderBy((_) => _.file.order)
-        .select((_) => pick(_.file, 'fileId', 'order')),
-    [fileCollection, folderId],
-  );
+    (_) => {
+      let query = _.from({ file: fileCollection }).where((_) => eq(_.file.parentId, folderId));
 
-  const { containerRef, showControls } = useContext(FileTreeContext);
+      if (kind) query = query.where((_) => or(eq(_.file.kind, kind), eq(_.file.kind, FileKind.FOLDER)));
+
+      return query.orderBy((_) => _.file.order).select((_) => pick(_.file, 'fileId', 'order'));
+    },
+    [fileCollection, folderId, kind],
+  );
 
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
