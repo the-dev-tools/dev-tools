@@ -23,7 +23,7 @@ namespace DevTools.AITools {
 
   model MutationToolOptions {
     operation: CrudOperation;
-    title: string;
+    title?: string;
     name?: string;
     description?: string;
     parent?: string;
@@ -33,8 +33,8 @@ namespace DevTools.AITools {
   extern dec mutationTool(target: Reflection.Model, ...tools: valueof MutationToolOptions[]);
 
   model ExplorationToolOptions {
-    name: string;
-    title: string;
+    name?: string;
+    title?: string;
     description?: string;
   }
 
