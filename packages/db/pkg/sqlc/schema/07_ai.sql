@@ -48,7 +48,7 @@ CREATE TABLE flow_node_ai (
 CREATE TABLE flow_node_ai_provider (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   credential_id BLOB, -- Optional: NULL means no credential set yet
-  model INT8 NOT NULL, -- AiModel enum (same as flow_node_ai)
+  model INT8 NOT NULL, -- AiModel enum
   temperature REAL, -- Optional: 0.0-2.0, NULL means use provider default
   max_tokens INT -- Optional: max output tokens, NULL means use provider default
 );
