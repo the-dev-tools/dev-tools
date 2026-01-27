@@ -1,12 +1,12 @@
 import { create } from '@bufbuild/protobuf';
-import { useLiveQuery } from '@tanstack/react-db';
+import { and, createLiveQueryCollection, eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
 import { useRouter } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
 import { Array, HashMap, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { use, useState } from 'react';
 import * as RAC from 'react-aria-components';
-import { FiExternalLink } from 'react-icons/fi';
+import { FiExternalLink, FiPlus } from 'react-icons/fi';
 import { RiAnthropicFill, RiGeminiFill, RiOpenaiFill } from 'react-icons/ri';
 import { TbFile, TbRobotFace } from 'react-icons/tb';
 import { CredentialKind } from '@the-dev-tools/spec/buf/api/credential/v1/credential_pb';
@@ -24,7 +24,7 @@ import {
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { Unset } from '@the-dev-tools/spec/buf/global/v1/global_pb';
 import { CredentialCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/credential';
-import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
+import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   NodeAiCollectionSchema,
   NodeAiMemoryCollectionSchema,
@@ -39,7 +39,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ReferenceField } from '~/features/expression';
 import { FileTree } from '~/features/file-system';
 import { useApiCollection } from '~/shared/api';
-import { eqStruct, getNextOrder, pick } from '~/shared/lib';
+import { eqStruct, getNextOrder, pick, queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { AddNodeSidebarProps, SidebarHeader, SidebarItem, useInsertNode } from '../add-node';
 import { FlowContext } from '../context';
@@ -299,6 +299,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
 
   const providerCollection = useApiCollection(NodeAiProviderCollectionSchema);
   const fileCollection = useApiCollection(FileCollectionSchema);
+  const folderCollection = useApiCollection(FolderCollectionSchema);
   const credentialCollection = useApiCollection(CredentialCollectionSchema);
 
   const { isReadOnly = false } = use(FlowContext);
@@ -349,21 +350,67 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
                 )}
               </div>
 
-              <Popover className={listBoxStyles()}>
+              <Popover className={listBoxStyles({ className: tw`max-w-2xs` })} placement='bottom left'>
                 <Button
+                  className={tw`justify-start gap-3 px-3`}
                   onPress={async () => {
+                    let [{ credentialFolderId } = {}] = await queryCollection((_) => {
+                      const file = createLiveQueryCollection((_) =>
+                        _.from({ file: fileCollection })
+                          .where((_) =>
+                            and(
+                              eq(_.file.workspaceId, workspaceId),
+                              eq(_.file.kind, FileKind.FOLDER),
+                              isUndefined(_.file.parentId),
+                            ),
+                          )
+                          .fn.select((_) => ({
+                            fileId: _.file.fileId,
+                            id: Ulid.construct(_.file.fileId).toCanonical(),
+                          })),
+                      );
+
+                      const folder = createLiveQueryCollection((_) =>
+                        _.from({ folder: folderCollection })
+                          .where((_) => eq(_.folder.name, 'Credentials'))
+                          .fn.select((_) => ({ id: Ulid.construct(_.folder.folderId).toCanonical() })),
+                      );
+
+                      return _.from({ file })
+                        .join({ folder }, (_) => eq(_.file.id, _.folder.id), 'inner')
+                        .select((_) => ({ credentialFolderId: _.file.fileId }));
+                    });
+
+                    if (!credentialFolderId) {
+                      credentialFolderId = Ulid.generate().bytes;
+
+                      folderCollection.utils.insert({
+                        folderId: credentialFolderId,
+                        name: 'Credentials',
+                      });
+
+                      fileCollection.utils.insert({
+                        fileId: credentialFolderId,
+                        kind: FileKind.FOLDER,
+                        order: await getNextOrder(fileCollection),
+                        workspaceId,
+                      });
+                    }
+
                     const credentialId = Ulid.generate().bytes;
 
                     credentialCollection.utils.insert({
                       credentialId,
                       kind: credentialKind,
                       name: `${credentialKindTitle} credential`,
+                      workspaceId,
                     });
 
                     fileCollection.utils.insert({
                       fileId: credentialId,
                       kind: FileKind.CREDENTIAL,
                       order: await getNextOrder(fileCollection),
+                      parentId: credentialFolderId,
                       workspaceId,
                     });
 
@@ -372,6 +419,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
                   }}
                   variant='ghost'
                 >
+                  <FiPlus className={tw`size-4 text-slate-500`} />
                   New {credentialKindTitle} credential
                 </Button>
 
