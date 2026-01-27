@@ -1,4 +1,4 @@
-import { For, Indent, refkey, Show, SourceDirectory } from '@alloy-js/core';
+import { code, For, Indent, refkey, Show, SourceDirectory } from '@alloy-js/core';
 import { SourceFile, VarDeclaration } from '@alloy-js/typescript';
 import { EmitContext, getDoc, Model, ModelProperty, Program } from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
@@ -198,28 +198,28 @@ const CategoryFiles = () => {
       {({ category, tools }) => (
         <SourceFile path={category.toLowerCase() + '.ts'}>
           <SchemaImports tools={tools} />
-          {'\n'}
+          <hbr />
           <For doubleHardline each={tools} ender>
             {(tool) => <ToolSchema tool={tool} />}
           </For>
 
           <VarDeclaration const export name={category + 'Schemas'} refkey={refkey('schemas', category)}>
             {'{'}
-            {'\n'}
+            <hbr />
             <Indent>
               <For comma each={tools} hardline>
                 {(tool) => <>{tool.name}</>}
               </For>
               ,
             </Indent>
-            {'\n'}
+            <hbr />
             {'}'} as const
           </VarDeclaration>
-          {'\n\n'}
+          <hbr /><hbr />
           <For each={tools}>
             {(tool) => (
               <>
-                export type {tool.name} = typeof {tool.name}.Type;{'\n'}
+                export type {tool.name} = typeof {tool.name}.Type;<hbr />
               </>
             )}
           </For>
@@ -246,19 +246,19 @@ const SchemaImports = ({ tools }: { tools: ResolvedTool[] }) => {
 
   return (
     <>
-      import {'{'} Schema {'}'} from 'effect';
-      {'\n\n'}
+      {code`import { Schema } from 'effect';`}
+      <hbr /><hbr />
       <Show when={commonImportList.length > 0}>
         import {'{'}
-        {'\n'}
+        <hbr />
         <Indent>
           <For comma each={commonImportList} hardline>
             {(name) => <>{name}</>}
           </For>
         </Indent>
-        {'\n'}
+        <hbr />
         {'}'} from './common.ts';
-        {'\n'}
+        <hbr />
       </Show>
     </>
   );
@@ -270,26 +270,26 @@ const ToolSchema = ({ tool }: { tool: ResolvedTool }) => {
   return (
     <VarDeclaration const export name={tool.name} refkey={refkey('tool', tool.name)}>
       Schema.Struct({'{'}
-      {'\n'}
+      <hbr />
       <Indent>
         <For comma each={tool.properties} hardline>
           {({ optional, property }) => <PropertySchema isOptional={optional} property={property} />}
         </For>
       </Indent>
-      {'\n'}
+      <hbr />
       {'}'}).pipe(
-      {'\n'}
+      <hbr />
       <Indent>
         Schema.annotations({'{'}
-        {'\n'}
+        <hbr />
         <Indent>
-          identifier: '{identifier}',{'\n'}
-          <Show when={!!tool.title}>title: '{tool.title}',{'\n'}</Show>
-          <Show when={!!tool.description}>description: {formatStringLiteral(tool.description ?? '')},{'\n'}</Show>
+          identifier: '{identifier}',<hbr />
+          <Show when={!!tool.title}>title: '{tool.title}',<hbr /></Show>
+          <Show when={!!tool.description}>description: {formatStringLiteral(tool.description ?? '')},<hbr /></Show>
         </Indent>
         {'}'}),
       </Indent>
-      {'\n'})
+      <hbr />)
     </VarDeclaration>
   );
 };
@@ -313,14 +313,14 @@ const PropertySchema = ({ isOptional, property }: PropertySchemaProps) => {
     const annotatedInner = (
       <>
         {fieldSchema.expression}.pipe(
-        {'\n'}
+        <hbr />
         <Indent>
           Schema.annotations({'{'}
-          {'\n'}
-          <Indent>description: {formatStringLiteral(description)},{'\n'}</Indent>
+          <hbr />
+          <Indent>description: {formatStringLiteral(description)},<hbr /></Indent>
           {'}'}),
         </Indent>
-        {'\n'})
+        <hbr />)
       </>
     );
 
