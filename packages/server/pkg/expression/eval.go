@@ -180,7 +180,7 @@ func (e *UnifiedEnv) EvalIter(ctx context.Context, exprStr string) (any, error) 
 //   - env: environment/flow variables (access via env.apiKey or env["key.with.dots"])
 //   - nodeName: node outputs (access via nodeName.response.body)
 func (e *UnifiedEnv) buildExprEnv() map[string]any {
-	env := make(map[string]any, len(e.data)+len(e.customFuncs)+2)
+	env := make(map[string]any, len(e.data)+len(e.customFuncs)+10)
 
 	// Copy data directly - no unflattening needed
 	// Environment variables are namespaced under "env" key
@@ -197,6 +197,9 @@ func (e *UnifiedEnv) buildExprEnv() map[string]any {
 	// Add built-in helper functions
 	env["get"] = e.helperGet
 	env["has"] = e.helperHas
+
+	// Add built-in AI helper function (closure that captures 'e' for variable lookup)
+	env["ai"] = e.helperAI
 
 	return env
 }

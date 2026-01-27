@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/tmc/langchaingo/llms"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
@@ -16,7 +17,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 type NodeAI struct {
@@ -245,9 +245,9 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		options = append(options, llms.WithMaxTokens(int(*maxTokens)))
 	}
 
-	// 6. Resolve prompt variables
-	vm := varsystem.NewVarMapFromAnyMap(req.VarMap)
-	resolvedPrompt, err := vm.ReplaceVars(n.Prompt)
+	// 6. Resolve prompt variables (supports expressions and AI marker functions)
+	env := expression.NewUnifiedEnv(req.VarMap)
+	resolvedPrompt, err := env.Interpolate(n.Prompt)
 	if err != nil {
 		// Use raw prompt as fallback if variable resolution fails
 		resolvedPrompt = n.Prompt
