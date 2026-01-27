@@ -246,6 +246,84 @@ func (e *UnifiedEnv) compileExpr(exprStr string, mode compileMode, env map[strin
 	return program, nil
 }
 
+// ExtractExprIdentifiers extracts top-level identifiers from a pure expr-lang expression.
+// It performs a simple lexical scan to find variable references without full AST parsing.
+// Returns identifiers like "node", "env" from expressions like "node.response.status == 200".
+func ExtractExprIdentifiers(exprStr string) []string {
+	if exprStr == "" {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	var result []string
+
+	// Simple lexical scan for identifiers
+	// Identifiers start with letter/underscore, followed by alphanumerics/underscores
+	i := 0
+	for i < len(exprStr) {
+		// Skip non-identifier characters
+		if !isIdentStart(exprStr[i]) {
+			i++
+			continue
+		}
+
+		// Found start of identifier
+		start := i
+		for i < len(exprStr) && isIdentChar(exprStr[i]) {
+			i++
+		}
+		ident := exprStr[start:i]
+
+		// Skip keywords and built-in functions
+		if isKeyword(ident) {
+			continue
+		}
+
+		// Add unique identifiers
+		if _, exists := seen[ident]; !exists {
+			seen[ident] = struct{}{}
+			result = append(result, ident)
+		}
+	}
+
+	return result
+}
+
+// isIdentStart returns true if c can start an identifier (letter or underscore).
+func isIdentStart(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+// isIdentChar returns true if c can be part of an identifier.
+func isIdentChar(c byte) bool {
+	return isIdentStart(c) || (c >= '0' && c <= '9')
+}
+
+// isKeyword returns true if s is a reserved keyword or built-in function.
+func isKeyword(s string) bool {
+	keywords := map[string]bool{
+		// Boolean literals
+		"true": true, "false": true, "nil": true, "null": true,
+		// Logical operators
+		"and": true, "or": true, "not": true, "in": true,
+		// Built-in functions
+		"len": true, "all": true, "any": true, "one": true, "none": true,
+		"map": true, "filter": true, "find": true, "findIndex": true,
+		"count": true, "sum": true, "mean": true, "min": true, "max": true,
+		"first": true, "last": true, "take": true, "keys": true, "values": true,
+		"sort": true, "sortBy": true, "groupBy": true, "reduce": true,
+		"abs": true, "ceil": true, "floor": true, "round": true,
+		"int": true, "float": true, "string": true, "toJSON": true, "fromJSON": true,
+		"trim": true, "trimPrefix": true, "trimSuffix": true,
+		"upper": true, "lower": true, "split": true, "replace": true,
+		"contains": true, "startsWith": true, "endsWith": true,
+		"now": true, "date": true, "duration": true,
+		// Custom helper functions
+		"get": true, "has": true, "ai": true,
+	}
+	return keywords[s]
+}
+
 // looksLikeExpression checks if a string looks like a valid expr-lang expression.
 // Used to determine if interpolation result should be evaluated or returned as-is.
 func looksLikeExpression(s string) bool {

@@ -113,3 +113,22 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	result := n.RunSync(ctx, req)
 	resultChan <- result
 }
+
+// GetRequiredVariables implements node.VariableIntrospector.
+// For JS nodes, the code receives the full context so we cannot statically determine
+// which variables are used. We return an empty slice to indicate dynamic variable access.
+func (n *NodeJS) GetRequiredVariables() []string {
+	// JS code has access to all variables via the context object.
+	// Static analysis would require parsing JS AST which is outside scope.
+	return nil
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this JS node produces (dynamic result object).
+func (n *NodeJS) GetOutputVariables() []string {
+	// JS nodes return a dynamic result object with arbitrary keys.
+	// We indicate this by returning "result" as the primary output.
+	return []string{
+		"result",
+	}
+}

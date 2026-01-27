@@ -65,6 +65,25 @@ func (nr *NodeFor) IsLoopCoordinator() bool {
 	return true
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts variable references from the break condition expression.
+func (nr *NodeFor) GetRequiredVariables() []string {
+	conditionExpr := nr.Condition.Comparisons.Expression
+	if conditionExpr == "" {
+		return nil
+	}
+	return expression.ExtractExprIdentifiers(conditionExpr)
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this For node produces.
+func (nr *NodeFor) GetOutputVariables() []string {
+	return []string{
+		"index",
+		"totalIterations",
+	}
+}
+
 // checkBreakCondition evaluates the break condition and returns (shouldBreak, error)
 func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) (bool, error) {
 	conditionExpr := nr.Condition.Comparisons.Expression

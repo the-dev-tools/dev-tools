@@ -425,6 +425,20 @@ func findDownstreamNodes(edgeMap mflow.EdgesMap, startNodeID, excludeNodeID idwr
 	return visited
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts all variable references from the Prompt field.
+func (n *NodeAI) GetRequiredVariables() []string {
+	return expression.ExtractVarRefs(n.Prompt)
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this AI node produces.
+func (n *NodeAI) GetOutputVariables() []string {
+	return []string{
+		"text",
+	}
+}
+
 // buildChainEdgeMap creates an edge map containing only edges between the given nodes.
 func buildChainEdgeMap(fullEdgeMap mflow.EdgesMap, chainNodes map[idwrap.IDWrap]struct{}) mflow.EdgesMap {
 	chainEdgeMap := make(mflow.EdgesMap)

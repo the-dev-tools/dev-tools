@@ -92,6 +92,25 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	return result
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts variable references from the condition expression.
+func (n *NodeIf) GetRequiredVariables() []string {
+	conditionExpr := n.Condition.Comparisons.Expression
+	if conditionExpr == "" {
+		return nil
+	}
+	return expression.ExtractExprIdentifiers(conditionExpr)
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this If node produces.
+func (n *NodeIf) GetOutputVariables() []string {
+	return []string{
+		"condition",
+		"result",
+	}
+}
+
 func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	trueID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleThen)
 	falseID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleElse)

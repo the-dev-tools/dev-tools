@@ -56,6 +56,44 @@ func (nr *NodeForEach) IsLoopCoordinator() bool {
 	return true
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts variable references from the iteration path and break condition expression.
+func (nr *NodeForEach) GetRequiredVariables() []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	// Extract from iteration path expression
+	for _, ident := range expression.ExtractExprIdentifiers(nr.IterPath) {
+		if _, exists := seen[ident]; !exists {
+			seen[ident] = struct{}{}
+			result = append(result, ident)
+		}
+	}
+
+	// Extract from break condition expression
+	conditionExpr := nr.Condition.Comparisons.Expression
+	if conditionExpr != "" {
+		for _, ident := range expression.ExtractExprIdentifiers(conditionExpr) {
+			if _, exists := seen[ident]; !exists {
+				seen[ident] = struct{}{}
+				result = append(result, ident)
+			}
+		}
+	}
+
+	return result
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this ForEach node produces.
+func (nr *NodeForEach) GetOutputVariables() []string {
+	return []string{
+		"item",
+		"key",
+		"totalItems",
+	}
+}
+
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
