@@ -83,6 +83,13 @@ export const OptionalPosition = Schema.optional(
 // =============================================================================
 // Enums - hardcoded values (matching protobuf definitions)
 // =============================================================================
+//
+// SYNC WARNING: These values are hardcoded to avoid circular dependencies with
+// packages/spec. They MUST match the protobuf definitions in:
+//   api/flow/v1/flow.proto -> ErrorHandling, HandleKind enums
+//
+// If the protobuf enums change, update these literals accordingly.
+// =============================================================================
 
 export const ErrorHandling = Schema.Literal('ignore', 'break').pipe(
   Schema.annotations({
