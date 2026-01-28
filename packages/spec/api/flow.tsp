@@ -170,17 +170,13 @@ model NodeJs {
   code: string;
 }
 
-@AITools.explorationTool(
-  #{ description: "Get the execution history for a node by its ID. Returns all executions including their state (Running, Success, Failure, Canceled) and error messages for failed executions. Use this to diagnose why a node failed." },
-  #{ name: "GetNodeOutput", description: "Get the input and output data from a node's most recent execution. Use this to inspect what data a node produced or received.", keyField: "nodeId" }
-)
 @TanStackDB.collection(#{ isReadOnly: true })
 model NodeExecution {
   @primaryKey nodeExecutionId: Id;
   @foreignKey nodeId: Id;
   name: string;
   state: FlowItemState;
-  @doc("Error message if the node execution failed") error?: string;
+  error?: string;
   input?: Protobuf.WellKnown.Json;
   output?: Protobuf.WellKnown.Json;
   httpResponseId?: Id;
