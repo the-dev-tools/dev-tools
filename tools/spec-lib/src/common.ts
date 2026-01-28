@@ -4,11 +4,6 @@
 
 import { Schema } from 'effect';
 
-import {
-  ErrorHandling as PbErrorHandling,
-  HandleKind as PbHandleKind,
-} from '../../buf/typescript/api/flow/v1/flow_pb.ts';
-
 // =============================================================================
 // Common Field Schemas
 // =============================================================================
@@ -86,36 +81,17 @@ export const OptionalPosition = Schema.optional(
 );
 
 // =============================================================================
-// Enums DERIVED from TypeSpec/Protobuf definitions
+// Enums - hardcoded values (matching protobuf definitions)
 // =============================================================================
 
-type ValidHandleKind = Exclude<PbHandleKind, PbHandleKind.UNSPECIFIED>;
-type ValidErrorHandling = Exclude<PbErrorHandling, PbErrorHandling.UNSPECIFIED>;
-
-function literalFromValues<T extends Record<number, string>>(mapping: T) {
-  const values = Object.values(mapping) as [string, ...string[]];
-  return Schema.Literal(...values);
-}
-
-const errorHandlingValues: Record<ValidErrorHandling, string> = {
-  [PbErrorHandling.IGNORE]: 'ignore',
-  [PbErrorHandling.BREAK]: 'break',
-};
-
-export const ErrorHandling = literalFromValues(errorHandlingValues).pipe(
+export const ErrorHandling = Schema.Literal('ignore', 'break').pipe(
   Schema.annotations({
     identifier: 'ErrorHandling',
     description: 'How to handle errors: "ignore" continues, "break" stops the loop',
   }),
 );
 
-const handleKindValues: Record<ValidHandleKind, string> = {
-  [PbHandleKind.THEN]: 'then',
-  [PbHandleKind.ELSE]: 'else',
-  [PbHandleKind.LOOP]: 'loop',
-};
-
-export const SourceHandle = literalFromValues(handleKindValues).pipe(
+export const SourceHandle = Schema.Literal('then', 'else', 'loop').pipe(
   Schema.annotations({
     identifier: 'SourceHandle',
     description:

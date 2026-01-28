@@ -4,7 +4,7 @@
 
 import { JSONSchema, Schema } from 'effect';
 
-export * from './common.ts';
+export * from '@the-dev-tools/spec-lib/common';
 export * from '../../dist/ai-tools/v1/execution.ts';
 export * from '../../dist/ai-tools/v1/exploration.ts';
 export * from '../../dist/ai-tools/v1/mutation.ts';

@@ -12,12 +12,12 @@
     "./buf/*": "./dist/buf/typescript/*.ts",
     "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts",
     "./tools": "./src/tools/index.ts",
-    "./tools/common": "./src/tools/common.ts",
     "./tools/execution": "./dist/ai-tools/v1/execution.ts",
     "./tools/exploration": "./dist/ai-tools/v1/exploration.ts",
     "./tools/mutation": "./dist/ai-tools/v1/mutation.ts"
   },
   "dependencies": {
+    "@the-dev-tools/spec-lib": "workspace:^",
     "effect": "catalog:"
   },
   "devDependencies": {
@@ -25,7 +25,6 @@
     "@bufbuild/protobuf": "catalog:",
     "@bufbuild/protoc-gen-es": "catalog:",
     "@the-dev-tools/eslint-config": "workspace:^",
-    "@the-dev-tools/spec-lib": "workspace:^",
     "@types/node": "catalog:",
     "prettier": "catalog:",
     "tsx": "^4.19.0",

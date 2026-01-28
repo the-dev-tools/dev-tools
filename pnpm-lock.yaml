@@ -814,6 +814,9 @@ importers:
 
   packages/spec:
     dependencies:
+      '@the-dev-tools/spec-lib':
+        specifier: workspace:^
+        version: link:../../tools/spec-lib
       effect:
         specifier: 'catalog:'
         version: 3.19.14
@@ -830,9 +833,6 @@ importers:
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
-      '@the-dev-tools/spec-lib':
-        specifier: workspace:^
-        version: link:../../tools/spec-lib
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
@@ -1076,6 +1076,10 @@ importers:
         version: 5.9.3
 
   tools/spec-lib:
+    dependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.14
     devDependencies:
       '@alloy-js/cli':
         specifier: 'catalog:'
@@ -1098,9 +1102,6 @@ importers:
       '@typespec/emitter-framework':
         specifier: 'catalog:'
         version: 0.14.0(@alloy-js/core@0.22.0)(@alloy-js/csharp@0.21.0)(@alloy-js/typescript@0.22.0)(@typespec/compiler@1.7.1(@types/node@25.0.3))
-      effect:
-        specifier: 'catalog:'
-        version: 3.19.14
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
