@@ -1,17 +1,17 @@
 /**
- * Runtime tool schema index - converts Effect Schemas to JSON Schema tool definitions.
+ * Runtime tool schema utilities - converts Effect Schemas to JSON Schema tool definitions.
+ * These utilities are used by the agent to handle AI tool calling.
  */
 
 import { JSONSchema, Schema } from 'effect';
 
-export * from '@the-dev-tools/spec-lib/common';
-export * from '../../dist/ai-tools/v1/execution.ts';
-export * from '../../dist/ai-tools/v1/exploration.ts';
-export * from '../../dist/ai-tools/v1/mutation.ts';
+import { ExecutionSchemas } from '@the-dev-tools/spec/tools/execution';
+import { ExplorationSchemas } from '@the-dev-tools/spec/tools/exploration';
+import { MutationSchemas } from '@the-dev-tools/spec/tools/mutation';
 
-import { ExecutionSchemas } from '../../dist/ai-tools/v1/execution.ts';
-import { ExplorationSchemas } from '../../dist/ai-tools/v1/exploration.ts';
-import { MutationSchemas } from '../../dist/ai-tools/v1/mutation.ts';
+// Re-export schemas for convenience
+export { ExecutionSchemas, ExplorationSchemas, MutationSchemas };
+export * from '@the-dev-tools/spec-lib/common';
 
 // =============================================================================
 // Tool Definition Type
