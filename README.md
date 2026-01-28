@@ -38,13 +38,13 @@ DevTools combines the best aspects of Postman's visual interface with the securi
 
 ### Postman-Style Request Interface
 
-![Postman-style UI with form data](https://dev.tools/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Ffirst-request-jsonplaceholder-users-1.3351fec7.webp&w=1920&q=75)
+![Postman-style UI with form data](https://dev.tools/_next/static/media/first-request-jsonplaceholder-users-1.3351fec7.webp)
 
 The DevTools interface provides a familiar Postman-like experience for working with API requests. The screenshot above shows the request editor interface with form data input, allowing you to easily build, test, and organize your API requests without the cloud dependency.
 
 ### Visual Flow Builder
 
-![Flow builder with request chaining](https://dev.tools/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fflow-canvas-overview.d549cd67.webp&w=1920&q=75)
+![Flow builder with request chaining](https://dev.tools/_next/static/media/flow-canvas-overview.d549cd67.webp)
 
 The flow builder allows you to visually chain API requests and create complex test scenarios. Connect different nodes to build your workflow:
 
