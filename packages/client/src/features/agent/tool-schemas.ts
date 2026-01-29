@@ -3,7 +3,7 @@
  * These utilities are used by the agent to handle AI tool calling.
  */
 
-import { JSONSchema, Schema } from 'effect';
+import { Either, JSONSchema, ParseResult, Schema } from 'effect';
 
 import { ExecutionSchemas } from '@the-dev-tools/spec/tools/execution';
 import { ExplorationSchemas } from '@the-dev-tools/spec/tools/exploration';
@@ -133,24 +133,19 @@ const schemaMap: Record<string, Schema.Schema<unknown, unknown>> = Object.fromEn
 );
 
 /**
- * Validate tool input against the Effect Schema
+ * Validate tool input against the Effect Schema.
+ * Returns Either<data, errors> - Right on success, Left on failure.
  */
 export function validateToolInput(
   toolName: string,
   input: unknown,
-): { success: true; data: unknown } | { success: false; errors: string[] } {
+): Either.Either<unknown, string[]> {
   const schema = schemaMap[toolName];
   if (!schema) {
-    return { success: false, errors: [`Unknown tool: ${toolName}`] };
+    return Either.left([`Unknown tool: ${toolName}`]);
   }
 
-  try {
-    const decoded = Schema.decodeUnknownSync(schema)(input);
-    return { success: true, data: decoded };
-  } catch (error) {
-    if (error instanceof Error) {
-      return { success: false, errors: [error.message] };
-    }
-    return { success: false, errors: ['Unknown validation error'] };
-  }
+  return Schema.decodeUnknownEither(schema)(input).pipe(
+    Either.mapLeft((error) => [ParseResult.TreeFormatter.formatErrorSync(error)]),
+  );
 }
