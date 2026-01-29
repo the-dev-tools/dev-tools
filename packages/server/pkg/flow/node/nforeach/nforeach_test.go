@@ -3,6 +3,7 @@ package nforeach
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +11,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -252,4 +254,39 @@ func TestNodeForEachSkipsDuplicateLoopEntryTargets(t *testing.T) {
 	require.Equal(t, 1, nodeARuns, "node A should execute exactly once")
 	require.Equal(t, 1, nodeBRuns, "node B should execute exactly once")
 	require.Equal(t, 1, nodeCRuns, "node C should execute exactly once")
+}
+
+// TestForeach_RunSync_TracksIterPath verifies that the FOREACH node tracks
+// variables accessed in the iteration path expression (pure expr-lang).
+func TestForeach_RunSync_TracksIterPath(t *testing.T) {
+	loopID := idwrap.NewNow()
+
+	// Create a simple FOREACH node
+	loop := New(loopID, "testLoop", "httpNode.response.items", 0, mcondition.Condition{}, mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+
+	// Create tracker
+	tracker := tracking.NewVariableTracker()
+
+	req := &node.FlowNodeRequest{
+		VarMap: map[string]any{
+			"httpNode": map[string]any{
+				"response": map[string]any{
+					"items": []any{"a", "b", "c"},
+				},
+			},
+		},
+		ReadWriteLock:   &sync.RWMutex{},
+		NodeMap:         map[idwrap.IDWrap]node.FlowNode{loopID: loop},
+		EdgeSourceMap:   mflow.NewEdgesMap(nil),
+		VariableTracker: tracker,
+	}
+
+	result := loop.RunSync(context.Background(), req)
+	require.NoError(t, result.Err)
+
+	// Verify that the iteration path variable was tracked
+	readVars := tracker.GetReadVars()
+	require.NotEmpty(t, readVars, "Expected variables to be tracked")
+	require.Contains(t, readVars, "httpNode.response.items",
+		"Expected 'httpNode.response.items' to be tracked for FOREACH iter path")
 }

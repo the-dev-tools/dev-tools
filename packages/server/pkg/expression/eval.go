@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/parser"
 	"github.com/expr-lang/expr/vm"
 )
 
@@ -19,6 +21,9 @@ func (e *UnifiedEnv) Eval(ctx context.Context, exprStr string) (any, error) {
 	if e == nil {
 		return nil, ErrNilEnv
 	}
+
+	// Track variable reads before evaluation (for expr-lang expressions)
+	e.trackExprReads(exprStr)
 
 	// Build the environment for expr-lang
 	env := e.buildExprEnv()
@@ -70,6 +75,9 @@ func (e *UnifiedEnv) EvalBool(ctx context.Context, exprStr string) (bool, error)
 		return false, ErrNilEnv
 	}
 
+	// Track variable reads before evaluation (for expr-lang expressions)
+	e.trackExprReads(exprStr)
+
 	// Build environment
 	env := e.buildExprEnv()
 
@@ -113,6 +121,9 @@ func (e *UnifiedEnv) EvalIter(ctx context.Context, exprStr string) (any, error) 
 	if e == nil {
 		return nil, ErrNilEnv
 	}
+
+	// Track variable reads before evaluation (for expr-lang expressions)
+	e.trackExprReads(exprStr)
 
 	// Build environment
 	env := e.buildExprEnv()
@@ -170,6 +181,21 @@ func (e *UnifiedEnv) EvalIter(ctx context.Context, exprStr string) (any, error) 
 
 	default:
 		return nil, fmt.Errorf("expected iterable (map or slice/array), got %T", output)
+	}
+}
+
+// trackExprReads extracts variable paths from an expr-lang expression and calls Get()
+// on each path to trigger tracking. This ensures that pure expr-lang expressions
+// (like "node.response.status == 200") have their variable reads tracked.
+func (e *UnifiedEnv) trackExprReads(exprStr string) {
+	if e.tracker == nil {
+		return
+	}
+
+	paths := ExtractExprPaths(exprStr)
+	for _, path := range paths {
+		// Get() calls tracker.TrackRead() if the value exists
+		e.Get(path)
 	}
 }
 
@@ -322,6 +348,135 @@ func isKeyword(s string) bool {
 		"get": true, "has": true, "ai": true,
 	}
 	return keywords[s]
+}
+
+// ExtractExprPaths extracts full dot-notation paths from expr-lang expressions.
+// Uses AST parsing for robust extraction.
+// Example: "node.response.status == 200" → ["node.response.status"]
+func ExtractExprPaths(exprStr string) []string {
+	if exprStr == "" {
+		return nil
+	}
+
+	tree, err := parser.Parse(exprStr)
+	if err != nil {
+		return nil
+	}
+
+	extractor := &pathExtractor{
+		paths: make(map[string]struct{}),
+		bases: make(map[ast.Node]struct{}),
+	}
+
+	// First pass: collect all nodes that are bases of MemberNodes
+	ast.Walk(&tree.Node, &baseCollector{bases: extractor.bases})
+
+	// Second pass: extract paths only from "root" nodes (not bases of other MemberNodes)
+	ast.Walk(&tree.Node, extractor)
+
+	return extractor.result()
+}
+
+// baseCollector collects nodes that are used as bases in MemberNodes (property/bracket access).
+type baseCollector struct {
+	bases map[ast.Node]struct{}
+}
+
+// Visit marks nodes that are bases of MemberNodes.
+func (b *baseCollector) Visit(node *ast.Node) {
+	if node == nil {
+		return
+	}
+	if mn, ok := (*node).(*ast.MemberNode); ok {
+		// Mark the base node as being part of a longer chain
+		// But only if this MemberNode represents a property access (not array indexing)
+		// Array indexing uses IntegerNode as Property, which breaks the path chain
+		if _, isArrayIndex := mn.Property.(*ast.IntegerNode); !isArrayIndex {
+			b.bases[mn.Node] = struct{}{}
+		}
+	}
+}
+
+// pathExtractor implements ast.Visitor to extract variable paths from AST nodes.
+type pathExtractor struct {
+	paths map[string]struct{}
+	bases map[ast.Node]struct{} // nodes that are bases of MemberNodes (should be skipped)
+}
+
+// Visit is called for each node in the AST during traversal.
+func (p *pathExtractor) Visit(node *ast.Node) {
+	if node == nil {
+		return
+	}
+
+	// Skip nodes that are bases of other MemberNodes (they're part of a longer chain)
+	if _, isBase := p.bases[*node]; isBase {
+		return
+	}
+
+	// For MemberNodes with array indexing, extract the array base path
+	// This handles cases like items[0].id where we want to track "items"
+	if mn, ok := (*node).(*ast.MemberNode); ok {
+		if _, isArrayIndex := mn.Property.(*ast.IntegerNode); isArrayIndex {
+			if path := p.buildPath(mn.Node); path != "" {
+				topLevel := strings.Split(path, ".")[0]
+				if !isKeyword(topLevel) {
+					p.paths[path] = struct{}{}
+				}
+			}
+			return // Don't process further - array indexing breaks the path chain
+		}
+	}
+
+	// Build full path from MemberNode chain or IdentifierNode
+	if path := p.buildPath(*node); path != "" {
+		// Skip keywords and built-in functions
+		topLevel := strings.Split(path, ".")[0]
+		if !isKeyword(topLevel) {
+			p.paths[path] = struct{}{}
+		}
+	}
+}
+
+// buildPath recursively builds a dot-notation path from AST nodes.
+// Returns the longest static path that can be built.
+// Array indexing (items[0]) terminates path building by returning "" since we can't
+// statically determine what's beyond the index.
+func (p *pathExtractor) buildPath(node ast.Node) string {
+	switch n := node.(type) {
+	case *ast.IdentifierNode:
+		return n.Value
+	case *ast.MemberNode:
+		// Check if this is array indexing - if so, return "" to break chain
+		// The array base path is extracted separately in Visit()
+		if _, isArrayIndex := n.Property.(*ast.IntegerNode); isArrayIndex {
+			return ""
+		}
+
+		base := p.buildPath(n.Node)
+		if base == "" {
+			return ""
+		}
+		// Handle property access (e.g., node.response or node["key"])
+		switch prop := n.Property.(type) {
+		case *ast.StringNode:
+			return base + "." + prop.Value
+		case *ast.IdentifierNode:
+			return base + "." + prop.Value
+		}
+		// Dynamic property access (e.g., node[someVar]) - can't extract static path
+		return ""
+	}
+	return ""
+}
+
+// result returns the collected paths as a slice.
+func (p *pathExtractor) result() []string {
+	result := make([]string, 0, len(p.paths))
+	for path := range p.paths {
+		result = append(result, path)
+	}
+	return result
 }
 
 // looksLikeExpression checks if a string looks like a valid expr-lang expression.

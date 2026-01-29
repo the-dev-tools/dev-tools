@@ -1005,3 +1005,255 @@ func BenchmarkHasVars(b *testing.B) {
 		}
 	})
 }
+
+// =============================================================================
+// ExtractExprPaths Tests
+// =============================================================================
+
+func TestExtractExprPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		expr     string
+		expected []string
+	}{
+		{
+			name:     "simple identifier",
+			expr:     "flag",
+			expected: []string{"flag"},
+		},
+		{
+			name:     "nested path",
+			expr:     "node.response.status",
+			expected: []string{"node.response.status"},
+		},
+		{
+			name:     "comparison expression",
+			expr:     "node.response.status == 200",
+			expected: []string{"node.response.status"},
+		},
+		{
+			name:     "multiple paths",
+			expr:     "nodeA.result && nodeB.value > 30",
+			expected: []string{"nodeA.result", "nodeB.value"},
+		},
+		{
+			name:     "complex expression",
+			expr:     "node.response.body.items[0].id == config.expected",
+			expected: []string{"node.response.body.items", "config.expected"},
+		},
+		{
+			name:     "skip keywords",
+			expr:     "true && false || nil",
+			expected: []string{}, // All are keywords - empty result
+		},
+		{
+			name:     "skip built-in functions",
+			expr:     "len(items) > 0",
+			expected: []string{"items"},
+		},
+		{
+			name:     "string comparison",
+			expr:     `status == "success"`,
+			expected: []string{"status"},
+		},
+		{
+			name:     "empty string",
+			expr:     "",
+			expected: nil,
+		},
+		{
+			name:     "invalid expression",
+			expr:     "invalid +++",
+			expected: nil,
+		},
+		{
+			name:     "bracket notation",
+			expr:     `env["api.key"]`,
+			expected: []string{"env.api.key"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ExtractExprPaths(tt.expr)
+			// Convert to sets for comparison since order is not guaranteed
+			resultSet := make(map[string]bool)
+			for _, p := range result {
+				resultSet[p] = true
+			}
+			expectedSet := make(map[string]bool)
+			for _, p := range tt.expected {
+				expectedSet[p] = true
+			}
+			require.Equal(t, expectedSet, resultSet)
+		})
+	}
+}
+
+// =============================================================================
+// Variable Tracking in Eval Functions Tests
+// =============================================================================
+
+func TestUnifiedEnv_EvalBool_TracksVariables(t *testing.T) {
+	tracker := tracking.NewVariableTracker()
+	env := NewUnifiedEnv(map[string]any{
+		"node": map[string]any{
+			"response": map[string]any{
+				"status": 200,
+			},
+		},
+	}).WithTracking(tracker)
+	ctx := context.Background()
+
+	result, err := env.EvalBool(ctx, "node.response.status == 200")
+	require.NoError(t, err)
+	require.True(t, result)
+
+	// Verify tracking - the full path should be tracked
+	readVars := tracker.GetReadVars()
+	require.NotEmpty(t, readVars, "expected variables to be tracked")
+	require.Contains(t, readVars, "node.response.status")
+}
+
+func TestUnifiedEnv_EvalBool_TracksMultiplePaths(t *testing.T) {
+	tracker := tracking.NewVariableTracker()
+	env := NewUnifiedEnv(map[string]any{
+		"nodeA": map[string]any{
+			"result": "success",
+		},
+		"nodeB": map[string]any{
+			"value": 42,
+		},
+		"config": map[string]any{
+			"enabled": true,
+		},
+	}).WithTracking(tracker)
+	ctx := context.Background()
+
+	result, err := env.EvalBool(ctx, `nodeA.result == "success" && nodeB.value > 30 && config.enabled`)
+	require.NoError(t, err)
+	require.True(t, result)
+
+	// Verify all paths were tracked
+	readVars := tracker.GetReadVars()
+	require.Contains(t, readVars, "nodeA.result")
+	require.Contains(t, readVars, "nodeB.value")
+	require.Contains(t, readVars, "config.enabled")
+}
+
+func TestUnifiedEnv_Eval_TracksVariables(t *testing.T) {
+	tracker := tracking.NewVariableTracker()
+	env := NewUnifiedEnv(map[string]any{
+		"a": 10,
+		"b": 5,
+	}).WithTracking(tracker)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, "a + b")
+	require.NoError(t, err)
+	require.Equal(t, 15, result)
+
+	// Verify tracking
+	readVars := tracker.GetReadVars()
+	require.Contains(t, readVars, "a")
+	require.Contains(t, readVars, "b")
+}
+
+func TestUnifiedEnv_EvalIter_TracksVariables(t *testing.T) {
+	tracker := tracking.NewVariableTracker()
+	env := NewUnifiedEnv(map[string]any{
+		"data": map[string]any{
+			"items": []any{1, 2, 3},
+		},
+	}).WithTracking(tracker)
+	ctx := context.Background()
+
+	result, err := env.EvalIter(ctx, "data.items")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	// Verify tracking
+	readVars := tracker.GetReadVars()
+	require.Contains(t, readVars, "data.items")
+}
+
+func TestUnifiedEnv_EvalString_TracksVariables(t *testing.T) {
+	tracker := tracking.NewVariableTracker()
+	env := NewUnifiedEnv(map[string]any{
+		"user": map[string]any{
+			"name": "John",
+		},
+	}).WithTracking(tracker)
+	ctx := context.Background()
+
+	result, err := env.EvalString(ctx, "user.name")
+	require.NoError(t, err)
+	require.Equal(t, "John", result)
+
+	// Verify tracking (EvalString uses Eval internally)
+	readVars := tracker.GetReadVars()
+	require.Contains(t, readVars, "user.name")
+}
+
+func TestUnifiedEnv_EvalBool_NoTrackingWhenNilTracker(t *testing.T) {
+	// Test that eval works without a tracker (no panic)
+	env := NewUnifiedEnv(map[string]any{
+		"flag": true,
+	})
+	ctx := context.Background()
+
+	result, err := env.EvalBool(ctx, "flag")
+	require.NoError(t, err)
+	require.True(t, result)
+}
+
+// =============================================================================
+// Benchmarks for Tracking Overhead
+// =============================================================================
+
+func BenchmarkUnifiedEnv_EvalBool_WithTracking(b *testing.B) {
+	env := NewUnifiedEnv(map[string]any{
+		"node": map[string]any{
+			"response": map[string]any{
+				"status": 200,
+			},
+		},
+	})
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tracker := tracking.NewVariableTracker()
+		envWithTracking := env.WithTracking(tracker)
+		_, _ = envWithTracking.EvalBool(ctx, "node.response.status == 200")
+	}
+}
+
+func BenchmarkUnifiedEnv_EvalBool_WithoutTracking(b *testing.B) {
+	env := NewUnifiedEnv(map[string]any{
+		"node": map[string]any{
+			"response": map[string]any{
+				"status": 200,
+			},
+		},
+	})
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = env.EvalBool(ctx, "node.response.status == 200")
+	}
+}
+
+func BenchmarkExtractExprPaths(b *testing.B) {
+	b.Run("simple", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_ = ExtractExprPaths("flag")
+		}
+	})
+	b.Run("complex", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_ = ExtractExprPaths(`nodeA.result == "success" && nodeB.value > 30 && config.enabled`)
+		}
+	})
+}
