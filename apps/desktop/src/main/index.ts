@@ -93,6 +93,8 @@ const createWindow = Effect.gen(function* () {
     )
       mainWindow.webContents.openDevTools();
   }
+
+  return mainWindow;
 });
 
 const server = pipe(
@@ -153,6 +155,7 @@ const worker = pipe(
 const onReady = Effect.gen(function* () {
   const path = yield* Path.Path;
 
+  autoUpdater.autoDownload = false;
   autoUpdater.setFeedURL({
     provider: 'custom',
     update: {
@@ -162,7 +165,6 @@ const onReady = Effect.gen(function* () {
     },
     updateProvider: CustomUpdateProvider,
   });
-  yield* Effect.tryPromise(() => autoUpdater.checkForUpdatesAndNotify());
 
   let socketPath = path.join(os.tmpdir(), 'the-dev-tools', 'server.socket');
   if (os.platform() === 'win32') socketPath = '\\\\.\\pipe\\the-dev-tools_server.socket';
@@ -184,12 +186,17 @@ const onReady = Effect.gen(function* () {
     return fetch(request);
   });
 
-  yield* createWindow;
+  const mainWindow = yield* createWindow;
 
   ipcMain.handle('dialog', <T extends keyof Dialog>(_event: unknown, method: T, ...options: Parameters<Dialog[T]>) => {
     const methodFunction = dialog[method] as (...options: Parameters<Dialog[T]>) => ReturnType<Dialog[T]>;
     return methodFunction(...options);
   });
+
+  ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then((_) => _?.updateInfo.version));
+  ipcMain.on('update:start', () => void autoUpdater.downloadUpdate());
+  autoUpdater.on('download-progress', (_) => void mainWindow.webContents.send('update:progress', _));
+  autoUpdater.on('update-downloaded', () => void autoUpdater.quitAndInstall());
 });
 
 const onActivate = Effect.gen(function* () {

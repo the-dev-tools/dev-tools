@@ -55,6 +55,7 @@ catalog:
   '@storybook/addon-docs': 10.1.11
   '@storybook/react': 10.1.11
   '@storybook/react-vite': 10.1.11
+  '@tailwindcss/typography': 0.5.19
   '@tailwindcss/vite': 4.1.18
   '@tanstack/eslint-plugin-router': 1.141.0
   '@tanstack/react-db': 0.1.60
@@ -107,6 +108,7 @@ catalog:
   react-error-boundary: 6.0.2
   react-hook-form: 7.70.0
   react-icons: 5.5.0
+  react-markdown: 10.1.0
   react-resizable-panels: 4.3.0
   react-scan: 0.4.3
   react-stately: 3.43.0
