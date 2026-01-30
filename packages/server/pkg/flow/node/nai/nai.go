@@ -196,24 +196,19 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			})
 		}
 
-		// Write iteration state to VarMap for observability (debugging/UI)
-		inputData := map[string]any{
-			"iteration": i + 1,
-		}
-		if err := node.WriteNodeVarBulk(req, n.Name, inputData); err != nil {
-			return node.FlowNodeResult{
-				NextNodeID: next,
-				Err:        fmt.Errorf("failed to write AI input: %w", err),
-			}
-		}
-
-		// Execute the provider node with typed input - NO VarMap indirection
+		// Execute the provider node with typed input
+		// Provider has its own isolated tracking (emits its own status events)
+		// Disable orchestrator's tracker so provider output doesn't leak into orchestrator's output
+		savedTracker := req.VariableTracker
+		req.VariableTracker = nil
 		providerOutput, err := providerNode.Execute(ctx, req, AIProviderInput{
 			Messages: messages,
 			Tools:    tools,
 		})
+		req.VariableTracker = savedTracker
+
 		if err != nil {
-			// Emit FAILURE status
+			// Emit FAILURE status for this iteration
 			if req.LogPushFunc != nil {
 				executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -231,7 +226,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("agent error: %w", err)}
 		}
 
-		// Aggregate metrics
+		// Aggregate metrics (orchestrator tracks totals, provider tracks per-call metrics in its own events)
 		totalMetrics.PromptTokens += providerOutput.Metrics.PromptTokens
 		totalMetrics.CompletionTokens += providerOutput.Metrics.CompletionTokens
 		totalMetrics.TotalTokens += providerOutput.Metrics.TotalTokens
@@ -241,7 +236,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		if len(providerOutput.ToolCalls) == 0 {
 			finalResponse = providerOutput.Text
 
-			// Emit SUCCESS status
+			// Emit SUCCESS status for final response
 			if req.LogPushFunc != nil {
 				executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -249,7 +244,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 					NodeID:           n.FlowNodeID,
 					Name:             executionName,
 					State:            mflow.NODE_STATE_SUCCESS,
-					OutputData:       map[string]any{"text": finalResponse, "iteration": i + 1},
+					OutputData:       map[string]any{"text": finalResponse, "iteration": i + 1, "is_final": true},
 					IterationEvent:   true,
 					IterationIndex:   i,
 					LoopNodeID:       n.FlowNodeID,
@@ -304,15 +299,31 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			messages = append(messages, toolResultMsg)
 		}
 
-		// Emit SUCCESS status for this iteration
+		// Emit SUCCESS status for this iteration with detailed info
 		if req.LogPushFunc != nil {
 			executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
+
+			// Collect tool call names for better observability
+			toolCallNames := make([]string, 0, len(providerOutput.ToolCalls))
+			for _, tc := range providerOutput.ToolCalls {
+				toolCallNames = append(toolCallNames, tc.Name)
+			}
+
+			iterOutput := map[string]any{
+				"iteration":  i + 1,
+				"tool_calls": toolCallNames,
+			}
+			// Include text if the LLM produced any alongside tool calls
+			if providerOutput.Text != "" {
+				iterOutput["text"] = providerOutput.Text
+			}
+
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID:      executionID,
 				NodeID:           n.FlowNodeID,
 				Name:             executionName,
 				State:            mflow.NODE_STATE_SUCCESS,
-				OutputData:       map[string]any{"tool_calls": len(providerOutput.ToolCalls), "iteration": i + 1},
+				OutputData:       iterOutput,
 				IterationEvent:   true,
 				IterationIndex:   i,
 				LoopNodeID:       n.FlowNodeID,
@@ -333,26 +344,21 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		memoryNode.AddMessage("assistant", finalResponse)
 	}
 
-	// 9. Store final result (overwrites iteration data with final result)
+	// 9. Store final result - replace entirely (don't merge with set_variable artifacts)
 	resultMap := map[string]any{
 		"text":          finalResponse,
 		"total_metrics": totalMetrics,
 	}
 
+	// Store final result
+	req.ReadWriteLock.Lock()
+	req.VarMap[n.Name] = resultMap
+	req.ReadWriteLock.Unlock()
+
+	// Track the final output (set_variable writes are already tracked)
 	if req.VariableTracker != nil {
-		if err := node.WriteNodeVarBulkWithTracking(req, n.Name, resultMap, req.VariableTracker); err != nil {
-			return node.FlowNodeResult{
-				NextNodeID: next,
-				Err:        fmt.Errorf("failed to write AI result with tracking: %w", err),
-			}
-		}
-	} else {
-		if err := node.WriteNodeVarBulk(req, n.Name, resultMap); err != nil {
-			return node.FlowNodeResult{
-				NextNodeID: next,
-				Err:        fmt.Errorf("failed to write AI result: %w", err),
-			}
-		}
+		req.VariableTracker.TrackWrite(n.Name+".text", finalResponse)
+		req.VariableTracker.TrackWrite(n.Name+".total_metrics", totalMetrics)
 	}
 
 	return node.FlowNodeResult{

@@ -118,6 +118,44 @@ func TestVariableTracker_Concurrent(t *testing.T) {
 	require.Len(t, writtenVars, expectedCount, "Expected %d written variables", expectedCount)
 }
 
+func TestVariableTracker_ClearWritesWithPrefix(t *testing.T) {
+	tracker := NewVariableTracker()
+
+	// Track various writes with different prefixes
+	tracker.TrackWrite("ai_1.userId", 42)
+	tracker.TrackWrite("ai_1.userName", "alice")
+	tracker.TrackWrite("ai_1.deep.nested", "value")
+	tracker.TrackWrite("http_1.response.status", 200)
+	tracker.TrackWrite("http_1.response.body", "hello")
+	tracker.TrackWrite("other", "data")
+
+	// Clear writes with prefix "ai_1."
+	tracker.ClearWritesWithPrefix("ai_1.")
+
+	// Verify ai_1.* writes are cleared
+	writtenVars := tracker.GetWrittenVars()
+	require.Len(t, writtenVars, 3, "Expected 3 written variables after clearing ai_1.*")
+
+	_, exists := writtenVars["ai_1.userId"]
+	require.False(t, exists, "ai_1.userId should be cleared")
+	_, exists = writtenVars["ai_1.userName"]
+	require.False(t, exists, "ai_1.userName should be cleared")
+	_, exists = writtenVars["ai_1.deep.nested"]
+	require.False(t, exists, "ai_1.deep.nested should be cleared")
+
+	// Verify other writes remain
+	require.Equal(t, 200, writtenVars["http_1.response.status"])
+	require.Equal(t, "hello", writtenVars["http_1.response.body"])
+	require.Equal(t, "data", writtenVars["other"])
+}
+
+func TestVariableTracker_ClearWritesWithPrefixNilTracker(t *testing.T) {
+	var tracker *VariableTracker = nil
+
+	// Should not panic
+	tracker.ClearWritesWithPrefix("ai_1.")
+}
+
 func TestTrackingEnv_Get(t *testing.T) {
 	originalEnv := map[string]any{
 		"var1": "value1",
