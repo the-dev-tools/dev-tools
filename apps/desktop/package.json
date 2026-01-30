@@ -21,6 +21,7 @@
     "@the-dev-tools/cli": "workspace:^",
     "@the-dev-tools/client": "workspace:^",
     "@the-dev-tools/server": "workspace:^",
+    "@the-dev-tools/ui": "workspace:^",
     "@the-dev-tools/worker-js": "workspace:^",
     "@vitejs/plugin-react": "catalog:",
     "builder-util-runtime": "catalog:",
@@ -28,11 +29,13 @@
     "electron-updater": "6.7.3",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-markdown": "catalog:",
     "undici": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
     "@lezer/generator": "catalog:",
+    "@tailwindcss/typography": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/react": "catalog:",

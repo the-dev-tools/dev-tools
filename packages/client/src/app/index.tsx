@@ -32,22 +32,8 @@ const appAtom = runtimeAtom.atom(
   }),
 );
 
-const finalizerAtom = Atom.family((callback?: () => void) =>
-  Atom.make((get) => {
-    get.addFinalizer(() => {
-      callback?.();
-    });
-  }),
-);
-
-interface AppProps {
-  finalizer?: () => void;
-}
-
-export const App = ({ finalizer }: AppProps) => {
+export const App = () => {
   const context = useAtomValue(appAtom);
-
-  useAtomValue(finalizerAtom(finalizer));
 
   return Result.match(context, {
     onFailure: () => <div>App startup error</div>,
@@ -73,3 +59,5 @@ export const configProviderFromMetaEnv = (extra?: Record<string, string>) =>
   );
 
 export const addGlobalLayer: Atom.RuntimeFactory['addGlobalLayer'] = Atom.runtime.addGlobalLayer;
+
+export { runtimeAtom };
