@@ -737,6 +737,15 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					"result":    false,
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_AI_PROVIDER:
+				// For AI Provider nodes, provide the output schema
+				nodeVarsMap := map[string]interface{}{
+					"text":       "",
+					"tool_calls": []interface{}{},
+					"metrics":    map[string]interface{}{},
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
 			}
 		}
 
