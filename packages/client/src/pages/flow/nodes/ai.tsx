@@ -328,7 +328,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
   const [credentialIsOpen, setCredentialIsOpen] = useState(false);
 
   return (
-    <NodeSettingsContainer nodeId={nodeId} title={title}>
+    <NodeSettingsBody nodeId={nodeId} title={title}>
       <div className={tw`flex flex-col items-start gap-y-5`}>
         {credentialKind !== CredentialKind.UNSPECIFIED && (
           <div>
@@ -473,7 +473,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
           value={data.temperature ?? 0}
         />
       </div>
-    </NodeSettingsContainer>
+    </NodeSettingsBody>
   );
 };
 
