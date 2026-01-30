@@ -188,14 +188,55 @@ type NodeAI struct {
 }
 
 // --- AI Provider Node ---
-// NodeAiProvider is a passive configuration node that provides LLM settings to connected AI Agent nodes.
-// It connects via HandleAiProvider edge and allows visual separation of model config from AI logic.
+// NodeAiProvider is an active LLM executor node that makes LLM calls and tracks metrics.
+// It connects via HandleAiProvider edge and is orchestrated by the NodeAI node.
+// Each LLM call through this node gets its own node_execution record with metrics.
 type NodeAiProvider struct {
 	FlowNodeID   idwrap.IDWrap
 	CredentialID *idwrap.IDWrap // nil means no credential set yet
 	Model        AiModel
+	CustomModel  string   // Used when Model == AiModelCustom
 	Temperature  *float32 // nil means use provider default
 	MaxTokens    *int32   // nil means use provider default
+	Prompt       string   // System prompt or user prompt for the LLM call
+}
+
+// --- AI Metrics and Output Types ---
+
+// AIMetrics contains metrics for a single LLM call
+type AIMetrics struct {
+	PromptTokens     int32  `json:"prompt_tokens"`
+	CompletionTokens int32  `json:"completion_tokens"`
+	TotalTokens      int32  `json:"total_tokens"`
+	Model            string `json:"model"`
+	Provider         string `json:"provider"`
+	FinishReason     string `json:"finish_reason,omitempty"`
+}
+
+// AIToolCall represents a tool call request from the LLM
+type AIToolCall struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"` // Usually "function"
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+// AIProviderOutput represents the output of a single LLM call from NodeAiProvider
+type AIProviderOutput struct {
+	Text      string       `json:"text,omitempty"`
+	ToolCalls []AIToolCall `json:"tool_calls,omitempty"`
+	Metrics   AIMetrics    `json:"metrics"`
+}
+
+// AITotalMetrics contains aggregated metrics for the entire AI orchestration
+type AITotalMetrics struct {
+	PromptTokens     int32  `json:"prompt_tokens"`
+	CompletionTokens int32  `json:"completion_tokens"`
+	TotalTokens      int32  `json:"total_tokens"`
+	Model            string `json:"model"`
+	Provider         string `json:"provider"`
+	LLMCalls         int32  `json:"llm_calls"`
+	ToolCalls        int32  `json:"tool_calls"`
 }
 
 // --- Memory Node ---

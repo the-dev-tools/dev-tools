@@ -26,7 +26,7 @@ func TestVariableTools(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, `"value"`, res)
 
-		res, err = handleGetVariable(ctx, req, `{"key": "missing"}`)
+		_, err = handleGetVariable(ctx, req, `{"key": "missing"}`)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
 	})
@@ -63,7 +63,7 @@ func TestVariableTools(t *testing.T) {
 		assert.Equal(t, "42", res)
 
 		// Set another nested value on the same node
-		res, err = handleSetVariable(ctx, req, `{"key": "ai_1.name", "value": "test"}`)
+		_, err = handleSetVariable(ctx, req, `{"key": "ai_1.name", "value": "test"}`)
 		assert.NoError(t, err)
 
 		// Both values should exist

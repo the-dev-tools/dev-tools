@@ -60,7 +60,8 @@ func TestNodeAI_LiveCustom_Generic(t *testing.T) {
 	aiNodeID := idwrap.NewNow()
 	providerNodeID := idwrap.NewNow()
 
-	// Create AI Provider node
+	// Create AI nodes
+	n := New(aiNodeID, "CUSTOM_AI_NODE", "Say 'Hello' and state your model name.", 5, nil)
 	providerNode := CreateTestAiProviderNode(providerNodeID)
 
 	edgeMap := mflow.EdgesMap{
@@ -70,6 +71,7 @@ func TestNodeAI_LiveCustom_Generic(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n, // AI node must be in nodeMap for provider to find via reverse lookup
 		providerNodeID: providerNode,
 	}
 
@@ -85,29 +87,7 @@ func TestNodeAI_LiveCustom_Generic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create Anthropic client: %v", err)
 		}
-
-		// Create and run node
-		n := New(aiNodeID, "CUSTOM_AI_NODE", "Say 'Hello' and state your model name.", 5, nil)
-		n.LLM = llm
-
-		req := &node.FlowNodeRequest{
-			VarMap:        make(map[string]any),
-			ReadWriteLock: &sync.RWMutex{},
-			EdgeSourceMap: edgeMap,
-			NodeMap:       nodeMap,
-		}
-
-		t.Logf("Running AI Node with Custom Model: %s (Provider: %s) at %s", modelName, providerType, baseUrl)
-		res := n.RunSync(ctx, req)
-
-		if res.Err != nil {
-			t.Fatalf("Node execution failed: %v", res.Err)
-		}
-
-		val, err := node.ReadNodeVar(req, "CUSTOM_AI_NODE", "text")
-		assert.NoError(t, err)
-		t.Logf("Response: %v", val)
-		assert.NotEmpty(t, val)
+		providerNode.LLM = llm // Set LLM on provider, not AI node
 	} else {
 		// OpenAI-compatible provider
 		opts := []openai.Option{
@@ -121,28 +101,25 @@ func TestNodeAI_LiveCustom_Generic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create OpenAI client: %v", err)
 		}
-
-		// Create and run node
-		n := New(aiNodeID, "CUSTOM_AI_NODE", "Say 'Hello' and state your model name.", 5, nil)
-		n.LLM = llm
-
-		req := &node.FlowNodeRequest{
-			VarMap:        make(map[string]any),
-			ReadWriteLock: &sync.RWMutex{},
-			EdgeSourceMap: edgeMap,
-			NodeMap:       nodeMap,
-		}
-
-		t.Logf("Running AI Node with Custom Model: %s (Provider: %s) at %s", modelName, providerType, baseUrl)
-		res := n.RunSync(ctx, req)
-
-		if res.Err != nil {
-			t.Fatalf("Node execution failed: %v", res.Err)
-		}
-
-		val, err := node.ReadNodeVar(req, "CUSTOM_AI_NODE", "text")
-		assert.NoError(t, err)
-		t.Logf("Response: %v", val)
-		assert.NotEmpty(t, val)
+		providerNode.LLM = llm // Set LLM on provider, not AI node
 	}
+
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		EdgeSourceMap: edgeMap,
+		NodeMap:       nodeMap,
+	}
+
+	t.Logf("Running AI Node with Custom Model: %s (Provider: %s) at %s", modelName, providerType, baseUrl)
+	res := n.RunSync(ctx, req)
+
+	if res.Err != nil {
+		t.Fatalf("Node execution failed: %v", res.Err)
+	}
+
+	val, err := node.ReadNodeVar(req, "CUSTOM_AI_NODE", "text")
+	assert.NoError(t, err)
+	t.Logf("Response: %v", val)
+	assert.NotEmpty(t, val)
 }

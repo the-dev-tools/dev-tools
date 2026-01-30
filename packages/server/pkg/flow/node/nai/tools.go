@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/llm"
 )
 
 var toolNameRegex = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
@@ -19,10 +19,10 @@ func sanitizeToolName(name string) string {
 }
 
 // getVariableTool allows the agent to read a variable from the flow's context.
-func getVariableTool(req *node.FlowNodeRequest) llms.Tool {
-	return llms.Tool{
+func getVariableTool(req *node.FlowNodeRequest) llm.Tool {
+	return llm.Tool{
 		Type: "function",
-		Function: &llms.FunctionDefinition{
+		Function: &llm.FunctionDef{
 			Name:        "get_variable",
 			Description: "Get the value of a specific variable from the flow context. Only use this if you need specific data not provided in the initial prompt.",
 			Parameters: map[string]any{
@@ -40,10 +40,10 @@ func getVariableTool(req *node.FlowNodeRequest) llms.Tool {
 }
 
 // setVariableTool allows the agent to write a variable to the flow's context.
-func setVariableTool(req *node.FlowNodeRequest) llms.Tool {
-	return llms.Tool{
+func setVariableTool(req *node.FlowNodeRequest) llm.Tool {
+	return llm.Tool{
 		Type: "function",
-		Function: &llms.FunctionDefinition{
+		Function: &llm.FunctionDef{
 			Name:        "set_variable",
 			Description: "Set a value in the flow context. Use this to pass data to subsequent tools or nodes in the flow.",
 			Parameters: map[string]any{
@@ -121,10 +121,10 @@ func handleSetVariable(ctx context.Context, req *node.FlowNodeRequest, args stri
 
 // discoverToolsTool creates the discover_tools function for PoC #3
 // This allows the AI to dynamically learn about available tools
-func discoverToolsTool() llms.Tool {
-	return llms.Tool{
+func discoverToolsTool() llm.Tool {
+	return llm.Tool{
 		Type: "function",
-		Function: &llms.FunctionDefinition{
+		Function: &llm.FunctionDef{
 			Name: "discover_tools",
 			Description: `List all available tools and their detailed descriptions.
 Call this to understand what tools are available and how to use them.
@@ -233,4 +233,3 @@ func handleDiscoverTools(ctx context.Context, toolMap map[string]*NodeTool, args
 
 	return string(result), nil
 }
-

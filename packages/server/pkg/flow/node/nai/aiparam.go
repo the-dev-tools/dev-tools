@@ -364,22 +364,6 @@ func BuildChainFromParams(toolName string, params []AIParam) []ChainInfo {
 	return chains
 }
 
-// getTypeExample returns an example value for a given type
-func getTypeExample(paramType string) string {
-	switch paramType {
-	case AIParamTypeNumber:
-		return "123"
-	case AIParamTypeBoolean:
-		return "true"
-	case AIParamTypeArray:
-		return "[\"item1\", \"item2\"]"
-	case AIParamTypeObject:
-		return "{\"key\": \"value\"}"
-	default: // string
-		return "\"example_value\""
-	}
-}
-
 // ExtractAIParamNames returns just the parameter names from a list of AIParams.
 // Useful for getting required variable names.
 func ExtractAIParamNames(aiNodeName string, params []AIParam) []string {

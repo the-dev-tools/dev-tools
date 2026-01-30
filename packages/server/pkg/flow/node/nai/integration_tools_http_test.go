@@ -83,10 +83,10 @@ func TestNodeAI_LiveHTTPTool(t *testing.T) {
 	`, httpNodeName)
 
 	aiNode := New(aiNodeID, "AI_AGENT", prompt, 5, nil)
-	aiNode.LLM = llm
 
-	// Create AI Provider node
+	// Create AI Provider node and set the LLM
 	providerNode := CreateTestAiProviderNode(providerNodeID)
+	providerNode.LLM = llm
 
 	// 3. Connect Nodes
 	edgeMap := mflow.EdgesMap{

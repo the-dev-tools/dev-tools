@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 )
 
 // =============================================================================
@@ -66,7 +67,7 @@ func TestPOC6_Simple_FewShotExamples(t *testing.T) {
 Fetch information about user ID 5 and tell me their name and email.`, GenerateFewShotPrompt(examples))
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 10, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -131,7 +132,7 @@ func TestPOC6_Medium_FewShotExamples(t *testing.T) {
 Get comments for the first post of user ID 1. Tell me what the comment says.`, GenerateFewShotPrompt(examples))
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 15, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -201,7 +202,7 @@ Fetch data from "/api/v1/data" with apiKey "secret123", transform it, and valida
 Tell me if validation passed and what the total value was.`, GenerateFewShotPrompt(examples))
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -293,7 +294,7 @@ func TestPOC7_Simple_ReActPattern(t *testing.T) {
 	)
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 10, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -345,7 +346,7 @@ func TestPOC7_Medium_ReActPattern(t *testing.T) {
 	)
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 15, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -401,7 +402,7 @@ func TestPOC7_Complex_ReActPattern(t *testing.T) {
 	)
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -515,7 +516,7 @@ func TestPOC8_Complex_DependencyGraph(t *testing.T) {
 4. Tell me if validation passed and the total value.`, GenerateDependencyGraphPrompt(depGraph))
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{

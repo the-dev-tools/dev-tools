@@ -41,9 +41,9 @@ func TestNodeAI_LiveOpenAI(t *testing.T) {
 	providerNodeID := idwrap.NewNow()
 
 	n := New(aiNodeID, "OPENAI_AGENT", "What is the value of 'test_var'? Use get_variable.", 5, nil)
-	n.LLM = llm
 
 	providerNode := CreateTestAiProviderNode(providerNodeID)
+	providerNode.LLM = llm // Set LLM on provider, not AI node
 
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
@@ -52,6 +52,7 @@ func TestNodeAI_LiveOpenAI(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n, // AI node must be in nodeMap for provider to find via reverse lookup
 		providerNodeID: providerNode,
 	}
 
@@ -87,9 +88,9 @@ func TestNodeAI_LiveGemini(t *testing.T) {
 	providerNodeID := idwrap.NewNow()
 
 	n := New(aiNodeID, "GEMINI_AGENT", "Greet the user {{user_name}}. Then tell me what is in 'secret_code' variable.", 5, nil)
-	n.LLM = llm
 
 	providerNode := CreateTestAiProviderNode(providerNodeID)
+	providerNode.LLM = llm // Set LLM on provider, not AI node
 
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
@@ -98,6 +99,7 @@ func TestNodeAI_LiveGemini(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n, // AI node must be in nodeMap for provider to find via reverse lookup
 		providerNodeID: providerNode,
 	}
 
@@ -135,9 +137,9 @@ func TestNodeAI_LiveAnthropic(t *testing.T) {
 	providerNodeID := idwrap.NewNow()
 
 	n := New(aiNodeID, "ANTHROPIC_AGENT", "Say 'Claude is here'.", 5, nil)
-	n.LLM = llm
 
 	providerNode := CreateTestAiProviderNode(providerNodeID)
+	providerNode.LLM = llm // Set LLM on provider, not AI node
 
 	edgeMap := mflow.EdgesMap{
 		aiNodeID: {
@@ -146,6 +148,7 @@ func TestNodeAI_LiveAnthropic(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n, // AI node must be in nodeMap for provider to find via reverse lookup
 		providerNodeID: providerNode,
 	}
 

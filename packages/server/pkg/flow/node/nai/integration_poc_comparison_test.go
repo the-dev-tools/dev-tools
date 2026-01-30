@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
@@ -528,7 +529,7 @@ Instructions:
 3. Tell me the user's name and email`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 10, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -586,7 +587,7 @@ You need to:
 4. Tell me what the comment says`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 15, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -647,7 +648,7 @@ Steps:
 5. Tell me if validation passed and what the total value was`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -705,7 +706,7 @@ func TestPOC2_Simple_UserDescription(t *testing.T) {
 Task: Fetch information about user ID 5 and tell me their name and email.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 10, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -754,7 +755,7 @@ func TestPOC2_Medium_UserDescription(t *testing.T) {
 Task: Get comments for the first post of user ID 1. Tell me what the comment says.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 15, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -808,7 +809,7 @@ Task: Fetch data from "/api/v1/data" with apiKey "secret123", transform it, vali
 Tell me if validation passed and the total value.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -871,7 +872,7 @@ You have a 'discover_tools' function that lists available tools and how to use t
 Consider using it first to understand what tools are available.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 12, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	aiNode.EnableDiscoveryTool = true // Enable discover_tools for this test
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
@@ -926,7 +927,7 @@ Task: Get comments for the first post of user ID 1. Tell me what the comment say
 You have a 'discover_tools' function to learn about available tools.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 18, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	aiNode.EnableDiscoveryTool = true
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
@@ -986,7 +987,7 @@ Tell me if validation passed and the total value.
 You have a 'discover_tools' function to learn about available tools and their requirements.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 25, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	aiNode.EnableDiscoveryTool = true
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
@@ -1429,7 +1430,7 @@ func TestPOC4_Simple_AIParamSyntax(t *testing.T) {
 	prompt := `Task: Fetch information about user ID 5 and tell me their name and email.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 10, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -1477,7 +1478,7 @@ func TestPOC4_Medium_AIParamSyntax(t *testing.T) {
 	prompt := `Task: Get comments for the first post of user ID 1. Tell me what the comment says.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 15, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -1530,7 +1531,7 @@ func TestPOC4_Complex_AIParamSyntax(t *testing.T) {
 Tell me if validation passed and the total value.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -1778,7 +1779,7 @@ func TestPOC5_Medium_AutoChaining(t *testing.T) {
 	prompt := `Get comments for the first post of user ID 1. Tell me what the comment says.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 15, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{
@@ -2004,7 +2005,7 @@ func TestPOC5_Complex_AutoChaining(t *testing.T) {
 	prompt := `Fetch data from "/api/v1/data" with apiKey "secret123", transform it, and validate that the total is at least 200. Tell me if it passed.`
 
 	aiNode := New(scenario.AINodeID, "ai_1", prompt, 20, nil)
-	aiNode.LLM = llm
+	scenario.NodeMap[scenario.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 	scenario.NodeMap[scenario.AINodeID] = aiNode
 
 	req := &node.FlowNodeRequest{

@@ -25,7 +25,7 @@ func TestNodeToolBridge(t *testing.T) {
 	}
 
 	nt := NewNodeTool(mn, req)
-	lcTool := nt.AsLangChainTool()
+	lcTool := nt.AsTool()
 
 	assert.Equal(t, "mock", lcTool.Function.Name)
 

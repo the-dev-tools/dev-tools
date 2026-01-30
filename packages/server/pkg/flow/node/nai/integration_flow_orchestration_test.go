@@ -98,12 +98,12 @@ func TestNodeAI_LiveMultiStepFlow(t *testing.T) {
 		4. Return the final secret.
 	`
 
-	// 3. Create AI Node
+	// 3. Create AI Node and Provider Node
 	aiNode := New(aiNodeID, "AI_ORCHESTRATOR", prompt, 10, nil)
-	aiNode.LLM = llm
 
-	// Create AI Provider node
+	// Create AI Provider node and set the LLM
 	providerNode := CreateTestAiProviderNode(providerNodeID)
+	providerNode.LLM = llm
 
 	// 4. Connect Edges
 	edgeMap := mflow.EdgesMap{

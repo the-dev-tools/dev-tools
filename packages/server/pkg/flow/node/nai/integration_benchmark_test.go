@@ -12,6 +12,7 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
@@ -249,7 +250,7 @@ func runPOC3(t *testing.T, llm llms.Model, scenario string) *POCMetrics {
 		prompt := `You have access to discover_tools to learn about available tools.
 First discover what tools are available, then fetch information about user ID 5.`
 		aiNode := New(s.AINodeID, "ai_1", prompt, 10, nil)
-		aiNode.LLM = llm
+		s.NodeMap[s.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 		aiNode.EnableDiscoveryTool = true
 		s.NodeMap[s.AINodeID] = aiNode
 
@@ -274,7 +275,7 @@ First discover what tools are available, then fetch information about user ID 5.
 		s := setupMediumScenario(t, false)
 		prompt := `You have access to discover_tools. Use it to learn about tools, then get comments for the first post of user ID 1.`
 		aiNode := New(s.AINodeID, "ai_1", prompt, 15, nil)
-		aiNode.LLM = llm
+		s.NodeMap[s.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 		aiNode.EnableDiscoveryTool = true
 		s.NodeMap[s.AINodeID] = aiNode
 
@@ -299,7 +300,7 @@ First discover what tools are available, then fetch information about user ID 5.
 		s := setupComplexScenario(t, false)
 		prompt := `Use discover_tools first, then: Fetch data from "/api/v1/data" with apiKey "secret123", transform it, and validate total >= 200.`
 		aiNode := New(s.AINodeID, "ai_1", prompt, 20, nil)
-		aiNode.LLM = llm
+		s.NodeMap[s.ProviderID].(*naiprovider.NodeAiProvider).LLM = llm
 		aiNode.EnableDiscoveryTool = true
 		s.NodeMap[s.AINodeID] = aiNode
 
@@ -525,7 +526,10 @@ func runAINode(ctx context.Context, t *testing.T, llm llms.Model, aiNodeID idwra
 	prompt string, maxIterations int32) runResult {
 
 	aiNode := New(aiNodeID, "ai_1", prompt, maxIterations, nil)
-	aiNode.LLM = llm
+	// Get provider ID from edge map and set LLM
+	if providerIDs, ok := edgeMap[aiNodeID][mflow.HandleAiProvider]; ok && len(providerIDs) > 0 {
+		nodeMap[providerIDs[0]].(*naiprovider.NodeAiProvider).LLM = llm
+	}
 	nodeMap[aiNodeID] = aiNode
 
 	req := &node.FlowNodeRequest{

@@ -65,10 +65,10 @@ func TestNodeAI_LiveNodesAsTools(t *testing.T) {
 
 	// Note: We don't need the factory here because we inject the LLM directly
 	aiNode := New(aiNodeID, "AI_AGENT", prompt, 5, nil)
-	aiNode.LLM = llm
 
-	// Create AI Provider node
+	// Create AI Provider node and set the LLM
 	providerNode := CreateTestAiProviderNode(providerNodeID)
+	providerNode.LLM = llm
 
 	// 3. Setup Request with Connection
 	// Connect AI Node -> Provider via HandleAiProvider, Tool Node via HandleAiTools

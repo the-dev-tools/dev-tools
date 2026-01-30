@@ -7,27 +7,27 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/llm"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 )
 
+// NodeAI is an orchestrator node that manages the AI agent loop.
+// It coordinates between the AI Provider (LLM executor), Memory (conversation history),
+// and Tools (connected nodes). Like ForEach, it emits iteration status for each LLM call.
 type NodeAI struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
 	Prompt        string
 	MaxIterations int32
-	// ProviderFactory creates LLM clients from credentials
+	// ProviderFactory creates LLM clients from credentials (passed to provider)
 	ProviderFactory *scredential.LLMProviderFactory
-	// Override model for testing
-	LLM llms.Model
 	// EnableDiscoveryTool enables the discover_tools function (PoC #3)
 	EnableDiscoveryTool bool
 	// DiscoverToolCalls tracks how many times discover_tools was called (for metrics)
@@ -64,20 +64,27 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 	}
 
-	providerNode, ok := req.NodeMap[providerNodeIDs[0]].(*naiprovider.NodeAiProvider)
+	providerFlowNode, ok := req.NodeMap[providerNodeIDs[0]]
 	if !ok {
 		return node.FlowNodeResult{
 			NextNodeID: next,
-			Err:        fmt.Errorf("connected node is not an AI Provider node"),
+			Err:        fmt.Errorf("AI Provider node not found in node map"),
 		}
 	}
 
-	// Use model configuration from connected AI Provider node
-	aiModel := providerNode.Model
-	customModel := providerNode.CustomModel
-	credentialID := providerNode.CredentialID // Can be nil if not set
-	temperature := providerNode.Temperature
-	maxTokens := providerNode.MaxTokens
+	// Check if it implements AIProvider interface
+	providerNode, ok := providerFlowNode.(AIProvider)
+	if !ok {
+		return node.FlowNodeResult{
+			NextNodeID: next,
+			Err:        fmt.Errorf("connected node does not implement AIProvider interface"),
+		}
+	}
+
+	// Pass provider factory to provider node if available
+	if n.ProviderFactory != nil {
+		providerNode.SetProviderFactory(n.ProviderFactory)
+	}
 
 	// 2. OPTIONAL: Get connected Memory node via HandleAiMemory edge
 	var memoryNode *nmemory.NodeMemory
@@ -88,35 +95,8 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 	}
 
-	// 3. Resolve LLM Model
-	model := n.LLM
-	if model == nil {
-		if n.ProviderFactory == nil {
-			return node.FlowNodeResult{
-				NextNodeID: next,
-				Err:        fmt.Errorf("AI Agent node requires LLM provider factory - ensure an AI Provider node is connected and credentials are configured"),
-			}
-		}
-
-		if credentialID == nil {
-			return node.FlowNodeResult{
-				NextNodeID: next,
-				Err:        fmt.Errorf("AI Provider node has no credential configured - please set a credential on the connected AI Provider node"),
-			}
-		}
-
-		var err error
-		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, aiModel, customModel, *credentialID)
-		if err != nil {
-			return node.FlowNodeResult{
-				NextNodeID: next,
-				Err:        fmt.Errorf("failed to create LLM model: %w", err),
-			}
-		}
-	}
-
-	// 4. Discover and Wrap Tools
-	lcTools := []llms.Tool{
+	// 3. Discover and Wrap Tools
+	tools := []llm.Tool{
 		getVariableTool(req),
 		setVariableTool(req),
 	}
@@ -132,120 +112,16 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 			continue
 		}
 		nt := NewNodeTool(targetNode, req)
-		lcTools = append(lcTools, nt.AsLangChainTool())
+		tools = append(tools, nt.AsTool())
 		toolMap[sanitizeToolName(targetNode.GetName())] = nt
 	}
 
 	// PoC #3: Add discover_tools if enabled
 	if n.EnableDiscoveryTool {
-		lcTools = append(lcTools, discoverToolsTool())
+		tools = append(tools, discoverToolsTool())
 	}
 
-	// 5. Initialize Agent executor using the flow runner (like ForEach does)
-	// This ensures proper status emission, AuxiliaryID propagation, and HTTP response linking
-	executor := func(ctx context.Context, name string, args string) (string, error) {
-		switch name {
-		case "get_variable":
-			return handleGetVariable(ctx, req, args)
-		case "set_variable":
-			return handleSetVariable(ctx, req, args)
-		case "discover_tools":
-			// PoC #3: Handle discover_tools call
-			n.DiscoverToolCalls++
-			return handleDiscoverTools(ctx, toolMap, args)
-		default:
-			tool, ok := toolMap[name]
-			if !ok {
-				return "", fmt.Errorf("tool '%s' not found", name)
-			}
-
-			toolNodeID := tool.TargetNode.GetID()
-			toolNodeName := tool.TargetNode.GetName()
-
-			// Build the tool chain: find all nodes reachable from the tool node
-			// This allows chained request nodes to execute as a single tool
-			chainNodeIDs := findDownstreamNodes(req.EdgeSourceMap, toolNodeID, n.FlowNodeID)
-
-			// Build edge map for the chain (only edges between chain nodes)
-			chainEdgeMap := buildChainEdgeMap(req.EdgeSourceMap, chainNodeIDs)
-
-			// Build node map for the chain
-			chainNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(chainNodeIDs))
-			for nodeID := range chainNodeIDs {
-				if n, ok := req.NodeMap[nodeID]; ok {
-					chainNodeMap[nodeID] = n
-				}
-			}
-
-			// Build predecessor map for proper scheduling
-			predecessorMap := flowlocalrunner.BuildPredecessorMap(chainEdgeMap)
-			pendingMap := node.BuildPendingMap(predecessorMap)
-
-			// Create child request for the tool chain execution
-			childReq := *req
-			childReq.EdgeSourceMap = chainEdgeMap
-			childReq.NodeMap = chainNodeMap
-			childReq.PendingAtmoicMap = pendingMap
-			childReq.ExecutionID = idwrap.NewMonotonic()
-			// Create a new RWMutex for the child request to avoid lock contention
-			childReq.ReadWriteLock = &sync.RWMutex{}
-
-			// Provide a no-op status func if LogPushFunc is nil (e.g., in tests)
-			statusFunc := req.LogPushFunc
-			if statusFunc == nil {
-				statusFunc = func(s runner.FlowNodeStatus) {} // no-op
-			}
-
-			// Execute via runner - this handles status emission automatically including AuxiliaryID
-			err := flowlocalrunner.RunNodeSync(ctx, toolNodeID, &childReq, statusFunc, predecessorMap)
-
-			// Extract outputs from all nodes in the chain
-			var outputs []string
-			for nodeID := range chainNodeIDs {
-				nodeName := ""
-				if n, ok := chainNodeMap[nodeID]; ok {
-					nodeName = n.GetName()
-				}
-				if nodeName == "" {
-					continue
-				}
-
-				if data, ok := childReq.VarMap[nodeName]; ok {
-					// Copy node output to parent VarMap
-					req.ReadWriteLock.Lock()
-					req.VarMap[nodeName] = data
-					req.ReadWriteLock.Unlock()
-
-					// Add to output summary
-					if jsonBytes, jsonErr := json.Marshal(data); jsonErr == nil {
-						outputs = append(outputs, fmt.Sprintf("%s: %s", nodeName, string(jsonBytes)))
-					}
-				}
-			}
-
-			var output string
-			if len(outputs) > 0 {
-				output = fmt.Sprintf("Chain executed successfully. Results:\n%s", strings.Join(outputs, "\n"))
-			} else {
-				output = fmt.Sprintf("Node '%s' executed successfully. No output captured.", toolNodeName)
-			}
-
-			return output, err
-		}
-	}
-
-	// Build LLM options with temperature/maxTokens from AI Provider node
-	options := []llms.CallOption{
-		llms.WithTools(lcTools),
-	}
-	if temperature != nil {
-		options = append(options, llms.WithTemperature(float64(*temperature)))
-	}
-	if maxTokens != nil {
-		options = append(options, llms.WithMaxTokens(int(*maxTokens)))
-	}
-
-	// 6. Resolve prompt variables (supports expressions and AI marker functions)
+	// 4. Resolve prompt variables (supports expressions and AI marker functions)
 	env := expression.NewUnifiedEnv(req.VarMap)
 	resolvedPrompt, err := env.Interpolate(n.Prompt)
 	if err != nil {
@@ -253,115 +129,214 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		resolvedPrompt = n.Prompt
 	}
 
-	// 7. Build messages with memory context
-	messages := []llms.MessageContent{}
-
-	// Add conversation history from Memory node if connected
+	// 5. Build initial messages from memory context
+	messages := []llm.Message{}
 	if memoryNode != nil {
 		for _, msg := range memoryNode.GetMessages() {
-			var role llms.ChatMessageType
+			var role llm.MessageRole
 			switch msg.Role {
 			case "user":
-				role = llms.ChatMessageTypeHuman
+				role = llm.RoleUser
 			case "assistant":
-				role = llms.ChatMessageTypeAI
+				role = llm.RoleAssistant
 			case "system":
-				role = llms.ChatMessageTypeSystem
+				role = llm.RoleSystem
 			default:
-				role = llms.ChatMessageTypeHuman
+				role = llm.RoleUser
 			}
-			messages = append(messages, llms.MessageContent{
+			messages = append(messages, llm.Message{
 				Role:  role,
-				Parts: []llms.ContentPart{llms.TextPart(msg.Content)},
+				Parts: []llm.ContentPart{llm.TextPart(msg.Content)},
 			})
 		}
 	}
 
-	// Add current prompt
-	messages = append(messages, llms.MessageContent{
-		Role:  llms.ChatMessageTypeHuman,
-		Parts: []llms.ContentPart{llms.TextPart(resolvedPrompt)},
+	// Add current prompt as user message
+	messages = append(messages, llm.Message{
+		Role:  llm.RoleUser,
+		Parts: []llm.ContentPart{llm.TextPart(resolvedPrompt)},
 	})
 
-	// 8. Run Agent Loop
+	// 6. Create tool executor function
+	executor := n.createToolExecutor(ctx, req, toolMap)
+
+	// 7. Run Agent Loop with iteration tracking (like ForEach)
 	var finalResponse string
 	maxIters := int(n.MaxIterations)
 	if maxIters <= 0 {
 		maxIters = 5
 	}
-	for range maxIters {
-		resp, err := model.GenerateContent(ctx, messages, options...)
+
+	// Metrics aggregation - use interface methods to get model/provider info
+	totalMetrics := mflow.AITotalMetrics{
+		Model:    providerNode.GetModelString(),
+		Provider: providerNode.GetProviderString(),
+	}
+
+	for i := 0; i < maxIters; i++ {
+		// Generate unique execution ID for this iteration
+		executionID := idwrap.NewMonotonic()
+
+		// Build iteration context (like ForEach does)
+		iterContext := n.buildIterationContext(req, i)
+
+		// Emit RUNNING status for this iteration
+		if req.LogPushFunc != nil {
+			executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID:      executionID,
+				NodeID:           n.FlowNodeID,
+				Name:             executionName,
+				State:            mflow.NODE_STATE_RUNNING,
+				OutputData:       map[string]any{"iteration": i + 1},
+				IterationEvent:   true,
+				IterationIndex:   i,
+				LoopNodeID:       n.FlowNodeID,
+				IterationContext: iterContext,
+			})
+		}
+
+		// Write iteration state to VarMap for observability (debugging/UI)
+		inputData := map[string]any{
+			"iteration": i + 1,
+		}
+		if err := node.WriteNodeVarBulk(req, n.Name, inputData); err != nil {
+			return node.FlowNodeResult{
+				NextNodeID: next,
+				Err:        fmt.Errorf("failed to write AI input: %w", err),
+			}
+		}
+
+		// Execute the provider node with typed input - NO VarMap indirection
+		providerOutput, err := providerNode.Execute(ctx, req, AIProviderInput{
+			Messages: messages,
+			Tools:    tools,
+		})
 		if err != nil {
+			// Emit FAILURE status
+			if req.LogPushFunc != nil {
+				executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID:      executionID,
+					NodeID:           n.FlowNodeID,
+					Name:             executionName,
+					State:            mflow.NODE_STATE_FAILURE,
+					Error:            err,
+					IterationEvent:   true,
+					IterationIndex:   i,
+					LoopNodeID:       n.FlowNodeID,
+					IterationContext: iterContext,
+				})
+			}
 			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("agent error: %w", err)}
 		}
 
-		if len(resp.Choices) == 0 {
-			return node.FlowNodeResult{NextNodeID: next, Err: fmt.Errorf("LLM returned empty response (no choices)")}
-		}
-
-		// Collect text content and tool calls from ALL choices
-		// Anthropic returns multiple choices: one with text, another with tool calls
-		var textContent string
-		var allToolCalls []llms.ToolCall
-
-		for _, choice := range resp.Choices {
-			if choice.Content != "" {
-				textContent = choice.Content
-			}
-			allToolCalls = append(allToolCalls, choice.ToolCalls...)
-		}
+		// Aggregate metrics
+		totalMetrics.PromptTokens += providerOutput.Metrics.PromptTokens
+		totalMetrics.CompletionTokens += providerOutput.Metrics.CompletionTokens
+		totalMetrics.TotalTokens += providerOutput.Metrics.TotalTokens
+		totalMetrics.LLMCalls++
 
 		// Check if we should stop (no tool calls to execute)
-		// Stop reasons: "stop" (OpenAI), "end_turn" (Anthropic) = final response
-		// Continue reasons: "tool_calls" (OpenAI), "tool_use" (Anthropic) = need to execute tools
-		if len(allToolCalls) == 0 {
-			finalResponse = textContent
+		if len(providerOutput.ToolCalls) == 0 {
+			finalResponse = providerOutput.Text
+
+			// Emit SUCCESS status
+			if req.LogPushFunc != nil {
+				executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID:      executionID,
+					NodeID:           n.FlowNodeID,
+					Name:             executionName,
+					State:            mflow.NODE_STATE_SUCCESS,
+					OutputData:       map[string]any{"text": finalResponse, "iteration": i + 1},
+					IterationEvent:   true,
+					IterationIndex:   i,
+					LoopNodeID:       n.FlowNodeID,
+					IterationContext: iterContext,
+				})
+			}
 			break
 		}
 
-		// Add assistant's response to history
-		// HACK: langchaingo's Anthropic handler only reads Parts[0], so we must
-		// put ToolCalls first and skip text content when there are tool calls.
-		// https://github.com/tmc/langchaingo/issues/1468
-		assistantMsg := llms.MessageContent{
-			Role: llms.ChatMessageTypeAI,
+		// Add assistant's response with tool calls to message history
+		assistantMsg := llm.Message{
+			Role: llm.RoleAssistant,
 		}
-		for _, tc := range allToolCalls {
-			assistantMsg.Parts = append(assistantMsg.Parts, tc)
+		for _, tc := range providerOutput.ToolCalls {
+			toolType := tc.Type
+			if toolType == "" {
+				toolType = "function" // Default to "function" if not specified
+			}
+			assistantMsg.Parts = append(assistantMsg.Parts, llm.ToolCall{
+				ID:           tc.ID,
+				Type:         toolType,
+				FunctionName: tc.Name,
+				Arguments:    tc.Arguments,
+			})
 		}
 		messages = append(messages, assistantMsg)
 
-		// Execute tools
-		for _, tc := range allToolCalls {
-			result, err := executor(ctx, tc.FunctionCall.Name, tc.FunctionCall.Arguments)
-			if err != nil {
+		// Execute tool calls and collect all results into a single message
+		// Anthropic requires all tool_results from one assistant turn to be in a single user message
+		toolResultMsg := llm.Message{
+			Role:  llm.RoleTool,
+			Parts: []llm.ContentPart{},
+		}
+		for _, tc := range providerOutput.ToolCalls {
+			totalMetrics.ToolCalls++
+
+			result, execErr := executor(ctx, tc.Name, tc.Arguments)
+			if execErr != nil {
 				// Feed the error back to the LLM instead of failing the node
-				result = fmt.Sprintf("Error: %v", err)
+				result = fmt.Sprintf("Error: %v", execErr)
 			}
 
-			// Add tool response to history
-			messages = append(messages, llms.MessageContent{
-				Role: llms.ChatMessageTypeTool,
-				Parts: []llms.ContentPart{
-					llms.ToolCallResponse{
-						ToolCallID: tc.ID,
-						Name:       tc.FunctionCall.Name,
-						Content:    result,
-					},
-				},
+			// Add tool response to the combined message
+			toolResultMsg.Parts = append(toolResultMsg.Parts, llm.ToolCallResponse{
+				ToolCallID: tc.ID,
+				Name:       tc.Name,
+				Content:    result,
 			})
+		}
+		// Add the combined tool result message to history
+		if len(toolResultMsg.Parts) > 0 {
+			messages = append(messages, toolResultMsg)
+		}
+
+		// Emit SUCCESS status for this iteration
+		if req.LogPushFunc != nil {
+			executionName := fmt.Sprintf("%s LLM Call %d", n.Name, i+1)
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID:      executionID,
+				NodeID:           n.FlowNodeID,
+				Name:             executionName,
+				State:            mflow.NODE_STATE_SUCCESS,
+				OutputData:       map[string]any{"tool_calls": len(providerOutput.ToolCalls), "iteration": i + 1},
+				IterationEvent:   true,
+				IterationIndex:   i,
+				LoopNodeID:       n.FlowNodeID,
+				IterationContext: iterContext,
+			})
+		}
+
+		// If this is the last iteration and we still have tool calls,
+		// use whatever text we got (may be empty)
+		if i == maxIters-1 {
+			finalResponse = providerOutput.Text
 		}
 	}
 
-	// 9. Update memory with the conversation if Memory node is connected
+	// 8. Update memory with the conversation if Memory node is connected
 	if memoryNode != nil {
 		memoryNode.AddMessage("user", resolvedPrompt)
 		memoryNode.AddMessage("assistant", finalResponse)
 	}
 
-	// 10. Store Result
-	resultMap := map[string]interface{}{
-		"text": finalResponse,
+	// 9. Store final result (overwrites iteration data with final result)
+	resultMap := map[string]any{
+		"text":          finalResponse,
+		"total_metrics": totalMetrics,
 	}
 
 	if req.VariableTracker != nil {
@@ -384,6 +359,130 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		NextNodeID: next,
 		Err:        nil,
 	}
+}
+
+// buildIterationContext creates the iteration context for a given iteration (like ForEach)
+func (n *NodeAI) buildIterationContext(req *node.FlowNodeRequest, iterationIndex int) *runner.IterationContext {
+	var parentPath []int
+	var parentNodes []idwrap.IDWrap
+	var parentLabels []runner.IterationLabel
+
+	if req.IterationContext != nil {
+		parentPath = req.IterationContext.IterationPath
+		parentNodes = req.IterationContext.ParentNodes
+		parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
+	}
+
+	labels := make([]runner.IterationLabel, len(parentLabels), len(parentLabels)+1)
+	copy(labels, parentLabels)
+	labels = append(labels, runner.IterationLabel{
+		NodeID:    n.FlowNodeID,
+		Name:      n.Name,
+		Iteration: iterationIndex + 1,
+	})
+
+	return &runner.IterationContext{
+		IterationPath:  append(parentPath, iterationIndex),
+		ExecutionIndex: iterationIndex,
+		ParentNodes:    append(parentNodes, n.FlowNodeID),
+		Labels:         labels,
+	}
+}
+
+// createToolExecutor creates the executor function for tool calls
+func (n *NodeAI) createToolExecutor(ctx context.Context, req *node.FlowNodeRequest, toolMap map[string]*NodeTool) func(context.Context, string, string) (string, error) {
+	return func(ctx context.Context, name string, args string) (string, error) {
+		switch name {
+		case "get_variable":
+			return handleGetVariable(ctx, req, args)
+		case "set_variable":
+			return handleSetVariable(ctx, req, args)
+		case "discover_tools":
+			n.DiscoverToolCalls++
+			return handleDiscoverTools(ctx, toolMap, args)
+		default:
+			tool, ok := toolMap[name]
+			if !ok {
+				return "", fmt.Errorf("tool '%s' not found", name)
+			}
+
+			return n.executeToolNode(ctx, req, tool)
+		}
+	}
+}
+
+// executeToolNode executes a connected tool node
+func (n *NodeAI) executeToolNode(ctx context.Context, req *node.FlowNodeRequest, tool *NodeTool) (string, error) {
+	toolNodeID := tool.TargetNode.GetID()
+	toolNodeName := tool.TargetNode.GetName()
+
+	// Build the tool chain: find all nodes reachable from the tool node
+	chainNodeIDs := findDownstreamNodes(req.EdgeSourceMap, toolNodeID, n.FlowNodeID)
+
+	// Build edge map for the chain (only edges between chain nodes)
+	chainEdgeMap := buildChainEdgeMap(req.EdgeSourceMap, chainNodeIDs)
+
+	// Build node map for the chain
+	chainNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(chainNodeIDs))
+	for nodeID := range chainNodeIDs {
+		if n, ok := req.NodeMap[nodeID]; ok {
+			chainNodeMap[nodeID] = n
+		}
+	}
+
+	// Build predecessor map for proper scheduling
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(chainEdgeMap)
+	pendingMap := node.BuildPendingMap(predecessorMap)
+
+	// Create child request for the tool chain execution
+	childReq := *req
+	childReq.EdgeSourceMap = chainEdgeMap
+	childReq.NodeMap = chainNodeMap
+	childReq.PendingAtmoicMap = pendingMap
+	childReq.ExecutionID = idwrap.NewMonotonic()
+	childReq.ReadWriteLock = &sync.RWMutex{}
+
+	// Provide a no-op status func if LogPushFunc is nil (e.g., in tests)
+	statusFunc := req.LogPushFunc
+	if statusFunc == nil {
+		statusFunc = func(s runner.FlowNodeStatus) {}
+	}
+
+	// Execute via runner
+	err := flowlocalrunner.RunNodeSync(ctx, toolNodeID, &childReq, statusFunc, predecessorMap)
+
+	// Extract outputs from all nodes in the chain
+	var outputs []string
+	for nodeID := range chainNodeIDs {
+		nodeName := ""
+		if n, ok := chainNodeMap[nodeID]; ok {
+			nodeName = n.GetName()
+		}
+		if nodeName == "" {
+			continue
+		}
+
+		if data, ok := childReq.VarMap[nodeName]; ok {
+			// Copy node output to parent VarMap
+			req.ReadWriteLock.Lock()
+			req.VarMap[nodeName] = data
+			req.ReadWriteLock.Unlock()
+
+			// Add to output summary
+			if jsonBytes, jsonErr := json.Marshal(data); jsonErr == nil {
+				outputs = append(outputs, fmt.Sprintf("%s: %s", nodeName, string(jsonBytes)))
+			}
+		}
+	}
+
+	var output string
+	if len(outputs) > 0 {
+		output = fmt.Sprintf("Chain executed successfully. Results:\n%s", strings.Join(outputs, "\n"))
+	} else {
+		output = fmt.Sprintf("Node '%s' executed successfully. No output captured.", toolNodeName)
+	}
+
+	return output, err
 }
 
 func (n NodeAI) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
@@ -433,9 +532,13 @@ func (n *NodeAI) GetRequiredVariables() []string {
 
 // GetOutputVariables implements node.VariableIntrospector.
 // Returns the output paths this AI node produces.
+// Note: During iterations, "iteration" is written for observability.
+// After completion, "text" and "total_metrics" contain the final result.
 func (n *NodeAI) GetOutputVariables() []string {
 	return []string{
 		"text",
+		"total_metrics",
+		"iteration", // Available during iterations
 	}
 }
 

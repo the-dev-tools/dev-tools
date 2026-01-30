@@ -1,4 +1,4 @@
-package nai
+package nai_test
 
 import (
 	"context"
@@ -11,8 +11,10 @@ import (
 	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/mocknode"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
@@ -62,6 +64,7 @@ func TestNodeAIRun(t *testing.T) {
 						},
 					},
 				},
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 5},
 			},
 		},
 	}
@@ -70,8 +73,9 @@ func TestNodeAIRun(t *testing.T) {
 	resp2 := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "final answer",
+				StopReason:     "stop",
+				Content:        "final answer",
+				GenerationInfo: map[string]any{"PromptTokens": 20, "CompletionTokens": 10},
 			},
 		},
 	}
@@ -88,8 +92,12 @@ func TestNodeAIRun(t *testing.T) {
 		return len(msg) == 3 // Prompt + AssistantToolCall + ToolResponse
 	}), mock.Anything).Return(resp2, nil)
 
-	// Create AI Provider node
+	// Create AI Provider node with mock LLM
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	// Create AI orchestrator node (needed for provider to find via reverse edge lookup)
+	n := nai.New(nodeID, "AI_NODE", "hello {{user_name}}", 0, nil)
 
 	// Setup edge map with AI Provider node
 	edgeMap := mflow.EdgesMap{
@@ -98,12 +106,11 @@ func TestNodeAIRun(t *testing.T) {
 		},
 	}
 
+	// NodeMap must include the AI node (orchestrator) so provider can find it via reverse edge lookup
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
 		providerNodeID: providerNode,
 	}
-
-	n := New(nodeID, "AI_NODE", "hello {{user_name}}", 0, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -131,7 +138,7 @@ func TestNodeAI_MissingModelNode(t *testing.T) {
 	nodeID := idwrap.NewNow()
 
 	// No AI Provider node connected - should error
-	n := New(nodeID, "AI_NODE", "hello", 0, nil)
+	n := nai.New(nodeID, "AI_NODE", "hello", 0, nil)
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -154,6 +161,8 @@ func TestNodeAI_MissingProviderFactory(t *testing.T) {
 	// AI Provider node connected but no LLM override and no ProviderFactory
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
 
+	n := nai.New(nodeID, "AI_NODE", "hello", 0, nil)
+
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
 			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
@@ -161,10 +170,9 @@ func TestNodeAI_MissingProviderFactory(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
 		providerNodeID: providerNode,
 	}
-
-	n := New(nodeID, "AI_NODE", "hello", 0, nil)
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -175,7 +183,7 @@ func TestNodeAI_MissingProviderFactory(t *testing.T) {
 
 	res := n.RunSync(ctx, req)
 	assert.Error(t, res.Err)
-	assert.Contains(t, res.Err.Error(), "AI Agent node requires LLM provider factory")
+	assert.Contains(t, res.Err.Error(), "requires LLM provider factory")
 }
 
 func TestNodeAI_WithConnectedTools(t *testing.T) {
@@ -201,20 +209,25 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 		name:     httpNodeName,
 	}
 
-	// Create AI Provider node
+	// Create AI Provider node with mock LLM
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	// Create AI orchestrator node
+	n := nai.New(nodeID, "AI_NODE", "Get all users", 0, nil)
 
 	// Setup edge map: AI node -> HTTP node via HandleAiTools, Model via HandleAiProvider
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
 			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
-			mflow.HandleAiTools: []idwrap.IDWrap{httpNodeID},
+			mflow.HandleAiTools:    []idwrap.IDWrap{httpNodeID},
 		},
 	}
 
-	// Setup node map
+	// Setup node map (must include AI node for provider reverse lookup)
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		httpNodeID:  customHttpNode,
+		nodeID:         n,
+		httpNodeID:     customHttpNode,
 		providerNodeID: providerNode,
 	}
 
@@ -231,6 +244,7 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 						},
 					},
 				},
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 5},
 			},
 		},
 	}
@@ -239,8 +253,9 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 	resp2 := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "Found 2 users: alice and bob",
+				StopReason:     "stop",
+				Content:        "Found 2 users: alice and bob",
+				GenerationInfo: map[string]any{"PromptTokens": 20, "CompletionTokens": 15},
 			},
 		},
 	}
@@ -253,9 +268,6 @@ func TestNodeAI_WithConnectedTools(t *testing.T) {
 	mm.On("GenerateContent", mock.Anything, mock.MatchedBy(func(msgs []llms.MessageContent) bool {
 		return len(msgs) > 1 // Has tool response
 	}), mock.Anything).Return(resp2, nil).Once()
-
-	n := New(nodeID, "AI_NODE", "Get all users", 0, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -306,6 +318,7 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 						},
 					},
 				},
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 5},
 			},
 		},
 	}
@@ -314,6 +327,9 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(toolCallResp, nil).Times(3)
 
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	n := nai.New(nodeID, "AI_NODE", "Loop forever", 3, nil)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
@@ -322,11 +338,9 @@ func TestNodeAI_MaxIterations(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
 		providerNodeID: providerNode,
 	}
-
-	n := New(nodeID, "AI_NODE", "Loop forever", 3, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -372,6 +386,7 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 						},
 					},
 				},
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 5},
 			},
 		},
 	}
@@ -379,8 +394,9 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 	resp2 := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "Got both values: A and B",
+				StopReason:     "stop",
+				Content:        "Got both values: A and B",
+				GenerationInfo: map[string]any{"PromptTokens": 20, "CompletionTokens": 10},
 			},
 		},
 	}
@@ -396,6 +412,9 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 	}), mock.Anything).Return(resp2, nil).Once()
 
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	n := nai.New(nodeID, "AI_NODE", "Get both vars", 0, nil)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
@@ -404,11 +423,9 @@ func TestNodeAI_MultipleToolCalls(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
 		providerNodeID: providerNode,
 	}
-
-	n := New(nodeID, "AI_NODE", "Get both vars", 0, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -451,6 +468,7 @@ func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 						},
 					},
 				},
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 5},
 			},
 		},
 	}
@@ -459,8 +477,9 @@ func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 	resp2 := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "The tool failed, so I am stopping.",
+				StopReason:     "stop",
+				Content:        "The tool failed, so I am stopping.",
+				GenerationInfo: map[string]any{"PromptTokens": 20, "CompletionTokens": 10},
 			},
 		},
 	}
@@ -474,6 +493,9 @@ func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 	}), mock.Anything).Return(resp2, nil)
 
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	n := nai.New(nodeID, "AI_NODE", "Call bad tool", 0, nil)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
@@ -482,11 +504,9 @@ func TestNodeAI_ToolExecutionErrorFeedback(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
 		providerNodeID: providerNode,
 	}
-
-	n := New(nodeID, "AI_NODE", "Call bad tool", 0, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -517,6 +537,9 @@ func TestNodeAI_LLMError(t *testing.T) {
 	)
 
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	n := nai.New(nodeID, "AI_NODE", "hello", 0, nil)
 
 	edgeMap := mflow.EdgesMap{
 		nodeID: {
@@ -525,11 +548,9 @@ func TestNodeAI_LLMError(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
 		providerNodeID: providerNode,
 	}
-
-	n := New(nodeID, "AI_NODE", "hello", 0, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -583,7 +604,24 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 		CustomModel:  "",
 		Temperature:  &temp,
 		MaxTokens:    &maxTokens,
+		LLM:          mm, // Mock LLM injected directly into provider
 	}
+
+	// Mock LLM response
+	resp := &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				StopReason:     "stop",
+				Content:        "Hello from GPT-5.2 Pro!",
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 8},
+			},
+		},
+	}
+
+	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(resp, nil)
+
+	// AI node requires AI Provider node (no internal model config)
+	n := nai.New(aiNodeID, "AI_NODE", "Say hello", 0, nil)
 
 	// Setup edge map: AI Provider node connects to AI node via HandleAiProvider
 	edgeMap := mflow.EdgesMap{
@@ -593,24 +631,9 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 	}
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n,
 		providerNodeID: providerNode,
 	}
-
-	// Mock LLM response
-	resp := &llms.ContentResponse{
-		Choices: []*llms.ContentChoice{
-			{
-				StopReason: "stop",
-				Content:    "Hello from GPT-5.2 Pro!",
-			},
-		},
-	}
-
-	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(resp, nil)
-
-	// AI node requires AI Provider node (no internal model config)
-	n := New(aiNodeID, "AI_NODE", "Say hello", 0, nil)
-	n.LLM = mm
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -638,8 +661,9 @@ func TestNodeAI_WithConnectedMemoryNode(t *testing.T) {
 
 	mm := new(mockModel)
 
-	// AI Provider node
+	// AI Provider node with mock LLM
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
 
 	// Memory node provides conversation history
 	memoryNode := nmemory.New(memoryNodeID, "Conversation Memory", mflow.AiMemoryTypeWindowBuffer, 10)
@@ -647,25 +671,13 @@ func TestNodeAI_WithConnectedMemoryNode(t *testing.T) {
 	memoryNode.AddMessage("user", "Hi, my name is Alice")
 	memoryNode.AddMessage("assistant", "Hello Alice! Nice to meet you.")
 
-	// Setup edge map: AI Provider node and Memory node connect to AI node
-	edgeMap := mflow.EdgesMap{
-		aiNodeID: {
-			mflow.HandleAiProvider:  []idwrap.IDWrap{providerNodeID},
-			mflow.HandleAiMemory: []idwrap.IDWrap{memoryNodeID},
-		},
-	}
-
-	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		providerNodeID:  providerNode,
-		memoryNodeID: memoryNode,
-	}
-
 	// Mock LLM response - expect messages to include history
 	resp := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "Of course I remember you, Alice!",
+				StopReason:     "stop",
+				Content:        "Of course I remember you, Alice!",
+				GenerationInfo: map[string]any{"PromptTokens": 30, "CompletionTokens": 10},
 			},
 		},
 	}
@@ -676,8 +688,21 @@ func TestNodeAI_WithConnectedMemoryNode(t *testing.T) {
 		return len(msgs) == 3
 	}), mock.Anything).Return(resp, nil)
 
-	n := New(aiNodeID, "AI_NODE", "Do you remember my name?", 0, nil)
-	n.LLM = mm
+	n := nai.New(aiNodeID, "AI_NODE", "Do you remember my name?", 0, nil)
+
+	// Setup edge map: AI Provider node and Memory node connect to AI node
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+			mflow.HandleAiMemory:   []idwrap.IDWrap{memoryNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n,
+		providerNodeID: providerNode,
+		memoryNodeID:   memoryNode,
+	}
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -711,7 +736,7 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 
 	mm := new(mockModel)
 
-	// AI Provider node configuration
+	// AI Provider node configuration with mock LLM
 	temp := float32(0.5)
 	providerNode := &naiprovider.NodeAiProvider{
 		FlowNodeID:   providerNodeID,
@@ -719,6 +744,7 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 		CredentialID: &credentialID,
 		Model:        mflow.AiModelClaudeOpus45,
 		Temperature:  &temp,
+		LLM:          mm,
 	}
 
 	// Memory node with history
@@ -726,24 +752,12 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 	memoryNode.AddMessage("user", "Previous question")
 	memoryNode.AddMessage("assistant", "Previous answer")
 
-	// Setup edges
-	edgeMap := mflow.EdgesMap{
-		aiNodeID: {
-			mflow.HandleAiProvider:  []idwrap.IDWrap{providerNodeID},
-			mflow.HandleAiMemory: []idwrap.IDWrap{memoryNodeID},
-		},
-	}
-
-	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		providerNodeID:  providerNode,
-		memoryNodeID: memoryNode,
-	}
-
 	resp := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "Response with history and custom model",
+				StopReason:     "stop",
+				Content:        "Response with history and custom model",
+				GenerationInfo: map[string]any{"PromptTokens": 25, "CompletionTokens": 10},
 			},
 		},
 	}
@@ -754,8 +768,21 @@ func TestNodeAI_WithBothModelAndMemory(t *testing.T) {
 	}), mock.Anything).Return(resp, nil)
 
 	// AI node requires AI Provider node
-	n := New(aiNodeID, "AI_NODE", "Current question", 0, nil)
-	n.LLM = mm
+	n := nai.New(aiNodeID, "AI_NODE", "Current question", 0, nil)
+
+	// Setup edges
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+			mflow.HandleAiMemory:   []idwrap.IDWrap{memoryNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n,
+		providerNodeID: providerNode,
+		memoryNodeID:   memoryNode,
+	}
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -783,8 +810,9 @@ func TestNodeAI_MemoryWindowEnforcement(t *testing.T) {
 
 	mm := new(mockModel)
 
-	// AI Provider node
+	// AI Provider node with mock LLM
 	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
 
 	// Memory node with small window size
 	memoryNode := nmemory.New(memoryNodeID, "Memory", mflow.AiMemoryTypeWindowBuffer, 3)
@@ -793,31 +821,32 @@ func TestNodeAI_MemoryWindowEnforcement(t *testing.T) {
 	memoryNode.AddMessage("assistant", "Response 1")
 	memoryNode.AddMessage("user", "Message 2")
 
-	edgeMap := mflow.EdgesMap{
-		aiNodeID: {
-			mflow.HandleAiProvider:  []idwrap.IDWrap{providerNodeID},
-			mflow.HandleAiMemory: []idwrap.IDWrap{memoryNodeID},
-		},
-	}
-
-	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		providerNodeID:  providerNode,
-		memoryNodeID: memoryNode,
-	}
-
 	resp := &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
-				StopReason: "stop",
-				Content:    "Response 2",
+				StopReason:     "stop",
+				Content:        "Response 2",
+				GenerationInfo: map[string]any{"PromptTokens": 20, "CompletionTokens": 5},
 			},
 		},
 	}
 
 	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(resp, nil)
 
-	n := New(aiNodeID, "AI_NODE", "Current message", 0, nil)
-	n.LLM = mm
+	n := nai.New(aiNodeID, "AI_NODE", "Current message", 0, nil)
+
+	edgeMap := mflow.EdgesMap{
+		aiNodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+			mflow.HandleAiMemory:   []idwrap.IDWrap{memoryNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		aiNodeID:       n,
+		providerNodeID: providerNode,
+		memoryNodeID:   memoryNode,
+	}
 
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -839,4 +868,192 @@ func TestNodeAI_MemoryWindowEnforcement(t *testing.T) {
 	assert.Equal(t, "Response 2", msgs[2].Content)
 
 	mm.AssertExpectations(t)
+}
+
+func TestNodeAI_EmitsIterationStatus(t *testing.T) {
+	ctx := context.Background()
+	nodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+	credentialID := idwrap.NewNow()
+
+	mm := new(mockModel)
+
+	// Single response without tool calls
+	resp := &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				StopReason:     "stop",
+				Content:        "Done",
+				GenerationInfo: map[string]any{"PromptTokens": 10, "CompletionTokens": 5},
+			},
+		},
+	}
+
+	mm.On("GenerateContent", mock.Anything, mock.Anything, mock.Anything).Return(resp, nil)
+
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	n := nai.New(nodeID, "AI_NODE", "Test", 0, nil)
+
+	edgeMap := mflow.EdgesMap{
+		nodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
+		providerNodeID: providerNode,
+	}
+
+	// Capture status updates
+	var statuses []runner.FlowNodeStatus
+	logPush := func(s runner.FlowNodeStatus) {
+		statuses = append(statuses, s)
+	}
+
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		EdgeSourceMap: edgeMap,
+		NodeMap:       nodeMap,
+		LogPushFunc:   logPush,
+	}
+
+	res := n.RunSync(ctx, req)
+	assert.NoError(t, res.Err)
+
+	// Should have 4 events:
+	// 1. NodeAI iteration RUNNING
+	// 2. NodeAiProvider RUNNING
+	// 3. NodeAiProvider SUCCESS (with metrics)
+	// 4. NodeAI iteration SUCCESS
+	assert.Len(t, statuses, 4)
+
+	// NodeAI iteration RUNNING
+	assert.Equal(t, mflow.NODE_STATE_RUNNING, statuses[0].State)
+	assert.True(t, statuses[0].IterationEvent)
+	assert.Equal(t, nodeID, statuses[0].NodeID)
+
+	// NodeAiProvider RUNNING
+	assert.Equal(t, mflow.NODE_STATE_RUNNING, statuses[1].State)
+	assert.False(t, statuses[1].IterationEvent)
+	assert.Equal(t, providerNodeID, statuses[1].NodeID)
+
+	// NodeAiProvider SUCCESS (with output including metrics)
+	assert.Equal(t, mflow.NODE_STATE_SUCCESS, statuses[2].State)
+	assert.False(t, statuses[2].IterationEvent)
+	assert.Equal(t, providerNodeID, statuses[2].NodeID)
+	providerOutput, ok := statuses[2].OutputData.(map[string]any)
+	assert.True(t, ok)
+	assert.NotNil(t, providerOutput["metrics"])
+	assert.Equal(t, "Done", providerOutput["text"])
+
+	// NodeAI iteration SUCCESS
+	assert.Equal(t, mflow.NODE_STATE_SUCCESS, statuses[3].State)
+	assert.True(t, statuses[3].IterationEvent)
+	assert.Equal(t, nodeID, statuses[3].NodeID)
+}
+
+func TestNodeAI_AggregatesMetrics(t *testing.T) {
+	ctx := context.Background()
+	nodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+	credentialID := idwrap.NewNow()
+
+	mm := new(mockModel)
+
+	// First response with tool call
+	resp1 := &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				ToolCalls: []llms.ToolCall{
+					{ID: "call_1", FunctionCall: &llms.FunctionCall{Name: "get_variable", Arguments: `{"key": "x"}`}},
+				},
+				GenerationInfo: map[string]any{"PromptTokens": 100, "CompletionTokens": 50},
+			},
+		},
+	}
+
+	// Second response - final
+	resp2 := &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				StopReason:     "stop",
+				Content:        "Done",
+				GenerationInfo: map[string]any{"PromptTokens": 150, "CompletionTokens": 75},
+			},
+		},
+	}
+
+	mm.On("GenerateContent", mock.Anything, mock.MatchedBy(func(msgs []llms.MessageContent) bool {
+		return len(msgs) == 1
+	}), mock.Anything).Return(resp1, nil).Once()
+
+	mm.On("GenerateContent", mock.Anything, mock.MatchedBy(func(msgs []llms.MessageContent) bool {
+		return len(msgs) > 1
+	}), mock.Anything).Return(resp2, nil).Once()
+
+	providerNode := createTestAiProviderNode(providerNodeID, credentialID)
+	providerNode.LLM = mm
+
+	n := nai.New(nodeID, "AI_NODE", "Test", 0, nil)
+
+	edgeMap := mflow.EdgesMap{
+		nodeID: {
+			mflow.HandleAiProvider: []idwrap.IDWrap{providerNodeID},
+		},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		nodeID:         n,
+		providerNodeID: providerNode,
+	}
+
+	req := &node.FlowNodeRequest{
+		VarMap: map[string]any{
+			"x": "value",
+		},
+		ReadWriteLock: &sync.RWMutex{},
+		EdgeSourceMap: edgeMap,
+		NodeMap:       nodeMap,
+	}
+
+	res := n.RunSync(ctx, req)
+	assert.NoError(t, res.Err)
+
+	// Verify aggregated metrics
+	totalMetrics, err := node.ReadNodeVar(req, "AI_NODE", "total_metrics")
+	assert.NoError(t, err)
+
+	metricsMap, ok := totalMetrics.(mflow.AITotalMetrics)
+	assert.True(t, ok)
+	assert.Equal(t, int32(250), metricsMap.PromptTokens)     // 100 + 150
+	assert.Equal(t, int32(125), metricsMap.CompletionTokens) // 50 + 75
+	assert.Equal(t, int32(375), metricsMap.TotalTokens)      // 250 + 125
+	assert.Equal(t, int32(2), metricsMap.LLMCalls)
+	assert.Equal(t, int32(1), metricsMap.ToolCalls)
+
+	mm.AssertExpectations(t)
+}
+
+func TestNodeAI_GetOutputVariables(t *testing.T) {
+	n := &nai.NodeAI{}
+	vars := n.GetOutputVariables()
+
+	assert.Contains(t, vars, "text")
+	assert.Contains(t, vars, "total_metrics")
+	// Iteration output
+	assert.Contains(t, vars, "iteration")
+}
+
+func TestNodeAI_GetRequiredVariables(t *testing.T) {
+	n := &nai.NodeAI{
+		Prompt: "Hello {{name}}, your score is {{score}}",
+	}
+
+	vars := n.GetRequiredVariables()
+	assert.Contains(t, vars, "name")
+	assert.Contains(t, vars, "score")
 }

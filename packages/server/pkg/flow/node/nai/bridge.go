@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tmc/langchaingo/llms"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/llm"
 )
 
 // DescribableNode is an optional interface that nodes can implement
@@ -28,7 +28,7 @@ type ToolExecuteResult struct {
 	Err         error
 }
 
-// NodeTool wraps any FlowNode to be used by LangChain agents.
+// NodeTool wraps any FlowNode to be used by LLM agents.
 type NodeTool struct {
 	TargetNode node.FlowNode
 	Req        *node.FlowNodeRequest
@@ -41,7 +41,8 @@ func NewNodeTool(target node.FlowNode, req *node.FlowNodeRequest) *NodeTool {
 	}
 }
 
-func (nt *NodeTool) AsLangChainTool() llms.Tool {
+// AsTool returns the llm.Tool representation of this node tool.
+func (nt *NodeTool) AsTool() llm.Tool {
 	name := sanitizeToolName(nt.TargetNode.GetName())
 	nodeName := nt.TargetNode.GetName()
 
@@ -65,9 +66,9 @@ func (nt *NodeTool) AsLangChainTool() llms.Tool {
 			}
 
 			description = GenerateAIParamToolDescription(nodeName, baseDesc, params, outputVars)
-			return llms.Tool{
+			return llm.Tool{
 				Type: "function",
-				Function: &llms.FunctionDefinition{
+				Function: &llm.FunctionDef{
 					Name:        name,
 					Description: description,
 					Parameters: map[string]any{
@@ -85,9 +86,9 @@ func (nt *NodeTool) AsLangChainTool() llms.Tool {
 		if customDesc != "" {
 			// Use the user-defined description directly
 			description = customDesc
-			return llms.Tool{
+			return llm.Tool{
 				Type: "function",
-				Function: &llms.FunctionDefinition{
+				Function: &llm.FunctionDef{
 					Name:        name,
 					Description: description,
 					Parameters: map[string]any{
@@ -134,9 +135,9 @@ func (nt *NodeTool) AsLangChainTool() llms.Tool {
 
 	description = strings.Join(descParts, " ")
 
-	return llms.Tool{
+	return llm.Tool{
 		Type: "function",
-		Function: &llms.FunctionDefinition{
+		Function: &llm.FunctionDef{
 			Name:        name,
 			Description: description,
 			Parameters: map[string]any{
