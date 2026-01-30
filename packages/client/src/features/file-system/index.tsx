@@ -94,7 +94,6 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
         onAction={() => {
           const folderId = Ulid.generate().bytes;
           folderCollection.utils.insert({ folderId, name: 'New folder' });
-          void insertFile({ fileId: folderId, kind: FileKind.FOLDER });
         }}
       >
         Folder

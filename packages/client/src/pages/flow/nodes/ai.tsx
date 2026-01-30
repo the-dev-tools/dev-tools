@@ -388,13 +388,6 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
                         folderId: credentialFolderId,
                         name: 'Credentials',
                       });
-
-                      fileCollection.utils.insert({
-                        fileId: credentialFolderId,
-                        kind: FileKind.FOLDER,
-                        order: await getNextOrder(fileCollection),
-                        workspaceId,
-                      });
                     }
 
                     const credentialId = Ulid.generate().bytes;
