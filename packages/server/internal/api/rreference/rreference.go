@@ -714,8 +714,30 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					},
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_AI:
+				// For AI nodes, provide the output schema
+				nodeVarsMap := map[string]interface{}{
+					"text":          "",
+					"total_metrics": map[string]interface{}{},
+					"iteration":     0,
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_JS:
+				// For JS nodes, the node itself is the reference (js_5, not js_5.result)
+				// JS returns dynamic output, so we provide an empty map as placeholder
+				nodeVarsMap := map[string]interface{}{}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_CONDITION:
+				// For condition/IF nodes, provide the output schema
+				nodeVarsMap := map[string]interface{}{
+					"condition": "",
+					"result":    false,
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
 			}
-			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
 
 		// Add self-reference for FOR, FOREACH, and REQUEST nodes so they can reference their own variables
