@@ -50,6 +50,8 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 	forEachService := sflow.NewNodeForEachService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
+	aiProviderService := sflow.NewNodeAiProviderService(queries)
+	memoryService := sflow.NewNodeMemoryService(queries)
 	varService := senv.NewVariableService(queries, logger)
 
 	// Readers
@@ -68,8 +70,8 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		ifService,
 		&jsService,
 		nil, // NodeAIService
-		nil, // NodeAiProviderService
-		nil, // NodeMemoryService
+		&aiProviderService,
+		&memoryService,
 		&wsService,
 		&varService,
 		&flowVarService,
@@ -94,6 +96,8 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		nfes:         &forEachService,
 		nifs:         ifService,
 		njss:         &jsService,
+		naps:         &aiProviderService,
+		nmems:        &memoryService,
 		logger:       logger,
 		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
@@ -705,4 +709,124 @@ func TestEdgesBySourceMap_LookupOptimization(t *testing.T) {
 	nonExistentNodeID := idwrap.NewNow()
 	edgesFromNonExistent := edgesBySource[nonExistentNodeID]
 	assert.Len(t, edgesFromNonExistent, 0, "Should find no edges for non-existent node")
+}
+
+func TestCreateFlowVersionSnapshot_AIProviderAndMemory(t *testing.T) {
+	svc, _, ctx, _, workspaceID := setupTestService(t)
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+	sourceFlow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "AI Provider Snapshot Test Flow",
+	}
+	err := svc.fs.CreateFlow(ctx, sourceFlow)
+	require.NoError(t, err)
+
+	// Create Manual Start Node
+	startNodeID := idwrap.NewNow()
+	startNode := mflow.Node{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
+		PositionX: 10,
+		PositionY: 20,
+	}
+	err = svc.ns.CreateNode(ctx, startNode)
+	require.NoError(t, err)
+
+	// Create AI Provider Node with specific settings
+	aiProviderNodeID := idwrap.NewNow()
+	aiProviderNode := mflow.Node{
+		ID:        aiProviderNodeID,
+		FlowID:    flowID,
+		Name:      "GPT Provider",
+		NodeKind:  mflow.NODE_KIND_AI_PROVIDER,
+		PositionX: 100,
+		PositionY: 200,
+	}
+	err = svc.ns.CreateNode(ctx, aiProviderNode)
+	require.NoError(t, err)
+
+	// Create AI Provider config with specific values
+	credentialID := idwrap.NewNow()
+	temperature := float32(0.7)
+	maxTokens := int32(4096)
+	aiProviderConfig := mflow.NodeAiProvider{
+		FlowNodeID:   aiProviderNodeID,
+		CredentialID: &credentialID,
+		Model:        mflow.AiModelGpt52,
+		Temperature:  &temperature,
+		MaxTokens:    &maxTokens,
+	}
+	err = svc.naps.CreateNodeAiProvider(ctx, aiProviderConfig)
+	require.NoError(t, err)
+
+	// Create AI Memory Node
+	memoryNodeID := idwrap.NewNow()
+	memoryNode := mflow.Node{
+		ID:        memoryNodeID,
+		FlowID:    flowID,
+		Name:      "Window Buffer Memory",
+		NodeKind:  mflow.NODE_KIND_AI_MEMORY,
+		PositionX: 100,
+		PositionY: 300,
+	}
+	err = svc.ns.CreateNode(ctx, memoryNode)
+	require.NoError(t, err)
+
+	// Create Memory config with specific values
+	memoryConfig := mflow.NodeMemory{
+		FlowNodeID: memoryNodeID,
+		MemoryType: mflow.AiMemoryTypeWindowBuffer,
+		WindowSize: 25,
+	}
+	err = svc.nmems.CreateNodeMemory(ctx, memoryConfig)
+	require.NoError(t, err)
+
+	// Prepare inputs for createFlowVersionSnapshot
+	sourceNodes := []mflow.Node{startNode, aiProviderNode, memoryNode}
+	sourceEdges := []mflow.Edge{}
+	sourceVars := []mflow.FlowVariable{}
+
+	// EXECUTE
+	versionFlow, nodeMapping, err := svc.createFlowVersionSnapshot(ctx, sourceFlow, sourceNodes, sourceEdges, sourceVars)
+
+	// ASSERT
+	require.NoError(t, err)
+	assert.NotEqual(t, flowID, versionFlow.ID, "Version flow ID should be different")
+	assert.Equal(t, *versionFlow.VersionParentID, flowID, "Version parent ID should match original flow ID")
+
+	// Verify nodes were created
+	versionNodes, err := svc.ns.GetNodesByFlowID(ctx, versionFlow.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(versionNodes), "Should have 3 version nodes")
+
+	// Check node mapping
+	assert.Equal(t, 3, len(nodeMapping))
+	assert.Contains(t, nodeMapping, startNodeID.String())
+	assert.Contains(t, nodeMapping, aiProviderNodeID.String())
+	assert.Contains(t, nodeMapping, memoryNodeID.String())
+
+	// Get mapped node IDs
+	mappedAiProviderID := nodeMapping[aiProviderNodeID.String()]
+	mappedMemoryID := nodeMapping[memoryNodeID.String()]
+
+	// Verify AI Provider config was copied
+	versionAiProvider, err := svc.naps.GetNodeAiProvider(ctx, mappedAiProviderID)
+	require.NoError(t, err, "AI Provider config should exist for version node")
+	assert.Equal(t, mappedAiProviderID, versionAiProvider.FlowNodeID, "FlowNodeID should be the new mapped ID")
+	assert.Equal(t, credentialID, *versionAiProvider.CredentialID, "CredentialID should be copied")
+	assert.Equal(t, mflow.AiModelGpt52, versionAiProvider.Model, "Model should be copied")
+	assert.Equal(t, float32(0.7), *versionAiProvider.Temperature, "Temperature should be copied")
+	assert.Equal(t, int32(4096), *versionAiProvider.MaxTokens, "MaxTokens should be copied")
+
+	// Verify Memory config was copied
+	versionMemory, err := svc.nmems.GetNodeMemory(ctx, mappedMemoryID)
+	require.NoError(t, err, "Memory config should exist for version node")
+	assert.Equal(t, mappedMemoryID, versionMemory.FlowNodeID, "FlowNodeID should be the new mapped ID")
+	assert.Equal(t, mflow.AiMemoryTypeWindowBuffer, versionMemory.MemoryType, "MemoryType should be copied")
+	assert.Equal(t, int32(25), versionMemory.WindowSize, "WindowSize should be copied")
 }

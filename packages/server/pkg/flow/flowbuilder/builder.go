@@ -230,7 +230,6 @@ func (b *Builder) BuildNodes(
 					nodeModel.Name,
 					nil, // No credential set yet
 					mflow.AiModelGpt52,
-					"",
 					nil,
 					nil,
 				)
@@ -240,7 +239,6 @@ func (b *Builder) BuildNodes(
 					nodeModel.Name,
 					providerCfg.CredentialID, // Already a *idwrap.IDWrap
 					providerCfg.Model,
-					"", // TODO(persistent-kv): CustomModel will be stored when persistent key-value store is implemented
 					providerCfg.Temperature,
 					providerCfg.MaxTokens,
 				)

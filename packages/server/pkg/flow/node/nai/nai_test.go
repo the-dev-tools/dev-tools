@@ -601,7 +601,6 @@ func TestNodeAI_WithConnectedModelNode(t *testing.T) {
 		Name:         "OpenAI Model",
 		CredentialID: &credentialID,
 		Model:        mflow.AiModelGpt52Pro,
-		CustomModel:  "",
 		Temperature:  &temp,
 		MaxTokens:    &maxTokens,
 		LLM:          mm, // Mock LLM injected directly into provider

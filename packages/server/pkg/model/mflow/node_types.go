@@ -126,7 +126,7 @@ func (m AiModel) ModelString() string {
 	case AiModelGemini3Flash:
 		return "gemini-2.5-flash"
 	case AiModelCustom:
-		return "" // Handled via CustomModel field
+		return "" // Custom models not yet supported
 	default:
 		return ModelStringGpt52
 	}
@@ -195,10 +195,8 @@ type NodeAiProvider struct {
 	FlowNodeID   idwrap.IDWrap
 	CredentialID *idwrap.IDWrap // nil means no credential set yet
 	Model        AiModel
-	CustomModel  string   // Used when Model == AiModelCustom
 	Temperature  *float32 // nil means use provider default
 	MaxTokens    *int32   // nil means use provider default
-	Prompt       string   // System prompt or user prompt for the LLM call
 }
 
 // --- AI Metrics and Output Types ---

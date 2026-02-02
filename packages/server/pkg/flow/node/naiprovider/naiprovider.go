@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/tmc/langchaingo/llms"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
@@ -27,10 +26,8 @@ type NodeAiProvider struct {
 	Name         string
 	CredentialID *idwrap.IDWrap // Optional: nil means no credential set yet
 	Model        mflow.AiModel
-	CustomModel  string   // Used when Model == AiModelCustom
 	Temperature  *float32 // Optional: nil means use provider default
 	MaxTokens    *int32   // Optional: nil means use provider default
-	Prompt       string   // System prompt or additional context for the LLM
 
 	// Runtime dependencies
 	ProviderFactory *scredential.LLMProviderFactory
@@ -44,7 +41,6 @@ func New(
 	name string,
 	credentialID *idwrap.IDWrap,
 	model mflow.AiModel,
-	customModel string,
 	temperature *float32,
 	maxTokens *int32,
 ) *NodeAiProvider {
@@ -53,7 +49,6 @@ func New(
 		Name:         name,
 		CredentialID: credentialID,
 		Model:        model,
-		CustomModel:  customModel,
 		Temperature:  temperature,
 		MaxTokens:    maxTokens,
 	}
@@ -112,7 +107,7 @@ func (n *NodeAiProvider) Execute(ctx context.Context, req *node.FlowNodeRequest,
 		}
 
 		var err error
-		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, n.Model, n.CustomModel, *n.CredentialID)
+		model, err = n.ProviderFactory.CreateModelWithCredential(ctx, n.Model, "", *n.CredentialID)
 		if err != nil {
 			err = fmt.Errorf("failed to create LLM model: %w", err)
 			emitFailure(err)
@@ -122,22 +117,6 @@ func (n *NodeAiProvider) Execute(ctx context.Context, req *node.FlowNodeRequest,
 
 	// 2. CONVERSION BOUNDARY: Convert from our types to langchaingo types
 	lcMessages := llm.ToLangChainMessages(input.Messages)
-
-	// Prepend system prompt if configured
-	if n.Prompt != "" {
-		env := expression.NewUnifiedEnv(req.VarMap)
-		resolvedPrompt, err := env.Interpolate(n.Prompt)
-		if err != nil {
-			// Use raw prompt as fallback
-			resolvedPrompt = n.Prompt
-		}
-
-		systemMsg := llms.MessageContent{
-			Role:  llms.ChatMessageTypeSystem,
-			Parts: []llms.ContentPart{llms.TextPart(resolvedPrompt)},
-		}
-		lcMessages = append([]llms.MessageContent{systemMsg}, lcMessages...)
-	}
 
 	// 3. Build LLM call options
 	options := []llms.CallOption{}
@@ -172,10 +151,7 @@ func (n *NodeAiProvider) Execute(ctx context.Context, req *node.FlowNodeRequest,
 	finishReason := ExtractFinishReason(resp)
 
 	// 6. Determine model string for metrics
-	modelStr := n.CustomModel
-	if n.Model != mflow.AiModelCustom {
-		modelStr = n.Model.ModelString()
-	}
+	modelStr := n.Model.ModelString()
 
 	// 7. Build output structure
 	output := &mflow.AIProviderOutput{
@@ -260,9 +236,9 @@ func (n *NodeAiProvider) RunAsync(ctx context.Context, req *node.FlowNodeRequest
 }
 
 // GetRequiredVariables implements node.VariableIntrospector.
-// Returns variables referenced in the Prompt field.
+// Returns variables referenced in node configuration (none for AI Provider).
 func (n *NodeAiProvider) GetRequiredVariables() []string {
-	return expression.ExtractVarRefs(n.Prompt)
+	return nil
 }
 
 // GetOutputVariables implements node.VariableIntrospector.
@@ -278,9 +254,6 @@ func (n *NodeAiProvider) GetOutputVariables() []string {
 // GetModelString returns the model identifier string (e.g., "gpt-5.2").
 // Implements the AIProvider interface from nai package.
 func (n *NodeAiProvider) GetModelString() string {
-	if n.Model == mflow.AiModelCustom {
-		return n.CustomModel
-	}
 	return n.Model.ModelString()
 }
 

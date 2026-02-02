@@ -641,13 +641,15 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// This follows SQLite best practices of keeping transactions short and doing reads outside when possible.
 
 	type nodeConfig struct {
-		sourceNode    mflow.Node
-		requestData   *mflow.NodeRequest
-		forData       *mflow.NodeFor
-		forEachData   *mflow.NodeForEach
-		conditionData *mflow.NodeIf
-		jsData        *mflow.NodeJS
-		aiData        *mflow.NodeAI
+		sourceNode     mflow.Node
+		requestData    *mflow.NodeRequest
+		forData        *mflow.NodeFor
+		forEachData    *mflow.NodeForEach
+		conditionData  *mflow.NodeIf
+		jsData         *mflow.NodeJS
+		aiData         *mflow.NodeAI
+		aiProviderData *mflow.NodeAiProvider
+		memoryData     *mflow.NodeMemory
 	}
 
 	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))
@@ -701,6 +703,22 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			} else if aiData != nil {
 				config.aiData = aiData
 			}
+
+		case mflow.NODE_KIND_AI_PROVIDER:
+			aiProviderData, err := s.naps.GetNodeAiProvider(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get ai provider node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if aiProviderData != nil {
+				config.aiProviderData = aiProviderData
+			}
+
+		case mflow.NODE_KIND_AI_MEMORY:
+			memoryData, err := s.nmems.GetNodeMemory(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get memory node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if memoryData != nil {
+				config.memoryData = memoryData
+			}
 		}
 
 		nodeConfigs = append(nodeConfigs, config)
@@ -725,6 +743,16 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	if s.nais != nil {
 		txService := s.nais.TX(tx)
 		naisWriter = &txService
+	}
+	var napsWriter *sflow.NodeAiProviderService
+	if s.naps != nil {
+		txService := s.naps.TX(tx)
+		napsWriter = &txService
+	}
+	var nmemsWriter *sflow.NodeMemoryService
+	if s.nmems != nil {
+		txService := s.nmems.TX(tx)
+		nmemsWriter = &txService
 	}
 	edgeWriter := s.es.TX(tx)
 	varWriter := s.fvs.TX(tx)
@@ -881,6 +909,52 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					return mflow.Flow{}, nil, fmt.Errorf("create ai node: %w", err)
 				}
 				// AI node events are handled through nodeStream subscription
+			}
+
+		case mflow.NODE_KIND_AI_PROVIDER:
+			// Skip if AI Provider service is not available
+			if napsWriter == nil {
+				s.logger.Warn("NodeAiProvider service not available, skipping AI Provider node config", "node_id", sourceNode.ID.String())
+			} else {
+				// Create AI Provider node config with defaults
+				newAiProviderData := mflow.NodeAiProvider{
+					FlowNodeID:   newNodeID,
+					CredentialID: nil,
+					Model:        mflow.AiModelUnspecified,
+					Temperature:  nil,
+					MaxTokens:    nil,
+				}
+				if config.aiProviderData != nil {
+					newAiProviderData.CredentialID = config.aiProviderData.CredentialID
+					newAiProviderData.Model = config.aiProviderData.Model
+					newAiProviderData.Temperature = config.aiProviderData.Temperature
+					newAiProviderData.MaxTokens = config.aiProviderData.MaxTokens
+				}
+				if err := napsWriter.CreateNodeAiProvider(ctx, newAiProviderData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create ai provider node: %w", err)
+				}
+				// AI Provider node events are handled through nodeStream subscription
+			}
+
+		case mflow.NODE_KIND_AI_MEMORY:
+			// Skip if Memory service is not available
+			if nmemsWriter == nil {
+				s.logger.Warn("NodeMemory service not available, skipping Memory node config", "node_id", sourceNode.ID.String())
+			} else {
+				// Create Memory node config with defaults
+				newMemoryData := mflow.NodeMemory{
+					FlowNodeID: newNodeID,
+					MemoryType: mflow.AiMemoryTypeWindowBuffer,
+					WindowSize: 10, // Default window size
+				}
+				if config.memoryData != nil {
+					newMemoryData.MemoryType = config.memoryData.MemoryType
+					newMemoryData.WindowSize = config.memoryData.WindowSize
+				}
+				if err := nmemsWriter.CreateNodeMemory(ctx, newMemoryData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create memory node: %w", err)
+				}
+				// Memory node events are handled through nodeStream subscription
 			}
 		}
 
