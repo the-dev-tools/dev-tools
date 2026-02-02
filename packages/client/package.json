@@ -7,6 +7,8 @@
   },
   "exports": {
     ".": "./src/app/index.tsx",
+    "./src/*": "./src/*.tsx",
+    "./styles": "./src/app/styles.css",
     "./assets/*": "./assets/*"
   },
   "dependencies": {

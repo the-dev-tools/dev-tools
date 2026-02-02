@@ -1,4 +1,4 @@
-@import '@the-dev-tools/ui/styles';
+@import '@the-dev-tools/client/styles';
 
 @plugin '@tailwindcss/typography';
 

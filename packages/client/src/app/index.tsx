@@ -14,8 +14,6 @@ import { RouterContext } from './context';
 import { startOpenReplay } from './open-replay';
 import { router } from './router';
 
-import './styles.css';
-
 scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 
 const appAtom = runtimeAtom.atom(
