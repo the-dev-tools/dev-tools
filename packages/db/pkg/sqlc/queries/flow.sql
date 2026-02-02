@@ -215,6 +215,12 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?, ?, 0);
 
+-- name: CreateFlowNodeWithState :exec
+INSERT INTO
+  flow_node (id, flow_id, name, node_kind, position_x, position_y, state)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?);
+
 -- name: CreateFlowNodesBulk :exec
 INSERT INTO
   flow_node (id, flow_id, name, node_kind, position_x, position_y, state)

@@ -779,7 +779,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		newNodeID := idwrap.NewMonotonic()
 		nodeIDMapping[sourceNode.ID.String()] = newNodeID
 
-		// Create the base node
+		// Create the base node (including State to preserve execution status in snapshot)
 		newNode := mflow.Node{
 			ID:        newNodeID,
 			FlowID:    versionFlowID,
@@ -787,9 +787,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			NodeKind:  sourceNode.NodeKind,
 			PositionX: sourceNode.PositionX,
 			PositionY: sourceNode.PositionY,
+			State:     sourceNode.State,
 		}
 
-		if err := nodeWriter.CreateNode(ctx, newNode); err != nil {
+		// Use CreateNodeWithState to preserve the execution state in the snapshot
+		if err := nodeWriter.CreateNodeWithState(ctx, newNode); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
 		}
 

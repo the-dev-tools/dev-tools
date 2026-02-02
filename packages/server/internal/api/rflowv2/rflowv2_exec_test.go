@@ -231,7 +231,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 	err := svc.fs.CreateFlow(ctx, sourceFlow)
 	require.NoError(t, err)
 
-	// Create Nodes
+	// Create Nodes with specific states to verify they're preserved in snapshot
 	node1ID := idwrap.NewNow()
 	node1 := mflow.Node{
 		ID:        node1ID,
@@ -240,6 +240,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 10,
 		PositionY: 20,
+		State:     mflow.NODE_STATE_SUCCESS, // Set state to verify it's copied
 	}
 	err = svc.ns.CreateNode(ctx, node1)
 	require.NoError(t, err)
@@ -252,6 +253,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 100,
 		PositionY: 200,
+		State:     mflow.NODE_STATE_SUCCESS, // Set state to verify it's copied
 	}
 	err = svc.ns.CreateNode(ctx, node2)
 	require.NoError(t, err)
@@ -324,10 +326,12 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 			foundNode1 = true
 			assert.Equal(t, node1.Name, n.Name)
 			assert.Equal(t, node1.NodeKind, n.NodeKind)
+			assert.Equal(t, node1.State, n.State, "Node 1 state should be preserved in snapshot")
 		} else if n.ID == mappedNode2ID {
 			foundNode2 = true
 			assert.Equal(t, node2.Name, n.Name)
 			assert.Equal(t, node2.NodeKind, n.NodeKind)
+			assert.Equal(t, node2.State, n.State, "Node 2 state should be preserved in snapshot")
 		}
 	}
 	assert.True(t, foundNode1, "Mapped node 1 not found in version nodes")

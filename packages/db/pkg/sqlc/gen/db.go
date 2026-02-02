@@ -99,6 +99,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowNodeMemoryStmt, err = db.PrepareContext(ctx, createFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeMemory: %w", err)
 	}
+	if q.createFlowNodeWithStateStmt, err = db.PrepareContext(ctx, createFlowNodeWithState); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeWithState: %w", err)
+	}
 	if q.createFlowNodesBulkStmt, err = db.PrepareContext(ctx, createFlowNodesBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodesBulk: %w", err)
 	}
@@ -971,6 +974,11 @@ func (q *Queries) Close() error {
 	if q.createFlowNodeMemoryStmt != nil {
 		if cerr := q.createFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeWithStateStmt != nil {
+		if cerr := q.createFlowNodeWithStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeWithStateStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodesBulkStmt != nil {
@@ -2277,6 +2285,7 @@ type Queries struct {
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
 	createFlowNodeMemoryStmt                   *sql.Stmt
+	createFlowNodeWithStateStmt                *sql.Stmt
 	createFlowNodesBulkStmt                    *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createFlowVariableStmt                     *sql.Stmt
@@ -2556,6 +2565,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
 		createFlowNodeMemoryStmt:                   q.createFlowNodeMemoryStmt,
+		createFlowNodeWithStateStmt:                q.createFlowNodeWithStateStmt,
 		createFlowNodesBulkStmt:                    q.createFlowNodesBulkStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createFlowVariableStmt:                     q.createFlowVariableStmt,
