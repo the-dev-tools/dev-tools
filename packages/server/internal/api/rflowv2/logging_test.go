@@ -77,11 +77,15 @@ func TestFlowRun_Logging(t *testing.T) {
 		&forEachService,
 		ifService,
 		&jsService,
+		nil, // NodeAIService
+		nil, // NodeAiProviderService
+		nil, // NodeMemoryService
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
 		logger,
+		nil, // LLMProviderFactory
 	)
 
 	svc := &FlowServiceV2RPC{

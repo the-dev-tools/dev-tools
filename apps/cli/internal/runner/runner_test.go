@@ -110,11 +110,15 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		&nodeForEachService,
 		nodeIfService,
 		&nodeJSService,
+		nil, // NodeAIService - not needed for CLI tests
+		nil, // NodeAiProviderService - not needed for CLI tests
+		nil, // NodeMemoryService - not needed for CLI tests
 		&workspaceService,
 		&varService,
 		&flowVariableService,
 		res,
 		logger,
+		nil, // LLMProviderFactory - not needed for CLI tests
 	)
 
 	_ = logconsole.NewLogChanMap() // unused but kept for parity if needed

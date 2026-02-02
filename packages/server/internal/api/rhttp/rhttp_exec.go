@@ -30,7 +30,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 	logv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/log/v1"
 )
@@ -132,7 +131,7 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	varMap, err := h.buildWorkspaceVarMap(ctx, httpEntry.WorkspaceID)
 	if err != nil {
 		// Continue with empty varMap rather than failing
-		varMap = varsystem.VarMap{}
+		varMap = make(map[string]any)
 	}
 
 	// Prepare the HTTP request using request package
@@ -207,12 +206,18 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	return nil
 }
 
-// buildWorkspaceVarMap creates a variable map from workspace environments
-func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID idwrap.IDWrap) (varsystem.VarMap, error) {
+// EnvNamespace is the namespace key for environment variables.
+// Access environment variables using {{ env.varName }} syntax.
+const EnvNamespace = "env"
+
+// buildWorkspaceVarMap creates a variable map from workspace environments.
+// Environment variables are stored under the "env" namespace for clean separation.
+// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}.
+func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID idwrap.IDWrap) (map[string]any, error) {
 	// Get workspace to find global environment
 	workspace, err := h.ws.Get(ctx, workspaceID)
 	if err != nil {
-		return varsystem.VarMap{}, fmt.Errorf("failed to get workspace: %w", err)
+		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
 
 	// Get global environment variables
@@ -220,24 +225,23 @@ func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID i
 	if workspace.GlobalEnv != (idwrap.IDWrap{}) {
 		globalVars, err = h.vs.GetVariableByEnvID(ctx, workspace.GlobalEnv)
 		if err != nil && !errors.Is(err, senv.ErrNoVarFound) {
-			return varsystem.VarMap{}, fmt.Errorf("failed to get global environment variables: %w", err)
+			return nil, fmt.Errorf("failed to get global environment variables: %w", err)
 		}
 	}
 
-	// Create variable map by merging global environment variables
-	varMap := make(map[string]any)
-
-	// Add global environment variables
+	// Create environment variables map
+	envVars := make(map[string]any)
 	for _, envVar := range globalVars {
 		if envVar.IsEnabled() {
-			varMap[envVar.VarKey] = envVar.Value
+			envVars[envVar.VarKey] = envVar.Value
 		}
 	}
 
-	// Convert to varsystem.VarMap
-	result := varsystem.NewVarMapFromAnyMap(varMap)
+	// Store under "env" namespace
+	varMap := make(map[string]any)
+	varMap[EnvNamespace] = envVars
 
-	return result, nil
+	return varMap, nil
 }
 
 // extractResponseVariables logic was removed as variable storage is handled by rflow

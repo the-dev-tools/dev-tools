@@ -11,6 +11,34 @@ import (
 	idwrap "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
+type Credential struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+	Kind        int8
+}
+
+type CredentialAnthropic struct {
+	CredentialID   idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
+}
+
+type CredentialGemini struct {
+	CredentialID   idwrap.IDWrap
+	ApiKey         []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
+}
+
+type CredentialOpenai struct {
+	CredentialID   idwrap.IDWrap
+	Token          []byte
+	BaseUrl        sql.NullString
+	EncryptionType int8
+}
+
 type Environment struct {
 	ID           idwrap.IDWrap
 	WorkspaceID  idwrap.IDWrap
@@ -61,6 +89,20 @@ type FlowNode struct {
 	State     int8
 }
 
+type FlowNodeAi struct {
+	FlowNodeID    idwrap.IDWrap
+	Prompt        string
+	MaxIterations int32
+}
+
+type FlowNodeAiProvider struct {
+	FlowNodeID   []byte
+	CredentialID []byte
+	Model        int8
+	Temperature  sql.NullFloat64
+	MaxTokens    sql.NullInt64
+}
+
 type FlowNodeCondition struct {
 	FlowNodeID idwrap.IDWrap
 	Expression string
@@ -90,6 +132,12 @@ type FlowNodeJ struct {
 	FlowNodeID       idwrap.IDWrap
 	Code             []byte
 	CodeCompressType int8
+}
+
+type FlowNodeMemory struct {
+	FlowNodeID []byte
+	MemoryType int8
+	WindowSize int32
 }
 
 type FlowTag struct {

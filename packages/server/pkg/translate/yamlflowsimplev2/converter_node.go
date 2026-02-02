@@ -55,6 +55,9 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.JS != nil:
 			nodeName = stepWrapper.JS.Name
 			dependsOn = stepWrapper.JS.DependsOn
+		case stepWrapper.AI != nil:
+			nodeName = stepWrapper.AI.Name
+			dependsOn = stepWrapper.AI.DependsOn
 		case stepWrapper.ManualStart != nil:
 			nodeName = stepWrapper.ManualStart.Name
 			dependsOn = stepWrapper.ManualStart.DependsOn
@@ -109,6 +112,14 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 				return nil, NewYamlFlowErrorV2("missing required code", "js", i)
 			}
 			if err := processJSStructStep(stepWrapper.JS, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.AI != nil:
+			if strings.TrimSpace(stepWrapper.AI.Prompt) == "" {
+				return nil, NewYamlFlowErrorV2("missing required prompt", "ai", i)
+			}
+			// Note: Model configuration is now via connected Model nodes (n8n-style)
+			if err := processAIStructStep(stepWrapper.AI, nodeID, flowID, opts, result); err != nil {
 				return nil, err
 			}
 		case stepWrapper.ManualStart != nil:
@@ -306,5 +317,35 @@ func processJSStructStep(step *YamlStepJS, nodeID, flowID idwrap.IDWrap, result 
 		Code:       []byte(strings.TrimSpace(step.Code)),
 	}
 	result.FlowJSNodes = append(result.FlowJSNodes, jsNode)
+	return nil
+}
+
+func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, _ ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_AI,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Default max iterations to 5 if not specified
+	maxIterations := step.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = 5
+	}
+	// Cap max iterations to prevent overflow
+	if maxIterations > 100 {
+		maxIterations = 100
+	}
+
+	// Note: Model configuration is now handled via connected Model nodes (n8n-style)
+	// The YAML AI step only contains prompt and maxIterations
+	aiNode := mflow.NodeAI{
+		FlowNodeID:    nodeID,
+		Prompt:        step.Prompt,
+		MaxIterations: int32(maxIterations), //nolint:gosec // validated above
+	}
+	result.FlowAINodes = append(result.FlowAINodes, aiNode)
 	return nil
 }

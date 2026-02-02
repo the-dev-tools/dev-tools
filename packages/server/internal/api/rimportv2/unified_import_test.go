@@ -445,8 +445,8 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/users",
-				"{{API_HOST}}/posts",
+				"{{env.API_HOST}}/users",
+				"{{env.API_HOST}}/posts",
 			},
 		},
 		{
@@ -461,9 +461,9 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "auth.example.com", Variable: "AUTH_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/users",
-				"{{AUTH_HOST}}/login",
-				"{{API_HOST}}/posts",
+				"{{env.API_HOST}}/users",
+				"{{env.AUTH_HOST}}/login",
+				"{{env.API_HOST}}/posts",
 			},
 		},
 		{
@@ -477,7 +477,7 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: false, Domain: "skip.example.com", Variable: "SKIP_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/users",
+				"{{env.API_HOST}}/users",
 				"https://skip.example.com/data", // unchanged
 			},
 		},
@@ -492,7 +492,7 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "novar.example.com", Variable: ""},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/users",
+				"{{env.API_HOST}}/users",
 				"https://novar.example.com/data", // unchanged
 			},
 		},
@@ -505,7 +505,7 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/search?q=test&limit=10",
+				"{{env.API_HOST}}/search?q=test&limit=10",
 			},
 		},
 		{
@@ -518,8 +518,8 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}",
-				"{{API_HOST}}",
+				"{{env.API_HOST}}",
+				"{{env.API_HOST}}",
 			},
 		},
 		{
@@ -541,7 +541,7 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/users",
+				"{{env.API_HOST}}/users",
 			},
 		},
 		{
@@ -566,8 +566,8 @@ func TestApplyDomainReplacements(t *testing.T) {
 				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
 			},
 			expectedURLs: []string{
-				"{{API_HOST}}/api/categories/{{ request_5.response.body.id }}",
-				"{{API_HOST}}/users/{{userId}}/posts",
+				"{{env.API_HOST}}/api/categories/{{ request_5.response.body.id }}",
+				"{{env.API_HOST}}/users/{{userId}}/posts",
 			},
 		},
 	}

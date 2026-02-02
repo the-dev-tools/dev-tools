@@ -33,6 +33,21 @@ func (w *NodeWriter) CreateNode(ctx context.Context, n mflow.Node) error {
 	})
 }
 
+// CreateNodeWithState creates a node with a specific state value.
+// Used for version flow snapshots where the execution state should be preserved.
+func (w *NodeWriter) CreateNodeWithState(ctx context.Context, n mflow.Node) error {
+	node := ConvertNodeToDB(n)
+	return w.queries.CreateFlowNodeWithState(ctx, gen.CreateFlowNodeWithStateParams{
+		ID:        node.ID,
+		FlowID:    node.FlowID,
+		Name:      node.Name,
+		NodeKind:  node.NodeKind,
+		PositionX: node.PositionX,
+		PositionY: node.PositionY,
+		State:     int8(n.State), //nolint:gosec // G115: state values are small
+	})
+}
+
 func (w *NodeWriter) CreateNodeBulk(ctx context.Context, nodes []mflow.Node) error {
 	batchSize := 10
 	for i := 0; i < len(nodes); i += batchSize {

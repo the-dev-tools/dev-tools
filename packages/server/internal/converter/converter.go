@@ -12,7 +12,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 
+	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
 	environmentv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
 	filev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
@@ -345,6 +347,8 @@ func ToAPIFileKind(kind mfile.ContentType) filev1.FileKind {
 		return filev1.FileKind_FILE_KIND_HTTP_DELTA
 	case mfile.ContentTypeFlow:
 		return filev1.FileKind_FILE_KIND_FLOW
+	case mfile.ContentTypeCredential:
+		return filev1.FileKind_FILE_KIND_CREDENTIAL
 	default:
 		return filev1.FileKind_FILE_KIND_UNSPECIFIED
 	}
@@ -365,8 +369,87 @@ func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 		return flowv1.NodeKind_NODE_KIND_FOR_EACH
 	case mflow.NODE_KIND_JS:
 		return flowv1.NodeKind_NODE_KIND_JS
+	case mflow.NODE_KIND_AI:
+		return flowv1.NodeKind_NODE_KIND_AI
+	case mflow.NODE_KIND_AI_PROVIDER:
+		return flowv1.NodeKind_NODE_KIND_AI_PROVIDER
+	case mflow.NODE_KIND_AI_MEMORY:
+		return flowv1.NodeKind_NODE_KIND_AI_MEMORY
 	default:
 		return flowv1.NodeKind_NODE_KIND_UNSPECIFIED
+	}
+}
+
+// ToAPICredential converts model Credential to API Credential
+func ToAPICredential(cred mcredential.Credential) *credentialv1.Credential {
+	return &credentialv1.Credential{
+		CredentialId: cred.ID.Bytes(),
+		Name:         cred.Name,
+		Kind:         ToAPICredentialKind(cred.Kind),
+	}
+}
+
+// ToAPICredentialOpenAI converts model CredentialOpenAI to API CredentialOpenAi
+func ToAPICredentialOpenAI(cred mcredential.CredentialOpenAI) *credentialv1.CredentialOpenAi {
+	api := &credentialv1.CredentialOpenAi{
+		CredentialId: cred.CredentialID.Bytes(),
+		Token:        cred.Token,
+	}
+	if cred.BaseUrl != nil {
+		api.BaseUrl = cred.BaseUrl
+	}
+	return api
+}
+
+// ToAPICredentialGemini converts model CredentialGemini to API CredentialGemini
+func ToAPICredentialGemini(cred mcredential.CredentialGemini) *credentialv1.CredentialGemini {
+	api := &credentialv1.CredentialGemini{
+		CredentialId: cred.CredentialID.Bytes(),
+		ApiKey:       cred.ApiKey,
+	}
+	if cred.BaseUrl != nil {
+		api.BaseUrl = cred.BaseUrl
+	}
+	return api
+}
+
+// ToAPICredentialAnthropic converts model CredentialAnthropic to API CredentialAnthropic
+func ToAPICredentialAnthropic(cred mcredential.CredentialAnthropic) *credentialv1.CredentialAnthropic {
+	api := &credentialv1.CredentialAnthropic{
+		CredentialId: cred.CredentialID.Bytes(),
+		ApiKey:       cred.ApiKey,
+	}
+	if cred.BaseUrl != nil {
+		api.BaseUrl = cred.BaseUrl
+	}
+	return api
+}
+
+// ToAPICredentialKind converts model CredentialKind to API CredentialKind
+func ToAPICredentialKind(kind mcredential.CredentialKind) credentialv1.CredentialKind {
+	switch kind {
+	case mcredential.CREDENTIAL_KIND_OPENAI:
+		return credentialv1.CredentialKind_CREDENTIAL_KIND_OPEN_AI
+	case mcredential.CREDENTIAL_KIND_GEMINI:
+		return credentialv1.CredentialKind_CREDENTIAL_KIND_GEMINI
+	case mcredential.CREDENTIAL_KIND_ANTHROPIC:
+		return credentialv1.CredentialKind_CREDENTIAL_KIND_ANTHROPIC
+	default:
+		return credentialv1.CredentialKind_CREDENTIAL_KIND_UNSPECIFIED
+	}
+}
+
+// ToModelCredentialKind converts API CredentialKind to model CredentialKind
+func ToModelCredentialKind(kind credentialv1.CredentialKind) mcredential.CredentialKind {
+	switch kind {
+	case credentialv1.CredentialKind_CREDENTIAL_KIND_OPEN_AI:
+		return mcredential.CREDENTIAL_KIND_OPENAI
+	case credentialv1.CredentialKind_CREDENTIAL_KIND_GEMINI:
+		return mcredential.CREDENTIAL_KIND_GEMINI
+	case credentialv1.CredentialKind_CREDENTIAL_KIND_ANTHROPIC:
+		return mcredential.CREDENTIAL_KIND_ANTHROPIC
+	default:
+		return mcredential.CREDENTIAL_KIND_OPENAI // Default to OpenAI
 	}
 }
 

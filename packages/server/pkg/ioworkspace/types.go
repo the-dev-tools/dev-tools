@@ -40,6 +40,7 @@ type WorkspaceBundle struct {
 	FlowForNodes       []mflow.NodeFor
 	FlowForEachNodes   []mflow.NodeForEach
 	FlowJSNodes        []mflow.NodeJS
+	FlowAINodes        []mflow.NodeAI
 
 	// Environments and variables
 	Environments    []menv.Env
@@ -67,6 +68,7 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"flow_for_nodes":       len(wb.FlowForNodes),
 		"flow_foreach_nodes":   len(wb.FlowForEachNodes),
 		"flow_js_nodes":        len(wb.FlowJSNodes),
+		"flow_ai_nodes":        len(wb.FlowAINodes),
 		"environments":         len(wb.Environments),
 		"environment_vars":     len(wb.EnvironmentVars),
 	}

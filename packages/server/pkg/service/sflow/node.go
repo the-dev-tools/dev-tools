@@ -54,6 +54,12 @@ func (ns NodeService) CreateNode(ctx context.Context, n mflow.Node) error {
 	return NewNodeWriterFromQueries(ns.queries).CreateNode(ctx, n)
 }
 
+// CreateNodeWithState creates a node with a specific state value.
+// Used for version flow snapshots where the execution state should be preserved.
+func (ns NodeService) CreateNodeWithState(ctx context.Context, n mflow.Node) error {
+	return NewNodeWriterFromQueries(ns.queries).CreateNodeWithState(ctx, n)
+}
+
 func (ns NodeService) CreateNodeBulk(ctx context.Context, nodes []mflow.Node) error {
 	return NewNodeWriterFromQueries(ns.queries).CreateNodeBulk(ctx, nodes)
 }

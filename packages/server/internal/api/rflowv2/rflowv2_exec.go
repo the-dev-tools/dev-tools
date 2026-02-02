@@ -337,6 +337,25 @@ func (s *FlowServiceV2RPC) executeFlow(
 
 				// Include timestamp in execution name for easy identification
 				executionName := fmt.Sprintf("%s - %s", status.Name, time.Now().Format("2006-01-02 15:04"))
+
+				// Debug: Log AuxiliaryID value being set
+				if status.AuxiliaryID != nil {
+					s.logger.Debug("Creating execution with AuxiliaryID",
+						"exec_id", execID.String(),
+						"node_id", status.NodeID.String(),
+						"node_name", status.Name,
+						"state", status.State,
+						"auxiliary_id", status.AuxiliaryID.String(),
+					)
+				} else {
+					s.logger.Debug("Creating execution without AuxiliaryID",
+						"exec_id", execID.String(),
+						"node_id", status.NodeID.String(),
+						"node_name", status.Name,
+						"state", status.State,
+					)
+				}
+
 				model := mflow.NodeExecution{
 					ID:         execID,
 					NodeID:     status.NodeID,
@@ -622,12 +641,15 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	// This follows SQLite best practices of keeping transactions short and doing reads outside when possible.
 
 	type nodeConfig struct {
-		sourceNode    mflow.Node
-		requestData   *mflow.NodeRequest
-		forData       *mflow.NodeFor
-		forEachData   *mflow.NodeForEach
-		conditionData *mflow.NodeIf
-		jsData        *mflow.NodeJS
+		sourceNode     mflow.Node
+		requestData    *mflow.NodeRequest
+		forData        *mflow.NodeFor
+		forEachData    *mflow.NodeForEach
+		conditionData  *mflow.NodeIf
+		jsData         *mflow.NodeJS
+		aiData         *mflow.NodeAI
+		aiProviderData *mflow.NodeAiProvider
+		memoryData     *mflow.NodeMemory
 	}
 
 	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))
@@ -673,6 +695,30 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			} else if jsData != nil {
 				config.jsData = jsData
 			}
+
+		case mflow.NODE_KIND_AI:
+			aiData, err := s.nais.GetNodeAI(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get ai node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if aiData != nil {
+				config.aiData = aiData
+			}
+
+		case mflow.NODE_KIND_AI_PROVIDER:
+			aiProviderData, err := s.naps.GetNodeAiProvider(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get ai provider node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if aiProviderData != nil {
+				config.aiProviderData = aiProviderData
+			}
+
+		case mflow.NODE_KIND_AI_MEMORY:
+			memoryData, err := s.nmems.GetNodeMemory(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get memory node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if memoryData != nil {
+				config.memoryData = memoryData
+			}
 		}
 
 		nodeConfigs = append(nodeConfigs, config)
@@ -693,6 +739,21 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	nfesWriter := s.nfes.TX(tx)
 	nifsWriter := s.nifs.TX(tx)
 	njssWriter := s.njss.TX(tx)
+	var naisWriter *sflow.NodeAIService
+	if s.nais != nil {
+		txService := s.nais.TX(tx)
+		naisWriter = &txService
+	}
+	var napsWriter *sflow.NodeAiProviderService
+	if s.naps != nil {
+		txService := s.naps.TX(tx)
+		napsWriter = &txService
+	}
+	var nmemsWriter *sflow.NodeMemoryService
+	if s.nmems != nil {
+		txService := s.nmems.TX(tx)
+		nmemsWriter = &txService
+	}
 	edgeWriter := s.es.TX(tx)
 	varWriter := s.fvs.TX(tx)
 
@@ -718,7 +779,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		newNodeID := idwrap.NewMonotonic()
 		nodeIDMapping[sourceNode.ID.String()] = newNodeID
 
-		// Create the base node
+		// Create the base node (including State to preserve execution status in snapshot)
 		newNode := mflow.Node{
 			ID:        newNodeID,
 			FlowID:    versionFlowID,
@@ -726,9 +787,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			NodeKind:  sourceNode.NodeKind,
 			PositionX: sourceNode.PositionX,
 			PositionY: sourceNode.PositionY,
+			State:     sourceNode.State,
 		}
 
-		if err := nodeWriter.CreateNode(ctx, newNode); err != nil {
+		// Use CreateNodeWithState to preserve the execution state in the snapshot
+		if err := nodeWriter.CreateNodeWithState(ctx, newNode); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
 		}
 
@@ -828,6 +891,73 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				FlowID: versionFlowID,
 				Node:   serializeNodeJs(newJsData),
 			})
+
+		case mflow.NODE_KIND_AI:
+			// Skip if AI service is not available
+			if naisWriter == nil {
+				s.logger.Warn("NodeAI service not available, skipping AI node config", "node_id", sourceNode.ID.String())
+			} else {
+				// Create AI node config (model/credential now via connected Model node)
+				newAIData := mflow.NodeAI{
+					FlowNodeID:    newNodeID,
+					Prompt:        "",
+					MaxIterations: 5,
+				}
+				if config.aiData != nil {
+					newAIData.Prompt = config.aiData.Prompt
+					newAIData.MaxIterations = config.aiData.MaxIterations
+				}
+				if err := naisWriter.CreateNodeAI(ctx, newAIData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create ai node: %w", err)
+				}
+				// AI node events are handled through nodeStream subscription
+			}
+
+		case mflow.NODE_KIND_AI_PROVIDER:
+			// Skip if AI Provider service is not available
+			if napsWriter == nil {
+				s.logger.Warn("NodeAiProvider service not available, skipping AI Provider node config", "node_id", sourceNode.ID.String())
+			} else {
+				// Create AI Provider node config with defaults
+				newAiProviderData := mflow.NodeAiProvider{
+					FlowNodeID:   newNodeID,
+					CredentialID: nil,
+					Model:        mflow.AiModelUnspecified,
+					Temperature:  nil,
+					MaxTokens:    nil,
+				}
+				if config.aiProviderData != nil {
+					newAiProviderData.CredentialID = config.aiProviderData.CredentialID
+					newAiProviderData.Model = config.aiProviderData.Model
+					newAiProviderData.Temperature = config.aiProviderData.Temperature
+					newAiProviderData.MaxTokens = config.aiProviderData.MaxTokens
+				}
+				if err := napsWriter.CreateNodeAiProvider(ctx, newAiProviderData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create ai provider node: %w", err)
+				}
+				// AI Provider node events are handled through nodeStream subscription
+			}
+
+		case mflow.NODE_KIND_AI_MEMORY:
+			// Skip if Memory service is not available
+			if nmemsWriter == nil {
+				s.logger.Warn("NodeMemory service not available, skipping Memory node config", "node_id", sourceNode.ID.String())
+			} else {
+				// Create Memory node config with defaults
+				newMemoryData := mflow.NodeMemory{
+					FlowNodeID: newNodeID,
+					MemoryType: mflow.AiMemoryTypeWindowBuffer,
+					WindowSize: 10, // Default window size
+				}
+				if config.memoryData != nil {
+					newMemoryData.MemoryType = config.memoryData.MemoryType
+					newMemoryData.WindowSize = config.memoryData.WindowSize
+				}
+				if err := nmemsWriter.CreateNodeMemory(ctx, newMemoryData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create memory node: %w", err)
+				}
+				// Memory node events are handled through nodeStream subscription
+			}
 		}
 
 		// Collect base node event

@@ -48,6 +48,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.cleanupOrphanedNodeExecutionsStmt, err = db.PrepareContext(ctx, cleanupOrphanedNodeExecutions); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedNodeExecutions: %w", err)
 	}
+	if q.createCredentialStmt, err = db.PrepareContext(ctx, createCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCredential: %w", err)
+	}
+	if q.createCredentialAnthropicStmt, err = db.PrepareContext(ctx, createCredentialAnthropic); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCredentialAnthropic: %w", err)
+	}
+	if q.createCredentialGeminiStmt, err = db.PrepareContext(ctx, createCredentialGemini); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCredentialGemini: %w", err)
+	}
+	if q.createCredentialOpenAIStmt, err = db.PrepareContext(ctx, createCredentialOpenAI); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCredentialOpenAI: %w", err)
+	}
 	if q.createEnvironmentStmt, err = db.PrepareContext(ctx, createEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateEnvironment: %w", err)
 	}
@@ -63,6 +75,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowNodeStmt, err = db.PrepareContext(ctx, createFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNode: %w", err)
 	}
+	if q.createFlowNodeAIStmt, err = db.PrepareContext(ctx, createFlowNodeAI); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeAI: %w", err)
+	}
+	if q.createFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, createFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeAiProvider: %w", err)
+	}
 	if q.createFlowNodeConditionStmt, err = db.PrepareContext(ctx, createFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeCondition: %w", err)
 	}
@@ -77,6 +95,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createFlowNodeJsStmt, err = db.PrepareContext(ctx, createFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeJs: %w", err)
+	}
+	if q.createFlowNodeMemoryStmt, err = db.PrepareContext(ctx, createFlowNodeMemory); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeMemory: %w", err)
+	}
+	if q.createFlowNodeWithStateStmt, err = db.PrepareContext(ctx, createFlowNodeWithState); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeWithState: %w", err)
 	}
 	if q.createFlowNodesBulkStmt, err = db.PrepareContext(ctx, createFlowNodesBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodesBulk: %w", err)
@@ -165,6 +189,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createWorkspaceUserStmt, err = db.PrepareContext(ctx, createWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspaceUser: %w", err)
 	}
+	if q.deleteCredentialStmt, err = db.PrepareContext(ctx, deleteCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCredential: %w", err)
+	}
+	if q.deleteCredentialAnthropicStmt, err = db.PrepareContext(ctx, deleteCredentialAnthropic); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCredentialAnthropic: %w", err)
+	}
+	if q.deleteCredentialGeminiStmt, err = db.PrepareContext(ctx, deleteCredentialGemini); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCredentialGemini: %w", err)
+	}
+	if q.deleteCredentialOpenAIStmt, err = db.PrepareContext(ctx, deleteCredentialOpenAI); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCredentialOpenAI: %w", err)
+	}
 	if q.deleteEnvironmentStmt, err = db.PrepareContext(ctx, deleteEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteEnvironment: %w", err)
 	}
@@ -180,6 +216,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteFlowNodeStmt, err = db.PrepareContext(ctx, deleteFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNode: %w", err)
 	}
+	if q.deleteFlowNodeAIStmt, err = db.PrepareContext(ctx, deleteFlowNodeAI); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeAI: %w", err)
+	}
+	if q.deleteFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, deleteFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeAiProvider: %w", err)
+	}
 	if q.deleteFlowNodeConditionStmt, err = db.PrepareContext(ctx, deleteFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeCondition: %w", err)
 	}
@@ -194,6 +236,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowNodeJsStmt, err = db.PrepareContext(ctx, deleteFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeJs: %w", err)
+	}
+	if q.deleteFlowNodeMemoryStmt, err = db.PrepareContext(ctx, deleteFlowNodeMemory); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeMemory: %w", err)
 	}
 	if q.deleteFlowTagStmt, err = db.PrepareContext(ctx, deleteFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowTag: %w", err)
@@ -270,6 +315,21 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAllWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getAllWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllWorkspacesByUserID: %w", err)
 	}
+	if q.getCredentialStmt, err = db.PrepareContext(ctx, getCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredential: %w", err)
+	}
+	if q.getCredentialAnthropicStmt, err = db.PrepareContext(ctx, getCredentialAnthropic); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredentialAnthropic: %w", err)
+	}
+	if q.getCredentialGeminiStmt, err = db.PrepareContext(ctx, getCredentialGemini); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredentialGemini: %w", err)
+	}
+	if q.getCredentialOpenAIStmt, err = db.PrepareContext(ctx, getCredentialOpenAI); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredentialOpenAI: %w", err)
+	}
+	if q.getCredentialsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getCredentialsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCredentialsByWorkspaceID: %w", err)
+	}
 	if q.getEnvironmentStmt, err = db.PrepareContext(ctx, getEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironment: %w", err)
 	}
@@ -327,6 +387,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowNodeStmt, err = db.PrepareContext(ctx, getFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNode: %w", err)
 	}
+	if q.getFlowNodeAIStmt, err = db.PrepareContext(ctx, getFlowNodeAI); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeAI: %w", err)
+	}
+	if q.getFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, getFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeAiProvider: %w", err)
+	}
 	if q.getFlowNodeConditionStmt, err = db.PrepareContext(ctx, getFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeCondition: %w", err)
 	}
@@ -341,6 +407,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowNodeJsStmt, err = db.PrepareContext(ctx, getFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeJs: %w", err)
+	}
+	if q.getFlowNodeMemoryStmt, err = db.PrepareContext(ctx, getFlowNodeMemory); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeMemory: %w", err)
 	}
 	if q.getFlowNodesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowNodesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodesByFlowID: %w", err)
@@ -621,6 +690,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.resolveHTTPWithDeltasStmt, err = db.PrepareContext(ctx, resolveHTTPWithDeltas); err != nil {
 		return nil, fmt.Errorf("error preparing query ResolveHTTPWithDeltas: %w", err)
 	}
+	if q.updateCredentialStmt, err = db.PrepareContext(ctx, updateCredential); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCredential: %w", err)
+	}
+	if q.updateCredentialAnthropicStmt, err = db.PrepareContext(ctx, updateCredentialAnthropic); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCredentialAnthropic: %w", err)
+	}
+	if q.updateCredentialGeminiStmt, err = db.PrepareContext(ctx, updateCredentialGemini); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCredentialGemini: %w", err)
+	}
+	if q.updateCredentialOpenAIStmt, err = db.PrepareContext(ctx, updateCredentialOpenAI); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCredentialOpenAI: %w", err)
+	}
 	if q.updateEnvironmentStmt, err = db.PrepareContext(ctx, updateEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateEnvironment: %w", err)
 	}
@@ -639,6 +720,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeStmt, err = db.PrepareContext(ctx, updateFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNode: %w", err)
 	}
+	if q.updateFlowNodeAIStmt, err = db.PrepareContext(ctx, updateFlowNodeAI); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeAI: %w", err)
+	}
+	if q.updateFlowNodeAiProviderStmt, err = db.PrepareContext(ctx, updateFlowNodeAiProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeAiProvider: %w", err)
+	}
 	if q.updateFlowNodeConditionStmt, err = db.PrepareContext(ctx, updateFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeCondition: %w", err)
 	}
@@ -656,6 +743,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateFlowNodeJsStmt, err = db.PrepareContext(ctx, updateFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeJs: %w", err)
+	}
+	if q.updateFlowNodeMemoryStmt, err = db.PrepareContext(ctx, updateFlowNodeMemory); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeMemory: %w", err)
 	}
 	if q.updateFlowNodeStateStmt, err = db.PrepareContext(ctx, updateFlowNodeState); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeState: %w", err)
@@ -801,6 +891,26 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing cleanupOrphanedNodeExecutionsStmt: %w", cerr)
 		}
 	}
+	if q.createCredentialStmt != nil {
+		if cerr := q.createCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCredentialStmt: %w", cerr)
+		}
+	}
+	if q.createCredentialAnthropicStmt != nil {
+		if cerr := q.createCredentialAnthropicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCredentialAnthropicStmt: %w", cerr)
+		}
+	}
+	if q.createCredentialGeminiStmt != nil {
+		if cerr := q.createCredentialGeminiStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCredentialGeminiStmt: %w", cerr)
+		}
+	}
+	if q.createCredentialOpenAIStmt != nil {
+		if cerr := q.createCredentialOpenAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCredentialOpenAIStmt: %w", cerr)
+		}
+	}
 	if q.createEnvironmentStmt != nil {
 		if cerr := q.createEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createEnvironmentStmt: %w", cerr)
@@ -826,6 +936,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createFlowNodeStmt: %w", cerr)
 		}
 	}
+	if q.createFlowNodeAIStmt != nil {
+		if cerr := q.createFlowNodeAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeAIStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeAiProviderStmt != nil {
+		if cerr := q.createFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.createFlowNodeConditionStmt != nil {
 		if cerr := q.createFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeConditionStmt: %w", cerr)
@@ -849,6 +969,16 @@ func (q *Queries) Close() error {
 	if q.createFlowNodeJsStmt != nil {
 		if cerr := q.createFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeJsStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeMemoryStmt != nil {
+		if cerr := q.createFlowNodeMemoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeWithStateStmt != nil {
+		if cerr := q.createFlowNodeWithStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeWithStateStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodesBulkStmt != nil {
@@ -996,6 +1126,26 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.deleteCredentialStmt != nil {
+		if cerr := q.deleteCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCredentialStmt: %w", cerr)
+		}
+	}
+	if q.deleteCredentialAnthropicStmt != nil {
+		if cerr := q.deleteCredentialAnthropicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCredentialAnthropicStmt: %w", cerr)
+		}
+	}
+	if q.deleteCredentialGeminiStmt != nil {
+		if cerr := q.deleteCredentialGeminiStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCredentialGeminiStmt: %w", cerr)
+		}
+	}
+	if q.deleteCredentialOpenAIStmt != nil {
+		if cerr := q.deleteCredentialOpenAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCredentialOpenAIStmt: %w", cerr)
+		}
+	}
 	if q.deleteEnvironmentStmt != nil {
 		if cerr := q.deleteEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteEnvironmentStmt: %w", cerr)
@@ -1021,6 +1171,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteFlowNodeStmt: %w", cerr)
 		}
 	}
+	if q.deleteFlowNodeAIStmt != nil {
+		if cerr := q.deleteFlowNodeAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeAIStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeAiProviderStmt != nil {
+		if cerr := q.deleteFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.deleteFlowNodeConditionStmt != nil {
 		if cerr := q.deleteFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeConditionStmt: %w", cerr)
@@ -1044,6 +1204,11 @@ func (q *Queries) Close() error {
 	if q.deleteFlowNodeJsStmt != nil {
 		if cerr := q.deleteFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeJsStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeMemoryStmt != nil {
+		if cerr := q.deleteFlowNodeMemoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeMemoryStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowTagStmt != nil {
@@ -1171,6 +1336,31 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAllWorkspacesByUserIDStmt: %w", cerr)
 		}
 	}
+	if q.getCredentialStmt != nil {
+		if cerr := q.getCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialStmt: %w", cerr)
+		}
+	}
+	if q.getCredentialAnthropicStmt != nil {
+		if cerr := q.getCredentialAnthropicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialAnthropicStmt: %w", cerr)
+		}
+	}
+	if q.getCredentialGeminiStmt != nil {
+		if cerr := q.getCredentialGeminiStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialGeminiStmt: %w", cerr)
+		}
+	}
+	if q.getCredentialOpenAIStmt != nil {
+		if cerr := q.getCredentialOpenAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialOpenAIStmt: %w", cerr)
+		}
+	}
+	if q.getCredentialsByWorkspaceIDStmt != nil {
+		if cerr := q.getCredentialsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCredentialsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getEnvironmentStmt != nil {
 		if cerr := q.getEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getEnvironmentStmt: %w", cerr)
@@ -1266,6 +1456,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowNodeStmt: %w", cerr)
 		}
 	}
+	if q.getFlowNodeAIStmt != nil {
+		if cerr := q.getFlowNodeAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeAIStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeAiProviderStmt != nil {
+		if cerr := q.getFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.getFlowNodeConditionStmt != nil {
 		if cerr := q.getFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeConditionStmt: %w", cerr)
@@ -1289,6 +1489,11 @@ func (q *Queries) Close() error {
 	if q.getFlowNodeJsStmt != nil {
 		if cerr := q.getFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeJsStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeMemoryStmt != nil {
+		if cerr := q.getFlowNodeMemoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeMemoryStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodesByFlowIDStmt != nil {
@@ -1756,6 +1961,26 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing resolveHTTPWithDeltasStmt: %w", cerr)
 		}
 	}
+	if q.updateCredentialStmt != nil {
+		if cerr := q.updateCredentialStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCredentialStmt: %w", cerr)
+		}
+	}
+	if q.updateCredentialAnthropicStmt != nil {
+		if cerr := q.updateCredentialAnthropicStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCredentialAnthropicStmt: %w", cerr)
+		}
+	}
+	if q.updateCredentialGeminiStmt != nil {
+		if cerr := q.updateCredentialGeminiStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCredentialGeminiStmt: %w", cerr)
+		}
+	}
+	if q.updateCredentialOpenAIStmt != nil {
+		if cerr := q.updateCredentialOpenAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCredentialOpenAIStmt: %w", cerr)
+		}
+	}
 	if q.updateEnvironmentStmt != nil {
 		if cerr := q.updateEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateEnvironmentStmt: %w", cerr)
@@ -1786,6 +2011,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowNodeAIStmt != nil {
+		if cerr := q.updateFlowNodeAIStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeAIStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeAiProviderStmt != nil {
+		if cerr := q.updateFlowNodeAiProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeAiProviderStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowNodeConditionStmt != nil {
 		if cerr := q.updateFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeConditionStmt: %w", cerr)
@@ -1814,6 +2049,11 @@ func (q *Queries) Close() error {
 	if q.updateFlowNodeJsStmt != nil {
 		if cerr := q.updateFlowNodeJsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeJsStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeMemoryStmt != nil {
+		if cerr := q.updateFlowNodeMemoryStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeMemoryStmt: %w", cerr)
 		}
 	}
 	if q.updateFlowNodeStateStmt != nil {
@@ -2028,16 +2268,24 @@ type Queries struct {
 	cleanupOrphanedFlowNodeHttpStmt            *sql.Stmt
 	cleanupOrphanedFlowNodeJsStmt              *sql.Stmt
 	cleanupOrphanedNodeExecutionsStmt          *sql.Stmt
+	createCredentialStmt                       *sql.Stmt
+	createCredentialAnthropicStmt              *sql.Stmt
+	createCredentialGeminiStmt                 *sql.Stmt
+	createCredentialOpenAIStmt                 *sql.Stmt
 	createEnvironmentStmt                      *sql.Stmt
 	createFileStmt                             *sql.Stmt
 	createFlowStmt                             *sql.Stmt
 	createFlowEdgeStmt                         *sql.Stmt
 	createFlowNodeStmt                         *sql.Stmt
+	createFlowNodeAIStmt                       *sql.Stmt
+	createFlowNodeAiProviderStmt               *sql.Stmt
 	createFlowNodeConditionStmt                *sql.Stmt
 	createFlowNodeForStmt                      *sql.Stmt
 	createFlowNodeForEachStmt                  *sql.Stmt
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
+	createFlowNodeMemoryStmt                   *sql.Stmt
+	createFlowNodeWithStateStmt                *sql.Stmt
 	createFlowNodesBulkStmt                    *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createFlowVariableStmt                     *sql.Stmt
@@ -2067,16 +2315,23 @@ type Queries struct {
 	createVariableBulkStmt                     *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
+	deleteCredentialStmt                       *sql.Stmt
+	deleteCredentialAnthropicStmt              *sql.Stmt
+	deleteCredentialGeminiStmt                 *sql.Stmt
+	deleteCredentialOpenAIStmt                 *sql.Stmt
 	deleteEnvironmentStmt                      *sql.Stmt
 	deleteFileStmt                             *sql.Stmt
 	deleteFlowStmt                             *sql.Stmt
 	deleteFlowEdgeStmt                         *sql.Stmt
 	deleteFlowNodeStmt                         *sql.Stmt
+	deleteFlowNodeAIStmt                       *sql.Stmt
+	deleteFlowNodeAiProviderStmt               *sql.Stmt
 	deleteFlowNodeConditionStmt                *sql.Stmt
 	deleteFlowNodeForStmt                      *sql.Stmt
 	deleteFlowNodeForEachStmt                  *sql.Stmt
 	deleteFlowNodeHTTPStmt                     *sql.Stmt
 	deleteFlowNodeJsStmt                       *sql.Stmt
+	deleteFlowNodeMemoryStmt                   *sql.Stmt
 	deleteFlowTagStmt                          *sql.Stmt
 	deleteFlowVariableStmt                     *sql.Stmt
 	deleteHTTPStmt                             *sql.Stmt
@@ -2102,6 +2357,11 @@ type Queries struct {
 	findHTTPByURLAndMethodStmt                 *sql.Stmt
 	getAllFlowsByWorkspaceIDStmt               *sql.Stmt
 	getAllWorkspacesByUserIDStmt               *sql.Stmt
+	getCredentialStmt                          *sql.Stmt
+	getCredentialAnthropicStmt                 *sql.Stmt
+	getCredentialGeminiStmt                    *sql.Stmt
+	getCredentialOpenAIStmt                    *sql.Stmt
+	getCredentialsByWorkspaceIDStmt            *sql.Stmt
 	getEnvironmentStmt                         *sql.Stmt
 	getEnvironmentWorkspaceIDStmt              *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt           *sql.Stmt
@@ -2121,11 +2381,14 @@ type Queries struct {
 	getFlowEdgesByFlowIDStmt                   *sql.Stmt
 	getFlowEdgesByFlowIDsStmt                  *sql.Stmt
 	getFlowNodeStmt                            *sql.Stmt
+	getFlowNodeAIStmt                          *sql.Stmt
+	getFlowNodeAiProviderStmt                  *sql.Stmt
 	getFlowNodeConditionStmt                   *sql.Stmt
 	getFlowNodeForStmt                         *sql.Stmt
 	getFlowNodeForEachStmt                     *sql.Stmt
 	getFlowNodeHTTPStmt                        *sql.Stmt
 	getFlowNodeJsStmt                          *sql.Stmt
+	getFlowNodeMemoryStmt                      *sql.Stmt
 	getFlowNodesByFlowIDStmt                   *sql.Stmt
 	getFlowNodesByFlowIDsStmt                  *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
@@ -2219,18 +2482,25 @@ type Queries struct {
 	listNodeExecutionsByStateStmt              *sql.Stmt
 	resetHTTPBodyFormDeltaStmt                 *sql.Stmt
 	resolveHTTPWithDeltasStmt                  *sql.Stmt
+	updateCredentialStmt                       *sql.Stmt
+	updateCredentialAnthropicStmt              *sql.Stmt
+	updateCredentialGeminiStmt                 *sql.Stmt
+	updateCredentialOpenAIStmt                 *sql.Stmt
 	updateEnvironmentStmt                      *sql.Stmt
 	updateFileStmt                             *sql.Stmt
 	updateFlowStmt                             *sql.Stmt
 	updateFlowEdgeStmt                         *sql.Stmt
 	updateFlowEdgeStateStmt                    *sql.Stmt
 	updateFlowNodeStmt                         *sql.Stmt
+	updateFlowNodeAIStmt                       *sql.Stmt
+	updateFlowNodeAiProviderStmt               *sql.Stmt
 	updateFlowNodeConditionStmt                *sql.Stmt
 	updateFlowNodeForStmt                      *sql.Stmt
 	updateFlowNodeForEachStmt                  *sql.Stmt
 	updateFlowNodeHTTPStmt                     *sql.Stmt
 	updateFlowNodeIDMappingStmt                *sql.Stmt
 	updateFlowNodeJsStmt                       *sql.Stmt
+	updateFlowNodeMemoryStmt                   *sql.Stmt
 	updateFlowNodeStateStmt                    *sql.Stmt
 	updateFlowVariableStmt                     *sql.Stmt
 	updateFlowVariableOrderStmt                *sql.Stmt
@@ -2278,16 +2548,24 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		cleanupOrphanedFlowNodeHttpStmt:            q.cleanupOrphanedFlowNodeHttpStmt,
 		cleanupOrphanedFlowNodeJsStmt:              q.cleanupOrphanedFlowNodeJsStmt,
 		cleanupOrphanedNodeExecutionsStmt:          q.cleanupOrphanedNodeExecutionsStmt,
+		createCredentialStmt:                       q.createCredentialStmt,
+		createCredentialAnthropicStmt:              q.createCredentialAnthropicStmt,
+		createCredentialGeminiStmt:                 q.createCredentialGeminiStmt,
+		createCredentialOpenAIStmt:                 q.createCredentialOpenAIStmt,
 		createEnvironmentStmt:                      q.createEnvironmentStmt,
 		createFileStmt:                             q.createFileStmt,
 		createFlowStmt:                             q.createFlowStmt,
 		createFlowEdgeStmt:                         q.createFlowEdgeStmt,
 		createFlowNodeStmt:                         q.createFlowNodeStmt,
+		createFlowNodeAIStmt:                       q.createFlowNodeAIStmt,
+		createFlowNodeAiProviderStmt:               q.createFlowNodeAiProviderStmt,
 		createFlowNodeConditionStmt:                q.createFlowNodeConditionStmt,
 		createFlowNodeForStmt:                      q.createFlowNodeForStmt,
 		createFlowNodeForEachStmt:                  q.createFlowNodeForEachStmt,
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
+		createFlowNodeMemoryStmt:                   q.createFlowNodeMemoryStmt,
+		createFlowNodeWithStateStmt:                q.createFlowNodeWithStateStmt,
 		createFlowNodesBulkStmt:                    q.createFlowNodesBulkStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createFlowVariableStmt:                     q.createFlowVariableStmt,
@@ -2317,16 +2595,23 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createVariableBulkStmt:                     q.createVariableBulkStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
+		deleteCredentialStmt:                       q.deleteCredentialStmt,
+		deleteCredentialAnthropicStmt:              q.deleteCredentialAnthropicStmt,
+		deleteCredentialGeminiStmt:                 q.deleteCredentialGeminiStmt,
+		deleteCredentialOpenAIStmt:                 q.deleteCredentialOpenAIStmt,
 		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
 		deleteFileStmt:                             q.deleteFileStmt,
 		deleteFlowStmt:                             q.deleteFlowStmt,
 		deleteFlowEdgeStmt:                         q.deleteFlowEdgeStmt,
 		deleteFlowNodeStmt:                         q.deleteFlowNodeStmt,
+		deleteFlowNodeAIStmt:                       q.deleteFlowNodeAIStmt,
+		deleteFlowNodeAiProviderStmt:               q.deleteFlowNodeAiProviderStmt,
 		deleteFlowNodeConditionStmt:                q.deleteFlowNodeConditionStmt,
 		deleteFlowNodeForStmt:                      q.deleteFlowNodeForStmt,
 		deleteFlowNodeForEachStmt:                  q.deleteFlowNodeForEachStmt,
 		deleteFlowNodeHTTPStmt:                     q.deleteFlowNodeHTTPStmt,
 		deleteFlowNodeJsStmt:                       q.deleteFlowNodeJsStmt,
+		deleteFlowNodeMemoryStmt:                   q.deleteFlowNodeMemoryStmt,
 		deleteFlowTagStmt:                          q.deleteFlowTagStmt,
 		deleteFlowVariableStmt:                     q.deleteFlowVariableStmt,
 		deleteHTTPStmt:                             q.deleteHTTPStmt,
@@ -2352,6 +2637,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		findHTTPByURLAndMethodStmt:                 q.findHTTPByURLAndMethodStmt,
 		getAllFlowsByWorkspaceIDStmt:               q.getAllFlowsByWorkspaceIDStmt,
 		getAllWorkspacesByUserIDStmt:               q.getAllWorkspacesByUserIDStmt,
+		getCredentialStmt:                          q.getCredentialStmt,
+		getCredentialAnthropicStmt:                 q.getCredentialAnthropicStmt,
+		getCredentialGeminiStmt:                    q.getCredentialGeminiStmt,
+		getCredentialOpenAIStmt:                    q.getCredentialOpenAIStmt,
+		getCredentialsByWorkspaceIDStmt:            q.getCredentialsByWorkspaceIDStmt,
 		getEnvironmentStmt:                         q.getEnvironmentStmt,
 		getEnvironmentWorkspaceIDStmt:              q.getEnvironmentWorkspaceIDStmt,
 		getEnvironmentsByWorkspaceIDStmt:           q.getEnvironmentsByWorkspaceIDStmt,
@@ -2371,11 +2661,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowEdgesByFlowIDStmt:                   q.getFlowEdgesByFlowIDStmt,
 		getFlowEdgesByFlowIDsStmt:                  q.getFlowEdgesByFlowIDsStmt,
 		getFlowNodeStmt:                            q.getFlowNodeStmt,
+		getFlowNodeAIStmt:                          q.getFlowNodeAIStmt,
+		getFlowNodeAiProviderStmt:                  q.getFlowNodeAiProviderStmt,
 		getFlowNodeConditionStmt:                   q.getFlowNodeConditionStmt,
 		getFlowNodeForStmt:                         q.getFlowNodeForStmt,
 		getFlowNodeForEachStmt:                     q.getFlowNodeForEachStmt,
 		getFlowNodeHTTPStmt:                        q.getFlowNodeHTTPStmt,
 		getFlowNodeJsStmt:                          q.getFlowNodeJsStmt,
+		getFlowNodeMemoryStmt:                      q.getFlowNodeMemoryStmt,
 		getFlowNodesByFlowIDStmt:                   q.getFlowNodesByFlowIDStmt,
 		getFlowNodesByFlowIDsStmt:                  q.getFlowNodesByFlowIDsStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
@@ -2469,18 +2762,25 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNodeExecutionsByStateStmt:              q.listNodeExecutionsByStateStmt,
 		resetHTTPBodyFormDeltaStmt:                 q.resetHTTPBodyFormDeltaStmt,
 		resolveHTTPWithDeltasStmt:                  q.resolveHTTPWithDeltasStmt,
+		updateCredentialStmt:                       q.updateCredentialStmt,
+		updateCredentialAnthropicStmt:              q.updateCredentialAnthropicStmt,
+		updateCredentialGeminiStmt:                 q.updateCredentialGeminiStmt,
+		updateCredentialOpenAIStmt:                 q.updateCredentialOpenAIStmt,
 		updateEnvironmentStmt:                      q.updateEnvironmentStmt,
 		updateFileStmt:                             q.updateFileStmt,
 		updateFlowStmt:                             q.updateFlowStmt,
 		updateFlowEdgeStmt:                         q.updateFlowEdgeStmt,
 		updateFlowEdgeStateStmt:                    q.updateFlowEdgeStateStmt,
 		updateFlowNodeStmt:                         q.updateFlowNodeStmt,
+		updateFlowNodeAIStmt:                       q.updateFlowNodeAIStmt,
+		updateFlowNodeAiProviderStmt:               q.updateFlowNodeAiProviderStmt,
 		updateFlowNodeConditionStmt:                q.updateFlowNodeConditionStmt,
 		updateFlowNodeForStmt:                      q.updateFlowNodeForStmt,
 		updateFlowNodeForEachStmt:                  q.updateFlowNodeForEachStmt,
 		updateFlowNodeHTTPStmt:                     q.updateFlowNodeHTTPStmt,
 		updateFlowNodeIDMappingStmt:                q.updateFlowNodeIDMappingStmt,
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
+		updateFlowNodeMemoryStmt:                   q.updateFlowNodeMemoryStmt,
 		updateFlowNodeStateStmt:                    q.updateFlowNodeStateStmt,
 		updateFlowVariableStmt:                     q.updateFlowVariableStmt,
 		updateFlowVariableOrderStmt:                q.updateFlowVariableOrderStmt,

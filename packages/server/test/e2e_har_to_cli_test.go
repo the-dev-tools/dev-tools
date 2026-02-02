@@ -268,11 +268,15 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		cli.NodeForEach,
 		cli.NodeIf,
 		cli.NodeJS,
+		nil, // NodeAIService
+		nil, // NodeAiProviderService
+		nil, // NodeMemoryService
 		cli.Workspace,
 		cli.Variable,
 		cli.FlowVariable,
 		res,
 		cli.Logger,
+		nil, // LLMProviderFactory
 	)
 
 	// Map log channels (required for execution)

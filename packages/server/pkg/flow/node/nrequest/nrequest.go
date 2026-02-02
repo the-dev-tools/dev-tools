@@ -4,6 +4,9 @@ package nrequest
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/request"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/response"
@@ -11,8 +14,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
-	"log/slog"
 )
 
 type NodeRequest struct {
@@ -146,10 +147,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
-		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
 	if err != nil {
 		result.Err = err
 		return result
@@ -205,7 +205,8 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMap, varMapCopy)
+	// Create response with assertions evaluated using UnifiedEnv
+	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMapCopy)
 	if err != nil {
 		result.Err = err
 		return result
@@ -216,6 +217,15 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	result.AuxiliaryID = &respCreate.HTTPResponse.ID
+
+	// Debug: Log that AuxiliaryID is being set in RunSync
+	if nr.logger != nil {
+		nr.logger.Debug("HTTP node RunSync setting AuxiliaryID",
+			"node_id", nr.FlownNodeID.String(),
+			"node_name", nr.Name,
+			"auxiliary_id", respCreate.HTTPResponse.ID.String(),
+		)
+	}
 
 	done := make(chan struct{})
 
@@ -263,6 +273,66 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	return result
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts all variable references from URL, headers, query params, and body.
+func (nr *NodeRequest) GetRequiredVariables() []string {
+	var sources []string
+
+	// URL
+	sources = append(sources, nr.HttpReq.Url)
+
+	// Headers
+	for _, h := range nr.Headers {
+		if h.Enabled {
+			sources = append(sources, h.Key, h.Value)
+		}
+	}
+
+	// Query params
+	for _, p := range nr.Params {
+		if p.Enabled {
+			sources = append(sources, p.Key, p.Value)
+		}
+	}
+
+	// Raw body
+	if nr.RawBody != nil && len(nr.RawBody.RawData) > 0 {
+		sources = append(sources, string(nr.RawBody.RawData))
+	}
+
+	// Form body
+	for _, f := range nr.FormBody {
+		if f.Enabled {
+			sources = append(sources, f.Key, f.Value)
+		}
+	}
+
+	// URL encoded body
+	for _, u := range nr.UrlBody {
+		if u.Enabled {
+			sources = append(sources, u.Key, u.Value)
+		}
+	}
+
+	return expression.ExtractVarKeysFromMultiple(sources...)
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this HTTP node produces.
+func (nr *NodeRequest) GetOutputVariables() []string {
+	return []string{
+		"response.status",
+		"response.body",
+		"response.headers",
+		"response.duration",
+		"request.method",
+		"request.url",
+		"request.headers",
+		"request.queries",
+		"request.body",
+	}
+}
+
 func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), mflow.HandleUnspecified)
 	result := node.FlowNodeResult{
@@ -272,10 +342,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
-		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
@@ -330,7 +399,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMap, varMapCopy)
+	// Create response with assertions evaluated using UnifiedEnv
+	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMapCopy)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

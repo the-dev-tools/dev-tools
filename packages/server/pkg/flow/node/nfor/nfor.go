@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
@@ -12,8 +14,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
-	"time"
 )
 
 type NodeFor struct {
@@ -65,33 +65,45 @@ func (nr *NodeFor) IsLoopCoordinator() bool {
 	return true
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts variable references from the break condition expression.
+func (nr *NodeFor) GetRequiredVariables() []string {
+	conditionExpr := nr.Condition.Comparisons.Expression
+	if conditionExpr == "" {
+		return nil
+	}
+	return expression.ExtractExprIdentifiers(conditionExpr)
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this For node produces.
+func (nr *NodeFor) GetOutputVariables() []string {
+	return []string{
+		"index",
+		"totalIterations",
+	}
+}
+
 // checkBreakCondition evaluates the break condition and returns (shouldBreak, error)
 func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) (bool, error) {
-	if nr.Condition.Comparisons.Expression == "" {
+	conditionExpr := nr.Condition.Comparisons.Expression
+	if conditionExpr == "" {
 		return false, nil // No condition, don't break
 	}
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	exprEnv := expression.NewEnv(varMapCopy)
 
-	// Normalize the condition expression
-	conditionExpr := nr.Condition.Comparisons.Expression
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
-	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
-	if err != nil {
-		return false, fmt.Errorf("failed to normalize break condition '%s': %w", conditionExpr, err)
-	}
-
-	// Evaluate the condition expression
-	var shouldBreak bool
+	// Build unified environment with optional tracking
+	env := expression.NewUnifiedEnv(varMapCopy)
 	if req.VariableTracker != nil {
-		shouldBreak, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
-	} else {
-		shouldBreak, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+		env = env.WithTracking(req.VariableTracker)
 	}
+
+	// Evaluate the condition expression (pure expr-lang, no {{ }} interpolation)
+	shouldBreak, err := env.EvalBool(ctx, conditionExpr)
 	if err != nil {
-		return false, fmt.Errorf("failed to evaluate break condition '%s': %w", normalizedExpression, err)
+		return false, fmt.Errorf("failed to evaluate break condition '%s': %w", conditionExpr, err)
 	}
 
 	return shouldBreak, nil

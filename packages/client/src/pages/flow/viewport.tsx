@@ -30,7 +30,7 @@ export const useViewport = () => {
   const key = Ulid.construct(flowId).toCanonical();
 
   const store = XF.useStoreApi();
-  const nodesInitialized = XF.useStore((_) => _.nodesInitialized);
+  const nodesInitialized = XF.useNodesInitialized({ includeHiddenNodes: true });
 
   const viewport = useLiveQuery(
     (_) => _.from({ item: viewportCollection }).where(eqStruct({ flowId })).findOne(),
@@ -67,8 +67,8 @@ export const useViewport = () => {
       VIEWPORT_MIN_ZOOM,
       VIEWPORT_MAX_ZOOM,
       {
-        x: 0.05,
-        y: 0.05,
+        x: 0.2,
+        y: 0.2,
       },
     );
 

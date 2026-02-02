@@ -339,3 +339,91 @@ func TestNewVarMapFromAnyMap_InvalidReflect(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractVarKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+		},
+		{
+			name:     "no variables",
+			input:    "https://example.com/api/users",
+			expected: nil,
+		},
+		{
+			name:     "single variable",
+			input:    "https://example.com/users/{{userId}}",
+			expected: []string{"userId"},
+		},
+		{
+			name:     "nested variable path",
+			input:    "https://example.com/users/{{ai_1.response.body.id}}",
+			expected: []string{"ai_1.response.body.id"},
+		},
+		{
+			name:     "multiple variables",
+			input:    "{{baseUrl}}/users/{{userId}}/posts/{{postId}}",
+			expected: []string{"baseUrl", "userId", "postId"},
+		},
+		{
+			name:     "duplicate variables deduplicated",
+			input:    "{{token}} and {{token}} again",
+			expected: []string{"token"},
+		},
+		{
+			name:     "skip file reference",
+			input:    "{{#file:/path/to/file}} and {{normalVar}}",
+			expected: []string{"normalVar"},
+		},
+		{
+			name:     "skip env reference",
+			input:    "{{#env:API_KEY}} and {{normalVar}}",
+			expected: []string{"normalVar"},
+		},
+		{
+			name:     "variable with spaces trimmed",
+			input:    "{{ spacedVar }}",
+			expected: []string{"spacedVar"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := varsystem.ExtractVarKeys(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("ExtractVarKeys(%q) = %v, want %v", tt.input, result, tt.expected)
+				return
+			}
+			for i, v := range result {
+				if v != tt.expected[i] {
+					t.Errorf("ExtractVarKeys(%q)[%d] = %q, want %q", tt.input, i, v, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestExtractVarKeysFromMultiple(t *testing.T) {
+	result := varsystem.ExtractVarKeysFromMultiple(
+		"{{baseUrl}}/api",
+		"Bearer {{token}}",
+		"{{baseUrl}}/users/{{userId}}",
+	)
+
+	expected := []string{"baseUrl", "token", "userId"}
+	if len(result) != len(expected) {
+		t.Errorf("ExtractVarKeysFromMultiple() = %v, want %v", result, expected)
+		return
+	}
+	for i, v := range result {
+		if v != expected[i] {
+			t.Errorf("ExtractVarKeysFromMultiple()[%d] = %q, want %q", i, v, expected[i])
+		}
+	}
+}

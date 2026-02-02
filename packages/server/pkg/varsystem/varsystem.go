@@ -3,12 +3,13 @@ package varsystem
 
 import (
 	"fmt"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tgeneric"
 	"maps"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tgeneric"
 )
 
 var (
@@ -218,7 +219,14 @@ func (vmt *VarMapTracker) Get(varKey string) (menv.Variable, bool) {
 	return val, ok
 }
 
-// ReplaceVars tracks all variable reads during replacement and delegates to underlying VarMap
+// ReplaceVars tracks all variable reads during replacement and delegates to underlying VarMap.
+//
+// LIMITATION: Same as VarMap.ReplaceVars() - only simple key lookup, no expressions.
+//
+// RECOMMENDED: For full expression support with tracking, use expression.UnifiedEnv:
+//
+//	env := expression.NewUnifiedEnv(varMapCopy).WithTracking(tracker)
+//	result, err := env.Interpolate(raw)
 func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
@@ -314,8 +322,24 @@ func ReadEnvValueAsString(ref string) (string, error) {
 	return "", fmt.Errorf("environment variable %s: %w", name, ErrKeyNotFound)
 }
 
-// Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
-// returns google.com/api/v1/path
+// ReplaceVars replaces {{ varKey }} patterns with values from the VarMap.
+//
+// LIMITATION: This method only does simple key lookup. It does NOT support:
+//   - Expressions: {{ a + b }}, {{ count > 5 }}
+//   - Function calls: {{ now() }}, {{ len(items) }}
+//   - Only works with pre-flattened keys like "user.name" (not nested access)
+//
+// RECOMMENDED: Use expression.UnifiedEnv for full expression support:
+//
+//	// Old way (limited):
+//	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
+//	result, err := varMap.ReplaceVars(raw)
+//
+//	// New way (full expression support):
+//	env := expression.NewUnifiedEnv(varMapCopy)
+//	result, err := env.Interpolate(raw)
+//
+// Example: "{{ url }}/api/{{ version }}/path" returns "google.com/api/v1/path"
 func (vm VarMap) ReplaceVars(raw string) (string, error) {
 	var result string
 	for {
@@ -376,4 +400,63 @@ func resolveIndirectValue(value string) (string, error) {
 		return ReadEnvValueAsString(trimmed)
 	}
 	return value, nil
+}
+
+// ExtractVarKeys extracts all variable keys from a string without resolving them.
+// Returns a deduplicated list of variable keys (e.g., "nodeName.field", "userId").
+// Skips special references like #env: and #file:.
+func ExtractVarKeys(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var result []string
+	remaining := raw
+
+	for {
+		startIndex := strings.Index(remaining, menv.Prefix)
+		if startIndex == -1 {
+			break
+		}
+
+		endIndex := strings.Index(remaining[startIndex:], menv.Suffix)
+		if endIndex == -1 {
+			break
+		}
+
+		rawVar := remaining[startIndex : startIndex+endIndex+menv.SuffixSize]
+		if CheckIsVar(rawVar) {
+			key := strings.TrimSpace(GetVarKeyFromRaw(rawVar))
+			// Skip special references
+			if !IsFileReference(key) && !IsEnvReference(key) && key != "" {
+				if !seen[key] {
+					seen[key] = true
+					result = append(result, key)
+				}
+			}
+		}
+
+		remaining = remaining[startIndex+len(rawVar):]
+	}
+
+	return result
+}
+
+// ExtractVarKeysFromMultiple extracts variable keys from multiple strings and returns a deduplicated list.
+func ExtractVarKeysFromMultiple(strs ...string) []string {
+	seen := make(map[string]bool)
+	var result []string
+
+	for _, s := range strs {
+		keys := ExtractVarKeys(s)
+		for _, key := range keys {
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, key)
+			}
+		}
+	}
+
+	return result
 }

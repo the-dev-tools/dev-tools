@@ -45,6 +45,9 @@ enum HandleKind {
   Then,
   Else,
   Loop,
+  AiProvider,
+  AiMemory,
+  AiTools,
 }
 
 @TanStackDB.collection
@@ -64,10 +67,45 @@ enum NodeKind {
   For,
   ForEach,
   Js,
+  Ai,
+  AiProvider,
+  AiMemory,
+}
+
+enum AiMemoryType {
+  WindowBuffer,
+}
+
+enum AiModel {
+  // OpenAI - GPT-5.2 family
+  Gpt52,
+
+  Gpt52Pro,
+  Gpt52Codex,
+
+  // OpenAI - Reasoning models
+  O3,
+
+  O4Mini,
+
+  // Anthropic - Claude 4.5 family
+  ClaudeOpus45,
+
+  ClaudeSonnet45,
+  ClaudeHaiku45,
+
+  // Google - Gemini 3 family
+  Gemini3Pro,
+
+  Gemini3Flash,
+  Custom,
 }
 
 enum FlowItemState {
+  // ... (skip lines to match context if needed, but easier to do separate calls)
+
   Running,
+
   Success,
   Failure,
   Canceled,
@@ -127,6 +165,29 @@ model NodeCondition {
 model NodeJs {
   @primaryKey nodeId: Id;
   code: string;
+}
+
+@TanStackDB.collection
+model NodeAi {
+  @primaryKey nodeId: Id;
+  prompt: string;
+  maxIterations: int32;
+}
+
+@TanStackDB.collection
+model NodeAiProvider {
+  @primaryKey nodeId: Id;
+  @foreignKey credentialId: Id;
+  `model`: AiModel;
+  temperature?: float32;
+  maxTokens?: int32;
+}
+
+@TanStackDB.collection
+model NodeAiMemory {
+  @primaryKey nodeId: Id;
+  memoryType: AiMemoryType;
+  windowSize: int32;
 }
 
 @TanStackDB.collection(#{ isReadOnly: true })

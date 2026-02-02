@@ -534,6 +534,155 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		}
 	}
 
+	// 1.3 Build Header ID Mapping for Deduplicated HTTPs (Read-only)
+	// CRITICAL: When an HTTP request is deduplicated, delta headers may reference
+	// parent headers that belong to the deduplicated HTTP. We need to map these
+	// parent header IDs to the existing headers in the database.
+	headerIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	searchParamIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	bodyFormIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	bodyUrlencodedIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	assertIDMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+
+	for oldHttpID, newHttpID := range httpIDMap {
+		if !deduplicatedHttpIDs[newHttpID] {
+			continue // Not deduplicated, child entities will be inserted fresh
+		}
+
+		// Find headers from this import batch that belong to this HTTP
+		var importHeaders []mhttp.HTTPHeader
+		for _, h := range results.Headers {
+			if h.HttpID == oldHttpID {
+				importHeaders = append(importHeaders, h)
+			}
+		}
+
+		if len(importHeaders) > 0 {
+			// Fetch existing headers from DB for the deduplicated HTTP
+			existingHeaders, err := imp.httpHeaderService.GetByHttpID(ctx, newHttpID)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to fetch existing headers for deduplicated HTTP: %w", err)
+			}
+
+			// Build mapping by matching on Key
+			existingByKey := make(map[string]idwrap.IDWrap)
+			for _, eh := range existingHeaders {
+				existingByKey[eh.Key] = eh.ID
+			}
+
+			for _, ih := range importHeaders {
+				if existingID, ok := existingByKey[ih.Key]; ok {
+					headerIDMap[ih.ID] = existingID
+				}
+			}
+		}
+
+		// Find search params from this import batch
+		var importParams []mhttp.HTTPSearchParam
+		for _, p := range results.SearchParams {
+			if p.HttpID == oldHttpID {
+				importParams = append(importParams, p)
+			}
+		}
+
+		if len(importParams) > 0 {
+			existingParams, err := imp.httpSearchParamService.GetByHttpID(ctx, newHttpID)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to fetch existing search params for deduplicated HTTP: %w", err)
+			}
+
+			existingByKey := make(map[string]idwrap.IDWrap)
+			for _, ep := range existingParams {
+				existingByKey[ep.Key] = ep.ID
+			}
+
+			for _, ip := range importParams {
+				if existingID, ok := existingByKey[ip.Key]; ok {
+					searchParamIDMap[ip.ID] = existingID
+				}
+			}
+		}
+
+		// Find body forms from this import batch
+		var importForms []mhttp.HTTPBodyForm
+		for _, f := range results.BodyForms {
+			if f.HttpID == oldHttpID {
+				importForms = append(importForms, f)
+			}
+		}
+
+		if len(importForms) > 0 {
+			existingForms, err := imp.httpBodyFormService.GetByHttpID(ctx, newHttpID)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to fetch existing body forms for deduplicated HTTP: %w", err)
+			}
+
+			existingByKey := make(map[string]idwrap.IDWrap)
+			for _, ef := range existingForms {
+				existingByKey[ef.Key] = ef.ID
+			}
+
+			for _, imf := range importForms {
+				if existingID, ok := existingByKey[imf.Key]; ok {
+					bodyFormIDMap[imf.ID] = existingID
+				}
+			}
+		}
+
+		// Find body urlencoded from this import batch
+		var importUrlEncoded []mhttp.HTTPBodyUrlencoded
+		for _, u := range results.BodyUrlencoded {
+			if u.HttpID == oldHttpID {
+				importUrlEncoded = append(importUrlEncoded, u)
+			}
+		}
+
+		if len(importUrlEncoded) > 0 {
+			existingUrlEncoded, err := imp.httpBodyUrlEncodedService.GetByHttpID(ctx, newHttpID)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to fetch existing body urlencoded for deduplicated HTTP: %w", err)
+			}
+
+			existingByKey := make(map[string]idwrap.IDWrap)
+			for _, eu := range existingUrlEncoded {
+				existingByKey[eu.Key] = eu.ID
+			}
+
+			for _, iu := range importUrlEncoded {
+				if existingID, ok := existingByKey[iu.Key]; ok {
+					bodyUrlencodedIDMap[iu.ID] = existingID
+				}
+			}
+		}
+
+		// Find asserts from this import batch
+		var importAsserts []mhttp.HTTPAssert
+		for _, a := range results.Asserts {
+			if a.HttpID == oldHttpID {
+				importAsserts = append(importAsserts, a)
+			}
+		}
+
+		if len(importAsserts) > 0 {
+			existingAsserts, err := imp.httpAssertService.GetByHttpID(ctx, newHttpID)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to fetch existing asserts for deduplicated HTTP: %w", err)
+			}
+
+			// For asserts, match by Value since that's the assertion expression
+			existingByValue := make(map[string]idwrap.IDWrap)
+			for _, ea := range existingAsserts {
+				existingByValue[ea.Value] = ea.ID
+			}
+
+			for _, ia := range importAsserts {
+				if existingID, ok := existingByValue[ia.Value]; ok {
+					assertIDMap[ia.ID] = existingID
+				}
+			}
+		}
+	}
+
 	// PHASE 2: Storage (Write)
 	// Now we start the transaction and perform only necessary inserts
 
@@ -554,6 +703,12 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txNodeService := imp.nodeService.TX(tx)
 	txNodeRequestService := imp.nodeRequestService.TX(tx)
 	txEdgeService := imp.edgeService.TX(tx)
+	txNodeJsWriter := sflow.NewNodeJsWriter(tx)
+	txNodeIfWriter := sflow.NewNodeIfWriter(tx)
+	txNodeForWriter := sflow.NewNodeForWriter(tx)
+	txNodeForEachWriter := sflow.NewNodeForEachWriter(tx)
+	txNodeAIWriter := sflow.NewNodeAIWriter(tx)
+	txFlowVariableWriter := sflow.NewFlowVariableWriter(tx)
 
 	// 2.1 Update IDs and Store HTTP Requests
 	for i := range results.HTTPRequests {
@@ -617,30 +772,61 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		if newID, ok := httpIDMap[results.Headers[i].HttpID]; ok {
 			results.Headers[i].HttpID = newID
 		}
+		// Remap ParentHttpHeaderID if it points to a header that was deduplicated
+		if results.Headers[i].ParentHttpHeaderID != nil {
+			if newParentID, ok := headerIDMap[*results.Headers[i].ParentHttpHeaderID]; ok {
+				results.Headers[i].ParentHttpHeaderID = &newParentID
+			}
+		}
 	}
 	for i := range results.SearchParams {
 		if newID, ok := httpIDMap[results.SearchParams[i].HttpID]; ok {
 			results.SearchParams[i].HttpID = newID
+		}
+		// Remap ParentHttpSearchParamID if it points to a param that was deduplicated
+		if results.SearchParams[i].ParentHttpSearchParamID != nil {
+			if newParentID, ok := searchParamIDMap[*results.SearchParams[i].ParentHttpSearchParamID]; ok {
+				results.SearchParams[i].ParentHttpSearchParamID = &newParentID
+			}
 		}
 	}
 	for i := range results.BodyForms {
 		if newID, ok := httpIDMap[results.BodyForms[i].HttpID]; ok {
 			results.BodyForms[i].HttpID = newID
 		}
+		// Remap ParentHttpBodyFormID if it points to a form that was deduplicated
+		if results.BodyForms[i].ParentHttpBodyFormID != nil {
+			if newParentID, ok := bodyFormIDMap[*results.BodyForms[i].ParentHttpBodyFormID]; ok {
+				results.BodyForms[i].ParentHttpBodyFormID = &newParentID
+			}
+		}
 	}
 	for i := range results.BodyUrlencoded {
 		if newID, ok := httpIDMap[results.BodyUrlencoded[i].HttpID]; ok {
 			results.BodyUrlencoded[i].HttpID = newID
+		}
+		// Remap ParentHttpBodyUrlEncodedID if it points to a urlencoded that was deduplicated
+		if results.BodyUrlencoded[i].ParentHttpBodyUrlEncodedID != nil {
+			if newParentID, ok := bodyUrlencodedIDMap[*results.BodyUrlencoded[i].ParentHttpBodyUrlEncodedID]; ok {
+				results.BodyUrlencoded[i].ParentHttpBodyUrlEncodedID = &newParentID
+			}
 		}
 	}
 	for i := range results.BodyRaw {
 		if newID, ok := httpIDMap[results.BodyRaw[i].HttpID]; ok {
 			results.BodyRaw[i].HttpID = newID
 		}
+		// Note: BodyRaw doesn't need parent ID remapping here as it's unique per HTTP
 	}
 	for i := range results.Asserts {
 		if newID, ok := httpIDMap[results.Asserts[i].HttpID]; ok {
 			results.Asserts[i].HttpID = newID
+		}
+		// Remap ParentHttpAssertID if it points to an assert that was deduplicated
+		if results.Asserts[i].ParentHttpAssertID != nil {
+			if newParentID, ok := assertIDMap[*results.Asserts[i].ParentHttpAssertID]; ok {
+				results.Asserts[i].ParentHttpAssertID = &newParentID
+			}
 		}
 	}
 
@@ -707,6 +893,54 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			}
 		}
 	}
+	// Store JS nodes
+	if len(results.JSNodes) > 0 {
+		for _, jsNode := range results.JSNodes {
+			if err := txNodeJsWriter.CreateNodeJS(ctx, jsNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store JS node: %w", err)
+			}
+		}
+	}
+	// Store condition/if nodes
+	if len(results.ConditionNodes) > 0 {
+		for _, condNode := range results.ConditionNodes {
+			if err := txNodeIfWriter.CreateNodeIf(ctx, condNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store condition node: %w", err)
+			}
+		}
+	}
+	// Store for nodes
+	if len(results.ForNodes) > 0 {
+		for _, forNode := range results.ForNodes {
+			if err := txNodeForWriter.CreateNodeFor(ctx, forNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store for node: %w", err)
+			}
+		}
+	}
+	// Store foreach nodes
+	if len(results.ForEachNodes) > 0 {
+		for _, forEachNode := range results.ForEachNodes {
+			if err := txNodeForEachWriter.CreateNodeForEach(ctx, forEachNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store foreach node: %w", err)
+			}
+		}
+	}
+	// Store AI nodes
+	if len(results.AINodes) > 0 {
+		for _, aiNode := range results.AINodes {
+			if err := txNodeAIWriter.CreateNodeAI(ctx, aiNode); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store AI node: %w", err)
+			}
+		}
+	}
+	// Store flow variables
+	if len(results.FlowVariables) > 0 {
+		for _, flowVar := range results.FlowVariables {
+			if err := txFlowVariableWriter.CreateFlowVariable(ctx, flowVar); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store flow variable: %w", err)
+			}
+		}
+	}
 	if len(results.Edges) > 0 {
 		for _, edge := range results.Edges {
 			if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
@@ -751,17 +985,46 @@ func storeUnifiedChildren(
 	assertSvc *shttp.AssertWriter,
 	deduplicatedIDs map[idwrap.IDWrap]bool,
 ) error {
+	// IMPORTANT: We use topological sort to handle arbitrary-depth parent-child relationships.
+	// This enables delta chains of any length (delta of delta of delta...).
+	// Entities with external parents (not in batch) are treated as roots.
+
 	if len(results.Headers) > 0 {
-		headersByHttpID := make(map[string][]mhttp.HTTPHeader)
+		// Filter to non-deduplicated headers and update IsDelta
+		var headersToInsert []mhttp.HTTPHeader
 		for i := range results.Headers {
 			h := &results.Headers[i]
 			if deduplicatedIDs[h.HttpID] {
 				continue
 			}
 			h.IsDelta = h.IsDelta && h.ParentHttpHeaderID != nil
-			headersByHttpID[h.HttpID.String()] = append(headersByHttpID[h.HttpID.String()], *h)
+			headersToInsert = append(headersToInsert, *h)
 		}
-		for _, headers := range headersByHttpID {
+
+		// Topologically sort headers
+		sortedHeaders := TopologicalSortWithFallback(
+			headersToInsert,
+			func(h mhttp.HTTPHeader) idwrap.IDWrap { return h.ID },
+			func(h mhttp.HTTPHeader) *idwrap.IDWrap { return h.ParentHttpHeaderID },
+			nil,
+		)
+
+		// Group by HttpID for bulk insert (maintaining sorted order within groups)
+		headersByHttpID := make(map[string][]mhttp.HTTPHeader)
+		var httpIDOrder []string
+		httpIDSeen := make(map[string]bool)
+		for _, h := range sortedHeaders {
+			key := h.HttpID.String()
+			if !httpIDSeen[key] {
+				httpIDSeen[key] = true
+				httpIDOrder = append(httpIDOrder, key)
+			}
+			headersByHttpID[key] = append(headersByHttpID[key], h)
+		}
+
+		// Insert in topological order
+		for _, httpIDStr := range httpIDOrder {
+			headers := headersByHttpID[httpIDStr]
 			if len(headers) > 0 {
 				if err := headerSvc.CreateBulk(ctx, headers[0].HttpID, headers); err != nil {
 					return fmt.Errorf("failed to store headers: %w", err)
@@ -771,16 +1034,41 @@ func storeUnifiedChildren(
 	}
 
 	if len(results.SearchParams) > 0 {
-		paramsByHttpID := make(map[string][]mhttp.HTTPSearchParam)
+		// Filter to non-deduplicated search params and update IsDelta
+		var paramsToInsert []mhttp.HTTPSearchParam
 		for i := range results.SearchParams {
 			p := &results.SearchParams[i]
 			if deduplicatedIDs[p.HttpID] {
 				continue
 			}
 			p.IsDelta = p.IsDelta && p.ParentHttpSearchParamID != nil
-			paramsByHttpID[p.HttpID.String()] = append(paramsByHttpID[p.HttpID.String()], *p)
+			paramsToInsert = append(paramsToInsert, *p)
 		}
-		for _, params := range paramsByHttpID {
+
+		// Topologically sort search params
+		sortedParams := TopologicalSortWithFallback(
+			paramsToInsert,
+			func(p mhttp.HTTPSearchParam) idwrap.IDWrap { return p.ID },
+			func(p mhttp.HTTPSearchParam) *idwrap.IDWrap { return p.ParentHttpSearchParamID },
+			nil,
+		)
+
+		// Group by HttpID for bulk insert (maintaining sorted order within groups)
+		paramsByHttpID := make(map[string][]mhttp.HTTPSearchParam)
+		var httpIDOrder []string
+		httpIDSeen := make(map[string]bool)
+		for _, p := range sortedParams {
+			key := p.HttpID.String()
+			if !httpIDSeen[key] {
+				httpIDSeen[key] = true
+				httpIDOrder = append(httpIDOrder, key)
+			}
+			paramsByHttpID[key] = append(paramsByHttpID[key], p)
+		}
+
+		// Insert in topological order
+		for _, httpIDStr := range httpIDOrder {
+			params := paramsByHttpID[httpIDStr]
 			if len(params) > 0 {
 				if err := paramSvc.CreateBulk(ctx, params[0].HttpID, params); err != nil {
 					return fmt.Errorf("failed to store search params: %w", err)
@@ -790,59 +1078,112 @@ func storeUnifiedChildren(
 	}
 
 	if len(results.BodyForms) > 0 {
-		var toInsert []mhttp.HTTPBodyForm
+		// Filter to non-deduplicated body forms and update IsDelta
+		var formsToInsert []mhttp.HTTPBodyForm
 		for i := range results.BodyForms {
 			f := &results.BodyForms[i]
-			if !deduplicatedIDs[f.HttpID] {
-				f.IsDelta = f.IsDelta && f.ParentHttpBodyFormID != nil
-				toInsert = append(toInsert, *f)
+			if deduplicatedIDs[f.HttpID] {
+				continue
 			}
+			f.IsDelta = f.IsDelta && f.ParentHttpBodyFormID != nil
+			formsToInsert = append(formsToInsert, *f)
 		}
-		if len(toInsert) > 0 {
-			if err := formSvc.CreateBulk(ctx, toInsert); err != nil {
+
+		// Topologically sort body forms
+		sortedForms := TopologicalSortWithFallback(
+			formsToInsert,
+			func(f mhttp.HTTPBodyForm) idwrap.IDWrap { return f.ID },
+			func(f mhttp.HTTPBodyForm) *idwrap.IDWrap { return f.ParentHttpBodyFormID },
+			nil,
+		)
+
+		// Insert in topological order
+		if len(sortedForms) > 0 {
+			if err := formSvc.CreateBulk(ctx, sortedForms); err != nil {
 				return fmt.Errorf("failed to store body forms: %w", err)
 			}
 		}
 	}
 
 	if len(results.BodyUrlencoded) > 0 {
-		var toInsert []mhttp.HTTPBodyUrlencoded
+		// Filter to non-deduplicated body urlencoded and update IsDelta
+		var urlEncodedToInsert []mhttp.HTTPBodyUrlencoded
 		for i := range results.BodyUrlencoded {
 			u := &results.BodyUrlencoded[i]
-			if !deduplicatedIDs[u.HttpID] {
-				u.IsDelta = u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil
-				toInsert = append(toInsert, *u)
+			if deduplicatedIDs[u.HttpID] {
+				continue
 			}
+			u.IsDelta = u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil
+			urlEncodedToInsert = append(urlEncodedToInsert, *u)
 		}
-		if len(toInsert) > 0 {
-			if err := urlSvc.CreateBulk(ctx, toInsert); err != nil {
+
+		// Topologically sort body urlencoded
+		sortedUrlEncoded := TopologicalSortWithFallback(
+			urlEncodedToInsert,
+			func(u mhttp.HTTPBodyUrlencoded) idwrap.IDWrap { return u.ID },
+			func(u mhttp.HTTPBodyUrlencoded) *idwrap.IDWrap { return u.ParentHttpBodyUrlEncodedID },
+			nil,
+		)
+
+		// Insert in topological order
+		if len(sortedUrlEncoded) > 0 {
+			if err := urlSvc.CreateBulk(ctx, sortedUrlEncoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)
 			}
 		}
 	}
 
 	if len(results.BodyRaw) > 0 {
+		// Filter to non-deduplicated body raw and update IsDelta
+		var bodyRawToInsert []mhttp.HTTPBodyRaw
 		for i := range results.BodyRaw {
 			body := &results.BodyRaw[i]
-			if !deduplicatedIDs[body.HttpID] {
-				if _, err := bodyRawSvc.CreateFull(ctx, body); err != nil {
-					return fmt.Errorf("failed to store body raw: %w", err)
-				}
+			if deduplicatedIDs[body.HttpID] {
+				continue
+			}
+			body.IsDelta = body.IsDelta && body.ParentBodyRawID != nil
+			bodyRawToInsert = append(bodyRawToInsert, *body)
+		}
+
+		// Topologically sort body raw
+		sortedBodyRaw := TopologicalSortWithFallback(
+			bodyRawToInsert,
+			func(b mhttp.HTTPBodyRaw) idwrap.IDWrap { return b.ID },
+			func(b mhttp.HTTPBodyRaw) *idwrap.IDWrap { return b.ParentBodyRawID },
+			nil,
+		)
+
+		// Insert in topological order
+		for _, body := range sortedBodyRaw {
+			if _, err := bodyRawSvc.CreateFull(ctx, &body); err != nil {
+				return fmt.Errorf("failed to store body raw: %w", err)
 			}
 		}
 	}
 
 	if len(results.Asserts) > 0 {
-		var toInsert []mhttp.HTTPAssert
+		// Filter to non-deduplicated assertions and update IsDelta
+		var assertsToInsert []mhttp.HTTPAssert
 		for i := range results.Asserts {
 			a := &results.Asserts[i]
-			if !deduplicatedIDs[a.HttpID] {
-				a.IsDelta = a.IsDelta && a.ParentHttpAssertID != nil
-				toInsert = append(toInsert, *a)
+			if deduplicatedIDs[a.HttpID] {
+				continue
 			}
+			a.IsDelta = a.IsDelta && a.ParentHttpAssertID != nil
+			assertsToInsert = append(assertsToInsert, *a)
 		}
-		if len(toInsert) > 0 {
-			if err := assertSvc.CreateBulk(ctx, toInsert); err != nil {
+
+		// Topologically sort assertions
+		sortedAsserts := TopologicalSortWithFallback(
+			assertsToInsert,
+			func(a mhttp.HTTPAssert) idwrap.IDWrap { return a.ID },
+			func(a mhttp.HTTPAssert) *idwrap.IDWrap { return a.ParentHttpAssertID },
+			nil,
+		)
+
+		// Insert in topological order
+		if len(sortedAsserts) > 0 {
+			if err := assertSvc.CreateBulk(ctx, sortedAsserts); err != nil {
 				return fmt.Errorf("failed to store assertions: %w", err)
 			}
 		}

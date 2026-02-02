@@ -189,6 +189,7 @@ export const ReferenceField = ({
   extensions = [],
   onFocus: onFocusParent,
   ref: refProp,
+  singleLineMode = true,
   ...forwardedProps
 }: ReferenceFieldProps) => {
   const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
@@ -217,8 +218,8 @@ export const ReferenceField = ({
       basicSetup={false}
       className={fieldStyles({ className, ...variantProps })}
       extensions={[
-        ...baseCodeMirrorExtensions({ allowFiles, client, context, kind, reactRender, singleLineMode: true }),
-        EditorView.theme({ '.cm-scroller': { overflow: 'hidden' } }),
+        ...baseCodeMirrorExtensions({ allowFiles, client, context, kind, reactRender, singleLineMode }),
+        EditorView.theme({ '.cm-scroller': { overflow: singleLineMode ? 'hidden' : 'auto' } }),
         ...extensions,
       ]}
       height='100%'

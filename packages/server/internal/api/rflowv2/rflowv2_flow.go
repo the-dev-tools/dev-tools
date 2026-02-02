@@ -520,13 +520,16 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 	// Collect node details outside TX
 	type nodeDetail struct {
-		node    mflow.Node
-		request *mflow.NodeRequest
-		http    *mhttp.HTTP
-		forNode *mflow.NodeFor
-		forEach *mflow.NodeForEach
-		ifNode  *mflow.NodeIf
-		jsNode  *mflow.NodeJS
+		node       mflow.Node
+		request    *mflow.NodeRequest
+		http       *mhttp.HTTP
+		forNode    *mflow.NodeFor
+		forEach    *mflow.NodeForEach
+		ifNode     *mflow.NodeIf
+		jsNode     *mflow.NodeJS
+		aiNode     *mflow.NodeAI
+		aiProvider *mflow.NodeAiProvider
+		memoryNode *mflow.NodeMemory
 	}
 	details := make([]nodeDetail, 0, len(sourceNodes))
 	for _, n := range sourceNodes {
@@ -556,6 +559,24 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		case mflow.NODE_KIND_JS:
 			if d, err := s.njss.GetNodeJS(ctx, n.ID); err == nil {
 				detail.jsNode = d
+			}
+		case mflow.NODE_KIND_AI:
+			if s.nais != nil {
+				if d, err := s.nais.GetNodeAI(ctx, n.ID); err == nil {
+					detail.aiNode = d
+				}
+			}
+		case mflow.NODE_KIND_AI_PROVIDER:
+			if s.naps != nil {
+				if d, err := s.naps.GetNodeAiProvider(ctx, n.ID); err == nil {
+					detail.aiProvider = d
+				}
+			}
+		case mflow.NODE_KIND_AI_MEMORY:
+			if s.nmems != nil {
+				if d, err := s.nmems.GetNodeMemory(ctx, n.ID); err == nil {
+					detail.memoryNode = d
+				}
 			}
 		}
 		details = append(details, detail)
@@ -662,6 +683,30 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			node := *d.jsNode
 			node.FlowNodeID = newNodeID
 			if err := njssWriter.CreateNodeJS(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.aiNode != nil && s.nais != nil {
+			node := *d.aiNode
+			node.FlowNodeID = newNodeID
+			naisWriter := s.nais.TX(tx)
+			if err := naisWriter.CreateNodeAI(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.aiProvider != nil && s.naps != nil {
+			node := *d.aiProvider
+			node.FlowNodeID = newNodeID
+			napsWriter := s.naps.TX(tx)
+			if err := napsWriter.CreateNodeAiProvider(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.memoryNode != nil && s.nmems != nil {
+			node := *d.memoryNode
+			node.FlowNodeID = newNodeID
+			nmemsWriter := s.nmems.TX(tx)
+			if err := nmemsWriter.CreateNodeMemory(ctx, node); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}

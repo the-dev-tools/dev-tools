@@ -1837,7 +1837,7 @@ func TestHttpRun_VariableSubstitutionInURL(t *testing.T) {
 	}
 
 	// Create HTTP entry with variable in URL
-	httpID := f.createHttpWithUrl(t, wsID, "test-http", testServer.URL+"/api/users/{{userId}}/profile", "GET")
+	httpID := f.createHttpWithUrl(t, wsID, "test-http", testServer.URL+"/api/users/{{env.userId}}/profile", "GET")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
@@ -1885,7 +1885,7 @@ func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
 	}
 
 	// Add header with variable placeholder
-	f.createHttpHeader(t, httpID, "Authorization", "Bearer {{authToken}}")
+	f.createHttpHeader(t, httpID, "Authorization", "Bearer {{env.authToken}}")
 	f.createHttpHeader(t, httpID, "X-API-Version", "v1")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
@@ -1943,8 +1943,8 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 	}
 
 	// Add query parameters with variable placeholders
-	f.createHttpSearchParam(t, httpID, "userId", "{{userId}}")
-	f.createHttpSearchParam(t, httpID, "sessionId", "{{sessionId}}")
+	f.createHttpSearchParam(t, httpID, "userId", "{{env.userId}}")
+	f.createHttpSearchParam(t, httpID, "sessionId", "{{env.sessionId}}")
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
 	})
@@ -2009,16 +2009,16 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 		require.NoErrorf(t, err, "failed to create variable %s", k)
 	}
 
-	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL+"/api/v{{version}}/users/{{userId}}", "POST")
+	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL+"/api/v{{env.version}}/users/{{env.userId}}", "POST")
 
 	// Add headers with variables
-	f.createHttpHeader(t, httpID, "Authorization", "Bearer {{authToken}}")
+	f.createHttpHeader(t, httpID, "Authorization", "Bearer {{env.authToken}}")
 	f.createHttpHeader(t, httpID, "Content-Type", "application/json")
-	f.createHttpHeader(t, httpID, "X-Request-ID", "{{requestId}}")
+	f.createHttpHeader(t, httpID, "X-Request-ID", "{{env.requestId}}")
 
 	// Add query parameters with variables
-	f.createHttpSearchParam(t, httpID, "format", "{{responseFormat}}")
-	f.createHttpSearchParam(t, httpID, "debug", "{{debugMode}}")
+	f.createHttpSearchParam(t, httpID, "format", "{{env.responseFormat}}")
+	f.createHttpSearchParam(t, httpID, "debug", "{{env.debugMode}}")
 
 	// Add assertions that use variables in expected values
 	f.createHttpAssertion(t, httpID, "response.status == 200", "Status code should be 200")
@@ -2084,8 +2084,9 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 	f.createHttpAssertion(t, firstHttpID, "contains(string(response.body), 'userId')", "Response should contain userId")
 
 	// Second HTTP request that would use variables from first request
-	secondHttpID := f.createHttpWithUrl(t, ws, "second-request", secondServer.URL+"?data={{response.userId}}", "GET")
-	f.createHttpHeader(t, secondHttpID, "Authorization", "Bearer {{response.token}}")
+	// Use bracket notation for keys with dots: env["response.userId"]
+	secondHttpID := f.createHttpWithUrl(t, ws, "second-request", secondServer.URL+`?data={{env["response.userId"]}}`, "GET")
+	f.createHttpHeader(t, secondHttpID, "Authorization", `Bearer {{env["response.token"]}}`)
 	f.createHttpAssertion(t, secondHttpID, "response.status == 200", "Second request should succeed")
 	f.createHttpAssertion(t, secondHttpID, "contains(string(response.body), 'chainedData')", "Response should contain chained data")
 
@@ -2160,9 +2161,9 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 		},
 		{
 			name:        "unicode variables",
-			url:         "testServer.URL/api/{{用户ID}}/users",
-			headerValue: "Bearer {{令牌}}",
-			queryValue:  "{{值}}",
+			url:         "testServer.URL/api/{{env.用户ID}}/users",
+			headerValue: "Bearer {{env.令牌}}",
+			queryValue:  "{{env.值}}",
 			expectError: false, // Should not error, support unicode
 		},
 	}

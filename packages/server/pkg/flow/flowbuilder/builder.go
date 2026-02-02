@@ -10,10 +10,13 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nfor"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nforeach"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nif"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/njs"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -21,6 +24,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
@@ -34,13 +38,17 @@ type Builder struct {
 	NodeForEach *sflow.NodeForEachService
 	NodeIf      *sflow.NodeIfService
 	NodeJS      *sflow.NodeJsService
+	NodeAI      *sflow.NodeAIService
+	NodeAiProvider *sflow.NodeAiProviderService
+	NodeMemory  *sflow.NodeMemoryService
 
 	Workspace    *sworkspace.WorkspaceService
 	Variable     *senv.VariableService
 	FlowVariable *sflow.FlowVariableService
 
-	Resolver resolver.RequestResolver
-	Logger   *slog.Logger
+	Resolver           resolver.RequestResolver
+	Logger             *slog.Logger
+	LLMProviderFactory *scredential.LLMProviderFactory
 }
 
 func New(
@@ -50,24 +58,32 @@ func New(
 	nfes *sflow.NodeForEachService,
 	nifs *sflow.NodeIfService,
 	njss *sflow.NodeJsService,
+	nais *sflow.NodeAIService,
+	naps *sflow.NodeAiProviderService,
+	nmems *sflow.NodeMemoryService,
 	ws *sworkspace.WorkspaceService,
 	vs *senv.VariableService,
 	fvs *sflow.FlowVariableService,
 	resolver resolver.RequestResolver,
 	logger *slog.Logger,
+	llmFactory *scredential.LLMProviderFactory,
 ) *Builder {
 	return &Builder{
-		Node:         ns,
-		NodeRequest:  nrs,
-		NodeFor:      nfs,
-		NodeForEach:  nfes,
-		NodeIf:       nifs,
-		NodeJS:       njss,
-		Workspace:    ws,
-		Variable:     vs,
-		FlowVariable: fvs,
-		Resolver:     resolver,
-		Logger:       logger,
+		Node:               ns,
+		NodeRequest:        nrs,
+		NodeFor:            nfs,
+		NodeForEach:        nfes,
+		NodeIf:             nifs,
+		NodeJS:             njss,
+		NodeAI:             nais,
+		NodeAiProvider:     naps,
+		NodeMemory:         nmems,
+		Workspace:          ws,
+		Variable:           vs,
+		FlowVariable:       fvs,
+		Resolver:           resolver,
+		Logger:             logger,
+		LLMProviderFactory: llmFactory,
 	}
 }
 
@@ -179,6 +195,75 @@ func (b *Builder) BuildNodes(
 				}
 				flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), jsClient)
 			}
+		case mflow.NODE_KIND_AI:
+			aiCfg, err := b.NodeAI.GetNodeAI(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if aiCfg == nil {
+				// Default AI node with empty prompt
+				flowNodeMap[nodeModel.ID] = nai.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					"",
+					5,
+					b.LLMProviderFactory,
+				)
+			} else {
+				flowNodeMap[nodeModel.ID] = nai.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					aiCfg.Prompt,
+					aiCfg.MaxIterations,
+					b.LLMProviderFactory,
+				)
+			}
+		case mflow.NODE_KIND_AI_PROVIDER:
+			providerCfg, err := b.NodeAiProvider.GetNodeAiProvider(ctx, nodeModel.ID)
+			if err != nil && !errors.Is(err, sflow.ErrNoNodeAiProviderFound) {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if providerCfg == nil {
+				// Default AI Provider node (no credential set)
+				flowNodeMap[nodeModel.ID] = naiprovider.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					nil, // No credential set yet
+					mflow.AiModelGpt52,
+					nil,
+					nil,
+				)
+			} else {
+				flowNodeMap[nodeModel.ID] = naiprovider.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					providerCfg.CredentialID, // Already a *idwrap.IDWrap
+					providerCfg.Model,
+					providerCfg.Temperature,
+					providerCfg.MaxTokens,
+				)
+			}
+		case mflow.NODE_KIND_AI_MEMORY:
+			memoryCfg, err := b.NodeMemory.GetNodeMemory(ctx, nodeModel.ID)
+			if err != nil && !errors.Is(err, sflow.ErrNoNodeMemoryFound) {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if memoryCfg == nil {
+				// Default Memory node with window buffer of 10 messages
+				flowNodeMap[nodeModel.ID] = nmemory.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					mflow.AiMemoryTypeWindowBuffer,
+					10,
+				)
+			} else {
+				flowNodeMap[nodeModel.ID] = nmemory.New(
+					nodeModel.ID,
+					nodeModel.Name,
+					memoryCfg.MemoryType,
+					memoryCfg.WindowSize,
+				)
+			}
 		default:
 			return nil, idwrap.IDWrap{}, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)
 		}
@@ -191,12 +276,17 @@ func (b *Builder) BuildNodes(
 	return flowNodeMap, startNodeID, nil
 }
 
+// EnvNamespace is the namespace key for environment variables in VarMap.
+// Access environment variables using {{ env.varName }} syntax.
+const EnvNamespace = "env"
+
 func (b *Builder) BuildVariables(
 	ctx context.Context,
 	workspaceID idwrap.IDWrap,
 	flowVars []mflow.FlowVariable,
 ) (map[string]any, error) {
 	baseVars := make(map[string]any)
+	envVars := make(map[string]any)
 
 	// Get workspace to find GlobalEnv and ActiveEnv
 	workspace, err := b.Workspace.Get(ctx, workspaceID)
@@ -204,7 +294,7 @@ func (b *Builder) BuildVariables(
 		// If workspace not found, just use flow vars
 		b.Logger.Warn("failed to get workspace for environment variables", "workspace_id", workspaceID.String(), "error", err)
 	} else {
-		// 1. Add global environment variables
+		// 1. Add global environment variables to env namespace
 		if workspace.GlobalEnv != (idwrap.IDWrap{}) {
 			globalVars, err := b.Variable.GetVariableByEnvID(ctx, workspace.GlobalEnv)
 			if err != nil && !errors.Is(err, senv.ErrNoVarFound) {
@@ -212,13 +302,13 @@ func (b *Builder) BuildVariables(
 			} else {
 				for _, v := range globalVars {
 					if v.Enabled {
-						baseVars[v.VarKey] = v.Value
+						envVars[v.VarKey] = v.Value
 					}
 				}
 			}
 		}
 
-		// 2. Add active environment variables (override global)
+		// 2. Add active environment variables (override global) to env namespace
 		// Only if ActiveEnv is different from GlobalEnv
 		if workspace.ActiveEnv != (idwrap.IDWrap{}) && workspace.ActiveEnv != workspace.GlobalEnv {
 			activeVars, err := b.Variable.GetVariableByEnvID(ctx, workspace.ActiveEnv)
@@ -227,19 +317,23 @@ func (b *Builder) BuildVariables(
 			} else {
 				for _, v := range activeVars {
 					if v.Enabled {
-						baseVars[v.VarKey] = v.Value
+						envVars[v.VarKey] = v.Value
 					}
 				}
 			}
 		}
 	}
 
-	// 3. Add flow-level variables (override environment variables)
+	// 3. Add flow-level variables to env namespace (override environment variables)
 	for _, variable := range flowVars {
 		if variable.Enabled {
-			baseVars[variable.Name] = variable.Value
+			envVars[variable.Name] = variable.Value
 		}
 	}
+
+	// Store all environment/flow variables under the "env" namespace
+	// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}
+	baseVars[EnvNamespace] = envVars
 
 	return baseVars, nil
 }

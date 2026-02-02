@@ -13,7 +13,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/zstdcompress"
 
 	"connectrpc.com/connect"
@@ -46,7 +45,6 @@ func ResponseCreateHTTP(
 	r request.RequestResponse,
 	httpID idwrap.IDWrap,
 	assertions []mhttp.HTTPAssert,
-	varMap varsystem.VarMap,
 	flowVars map[string]any,
 ) (*ResponseCreateHTTPOutput, error) {
 	respHttp := r.HttpResp
@@ -85,12 +83,10 @@ func ResponseCreateHTTP(
 		"headers":  responseVar.Headers,
 		"duration": responseVar.Duration,
 	}
-	responseEnv := map[string]any{"response": responseBinding}
-	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(responseEnv))
-	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
-	exprEnv := expression.NewEnv(evalEnvMap)
 
-	normalizedExprCache := make(map[string]string)
+	// Build unified environment with flowVars and response binding
+	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
+	env := expression.NewUnifiedEnv(evalEnvMap)
 
 	for _, assertion := range assertions {
 		if assertion.Enabled {
@@ -101,30 +97,27 @@ func ResponseCreateHTTP(
 				continue
 			}
 
-			// Check if we need normalization
-			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
-				if cached, ok := normalizedExprCache[expr]; ok {
-					expr = cached
-				} else {
-					normalized, err := expression.NormalizeExpression(ctx, expr, mergedVarMap)
-					if err != nil {
-						return nil, err
-					}
-					normalizedExprCache[expr] = normalized
-					expr = normalized
+			// If expression contains {{ }}, interpolate first
+			evaluatedExpr := expr
+			if expression.HasVars(expr) {
+				interpolated, err := env.Interpolate(expr)
+				if err != nil {
+					return nil, err
 				}
+				evaluatedExpr = interpolated
 			}
 
-			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, expr)
+			// Evaluate as boolean expression
+			ok, err := env.EvalBool(ctx, evaluatedExpr)
 			if err != nil {
 				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", expr, annotatedErr))
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", evaluatedExpr, annotatedErr))
 			}
 
 			responseAsserts = append(responseAsserts, mhttp.HTTPResponseAssert{
 				ID:         idwrap.NewNow(),
 				ResponseID: responseID,
-				Value:      expr,
+				Value:      evaluatedExpr,
 				Success:    ok,
 				CreatedAt:  now,
 			})
@@ -138,7 +131,7 @@ func ResponseCreateHTTP(
 	}, nil
 }
 
-func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse mhttp.HTTPResponse, lastResponseHeaders []mhttp.HTTPResponseHeader, assertions []mhttp.HTTPAssert, varMap varsystem.VarMap, flowVars map[string]any) (*ResponseCreateOutput, error) {
+func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse mhttp.HTTPResponse, lastResponseHeaders []mhttp.HTTPResponseHeader, assertions []mhttp.HTTPAssert, flowVars map[string]any) (*ResponseCreateOutput, error) {
 	ResponseCreateOutput := ResponseCreateOutput{}
 	respHttp := r.HttpResp
 	lapse := r.LapTime
@@ -220,12 +213,9 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 		"headers":  responseVar.Headers,
 		"duration": responseVar.Duration,
 	}
-	responseEnv := map[string]any{"response": responseBinding}
-	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(responseEnv))
 	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
-	exprEnv := expression.NewEnv(evalEnvMap)
+	env := expression.NewUnifiedEnv(evalEnvMap)
 
-	normalizedExprCache := make(map[string]string)
 	for _, assertion := range assertions {
 		if assertion.Enabled {
 			expr := assertion.Value
@@ -235,29 +225,26 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 				continue
 			}
 
-			// Use NormalizeExpression if {{ }} wrapper is found
-			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
-				if cached, ok := normalizedExprCache[expr]; ok {
-					expr = cached
-				} else {
-					normalized, err := expression.NormalizeExpression(ctx, expr, mergedVarMap)
-					if err != nil {
-						return nil, err
-					}
-					normalizedExprCache[expr] = normalized
-					expr = normalized
+			// If expression contains {{ }}, interpolate first
+			evaluatedExpr := expr
+			if expression.HasVars(expr) {
+				interpolated, err := env.Interpolate(expr)
+				if err != nil {
+					return nil, err
 				}
+				evaluatedExpr = interpolated
 			}
 
-			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, expr)
+			// Evaluate as boolean expression
+			ok, err := env.EvalBool(ctx, evaluatedExpr)
 			if err != nil {
 				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", expr, annotatedErr))
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", evaluatedExpr, annotatedErr))
 			}
 			res := mhttp.HTTPResponseAssert{
 				ID:         idwrap.NewNow(),
 				ResponseID: httpResponse.ID,
-				Value:      expr,
+				Value:      evaluatedExpr,
 				Success:    ok,
 				CreatedAt:  time.Now().Unix(),
 			}

@@ -21,6 +21,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
@@ -1494,11 +1495,11 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 	for i, httpReq := range httpRequests {
 		t.Logf("  HTTP[%d]: Method=%s, URL=%s", i, httpReq.Method, httpReq.Url)
 
-		// URLs should now use {{API_HOST}} instead of https://api.example.com
+		// URLs should now use {{env.API_HOST}} instead of https://api.example.com
 		require.NotContains(t, httpReq.Url, "https://api.example.com",
 			"URL should not contain the original domain")
-		require.Contains(t, httpReq.Url, "{{API_HOST}}",
-			"URL should contain the variable reference {{API_HOST}}")
+		require.Contains(t, httpReq.Url, "{{env.API_HOST}}",
+			"URL should contain the variable reference {{env.API_HOST}}")
 	}
 
 	// Verify specific URL patterns
@@ -1507,10 +1508,10 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 		urlsFound[httpReq.Url] = true
 	}
 
-	require.True(t, urlsFound["{{API_HOST}}/users"],
-		"Should have URL {{API_HOST}}/users")
-	require.True(t, urlsFound["{{API_HOST}}/users/create"],
-		"Should have URL {{API_HOST}}/users/create")
+	require.True(t, urlsFound["{{env.API_HOST}}/users"],
+		"Should have URL {{env.API_HOST}}/users")
+	require.True(t, urlsFound["{{env.API_HOST}}/users/create"],
+		"Should have URL {{env.API_HOST}}/users/create")
 
 	t.Log("Domain replacement test passed - URLs are correctly replaced in storage")
 }
@@ -1668,4 +1669,323 @@ flows:
 	require.Equal(t, folder.ID, *httpFile.ParentID, "HTTP file should be inside the folder")
 
 	t.Log("Folder file test passed - folder created and HTTP file is inside folder")
+}
+
+// TestYAMLImport_NodeImplementations verifies that all node type implementations
+// (JS, Condition, For, ForEach, AI) are properly stored during YAML import.
+// This test specifically validates the fix for the bug where JS nodes and other
+// node implementations were being dropped during import.
+func TestYAMLImport_NodeImplementations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping node implementations test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	// YAML with various node types: JS, if, for, for_each
+	// Note: AI nodes require a model connection which is complex to test here
+	yamlData := []byte(`workspace_name: Node Implementations Test
+flows:
+    - name: Multi-Node Flow
+      variables:
+        - name: counter
+          value: "0"
+        - name: items
+          value: "[1, 2, 3]"
+      steps:
+        - js:
+            name: Setup Script
+            code: |
+                // Initialize variables
+                const result = { timestamp: Date.now(), status: 'ready' };
+                return result;
+        - if:
+            name: Check Condition
+            condition: "{{counter}} > 0"
+            depends_on: Setup Script
+        - for:
+            name: Loop Counter
+            iter_count: "3"
+            depends_on: Check Condition
+        - for_each:
+            name: Process Items
+            items: "{{items}}"
+            depends_on: Loop Counter
+        - js:
+            name: Final Script
+            code: |
+                console.log('Processing complete');
+                return { done: true };
+            depends_on: Process Items
+`)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	// Import YAML
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Node Implementations Test",
+		Data:        yamlData,
+	})
+
+	resp, err := fixture.rpc.Import(ctx, req)
+	require.NoError(t, err, "YAML import should complete without error")
+	require.NotNil(t, resp)
+
+	// Verify flows were created
+	flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	require.NoError(t, err)
+	require.Len(t, flows, 1, "Should have exactly 1 flow")
+	flowID := flows[0].ID
+
+	// Get all nodes in the flow
+	nodes, err := fixture.rpc.NodeService.GetNodesByFlowID(fixture.ctx, flowID)
+	require.NoError(t, err)
+	t.Logf("Found %d nodes in flow", len(nodes))
+
+	// Create readers for node implementations
+	readers := sflow.NewNodeReaders(fixture.base.Queries)
+
+	// Track found implementations
+	var jsNodesFound int
+	var ifNodesFound int
+	var forNodesFound int
+	var forEachNodesFound int
+
+	for _, node := range nodes {
+		t.Logf("Node: Name=%q Kind=%d", node.Name, node.NodeKind)
+
+		switch node.NodeKind {
+		case mflow.NODE_KIND_JS:
+			jsNode, err := readers.JS.GetNodeJS(fixture.ctx, node.ID)
+			require.NoError(t, err, "Should be able to read JS node")
+			require.NotNil(t, jsNode, "JS node implementation should exist for node %s", node.Name)
+			require.NotEmpty(t, jsNode.Code, "JS node should have code for node %s", node.Name)
+			t.Logf("  JS Node: Code length=%d bytes", len(jsNode.Code))
+			jsNodesFound++
+
+		case mflow.NODE_KIND_CONDITION:
+			ifNode, err := readers.If.GetNodeIf(fixture.ctx, node.ID)
+			require.NoError(t, err, "Should be able to read if node")
+			require.NotNil(t, ifNode, "If node implementation should exist for node %s", node.Name)
+			require.NotEmpty(t, ifNode.Condition, "If node should have condition for node %s", node.Name)
+			t.Logf("  If Node: Condition=%q", ifNode.Condition)
+			ifNodesFound++
+
+		case mflow.NODE_KIND_FOR:
+			forNode, err := readers.For.GetNodeFor(fixture.ctx, node.ID)
+			require.NoError(t, err, "Should be able to read for node")
+			require.NotNil(t, forNode, "For node implementation should exist for node %s", node.Name)
+			require.NotEmpty(t, forNode.IterCount, "For node should have iter_count for node %s", node.Name)
+			t.Logf("  For Node: IterCount=%q", forNode.IterCount)
+			forNodesFound++
+
+		case mflow.NODE_KIND_FOR_EACH:
+			forEachNode, err := readers.ForEach.GetNodeForEach(fixture.ctx, node.ID)
+			require.NoError(t, err, "Should be able to read for_each node")
+			require.NotNil(t, forEachNode, "ForEach node implementation should exist for node %s", node.Name)
+			require.NotEmpty(t, forEachNode.IterExpression, "ForEach node should have items expression for node %s", node.Name)
+			t.Logf("  ForEach Node: Items=%q", forEachNode.IterExpression)
+			forEachNodesFound++
+		}
+	}
+
+	// Verify we found all expected node implementations
+	require.Equal(t, 2, jsNodesFound, "Should have 2 JS nodes (Setup Script and Final Script)")
+	require.Equal(t, 1, ifNodesFound, "Should have 1 if node (Check Condition)")
+	require.Equal(t, 1, forNodesFound, "Should have 1 for node (Loop Counter)")
+	require.Equal(t, 1, forEachNodesFound, "Should have 1 for_each node (Process Items)")
+
+	// Verify flow variables were created
+	flowVarService := sflow.NewFlowVariableService(fixture.base.Queries)
+	flowVars, err := flowVarService.GetFlowVariablesByFlowID(fixture.ctx, flowID)
+	require.NoError(t, err)
+	require.Len(t, flowVars, 2, "Should have 2 flow variables (counter, items)")
+
+	varNames := make(map[string]bool)
+	for _, v := range flowVars {
+		varNames[v.Name] = true
+		t.Logf("Flow Variable: Name=%q Value=%q", v.Name, v.Value)
+	}
+	require.True(t, varNames["counter"], "Should have 'counter' variable")
+	require.True(t, varNames["items"], "Should have 'items' variable")
+
+	t.Log("Node implementations test passed - all node types properly stored")
+}
+
+// TestYAMLImport_NodeTypes is a simple table-driven test that verifies
+// different node type combinations are properly imported and stored.
+func TestYAMLImport_NodeTypes(t *testing.T) {
+	tests := []struct {
+		name        string
+		yaml        string
+		wantJS      int
+		wantIf      int
+		wantFor     int
+		wantForEach int
+		wantFlowVar int
+	}{
+		{
+			name: "single JS node",
+			yaml: `workspace_name: Test
+flows:
+  - name: Flow
+    steps:
+      - js:
+          name: Script
+          code: return 1;`,
+			wantJS: 1,
+		},
+		{
+			name: "single if node",
+			yaml: `workspace_name: Test
+flows:
+  - name: Flow
+    steps:
+      - if:
+          name: Check
+          condition: x > 0`,
+			wantIf: 1,
+		},
+		{
+			name: "single for node",
+			yaml: `workspace_name: Test
+flows:
+  - name: Flow
+    steps:
+      - for:
+          name: Loop
+          iter_count: "5"`,
+			wantFor: 1,
+		},
+		{
+			name: "single for_each node",
+			yaml: `workspace_name: Test
+flows:
+  - name: Flow
+    steps:
+      - for_each:
+          name: Each
+          items: "[1,2,3]"`,
+			wantForEach: 1,
+		},
+		{
+			name: "flow variables only",
+			yaml: `workspace_name: Test
+flows:
+  - name: Flow
+    variables:
+      - name: var1
+        value: "hello"
+      - name: var2
+        value: "world"
+    steps:
+      - js:
+          name: Script
+          code: return 1;`,
+			wantJS:      1,
+			wantFlowVar: 2,
+		},
+		{
+			name: "mixed node types",
+			yaml: `workspace_name: Test
+flows:
+  - name: Flow
+    variables:
+      - name: items
+        value: "[1,2,3]"
+    steps:
+      - js:
+          name: Setup
+          code: "return { ready: true };"
+      - if:
+          name: Check
+          condition: "{{Setup.response.ready}}"
+          depends_on: Setup
+      - for:
+          name: Retry
+          iter_count: "3"
+          depends_on: Check
+      - for_each:
+          name: Process
+          items: "{{items}}"
+          depends_on: Retry
+      - js:
+          name: Done
+          code: "return { done: true };"
+          depends_on: Process`,
+			wantJS:      2,
+			wantIf:      1,
+			wantFor:     1,
+			wantForEach: 1,
+			wantFlowVar: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newIntegrationTestFixture(t)
+
+			ctx, cancel := context.WithTimeout(fixture.ctx, 5*time.Second)
+			defer cancel()
+
+			// Import
+			req := connect.NewRequest(&apiv1.ImportRequest{
+				WorkspaceId: fixture.workspaceID.Bytes(),
+				Name:        tc.name,
+				Data:        []byte(tc.yaml),
+			})
+
+			_, err := fixture.rpc.Import(ctx, req)
+			require.NoError(t, err)
+
+			// Get flow
+			flows, err := fixture.services.FlowService.GetFlowsByWorkspaceID(ctx, fixture.workspaceID)
+			require.NoError(t, err)
+			require.Len(t, flows, 1)
+			flowID := flows[0].ID
+
+			// Count node implementations
+			readers := sflow.NewNodeReaders(fixture.base.Queries)
+			flowVarService := sflow.NewFlowVariableService(fixture.base.Queries)
+
+			nodes, err := fixture.rpc.NodeService.GetNodesByFlowID(ctx, flowID)
+			require.NoError(t, err)
+
+			var gotJS, gotIf, gotFor, gotForEach int
+			for _, node := range nodes {
+				switch node.NodeKind {
+				case mflow.NODE_KIND_JS:
+					js, _ := readers.JS.GetNodeJS(ctx, node.ID)
+					if js != nil {
+						gotJS++
+					}
+				case mflow.NODE_KIND_CONDITION:
+					cond, _ := readers.If.GetNodeIf(ctx, node.ID)
+					if cond != nil {
+						gotIf++
+					}
+				case mflow.NODE_KIND_FOR:
+					f, _ := readers.For.GetNodeFor(ctx, node.ID)
+					if f != nil {
+						gotFor++
+					}
+				case mflow.NODE_KIND_FOR_EACH:
+					fe, _ := readers.ForEach.GetNodeForEach(ctx, node.ID)
+					if fe != nil {
+						gotForEach++
+					}
+				}
+			}
+
+			flowVars, _ := flowVarService.GetFlowVariablesByFlowID(ctx, flowID)
+
+			require.Equal(t, tc.wantJS, gotJS, "JS node count")
+			require.Equal(t, tc.wantIf, gotIf, "If node count")
+			require.Equal(t, tc.wantFor, gotFor, "For node count")
+			require.Equal(t, tc.wantForEach, gotForEach, "ForEach node count")
+			require.Equal(t, tc.wantFlowVar, len(flowVars), "Flow variable count")
+		})
+	}
 }

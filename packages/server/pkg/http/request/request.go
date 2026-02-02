@@ -7,12 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/errmap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	"log/slog"
 	"mime"
 	"mime/multipart"
@@ -26,6 +20,13 @@ import (
 	"unicode/utf8"
 
 	"connectrpc.com/connect"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/errmap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 const (
@@ -47,10 +48,16 @@ const (
 // PrepareHTTPRequestResult holds the result of preparing a request with tracked variable usage
 type PrepareHTTPRequestResult struct {
 	Request  *httpclient.Request
-	ReadVars map[string]string // Variables that were read during request preparation
+	ReadVars map[string]any // Variables that were read during request preparation
 }
 
-// PrepareHTTPRequestWithTracking prepares a request using mhttp models and tracks variable usage
+// PrepareHTTPRequestWithTracking prepares a request using mhttp models and tracks variable usage.
+// Uses expression.UnifiedEnv for variable interpolation, supporting:
+//   - {{ varKey }} - Variable references
+//   - {{ now() }} - Function calls
+//   - {{ a + b }} - Expressions
+//   - {{ #env:VAR }} - Environment variables
+//   - {{ #file:/path }} - File contents
 func PrepareHTTPRequestWithTracking(
 	httpReq mhttp.HTTP,
 	headers []mhttp.HTTPHeader,
@@ -58,17 +65,32 @@ func PrepareHTTPRequestWithTracking(
 	rawBody *mhttp.HTTPBodyRaw,
 	formBody []mhttp.HTTPBodyForm,
 	urlBody []mhttp.HTTPBodyUrlencoded,
-	varMap varsystem.VarMap,
+	varMap map[string]any,
 ) (*PrepareHTTPRequestResult, error) {
-	// Create a tracking wrapper around the varMap
-	tracker := varsystem.NewVarMapTracker(varMap)
+	// Create UnifiedEnv for expression interpolation
+	env := expression.NewUnifiedEnv(varMap)
+	readVars := make(map[string]any)
+
+	// Helper to interpolate and collect reads
+	interpolate := func(raw string) (string, error) {
+		if !expression.HasVars(raw) {
+			return raw, nil
+		}
+		result, err := env.InterpolateWithResult(raw)
+		if err != nil {
+			return "", err
+		}
+		// Collect tracked reads
+		for k, v := range result.ReadVars {
+			readVars[k] = v
+		}
+		return result.Value, nil
+	}
 
 	var err error
-	if varsystem.CheckStringHasAnyVarKey(httpReq.Url) {
-		httpReq.Url, err = tracker.ReplaceVars(httpReq.Url)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
+	httpReq.Url, err = interpolate(httpReq.Url)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
 	// Filter enabled items
@@ -103,20 +125,14 @@ func PrepareHTTPRequestWithTracking(
 	// Process Query Params
 	clientQueries := make([]httpclient.Query, len(activeParams))
 	for i, param := range activeParams {
-		key := param.Key
-		if varsystem.CheckStringHasAnyVarKey(key) {
-			key, err = tracker.ReplaceVars(key)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
+		key, err := interpolate(param.Key)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 
-		val := param.Value
-		if varsystem.CheckStringHasAnyVarKey(val) {
-			val, err = tracker.ReplaceVars(val)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
+		val, err := interpolate(param.Value)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		clientQueries[i] = httpclient.Query{QueryKey: key, Value: val}
 	}
@@ -140,20 +156,14 @@ func PrepareHTTPRequestWithTracking(
 			}
 		}
 
-		key := header.Key
-		if varsystem.CheckStringHasAnyVarKey(key) {
-			key, err = tracker.ReplaceVars(key)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
+		key, err := interpolate(header.Key)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 
-		val := header.Value
-		if varsystem.CheckStringHasAnyVarKey(val) {
-			val, err = tracker.ReplaceVars(val)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeNotFound, err)
-			}
+		val, err := interpolate(header.Value)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		clientHeaders = append(clientHeaders, httpclient.Header{HeaderKey: key, Value: val})
 	}
@@ -170,8 +180,7 @@ func PrepareHTTPRequestWithTracking(
 					return nil, err
 				}
 			}
-			bodyStr := string(data)
-			bodyStr, err = tracker.ReplaceVars(bodyStr)
+			bodyStr, err := interpolate(string(data))
 			if err != nil {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
@@ -201,15 +210,12 @@ func PrepareHTTPRequestWithTracking(
 		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range activeFormBody {
-			actualBodyKey := v.Key
-			if varsystem.CheckStringHasAnyVarKey(v.Key) {
-				actualBodyKey, err = tracker.ReplaceVars(v.Key)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeNotFound, err)
-				}
+			actualBodyKey, err := interpolate(v.Key)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 
-			// First check if this value contains file references (before variable replacement)
+			// Check if this value contains file references
 			filePathsToUpload := []string{}
 			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
@@ -225,14 +231,13 @@ func PrepareHTTPRequestWithTracking(
 						// This is {{#file:path}} format
 						filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(key))
 						// Track the file reference read
-						fileKey := strings.TrimSpace(key)
-						tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
+						readVars[key], _ = varsystem.ReadFileContentAsString(key)
 					} else {
 						// This is a regular variable, try to resolve it
-						if val, ok := tracker.Get(key); ok {
-							if varsystem.IsFileReference(val.Value) {
-								fileKey := strings.TrimSpace(val.Value)
-								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(fileKey))
+						if val, ok := env.Get(key); ok {
+							if strVal, isStr := val.(string); isStr && varsystem.IsFileReference(strVal) {
+								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(strVal))
+								readVars[key] = val
 							} else {
 								allAreFileReferences = false
 								break Loop1
@@ -246,8 +251,7 @@ func PrepareHTTPRequestWithTracking(
 					// This is direct #file:path format
 					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
 					// Track the file reference read
-					fileKey := strings.TrimSpace(trimmedRef)
-					tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
+					readVars[trimmedRef], _ = varsystem.ReadFileContentAsString(trimmedRef)
 				default:
 					allAreFileReferences = false
 					break Loop1
@@ -255,9 +259,9 @@ func PrepareHTTPRequestWithTracking(
 			}
 
 			resolvedValue := v.Value
-			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
+			if !allAreFileReferences && expression.HasVars(v.Value) {
 				// Only replace variables if this is not a file reference
-				resolvedValue, err = tracker.ReplaceVars(v.Value)
+				resolvedValue, err = interpolate(v.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -306,19 +310,13 @@ func PrepareHTTPRequestWithTracking(
 	case mhttp.HttpBodyKindUrlEncoded:
 		urlVal := url.Values{}
 		for _, u := range activeUrlBody {
-			bodyKey := u.Key
-			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
-				bodyKey, err = tracker.ReplaceVars(bodyKey)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeNotFound, err)
-				}
+			bodyKey, err := interpolate(u.Key)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
-			bodyValue := u.Value
-			if varsystem.CheckStringHasAnyVarKey(bodyValue) {
-				bodyValue, err = tracker.ReplaceVars(bodyValue)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeNotFound, err)
-				}
+			bodyValue, err := interpolate(u.Value)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 
 			urlVal.Add(bodyKey, bodyValue)
@@ -363,7 +361,7 @@ func PrepareHTTPRequestWithTracking(
 
 	return &PrepareHTTPRequestResult{
 		Request:  httpReqObj,
-		ReadVars: tracker.GetReadVars(),
+		ReadVars: readVars,
 	}, nil
 }
 

@@ -4,12 +4,14 @@ import { Ulid } from 'id128';
 import { ReactNode, use } from 'react';
 import * as RAC from 'react-aria-components';
 import { FiArrowLeft, FiBriefcase, FiChevronRight, FiTerminal, FiX } from 'react-icons/fi';
+import { TbRobotFace } from 'react-icons/tb';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import { HandleKind, NodeHttpInsertSchema, NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   EdgeCollectionSchema,
+  NodeAiCollectionSchema,
   NodeCollectionSchema,
   NodeConditionCollectionSchema,
   NodeForCollectionSchema,
@@ -28,7 +30,7 @@ import { getNextOrder } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { FlowContext } from './context';
 
-interface AddNodeSidebarProps {
+export interface AddNodeSidebarProps {
   handleKind?: HandleKind | undefined;
   position?: undefined | XF.XYPosition;
   previous?: ReactNode;
@@ -44,14 +46,16 @@ export const AddNodeSidebar = (props: AddNodeSidebarProps) => {
       <SidebarHeader title='What happens next?' />
 
       <RAC.ListBox aria-label='Node categories' className={tw`mt-3`}>
-        <Item
+        <AddAiNode {...props} />
+
+        <SidebarItem
           description='Branch, merge or loop the flow, etc.'
           icon={<FlowsIcon />}
           onAction={() => void setSidebar?.((_) => <AddFlowNodeSidebar {...props} previous={_} />)}
           title='Flow'
         />
 
-        <Item
+        <SidebarItem
           description='Run code, make HTTP request, set webhooks, etc.'
           icon={<FiBriefcase />}
           onAction={() => void setSidebar?.((_) => <AddCoreNodeSidebar {...props} previous={_} />)}
@@ -67,7 +71,7 @@ interface SidebarHeaderProps {
   title: string;
 }
 
-const SidebarHeader = ({ previous, title }: SidebarHeaderProps) => {
+export const SidebarHeader = ({ previous, title }: SidebarHeaderProps) => {
   const { setSidebar } = use(FlowContext);
 
   return (
@@ -87,14 +91,14 @@ const SidebarHeader = ({ previous, title }: SidebarHeaderProps) => {
   );
 };
 
-interface ItemProps {
+interface SidebarItemProps {
   description?: string;
   icon: ReactNode;
   onAction: () => void;
   title: string;
 }
 
-const Item = ({ description, icon, onAction, title }: ItemProps) => (
+export const SidebarItem = ({ description, icon, onAction, title }: SidebarItemProps) => (
   <ListBoxItem className={tw`gap-2 px-3 py-2`} onAction={onAction} textValue={title}>
     <div className={tw`rounded-md border border-slate-200 bg-white p-1.5 text-xl text-slate-500`}>{icon}</div>
 
@@ -117,7 +121,7 @@ interface InsertNodeProps {
   targetId?: Uint8Array | undefined;
 }
 
-const useInsertNode = () => {
+export const useInsertNode = () => {
   const { flowId, setSidebar } = use(FlowContext);
   const { getNodes, screenToFlowPosition } = XF.useReactFlow();
   const storeApi = XF.useStoreApi();
@@ -174,7 +178,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
       <SidebarHeader previous={previous} title='Flow' />
 
       <RAC.ListBox aria-label='Node categories' className={tw`mt-3`}>
-        <Item
+        <SidebarItem
           description='Route items to different branches'
           icon={<IfIcon />}
           onAction={() => {
@@ -185,7 +189,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
           title='If'
         />
 
-        <Item
+        <SidebarItem
           description='Iterate for a set amount of times'
           icon={<ForIcon />}
           onAction={() => {
@@ -196,7 +200,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
           title='For loop'
         />
 
-        <Item
+        <SidebarItem
           description='Iterate over data'
           icon={<ForIcon />}
           onAction={() => {
@@ -224,7 +228,7 @@ const AddCoreNodeSidebar = (props: AddNodeSidebarProps) => {
       <SidebarHeader previous={previous} title='Flow' />
 
       <RAC.ListBox aria-label='Node categories' className={tw`mt-3`}>
-        <Item
+        <SidebarItem
           description='Run custom JavaScript code'
           icon={<FiTerminal />}
           onAction={() => {
@@ -235,7 +239,7 @@ const AddCoreNodeSidebar = (props: AddNodeSidebarProps) => {
           title='JavaScript'
         />
 
-        <Item
+        <SidebarItem
           description='Makes an HTTP request and returns the respons data'
           icon={<SendRequestIcon />}
           onAction={() => void setSidebar?.((_) => <AddHttpRequestNodeSidebar {...props} previous={_} />)}
@@ -309,5 +313,24 @@ const AddHttpRequestNodeSidebar = ({ handleKind, position, previous, sourceId, t
         showControls
       />
     </>
+  );
+};
+
+const AddAiNode = ({ handleKind, position, sourceId, targetId }: AddNodeSidebarProps) => {
+  const insertNode = useInsertNode();
+
+  const collection = useApiCollection(NodeAiCollectionSchema);
+
+  return (
+    <SidebarItem
+      description='Build autonomous agents, summarize or search document , etc.'
+      icon={<TbRobotFace />}
+      onAction={() => {
+        const nodeId = Ulid.generate().bytes;
+        collection.utils.insert({ nodeId });
+        insertNode({ handleKind, kind: NodeKind.AI, name: 'ai', nodeId, position, sourceId, targetId });
+      }}
+      title='AI Node'
+    />
   );
 };

@@ -1,5 +1,6 @@
 .claude
 .ai
+conductor
 .direnv
 .env.*.local
 .env.keys
@@ -35,7 +36,3 @@ coverage.out
 packages/server/server
 tools/collect_go_failures.py
 /server
-# Conductor
-
-# Conductor
-conductor/

@@ -80,6 +80,9 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	nodeForEachService := sflow.NewNodeForEachService(queries)
 	nodeIfService := sflow.NewNodeIfService(queries) // Returns *NodeIfService
 	nodeNodeJsService := sflow.NewNodeJsService(queries)
+	nodeAIService := sflow.NewNodeAIService(queries)
+	nodeAiProviderService := sflow.NewNodeAiProviderService(queries)
+	nodeMemoryService := sflow.NewNodeMemoryService(queries)
 
 	// Response services
 	httpResponseService := shttp.NewHttpResponseService(queries)
@@ -119,6 +122,9 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 			NodeForEach:   &nodeForEachService,
 			NodeIf:        nodeIfService,
 			NodeJs:        &nodeNodeJsService,
+			NodeAI:        &nodeAIService,
+			NodeAiProvider:     &nodeAiProviderService,
+			NodeMemory:    &nodeMemoryService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,

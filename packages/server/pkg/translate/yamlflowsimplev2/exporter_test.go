@@ -93,6 +93,9 @@ flows:
 	// Compare Condition Node counts
 	require.Equal(t, len(importedData.FlowConditionNodes), len(reImportedData.FlowConditionNodes), "Condition Node count mismatch")
 
+	// Compare Flow Variables counts
+	require.Equal(t, len(importedData.FlowVariables), len(reImportedData.FlowVariables), "Flow Variables count mismatch")
+
 	// Deep dive into a specific request to check body preservation
 	findRequest := func(data *ioworkspace.WorkspaceBundle, name string) *mflow.NodeRequest {
 		var nodeID idwrap.IDWrap
@@ -834,4 +837,285 @@ func TestExplicitSerial_Export(t *testing.T) {
 
 	// Verify A DOES depend on Start explicitly
 	require.True(t, strings.Contains(yamlStr, "depends_on: Start") || strings.Contains(yamlStr, "- Start"), "Should contain explicit Start dependency")
+}
+
+// TestMarshalSimplifiedYAML_AllNodeTypes_RoundTrip tests that all node types
+// (JS, For, ForEach, Condition) are properly preserved during export/import cycles.
+// This is a comprehensive test to catch bugs where node implementations are dropped.
+func TestMarshalSimplifiedYAML_AllNodeTypes_RoundTrip(t *testing.T) {
+	// YAML with all supported node types
+	sourceYAML := `
+workspace_name: All Node Types Test
+flows:
+  - name: Complete Flow
+    variables:
+      - name: counter
+        value: "0"
+      - name: items
+        value: "[1, 2, 3]"
+      - name: apiKey
+        value: "secret123"
+    steps:
+      - manual_start:
+          name: Start
+      - js:
+          name: Init Script
+          code: |
+            // Multi-line JavaScript code
+            const config = { debug: true };
+            console.log("Initializing...");
+            return { initialized: true, timestamp: Date.now() };
+          depends_on: Start
+      - if:
+          name: Check Init
+          condition: "{{Init Script.response.initialized}} == true"
+          depends_on: Init Script
+      - for:
+          name: Retry Loop
+          iter_count: "3"
+          depends_on: Check Init
+      - for_each:
+          name: Process Items
+          items: "{{items}}"
+          depends_on: Retry Loop
+      - js:
+          name: Final Script
+          code: |
+            // Final processing
+            return { done: true, count: context.iteration };
+          depends_on: Process Items
+`
+
+	// 1. Import original YAML
+	workspaceID := idwrap.NewNow()
+	opts := GetDefaultOptions(workspaceID)
+
+	importedData, err := ConvertSimplifiedYAML([]byte(sourceYAML), opts)
+	require.NoError(t, err)
+
+	// Verify initial import has all node types
+	require.Len(t, importedData.Flows, 1, "Should have 1 flow")
+	require.Len(t, importedData.FlowVariables, 3, "Should have 3 flow variables")
+
+	// Count node types from initial import
+	initialJSCount := len(importedData.FlowJSNodes)
+	initialIfCount := len(importedData.FlowConditionNodes)
+	initialForCount := len(importedData.FlowForNodes)
+	initialForEachCount := len(importedData.FlowForEachNodes)
+
+	require.Equal(t, 2, initialJSCount, "Should have 2 JS nodes")
+	require.Equal(t, 1, initialIfCount, "Should have 1 condition node")
+	require.Equal(t, 1, initialForCount, "Should have 1 for node")
+	require.Equal(t, 1, initialForEachCount, "Should have 1 foreach node")
+
+	// 2. Export to YAML
+	exportedYAML, err := MarshalSimplifiedYAML(importedData)
+	require.NoError(t, err)
+
+	t.Logf("Exported YAML:\n%s", string(exportedYAML))
+
+	// 3. Re-import the exported YAML
+	reImportedData, err := ConvertSimplifiedYAML(exportedYAML, opts)
+	require.NoError(t, err, "Re-import should succeed")
+
+	// 4. Verify all node implementation counts match
+	require.Equal(t, initialJSCount, len(reImportedData.FlowJSNodes),
+		"JS node count should match after round-trip")
+	require.Equal(t, initialIfCount, len(reImportedData.FlowConditionNodes),
+		"Condition node count should match after round-trip")
+	require.Equal(t, initialForCount, len(reImportedData.FlowForNodes),
+		"For node count should match after round-trip")
+	require.Equal(t, initialForEachCount, len(reImportedData.FlowForEachNodes),
+		"ForEach node count should match after round-trip")
+	require.Equal(t, len(importedData.FlowVariables), len(reImportedData.FlowVariables),
+		"Flow variables count should match after round-trip")
+
+	// 5. Verify content preservation - find nodes by name and check content
+
+	// Helper to find node by name
+	findNodeByName := func(data *ioworkspace.WorkspaceBundle, name string) *mflow.Node {
+		for i := range data.FlowNodes {
+			if data.FlowNodes[i].Name == name {
+				return &data.FlowNodes[i]
+			}
+		}
+		return nil
+	}
+
+	// Helper to find JS node by flow node ID
+	findJSNode := func(data *ioworkspace.WorkspaceBundle, nodeID idwrap.IDWrap) *mflow.NodeJS {
+		for i := range data.FlowJSNodes {
+			if data.FlowJSNodes[i].FlowNodeID == nodeID {
+				return &data.FlowJSNodes[i]
+			}
+		}
+		return nil
+	}
+
+	// Helper to find condition node by flow node ID
+	findConditionNode := func(data *ioworkspace.WorkspaceBundle, nodeID idwrap.IDWrap) *mflow.NodeIf {
+		for i := range data.FlowConditionNodes {
+			if data.FlowConditionNodes[i].FlowNodeID == nodeID {
+				return &data.FlowConditionNodes[i]
+			}
+		}
+		return nil
+	}
+
+	// Helper to find for node by flow node ID
+	findForNode := func(data *ioworkspace.WorkspaceBundle, nodeID idwrap.IDWrap) *mflow.NodeFor {
+		for i := range data.FlowForNodes {
+			if data.FlowForNodes[i].FlowNodeID == nodeID {
+				return &data.FlowForNodes[i]
+			}
+		}
+		return nil
+	}
+
+	// Helper to find foreach node by flow node ID
+	findForEachNode := func(data *ioworkspace.WorkspaceBundle, nodeID idwrap.IDWrap) *mflow.NodeForEach {
+		for i := range data.FlowForEachNodes {
+			if data.FlowForEachNodes[i].FlowNodeID == nodeID {
+				return &data.FlowForEachNodes[i]
+			}
+		}
+		return nil
+	}
+
+	// Verify "Init Script" JS node content
+	initScriptNode := findNodeByName(reImportedData, "Init Script")
+	require.NotNil(t, initScriptNode, "Should find 'Init Script' node")
+	initScriptJS := findJSNode(reImportedData, initScriptNode.ID)
+	require.NotNil(t, initScriptJS, "Should find JS implementation for 'Init Script'")
+	require.Contains(t, string(initScriptJS.Code), "Initializing", "JS code should contain expected content")
+	require.Contains(t, string(initScriptJS.Code), "Date.now()", "JS code should preserve function calls")
+
+	// Verify "Final Script" JS node content
+	finalScriptNode := findNodeByName(reImportedData, "Final Script")
+	require.NotNil(t, finalScriptNode, "Should find 'Final Script' node")
+	finalScriptJS := findJSNode(reImportedData, finalScriptNode.ID)
+	require.NotNil(t, finalScriptJS, "Should find JS implementation for 'Final Script'")
+	require.Contains(t, string(finalScriptJS.Code), "done: true", "JS code should contain expected content")
+
+	// Verify "Check Init" condition node content
+	checkInitNode := findNodeByName(reImportedData, "Check Init")
+	require.NotNil(t, checkInitNode, "Should find 'Check Init' node")
+	checkInitIf := findConditionNode(reImportedData, checkInitNode.ID)
+	require.NotNil(t, checkInitIf, "Should find condition implementation for 'Check Init'")
+	require.NotEmpty(t, checkInitIf.Condition, "Condition should not be empty")
+
+	// Verify "Retry Loop" for node content
+	retryLoopNode := findNodeByName(reImportedData, "Retry Loop")
+	require.NotNil(t, retryLoopNode, "Should find 'Retry Loop' node")
+	retryLoopFor := findForNode(reImportedData, retryLoopNode.ID)
+	require.NotNil(t, retryLoopFor, "Should find for implementation for 'Retry Loop'")
+	require.NotEmpty(t, retryLoopFor.IterCount, "IterCount should not be empty")
+
+	// Verify "Process Items" foreach node content
+	processItemsNode := findNodeByName(reImportedData, "Process Items")
+	require.NotNil(t, processItemsNode, "Should find 'Process Items' node")
+	processItemsForEach := findForEachNode(reImportedData, processItemsNode.ID)
+	require.NotNil(t, processItemsForEach, "Should find foreach implementation for 'Process Items'")
+	require.Contains(t, processItemsForEach.IterExpression, "items", "ForEach should reference items variable")
+
+	// Verify flow variables
+	varNames := make(map[string]string)
+	for _, v := range reImportedData.FlowVariables {
+		varNames[v.Name] = v.Value
+	}
+	require.Equal(t, "0", varNames["counter"], "counter variable should be preserved")
+	require.Equal(t, "[1, 2, 3]", varNames["items"], "items variable should be preserved")
+	require.Equal(t, "secret123", varNames["apiKey"], "apiKey variable should be preserved")
+
+	t.Log("All node types round-trip test passed")
+}
+
+// TestJSNodeCodePreservation specifically tests that JS code with special characters
+// and multi-line content is preserved exactly through export/import.
+func TestJSNodeCodePreservation(t *testing.T) {
+	// Test various JS code patterns that might break during serialization
+	testCases := []struct {
+		name     string
+		code     string
+		contains []string // strings that must be present after round-trip
+	}{
+		{
+			name: "Multi-line with comments",
+			code: `// Line comment
+/* Block comment */
+const x = 1;
+return x;`,
+			contains: []string{"// Line comment", "/* Block comment */", "const x = 1"},
+		},
+		{
+			name: "Special characters",
+			code: `const msg = "Hello \"world\"";
+const path = 'C:\\Users\\test';
+const template = ` + "`${name}`" + `;
+return msg;`,
+			contains: []string{`Hello`, `world`, "return msg"},
+		},
+		{
+			name: "Unicode and emoji",
+			code: `const greeting = "こんにちは";
+const emoji = "🚀";
+return { greeting, emoji };`,
+			contains: []string{"こんにちは", "🚀", "greeting"},
+		},
+		{
+			name: "Complex logic",
+			code: `async function process(data) {
+    const result = await fetch(data.url);
+    if (result.ok) {
+        return result.json();
+    }
+    throw new Error('Failed');
+}
+return process(input);`,
+			contains: []string{"async function", "await fetch", "throw new Error"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			wsID := idwrap.NewNow()
+			flowID := idwrap.NewNow()
+			startNodeID := idwrap.NewNow()
+			jsNodeID := idwrap.NewNow()
+
+			bundle := &ioworkspace.WorkspaceBundle{
+				Workspace: mworkspace.Workspace{ID: wsID, Name: "JS Preservation Test"},
+				Flows:     []mflow.Flow{{ID: flowID, WorkspaceID: wsID, Name: "Flow"}},
+				FlowNodes: []mflow.Node{
+					{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
+					{ID: jsNodeID, FlowID: flowID, Name: "Script", NodeKind: mflow.NODE_KIND_JS},
+				},
+				FlowJSNodes: []mflow.NodeJS{
+					{FlowNodeID: jsNodeID, Code: []byte(tc.code)},
+				},
+				FlowEdges: []mflow.Edge{
+					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: jsNodeID},
+				},
+			}
+
+			// Export
+			yamlBytes, err := MarshalSimplifiedYAML(bundle)
+			require.NoError(t, err)
+
+			// Re-import
+			opts := GetDefaultOptions(wsID)
+			reImported, err := ConvertSimplifiedYAML(yamlBytes, opts)
+			require.NoError(t, err)
+
+			// Find the JS node
+			require.Len(t, reImported.FlowJSNodes, 1, "Should have 1 JS node")
+			reImportedCode := string(reImported.FlowJSNodes[0].Code)
+
+			// Verify all expected content is preserved
+			for _, expected := range tc.contains {
+				require.Contains(t, reImportedCode, expected,
+					"Code should contain '%s' after round-trip", expected)
+			}
+		})
+	}
 }

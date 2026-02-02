@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf';
-import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
-import { ToOptions, useMatchRoute, useNavigate, useRouter } from '@tanstack/react-router';
+import { and, eq, isUndefined, or, useLiveQuery } from '@tanstack/react-db';
+import { linkOptions, ToOptions, useMatchRoute, useNavigate, useRouter } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe } from 'effect';
 import { Ulid } from 'id128';
@@ -16,7 +16,10 @@ import {
   useDragAndDrop,
 } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
+import { RiAnthropicFill, RiGeminiFill, RiOpenaiFill } from 'react-icons/ri';
+import { TbGauge } from 'react-icons/tb';
 import { twJoin } from 'tailwind-merge';
+import { Credential, CredentialKind, CredentialSchema } from '@the-dev-tools/spec/buf/api/credential/v1/credential_pb';
 import { ExportService } from '@the-dev-tools/spec/buf/api/export/v1/export_pb';
 import {
   File,
@@ -27,6 +30,12 @@ import {
 } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import { FlowSchema, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { HttpDeltaSchema, HttpMethod, HttpSchema, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
+import {
+  CredentialAnthropicCollectionSchema,
+  CredentialCollectionSchema,
+  CredentialGeminiCollectionSchema,
+  CredentialOpenAiCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/credential';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
@@ -42,8 +51,22 @@ import { TreeItem, TreeItemProps, TreeItemRouteLink } from '@the-dev-tools/ui/tr
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useDeltaState } from '~/features/delta';
 import { useApiCollection, useConnectMutation } from '~/shared/api';
-import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
+import { eqStruct, getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
+
+const useInsertFile = (parentFolderId?: Uint8Array) => {
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  return async (props: Pick<File, 'fileId' | 'kind'>) =>
+    fileCollection.utils.insert({
+      ...props,
+      ...(parentFolderId && { parentId: parentFolderId }),
+      order: await getNextOrder(fileCollection),
+      workspaceId,
+    });
+};
 
 interface FileCreateMenuProps {
   navigate?: boolean;
@@ -59,18 +82,11 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
 
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
-  const fileCollection = useApiCollection(FileCollectionSchema);
   const folderCollection = useApiCollection(FolderCollectionSchema);
   const httpCollection = useApiCollection(HttpCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
 
-  const insertFile = async (props: Pick<File, 'fileId' | 'kind'>) =>
-    fileCollection.utils.insert({
-      ...props,
-      ...(parentFolderId && { parentId: parentFolderId }),
-      order: await getNextOrder(fileCollection),
-      workspaceId,
-    });
+  const insertFile = useInsertFile(parentFolderId);
 
   return (
     <Menu>
@@ -78,7 +94,6 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
         onAction={() => {
           const folderId = Ulid.generate().bytes;
           folderCollection.utils.insert({ folderId, name: 'New folder' });
-          void insertFile({ fileId: folderId, kind: FileKind.FOLDER });
         }}
       >
         Folder
@@ -116,12 +131,84 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
       >
         Flow
       </MenuItem>
+
+      <CreateCredentialSubmenu navigate={toNavigate} {...(parentFolderId && { parentFolderId })} />
     </Menu>
+  );
+};
+
+const CreateCredentialSubmenu = ({ navigate: toNavigate, parentFolderId }: FileCreateMenuProps) => {
+  const router = useRouter();
+  const navigate = useNavigate();
+
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
+  const credentialCollection = useApiCollection(CredentialCollectionSchema);
+  const credentialOpenAiCollection = useApiCollection(CredentialOpenAiCollectionSchema);
+  const credentialGeminiCollection = useApiCollection(CredentialGeminiCollectionSchema);
+  const credentialAnthropicCollection = useApiCollection(CredentialAnthropicCollectionSchema);
+
+  const insertFile = useInsertFile(parentFolderId);
+
+  const insertBase = async ({ kind, name }: Pick<Credential, 'kind' | 'name'>) => {
+    const credentialId = Ulid.generate().bytes;
+    credentialCollection.utils.insert({ credentialId, kind, name: `${name} credential`, workspaceId });
+    await insertFile({ fileId: credentialId, kind: FileKind.CREDENTIAL });
+    return credentialId;
+  };
+
+  const open = async (credentialId: Uint8Array) => {
+    if (!toNavigate) return;
+
+    await navigate({
+      from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+      params: { credentialIdCan: Ulid.construct(credentialId).toCanonical() },
+      to: router.routesById[routes.dashboard.workspace.credential.id].fullPath,
+    });
+  };
+
+  return (
+    <SubmenuTrigger>
+      <MenuItem>Credential</MenuItem>
+
+      <Menu>
+        <MenuItem
+          onAction={async () => {
+            const credentialId = await insertBase({ kind: CredentialKind.OPEN_AI, name: 'OpenAI' });
+            credentialOpenAiCollection.utils.insert({ credentialId });
+            await open(credentialId);
+          }}
+        >
+          OpenAI
+        </MenuItem>
+
+        <MenuItem
+          onAction={async () => {
+            const credentialId = await insertBase({ kind: CredentialKind.GEMINI, name: 'Gemini' });
+            credentialGeminiCollection.utils.insert({ credentialId });
+            await open(credentialId);
+          }}
+        >
+          Gemini
+        </MenuItem>
+
+        <MenuItem
+          onAction={async () => {
+            const credentialId = await insertBase({ kind: CredentialKind.ANTHROPIC, name: 'Anthropic' });
+            credentialAnthropicCollection.utils.insert({ credentialId });
+            await open(credentialId);
+          }}
+        >
+          Anthropic
+        </MenuItem>
+      </Menu>
+    </SubmenuTrigger>
   );
 };
 
 interface FileTreeContext {
   containerRef: RefObject<HTMLDivElement | null>;
+  kind?: FileKind;
   navigate?: boolean;
   showControls?: boolean;
 }
@@ -135,17 +222,21 @@ interface FileTreeProps
 
 export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionMode, ...context }: FileTreeProps) => {
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+  const { kind } = context;
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { data: files } = useLiveQuery(
-    (_) =>
-      _.from({ file: fileCollection })
-        .where((_) => eq(_.file.workspaceId, workspaceId))
-        .where((_) => isUndefined(_.file.parentId))
-        .orderBy((_) => _.file.order)
-        .select((_) => pick(_.file, 'fileId', 'order')),
-    [fileCollection, workspaceId],
+    (_) => {
+      let query = _.from({ file: fileCollection }).where((_) =>
+        and(eq(_.file.workspaceId, workspaceId), isUndefined(_.file.parentId)),
+      );
+
+      if (kind) query = query.where((_) => or(eq(_.file.kind, kind), eq(_.file.kind, FileKind.FOLDER)));
+
+      return query.orderBy((_) => _.file.order).select((_) => pick(_.file, 'fileId', 'order'));
+    },
+    [fileCollection, kind, workspaceId],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -240,12 +331,15 @@ const FileItem = ({ id }: FileItemProps) => {
     Match.when(FileKind.HTTP, () => <HttpFile id={id} />),
     Match.when(FileKind.HTTP_DELTA, () => <HttpDeltaFile id={id} />),
     Match.when(FileKind.FLOW, () => <FlowFile id={id} />),
+    Match.when(FileKind.CREDENTIAL, () => <CredentialFile id={id} />),
     Match.orElse(() => null),
   );
 };
 
 const FolderFile = ({ id }: FileItemProps) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { containerRef, kind, showControls } = useContext(FileTreeContext);
 
   const { fileId: folderId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
 
@@ -262,15 +356,15 @@ const FolderFile = ({ id }: FileItemProps) => {
     ).data ?? create(FolderSchema);
 
   const { data: files } = useLiveQuery(
-    (_) =>
-      _.from({ file: fileCollection })
-        .where((_) => eq(_.file.parentId, folderId))
-        .orderBy((_) => _.file.order)
-        .select((_) => pick(_.file, 'fileId', 'order')),
-    [fileCollection, folderId],
-  );
+    (_) => {
+      let query = _.from({ file: fileCollection }).where((_) => eq(_.file.parentId, folderId));
 
-  const { containerRef, showControls } = useContext(FileTreeContext);
+      if (kind) query = query.where((_) => or(eq(_.file.kind, kind), eq(_.file.kind, FileKind.FOLDER)));
+
+      return query.orderBy((_) => _.file.order).select((_) => pick(_.file, 'fileId', 'order'));
+    },
+    [fileCollection, folderId, kind],
+  );
 
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
@@ -291,7 +385,9 @@ const FolderFile = ({ id }: FileItemProps) => {
     >
       {({ isExpanded }) => (
         <>
-          {isExpanded ? (
+          {name === 'Credentials' ? (
+            <TbGauge className={tw`size-4 text-slate-500`} />
+          ) : isExpanded ? (
             <FolderOpenedIcon className={tw`size-4 text-slate-500`} />
           ) : (
             <FiFolder className={tw`size-4 text-slate-500`} />
@@ -759,6 +855,99 @@ const FlowFile = ({ id }: FileItemProps) => {
             >
               Export YAML (DevTools)
             </MenuItem>
+
+            <MenuItem
+              onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}
+              variant='danger'
+            >
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      )}
+    </>
+  );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    id,
+    onContextMenu,
+    textValue: name,
+  } satisfies TreeItemProps<object>;
+
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
+};
+
+const CredentialFile = ({ id }: FileItemProps) => {
+  const router = useRouter();
+  const matchRoute = useMatchRoute();
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { fileId: credentialId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
+
+  const credentialCollection = useApiCollection(CredentialCollectionSchema);
+
+  const { kind, name } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: credentialCollection })
+          .where(eqStruct({ credentialId }))
+          .select((_) => pick(_.item, 'name', 'kind'))
+          .findOne(),
+      [credentialCollection, credentialId],
+    ).data ?? create(CredentialSchema);
+
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
+
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => credentialCollection.utils.update({ credentialId, name: _ }),
+    value: name,
+  });
+
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const route = linkOptions({
+    from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+    params: { credentialIdCan: Ulid.construct(credentialId).toCanonical() },
+    to: router.routesById[routes.dashboard.workspace.credential.id].fullPath,
+  });
+
+  const content = (
+    <>
+      {pipe(
+        Match.value(kind),
+        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 text-slate-500`} />),
+        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 text-slate-500`} />),
+        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 text-slate-500`} />),
+        Match.orElse(() => <TbGauge className={tw`size-4 text-slate-500`} />),
+      )}
+
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
+        {name}
+      </Text>
+
+      {isEditing &&
+        escapeRender(
+          <TextInputField
+            aria-label='Credential name'
+            className={tw`w-full`}
+            inputClassName={tw`-my-1 py-1`}
+            {...textFieldProps}
+          />,
+        )}
+
+      {showControls && (
+        <MenuTrigger {...menuTriggerProps}>
+          <Button className={tw`p-0.5`} variant='ghost'>
+            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+          </Button>
+
+          <Menu {...menuProps}>
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem
               onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}

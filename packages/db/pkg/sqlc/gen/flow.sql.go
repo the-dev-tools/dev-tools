@@ -268,6 +268,36 @@ func (q *Queries) CreateFlowNodeJs(ctx context.Context, arg CreateFlowNodeJsPara
 	return err
 }
 
+const createFlowNodeWithState = `-- name: CreateFlowNodeWithState :exec
+INSERT INTO
+  flow_node (id, flow_id, name, node_kind, position_x, position_y, state)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateFlowNodeWithStateParams struct {
+	ID        idwrap.IDWrap
+	FlowID    idwrap.IDWrap
+	Name      string
+	NodeKind  int32
+	PositionX float64
+	PositionY float64
+	State     int8
+}
+
+func (q *Queries) CreateFlowNodeWithState(ctx context.Context, arg CreateFlowNodeWithStateParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeWithStateStmt, createFlowNodeWithState,
+		arg.ID,
+		arg.FlowID,
+		arg.Name,
+		arg.NodeKind,
+		arg.PositionX,
+		arg.PositionY,
+		arg.State,
+	)
+	return err
+}
+
 const createFlowNodesBulk = `-- name: CreateFlowNodesBulk :exec
 INSERT INTO
   flow_node (id, flow_id, name, node_kind, position_x, position_y, state)

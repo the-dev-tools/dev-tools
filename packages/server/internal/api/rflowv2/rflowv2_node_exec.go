@@ -3,6 +3,7 @@ package rflowv2
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 
@@ -36,15 +37,45 @@ func (s *FlowServiceV2RPC) NodeExecutionCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// For version flows (snapshots), we need to use node_id_mapping to find executions
+		// Executions are stored under parent node IDs, not version node IDs
+		var parentNodeIDMap map[string]string // version node ID -> parent node ID
+		if flow.VersionParentID != nil && len(flow.NodeIDMapping) > 0 {
+			// Parse the mapping: parent node ID -> version node ID
+			var mapping map[string]string
+			if err := json.Unmarshal(flow.NodeIDMapping, &mapping); err == nil {
+				// Invert the mapping to get version -> parent
+				parentNodeIDMap = make(map[string]string, len(mapping))
+				for parentID, versionID := range mapping {
+					parentNodeIDMap[versionID] = parentID
+				}
+			}
+		}
+
 		// For each node, get its executions
 		for _, node := range nodes {
-			executions, err := s.nes.ListNodeExecutionsByNodeID(ctx, node.ID)
+			// Determine which node ID to query for executions
+			queryNodeID := node.ID
+			if parentNodeIDMap != nil {
+				if parentIDStr, ok := parentNodeIDMap[node.ID.String()]; ok {
+					if parentID, err := idwrap.NewText(parentIDStr); err == nil {
+						queryNodeID = parentID
+					}
+				}
+			}
+
+			executions, err := s.nes.ListNodeExecutionsByNodeID(ctx, queryNodeID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
 			// Serialize each execution
 			for _, execution := range executions {
+				// For version flows, update the execution's NodeID to match the version node
+				// so the client can match it to the correct node in the version flow
+				if parentNodeIDMap != nil {
+					execution.NodeID = node.ID
+				}
 				items = append(items, serializeNodeExecution(execution))
 			}
 		}

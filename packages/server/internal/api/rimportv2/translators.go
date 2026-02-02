@@ -42,6 +42,14 @@ type TranslationResult struct {
 	RequestNodes []mflow.NodeRequest
 	Edges        []mflow.Edge
 
+	// Flow node implementations (type-specific data)
+	JSNodes        []mflow.NodeJS
+	ConditionNodes []mflow.NodeIf
+	ForNodes       []mflow.NodeFor
+	ForEachNodes   []mflow.NodeForEach
+	AINodes        []mflow.NodeAI
+	FlowVariables  []mflow.FlowVariable
+
 	// Variables (collection or environment level)
 	Variables []menv.Variable
 
@@ -259,6 +267,13 @@ func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 		Nodes:          resolved.FlowNodes,
 		RequestNodes:   resolved.FlowRequestNodes,
 		Edges:          resolved.FlowEdges,
+		// Flow node implementations
+		JSNodes:        resolved.FlowJSNodes,
+		ConditionNodes: resolved.FlowConditionNodes,
+		ForNodes:       resolved.FlowForNodes,
+		ForEachNodes:   resolved.FlowForEachNodes,
+		AINodes:        resolved.FlowAINodes,
+		FlowVariables:  resolved.FlowVariables,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 

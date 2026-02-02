@@ -35,6 +35,23 @@ func (vt *VariableTracker) Reset() {
 	}
 }
 
+// ClearWritesWithPrefix removes all tracked writes whose keys start with the given prefix.
+// This is useful for clearing intermediate writes before tracking final output.
+// For example, ClearWritesWithPrefix("ai_1.") clears "ai_1.random_id", "ai_1.userId", etc.
+func (vt *VariableTracker) ClearWritesWithPrefix(prefix string) {
+	if vt == nil {
+		return
+	}
+
+	vt.mutex.Lock()
+	defer vt.mutex.Unlock()
+	for k := range vt.writtenVars {
+		if len(k) >= len(prefix) && k[:len(prefix)] == prefix {
+			delete(vt.writtenVars, k)
+		}
+	}
+}
+
 // TrackRead records a variable read operation
 func (vt *VariableTracker) TrackRead(key string, value any) {
 	if vt == nil {

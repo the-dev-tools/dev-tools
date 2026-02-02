@@ -5,6 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
+	"sync"
+	"time"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
@@ -12,10 +16,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
-	"iter"
-	"sync"
-	"time"
 )
 
 type NodeForEach struct {
@@ -56,6 +56,44 @@ func (nr *NodeForEach) IsLoopCoordinator() bool {
 	return true
 }
 
+// GetRequiredVariables implements node.VariableIntrospector.
+// It extracts variable references from the iteration path and break condition expression.
+func (nr *NodeForEach) GetRequiredVariables() []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	// Extract from iteration path expression
+	for _, ident := range expression.ExtractExprIdentifiers(nr.IterPath) {
+		if _, exists := seen[ident]; !exists {
+			seen[ident] = struct{}{}
+			result = append(result, ident)
+		}
+	}
+
+	// Extract from break condition expression
+	conditionExpr := nr.Condition.Comparisons.Expression
+	if conditionExpr != "" {
+		for _, ident := range expression.ExtractExprIdentifiers(conditionExpr) {
+			if _, exists := seen[ident]; !exists {
+				seen[ident] = struct{}{}
+				result = append(result, ident)
+			}
+		}
+	}
+
+	return result
+}
+
+// GetOutputVariables implements node.VariableIntrospector.
+// Returns the output paths this ForEach node produces.
+func (nr *NodeForEach) GetOutputVariables() []string {
+	return []string{
+		"item",
+		"key",
+		"totalItems",
+	}
+}
+
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
@@ -67,23 +105,14 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
-	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
-	if err != nil {
-		return node.FlowNodeResult{
-			Err: err,
-		}
-	}
-
-	exprEnv := expression.NewEnv(varMapCopy)
-
-	// Use tracking version if tracker is available
-	var result any
+	// Build unified environment with optional tracking
+	env := expression.NewUnifiedEnv(varMapCopy)
 	if req.VariableTracker != nil {
-		result, err = expression.ExpressionEvaluateAsIterWithTracking(ctx, exprEnv, normalizedExpressionIterPath, req.VariableTracker)
-	} else {
-		result, err = expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+		env = env.WithTracking(req.VariableTracker)
 	}
+
+	// Evaluate the iteration path expression (pure expr-lang, no {{ }} interpolation)
+	result, err := env.EvalIter(ctx, nr.IterPath)
 	if err != nil {
 		return node.FlowNodeResult{
 			Err: err,
@@ -91,24 +120,18 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	breakExpr := nr.Condition.Comparisons.Expression
-	normalizedExpressionBreak, err := expression.NormalizeExpression(ctx, breakExpr, varMap)
-	if err != nil {
-		return node.FlowNodeResult{
-			Err: err,
-		}
-	}
 
 	processNode := func(iterationIndex int) node.FlowNodeResult {
 		for _, nextNodeID := range loopTargets {
 			if breakExpr != "" {
-				// Use tracking version if tracker is available
-				var ok bool
-				var err error
+				// Evaluate break condition (pure expr-lang, no {{ }} interpolation)
+				// Re-create env to get fresh variable state for this iteration
+				iterVarMapCopy := node.DeepCopyVarMap(req)
+				iterEnv := expression.NewUnifiedEnv(iterVarMapCopy)
 				if req.VariableTracker != nil {
-					ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpressionBreak, req.VariableTracker)
-				} else {
-					ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
+					iterEnv = iterEnv.WithTracking(req.VariableTracker)
 				}
+				ok, err := iterEnv.EvalBool(ctx, breakExpr)
 				if err != nil {
 					return node.FlowNodeResult{
 						Err: err,
@@ -529,53 +552,33 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 	req.ReadWriteLock.RUnlock()
 
-	// Create the expression environment
-	exprEnv := expression.NewEnv(varMapCopy)
-
-	// Normalize the iteration path expression
-	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
-	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
-	if err != nil {
-		sendResult(node.FlowNodeResult{Err: err})
-		return
-	}
-
-	// Use tracking version if tracker is available
-	var result any
+	// Build unified environment with optional tracking
+	env := expression.NewUnifiedEnv(varMapCopy)
 	if req.VariableTracker != nil {
-		result, err = expression.ExpressionEvaluateAsIterWithTracking(ctx, exprEnv, normalizedExpressionIterPath, req.VariableTracker)
-	} else {
-		result, err = expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+		env = env.WithTracking(req.VariableTracker)
 	}
+
+	// Evaluate the iteration path expression (pure expr-lang, no {{ }} interpolation)
+	result, err := env.EvalIter(ctx, nr.IterPath)
 	if err != nil {
 		sendResult(node.FlowNodeResult{Err: err})
 		return
 	}
 
-	// Normalize the break condition expression
 	breakExpr := nr.Condition.Comparisons.Expression
-	var normalizedExpressionBreak string
-	if breakExpr != "" {
-		normalizedExpressionBreak, err = expression.NormalizeExpression(ctx, breakExpr, varMap)
-		if err != nil {
-			sendResult(node.FlowNodeResult{Err: err})
-			return
-		}
-	}
 
 	// Define the function to process the child node(s) within the loop
 	processNode := func(iterationIndex int) node.FlowNodeResult {
 		for _, nextNodeID := range loopTargets {
 			// Evaluate the break condition if it exists
 			if breakExpr != "" {
-				// Use tracking version if tracker is available
-				var ok bool
-				var err error
+				// Re-create env to get fresh variable state for this iteration
+				iterVarMapCopy := node.DeepCopyVarMap(req)
+				iterEnv := expression.NewUnifiedEnv(iterVarMapCopy)
 				if req.VariableTracker != nil {
-					ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpressionBreak, req.VariableTracker)
-				} else {
-					ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
+					iterEnv = iterEnv.WithTracking(req.VariableTracker)
 				}
+				ok, err := iterEnv.EvalBool(ctx, breakExpr)
 				if err != nil {
 					return node.FlowNodeResult{Err: err}
 				}

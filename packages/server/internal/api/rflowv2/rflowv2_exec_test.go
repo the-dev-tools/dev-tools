@@ -1,11 +1,14 @@
 package rflowv2
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -50,6 +53,8 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 	forEachService := sflow.NewNodeForEachService(queries)
 	ifService := sflow.NewNodeIfService(queries)
 	jsService := sflow.NewNodeJsService(queries)
+	aiProviderService := sflow.NewNodeAiProviderService(queries)
+	memoryService := sflow.NewNodeMemoryService(queries)
 	varService := senv.NewVariableService(queries, logger)
 
 	// Readers
@@ -67,11 +72,15 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		&forEachService,
 		ifService,
 		&jsService,
+		nil, // NodeAIService
+		&aiProviderService,
+		&memoryService,
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
 		logger,
+		nil, // LLMProviderFactory
 	)
 
 	svc := &FlowServiceV2RPC{
@@ -90,6 +99,8 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		nfes:         &forEachService,
 		nifs:         ifService,
 		njss:         &jsService,
+		naps:         &aiProviderService,
+		nmems:        &memoryService,
 		logger:       logger,
 		builder:      builder,
 		runningFlows: make(map[string]context.CancelFunc),
@@ -220,7 +231,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 	err := svc.fs.CreateFlow(ctx, sourceFlow)
 	require.NoError(t, err)
 
-	// Create Nodes
+	// Create Nodes with specific states to verify they're preserved in snapshot
 	node1ID := idwrap.NewNow()
 	node1 := mflow.Node{
 		ID:        node1ID,
@@ -229,6 +240,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		NodeKind:  mflow.NODE_KIND_MANUAL_START,
 		PositionX: 10,
 		PositionY: 20,
+		State:     mflow.NODE_STATE_SUCCESS, // Set state to verify it's copied
 	}
 	err = svc.ns.CreateNode(ctx, node1)
 	require.NoError(t, err)
@@ -241,6 +253,7 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 		NodeKind:  mflow.NODE_KIND_REQUEST,
 		PositionX: 100,
 		PositionY: 200,
+		State:     mflow.NODE_STATE_SUCCESS, // Set state to verify it's copied
 	}
 	err = svc.ns.CreateNode(ctx, node2)
 	require.NoError(t, err)
@@ -313,10 +326,12 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 			foundNode1 = true
 			assert.Equal(t, node1.Name, n.Name)
 			assert.Equal(t, node1.NodeKind, n.NodeKind)
+			assert.Equal(t, node1.State, n.State, "Node 1 state should be preserved in snapshot")
 		} else if n.ID == mappedNode2ID {
 			foundNode2 = true
 			assert.Equal(t, node2.Name, n.Name)
 			assert.Equal(t, node2.NodeKind, n.NodeKind)
+			assert.Equal(t, node2.State, n.State, "Node 2 state should be preserved in snapshot")
 		}
 	}
 	assert.True(t, foundNode1, "Mapped node 1 not found in version nodes")
@@ -701,4 +716,329 @@ func TestEdgesBySourceMap_LookupOptimization(t *testing.T) {
 	nonExistentNodeID := idwrap.NewNow()
 	edgesFromNonExistent := edgesBySource[nonExistentNodeID]
 	assert.Len(t, edgesFromNonExistent, 0, "Should find no edges for non-existent node")
+}
+
+func TestCreateFlowVersionSnapshot_AIProviderAndMemory(t *testing.T) {
+	svc, _, ctx, _, workspaceID := setupTestService(t)
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+	sourceFlow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "AI Provider Snapshot Test Flow",
+	}
+	err := svc.fs.CreateFlow(ctx, sourceFlow)
+	require.NoError(t, err)
+
+	// Create Manual Start Node
+	startNodeID := idwrap.NewNow()
+	startNode := mflow.Node{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
+		PositionX: 10,
+		PositionY: 20,
+	}
+	err = svc.ns.CreateNode(ctx, startNode)
+	require.NoError(t, err)
+
+	// Create AI Provider Node with specific settings
+	aiProviderNodeID := idwrap.NewNow()
+	aiProviderNode := mflow.Node{
+		ID:        aiProviderNodeID,
+		FlowID:    flowID,
+		Name:      "GPT Provider",
+		NodeKind:  mflow.NODE_KIND_AI_PROVIDER,
+		PositionX: 100,
+		PositionY: 200,
+	}
+	err = svc.ns.CreateNode(ctx, aiProviderNode)
+	require.NoError(t, err)
+
+	// Create AI Provider config with specific values
+	credentialID := idwrap.NewNow()
+	temperature := float32(0.7)
+	maxTokens := int32(4096)
+	aiProviderConfig := mflow.NodeAiProvider{
+		FlowNodeID:   aiProviderNodeID,
+		CredentialID: &credentialID,
+		Model:        mflow.AiModelGpt52,
+		Temperature:  &temperature,
+		MaxTokens:    &maxTokens,
+	}
+	err = svc.naps.CreateNodeAiProvider(ctx, aiProviderConfig)
+	require.NoError(t, err)
+
+	// Create AI Memory Node
+	memoryNodeID := idwrap.NewNow()
+	memoryNode := mflow.Node{
+		ID:        memoryNodeID,
+		FlowID:    flowID,
+		Name:      "Window Buffer Memory",
+		NodeKind:  mflow.NODE_KIND_AI_MEMORY,
+		PositionX: 100,
+		PositionY: 300,
+	}
+	err = svc.ns.CreateNode(ctx, memoryNode)
+	require.NoError(t, err)
+
+	// Create Memory config with specific values
+	memoryConfig := mflow.NodeMemory{
+		FlowNodeID: memoryNodeID,
+		MemoryType: mflow.AiMemoryTypeWindowBuffer,
+		WindowSize: 25,
+	}
+	err = svc.nmems.CreateNodeMemory(ctx, memoryConfig)
+	require.NoError(t, err)
+
+	// Prepare inputs for createFlowVersionSnapshot
+	sourceNodes := []mflow.Node{startNode, aiProviderNode, memoryNode}
+	sourceEdges := []mflow.Edge{}
+	sourceVars := []mflow.FlowVariable{}
+
+	// EXECUTE
+	versionFlow, nodeMapping, err := svc.createFlowVersionSnapshot(ctx, sourceFlow, sourceNodes, sourceEdges, sourceVars)
+
+	// ASSERT
+	require.NoError(t, err)
+	assert.NotEqual(t, flowID, versionFlow.ID, "Version flow ID should be different")
+	assert.Equal(t, *versionFlow.VersionParentID, flowID, "Version parent ID should match original flow ID")
+
+	// Verify nodes were created
+	versionNodes, err := svc.ns.GetNodesByFlowID(ctx, versionFlow.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(versionNodes), "Should have 3 version nodes")
+
+	// Check node mapping
+	assert.Equal(t, 3, len(nodeMapping))
+	assert.Contains(t, nodeMapping, startNodeID.String())
+	assert.Contains(t, nodeMapping, aiProviderNodeID.String())
+	assert.Contains(t, nodeMapping, memoryNodeID.String())
+
+	// Get mapped node IDs
+	mappedAiProviderID := nodeMapping[aiProviderNodeID.String()]
+	mappedMemoryID := nodeMapping[memoryNodeID.String()]
+
+	// Verify AI Provider config was copied
+	versionAiProvider, err := svc.naps.GetNodeAiProvider(ctx, mappedAiProviderID)
+	require.NoError(t, err, "AI Provider config should exist for version node")
+	assert.Equal(t, mappedAiProviderID, versionAiProvider.FlowNodeID, "FlowNodeID should be the new mapped ID")
+	assert.Equal(t, credentialID, *versionAiProvider.CredentialID, "CredentialID should be copied")
+	assert.Equal(t, mflow.AiModelGpt52, versionAiProvider.Model, "Model should be copied")
+	assert.Equal(t, float32(0.7), *versionAiProvider.Temperature, "Temperature should be copied")
+	assert.Equal(t, int32(4096), *versionAiProvider.MaxTokens, "MaxTokens should be copied")
+
+	// Verify Memory config was copied
+	versionMemory, err := svc.nmems.GetNodeMemory(ctx, mappedMemoryID)
+	require.NoError(t, err, "Memory config should exist for version node")
+	assert.Equal(t, mappedMemoryID, versionMemory.FlowNodeID, "FlowNodeID should be the new mapped ID")
+	assert.Equal(t, mflow.AiMemoryTypeWindowBuffer, versionMemory.MemoryType, "MemoryType should be copied")
+	assert.Equal(t, int32(25), versionMemory.WindowSize, "WindowSize should be copied")
+}
+
+// TestVersionFlowExecutionMapping_RPC tests that NodeExecutionCollection correctly
+// maps executions from parent node IDs to version node IDs using node_id_mapping.
+// This is an RPC-level test that simulates the full flow:
+// 1. Create parent flow with AI Provider node
+// 2. Create version flow (snapshot) with node_id_mapping
+// 3. Create execution records under parent node IDs (as happens during flow run)
+// 4. Query NodeExecutionCollection
+// 5. Verify executions are returned with version node IDs
+func TestVersionFlowExecutionMapping_RPC(t *testing.T) {
+	svc, queries, ctx, userID, workspaceID := setupTestService(t)
+
+	// Create parent flow
+	parentFlowID := idwrap.NewNow()
+	parentFlow := mflow.Flow{
+		ID:          parentFlowID,
+		WorkspaceID: workspaceID,
+		Name:        "Parent Flow with AI",
+	}
+	err := svc.fs.CreateFlow(ctx, parentFlow)
+	require.NoError(t, err)
+
+	// Create parent nodes: Start and AI Provider
+	parentStartNodeID := idwrap.NewNow()
+	parentStartNode := mflow.Node{
+		ID:        parentStartNodeID,
+		FlowID:    parentFlowID,
+		Name:      "Start",
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
+		PositionX: 0,
+		PositionY: 0,
+	}
+	err = svc.ns.CreateNode(ctx, parentStartNode)
+	require.NoError(t, err)
+
+	parentAIProviderNodeID := idwrap.NewNow()
+	parentAIProviderNode := mflow.Node{
+		ID:        parentAIProviderNodeID,
+		FlowID:    parentFlowID,
+		Name:      "AI Provider",
+		NodeKind:  mflow.NODE_KIND_AI_PROVIDER,
+		PositionX: 100,
+		PositionY: 0,
+	}
+	err = svc.ns.CreateNode(ctx, parentAIProviderNode)
+	require.NoError(t, err)
+
+	// Create AI Provider config
+	credentialID := idwrap.NewNow()
+	aiProviderConfig := mflow.NodeAiProvider{
+		FlowNodeID:   parentAIProviderNodeID,
+		CredentialID: &credentialID,
+		Model:        mflow.AiModelGpt52,
+	}
+	err = svc.naps.CreateNodeAiProvider(ctx, aiProviderConfig)
+	require.NoError(t, err)
+
+	// Create version flow (snapshot) with node_id_mapping
+	versionFlowID := idwrap.NewNow()
+	versionStartNodeID := idwrap.NewNow()
+	versionAIProviderNodeID := idwrap.NewNow()
+
+	// node_id_mapping format: parentNodeID -> versionNodeID
+	nodeIDMapping := map[string]string{
+		parentStartNodeID.String():      versionStartNodeID.String(),
+		parentAIProviderNodeID.String(): versionAIProviderNodeID.String(),
+	}
+	mappingJSON, err := json.Marshal(nodeIDMapping)
+	require.NoError(t, err)
+
+	versionFlow := mflow.Flow{
+		ID:              versionFlowID,
+		WorkspaceID:    workspaceID,
+		Name:            "Parent Flow with AI",
+		VersionParentID: &parentFlowID,
+		NodeIDMapping:   mappingJSON,
+	}
+	err = svc.fs.CreateFlow(ctx, versionFlow)
+	require.NoError(t, err)
+
+	// Create version nodes
+	versionStartNode := mflow.Node{
+		ID:        versionStartNodeID,
+		FlowID:    versionFlowID,
+		Name:      "Start",
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
+		PositionX: 0,
+		PositionY: 0,
+	}
+	err = svc.ns.CreateNode(ctx, versionStartNode)
+	require.NoError(t, err)
+
+	versionAIProviderNode := mflow.Node{
+		ID:        versionAIProviderNodeID,
+		FlowID:    versionFlowID,
+		Name:      "AI Provider",
+		NodeKind:  mflow.NODE_KIND_AI_PROVIDER,
+		PositionX: 100,
+		PositionY: 0,
+	}
+	err = svc.ns.CreateNode(ctx, versionAIProviderNode)
+	require.NoError(t, err)
+
+	// Create AI Provider config for version node
+	versionAIProviderConfig := mflow.NodeAiProvider{
+		FlowNodeID:   versionAIProviderNodeID,
+		CredentialID: &credentialID,
+		Model:        mflow.AiModelGpt52,
+	}
+	err = svc.naps.CreateNodeAiProvider(ctx, versionAIProviderConfig)
+	require.NoError(t, err)
+
+	// Create execution records under PARENT node IDs (as happens during flow run)
+	completedAt := time.Now().Unix()
+
+	// Execution for Start node (under parent ID)
+	startExecID := idwrap.NewNow()
+	startExec := mflow.NodeExecution{
+		ID:          startExecID,
+		NodeID:      parentStartNodeID, // Stored under parent node ID!
+		Name:        "Start - execution",
+		State:       int8(flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS),
+		CompletedAt: &completedAt,
+	}
+	err = svc.nes.CreateNodeExecution(ctx, startExec)
+	require.NoError(t, err)
+
+	// Execution for AI Provider node (under parent ID)
+	aiProviderExecID := idwrap.NewNow()
+	aiProviderExec := mflow.NodeExecution{
+		ID:          aiProviderExecID,
+		NodeID:      parentAIProviderNodeID, // Stored under parent node ID!
+		Name:        "AI Provider - execution",
+		State:       int8(flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS),
+		CompletedAt: &completedAt,
+	}
+	err = svc.nes.CreateNodeExecution(ctx, aiProviderExec)
+	require.NoError(t, err)
+
+	// Verify executions are stored under parent node IDs
+	parentStartExecs, err := svc.nes.ListNodeExecutionsByNodeID(ctx, parentStartNodeID)
+	require.NoError(t, err)
+	require.Len(t, parentStartExecs, 1, "Execution should be stored under parent Start node ID")
+
+	parentAIProviderExecs, err := svc.nes.ListNodeExecutionsByNodeID(ctx, parentAIProviderNodeID)
+	require.NoError(t, err)
+	require.Len(t, parentAIProviderExecs, 1, "Execution should be stored under parent AI Provider node ID")
+
+	// Query NodeExecutionCollection via RPC
+	req := connect.NewRequest(&emptypb.Empty{})
+	resp, err := svc.NodeExecutionCollection(ctx, req)
+	require.NoError(t, err)
+
+	// Find executions for VERSION nodes (should be mapped from parent)
+	var versionStartExecs []*flowv1.NodeExecution
+	var versionAIProviderExecs []*flowv1.NodeExecution
+
+	for _, exec := range resp.Msg.Items {
+		if bytes.Equal(exec.NodeId, versionStartNodeID.Bytes()) {
+			versionStartExecs = append(versionStartExecs, exec)
+		}
+		if bytes.Equal(exec.NodeId, versionAIProviderNodeID.Bytes()) {
+			versionAIProviderExecs = append(versionAIProviderExecs, exec)
+		}
+	}
+
+	// Verify executions are found for version nodes via mapping
+	require.NotEmpty(t, versionStartExecs, "Version Start node should have executions via mapping")
+	require.NotEmpty(t, versionAIProviderExecs, "Version AI Provider node should have executions via mapping")
+
+	// Verify execution details
+	assert.Equal(t, startExecID.Bytes(), versionStartExecs[0].NodeExecutionId, "Execution ID should match")
+	assert.Equal(t, versionStartNodeID.Bytes(), versionStartExecs[0].NodeId, "NodeID should be remapped to version node")
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, versionStartExecs[0].State)
+
+	assert.Equal(t, aiProviderExecID.Bytes(), versionAIProviderExecs[0].NodeExecutionId, "Execution ID should match")
+	assert.Equal(t, versionAIProviderNodeID.Bytes(), versionAIProviderExecs[0].NodeId, "NodeID should be remapped to version node")
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, versionAIProviderExecs[0].State)
+
+	t.Logf("✅ Version Start node %s has %d execution(s) via mapping from parent %s",
+		versionStartNodeID.String(), len(versionStartExecs), parentStartNodeID.String())
+	t.Logf("✅ Version AI Provider node %s has %d execution(s) via mapping from parent %s",
+		versionAIProviderNodeID.String(), len(versionAIProviderExecs), parentAIProviderNodeID.String())
+
+	// Also verify parent nodes still have their executions
+	var parentStartExecsInResp []*flowv1.NodeExecution
+	var parentAIProviderExecsInResp []*flowv1.NodeExecution
+
+	for _, exec := range resp.Msg.Items {
+		if bytes.Equal(exec.NodeId, parentStartNodeID.Bytes()) {
+			parentStartExecsInResp = append(parentStartExecsInResp, exec)
+		}
+		if bytes.Equal(exec.NodeId, parentAIProviderNodeID.Bytes()) {
+			parentAIProviderExecsInResp = append(parentAIProviderExecsInResp, exec)
+		}
+	}
+
+	require.NotEmpty(t, parentStartExecsInResp, "Parent Start node should also have executions")
+	require.NotEmpty(t, parentAIProviderExecsInResp, "Parent AI Provider node should also have executions")
+
+	t.Logf("✅ Parent nodes also have executions (total %d items in response)", len(resp.Msg.Items))
+
+	_ = queries // Suppress unused warning
+	_ = userID  // Suppress unused warning
 }
