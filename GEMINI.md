@@ -55,6 +55,34 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Fix:** `task fix` (runs Prettier and Syncpack).
 - **Go Benchmarks:** Use `task benchmark:run` to run, `task benchmark:baseline` to save baseline, and `task benchmark:compare` to compare.
 
+### Nx Version Plans
+Version plans are file-based versioning for independent releases. They allow contributors to declare version bumps alongside their changes without modifying `package.json` directly.
+
+**How it works:**
+1. When making a change that warrants a release, create a version plan file
+2. The file is stored in `.nx/version-plans/` as a markdown file
+3. During release, Nx reads all pending version plans and applies the bumps
+
+**Creating a version plan:**
+```bash
+task version-plan project=desktop   # Interactive prompt for bump type + message
+```
+
+**Version plan file format:**
+```markdown
+---
+desktop: patch    # or minor, major
+---
+
+Description of the change (used in changelog)
+```
+
+**Available projects:** `desktop`, `cli`, `api-recorder-extension`
+
+**Configuration:** Defined in `nx.json` under `release.versionPlans`. Projects use independent versioning (`projectsRelationship: independent`).
+
+**Reference:** [Nx Version Plans Documentation](https://nx.dev/recipes/nx-release/file-based-versioning-version-plans)
+
 ## Implementation Guidelines
 
 ### CLI (Go)
