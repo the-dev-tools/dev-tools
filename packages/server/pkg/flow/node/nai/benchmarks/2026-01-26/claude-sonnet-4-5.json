@@ -2,11 +2,7 @@
   "timestamp": "2026-01-26",
   "provider": "anthropic",
   "model": "claude-sonnet-4-5-20250929",
-  "scenarios": [
-    "Simple",
-    "Medium",
-    "Complex"
-  ],
+  "scenarios": ["Simple", "Medium", "Complex"],
   "runs_per_test": 2,
   "weights": {
     "SuccessRate": 0.4,

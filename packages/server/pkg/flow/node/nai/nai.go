@@ -173,7 +173,7 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		Provider: providerNode.GetProviderString(),
 	}
 
-	for i := 0; i < maxIters; i++ {
+	for i := range maxIters {
 		// Generate unique execution ID for this iteration
 		executionID := idwrap.NewMonotonic()
 

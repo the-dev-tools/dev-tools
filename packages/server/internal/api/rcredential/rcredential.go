@@ -730,17 +730,18 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 	for _, data := range validatedItems {
 		// Check if record already exists (auto-created by CredentialInsert)
 		_, existErr := s.credReader.GetCredentialOpenAI(ctx, data.credID)
-		if existErr == nil {
+		switch {
+		case existErr == nil:
 			// Record exists, update it instead
 			if err := csTx.UpdateCredentialOpenAI(ctx, data.openai); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		} else if errors.Is(existErr, sql.ErrNoRows) {
+		case errors.Is(existErr, sql.ErrNoRows):
 			// Record doesn't exist, create it
 			if err := csTx.CreateCredentialOpenAI(ctx, data.openai); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		} else {
+		default:
 			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 	}
@@ -1102,17 +1103,18 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 	for _, data := range validatedItems {
 		// Check if record already exists (auto-created by CredentialInsert)
 		_, existErr := s.credReader.GetCredentialGemini(ctx, data.credID)
-		if existErr == nil {
+		switch {
+		case existErr == nil:
 			// Record exists, update it instead
 			if err := csTx.UpdateCredentialGemini(ctx, data.gemini); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		} else if errors.Is(existErr, sql.ErrNoRows) {
+		case errors.Is(existErr, sql.ErrNoRows):
 			// Record doesn't exist, create it
 			if err := csTx.CreateCredentialGemini(ctx, data.gemini); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		} else {
+		default:
 			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 	}
@@ -1467,17 +1469,18 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 	for _, data := range validatedItems {
 		// Check if record already exists (auto-created by CredentialInsert)
 		_, existErr := s.credReader.GetCredentialAnthropic(ctx, data.credID)
-		if existErr == nil {
+		switch {
+		case existErr == nil:
 			// Record exists, update it instead
 			if err := csTx.UpdateCredentialAnthropic(ctx, data.anthropic); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		} else if errors.Is(existErr, sql.ErrNoRows) {
+		case errors.Is(existErr, sql.ErrNoRows):
 			// Record doesn't exist, create it
 			if err := csTx.CreateCredentialAnthropic(ctx, data.anthropic); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		} else {
+		default:
 			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 	}

@@ -44,7 +44,7 @@ func (w *NodeWriter) CreateNodeWithState(ctx context.Context, n mflow.Node) erro
 		NodeKind:  node.NodeKind,
 		PositionX: node.PositionX,
 		PositionY: node.PositionY,
-		State:     int8(n.State), //nolint:gosec // G115: state values are small
+		State:     n.State,
 	})
 }
 

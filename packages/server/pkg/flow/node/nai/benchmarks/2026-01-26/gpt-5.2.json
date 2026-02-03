@@ -2,9 +2,7 @@
   "timestamp": "2026-01-26",
   "provider": "openai",
   "model": "gpt-5.2",
-  "scenarios": [
-    "Simple"
-  ],
+  "scenarios": ["Simple"],
   "runs_per_test": 1,
   "weights": {
     "SuccessRate": 0.4,
