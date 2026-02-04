@@ -116,6 +116,10 @@ type nodeInfo struct {
 	dependsOn  []string
 	httpReq    *mhttp.HTTP
 	associated *HTTPAssociatedData
+	// AI-related references for edge creation
+	aiProvider string   // Reference to ai_provider step name
+	aiMemory   string   // Reference to ai_memory step name
+	aiTools    []string // List of step names AI can invoke as tools
 }
 
 // HTTPAssociatedData holds HTTP-related data
@@ -197,6 +201,29 @@ func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*node
 			}
 		}
 
+		// AI node edges: provider, memory, and tools
+		if node.aiProvider != "" {
+			target, ok := nodeInfoMap[node.aiProvider]
+			if !ok {
+				return NewYamlFlowErrorV2(fmt.Sprintf("ai 'provider' target '%s' not found", node.aiProvider), "provider", node.aiProvider)
+			}
+			result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleAiProvider))
+		}
+		if node.aiMemory != "" {
+			target, ok := nodeInfoMap[node.aiMemory]
+			if !ok {
+				return NewYamlFlowErrorV2(fmt.Sprintf("ai 'memory' target '%s' not found", node.aiMemory), "memory", node.aiMemory)
+			}
+			result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleAiMemory))
+		}
+		for _, toolName := range node.aiTools {
+			target, ok := nodeInfoMap[toolName]
+			if !ok {
+				return NewYamlFlowErrorV2(fmt.Sprintf("ai 'tools' target '%s' not found", toolName), "tools", toolName)
+			}
+			result.FlowEdges = append(result.FlowEdges, createEdge(node.id, target.id, flowID, mflow.HandleAiTools))
+		}
+
 		// Only auto-connect nodes to start if there's no explicit start node in the YAML
 		// When an explicit start node exists, disconnected nodes should remain disconnected (won't run)
 		if len(node.dependsOn) == 0 {
@@ -240,6 +267,9 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 	result.FlowForEachNodes = append(result.FlowForEachNodes, flowData.FlowForEachNodes...)
 	result.FlowJSNodes = append(result.FlowJSNodes, flowData.FlowJSNodes...)
 	result.FlowRequestNodes = append(result.FlowRequestNodes, flowData.FlowRequestNodes...)
+	result.FlowAINodes = append(result.FlowAINodes, flowData.FlowAINodes...)
+	result.FlowAIProviderNodes = append(result.FlowAIProviderNodes, flowData.FlowAIProviderNodes...)
+	result.FlowAIMemoryNodes = append(result.FlowAIMemoryNodes, flowData.FlowAIMemoryNodes...)
 }
 
 func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssociatedData) {

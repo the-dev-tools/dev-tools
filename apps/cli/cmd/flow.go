@@ -6,15 +6,18 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/runner"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
@@ -113,18 +116,10 @@ var yamlflowRunCmd = &cobra.Command{
 			}
 		}
 
-		// Parse workflow YAML using v2 packages
 		// Create a workspace ID for the import
 		workspaceID := idwrap.NewNow()
 
-		// Convert YAML using v2 converter
-		resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML(fileData, yamlflowsimplev2.ConvertOptionsV2{
-			WorkspaceID: workspaceID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to convert YAML using v2: %w", err)
-		}
-
+		// Initialize database and services first (needed for credential creation)
 		db, _, err := sqlitemem.NewSQLiteMem(ctx)
 		if err != nil {
 			return err
@@ -133,6 +128,27 @@ var yamlflowRunCmd = &cobra.Command{
 		services, err := common.CreateServices(ctx, db, logger)
 		if err != nil {
 			return err
+		}
+
+		// Parse YAML to extract credentials section first
+		var yamlData yamlflowsimplev2.YamlFlowFormatV2
+		if err := yaml.Unmarshal(fileData, &yamlData); err != nil {
+			return fmt.Errorf("failed to parse YAML: %w", err)
+		}
+
+		// Process credentials and build credential map
+		credentialMap, err := processYAMLCredentials(ctx, yamlData.Credentials, workspaceID, services)
+		if err != nil {
+			return fmt.Errorf("failed to process credentials: %w", err)
+		}
+
+		// Convert YAML using v2 converter with credential map
+		resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML(fileData, yamlflowsimplev2.ConvertOptionsV2{
+			WorkspaceID:   workspaceID,
+			CredentialMap: credentialMap,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to convert YAML using v2: %w", err)
 		}
 
 		resolver := resolver.NewStandardResolver(
@@ -307,4 +323,145 @@ func checkFlowsHaveJSNodes(ctx context.Context, flows []mflow.Flow, c *common.Se
 		}
 	}
 	return false, nil
+}
+
+// processYAMLCredentials processes credentials from YAML, expands env vars using the
+// expression system ({{ #env:VAR_NAME }} syntax), creates them in DB,
+// and returns a map of credential names to their IDs.
+func processYAMLCredentials(ctx context.Context, credentials []yamlflowsimplev2.YamlCredentialV2, workspaceID idwrap.IDWrap, services *common.Services) (map[string]idwrap.IDWrap, error) {
+	credentialMap := make(map[string]idwrap.IDWrap)
+
+	if len(credentials) == 0 {
+		return credentialMap, nil
+	}
+
+	// Create expression environment for variable interpolation
+	env := expression.NewUnifiedEnv(nil)
+
+	for _, yamlCred := range credentials {
+		credID := idwrap.NewNow()
+
+		// Determine credential kind from type
+		var kind mcredential.CredentialKind
+		switch strings.ToLower(yamlCred.Type) {
+		case yamlflowsimplev2.CredentialTypeOpenAI:
+			kind = mcredential.CREDENTIAL_KIND_OPENAI
+		case yamlflowsimplev2.CredentialTypeAnthropic:
+			kind = mcredential.CREDENTIAL_KIND_ANTHROPIC
+		case yamlflowsimplev2.CredentialTypeGemini, yamlflowsimplev2.CredentialTypeGoogle:
+			kind = mcredential.CREDENTIAL_KIND_GEMINI
+		default:
+			return nil, fmt.Errorf("unknown credential type: %s", yamlCred.Type)
+		}
+
+		// Create base credential
+		cred := &mcredential.Credential{
+			ID:          credID,
+			WorkspaceID: workspaceID,
+			Name:        yamlCred.Name,
+			Kind:        kind,
+		}
+
+		if err := services.Credential.CreateCredential(ctx, cred); err != nil {
+			return nil, fmt.Errorf("failed to create credential %s: %w", yamlCred.Name, err)
+		}
+
+		// Create provider-specific credential with expanded env vars
+		switch kind {
+		case mcredential.CREDENTIAL_KIND_OPENAI:
+			token, err := interpolateValue(env, yamlCred.Token)
+			if err != nil {
+				return nil, fmt.Errorf("openai credential %s: failed to resolve token: %w", yamlCred.Name, err)
+			}
+			if token == "" {
+				return nil, fmt.Errorf("openai credential %s: token is required (use {{ #env:VAR_NAME }} syntax)", yamlCred.Name)
+			}
+			var baseURL *string
+			if yamlCred.BaseURL != "" {
+				expanded, err := interpolateValue(env, yamlCred.BaseURL)
+				if err != nil {
+					return nil, fmt.Errorf("openai credential %s: failed to resolve base_url: %w", yamlCred.Name, err)
+				}
+				baseURL = &expanded
+			}
+			openaiCred := &mcredential.CredentialOpenAI{
+				CredentialID: credID,
+				Token:        token,
+				BaseUrl:      baseURL,
+			}
+			if err := services.Credential.CreateCredentialOpenAI(ctx, openaiCred); err != nil {
+				return nil, fmt.Errorf("failed to create openai credential %s: %w", yamlCred.Name, err)
+			}
+
+		case mcredential.CREDENTIAL_KIND_ANTHROPIC:
+			apiKey, err := interpolateValue(env, yamlCred.APIKey)
+			if err != nil {
+				return nil, fmt.Errorf("anthropic credential %s: failed to resolve api_key: %w", yamlCred.Name, err)
+			}
+			if apiKey == "" {
+				return nil, fmt.Errorf("anthropic credential %s: api_key is required (use {{ #env:VAR_NAME }} syntax)", yamlCred.Name)
+			}
+			var baseURL *string
+			if yamlCred.BaseURL != "" {
+				expanded, err := interpolateValue(env, yamlCred.BaseURL)
+				if err != nil {
+					return nil, fmt.Errorf("anthropic credential %s: failed to resolve base_url: %w", yamlCred.Name, err)
+				}
+				baseURL = &expanded
+			}
+			anthropicCred := &mcredential.CredentialAnthropic{
+				CredentialID: credID,
+				ApiKey:       apiKey,
+				BaseUrl:      baseURL,
+			}
+			if err := services.Credential.CreateCredentialAnthropic(ctx, anthropicCred); err != nil {
+				return nil, fmt.Errorf("failed to create anthropic credential %s: %w", yamlCred.Name, err)
+			}
+
+		case mcredential.CREDENTIAL_KIND_GEMINI:
+			apiKey, err := interpolateValue(env, yamlCred.APIKey)
+			if err != nil {
+				return nil, fmt.Errorf("gemini credential %s: failed to resolve api_key: %w", yamlCred.Name, err)
+			}
+			if apiKey == "" {
+				return nil, fmt.Errorf("gemini credential %s: api_key is required (use {{ #env:VAR_NAME }} syntax)", yamlCred.Name)
+			}
+			var baseURL *string
+			if yamlCred.BaseURL != "" {
+				expanded, err := interpolateValue(env, yamlCred.BaseURL)
+				if err != nil {
+					return nil, fmt.Errorf("gemini credential %s: failed to resolve base_url: %w", yamlCred.Name, err)
+				}
+				baseURL = &expanded
+			}
+			geminiCred := &mcredential.CredentialGemini{
+				CredentialID: credID,
+				ApiKey:       apiKey,
+				BaseUrl:      baseURL,
+			}
+			if err := services.Credential.CreateCredentialGemini(ctx, geminiCred); err != nil {
+				return nil, fmt.Errorf("failed to create gemini credential %s: %w", yamlCred.Name, err)
+			}
+		}
+
+		credentialMap[yamlCred.Name] = credID
+	}
+
+	return credentialMap, nil
+}
+
+// interpolateValue uses the expression system to resolve {{ }} patterns.
+// Supports {{ #env:VAR_NAME }} for environment variables.
+func interpolateValue(env *expression.UnifiedEnv, value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+
+	// If no {{ }} pattern, return as-is
+	if !expression.HasVars(value) {
+		return value, nil
+	}
+
+	// Use expression system to interpolate
+	return env.Interpolate(value)
 }

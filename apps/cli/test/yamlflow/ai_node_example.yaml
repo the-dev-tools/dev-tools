@@ -1,0 +1,197 @@
+workspace_name: AI Node Example
+# This demonstrates AI node usage in flows
+# Note: AI nodes require configured credentials (OpenAI, Anthropic, or Google) to execute
+#
+# Environment variables used:
+#   OPENAI_API_KEY - Your OpenAI API key
+#   ANTHROPIC_API_KEY - Your Anthropic API key (optional)
+#   GEMINI_API_KEY - Your Google Gemini API key (optional)
+
+# Credentials section - define LLM provider credentials
+# Use {{ #env:VAR_NAME }} syntax to reference environment variables
+credentials:
+  - name: my-openai
+    type: openai
+    token: "{{ #env:OPENAI_API_KEY }}"
+    # base_url: "{{ #env:OPENAI_BASE_URL }}"  # Optional custom endpoint
+
+  # Uncomment to use Anthropic
+  # - name: my-anthropic
+  #   type: anthropic
+  #   api_key: "{{ #env:ANTHROPIC_API_KEY }}"
+
+  # Uncomment to use Gemini
+  # - name: my-gemini
+  #   type: gemini
+  #   api_key: "{{ #env:GEMINI_API_KEY }}"
+
+run:
+  - flow: SimpleAIFlow
+
+requests:
+  - name: GetUserData
+    method: GET
+    url: https://jsonplaceholder.typicode.com/users/1
+    headers:
+      Accept: application/json
+
+flows:
+  # Simple AI flow demonstrating the basic pattern
+  - name: SimpleAIFlow
+    steps:
+      # Step 1: Define the AI Provider (LLM executor with credentials)
+      - ai_provider:
+          name: GPT4Provider
+          credential: my-openai
+          model: gpt-4o
+          temperature: 0.7
+          max_tokens: 1024
+
+      # Step 2: Define AI Memory (optional - for conversation history)
+      - ai_memory:
+          name: ConversationMemory
+          type: window_buffer
+          window_size: 10
+
+      # Step 3: Fetch some data
+      - request:
+          name: FetchUser
+          use_request: GetUserData
+
+      # Step 4: AI Agent - orchestrates the LLM calls
+      - ai:
+          name: AnalyzeUser
+          prompt: |
+            Analyze this user profile and provide insights:
+
+            {{ FetchUser.response.body }}
+
+            Please provide:
+            1. A brief summary of the user
+            2. Key observations about their contact info
+            3. Any interesting patterns you notice
+          max_iterations: 3
+          provider: GPT4Provider
+          memory: ConversationMemory
+          depends_on: FetchUser
+
+      # Step 5: Process the AI output
+      - js:
+          name: ProcessResult
+          code: |
+            export default function(context) {
+              const aiResult = context.AnalyzeUser;
+              const user = context.FetchUser?.response?.body;
+
+              return {
+                userName: user?.name,
+                analysis: aiResult?.text,
+                metrics: aiResult?.total_metrics,
+                timestamp: new Date().toISOString()
+              };
+            }
+          depends_on: AnalyzeUser
+
+  # AI flow with tools - AI can call other steps
+  - name: AIWithToolsFlow
+    steps:
+      - ai_provider:
+          name: ToolsProvider
+          credential: my-openai
+          model: gpt-4o
+          temperature: 0.5
+
+      # Define a request that AI can use as a tool
+      - request:
+          name: SearchUsers
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users
+          headers:
+            Accept: application/json
+
+      - request:
+          name: GetUserPosts
+          method: GET
+          url: https://jsonplaceholder.typicode.com/posts
+          query_params:
+            userId: "1"
+
+      # AI Agent with tools
+      - ai:
+          name: ResearchAgent
+          prompt: |
+            You are a research assistant. Use the available tools to:
+            1. Search for users
+            2. Get posts for a specific user
+            3. Summarize your findings
+
+            Start by searching for users, then get posts for the first user.
+          max_iterations: 5
+          provider: ToolsProvider
+          tools:
+            - SearchUsers
+            - GetUserPosts
+
+      - js:
+          name: FinalReport
+          code: |
+            export default function(context) {
+              return {
+                agentOutput: context.ResearchAgent?.text,
+                toolsUsed: context.ResearchAgent?.total_metrics?.tool_calls || 0,
+                llmCalls: context.ResearchAgent?.total_metrics?.llm_calls || 0
+              };
+            }
+          depends_on: ResearchAgent
+
+  # Conditional AI flow
+  - name: ConditionalAIFlow
+    steps:
+      - ai_provider:
+          name: ConditionalProvider
+          credential: my-openai
+          model: gpt-4o
+
+      - request:
+          name: GetTodo
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/1
+
+      - if:
+          name: CheckCompleted
+          condition: GetTodo.response.body.completed == false
+          then: GenerateSuggestions
+          else: SkipAI
+          depends_on: GetTodo
+
+      - ai:
+          name: GenerateSuggestions
+          prompt: |
+            This todo is incomplete:
+            Title: {{ GetTodo.response.body.title }}
+
+            Suggest 3 ways to complete this task efficiently.
+          max_iterations: 2
+          provider: ConditionalProvider
+
+      - js:
+          name: SkipAI
+          code: |
+            export default function(context) {
+              return {
+                message: "Todo already completed",
+                title: context.GetTodo?.response?.body?.title
+              };
+            }
+
+      - js:
+          name: Summary
+          code: |
+            export default function(context) {
+              return {
+                suggestions: context.GenerateSuggestions?.text,
+                skipped: context.SkipAI,
+                completed: new Date().toISOString()
+              };
+            }
+          depends_on: CheckCompleted

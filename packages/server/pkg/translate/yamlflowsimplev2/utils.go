@@ -15,11 +15,37 @@ import (
 )
 
 const (
+	// Body type constants
 	BodyTypeJSON       = "json"
 	BodyTypeUrlEncoded = "urlencoded"
 	BodyTypeFormData   = "form-data"
 	BodyTypeRaw        = "raw"
-	DefaultFileName    = "untitled"
+
+	// Credential type constants (used in YAML credentials section)
+	CredentialTypeOpenAI    = "openai"
+	CredentialTypeAnthropic = "anthropic"
+	CredentialTypeGemini    = "gemini"
+	CredentialTypeGoogle    = "google" // Alias for gemini
+
+	// Memory type constants (used in ai_memory steps)
+	MemoryTypeWindowBuffer = "window_buffer"
+	MemoryTypeSummary      = "summary"
+
+	// Default name constants (used in exporter/importer)
+	DefaultFileName       = "untitled"
+	DefaultWorkspaceName  = "Exported Workspace"
+	DefaultRequestName    = "Request"
+	DefaultFlowName       = "Flow"
+	DefaultCollectionName = "Imported Collection"
+
+	// Dependency handler suffixes (used in depends_on field)
+	DependsSuffixThen = ".then"
+	DependsSuffixElse = ".else"
+	DependsSuffixLoop = ".loop"
+
+	// Environment variable template patterns (used in credential export)
+	EnvVarTemplateToken  = "{{ #env:%s_TOKEN }}"
+	EnvVarTemplateAPIKey = "{{ #env:%s_API_KEY }}"
 )
 
 // Helper functions for additional utilities and transformations

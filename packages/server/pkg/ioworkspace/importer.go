@@ -31,9 +31,11 @@ type ImportResult struct {
 	FlowConditionNodesCreated int
 	FlowForNodesCreated       int
 	FlowForEachNodesCreated   int
-	FlowJSNodesCreated        int
-	FlowAINodesCreated        int
-	EnvironmentsCreated       int
+	FlowJSNodesCreated          int
+	FlowAINodesCreated          int
+	FlowAIProviderNodesCreated  int
+	FlowAIMemoryNodesCreated    int
+	EnvironmentsCreated         int
 	EnvironmentVarsCreated    int
 
 	// ID mappings for reference (old ID -> new ID)
@@ -81,6 +83,8 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	nodeForEachService := sflow.NewNodeForEachService(s.queries).TX(tx)
 	nodeJSService := sflow.NewNodeJsService(s.queries).TX(tx)
 	nodeAIService := sflow.NewNodeAIService(s.queries).TX(tx)
+	nodeAIProviderService := sflow.NewNodeAiProviderService(s.queries).TX(tx)
+	nodeMemoryService := sflow.NewNodeMemoryService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
 	envService := senv.NewEnvironmentService(s.queries, nil).TX(tx)
@@ -213,6 +217,18 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		if len(bundle.FlowAINodes) > 0 {
 			if err := s.importFlowAINodes(ctx, nodeAIService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow AI nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowAIProviderNodes) > 0 {
+			if err := s.importFlowAIProviderNodes(ctx, nodeAIProviderService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow AI provider nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowAIMemoryNodes) > 0 {
+			if err := s.importFlowAIMemoryNodes(ctx, nodeMemoryService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow AI memory nodes: %w", err)
 			}
 		}
 	}

@@ -16,11 +16,21 @@ type YamlFlowFormatV2 struct {
 	WorkspaceName     string                      `yaml:"workspace_name"`
 	ActiveEnvironment string                      `yaml:"active_environment,omitempty"`
 	GlobalEnvironment string                      `yaml:"global_environment,omitempty"`
+	Credentials       []YamlCredentialV2          `yaml:"credentials,omitempty"`
 	Run               []YamlRunEntryV2            `yaml:"run,omitempty"`
 	RequestTemplates  map[string]YamlRequestDefV2 `yaml:"request_templates,omitempty"`
 	Requests          []YamlRequestDefV2          `yaml:"requests,omitempty"`
 	Flows             []YamlFlowFlowV2            `yaml:"flows"`
 	Environments      []YamlEnvironmentV2         `yaml:"environments,omitempty"`
+}
+
+// YamlCredentialV2 represents an LLM provider credential
+type YamlCredentialV2 struct {
+	Name    string `yaml:"name"`               // Credential name for reference
+	Type    string `yaml:"type"`               // openai, anthropic, gemini
+	Token   string `yaml:"token,omitempty"`    // For OpenAI (supports {{ #env:VAR_NAME }})
+	APIKey  string `yaml:"api_key,omitempty"`  // For Anthropic/Gemini (supports {{ #env:VAR_NAME }})
+	BaseURL string `yaml:"base_url,omitempty"` // Optional custom endpoint (supports {{ #env:VAR_NAME }})
 }
 
 // YamlRunEntryV2 represents an entry in the run list
@@ -53,13 +63,15 @@ type YamlFlowFlowV2 struct {
 // YamlStepWrapper handles the polymorphic step list
 // A step is a map with a single key that identifies the type
 type YamlStepWrapper struct {
-	Request     *YamlStepRequest `yaml:"request,omitempty"`
-	If          *YamlStepIf      `yaml:"if,omitempty"`
-	For         *YamlStepFor     `yaml:"for,omitempty"`
-	ForEach     *YamlStepForEach `yaml:"for_each,omitempty"`
-	JS          *YamlStepJS      `yaml:"js,omitempty"`
-	AI          *YamlStepAI      `yaml:"ai,omitempty"`
-	ManualStart *YamlStepCommon  `yaml:"manual_start,omitempty"`
+	Request     *YamlStepRequest    `yaml:"request,omitempty"`
+	If          *YamlStepIf         `yaml:"if,omitempty"`
+	For         *YamlStepFor        `yaml:"for,omitempty"`
+	ForEach     *YamlStepForEach    `yaml:"for_each,omitempty"`
+	JS          *YamlStepJS         `yaml:"js,omitempty"`
+	AI          *YamlStepAI         `yaml:"ai,omitempty"`
+	AIProvider  *YamlStepAIProvider `yaml:"ai_provider,omitempty"`
+	AIMemory    *YamlStepAIMemory   `yaml:"ai_memory,omitempty"`
+	ManualStart *YamlStepCommon     `yaml:"manual_start,omitempty"`
 }
 
 // Common fields for all step types
@@ -105,8 +117,28 @@ type YamlStepJS struct {
 
 type YamlStepAI struct {
 	YamlStepCommon `yaml:",inline"`
-	Prompt         string `yaml:"prompt"`                   // The prompt template
-	MaxIterations  int    `yaml:"max_iterations,omitempty"` // Max agent iterations (default 5)
+	Prompt         string        `yaml:"prompt"`                   // The prompt template
+	MaxIterations  int           `yaml:"max_iterations,omitempty"` // Max agent iterations (default 5)
+	Provider       string        `yaml:"provider,omitempty"`       // Reference to ai_provider step name
+	Memory         string        `yaml:"memory,omitempty"`         // Reference to ai_memory step name
+	Tools          StringOrSlice `yaml:"tools,omitempty"`          // List of step names AI can invoke as tools
+}
+
+// YamlStepAIProvider represents an AI Provider node (LLM executor)
+type YamlStepAIProvider struct {
+	YamlStepCommon `yaml:",inline"`
+	Credential     string   `yaml:"credential"`               // Reference to credential name
+	Model          string   `yaml:"model"`                    // Model name (gpt-4o, claude-opus-4.5, etc.)
+	CustomModel    string   `yaml:"custom_model,omitempty"`   // For custom model selection
+	Temperature    *float64 `yaml:"temperature,omitempty"`    // LLM temperature (0.0-2.0)
+	MaxTokens      *int32   `yaml:"max_tokens,omitempty"`     // Max output tokens
+}
+
+// YamlStepAIMemory represents an AI Memory node (conversation history)
+type YamlStepAIMemory struct {
+	YamlStepCommon `yaml:",inline"`
+	Type           string `yaml:"type,omitempty"`        // window_buffer (default) | summary
+	WindowSize     int    `yaml:"window_size,omitempty"` // Number of messages to keep (default 10)
 }
 
 // YamlFlowVariableV2 represents a flow variable
@@ -349,12 +381,14 @@ type YamlFlowDataV2 struct {
 	HTTPRequests []YamlHTTPRequestV2
 
 	// Flow node implementations
-	RequestNodes   []mflow.NodeRequest
-	ConditionNodes []mflow.NodeIf
-	ForNodes       []mflow.NodeFor
-	ForEachNodes   []mflow.NodeForEach
-	JSNodes        []mflow.NodeJS
-	AINodes        []mflow.NodeAI
+	RequestNodes     []mflow.NodeRequest
+	ConditionNodes   []mflow.NodeIf
+	ForNodes         []mflow.NodeFor
+	ForEachNodes     []mflow.NodeForEach
+	JSNodes          []mflow.NodeJS
+	AINodes          []mflow.NodeAI
+	AIProviderNodes  []mflow.NodeAiProvider
+	AIMemoryNodes    []mflow.NodeMemory
 }
 
 // YamlVariableV2 represents a variable during parsing
@@ -485,7 +519,7 @@ func GetDefaultOptions(workspaceID idwrap.IDWrap) ConvertOptionsV2 {
 		ParentHttpID:      nil,
 		IsDelta:           false,
 		DeltaName:         nil,
-		CollectionName:    "Imported Collection",
+		CollectionName:    DefaultCollectionName,
 		EnableCompression: true,
 		CompressionType:   compress.CompressTypeGzip,
 		GenerateFiles:     true,

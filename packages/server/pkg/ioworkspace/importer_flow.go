@@ -243,3 +243,39 @@ func (s *IOWorkspaceService) importFlowAINodes(ctx context.Context, nodeAIServic
 	}
 	return nil
 }
+
+// importFlowAIProviderNodes imports flow AI provider nodes from the bundle.
+func (s *IOWorkspaceService) importFlowAIProviderNodes(ctx context.Context, nodeAIProviderService sflow.NodeAiProviderService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, providerNode := range bundle.FlowAIProviderNodes {
+		// Remap flow node ID
+		if newNodeID, ok := result.NodeIDMap[providerNode.FlowNodeID]; ok {
+			providerNode.FlowNodeID = newNodeID
+		}
+
+		// Create AI provider node
+		if err := nodeAIProviderService.CreateNodeAiProvider(ctx, providerNode); err != nil {
+			return fmt.Errorf("failed to create flow AI provider node: %w", err)
+		}
+
+		result.FlowAIProviderNodesCreated++
+	}
+	return nil
+}
+
+// importFlowAIMemoryNodes imports flow AI memory nodes from the bundle.
+func (s *IOWorkspaceService) importFlowAIMemoryNodes(ctx context.Context, nodeMemoryService sflow.NodeMemoryService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, memoryNode := range bundle.FlowAIMemoryNodes {
+		// Remap flow node ID
+		if newNodeID, ok := result.NodeIDMap[memoryNode.FlowNodeID]; ok {
+			memoryNode.FlowNodeID = newNodeID
+		}
+
+		// Create AI memory node
+		if err := nodeMemoryService.CreateNodeMemory(ctx, memoryNode); err != nil {
+			return fmt.Errorf("failed to create flow AI memory node: %w", err)
+		}
+
+		result.FlowAIMemoryNodesCreated++
+	}
+	return nil
+}

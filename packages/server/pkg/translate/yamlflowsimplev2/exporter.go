@@ -4,10 +4,12 @@ package yamlflowsimplev2
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flowgraph"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
@@ -105,6 +107,22 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		aiNodeMap[n.FlowNodeID] = n
 	}
 
+	aiProviderNodeMap := make(map[idwrap.IDWrap]mflow.NodeAiProvider)
+	for _, n := range data.FlowAIProviderNodes {
+		aiProviderNodeMap[n.FlowNodeID] = n
+	}
+
+	aiMemoryNodeMap := make(map[idwrap.IDWrap]mflow.NodeMemory)
+	for _, n := range data.FlowAIMemoryNodes {
+		aiMemoryNodeMap[n.FlowNodeID] = n
+	}
+
+	// Credential Map (ID -> Credential)
+	credentialMap := make(map[idwrap.IDWrap]mcredential.Credential)
+	for _, c := range data.Credentials {
+		credentialMap[c.ID] = c
+	}
+
 	// Edges Map (Source -> []Edge)
 	edgesBySource := make(map[idwrap.IDWrap][]mflow.Edge)
 	edgesByTarget := make(map[idwrap.IDWrap][]mflow.Edge)
@@ -116,7 +134,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// 1. Construct the root YAML structure using the workspace name from the bundle
 	wsName := data.Workspace.Name
 	if wsName == "" {
-		wsName = "Exported Workspace"
+		wsName = DefaultWorkspaceName
 	}
 
 	yamlFormat := YamlFlowFormatV2{
@@ -150,7 +168,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 			reqName := httpReq.Name
 			if reqName == "" {
-				reqName = "Request"
+				reqName = DefaultRequestName
 			}
 
 			baseName := reqName
@@ -200,7 +218,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	for _, flow := range data.Flows {
 		flowName := flow.Name
 		if flowName == "" {
-			flowName = "Flow"
+			flowName = DefaultFlowName
 		}
 
 		baseName := flowName
@@ -260,11 +278,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				depStr := sourceNode.Name
 				switch e.SourceHandler {
 				case mflow.HandleThen:
-					depStr += ".then"
+					depStr += DependsSuffixThen
 				case mflow.HandleElse:
-					depStr += ".else"
+					depStr += DependsSuffixElse
 				case mflow.HandleLoop:
-					depStr += ".loop"
+					depStr += DependsSuffixLoop
 				case mflow.HandleUnspecified:
 					// Do nothing, just the name
 				default:
@@ -356,14 +374,75 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				if !ok {
 					continue
 				}
-				// Note: Model configuration is now via connected Model nodes (n8n-style)
-				// YAML export only includes prompt and maxIterations
 				aiStep := &YamlStepAI{
 					YamlStepCommon: common,
 					Prompt:         aiNode.Prompt,
 					MaxIterations:  int(aiNode.MaxIterations),
 				}
+
+				// Resolve provider, memory, and tools references from edges
+				for _, edge := range edgesBySource[node.ID] {
+					targetNode, ok := nodeMap[edge.TargetID]
+					if !ok {
+						continue
+					}
+					switch edge.SourceHandler {
+					case mflow.HandleAiProvider:
+						aiStep.Provider = targetNode.Name
+					case mflow.HandleAiMemory:
+						aiStep.Memory = targetNode.Name
+					case mflow.HandleAiTools:
+						aiStep.Tools = append(aiStep.Tools, targetNode.Name)
+					}
+				}
+
 				stepWrapper.AI = aiStep
+
+			case mflow.NODE_KIND_AI_PROVIDER:
+				providerNode, ok := aiProviderNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				providerStep := &YamlStepAIProvider{
+					YamlStepCommon: common,
+					Model:          providerNode.Model.ModelString(),
+				}
+
+				// Use real credential name if available, otherwise generate placeholder
+				if providerNode.CredentialID != nil {
+					if cred, ok := credentialMap[*providerNode.CredentialID]; ok {
+						providerStep.Credential = cred.Name
+					} else {
+						providerStep.Credential = fmt.Sprintf("%s-credential", node.Name)
+					}
+				}
+
+				if providerNode.Temperature != nil {
+					temp := float64(*providerNode.Temperature)
+					providerStep.Temperature = &temp
+				}
+				if providerNode.MaxTokens != nil {
+					providerStep.MaxTokens = providerNode.MaxTokens
+				}
+				stepWrapper.AIProvider = providerStep
+
+			case mflow.NODE_KIND_AI_MEMORY:
+				memoryNode, ok := aiMemoryNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				memoryStep := &YamlStepAIMemory{
+					YamlStepCommon: common,
+					WindowSize:     int(memoryNode.WindowSize),
+				}
+				// Map memory type to string
+				switch memoryNode.MemoryType {
+				case mflow.AiMemoryTypeWindowBuffer:
+					memoryStep.Type = MemoryTypeWindowBuffer
+				default:
+					memoryStep.Type = MemoryTypeWindowBuffer
+				}
+				stepWrapper.AIMemory = memoryStep
 
 			case mflow.NODE_KIND_MANUAL_START:
 				if node.ID == startNodeID {
@@ -376,7 +455,9 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			// Add to flow
 			// Because stepWrapper has pointer fields, "empty" fields are nil
 			// Checking if any field is set (simplified check, assume one set if we got here)
-			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil || stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil || stepWrapper.ManualStart != nil
+			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
+				stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil ||
+				stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.ManualStart != nil
 			if isValid {
 				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}
@@ -385,7 +466,31 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		yamlFormat.Flows = append(yamlFormat.Flows, flowYaml)
 	}
 
-	// 4. Export Environments
+	// 4. Export credentials from bundle (metadata only, secrets use env placeholders)
+	for _, cred := range data.Credentials {
+		envVarName := strings.ToUpper(strings.ReplaceAll(cred.Name, "-", "_"))
+
+		yamlCred := YamlCredentialV2{Name: cred.Name}
+
+		switch cred.Kind {
+		case mcredential.CREDENTIAL_KIND_OPENAI:
+			yamlCred.Type = CredentialTypeOpenAI
+			yamlCred.Token = fmt.Sprintf(EnvVarTemplateToken, envVarName)
+		case mcredential.CREDENTIAL_KIND_ANTHROPIC:
+			yamlCred.Type = CredentialTypeAnthropic
+			yamlCred.APIKey = fmt.Sprintf(EnvVarTemplateAPIKey, envVarName)
+		case mcredential.CREDENTIAL_KIND_GEMINI:
+			yamlCred.Type = CredentialTypeGemini
+			yamlCred.APIKey = fmt.Sprintf(EnvVarTemplateAPIKey, envVarName)
+		default:
+			yamlCred.Type = CredentialTypeOpenAI
+			yamlCred.Token = fmt.Sprintf(EnvVarTemplateToken, envVarName)
+		}
+
+		yamlFormat.Credentials = append(yamlFormat.Credentials, yamlCred)
+	}
+
+	// 5. Export Environments
 	if len(data.Environments) > 0 {
 		envMap := make(map[idwrap.IDWrap]*YamlEnvironmentV2)
 		for _, env := range data.Environments {
@@ -406,7 +511,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		}
 	}
 
-	// 5. Generate default Run configuration
+	// 6. Generate default Run configuration
 	if len(yamlFormat.Flows) > 0 {
 		yamlFormat.Run = make([]YamlRunEntryV2, 0, len(yamlFormat.Flows))
 		for _, flow := range yamlFormat.Flows {
@@ -572,7 +677,7 @@ func mergeBody(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaL
 	// Forms
 	if forms := mergeBodyForms(baseHttpID, deltaHttpID, ctx); len(forms) > 0 {
 		return &YamlBodyUnion{
-			Type: "form-data",
+			Type: BodyTypeFormData,
 			Form: HeaderMapOrSlice(forms),
 		}
 	}
@@ -580,7 +685,7 @@ func mergeBody(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaL
 	// UrlEncoded
 	if urlencoded := mergeBodyUrlencoded(baseHttpID, deltaHttpID, ctx); len(urlencoded) > 0 {
 		return &YamlBodyUnion{
-			Type:       "urlencoded",
+			Type:       BodyTypeUrlEncoded,
 			UrlEncoded: HeaderMapOrSlice(urlencoded),
 		}
 	}
@@ -714,7 +819,7 @@ func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *del
 		if ok && len(deltaRaw.DeltaRawData) > 0 {
 			// Delta fully overwrites - use only delta data as raw
 			return &YamlBodyUnion{
-				Type: "raw",
+				Type: BodyTypeRaw,
 				Raw:  string(deltaRaw.DeltaRawData),
 			}
 		}
@@ -727,7 +832,7 @@ func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *del
 	}
 
 	return &YamlBodyUnion{
-		Type: "raw",
+		Type: BodyTypeRaw,
 		Raw:  string(baseRaw.RawData),
 	}
 }

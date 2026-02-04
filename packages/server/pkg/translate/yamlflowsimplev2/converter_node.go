@@ -58,6 +58,12 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.AI != nil:
 			nodeName = stepWrapper.AI.Name
 			dependsOn = stepWrapper.AI.DependsOn
+		case stepWrapper.AIProvider != nil:
+			nodeName = stepWrapper.AIProvider.Name
+			dependsOn = stepWrapper.AIProvider.DependsOn
+		case stepWrapper.AIMemory != nil:
+			nodeName = stepWrapper.AIMemory.Name
+			dependsOn = stepWrapper.AIMemory.DependsOn
 		case stepWrapper.ManualStart != nil:
 			nodeName = stepWrapper.ManualStart.Name
 			dependsOn = stepWrapper.ManualStart.DependsOn
@@ -118,8 +124,25 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			if strings.TrimSpace(stepWrapper.AI.Prompt) == "" {
 				return nil, NewYamlFlowErrorV2("missing required prompt", "ai", i)
 			}
-			// Note: Model configuration is now via connected Model nodes (n8n-style)
 			if err := processAIStructStep(stepWrapper.AI, nodeID, flowID, opts, result); err != nil {
+				return nil, err
+			}
+			// Store AI-specific references for edge creation
+			info.aiProvider = stepWrapper.AI.Provider
+			info.aiMemory = stepWrapper.AI.Memory
+			info.aiTools = stepWrapper.AI.Tools
+		case stepWrapper.AIProvider != nil:
+			if stepWrapper.AIProvider.Credential == "" {
+				return nil, NewYamlFlowErrorV2("missing required credential", "ai_provider", i)
+			}
+			if stepWrapper.AIProvider.Model == "" {
+				return nil, NewYamlFlowErrorV2("missing required model", "ai_provider", i)
+			}
+			if err := processAIProviderStructStep(stepWrapper.AIProvider, nodeID, flowID, opts, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.AIMemory != nil:
+			if err := processAIMemoryStructStep(stepWrapper.AIMemory, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
 		case stepWrapper.ManualStart != nil:
@@ -339,13 +362,84 @@ func processAIStructStep(step *YamlStepAI, nodeID, flowID idwrap.IDWrap, _ Conve
 		maxIterations = 100
 	}
 
-	// Note: Model configuration is now handled via connected Model nodes (n8n-style)
-	// The YAML AI step only contains prompt and maxIterations
 	aiNode := mflow.NodeAI{
 		FlowNodeID:    nodeID,
 		Prompt:        step.Prompt,
 		MaxIterations: int32(maxIterations), //nolint:gosec // validated above
 	}
 	result.FlowAINodes = append(result.FlowAINodes, aiNode)
+	return nil
+}
+
+func processAIProviderStructStep(step *YamlStepAIProvider, nodeID, flowID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_AI_PROVIDER,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Resolve credential name to ID
+	var credentialID *idwrap.IDWrap
+	if opts.CredentialMap != nil {
+		if id, ok := opts.CredentialMap[step.Credential]; ok {
+			credentialID = &id
+		}
+	}
+
+	// Parse model string to AiModel enum
+	model := mflow.AiModelFromString(step.Model)
+	if model == mflow.AiModelCustom && step.CustomModel == "" && step.Model != "custom" {
+		// Model string didn't match known models, use it as custom model
+		model = mflow.AiModelCustom
+	}
+
+	// Convert temperature from float64 to float32
+	var temperature *float32
+	if step.Temperature != nil {
+		t := float32(*step.Temperature)
+		temperature = &t
+	}
+
+	providerNode := mflow.NodeAiProvider{
+		FlowNodeID:   nodeID,
+		CredentialID: credentialID,
+		Model:        model,
+		Temperature:  temperature,
+		MaxTokens:    step.MaxTokens,
+	}
+	result.FlowAIProviderNodes = append(result.FlowAIProviderNodes, providerNode)
+	return nil
+}
+
+func processAIMemoryStructStep(step *YamlStepAIMemory, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_AI_MEMORY,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Parse memory type
+	memoryType := mflow.AiMemoryTypeWindowBuffer // default
+	if step.Type == MemoryTypeSummary {
+		// Future: add summary memory type when supported
+		memoryType = mflow.AiMemoryTypeWindowBuffer
+	}
+
+	// Default window size to 10 if not specified
+	windowSize := step.WindowSize
+	if windowSize <= 0 {
+		windowSize = 10
+	}
+
+	memoryNode := mflow.NodeMemory{
+		FlowNodeID: nodeID,
+		MemoryType: memoryType,
+		WindowSize: int32(windowSize), //nolint:gosec // validated above
+	}
+	result.FlowAIMemoryNodes = append(result.FlowAIMemoryNodes, memoryNode)
 	return nil
 }

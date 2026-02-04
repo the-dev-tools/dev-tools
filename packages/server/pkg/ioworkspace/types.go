@@ -2,6 +2,7 @@ package ioworkspace
 
 import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -35,16 +36,21 @@ type WorkspaceBundle struct {
 	FlowEdges     []mflow.Edge
 
 	// Flow node implementations by type
-	FlowRequestNodes   []mflow.NodeRequest
-	FlowConditionNodes []mflow.NodeIf
-	FlowForNodes       []mflow.NodeFor
-	FlowForEachNodes   []mflow.NodeForEach
-	FlowJSNodes        []mflow.NodeJS
-	FlowAINodes        []mflow.NodeAI
+	FlowRequestNodes    []mflow.NodeRequest
+	FlowConditionNodes  []mflow.NodeIf
+	FlowForNodes        []mflow.NodeFor
+	FlowForEachNodes    []mflow.NodeForEach
+	FlowJSNodes         []mflow.NodeJS
+	FlowAINodes         []mflow.NodeAI
+	FlowAIProviderNodes []mflow.NodeAiProvider
+	FlowAIMemoryNodes   []mflow.NodeMemory
 
 	// Environments and variables
 	Environments    []menv.Env
 	EnvironmentVars []menv.Variable
+
+	// Credentials (metadata only, secrets are never exported)
+	Credentials []mcredential.Credential
 }
 
 // CountEntities returns a map containing the count of each entity type in the bundle.
@@ -67,10 +73,13 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"flow_condition_nodes": len(wb.FlowConditionNodes),
 		"flow_for_nodes":       len(wb.FlowForNodes),
 		"flow_foreach_nodes":   len(wb.FlowForEachNodes),
-		"flow_js_nodes":        len(wb.FlowJSNodes),
-		"flow_ai_nodes":        len(wb.FlowAINodes),
+		"flow_js_nodes":          len(wb.FlowJSNodes),
+		"flow_ai_nodes":          len(wb.FlowAINodes),
+		"flow_ai_provider_nodes": len(wb.FlowAIProviderNodes),
+		"flow_ai_memory_nodes": len(wb.FlowAIMemoryNodes),
 		"environments":         len(wb.Environments),
 		"environment_vars":     len(wb.EnvironmentVars),
+		"credentials":          len(wb.Credentials),
 	}
 }
 

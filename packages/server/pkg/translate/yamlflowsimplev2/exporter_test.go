@@ -8,6 +8,7 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
@@ -1118,4 +1119,186 @@ return process(input);`,
 			}
 		})
 	}
+}
+
+func TestMarshalSimplifiedYAML_WithAINodes(t *testing.T) {
+	// Test that AI nodes (AI Agent, AI Provider, AI Memory) are correctly exported
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+	memoryNodeID := idwrap.NewNow()
+	toolNodeID := idwrap.NewNow()
+	credentialID := idwrap.NewNow()
+
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "AI Export Test",
+		},
+		Flows: []mflow.Flow{
+			{ID: flowID, WorkspaceID: workspaceID, Name: "AI Flow"},
+		},
+		FlowNodes: []mflow.Node{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
+			{ID: aiNodeID, FlowID: flowID, Name: "MyAI", NodeKind: mflow.NODE_KIND_AI},
+			{ID: providerNodeID, FlowID: flowID, Name: "GPTProvider", NodeKind: mflow.NODE_KIND_AI_PROVIDER},
+			{ID: memoryNodeID, FlowID: flowID, Name: "Memory", NodeKind: mflow.NODE_KIND_AI_MEMORY},
+			{ID: toolNodeID, FlowID: flowID, Name: "SearchTool", NodeKind: mflow.NODE_KIND_JS},
+		},
+		FlowAINodes: []mflow.NodeAI{
+			{FlowNodeID: aiNodeID, Prompt: "Analyze this data: {{ input }}", MaxIterations: 5},
+		},
+		FlowAIProviderNodes: []mflow.NodeAiProvider{
+			{
+				FlowNodeID:   providerNodeID,
+				CredentialID: &credentialID,
+				Model:        mflow.AiModelGpt52,
+			},
+		},
+		FlowAIMemoryNodes: []mflow.NodeMemory{
+			{FlowNodeID: memoryNodeID, MemoryType: mflow.AiMemoryTypeWindowBuffer, WindowSize: 10},
+		},
+		FlowJSNodes: []mflow.NodeJS{
+			{FlowNodeID: toolNodeID, Code: []byte("return search()")},
+		},
+		FlowEdges: []mflow.Edge{
+			// Start -> AI
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: aiNodeID},
+			// AI -> Provider (AI Provider edge)
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: aiNodeID, TargetID: providerNodeID, SourceHandler: mflow.HandleAiProvider},
+			// AI -> Memory (AI Memory edge)
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: aiNodeID, TargetID: memoryNodeID, SourceHandler: mflow.HandleAiMemory},
+			// AI -> Tool (AI Tools edge)
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: aiNodeID, TargetID: toolNodeID, SourceHandler: mflow.HandleAiTools},
+		},
+		Credentials: []mcredential.Credential{
+			{ID: credentialID, WorkspaceID: workspaceID, Name: "my-openai-key", Kind: mcredential.CREDENTIAL_KIND_OPENAI},
+		},
+	}
+
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	require.NoError(t, err)
+
+	yamlStr := string(yamlBytes)
+	t.Logf("Exported YAML:\n%s", yamlStr)
+
+	// Verify AI node is exported with provider, memory, and tools references
+	require.Contains(t, yamlStr, "ai:")
+	require.Contains(t, yamlStr, "name: MyAI")
+	require.Contains(t, yamlStr, "prompt:")
+	require.Contains(t, yamlStr, "Analyze this data")
+	require.Contains(t, yamlStr, "max_iterations: 5")
+	require.Contains(t, yamlStr, "provider: GPTProvider")
+	require.Contains(t, yamlStr, "memory: Memory")
+	require.Contains(t, yamlStr, "tools:")
+	require.Contains(t, yamlStr, "SearchTool")
+
+	// Verify AI Provider is exported
+	require.Contains(t, yamlStr, "ai_provider:")
+	require.Contains(t, yamlStr, "name: GPTProvider")
+	require.Contains(t, yamlStr, "model: gpt-5.2")
+	require.Contains(t, yamlStr, "credential: my-openai-key")
+
+	// Verify AI Memory is exported
+	require.Contains(t, yamlStr, "ai_memory:")
+	require.Contains(t, yamlStr, "name: Memory")
+	require.Contains(t, yamlStr, "type: window_buffer")
+	require.Contains(t, yamlStr, "window_size: 10")
+
+	// Verify credentials section is generated with real credential name and env placeholder
+	require.Contains(t, yamlStr, "credentials:")
+	require.Contains(t, yamlStr, "name: my-openai-key")
+	require.Contains(t, yamlStr, "type: openai")
+	require.Contains(t, yamlStr, "{{ #env:MY_OPENAI_KEY_TOKEN }}")
+}
+
+func TestMarshalSimplifiedYAML_AIRoundTrip(t *testing.T) {
+	// Test full round-trip: Export -> Import -> Export and verify consistency
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	aiNodeID := idwrap.NewNow()
+	providerNodeID := idwrap.NewNow()
+	memoryNodeID := idwrap.NewNow()
+	credentialID := idwrap.NewNow()
+
+	temp := float32(0.7)
+	maxTokens := int32(1024)
+
+	originalBundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "AI RoundTrip Test",
+		},
+		Flows: []mflow.Flow{
+			{ID: flowID, WorkspaceID: workspaceID, Name: "AI Flow"},
+		},
+		FlowNodes: []mflow.Node{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mflow.NODE_KIND_MANUAL_START},
+			{ID: aiNodeID, FlowID: flowID, Name: "Agent", NodeKind: mflow.NODE_KIND_AI},
+			{ID: providerNodeID, FlowID: flowID, Name: "Provider", NodeKind: mflow.NODE_KIND_AI_PROVIDER},
+			{ID: memoryNodeID, FlowID: flowID, Name: "Memory", NodeKind: mflow.NODE_KIND_AI_MEMORY},
+		},
+		FlowAINodes: []mflow.NodeAI{
+			{FlowNodeID: aiNodeID, Prompt: "Hello {{ name }}", MaxIterations: 3},
+		},
+		FlowAIProviderNodes: []mflow.NodeAiProvider{
+			{FlowNodeID: providerNodeID, CredentialID: &credentialID, Model: mflow.AiModelClaudeSonnet45, Temperature: &temp, MaxTokens: &maxTokens},
+		},
+		FlowAIMemoryNodes: []mflow.NodeMemory{
+			{FlowNodeID: memoryNodeID, MemoryType: mflow.AiMemoryTypeWindowBuffer, WindowSize: 5},
+		},
+		FlowEdges: []mflow.Edge{
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: aiNodeID},
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: aiNodeID, TargetID: providerNodeID, SourceHandler: mflow.HandleAiProvider},
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: aiNodeID, TargetID: memoryNodeID, SourceHandler: mflow.HandleAiMemory},
+		},
+		// Real credential metadata (secrets are never exported)
+		Credentials: []mcredential.Credential{
+			{ID: credentialID, WorkspaceID: workspaceID, Name: "my-anthropic-key", Kind: mcredential.CREDENTIAL_KIND_ANTHROPIC},
+		},
+	}
+
+	// Export
+	yamlBytes, err := MarshalSimplifiedYAML(originalBundle)
+	require.NoError(t, err)
+	t.Logf("Exported YAML:\n%s", string(yamlBytes))
+
+	// Import
+	opts := GetDefaultOptions(workspaceID)
+	reimported, err := ConvertSimplifiedYAML(yamlBytes, opts)
+	require.NoError(t, err)
+
+	// Verify AI nodes were reimported
+	require.Len(t, reimported.FlowAINodes, 1, "Should have 1 AI node")
+	require.Equal(t, "Hello {{ name }}", reimported.FlowAINodes[0].Prompt)
+	require.Equal(t, int32(3), reimported.FlowAINodes[0].MaxIterations)
+
+	require.Len(t, reimported.FlowAIProviderNodes, 1, "Should have 1 AI Provider node")
+	require.Equal(t, mflow.AiModelClaudeSonnet45, reimported.FlowAIProviderNodes[0].Model)
+	require.NotNil(t, reimported.FlowAIProviderNodes[0].Temperature)
+	require.InDelta(t, 0.7, *reimported.FlowAIProviderNodes[0].Temperature, 0.01)
+	require.NotNil(t, reimported.FlowAIProviderNodes[0].MaxTokens)
+	require.Equal(t, int32(1024), *reimported.FlowAIProviderNodes[0].MaxTokens)
+
+	require.Len(t, reimported.FlowAIMemoryNodes, 1, "Should have 1 AI Memory node")
+	require.Equal(t, mflow.AiMemoryTypeWindowBuffer, reimported.FlowAIMemoryNodes[0].MemoryType)
+	require.Equal(t, int32(5), reimported.FlowAIMemoryNodes[0].WindowSize)
+
+	// Verify edges - should have AI Provider and AI Memory edges
+	var hasProviderEdge, hasMemoryEdge bool
+	for _, e := range reimported.FlowEdges {
+		if e.SourceHandler == mflow.HandleAiProvider {
+			hasProviderEdge = true
+		}
+		if e.SourceHandler == mflow.HandleAiMemory {
+			hasMemoryEdge = true
+		}
+	}
+	require.True(t, hasProviderEdge, "Should have AI Provider edge")
+	require.True(t, hasMemoryEdge, "Should have AI Memory edge")
+
+	t.Log("Round-trip successful!")
 }
