@@ -44,8 +44,8 @@ const (
 	DependsSuffixLoop = ".loop"
 
 	// Environment variable template patterns (used in credential export)
-	EnvVarTemplateToken  = "{{ #env:%s_TOKEN }}"
-	EnvVarTemplateAPIKey = "{{ #env:%s_API_KEY }}"
+	EnvVarTemplateToken  = "{{ #env:%s_TOKEN }}"  //nolint:gosec // G101: template pattern, not a credential
+	EnvVarTemplateAPIKey = "{{ #env:%s_API_KEY }}" //nolint:gosec // G101: template pattern, not a credential
 )
 
 // Helper functions for additional utilities and transformations
