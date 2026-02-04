@@ -128,7 +128,12 @@ func ParseReportSpecs(values []string) ([]ReportSpec, error) {
 	return specs, nil
 }
 
-func NewReporterGroup(specs []ReportSpec) (*ReporterGroup, error) {
+// ReporterOptions contains configuration options for reporters.
+type ReporterOptions struct {
+	ShowOutput bool // Show node output data in console reporter
+}
+
+func NewReporterGroup(specs []ReportSpec, opts ReporterOptions) (*ReporterGroup, error) {
 	reporters := make([]Reporter, 0, len(specs))
 	hasConsole := false
 
@@ -136,7 +141,7 @@ func NewReporterGroup(specs []ReportSpec) (*ReporterGroup, error) {
 		var reporter Reporter
 		switch spec.Format {
 		case ReportFormatConsole:
-			reporter = newConsoleReporter()
+			reporter = newConsoleReporter(opts.ShowOutput)
 			hasConsole = true
 		case ReportFormatJSON:
 			reporter = newJSONReporter(spec.Path)
@@ -314,8 +319,9 @@ func (j *junitReporter) Flush() error {
 }
 
 type consoleReporter struct {
-	mu    sync.Mutex
-	flows map[string]*consoleFlowState
+	mu         sync.Mutex
+	flows      map[string]*consoleFlowState
+	showOutput bool
 }
 
 type consoleFlowState struct {
@@ -326,9 +332,10 @@ type consoleFlowState struct {
 	successCount int
 }
 
-func newConsoleReporter() Reporter {
+func newConsoleReporter(showOutput bool) Reporter {
 	return &consoleReporter{
-		flows: make(map[string]*consoleFlowState),
+		flows:      make(map[string]*consoleFlowState),
+		showOutput: showOutput,
 	}
 }
 
@@ -395,6 +402,7 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 
 	c.mu.Lock()
 	state, ok := c.flows[c.flowKey(FlowStartInfo{FlowID: event.FlowID, FlowName: event.FlowName})]
+	showOutput := c.showOutput
 	c.mu.Unlock()
 	if !ok {
 		return
@@ -403,6 +411,11 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	statusStr := mflow.StringNodeStateWithIcons(event.Status.State)
 	fmt.Printf(state.rowFormat, timestamp, event.Status.Name, FormatDuration(event.Status.RunDuration), statusStr)
+
+	// Show output data if enabled and present
+	if showOutput && event.Status.OutputData != nil {
+		c.printOutputData(event.Status.OutputData, event.Status.Name)
+	}
 
 	if event.Status.State == mflow.NODE_STATE_SUCCESS {
 		c.mu.Lock()
@@ -431,6 +444,159 @@ func (c *consoleReporter) HandleFlowResult(result model.FlowRunResult) {
 
 func (c *consoleReporter) Flush() error {
 	return nil
+}
+
+// printOutputData formats and prints node output data.
+// For AI nodes with total_metrics, it formats the metrics nicely.
+// For other nodes, it outputs JSON.
+func (c *consoleReporter) printOutputData(data any, nodeName string) {
+	dataMap, ok := data.(map[string]any)
+	if !ok {
+		// Not a map, print as JSON
+		c.printAsJSON(data, nodeName)
+		return
+	}
+
+	// Check if this is AI node output with total_metrics
+	if totalMetrics, hasMetrics := dataMap["total_metrics"]; hasMetrics {
+		c.printAIMetrics(totalMetrics, dataMap, nodeName)
+		return
+	}
+
+	// Check if this is an AI provider node with metrics
+	if metrics, hasMetrics := dataMap["metrics"]; hasMetrics {
+		c.printProviderMetrics(metrics, dataMap, nodeName)
+		return
+	}
+
+	// Default: print as JSON
+	c.printAsJSON(data, nodeName)
+}
+
+// printAIMetrics formats AI node total_metrics output nicely.
+func (c *consoleReporter) printAIMetrics(totalMetrics any, dataMap map[string]any, nodeName string) {
+	fmt.Printf("    [Output: %s]\n", nodeName)
+
+	metricsMap, ok := totalMetrics.(map[string]any)
+	if !ok {
+		// Try to handle mflow.AITotalMetrics directly via JSON roundtrip
+		jsonBytes, err := json.Marshal(totalMetrics)
+		if err == nil {
+			if err := json.Unmarshal(jsonBytes, &metricsMap); err != nil {
+				c.printAsJSON(totalMetrics, nodeName+" (metrics)")
+				return
+			}
+		} else {
+			c.printAsJSON(totalMetrics, nodeName+" (metrics)")
+			return
+		}
+	}
+
+	// Format metrics nicely
+	fmt.Print("    AI Metrics:\n")
+
+	if model, ok := metricsMap["model"]; ok && model != "" {
+		fmt.Printf("      Model: %v\n", model)
+	}
+	if provider, ok := metricsMap["provider"]; ok && provider != "" {
+		fmt.Printf("      Provider: %v\n", provider)
+	}
+	if promptTokens, ok := metricsMap["prompt_tokens"]; ok {
+		fmt.Printf("      Prompt Tokens: %v\n", formatNumber(promptTokens))
+	}
+	if completionTokens, ok := metricsMap["completion_tokens"]; ok {
+		fmt.Printf("      Completion Tokens: %v\n", formatNumber(completionTokens))
+	}
+	if totalTokens, ok := metricsMap["total_tokens"]; ok {
+		fmt.Printf("      Total Tokens: %v\n", formatNumber(totalTokens))
+	}
+	if llmCalls, ok := metricsMap["llm_calls"]; ok {
+		fmt.Printf("      LLM Calls: %v\n", formatNumber(llmCalls))
+	}
+	if toolCalls, ok := metricsMap["tool_calls"]; ok {
+		fmt.Printf("      Tool Calls: %v\n", formatNumber(toolCalls))
+	}
+
+	// Show text preview if present (truncated)
+	if text, ok := dataMap["text"].(string); ok && text != "" {
+		preview := text
+		if len(preview) > 100 {
+			preview = preview[:100] + "..."
+		}
+		// Replace newlines for display
+		preview = strings.ReplaceAll(preview, "\n", " ")
+		fmt.Printf("      Response Preview: %s\n", preview)
+	}
+}
+
+// printProviderMetrics formats AI provider node metrics output.
+func (c *consoleReporter) printProviderMetrics(metrics any, dataMap map[string]any, nodeName string) {
+	fmt.Printf("    [Output: %s]\n", nodeName)
+
+	metricsMap, ok := metrics.(map[string]any)
+	if !ok {
+		// Try to handle mflow.AIMetrics directly via JSON roundtrip
+		jsonBytes, err := json.Marshal(metrics)
+		if err == nil {
+			if err := json.Unmarshal(jsonBytes, &metricsMap); err != nil {
+				c.printAsJSON(metrics, nodeName+" (metrics)")
+				return
+			}
+		} else {
+			c.printAsJSON(metrics, nodeName+" (metrics)")
+			return
+		}
+	}
+
+	fmt.Print("    Provider Metrics:\n")
+
+	if model, ok := metricsMap["model"]; ok && model != "" {
+		fmt.Printf("      Model: %v\n", model)
+	}
+	if provider, ok := metricsMap["provider"]; ok && provider != "" {
+		fmt.Printf("      Provider: %v\n", provider)
+	}
+	if promptTokens, ok := metricsMap["prompt_tokens"]; ok {
+		fmt.Printf("      Prompt Tokens: %v\n", formatNumber(promptTokens))
+	}
+	if completionTokens, ok := metricsMap["completion_tokens"]; ok {
+		fmt.Printf("      Completion Tokens: %v\n", formatNumber(completionTokens))
+	}
+	if totalTokens, ok := metricsMap["total_tokens"]; ok {
+		fmt.Printf("      Total Tokens: %v\n", formatNumber(totalTokens))
+	}
+	if finishReason, ok := metricsMap["finish_reason"]; ok && finishReason != "" {
+		fmt.Printf("      Finish Reason: %v\n", finishReason)
+	}
+}
+
+// printAsJSON prints data as indented JSON.
+func (c *consoleReporter) printAsJSON(data any, nodeName string) {
+	jsonBytes, err := json.MarshalIndent(data, "    ", "  ")
+	if err != nil {
+		fmt.Printf("    [Output: %s] (failed to marshal: %v)\n", nodeName, err)
+		return
+	}
+	fmt.Printf("    [Output: %s]\n", nodeName)
+	fmt.Printf("    %s\n", string(jsonBytes))
+}
+
+// formatNumber formats a number for display, handling various numeric types.
+func formatNumber(v any) string {
+	switch n := v.(type) {
+	case int:
+		return fmt.Sprintf("%d", n)
+	case int32:
+		return fmt.Sprintf("%d", n)
+	case int64:
+		return fmt.Sprintf("%d", n)
+	case float64:
+		return fmt.Sprintf("%.0f", n)
+	case float32:
+		return fmt.Sprintf("%.0f", n)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // FormatDuration formats a duration for display

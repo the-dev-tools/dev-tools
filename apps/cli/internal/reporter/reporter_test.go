@@ -40,7 +40,7 @@ func TestJSONReporterFlush(t *testing.T) {
 	outputPath := filepath.Join(tmpDir, "report.json")
 
 	specs := []ReportSpec{{Format: ReportFormatJSON, Path: outputPath}}
-	group, err := NewReporterGroup(specs)
+	group, err := NewReporterGroup(specs, ReporterOptions{})
 	if err != nil {
 		t.Fatalf("failed to create reporter group: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestJUnitReporterFlush(t *testing.T) {
 	outputPath := filepath.Join(tmpDir, "report.xml")
 
 	specs := []ReportSpec{{Format: ReportFormatJUnit, Path: outputPath}}
-	group, err := NewReporterGroup(specs)
+	group, err := NewReporterGroup(specs, ReporterOptions{})
 	if err != nil {
 		t.Fatalf("failed to create reporter group: %v", err)
 	}

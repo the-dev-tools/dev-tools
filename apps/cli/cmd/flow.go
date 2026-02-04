@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	quietMode bool
+	quietMode  bool
+	showOutput bool
 )
 
 func init() {
@@ -37,6 +38,7 @@ func init() {
 	flowCmd.AddCommand(yamlflowRunCmd)
 	yamlflowRunCmd.Flags().StringSliceVar(&reportFormats, "report", []string{"console"}, "Report outputs to produce (format[:path]). Supported formats: console, json, junit.")
 	yamlflowRunCmd.Flags().BoolVarP(&quietMode, "quiet", "q", false, "Suppress non-essential output for CI/CD usage")
+	yamlflowRunCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show node output data (including AI metrics) after each node completes")
 }
 
 var flowCmd = &cobra.Command{
@@ -229,7 +231,9 @@ var yamlflowRunCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		reporters, err := reporter.NewReporterGroup(specs)
+		reporters, err := reporter.NewReporterGroup(specs, reporter.ReporterOptions{
+			ShowOutput: showOutput,
+		})
 		if err != nil {
 			return err
 		}

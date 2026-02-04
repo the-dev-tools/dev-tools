@@ -18,6 +18,7 @@ type NodeRunResult struct {
 	Duration         time.Duration           `json:"duration"`
 	Error            string                  `json:"error,omitempty"`
 	IterationContext *IterationContextResult `json:"iteration_context,omitempty"`
+	OutputData       any                     `json:"output_data,omitempty"`
 }
 
 type FlowRunResult struct {

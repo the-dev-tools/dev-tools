@@ -398,5 +398,8 @@ func buildNodeRunResult(status runner.FlowNodeStatus) model.NodeRunResult {
 		nodeResult.IterationContext = ctx
 	}
 
+	// Capture output data if present
+	nodeResult.OutputData = status.OutputData
+
 	return nodeResult
 }
