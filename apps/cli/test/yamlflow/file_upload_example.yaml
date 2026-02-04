@@ -1,0 +1,25 @@
+workspace_name: File Upload Example
+
+run:
+  - flow: FileUploadFlow
+
+flows:
+  - name: FileUploadFlow
+    steps:
+      - request:
+          name: DirectUpload
+          method: POST
+          url: https://httpbin.org/post
+          body:
+            type: form-data
+            form_data:
+              document: "{{ #file:apps/cli/test/yamlflow/testdata/sample.txt }}"
+              description: "Sample text file upload"
+      - js:
+          name: CheckResults
+          code: |
+            export default function(context) {
+              const resp = context.DirectUpload?.response?.body;
+              return { success: true, files: resp?.files };
+            }
+          depends_on: DirectUpload
