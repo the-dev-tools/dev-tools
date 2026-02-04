@@ -325,11 +325,12 @@ type consoleReporter struct {
 }
 
 type consoleFlowState struct {
-	rowFormat    string
-	topBorder    string
-	separator    string
-	totalNodes   int
-	successCount int
+	rowFormat      string
+	topBorder      string
+	separator      string
+	totalNodes     int
+	successCount   int
+	maxStepNameLen int
 }
 
 func newConsoleReporter(showOutput bool) Reporter {
@@ -350,11 +351,18 @@ func (c *consoleReporter) HandleFlowStart(info FlowStartInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	maxStepNameLen := len("Step")
+	// Minimum column width, with extra space for AI node suffixes like " LLM Call 1"
+	maxStepNameLen := 18
 	for _, name := range info.NodeNames {
-		if len(name) > maxStepNameLen {
-			maxStepNameLen = len(name)
+		// Add buffer for potential " LLM Call N" suffix (12 chars)
+		nameWithBuffer := len(name) + 12
+		if nameWithBuffer > maxStepNameLen {
+			maxStepNameLen = nameWithBuffer
 		}
+	}
+	// Cap at reasonable max to prevent overly wide tables
+	if maxStepNameLen > 40 {
+		maxStepNameLen = 40
 	}
 
 	tableWidth := 2 + 20 + 3 + maxStepNameLen + 3 + 8 + 3 + 11 + 2
@@ -387,11 +395,12 @@ func (c *consoleReporter) HandleFlowStart(info FlowStartInfo) {
 
 	key := c.flowKey(info)
 	c.flows[key] = &consoleFlowState{
-		rowFormat:    tableRowFmt,
-		topBorder:    topBottomBorder,
-		separator:    separatorBorder,
-		totalNodes:   info.TotalNodes,
-		successCount: 0,
+		rowFormat:      tableRowFmt,
+		topBorder:      topBottomBorder,
+		separator:      separatorBorder,
+		totalNodes:     info.TotalNodes,
+		successCount:   0,
+		maxStepNameLen: maxStepNameLen,
 	}
 }
 
@@ -410,7 +419,14 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	statusStr := mflow.StringNodeStateWithIcons(event.Status.State)
-	fmt.Printf(state.rowFormat, timestamp, event.Status.Name, FormatDuration(event.Status.RunDuration), statusStr)
+
+	// Truncate step name if it exceeds column width
+	stepName := event.Status.Name
+	if len(stepName) > state.maxStepNameLen {
+		stepName = stepName[:state.maxStepNameLen-3] + "..."
+	}
+
+	fmt.Printf(state.rowFormat, timestamp, stepName, FormatDuration(event.Status.RunDuration), statusStr)
 
 	// Show output data if enabled and present
 	if showOutput && event.Status.OutputData != nil {
