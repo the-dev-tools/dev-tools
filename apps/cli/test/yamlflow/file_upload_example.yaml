@@ -13,8 +13,8 @@ flows:
           body:
             type: form-data
             form_data:
-              document: "{{ #file:apps/cli/test/yamlflow/testdata/sample.txt }}"
-              description: "Sample text file upload"
+              document: '{{ #file:apps/cli/test/yamlflow/testdata/sample.txt }}'
+              description: 'Sample text file upload'
       - js:
           name: CheckResults
           code: |
