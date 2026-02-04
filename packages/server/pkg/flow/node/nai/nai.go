@@ -272,31 +272,56 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		}
 		messages = append(messages, assistantMsg)
 
-		// Execute tool calls and collect all results into a single message
-		// Anthropic requires all tool_results from one assistant turn to be in a single user message
-		toolResultMsg := llm.Message{
-			Role:  llm.RoleTool,
-			Parts: []llm.ContentPart{},
-		}
-		for _, tc := range providerOutput.ToolCalls {
-			totalMetrics.ToolCalls++
+		// Execute tool calls and add results to message history
+		// Provider-specific handling:
+		// - OpenAI: Requires one message per tool response (single part per message)
+		// - Anthropic: Requires all tool_results from one turn in a single message
+		provider := providerNode.GetProviderString()
 
-			result, execErr := executor(ctx, tc.Name, tc.Arguments)
-			if execErr != nil {
-				// Feed the error back to the LLM instead of failing the node
-				result = fmt.Sprintf("Error: %v", execErr)
+		if provider == "openai" || provider == "custom" {
+			// OpenAI: Create separate message for each tool response
+			for _, tc := range providerOutput.ToolCalls {
+				totalMetrics.ToolCalls++
+
+				result, execErr := executor(ctx, tc.Name, tc.Arguments)
+				if execErr != nil {
+					result = fmt.Sprintf("Error: %v", execErr)
+				}
+
+				messages = append(messages, llm.Message{
+					Role: llm.RoleTool,
+					Parts: []llm.ContentPart{
+						llm.ToolCallResponse{
+							ToolCallID: tc.ID,
+							Name:       tc.Name,
+							Content:    result,
+						},
+					},
+				})
 			}
+		} else {
+			// Anthropic/Google: Combine all tool responses into single message
+			toolResultMsg := llm.Message{
+				Role:  llm.RoleTool,
+				Parts: []llm.ContentPart{},
+			}
+			for _, tc := range providerOutput.ToolCalls {
+				totalMetrics.ToolCalls++
 
-			// Add tool response to the combined message
-			toolResultMsg.Parts = append(toolResultMsg.Parts, llm.ToolCallResponse{
-				ToolCallID: tc.ID,
-				Name:       tc.Name,
-				Content:    result,
-			})
-		}
-		// Add the combined tool result message to history
-		if len(toolResultMsg.Parts) > 0 {
-			messages = append(messages, toolResultMsg)
+				result, execErr := executor(ctx, tc.Name, tc.Arguments)
+				if execErr != nil {
+					result = fmt.Sprintf("Error: %v", execErr)
+				}
+
+				toolResultMsg.Parts = append(toolResultMsg.Parts, llm.ToolCallResponse{
+					ToolCallID: tc.ID,
+					Name:       tc.Name,
+					Content:    result,
+				})
+			}
+			if len(toolResultMsg.Parts) > 0 {
+				messages = append(messages, toolResultMsg)
+			}
 		}
 
 		// Emit SUCCESS status for this iteration with detailed info
