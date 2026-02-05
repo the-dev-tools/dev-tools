@@ -685,6 +685,7 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 		credID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
 		openai      *mcredential.CredentialOpenAI
+		exists      bool
 	}
 	var validatedItems []insertData
 
@@ -697,6 +698,18 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
 		if err != nil {
 			return nil, err
+		}
+
+		// Check if record already exists (auto-created by CredentialInsert) - BEFORE transaction
+		_, existErr := s.credReader.GetCredentialOpenAI(ctx, credID)
+		var exists bool
+		switch {
+		case existErr == nil:
+			exists = true
+		case errors.Is(existErr, sql.ErrNoRows):
+			exists = false
+		default:
+			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 
 		openai := &mcredential.CredentialOpenAI{
@@ -712,6 +725,7 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 			credID:      credID,
 			workspaceID: workspaceID,
 			openai:      openai,
+			exists:      exists,
 		})
 	}
 
@@ -728,21 +742,16 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 	csTx := s.cs.TX(tx)
 
 	for _, data := range validatedItems {
-		// Check if record already exists (auto-created by CredentialInsert)
-		_, existErr := s.credReader.GetCredentialOpenAI(ctx, data.credID)
-		switch {
-		case existErr == nil:
+		if data.exists {
 			// Record exists, update it instead
 			if err := csTx.UpdateCredentialOpenAI(ctx, data.openai); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		case errors.Is(existErr, sql.ErrNoRows):
+		} else {
 			// Record doesn't exist, create it
 			if err := csTx.CreateCredentialOpenAI(ctx, data.openai); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		default:
-			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 	}
 
@@ -1058,6 +1067,7 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 		credID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
 		gemini      *mcredential.CredentialGemini
+		exists      bool
 	}
 	var validatedItems []insertData
 
@@ -1070,6 +1080,18 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
 		if err != nil {
 			return nil, err
+		}
+
+		// Check if record already exists (auto-created by CredentialInsert) - BEFORE transaction
+		_, existErr := s.credReader.GetCredentialGemini(ctx, credID)
+		var exists bool
+		switch {
+		case existErr == nil:
+			exists = true
+		case errors.Is(existErr, sql.ErrNoRows):
+			exists = false
+		default:
+			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 
 		gemini := &mcredential.CredentialGemini{
@@ -1085,6 +1107,7 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 			credID:      credID,
 			workspaceID: workspaceID,
 			gemini:      gemini,
+			exists:      exists,
 		})
 	}
 
@@ -1101,21 +1124,16 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 	csTx := s.cs.TX(tx)
 
 	for _, data := range validatedItems {
-		// Check if record already exists (auto-created by CredentialInsert)
-		_, existErr := s.credReader.GetCredentialGemini(ctx, data.credID)
-		switch {
-		case existErr == nil:
+		if data.exists {
 			// Record exists, update it instead
 			if err := csTx.UpdateCredentialGemini(ctx, data.gemini); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		case errors.Is(existErr, sql.ErrNoRows):
+		} else {
 			// Record doesn't exist, create it
 			if err := csTx.CreateCredentialGemini(ctx, data.gemini); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		default:
-			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 	}
 
@@ -1424,6 +1442,7 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 		credID      idwrap.IDWrap
 		workspaceID idwrap.IDWrap
 		anthropic   *mcredential.CredentialAnthropic
+		exists      bool
 	}
 	var validatedItems []insertData
 
@@ -1436,6 +1455,18 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
 		if err != nil {
 			return nil, err
+		}
+
+		// Check if record already exists (auto-created by CredentialInsert) - BEFORE transaction
+		_, existErr := s.credReader.GetCredentialAnthropic(ctx, credID)
+		var exists bool
+		switch {
+		case existErr == nil:
+			exists = true
+		case errors.Is(existErr, sql.ErrNoRows):
+			exists = false
+		default:
+			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 
 		anthropic := &mcredential.CredentialAnthropic{
@@ -1451,6 +1482,7 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 			credID:      credID,
 			workspaceID: workspaceID,
 			anthropic:   anthropic,
+			exists:      exists,
 		})
 	}
 
@@ -1467,21 +1499,16 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 	csTx := s.cs.TX(tx)
 
 	for _, data := range validatedItems {
-		// Check if record already exists (auto-created by CredentialInsert)
-		_, existErr := s.credReader.GetCredentialAnthropic(ctx, data.credID)
-		switch {
-		case existErr == nil:
+		if data.exists {
 			// Record exists, update it instead
 			if err := csTx.UpdateCredentialAnthropic(ctx, data.anthropic); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		case errors.Is(existErr, sql.ErrNoRows):
+		} else {
 			// Record doesn't exist, create it
 			if err := csTx.CreateCredentialAnthropic(ctx, data.anthropic); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-		default:
-			return nil, connect.NewError(connect.CodeInternal, existErr)
 		}
 	}
 

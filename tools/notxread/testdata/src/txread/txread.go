@@ -255,3 +255,118 @@ func GoodReaderWithTX(ctx context.Context, db *sql.DB, workspaceReader *Workspac
 
 	return tx.Commit()
 }
+
+// =========================================
+// SQLC Queries Pattern Tests
+// =========================================
+
+// Queries represents sqlc generated queries (has WithTx method)
+type Queries struct {
+	db interface{}
+}
+
+// WithTx returns queries bound to the transaction
+func (q *Queries) WithTx(tx *sql.Tx) *Queries {
+	return &Queries{db: tx}
+}
+
+// GetUser is a read operation
+func (q *Queries) GetUser(ctx context.Context, id int) (string, error) {
+	return "", nil
+}
+
+// ListUsers is a read operation
+func (q *Queries) ListUsers(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
+// CreateUser is a write operation
+func (q *Queries) CreateUser(ctx context.Context, name string) error {
+	return nil
+}
+
+// BadQueriesReadInsideTx demonstrates sqlc queries deadlock pattern
+func BadQueriesReadInsideTx(ctx context.Context, db *sql.DB, queries *Queries) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// BAD: Non-TX-bound sqlc queries read inside transaction
+	_, err = queries.GetUser(ctx, 1) // want "non-TX-bound read GetUser\\(\\) inside transaction"
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// BadQueriesListInsideTx demonstrates sqlc queries deadlock with List
+func BadQueriesListInsideTx(ctx context.Context, db *sql.DB, queries *Queries) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// BAD: Non-TX-bound sqlc queries List inside transaction
+	_, err = queries.ListUsers(ctx) // want "non-TX-bound read ListUsers\\(\\) inside transaction"
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// GoodQueriesWithTx demonstrates correct sqlc pattern with WithTx
+func GoodQueriesWithTx(ctx context.Context, db *sql.DB, queries *Queries) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// GOOD: TX-bound queries via WithTx
+	txQueries := queries.WithTx(tx)
+	_, err = txQueries.GetUser(ctx, 1)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// GoodQueriesChainedWithTx demonstrates chained WithTx call
+func GoodQueriesChainedWithTx(ctx context.Context, db *sql.DB, queries *Queries) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// GOOD: Chained WithTx call
+	_, err = queries.WithTx(tx).GetUser(ctx, 1)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// GoodQueriesWriteInsideTx demonstrates writes are not flagged
+func GoodQueriesWriteInsideTx(ctx context.Context, db *sql.DB, queries *Queries) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// GOOD: Write operation, not a read
+	err = queries.CreateUser(ctx, "test")
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

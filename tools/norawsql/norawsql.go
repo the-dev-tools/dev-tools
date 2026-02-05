@@ -45,6 +45,7 @@ var allowedPackages = []string{
 	"packages/db",    // DB drivers and sqlc generated code
 	"/db/",           // Alternate path format
 	"/migrate",       // Migration runner needs raw SQL for DDL
+	"/migrations",    // Migration files need raw SQL for DDL
 	"/dbtest",        // DB test utilities
 }
 
