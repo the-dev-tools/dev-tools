@@ -1,12 +1,8 @@
-import { Struct } from 'effect';
 import { RefAttributes, useCallback, useState } from 'react';
-import { mergeProps } from 'react-aria';
 import * as RAC from 'react-aria-components';
-import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { tv, VariantProps } from 'tailwind-variants';
 import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { focusVisibleRingStyles } from './focus-ring';
-import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeStyleRenderProps, composeTailwindRenderProps } from './utils';
 
@@ -102,42 +98,6 @@ export const TextInputField = ({ className = '', inputClassName, placeholder, re
   </TextField>
 );
 
-// Text input field RHF wrapper
-
-export interface TextInputFieldRHFProps<
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->
-  extends Omit<TextInputFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
-
-export const TextInputFieldRHF = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->(
-  props: TextInputFieldRHFProps<TFieldValues, TName>,
-) => {
-  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
-  const controllerProps = Struct.pick(props, ...controllerPropKeys);
-
-  const {
-    field: { ref, ...field },
-    fieldState,
-  } = useController({ defaultValue: '' as never, ...controllerProps });
-
-  const fieldProps: TextInputFieldProps = {
-    error: fieldState.error?.message,
-    isDisabled: field.disabled ?? false,
-    isInvalid: fieldState.invalid,
-    name: field.name,
-    onBlur: field.onBlur,
-    onChange: field.onChange,
-    validationBehavior: 'aria',
-    value: field.value,
-  };
-
-  return <TextInputField {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
-};
-
 // Text area field
 
 export interface TextAreaFieldProps
@@ -151,39 +111,3 @@ export const TextAreaField = ({ className = '', ref, ...props }: TextAreaFieldPr
     <RAC.TextArea className={textInputFieldStyles(props)} ref={ref} />
   </TextField>
 );
-
-// Text area field RHF wrapper
-
-export interface TextAreaFieldRHFProps<
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->
-  extends Omit<TextAreaFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
-
-export const TextAreaFieldRHF = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->(
-  props: TextAreaFieldRHFProps<TFieldValues, TName>,
-) => {
-  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
-  const controllerProps = Struct.pick(props, ...controllerPropKeys);
-
-  const {
-    field: { ref, ...field },
-    fieldState,
-  } = useController({ defaultValue: '' as never, ...controllerProps });
-
-  const fieldProps: TextInputFieldProps = {
-    error: fieldState.error?.message,
-    isDisabled: field.disabled ?? false,
-    isInvalid: fieldState.invalid,
-    name: field.name,
-    onBlur: field.onBlur,
-    onChange: field.onChange,
-    validationBehavior: 'aria',
-    value: field.value,
-  };
-
-  return <TextAreaField {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
-};

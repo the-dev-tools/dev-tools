@@ -2,16 +2,14 @@ import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
-import { use, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { useDebouncedCallback } from 'use-debounce';
+import { use } from 'react';
 import { ErrorHandling, HandleKind, NodeForEachSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeForEachCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { ForIcon } from '@the-dev-tools/ui/icons';
-import { SelectItem, SelectRHF } from '@the-dev-tools/ui/select';
+import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { ReferenceFieldRHF } from '~/features/expression';
+import { ReferenceField } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
 import { FlowContext } from '../context';
@@ -53,56 +51,44 @@ export const ForEachSettings = ({ nodeId }: NodeSettingsProps) => {
       [collection, nodeId],
     ).data ?? create(NodeForEachSchema);
 
-  const { control, handleSubmit, watch } = useForm({
-    resetOptions: { keepDirtyValues: true },
-    values: data,
-  });
-
   const { isReadOnly = false } = use(FlowContext);
-
-  const update = useDebouncedCallback(async () => {
-    await handleSubmit((data) => void collection.utils.update({ nodeId, ...data }))();
-  }, 200);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const subscription = watch((_, { type }) => {
-      if (type === 'change') void update();
-    });
-    return () => void subscription.unsubscribe();
-  }, [update, watch]);
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='For each loop'>
       <div className={tw`grid grid-cols-[auto_1fr] gap-x-8 gap-y-5`}>
         <FieldLabel>Array to Loop</FieldLabel>
-        <ReferenceFieldRHF
+        <ReferenceField
           className={tw`w-full justify-self-start`}
-          control={control}
-          name='path'
+          onChange={(_) => collection.utils.updatePaced({ nodeId, path: _ })}
           readOnly={isReadOnly}
+          value={data.path}
         />
 
         <FieldLabel>Break If</FieldLabel>
-        <ReferenceFieldRHF
+        <ReferenceField
           className={tw`w-full justify-self-start`}
-          control={control}
-          name='condition'
+          onChange={(_) => collection.utils.updatePaced({ condition: _, nodeId })}
           readOnly={isReadOnly}
+          value={data.condition}
         />
 
-        <SelectRHF
+        <Select
           className={tw`contents`}
-          control={control}
           isDisabled={isReadOnly}
           label='On Error'
-          name='errorHandling'
+          onChange={(_) =>
+            collection.utils.updatePaced({
+              errorHandling: typeof _ === 'number' ? _ : ErrorHandling.UNSPECIFIED,
+              nodeId,
+            })
+          }
           triggerClassName={tw`w-full justify-between justify-self-start`}
+          value={data.errorHandling}
         >
           <SelectItem id={ErrorHandling.UNSPECIFIED}>Throw</SelectItem>
           <SelectItem id={ErrorHandling.IGNORE}>Ignore</SelectItem>
           <SelectItem id={ErrorHandling.BREAK}>Break</SelectItem>
-        </SelectRHF>
+        </Select>
       </div>
     </NodeSettingsBody>
   );

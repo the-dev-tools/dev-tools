@@ -1,25 +1,15 @@
-import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table } from '@tanstack/table-core';
+import { AccessorKeyColumnDef, CellContext, DisplayColumnDef, RowData, Table } from '@tanstack/table-core';
 import { String } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
-import {
-  FieldPath,
-  FieldValues,
-  FormProvider,
-  useForm,
-  useFormContext,
-  UseFormHandleSubmit,
-  UseFormWatch,
-} from 'react-hook-form';
 import { FiMove, FiPlus } from 'react-icons/fi';
 import { LuTrash2 } from 'react-icons/lu';
-import { useDebouncedCallback } from 'use-debounce';
 import { Button } from '@the-dev-tools/ui/button';
-import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
-import { DataTableProps, RowRenderProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
+import { DataTableProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextInputFieldRHF } from '@the-dev-tools/ui/text-field';
-import { ReferenceFieldRHF } from '~/features/expression';
+import { TextInputField } from '@the-dev-tools/ui/text-field';
+import { ReferenceField } from '~/features/expression';
 
 interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
   children: (table: Table<TData>) => React.ReactNode;
@@ -35,74 +25,19 @@ export const ReactTableNoMemo = <TData extends RowData>({ children, ...props }: 
   return children(table);
 };
 
-interface UseFormAutoSaveProps<TFieldValues extends FieldValues> {
-  handleSubmit: UseFormHandleSubmit<TFieldValues>;
-  onSubmit: (value: TFieldValues) => unknown;
-  watch: UseFormWatch<TFieldValues>;
-}
-
-const useFormAutoSave = <TFieldValues extends FieldValues>({
-  handleSubmit,
-  onSubmit,
-  watch,
-}: UseFormAutoSaveProps<TFieldValues>) => {
-  const submit = useDebouncedCallback(async () => handleSubmit((value) => onSubmit(value))(), 200);
-
-  useEffect(
-    () =>
-      watch((_, { type }) => {
-        if (type === 'change') void submit();
-      }).unsubscribe,
-    [submit, watch],
-  );
-};
-
-interface FormTableRowProps<T extends FieldValues> {
-  children: RowRenderProps<T>['rowNode'];
-  onUpdate: (value: T) => unknown;
-  value: T;
-}
-
-const FormTableRow = <T extends FieldValues>({ children, onUpdate, value }: FormTableRowProps<T>) => {
-  const form = useForm({
-    resetOptions: { keepDirtyValues: true },
-    values: value,
-  });
-
-  useFormAutoSave({ ...form, onSubmit: onUpdate });
-
-  return children(({ cellNode }) => <FormProvider {...form}>{cellNode}</FormProvider>);
-};
-
-export interface UseFormTableProps<TFieldValues extends FieldValues> {
-  onUpdate: (value: TFieldValues) => unknown;
-}
-
-export const useFormTable = <TFieldValues extends FieldValues>({ onUpdate }: UseFormTableProps<TFieldValues>) =>
-  ({
-    rowRender: ({ row, rowNode }) => (
-      <FormTableRow onUpdate={onUpdate} value={row.original}>
-        {rowNode}
-      </FormTableRow>
-    ),
-  }) satisfies Partial<DataTableProps<TFieldValues>>;
-
-export interface UseFormTableAddRowProps<
-  TFieldValues extends FieldValues,
-  TPrimaryName extends FieldPath<TFieldValues>,
-> {
+export interface UseFormTableAddRowProps<TData, TKey extends keyof TData> {
   createLabel?: ReactNode;
-  items: TFieldValues[];
+  items: TData[];
   onCreate: () => Promise<unknown>;
-  primaryColumn?: TPrimaryName;
+  primaryColumn?: TKey;
 }
 
-export const useFormTableAddRow = <TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>>({
+export const useFormTableAddRow = <TData, TKey extends keyof TData & string>({
   createLabel = 'New item',
   items,
   onCreate,
   primaryColumn,
-}: UseFormTableAddRowProps<TFieldValues, TPrimaryName>) => {
+}: UseFormTableAddRowProps<TData, TKey>) => {
   const lengthPrev = useRef<null | number>(null);
 
   useEffect(() => {
@@ -133,88 +68,88 @@ export const useFormTableAddRow = <TFieldValues extends FieldValues, TPrimaryNam
         {createLabel}
       </Button>
     ),
-  } satisfies Partial<DataTableProps<TFieldValues>>;
+  } satisfies Partial<DataTableProps<TData>>;
 };
 
-interface DisplayFormTableRowProps<T extends FieldValues> {
-  children: RowRenderProps<T>['rowNode'];
-  value: T;
+interface FieldProps<TData, TValue> {
+  onChange: (value: TValue, context: CellContext<TData, TValue>) => void;
+  value: (provide: (value: TValue) => ReactNode, context: CellContext<TData, TValue>) => ReactNode;
 }
 
-const DisplayFormTableRow = <T extends FieldValues>({ children, value }: DisplayFormTableRowProps<T>) => {
-  const form = useForm({ disabled: true, values: value });
-  return children(({ cellNode }) => <FormProvider {...form}>{cellNode}</FormProvider>);
-};
-
-export const displayTable = <TFieldValues extends FieldValues>() =>
-  ({
-    rowRender: ({ row, rowNode }) => <DisplayFormTableRow value={row.original}>{rowNode}</DisplayFormTableRow>,
-  }) satisfies Partial<DataTableProps<TFieldValues>>;
-
-export const columnCheckboxField = <TFieldValues extends FieldValues>(
-  name: FieldPath<TFieldValues>,
-  props?: Partial<AccessorKeyColumnDef<TFieldValues>>,
-): AccessorKeyColumnDef<TFieldValues> => ({
+export const columnCheckboxField = <TData,>(
+  name: keyof TData & string,
+  { onChange, value }: FieldProps<TData, boolean>,
+  props?: Partial<AccessorKeyColumnDef<TData, boolean>>,
+): AccessorKeyColumnDef<TData, boolean> => ({
   accessorKey: name,
-  cell: function Cell() {
-    const { control } = useFormContext<TFieldValues>();
-    return <CheckboxRHF control={control} isTableCell name={name} />;
+  cell: (context) => {
+    const provide = (value: boolean) => (
+      <Checkbox aria-label={name} isSelected={value} isTableCell onChange={(_) => void onChange(_, context)} />
+    );
+    return value(provide, context);
   },
   header: '',
   size: 0,
   ...props,
 });
 
-export const columnReferenceField = <TFieldValues extends FieldValues>(
-  name: FieldPath<TFieldValues>,
+export const columnReferenceField = <TData,>(
+  name: keyof TData & string,
+  { onChange, value }: FieldProps<TData, string>,
   {
     allowFiles,
     title = name,
     ...props
-  }: Partial<AccessorKeyColumnDef<TFieldValues>> & { allowFiles?: boolean; title?: string } = {},
-): AccessorKeyColumnDef<TFieldValues> => ({
+  }: Partial<AccessorKeyColumnDef<TData, string>> & { allowFiles?: boolean; title?: string } = {},
+): AccessorKeyColumnDef<TData, string> => ({
   accessorKey: name,
-  cell: function Cell() {
-    const { control } = useFormContext<TFieldValues>();
-    return (
-      <ReferenceFieldRHF
+  cell: (context) => {
+    const provide = (value: string) => (
+      <ReferenceField
         allowFiles={allowFiles}
         className='flex-1'
-        control={control}
         kind='StringExpression'
-        name={name}
+        onChange={(_) => void onChange(_, context)}
         placeholder={`Enter ${title}`}
+        value={value}
         variant='table-cell'
       />
     );
+    return value(provide, context);
   },
   header: String.capitalize(title),
   ...props,
 });
 
-export const columnTextField = <TFieldValues extends FieldValues>(
-  name: FieldPath<TFieldValues>,
-  { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
-): AccessorKeyColumnDef<TFieldValues> => ({
+export const columnTextField = <TData,>(
+  name: keyof TData & string,
+  { onChange, value }: FieldProps<TData, string>,
+  { title = name, ...props }: Partial<AccessorKeyColumnDef<TData, string>> & { title?: string } = {},
+): AccessorKeyColumnDef<TData, string> => ({
   accessorKey: name,
-  cell: function Cell() {
-    const { control } = useFormContext<TFieldValues>();
-    return (
-      <TextInputFieldRHF className='flex-1' control={control} isTableCell name={name} placeholder={`Enter ${title}`} />
+  cell: (context) => {
+    const provide = (value: string) => (
+      <TextInputField
+        aria-label={title}
+        className='flex-1'
+        isTableCell
+        onChange={(_) => void onChange(_, context)}
+        placeholder={`Enter ${title}`}
+        value={value}
+      />
     );
+    return value(provide, context);
   },
   header: String.capitalize(title),
   ...props,
 });
 
-export const columnText = <TFieldValues extends FieldValues>(
-  name: FieldPath<TFieldValues>,
-  { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
-): AccessorKeyColumnDef<TFieldValues> => ({
+export const columnText = <TData,>(
+  name: keyof TData & string,
+  { title = name, ...props }: Partial<AccessorKeyColumnDef<TData>> & { title?: string } = {},
+): AccessorKeyColumnDef<TData> => ({
   accessorKey: name,
-  cell: function Cell({ cell }) {
-    return <div className={tw`px-5 py-1.5`}>{cell.renderValue() as ReactNode}</div>;
-  },
+  cell: ({ cell }) => <div className={tw`px-5 py-1.5`}>{cell.renderValue() as ReactNode}</div>,
   header: String.capitalize(title),
   ...props,
 });

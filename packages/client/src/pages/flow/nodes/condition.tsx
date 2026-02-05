@@ -2,15 +2,13 @@ import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
-import { use, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { useDebouncedCallback } from 'use-debounce';
+import { use } from 'react';
 import { HandleKind, NodeConditionSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { ReferenceFieldRHF } from '~/features/expression';
+import { ReferenceField } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
 import { FlowContext } from '../context';
@@ -42,7 +40,7 @@ export const ConditionNode = ({ id, selected }: XF.NodeProps) => {
 export const ConditionSettings = ({ nodeId }: NodeSettingsProps) => {
   const collection = useApiCollection(NodeConditionCollectionSchema);
 
-  const { condition } =
+  const data =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
@@ -52,29 +50,16 @@ export const ConditionSettings = ({ nodeId }: NodeSettingsProps) => {
       [collection, nodeId],
     ).data ?? create(NodeConditionSchema);
 
-  const { control, handleSubmit, watch } = useForm({
-    resetOptions: { keepDirtyValues: true },
-    values: { condition },
-  });
-
   const { isReadOnly = false } = use(FlowContext);
-
-  const update = useDebouncedCallback(async () => {
-    await handleSubmit(({ condition }) => void collection.utils.update({ condition, nodeId }))();
-  }, 200);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const subscription = watch((_, { type }) => {
-      if (type === 'change') void update();
-    });
-    return () => void subscription.unsubscribe();
-  }, [update, watch]);
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='If'>
       <FieldLabel>Condition</FieldLabel>
-      <ReferenceFieldRHF control={control} name={'condition'} readOnly={isReadOnly} />
+      <ReferenceField
+        onChange={(_) => collection.utils.updatePaced({ condition: _, nodeId })}
+        readOnly={isReadOnly}
+        value={data.condition}
+      />
     </NodeSettingsBody>
   );
 };

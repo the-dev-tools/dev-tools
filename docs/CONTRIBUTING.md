@@ -128,7 +128,6 @@ This is a list of tools that we frequently use throughout the project, along wit
 - TanStack Query - [Docs](https://tanstack.com/query/latest/docs/framework/react/overview)
 - TanStack Table - [Docs](https://tanstack.com/table/latest/docs/introduction)
 - normy - [Core](https://github.com/klis87/normy#readme) - [TanStack Query](https://github.com/klis87/normy/tree/master/packages/normy-react-query#readme)
-- React Hook Form - [API](https://react-hook-form.com/docs) - [TS](https://react-hook-form.com/ts)
 - React Flow - [Docs](https://reactflow.dev/learn) - [API](https://reactflow.dev/api-reference) - [Components](https://reactflow.dev/components) - [Examples](https://reactflow.dev/examples)
 
 #### UI

@@ -3,7 +3,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import CodeMirror from '@uiw/react-codemirror';
 import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
-import { use, useState } from 'react';
+import { use } from 'react';
 import { FiTerminal } from 'react-icons/fi';
 import { NodeJsSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeJsCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
@@ -50,8 +50,6 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
 
   const { isReadOnly = false } = use(FlowContext);
 
-  const [value, setValue] = useState(code);
-
   const extensions = useCodeMirrorLanguageExtensions('javascript');
 
   return (
@@ -59,10 +57,9 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
       <CodeMirror
         extensions={extensions}
         height='100%'
-        onBlur={() => void collection.utils.update({ code: value, nodeId })}
-        onChange={setValue}
+        onChange={(_) => collection.utils.updatePaced({ code: _, nodeId })}
         readOnly={isReadOnly}
-        value={value}
+        value={code}
       />
     </NodeSettingsBody>
   );

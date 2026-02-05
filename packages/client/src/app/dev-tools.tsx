@@ -11,10 +11,7 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { Control, FieldValues } from 'react-hook-form';
 import { Options as ReactScanOptions, setOptions } from 'react-scan';
-import { twMerge } from 'tailwind-merge';
-import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 const ShowDevToolsContext = createContext(false);
 
@@ -60,25 +57,6 @@ export const ReactQueryDevTools = (props: ComponentProps<typeof ReactQueryDevToo
   return (
     <Suspense>
       <ReactQueryDevToolsLazy {...props} />
-    </Suspense>
-  );
-};
-
-const RHFDevToolsLazy = lazy(() => import('@hookform/devtools').then((_) => ({ default: _.DevTool })));
-
-interface RHFDevToolsProps<T extends FieldValues> extends ComponentProps<'div'> {
-  control?: Control<T>;
-  id?: string;
-}
-
-export const RHFDevTools = <T extends FieldValues>({ className, control, id, ...props }: RHFDevToolsProps<T>) => {
-  const show = useContext(ShowDevToolsContext);
-  if (!show) return null;
-  return (
-    <Suspense>
-      <div {...props} className={twMerge(tw`flex items-center justify-center`, className)}>
-        <RHFDevToolsLazy control={control as unknown as Control} id={id} styles={{ button: { position: 'unset' } }} />
-      </div>
     </Suspense>
   );
 };

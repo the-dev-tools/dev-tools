@@ -1,5 +1,5 @@
 import * as Protobuf from '@bufbuild/protobuf';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, Query, useLiveQuery } from '@tanstack/react-db';
 import { Array, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useMemo, useState } from 'react';
@@ -43,11 +43,10 @@ import {
   columnReferenceField,
   columnTextField,
   ReactTableNoMemo,
-  useFormTable,
   useFormTableAddRow,
 } from '~/features/form-table';
 import { useApiCollection } from '~/shared/api';
-import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
+import { eqStruct, getNextOrder, handleCollectionReorder, LiveQuery, pick, pickStruct } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { ExportDialog } from '~/widgets/export';
 import { ImportDialogTrigger } from '~/widgets/import';
@@ -383,62 +382,106 @@ interface VariablesTableProps {
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
-  const variableColleciton = useApiCollection(EnvironmentVariableCollectionSchema);
+  const collection = useApiCollection(EnvironmentVariableCollectionSchema);
 
   const { data: variables } = useLiveQuery(
     (_) =>
-      _.from({ variable: variableColleciton })
+      _.from({ variable: collection })
         .where((_) => eq(_.variable.environmentId, environmentId))
         .orderBy((_) => _.variable.order),
-    [environmentId, variableColleciton],
+    [environmentId, collection],
   );
-
-  const formTable = useFormTable<EnvironmentVariable>({
-    onUpdate: ({ $typeName: _, ...item }) => variableColleciton.utils.update(item),
-  });
 
   const addRow = useFormTableAddRow({
     createLabel: 'New variable',
     items: variables,
     onCreate: async () =>
-      variableColleciton.utils.insert({
+      collection.utils.insert({
         enabled: true,
         environmentId,
         environmentVariableId: Ulid.generate().bytes,
         key: `VARIABLE_${variables.length}`,
-        order: await getNextOrder(variableColleciton),
+        order: await getNextOrder(collection),
       }),
     primaryColumn: 'key',
   });
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: handleCollectionReorder(variableColleciton),
+    onReorder: handleCollectionReorder(collection),
     renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
+
+  const baseQuery = (_: Uint8Array) =>
+    new Query()
+      .from({ item: collection })
+      .where(eqStruct({ environmentVariableId: _ }))
+      .findOne();
 
   return (
     <ReactTableNoMemo
       columns={[
-        columnCheckboxField<EnvironmentVariable>('enabled', { meta: { divider: false } }),
-        columnReferenceField<EnvironmentVariable>('key', { meta: { isRowHeader: true } }),
-        columnReferenceField<EnvironmentVariable>('value', { allowFiles: true }),
-        columnTextField<EnvironmentVariable>('description', { meta: { divider: false } }),
+        columnCheckboxField<EnvironmentVariable>(
+          'enabled',
+          {
+            onChange: (enabled, { row: { original } }) =>
+              collection.utils.update({ enabled, environmentVariableId: original.environmentVariableId }),
+            value: (provide, { row: { original } }) => (
+              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('enabled'))}>
+                {(_) => provide(_.data?.enabled ?? false)}
+              </LiveQuery>
+            ),
+          },
+          { meta: { divider: false } },
+        ),
+        columnReferenceField<EnvironmentVariable>(
+          'key',
+          {
+            onChange: (key, { row: { original } }) =>
+              collection.utils.updatePaced({ environmentVariableId: original.environmentVariableId, key }),
+            value: (provide, { row: { original } }) => (
+              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('key'))}>
+                {(_) => provide(_.data?.key ?? '')}
+              </LiveQuery>
+            ),
+          },
+          { meta: { isRowHeader: true } },
+        ),
+        columnReferenceField<EnvironmentVariable>(
+          'value',
+          {
+            onChange: (value, { row: { original } }) =>
+              collection.utils.updatePaced({ environmentVariableId: original.environmentVariableId, value }),
+            value: (provide, { row: { original } }) => (
+              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('value'))}>
+                {(_) => provide(_.data?.value ?? '')}
+              </LiveQuery>
+            ),
+          },
+          { allowFiles: true },
+        ),
+        columnTextField<EnvironmentVariable>(
+          'description',
+          {
+            onChange: (description, { row: { original } }) =>
+              collection.utils.updatePaced({ description, environmentVariableId: original.environmentVariableId }),
+            value: (provide, { row: { original } }) => (
+              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('description'))}>
+                {(_) => provide(_.data?.description ?? '')}
+              </LiveQuery>
+            ),
+          },
+          { meta: { divider: false } },
+        ),
         columnActionsCommon<EnvironmentVariable>({
-          onDelete: (_) => variableColleciton.utils.delete(pick(_, 'environmentVariableId')),
+          onDelete: (_) => collection.utils.delete(pick(_, 'environmentVariableId')),
         }),
       ]}
       data={variables}
-      getRowId={(_) => variableColleciton.utils.getKey(_)}
+      getRowId={(_) => collection.utils.getKey(_)}
     >
       {(table) => (
-        <DataTable
-          {...formTable}
-          {...addRow}
-          aria-label='Environment variables'
-          dragAndDropHooks={dragAndDropHooks}
-          table={table}
-        />
+        <DataTable {...addRow} aria-label='Environment variables' dragAndDropHooks={dragAndDropHooks} table={table} />
       )}
     </ReactTableNoMemo>
   );

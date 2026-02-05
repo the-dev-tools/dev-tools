@@ -1,14 +1,10 @@
-import { Struct } from 'effect';
 import { RefAttributes } from 'react';
-import { mergeProps } from 'react-aria';
 import * as RAC from 'react-aria-components';
-import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { FiCheckCircle, FiChevronDown } from 'react-icons/fi';
 import { Button, ButtonProps } from './button';
 import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { ListBox, ListBoxItem, ListBoxItemProps, ListBoxProps } from './list-box';
 import { Popover } from './popover';
-import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
 import { composeTailwindRenderProps, composeTextValueProps } from './utils';
 
@@ -65,39 +61,3 @@ export const SelectItem = <T extends object>(props: ListBoxItemProps<T>) => (
     ))}
   </ListBoxItem>
 );
-
-// RHF wrapper
-
-export interface SelectRHFProps<
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->
-  extends Omit<SelectProps<TFieldValues>, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
-
-export const SelectRHF = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->(
-  props: SelectRHFProps<TFieldValues, TName>,
-) => {
-  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
-  const controllerProps = Struct.pick(props, ...controllerPropKeys);
-
-  const {
-    field: { ref, ...field },
-    fieldState,
-  } = useController({ defaultValue: null as never, ...controllerProps });
-
-  const fieldProps: SelectProps<TFieldValues> = {
-    error: fieldState.error?.message,
-    isDisabled: field.disabled ?? false,
-    isInvalid: fieldState.invalid,
-    name: field.name,
-    onBlur: field.onBlur,
-    onChange: field.onChange,
-    validationBehavior: 'aria',
-    value: field.value,
-  };
-
-  return <Select {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
-};

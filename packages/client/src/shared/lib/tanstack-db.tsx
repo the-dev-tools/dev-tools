@@ -6,8 +6,10 @@ import {
   InitialQueryBuilder,
   QueryBuilder,
   Ref,
+  useLiveQuery,
 } from '@tanstack/react-db';
 import { Array, pipe, Record } from 'effect';
+import { ReactNode } from 'react';
 
 export const pick = <T extends object, K extends (keyof T)[]>(s: T, ...keys: K) => {
   const out: Partial<T> = {};
@@ -37,3 +39,21 @@ export const eqStruct =
     if (eqs.length === 1) return eqs[0]!;
     return and(...(eqs as [BooleanExpression, BooleanExpression, ...BooleanExpression[]]));
   };
+
+export const pickStruct =
+  <T extends object, K extends (keyof T)[]>(...keys: K) =>
+  ({ item }: { item: Ref<T> }) => {
+    const out: Partial<Ref<T>> = {};
+    for (const k of keys) out[k] = item[k];
+    return out as Pick<Ref<T>, K[number]>;
+  };
+
+interface LiveQueryProps<TContext extends Context> {
+  children: (result: ReturnType<typeof useLiveQuery<TContext>>) => ReactNode;
+  query: (q: InitialQueryBuilder) => QueryBuilder<TContext>;
+}
+
+export const LiveQuery = <TContext extends Context>({ children, query }: LiveQueryProps<TContext>) => {
+  const result = useLiveQuery(query, [query]);
+  return children(result);
+};

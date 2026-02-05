@@ -1,6 +1,7 @@
 import { create, MessageInitShape } from '@bufbuild/protobuf';
+import { createCollection, localOnlyCollectionOptions, Query } from '@tanstack/react-db';
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import { Array, HashMap, Option, pipe } from 'effect';
+import { Array, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, useState, useTransition } from 'react';
 import { Dialog, Heading, Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -19,14 +20,9 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
-import {
-  columnCheckboxField,
-  columnText,
-  columnTextField,
-  ReactTableNoMemo,
-  useFormTable,
-} from '~/features/form-table';
+import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo } from '~/features/form-table';
 import { request } from '~/shared/api';
+import { eqStruct, LiveQuery, pickStruct } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 
 export const useImportDialog = () => {
@@ -184,22 +180,25 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
   const { transport } = routes.root.useRouteContext();
 
   const [isPending, startTransition] = useTransition();
-  const [domainData, setDomainData] = useState(
-    pipe(
-      Array.map(domains, (_) => [_, create(ImportDomainDataSchema, { domain: _, enabled: true })] as const),
-      HashMap.fromIterable,
-    ),
+
+  const collection = createCollection(
+    localOnlyCollectionOptions({
+      getKey: (_) => _.domain,
+      initialData: domains.map((_) => create(ImportDomainDataSchema, { domain: _, enabled: true })),
+    }),
   );
 
-  const formTable = useFormTable<ImportDomainData>({
-    onUpdate: (_) => void setDomainData(HashMap.modify(_.domain, () => _)),
-  });
+  const baseQuery = (_: string) =>
+    new Query()
+      .from({ item: collection })
+      .where(eqStruct({ domain: _ }))
+      .findOne();
 
   const importAction = async () => {
     const {
       message: { flowId },
     } = await request({
-      input: { ...input, domainData: HashMap.toValues(domainData) },
+      input: { ...input, domainData: Array.fromIterable(collection.values()) },
       method: ImportService.method.import,
       transport,
     });
@@ -230,16 +229,37 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
 
       <ReactTableNoMemo
         columns={[
-          columnCheckboxField<ImportDomainData>('enabled', { meta: { divider: false } }),
-          columnText<ImportDomainData>('domain', { meta: { isRowHeader: true } }),
-          columnTextField<ImportDomainData>('variable'),
+          columnCheckboxField<ImportDomainData>(
+            'enabled',
+            {
+              onChange: (enabled, { row: { original } }) =>
+                collection.update(original.domain, (_) => (_.enabled = enabled)),
+              value: (provide, { row: { original } }) => (
+                <LiveQuery query={() => baseQuery(original.domain).select(pickStruct('enabled'))}>
+                  {(_) => provide(_.data?.enabled ?? false)}
+                </LiveQuery>
+              ),
+            },
+            { meta: { divider: false } },
+          ),
+          columnText<ImportDomainData>('domain', {
+            cell: ({ row: { original } }) => original.domain,
+            meta: { isRowHeader: true },
+          }),
+          columnTextField<ImportDomainData>('variable', {
+            onChange: (variable, { row: { original } }) =>
+              collection.update(original.domain, (_) => (_.variable = variable)),
+            value: (provide, { row: { original } }) => (
+              <LiveQuery query={() => baseQuery(original.domain).select(pickStruct('variable'))}>
+                {(_) => provide(_.data?.variable ?? '')}
+              </LiveQuery>
+            ),
+          }),
         ]}
-        data={HashMap.toValues(domainData)}
+        data={domains.map((_) => create(ImportDomainDataSchema, { domain: _ }))}
         getRowId={(_) => _.domain}
       >
-        {(table) => (
-          <DataTable {...formTable} aria-label='Import domains' containerClassName={tw`mt-4`} table={table} />
-        )}
+        {(table) => <DataTable aria-label='Import domains' containerClassName={tw`mt-4`} table={table} />}
       </ReactTableNoMemo>
     </InnerDialog>
   );

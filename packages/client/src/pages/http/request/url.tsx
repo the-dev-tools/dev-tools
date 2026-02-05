@@ -2,7 +2,7 @@ import { MessageInitShape } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Array, flow, MutableHashSet, Option, pipe, Record, String, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
 import {
   HttpMethod,
   HttpMethodSchema,
@@ -19,7 +19,7 @@ import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { DeltaResetButton, useDeltaState } from '~/features/delta';
-import { ReferenceFieldRHF } from '~/features/expression';
+import { ReferenceField } from '~/features/expression';
 import { MAX_FLOAT, useApiCollection } from '~/shared/api';
 import { pick, queryCollection } from '~/shared/lib';
 
@@ -66,17 +66,19 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
   let urlString = url ?? '';
   if (searchParamString.length > 0) urlString += '?' + searchParamString;
 
-  const form = useForm({ values: { urlString } });
+  const [urlStringState, setUrlStringState] = useState<string>();
 
-  const submit = form.handleSubmit(async ({ urlString }) => {
+  const submit = async () => {
+    if (!urlStringState) return;
+
     const { searchParamString, url } = pipe(
-      urlString,
+      urlStringState,
       String.indexOf('?'),
       Option.match({
-        onNone: () => ({ searchParamString: '', url: urlString }),
+        onNone: () => ({ searchParamString: '', url: urlStringState }),
         onSome: (separator) => ({
-          searchParamString: urlString.slice(separator + 1),
-          url: urlString.slice(0, separator),
+          searchParamString: urlStringState.slice(separator + 1),
+          url: urlStringState.slice(0, separator),
         }),
       }),
     );
@@ -102,7 +104,7 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
           httpSearchParamId: _.httpSearchParamId,
         });
       }),
-      (_) => searchParamCollection.utils.update(_),
+      (_) => searchParamCollection.utils.updatePaced(_),
     );
 
     const lastOrder = pipe(
@@ -135,7 +137,9 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
       }),
       (_) => searchParamCollection.utils.insert(_),
     );
-  });
+
+    setUrlStringState(undefined);
+  };
 
   return (
     <div className={tw`flex flex-1 items-center gap-3 rounded-lg border border-slate-300 px-3 py-2 shadow-xs`}>
@@ -161,14 +165,14 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
 
       <Separator className={tw`h-7 shrink-0`} orientation='vertical' />
 
-      <ReferenceFieldRHF
+      <ReferenceField
         aria-label='URL'
         className={tw`min-w-0 flex-1 border-none font-medium tracking-tight`}
-        control={form.control}
         kind='StringExpression'
-        name='urlString'
         onBlur={() => void submit()}
+        onChange={(_) => void setUrlStringState(_)}
         readOnly={isReadOnly}
+        value={urlStringState ?? urlString}
       />
 
       <DeltaResetButton {...deltaOptions} valueKey='url' />

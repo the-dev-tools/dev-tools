@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, Query, useLiveQuery } from '@tanstack/react-db';
 import { useMatchRoute, useRouter } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
 import { Duration, Match, pipe } from 'effect';
@@ -42,11 +42,18 @@ import {
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
-  useFormTable,
   useFormTableAddRow,
 } from '~/features/form-table';
 import { request, useApiCollection } from '~/shared/api';
-import { eqStruct, getNextOrder, handleCollectionReorder, pick, queryCollection } from '~/shared/lib';
+import {
+  eqStruct,
+  getNextOrder,
+  handleCollectionReorder,
+  LiveQuery,
+  pick,
+  pickStruct,
+  queryCollection,
+} from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { AddNodeSidebar } from './add-node';
 import { FlowContext } from './context';
@@ -470,22 +477,72 @@ const FlowSettings = () => {
     [collection, flowId],
   );
 
+  const baseQuery = (_: Uint8Array) =>
+    new Query()
+      .from({ item: collection })
+      .where(eqStruct({ flowVariableId: _ }))
+      .findOne();
+
   const table = useReactTable({
     columns: [
-      columnCheckboxField<FlowVariable>('enabled', { meta: { divider: false } }),
-      columnReferenceField<FlowVariable>('key', { meta: { isRowHeader: true } }),
-      columnReferenceField<FlowVariable>('value', { allowFiles: true }),
-      columnTextField<FlowVariable>('description', { meta: { divider: false } }),
+      columnCheckboxField<FlowVariable>(
+        'enabled',
+        {
+          onChange: (enabled, { row: { original } }) =>
+            collection.utils.update({ enabled, flowVariableId: original.flowVariableId }),
+          value: (provide, { row: { original } }) => (
+            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('enabled'))}>
+              {(_) => provide(_.data?.enabled ?? false)}
+            </LiveQuery>
+          ),
+        },
+        { meta: { divider: false } },
+      ),
+      columnReferenceField<FlowVariable>(
+        'key',
+        {
+          onChange: (key, { row: { original } }) =>
+            collection.utils.updatePaced({ flowVariableId: original.flowVariableId, key }),
+          value: (provide, { row: { original } }) => (
+            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('key'))}>
+              {(_) => provide(_.data?.key ?? '')}
+            </LiveQuery>
+          ),
+        },
+        { meta: { isRowHeader: true } },
+      ),
+      columnReferenceField<FlowVariable>(
+        'value',
+        {
+          onChange: (value, { row: { original } }) =>
+            collection.utils.updatePaced({ flowVariableId: original.flowVariableId, value }),
+          value: (provide, { row: { original } }) => (
+            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('value'))}>
+              {(_) => provide(_.data?.value ?? '')}
+            </LiveQuery>
+          ),
+        },
+        { allowFiles: true },
+      ),
+      columnTextField<FlowVariable>(
+        'description',
+        {
+          onChange: (description, { row: { original } }) =>
+            collection.utils.updatePaced({ description, flowVariableId: original.flowVariableId }),
+          value: (provide, { row: { original } }) => (
+            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('description'))}>
+              {(_) => provide(_.data?.description ?? '')}
+            </LiveQuery>
+          ),
+        },
+        { meta: { divider: false } },
+      ),
       columnActionsCommon<FlowVariable>({
         onDelete: (_) => collection.utils.delete(collection.utils.getKeyObject(_)),
       }),
     ],
     data: variables,
     getRowId: (_) => collection.utils.getKey(_),
-  });
-
-  const formTable = useFormTable<FlowVariable>({
-    onUpdate: ({ $typeName: _, ...item }) => collection.utils.update(item),
   });
 
   const addRow = useFormTableAddRow({
@@ -521,13 +578,7 @@ const FlowSettings = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable
-          {...formTable}
-          {...addRow}
-          aria-label='Flow variables'
-          dragAndDropHooks={dragAndDropHooks}
-          table={table}
-        />
+        <DataTable {...addRow} aria-label='Flow variables' dragAndDropHooks={dragAndDropHooks} table={table} />
       </div>
     </>
   );

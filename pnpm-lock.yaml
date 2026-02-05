@@ -312,9 +312,6 @@ catalogs:
     react-error-boundary:
       specifier: 6.0.2
       version: 6.0.2
-    react-hook-form:
-      specifier: 7.70.0
-      version: 7.70.0
     react-icons:
       specifier: 5.5.0
       version: 5.5.0
@@ -732,9 +729,6 @@ importers:
       react-error-boundary:
         specifier: 'catalog:'
         version: 6.0.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react-hook-form:
-        specifier: 'catalog:'
-        version: 7.70.0(react@19.2.3)
       react-icons:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)
@@ -892,9 +886,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
-      react-hook-form:
-        specifier: 'catalog:'
-        version: 7.70.0(react@19.2.3)
       react-icons:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)

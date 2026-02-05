@@ -5,9 +5,7 @@ import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
 import { createContext, RefAttributes, use, useContext, useRef } from 'react';
-import { mergeProps } from 'react-aria';
 import { Tree as AriaTree } from 'react-aria-components';
-import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { tv, VariantProps } from 'tailwind-variants';
 import {
   ReferenceContext as ReferenceContextMessage,
@@ -19,7 +17,6 @@ import {
   ReferenceService,
   ReferenceTreeItem,
 } from '@the-dev-tools/spec/buf/api/reference/v1/reference_pb';
-import { controllerPropKeys, ControllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/shared/api';
@@ -233,32 +230,4 @@ export const ReferenceField = ({
       {...props}
     />
   );
-};
-
-interface ReferenceFieldRHFProps<
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->
-  extends Omit<ReferenceFieldProps, ControllerPropKeys>, UseControllerProps<TFieldValues, TName> {}
-
-export const ReferenceFieldRHF = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
->(
-  props: ReferenceFieldRHFProps<TFieldValues, TName>,
-) => {
-  const forwardedProps = Struct.omit(props, ...controllerPropKeys);
-  const controllerProps = Struct.pick(props, ...controllerPropKeys);
-
-  const { field } = useController({ defaultValue: '' as never, ...controllerProps });
-
-  const fieldProps: ReferenceFieldProps = {
-    onBlur: field.onBlur,
-    onChange: field.onChange,
-    readOnly: field.disabled ?? false,
-    ref: field.ref,
-    value: field.value,
-  };
-
-  return <ReferenceField {...mergeProps(fieldProps, forwardedProps)} />;
 };
