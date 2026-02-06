@@ -1,20 +1,14 @@
-import type { Client as RpcClient } from "@connectrpc/connect";
-import { Code, ConnectError, createClient } from "@connectrpc/connect";
-import {
-  connectNodeAdapter,
-  createConnectTransport,
-} from "@connectrpc/connect-node";
-import type { Client as DbClient } from "@libsql/client";
-import { type Server, createServer } from "node:http";
-import type { AddressInfo } from "node:net";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { Client as RpcClient } from '@connectrpc/connect';
+import { Code, ConnectError, createClient } from '@connectrpc/connect';
+import { connectNodeAdapter, createConnectTransport } from '@connectrpc/connect-node';
+import type { Client as DbClient } from '@libsql/client';
+import { type Server, createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  AuthInternalService,
-  AuthProvider,
-} from "@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb";
+import { AuthInternalService, AuthProvider } from '@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb';
 
-import { createTestService } from "./test-utils.js";
+import { createTestService } from './test-utils.js';
 
 // =============================================================================
 // Server + Client setup
@@ -38,7 +32,7 @@ beforeAll(async () => {
   server = createServer(handler);
 
   await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(0, '127.0.0.1', () => {
       resolve();
     });
   });
@@ -47,7 +41,7 @@ beforeAll(async () => {
 
   const transport = createConnectTransport({
     baseUrl: `http://127.0.0.1:${port}`,
-    httpVersion: "1.1",
+    httpVersion: '1.1',
   });
 
   client = createClient(AuthInternalService, transport);
@@ -65,40 +59,51 @@ afterAll(async () => {
 // RPC Integration Tests
 // =============================================================================
 
-describe("RPC: createUser", () => {
-  it("creates a user via HTTP and persists to SQLite", async () => {
-    const res = await client.createUser({
-      email: "rpc-alice@test.com",
-      name: "Alice",
+describe('RPC: createUserWithPassword', () => {
+  it('creates user and credential account, persists to SQLite', async () => {
+    const res = await client.createUserWithPassword({
+      email: 'rpc-alice@test.com',
+      name: 'Alice',
+      password: 'secret123',
     });
 
     expect(res.user).toBeDefined();
-    expect(res.user!.email).toBe("rpc-alice@test.com");
-    expect(res.user!.name).toBe("Alice");
+    expect(res.user!.email).toBe('rpc-alice@test.com');
+    expect(res.user!.name).toBe('Alice');
     expect(res.user!.id).toBeTruthy();
+    expect(res.sessionToken).toBeTruthy();
 
     // Verify directly in SQLite
-    const rows = await rawDb.execute({
+    const userRows = await rawDb.execute({
       args: [res.user!.id],
-      sql: "SELECT * FROM user WHERE id = ?",
+      sql: 'SELECT * FROM user WHERE id = ?',
     });
-    expect(rows.rows).toHaveLength(1);
-    expect(rows.rows[0].email).toBe("rpc-alice@test.com");
-    expect(rows.rows[0].name).toBe("Alice");
+    expect(userRows.rows).toHaveLength(1);
+    expect(userRows.rows[0].email).toBe('rpc-alice@test.com');
+
+    const accountRows = await rawDb.execute({
+      args: [res.user!.id, 'credential'],
+      sql: 'SELECT * FROM account WHERE userId = ? AND providerId = ?',
+    });
+    expect(accountRows.rows).toHaveLength(1);
+    expect(accountRows.rows[0].password).not.toBe('secret123');
+    expect((accountRows.rows[0].password as string).length).toBeGreaterThan(10);
   });
 
-  it("returns AlreadyExists over the wire", async () => {
-    await client.createUser({
-      email: "rpc-dup@test.com",
-      name: "First",
+  it('returns AlreadyExists over the wire', async () => {
+    await client.createUserWithPassword({
+      email: 'rpc-dup@test.com',
+      name: 'First',
+      password: 'password-first',
     });
 
     try {
-      await client.createUser({
-        email: "rpc-dup@test.com",
-        name: "Second",
+      await client.createUserWithPassword({
+        email: 'rpc-dup@test.com',
+        name: 'Second',
+        password: 'password-second',
       });
-      expect.fail("should have thrown");
+      expect.fail('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(ConnectError);
       expect((e as ConnectError).code).toBe(Code.AlreadyExists);
@@ -106,126 +111,75 @@ describe("RPC: createUser", () => {
   });
 });
 
-describe("RPC: full auth flow", () => {
-  it("signup → verify → tokens → refresh → revoke", async () => {
+describe('RPC: full auth flow', () => {
+  it('signup → verify → getToken', async () => {
     // 1. Sign up with password
     const signup = await client.createUserWithPassword({
-      email: "rpc-flow@test.com",
-      name: "Flow",
-      password: "mypassword",
+      email: 'rpc-flow@test.com',
+      name: 'Flow',
+      password: 'mypassword',
     });
-    expect(signup.user!.email).toBe("rpc-flow@test.com");
+    expect(signup.user!.email).toBe('rpc-flow@test.com');
+    expect(signup.sessionToken).toBeTruthy();
 
     // Verify user + credential account exist in SQLite
     const userRows = await rawDb.execute({
       args: [signup.user!.id],
-      sql: "SELECT * FROM user WHERE id = ?",
+      sql: 'SELECT * FROM user WHERE id = ?',
     });
     expect(userRows.rows).toHaveLength(1);
 
     const accountRows = await rawDb.execute({
-      args: [signup.user!.id, "credential"],
-      sql: "SELECT * FROM account WHERE userId = ? AND providerId = ?",
+      args: [signup.user!.id, 'credential'],
+      sql: 'SELECT * FROM account WHERE userId = ? AND providerId = ?',
     });
     expect(accountRows.rows).toHaveLength(1);
-    // Password must be hashed, not plaintext
-    expect(accountRows.rows[0].password).not.toBe("mypassword");
-    expect((accountRows.rows[0].password as string).length).toBeGreaterThan(10);
+    expect(accountRows.rows[0].password).not.toBe('mypassword');
 
     // 2. Verify credentials
     const verify = await client.verifyCredentials({
-      email: "rpc-flow@test.com",
-      password: "mypassword",
+      email: 'rpc-flow@test.com',
+      password: 'mypassword',
     });
     expect(verify.valid).toBe(true);
     expect(verify.user!.id).toBe(signup.user!.id);
+    expect(verify.sessionToken).toBeTruthy();
 
-    // 3. Create tokens
-    const tokens = await client.createTokens({
-      email: "rpc-flow@test.com",
-      name: "Flow",
-      userId: signup.user!.id,
+    // 3. Get JWT access token using session token
+    const token = await client.getToken({
+      sessionToken: verify.sessionToken,
     });
-    expect(tokens.accessToken).toBeTruthy();
-    expect(tokens.refreshToken).toBeTruthy();
+    expect(token.accessToken).toBeTruthy();
 
-    // Verify refresh token row exists in SQLite
-    const rtRows = await rawDb.execute({
+    // Verify it's a valid JWT
+    const parts = token.accessToken.split('.');
+    expect(parts.length).toBe(3);
+
+    // Decode and check claims
+    const payload = JSON.parse(atob(parts[1]));
+    expect(payload.sub).toBe(signup.user!.id);
+    expect(payload.email).toBe('rpc-flow@test.com');
+
+    // Verify session exists in SQLite (BetterAuth internal)
+    const sessionRows = await rawDb.execute({
       args: [signup.user!.id],
-      sql: "SELECT * FROM refresh_token WHERE userId = ?",
+      sql: 'SELECT * FROM session WHERE userId = ?',
     });
-    expect(rtRows.rows).toHaveLength(1);
-    expect(rtRows.rows[0].token).toBe(tokens.refreshToken);
-
-    // 4. Refresh tokens — old token deleted, new one created
-    const refreshed = await client.refreshTokens({
-      refreshToken: tokens.refreshToken,
-    });
-    expect(refreshed.accessToken).toBeTruthy();
-    expect(refreshed.refreshToken).not.toBe(tokens.refreshToken);
-
-    // Verify old token gone, new token present in SQLite
-    const rtAfterRefresh = await rawDb.execute({
-      args: [signup.user!.id],
-      sql: "SELECT * FROM refresh_token WHERE userId = ?",
-    });
-    expect(rtAfterRefresh.rows).toHaveLength(1);
-    expect(rtAfterRefresh.rows[0].token).toBe(refreshed.refreshToken);
-
-    // 5. Revoke
-    const revoked = await client.revokeRefreshToken({
-      refreshToken: refreshed.refreshToken,
-    });
-    expect(revoked.success).toBe(true);
-
-    // Verify refresh token table is empty for this user
-    const rtAfterRevoke = await rawDb.execute({
-      args: [signup.user!.id],
-      sql: "SELECT * FROM refresh_token WHERE userId = ?",
-    });
-    expect(rtAfterRevoke.rows).toHaveLength(0);
-
-    // 6. Refresh should fail now
-    try {
-      await client.refreshTokens({
-        refreshToken: refreshed.refreshToken,
-      });
-      expect.fail("should have thrown");
-    } catch (e) {
-      expect(e).toBeInstanceOf(ConnectError);
-      expect((e as ConnectError).code).toBe(Code.Unauthenticated);
-    }
+    expect(sessionRows.rows.length).toBeGreaterThanOrEqual(1);
   });
 });
 
-describe("RPC: getUser", () => {
-  it("returns user by ID", async () => {
-    const created = await client.createUser({
-      email: "rpc-getuser@test.com",
-      name: "GetMe",
-    });
-
-    const res = await client.getUser({ userId: created.user!.id });
-    expect(res.user).toBeDefined();
-    expect(res.user!.email).toBe("rpc-getuser@test.com");
-  });
-
-  it("returns empty for nonexistent user", async () => {
-    const res = await client.getUser({ userId: "does-not-exist" });
-    expect(res.user).toBeUndefined();
-  });
-});
-
-describe("RPC: accounts", () => {
-  it("creates OAuth account and persists to SQLite", async () => {
-    const user = await client.createUser({
-      email: "rpc-accounts@test.com",
-      name: "Accounts",
+describe('RPC: accounts', () => {
+  it('creates OAuth account and persists to SQLite', async () => {
+    const user = await client.createUserWithPassword({
+      email: 'rpc-accounts@test.com',
+      name: 'Accounts',
+      password: 'password-accounts',
     });
 
     await client.createAccount({
       provider: AuthProvider.GOOGLE,
-      providerAccountId: "google-456",
+      providerAccountId: 'google-456',
       userId: user.user!.id,
     });
 
@@ -234,44 +188,56 @@ describe("RPC: accounts", () => {
       userId: user.user!.id,
     });
 
-    const googleAccount = res.accounts.find(
-      (a) => a.provider === AuthProvider.GOOGLE,
-    );
+    const googleAccount = res.accounts.find((a) => a.provider === AuthProvider.GOOGLE);
     expect(googleAccount).toBeDefined();
-    expect(googleAccount!.providerAccountId).toBe("google-456");
+    expect(googleAccount!.providerAccountId).toBe('google-456');
 
     // Verify directly in SQLite
     const rows = await rawDb.execute({
-      args: [user.user!.id, "google"],
-      sql: "SELECT * FROM account WHERE userId = ? AND providerId = ?",
+      args: [user.user!.id, 'google'],
+      sql: 'SELECT * FROM account WHERE userId = ? AND providerId = ?',
     });
     expect(rows.rows).toHaveLength(1);
-    expect(rows.rows[0].accountId).toBe("google-456");
+    expect(rows.rows[0].accountId).toBe('google-456');
     expect(rows.rows[0].password).toBeNull();
   });
 });
 
-describe("RPC: OAuth", () => {
-  it("returns OAuth URL for Google", async () => {
+describe('RPC: OAuth', () => {
+  it('returns OAuth URL for Google', async () => {
     const res = await client.getOAuthUrl({
-      callbackUrl: "https://app.test/callback",
+      callbackUrl: 'https://app.test/callback',
       provider: AuthProvider.GOOGLE,
     });
 
-    expect(res.url).toContain("accounts.google.com");
+    expect(res.url).toContain('accounts.google.com');
     expect(res.state).toBeTruthy();
   });
 
-  it("rejects unsupported provider", async () => {
+  it('rejects unsupported provider', async () => {
     try {
       await client.getOAuthUrl({
-        callbackUrl: "https://app.test/callback",
+        callbackUrl: 'https://app.test/callback',
         provider: AuthProvider.EMAIL,
       });
-      expect.fail("should have thrown");
+      expect.fail('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(ConnectError);
       expect((e as ConnectError).code).toBe(Code.InvalidArgument);
+    }
+  });
+});
+
+describe('RPC: getToken', () => {
+  it('rejects invalid session token', async () => {
+    try {
+      await client.getToken({
+        sessionToken: 'invalid-token',
+      });
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ConnectError);
+      expect((e as ConnectError).code).toBe(Code.Unauthenticated);
     }
   });
 });

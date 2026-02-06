@@ -1,14 +1,14 @@
-import { connectNodeAdapter } from "@connectrpc/connect-node";
-import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
-import { createClient } from "@libsql/client";
-import { Config, Effect, Option, pipe } from "effect";
-import { createServer } from "node:http";
+import { connectNodeAdapter } from '@connectrpc/connect-node';
+import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
+import { createClient } from '@libsql/client';
+import { Config, Effect, Option, pipe } from 'effect';
+import { createServer } from 'node:http';
 
-import { AuthInternalService } from "@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb";
+import { AuthInternalService } from '@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb';
 
-import { createAuth } from "./auth.js";
-import { initDatabase } from "./db.js";
-import { createInternalAuthService } from "./service.js";
+import { createAuth } from './auth.js';
+import { initDatabase } from './db.js';
+import { createInternalAuthService } from './service.js';
 
 const oauthProvider = (idKey: string, secretKey: string) =>
   Effect.gen(function* () {
@@ -21,12 +21,9 @@ const oauthProvider = (idKey: string, secretKey: string) =>
   });
 
 const oauthConfig = Effect.gen(function* () {
-  const google = yield* oauthProvider("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET");
-  const github = yield* oauthProvider("GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET");
-  const microsoft = yield* oauthProvider(
-    "MICROSOFT_CLIENT_ID",
-    "MICROSOFT_CLIENT_SECRET",
-  );
+  const google = yield* oauthProvider('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET');
+  const github = yield* oauthProvider('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET');
+  const microsoft = yield* oauthProvider('MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET');
 
   return {
     ...(Option.isSome(google) && { google: google.value }),
@@ -36,29 +33,14 @@ const oauthConfig = Effect.gen(function* () {
 });
 
 const program = Effect.gen(function* () {
-  const port = yield* pipe(
-    Config.integer("BETTERAUTH_PORT"),
-    Config.withDefault(50051),
-  );
-  const dbUrl = yield* pipe(
-    Config.string("DATABASE_URL"),
-    Config.withDefault("file:auth.db"),
-  );
-  const dbAuthToken = yield* Config.option(
-    Config.string("DATABASE_AUTH_TOKEN"),
-  );
+  const port = yield* pipe(Config.integer('BETTERAUTH_PORT'), Config.withDefault(50051));
+  const dbUrl = yield* pipe(Config.string('DATABASE_URL'), Config.withDefault('file:auth.db'));
+  const dbAuthToken = yield* Config.option(Config.string('DATABASE_AUTH_TOKEN'));
   const authSecret = yield* pipe(
-    Config.string("AUTH_SECRET"),
-    Config.withDefault("development-auth-secret-change-in-production"),
+    Config.string('AUTH_SECRET'),
+    Config.withDefault('development-auth-secret-change-in-production'),
   );
-  const betterAuthUrl = yield* pipe(
-    Config.string("BETTERAUTH_URL"),
-    Config.withDefault(`http://localhost:${port}`),
-  );
-  const jwtSecretStr = yield* pipe(
-    Config.string("JWT_SECRET"),
-    Config.withDefault("development-jwt-secret-change-in-production"),
-  );
+  const betterAuthUrl = yield* pipe(Config.string('BETTERAUTH_URL'), Config.withDefault(`http://localhost:${port}`));
   const oauth = yield* oauthConfig;
 
   const rawDb = createClient({
@@ -72,17 +54,7 @@ const program = Effect.gen(function* () {
     secret: authSecret,
   });
 
-  const jwtSecret = new TextEncoder().encode(jwtSecretStr);
-
-  const service = createInternalAuthService({
-    auth,
-    config: {
-      jwt: { accessTokenExpiry: 15 * 60 },
-      refreshToken: { expiry: 7 * 24 * 60 * 60 },
-    },
-    jwtSecret,
-    rawDb,
-  });
+  const service = createInternalAuthService({ auth, rawDb });
 
   yield* Effect.tryPromise(() => initDatabase(rawDb));
 
@@ -95,10 +67,10 @@ const program = Effect.gen(function* () {
   yield* Effect.acquireRelease(
     Effect.async<ReturnType<typeof createServer>, Error>((resume) => {
       const server = createServer(handler);
-      server.on("error", (err) => {
+      server.on('error', (err) => {
         resume(Effect.fail(err));
       });
-      server.listen(port, "0.0.0.0", () => {
+      server.listen(port, '0.0.0.0', () => {
         console.log(`[Auth] Service listening on :${port}`);
         resume(Effect.succeed(server));
       });

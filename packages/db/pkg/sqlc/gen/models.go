@@ -355,6 +355,7 @@ type User struct {
 	PasswordHash []byte
 	ProviderType int8
 	ProviderID   sql.NullString
+	ExternalID   sql.NullString
 	Status       int8
 }
 

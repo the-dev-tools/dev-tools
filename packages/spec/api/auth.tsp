@@ -7,6 +7,7 @@ enum AuthProvider {
   Google,
   GitHub,
   Microsoft,
+  SAML,
 }
 
 model User {
@@ -64,7 +65,7 @@ model SignInResponse {
 op SignIn(...SignInRequest): SignInResponse;
 
 model SignOutRequest {
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 model SignOutResponse {
@@ -120,3 +121,29 @@ model GetMeResponse {
 }
 
 op GetMe(): GetMeResponse;
+
+model GetSSOUrlRequest {
+  organizationId: string;
+  callbackUrl: string;
+}
+
+model GetSSOUrlResponse {
+  url: string;
+  state: string;
+}
+
+@unauthenticated
+op GetSSOUrl(...GetSSOUrlRequest): GetSSOUrlResponse;
+
+model HandleSSOCallbackRequest {
+  code: string;
+  state?: string;
+}
+
+model HandleSSOCallbackResponse {
+  ...AuthResponseFields;
+  isNewUser: boolean;
+}
+
+@unauthenticated
+op HandleSSOCallback(...HandleSSOCallbackRequest): HandleSSOCallbackResponse;

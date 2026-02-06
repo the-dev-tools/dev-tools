@@ -4,6 +4,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -18,7 +19,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/authutil"
 )
 
-// JWTClaims represents the claims in our JWT tokens.
+// JWTClaims represents the claims in our JWT tokens (signed by BetterAuth JWKS).
 type JWTClaims struct {
 	Email string `json:"email"`
 	Name  string `json:"name"`
@@ -27,17 +28,28 @@ type JWTClaims struct {
 
 // AuthHandler implements the AuthService Connect RPC handlers.
 type AuthHandler struct {
-	client    auth_internalv1connect.AuthInternalServiceClient
-	jwtSecret []byte
+	client     auth_internalv1connect.AuthInternalServiceClient
+	jwtKeyfunc jwt.Keyfunc
 }
 
-// NewAuthHandler creates a new auth handler.
-// jwtSecret must not be empty.
-func NewAuthHandler(client auth_internalv1connect.AuthInternalServiceClient, jwtSecret []byte) (*AuthHandler, error) {
-	if len(jwtSecret) == 0 {
-		return nil, errors.New("jwt secret is required")
+// NewAuthHandler creates an auth handler that validates JWTs using JWKS from the given URL.
+func NewAuthHandler(client auth_internalv1connect.AuthInternalServiceClient, jwksURL string) (*AuthHandler, error) {
+	if jwksURL == "" {
+		return nil, errors.New("JWKS URL is required")
 	}
-	return &AuthHandler{client: client, jwtSecret: jwtSecret}, nil
+
+	keys, err := FetchJWKS(jwksURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch JWKS from %s: %w", jwksURL, err)
+	}
+
+	kf := NewJWKSKeyfunc(keys)
+	return &AuthHandler{client: client, jwtKeyfunc: kf}, nil
+}
+
+// NewAuthHandlerWithKeyfunc creates an auth handler with a custom JWT keyfunc (for testing).
+func NewAuthHandlerWithKeyfunc(client auth_internalv1connect.AuthInternalServiceClient, kf jwt.Keyfunc) *AuthHandler {
+	return &AuthHandler{client: client, jwtKeyfunc: kf}
 }
 
 // Context keys for storing auth info.
@@ -61,14 +73,9 @@ func extractToken(headers http.Header) string {
 	return ""
 }
 
-// validateJWT validates a JWT token and returns the claims.
+// validateJWT validates a JWT token using JWKS and returns the claims.
 func (h *AuthHandler) validateJWT(tokenString string) (*JWTClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return h.jwtSecret, nil
-	})
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, h.jwtKeyfunc)
 	if err != nil {
 		return nil, err
 	}
@@ -79,16 +86,6 @@ func (h *AuthHandler) validateJWT(tokenString string) (*JWTClaims, error) {
 	}
 
 	return claims, nil
-}
-
-// getClientInfo extracts IP address and user agent from request headers.
-func getClientInfo(headers http.Header) (ipAddress, userAgent string) {
-	ipAddress = headers.Get("X-Forwarded-For")
-	if ipAddress == "" {
-		ipAddress = headers.Get("X-Real-IP")
-	}
-	userAgent = headers.Get("User-Agent")
-	return
 }
 
 // AuthInterceptor returns an interceptor that validates JWT and adds user to context.
@@ -107,7 +104,7 @@ func (h *AuthHandler) AuthInterceptor() connect.UnaryInterceptorFunc {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("no authentication token"))
 			}
 
-			// Validate JWT locally - no network call!
+			// Validate JWT via JWKS — no network call!
 			claims, err := h.validateJWT(token)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid or expired token"))
@@ -167,9 +164,7 @@ func (h *AuthHandler) SignUp(
 	ctx context.Context,
 	req *connect.Request[authv1.SignUpRequest],
 ) (*connect.Response[authv1.SignUpResponse], error) {
-	ipAddress, userAgent := getClientInfo(req.Header())
-
-	// Create user with password using the dedicated endpoint
+	// 1. Create user with password via BetterAuth
 	createResp, err := h.client.CreateUserWithPassword(ctx, connect.NewRequest(&authbackend.CreateUserWithPasswordRequest{
 		Email:    req.Msg.Email,
 		Password: req.Msg.Password,
@@ -183,13 +178,9 @@ func (h *AuthHandler) SignUp(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create user"))
 	}
 
-	// Create tokens (JWT + refresh)
-	tokensResp, err := h.client.CreateTokens(ctx, connect.NewRequest(&authbackend.CreateTokensRequest{
-		UserId:    createResp.Msg.User.Id,
-		Email:     createResp.Msg.User.Email,
-		Name:      createResp.Msg.User.Name,
-		IpAddress: &ipAddress,
-		UserAgent: &userAgent,
+	// 2. Get JWT access token using the session token
+	tokenResp, err := h.client.GetToken(ctx, connect.NewRequest(&authbackend.GetTokenRequest{
+		SessionToken: createResp.Msg.SessionToken,
 	}))
 	if err != nil {
 		return nil, err
@@ -197,8 +188,8 @@ func (h *AuthHandler) SignUp(
 
 	return connect.NewResponse(&authv1.SignUpResponse{
 		User:         convertInternalUser(createResp.Msg.User),
-		AccessToken:  tokensResp.Msg.AccessToken,
-		RefreshToken: tokensResp.Msg.RefreshToken,
+		AccessToken:  tokenResp.Msg.AccessToken,
+		RefreshToken: createResp.Msg.SessionToken, // Session token as refresh token
 	}), nil
 }
 
@@ -207,21 +198,17 @@ func (h *AuthHandler) SignIn(
 	ctx context.Context,
 	req *connect.Request[authv1.SignInRequest],
 ) (*connect.Response[authv1.SignInResponse], error) {
-	ipAddress, userAgent := getClientInfo(req.Header())
-
-	// Verify credentials
+	// 1. Verify credentials via BetterAuth
 	verifyResp, err := h.client.VerifyCredentials(ctx, connect.NewRequest(&authbackend.VerifyCredentialsRequest{
 		Email:    req.Msg.Email,
 		Password: req.Msg.Password,
 	}))
 	if err != nil {
-		// Log actual error for debugging, return generic message to client
 		slog.Error("credential verification failed", "error", err)
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid credentials"))
 	}
 
 	if !verifyResp.Msg.Valid {
-		// Always return generic message to client
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid credentials"))
 	}
 
@@ -229,13 +216,14 @@ func (h *AuthHandler) SignIn(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("user not found"))
 	}
 
-	// Create tokens (JWT + refresh)
-	tokensResp, err := h.client.CreateTokens(ctx, connect.NewRequest(&authbackend.CreateTokensRequest{
-		UserId:    verifyResp.Msg.User.Id,
-		Email:     verifyResp.Msg.User.Email,
-		Name:      verifyResp.Msg.User.Name,
-		IpAddress: &ipAddress,
-		UserAgent: &userAgent,
+	// 2. Get JWT access token using the session token
+	sessionToken := ""
+	if verifyResp.Msg.SessionToken != nil {
+		sessionToken = *verifyResp.Msg.SessionToken
+	}
+
+	tokenResp, err := h.client.GetToken(ctx, connect.NewRequest(&authbackend.GetTokenRequest{
+		SessionToken: sessionToken,
 	}))
 	if err != nil {
 		return nil, err
@@ -243,28 +231,16 @@ func (h *AuthHandler) SignIn(
 
 	return connect.NewResponse(&authv1.SignInResponse{
 		User:         convertInternalUser(verifyResp.Msg.User),
-		AccessToken:  tokensResp.Msg.AccessToken,
-		RefreshToken: tokensResp.Msg.RefreshToken,
+		AccessToken:  tokenResp.Msg.AccessToken,
+		RefreshToken: sessionToken,
 	}), nil
 }
 
-// SignOut revokes the refresh token.
+// SignOut is stateless — client discards tokens.
 func (h *AuthHandler) SignOut(
-	ctx context.Context,
-	req *connect.Request[authv1.SignOutRequest],
+	_ context.Context,
+	_ *connect.Request[authv1.SignOutRequest],
 ) (*connect.Response[authv1.SignOutResponse], error) {
-	if req.Msg.RefreshToken == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("refresh_token is required"))
-	}
-
-	// Revoke refresh token
-	_, err := h.client.RevokeRefreshToken(ctx, connect.NewRequest(&authbackend.RevokeRefreshTokenRequest{
-		RefreshToken: req.Msg.RefreshToken,
-	}))
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	return connect.NewResponse(&authv1.SignOutResponse{
 		Success: true,
 	}), nil
@@ -295,14 +271,19 @@ func (h *AuthHandler) HandleOAuthCallback(
 	ctx context.Context,
 	req *connect.Request[authv1.HandleOAuthCallbackRequest],
 ) (*connect.Response[authv1.HandleOAuthCallbackResponse], error) {
-	ipAddress, userAgent := getClientInfo(req.Header())
-
+	// 1. Exchange OAuth code via BetterAuth
 	resp, err := h.client.ExchangeOAuthCode(ctx, connect.NewRequest(&authbackend.ExchangeOAuthCodeRequest{
-		Provider:  convertInternalProvider(req.Msg.Provider),
-		Code:      req.Msg.Code,
-		State:     req.Msg.State,
-		IpAddress: &ipAddress,
-		UserAgent: &userAgent,
+		Provider: convertInternalProvider(req.Msg.Provider),
+		Code:     req.Msg.Code,
+		State:    req.Msg.State,
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Get JWT access token using the session token
+	tokenResp, err := h.client.GetToken(ctx, connect.NewRequest(&authbackend.GetTokenRequest{
+		SessionToken: resp.Msg.SessionToken,
 	}))
 	if err != nil {
 		return nil, err
@@ -310,13 +291,13 @@ func (h *AuthHandler) HandleOAuthCallback(
 
 	return connect.NewResponse(&authv1.HandleOAuthCallbackResponse{
 		User:         convertInternalUser(resp.Msg.User),
-		AccessToken:  resp.Msg.AccessToken,
-		RefreshToken: resp.Msg.RefreshToken,
+		AccessToken:  tokenResp.Msg.AccessToken,
+		RefreshToken: resp.Msg.SessionToken, // Session token as refresh token
 		IsNewUser:    resp.Msg.IsNewUser,
 	}), nil
 }
 
-// RefreshToken refreshes the access token using a refresh token.
+// RefreshToken refreshes the access token using a refresh token (BetterAuth session token).
 func (h *AuthHandler) RefreshToken(
 	ctx context.Context,
 	req *connect.Request[authv1.RefreshTokenRequest],
@@ -325,16 +306,18 @@ func (h *AuthHandler) RefreshToken(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("refresh_token is required"))
 	}
 
-	resp, err := h.client.RefreshTokens(ctx, connect.NewRequest(&authbackend.RefreshTokensRequest{
-		RefreshToken: req.Msg.RefreshToken,
+	// The refresh token IS the BetterAuth session token.
+	// Call GetToken to get a fresh JWT access token.
+	tokenResp, err := h.client.GetToken(ctx, connect.NewRequest(&authbackend.GetTokenRequest{
+		SessionToken: req.Msg.RefreshToken,
 	}))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid or expired refresh token"))
 	}
 
 	return connect.NewResponse(&authv1.RefreshTokenResponse{
-		AccessToken:  resp.Msg.AccessToken,
-		RefreshToken: resp.Msg.RefreshToken,
+		AccessToken:  tokenResp.Msg.AccessToken,
+		RefreshToken: req.Msg.RefreshToken, // Session token stays the same
 	}), nil
 }
 
@@ -348,20 +331,16 @@ func (h *AuthHandler) GetMe(
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("not authenticated"))
 	}
 
-	// Get full user info from BetterAuth
-	resp, err := h.client.GetUser(ctx, connect.NewRequest(&authbackend.GetUserRequest{
-		UserId: userID,
-	}))
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	email, _ := EmailFromContext(ctx)
+	name, _ := NameFromContext(ctx)
 
-	if resp.Msg.User == nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("user not found"))
-	}
-
+	// Serve from JWT claims — no internal RPC needed
 	return connect.NewResponse(&authv1.GetMeResponse{
-		User: convertInternalUser(resp.Msg.User),
+		User: &authv1.User{
+			Id:    userID,
+			Email: email,
+			Name:  name,
+		},
 	}), nil
 }
 
@@ -395,4 +374,20 @@ func (h *AuthHandler) GetLinkedAccounts(
 		Accounts:    accounts,
 		HasPassword: resp.Msg.HasPassword,
 	}), nil
+}
+
+// GetSSOUrl returns the SSO authorization URL.
+func (h *AuthHandler) GetSSOUrl(
+	_ context.Context,
+	_ *connect.Request[authv1.GetSSOUrlRequest],
+) (*connect.Response[authv1.GetSSOUrlResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("SSO not yet implemented"))
+}
+
+// HandleSSOCallback handles the SSO callback.
+func (h *AuthHandler) HandleSSOCallback(
+	_ context.Context,
+	_ *connect.Request[authv1.HandleSSOCallbackRequest],
+) (*connect.Response[authv1.HandleSSOCallbackResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("SSO not yet implemented"))
 }

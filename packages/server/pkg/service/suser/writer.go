@@ -25,25 +25,21 @@ func NewWriterFromQueries(queries *gen.Queries) *Writer {
 	}
 }
 
-func (w *Writer) CreateUser(ctx context.Context, user *muser.User) error {
-	var ProviderID sql.NullString
-	if user.ProviderID != nil {
-		ProviderID = sql.NullString{
-			String: *user.ProviderID,
-			Valid:  true,
-		}
-	} else {
-		ProviderID = sql.NullString{
-			Valid: false,
-		}
+func ptrToNullString(s *string) sql.NullString {
+	if s != nil {
+		return sql.NullString{String: *s, Valid: true}
 	}
+	return sql.NullString{Valid: false}
+}
 
+func (w *Writer) CreateUser(ctx context.Context, user *muser.User) error {
 	return w.queries.CreateUser(ctx, gen.CreateUserParams{
 		ID:           user.ID,
 		Email:        user.Email,
 		PasswordHash: user.Password,
 		ProviderType: int8(user.ProviderType),
-		ProviderID:   ProviderID,
+		ProviderID:   ptrToNullString(user.ProviderID),
+		ExternalID:   ptrToNullString(user.ExternalID),
 	})
 }
 

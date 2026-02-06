@@ -124,14 +124,20 @@ func run() error {
 	}
 
 	// Auth configuration
-	// AUTH_MODE: "local" (default, for desktop/CLI) or "betterauth" (for SaaS, validates JWTs)
+	// AUTH_MODE: "local" (default, for desktop/CLI) or "betterauth" (for SaaS, validates JWTs via JWKS)
 	authMode := os.Getenv("AUTH_MODE")
 	if authMode == "" {
 		authMode = "local"
 	}
 
-	// JWT_SECRET: Secret for validating BetterAuth JWTs (required if AUTH_MODE=betterauth)
-	jwtSecret := os.Getenv("JWT_SECRET")
+	// JWKS_URL: URL to fetch JWKS public keys for JWT validation (required if AUTH_MODE=betterauth)
+	// Defaults to BETTERAUTH_URL + "/api/auth/jwks" if BETTERAUTH_URL is set.
+	jwksURL := os.Getenv("JWKS_URL")
+	if jwksURL == "" {
+		if betterAuthURL := os.Getenv("BETTERAUTH_URL"); betterAuthURL != "" {
+			jwksURL = betterAuthURL + "/api/auth/jwks"
+		}
+	}
 
 	currentDB, dbCloseFunc, err := setupDB(ctx)
 	if err != nil {
@@ -236,15 +242,19 @@ func run() error {
 
 	// Choose auth interceptor based on AUTH_MODE
 	// - "local": Uses dummy user for desktop/CLI (no auth)
-	// - "betterauth": Validates JWTs signed by the auth-service (for SaaS)
+	// - "betterauth": Validates JWTs via JWKS public keys (for SaaS)
 	var authInterceptor connect.Interceptor
 	switch authMode {
 	case "betterauth":
-		if jwtSecret == "" {
-			return errors.New("JWT_SECRET env var is required when AUTH_MODE=betterauth")
+		if jwksURL == "" {
+			return errors.New("JWKS_URL (or BETTERAUTH_URL) env var is required when AUTH_MODE=betterauth")
 		}
-		slog.Info("Using BetterAuth authentication mode (JWT validation)")
-		authInterceptor = mwauth.NewBetterAuthInterceptor([]byte(jwtSecret))
+		slog.Info("Using BetterAuth authentication mode (JWKS validation)", "jwks_url", jwksURL)
+		interceptor, err := mwauth.NewBetterAuthInterceptor(jwksURL, currentDB)
+		if err != nil {
+			return fmt.Errorf("failed to create BetterAuth interceptor: %w", err)
+		}
+		authInterceptor = interceptor
 	default:
 		slog.Info("Using local authentication mode")
 		authInterceptor = mwauth.NewAuthInterceptor()

@@ -24,6 +24,7 @@ var (
 type User struct {
 	Email        string
 	ProviderID   *string
+	ExternalID   *string
 	Password     []byte
 	ProviderType ProviderType
 	Status       UserStatus

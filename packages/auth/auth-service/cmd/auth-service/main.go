@@ -27,14 +27,11 @@ func main() {
 	slog.SetDefault(logger)
 
 	betterAuthURL := getEnv("BETTERAUTH_URL", "http://localhost:50051")
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		slog.Error("JWT_SECRET environment variable is required")
-		os.Exit(1)
-	}
+	jwksURL := getEnv("JWKS_URL", betterAuthURL+"/api/auth/jwks")
 
 	slog.Info("Starting auth-service",
 		"betterauth_url", betterAuthURL,
+		"jwks_url", jwksURL,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -45,7 +42,7 @@ func main() {
 
 	betterAuthClient := client.NewBetterAuthClient(betterAuthURL)
 
-	authHandler, err := handler.NewAuthHandler(betterAuthClient, []byte(jwtSecret))
+	authHandler, err := handler.NewAuthHandler(betterAuthClient, jwksURL)
 	if err != nil {
 		slog.Error("Failed to create auth handler", "error", err)
 		os.Exit(1)

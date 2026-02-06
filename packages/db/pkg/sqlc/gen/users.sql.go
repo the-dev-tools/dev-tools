@@ -19,10 +19,11 @@ INSERT INTO
     email,
     password_hash,
     provider_type,
-    provider_id
+    provider_id,
+    external_id
   )
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateUserParams struct {
@@ -31,6 +32,7 @@ type CreateUserParams struct {
 	PasswordHash []byte
 	ProviderType int8
 	ProviderID   sql.NullString
+	ExternalID   sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -40,6 +42,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.PasswordHash,
 		arg.ProviderType,
 		arg.ProviderID,
+		arg.ExternalID,
 	)
 	return err
 }
@@ -61,7 +64,8 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id
 FROM
   users
 WHERE
@@ -76,6 +80,7 @@ type GetUserRow struct {
 	PasswordHash []byte
 	ProviderType int8
 	ProviderID   sql.NullString
+	ExternalID   sql.NullString
 }
 
 // Users
@@ -88,6 +93,7 @@ func (q *Queries) GetUser(ctx context.Context, id idwrap.IDWrap) (GetUserRow, er
 		&i.PasswordHash,
 		&i.ProviderType,
 		&i.ProviderID,
+		&i.ExternalID,
 	)
 	return i, err
 }
@@ -98,7 +104,8 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id
 FROM
   users
 WHERE
@@ -113,6 +120,7 @@ type GetUserByEmailRow struct {
 	PasswordHash []byte
 	ProviderType int8
 	ProviderID   sql.NullString
+	ExternalID   sql.NullString
 }
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
@@ -124,6 +132,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.PasswordHash,
 		&i.ProviderType,
 		&i.ProviderID,
+		&i.ExternalID,
 	)
 	return i, err
 }
@@ -134,7 +143,8 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id
 FROM
   users
 WHERE
@@ -155,6 +165,7 @@ type GetUserByEmailAndProviderTypeRow struct {
 	PasswordHash []byte
 	ProviderType int8
 	ProviderID   sql.NullString
+	ExternalID   sql.NullString
 }
 
 func (q *Queries) GetUserByEmailAndProviderType(ctx context.Context, arg GetUserByEmailAndProviderTypeParams) (GetUserByEmailAndProviderTypeRow, error) {
@@ -166,6 +177,46 @@ func (q *Queries) GetUserByEmailAndProviderType(ctx context.Context, arg GetUser
 		&i.PasswordHash,
 		&i.ProviderType,
 		&i.ProviderID,
+		&i.ExternalID,
+	)
+	return i, err
+}
+
+const getUserByExternalID = `-- name: GetUserByExternalID :one
+SELECT
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id,
+  external_id
+FROM
+  users
+WHERE
+  external_id = ?
+LIMIT
+  1
+`
+
+type GetUserByExternalIDRow struct {
+	ID           idwrap.IDWrap
+	Email        string
+	PasswordHash []byte
+	ProviderType int8
+	ProviderID   sql.NullString
+	ExternalID   sql.NullString
+}
+
+func (q *Queries) GetUserByExternalID(ctx context.Context, externalID sql.NullString) (GetUserByExternalIDRow, error) {
+	row := q.queryRow(ctx, q.getUserByExternalIDStmt, getUserByExternalID, externalID)
+	var i GetUserByExternalIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.ProviderType,
+		&i.ProviderID,
+		&i.ExternalID,
 	)
 	return i, err
 }
@@ -176,7 +227,8 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id
 FROM
   users
 WHERE
@@ -197,6 +249,7 @@ type GetUserByProviderIDandTypeRow struct {
 	PasswordHash []byte
 	ProviderType int8
 	ProviderID   sql.NullString
+	ExternalID   sql.NullString
 }
 
 func (q *Queries) GetUserByProviderIDandType(ctx context.Context, arg GetUserByProviderIDandTypeParams) (GetUserByProviderIDandTypeRow, error) {
@@ -208,6 +261,7 @@ func (q *Queries) GetUserByProviderIDandType(ctx context.Context, arg GetUserByP
 		&i.PasswordHash,
 		&i.ProviderType,
 		&i.ProviderID,
+		&i.ExternalID,
 	)
 	return i, err
 }

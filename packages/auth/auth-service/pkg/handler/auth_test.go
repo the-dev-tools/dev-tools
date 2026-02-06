@@ -27,17 +27,8 @@ type mockAuthClient struct {
 	verifyCredentialsResp *authinternalv1.VerifyCredentialsResponse
 	verifyCredentialsErr  error
 
-	createTokensResp *authinternalv1.CreateTokensResponse
-	createTokensErr  error
-
-	refreshTokensResp *authinternalv1.RefreshTokensResponse
-	refreshTokensErr  error
-
-	revokeRefreshTokenResp *authinternalv1.RevokeRefreshTokenResponse
-	revokeRefreshTokenErr  error
-
-	getUserResp *authinternalv1.GetUserResponse
-	getUserErr  error
+	getTokenResp *authinternalv1.GetTokenResponse
+	getTokenErr  error
 
 	getOAuthUrlResp *authinternalv1.GetOAuthUrlResponse
 	getOAuthUrlErr  error
@@ -51,17 +42,10 @@ type mockAuthClient struct {
 	// Capture request data for assertions
 	lastCreateUserWithPasswordReq *authinternalv1.CreateUserWithPasswordRequest
 	lastVerifyCredentialsReq      *authinternalv1.VerifyCredentialsRequest
-	lastCreateTokensReq           *authinternalv1.CreateTokensRequest
-	lastRefreshTokensReq          *authinternalv1.RefreshTokensRequest
-	lastRevokeRefreshTokenReq     *authinternalv1.RevokeRefreshTokenRequest
-	lastGetUserReq                *authinternalv1.GetUserRequest
+	lastGetTokenReq               *authinternalv1.GetTokenRequest
 	lastGetOAuthUrlReq            *authinternalv1.GetOAuthUrlRequest
 	lastExchangeOAuthCodeReq      *authinternalv1.ExchangeOAuthCodeRequest
 	lastGetAccountsByUserIdReq    *authinternalv1.GetAccountsByUserIdRequest
-}
-
-func (m *mockAuthClient) CreateUser(_ context.Context, _ *connect.Request[authinternalv1.CreateUserRequest]) (*connect.Response[authinternalv1.CreateUserResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
 func (m *mockAuthClient) CreateUserWithPassword(_ context.Context, req *connect.Request[authinternalv1.CreateUserWithPasswordRequest]) (*connect.Response[authinternalv1.CreateUserWithPasswordResponse], error) {
@@ -80,36 +64,12 @@ func (m *mockAuthClient) VerifyCredentials(_ context.Context, req *connect.Reque
 	return connect.NewResponse(m.verifyCredentialsResp), nil
 }
 
-func (m *mockAuthClient) GetUser(_ context.Context, req *connect.Request[authinternalv1.GetUserRequest]) (*connect.Response[authinternalv1.GetUserResponse], error) {
-	m.lastGetUserReq = req.Msg
-	if m.getUserErr != nil {
-		return nil, m.getUserErr
+func (m *mockAuthClient) GetToken(_ context.Context, req *connect.Request[authinternalv1.GetTokenRequest]) (*connect.Response[authinternalv1.GetTokenResponse], error) {
+	m.lastGetTokenReq = req.Msg
+	if m.getTokenErr != nil {
+		return nil, m.getTokenErr
 	}
-	return connect.NewResponse(m.getUserResp), nil
-}
-
-func (m *mockAuthClient) CreateTokens(_ context.Context, req *connect.Request[authinternalv1.CreateTokensRequest]) (*connect.Response[authinternalv1.CreateTokensResponse], error) {
-	m.lastCreateTokensReq = req.Msg
-	if m.createTokensErr != nil {
-		return nil, m.createTokensErr
-	}
-	return connect.NewResponse(m.createTokensResp), nil
-}
-
-func (m *mockAuthClient) RefreshTokens(_ context.Context, req *connect.Request[authinternalv1.RefreshTokensRequest]) (*connect.Response[authinternalv1.RefreshTokensResponse], error) {
-	m.lastRefreshTokensReq = req.Msg
-	if m.refreshTokensErr != nil {
-		return nil, m.refreshTokensErr
-	}
-	return connect.NewResponse(m.refreshTokensResp), nil
-}
-
-func (m *mockAuthClient) RevokeRefreshToken(_ context.Context, req *connect.Request[authinternalv1.RevokeRefreshTokenRequest]) (*connect.Response[authinternalv1.RevokeRefreshTokenResponse], error) {
-	m.lastRevokeRefreshTokenReq = req.Msg
-	if m.revokeRefreshTokenErr != nil {
-		return nil, m.revokeRefreshTokenErr
-	}
-	return connect.NewResponse(m.revokeRefreshTokenResp), nil
+	return connect.NewResponse(m.getTokenResp), nil
 }
 
 func (m *mockAuthClient) GetOAuthUrl(_ context.Context, req *connect.Request[authinternalv1.GetOAuthUrlRequest]) (*connect.Response[authinternalv1.GetOAuthUrlResponse], error) {
@@ -140,12 +100,16 @@ func (m *mockAuthClient) CreateAccount(_ context.Context, _ *connect.Request[aut
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
 }
 
-// newTestHandler creates an AuthHandler with a mock client for testing.
+var testSecret = []byte("test-secret")
+
+// newTestHandler creates an AuthHandler with a mock client and HMAC keyfunc for testing.
 func newTestHandler(mock *mockAuthClient) *AuthHandler {
-	return &AuthHandler{
-		client:    mock,
-		jwtSecret: []byte("test-secret"),
-	}
+	return NewAuthHandlerWithKeyfunc(mock, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return testSecret, nil
+	})
 }
 
 func TestIsUnauthenticated(t *testing.T) {
@@ -178,6 +142,16 @@ func TestIsUnauthenticated(t *testing.T) {
 		{
 			name:      "RefreshToken is unauthenticated",
 			procedure: "/api.auth.v1.AuthService/RefreshToken",
+			want:      true,
+		},
+		{
+			name:      "GetSSOUrl is unauthenticated",
+			procedure: "/api.auth.v1.AuthService/GetSSOUrl",
+			want:      true,
+		},
+		{
+			name:      "HandleSSOCallback is unauthenticated",
+			procedure: "/api.auth.v1.AuthService/HandleSSOCallback",
 			want:      true,
 		},
 		// Authenticated endpoints (should return false)
@@ -220,8 +194,7 @@ func TestIsUnauthenticated(t *testing.T) {
 }
 
 func TestUnauthenticatedEndpoints(t *testing.T) {
-	// Verify the expected endpoints are in the map
-	expected := []string{"SignUp", "SignIn", "GetOAuthUrl", "HandleOAuthCallback", "RefreshToken"}
+	expected := []string{"SignUp", "SignIn", "GetOAuthUrl", "HandleOAuthCallback", "RefreshToken", "GetSSOUrl", "HandleSSOCallback"}
 
 	for _, endpoint := range expected {
 		if _, ok := authutil.UnauthenticatedEndpoints[endpoint]; !ok {
@@ -240,26 +213,11 @@ func TestUnauthenticatedEndpoints(t *testing.T) {
 	}
 }
 
-func TestNewAuthHandler_RequiresSecret(t *testing.T) {
-	// Empty secret should fail
-	_, err := NewAuthHandler(nil, []byte{})
+func TestNewAuthHandler_RequiresJWKSURL(t *testing.T) {
+	// Empty JWKS URL should fail
+	_, err := NewAuthHandler(nil, "")
 	if err == nil {
-		t.Error("expected error for empty secret")
-	}
-
-	// Nil secret should fail
-	_, err = NewAuthHandler(nil, nil)
-	if err == nil {
-		t.Error("expected error for nil secret")
-	}
-
-	// Valid secret should succeed
-	handler, err := NewAuthHandler(nil, []byte("valid-secret"))
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if handler == nil {
-		t.Error("expected handler to be created")
+		t.Error("expected error for empty JWKS URL")
 	}
 }
 
@@ -322,14 +280,9 @@ func TestExtractToken(t *testing.T) {
 }
 
 func TestValidateJWT(t *testing.T) {
-	secret := []byte("test-secret-key-for-testing")
-	handler, err := NewAuthHandler(nil, secret)
-	if err != nil {
-		t.Fatalf("failed to create handler: %v", err)
-	}
+	handler := newTestHandler(&mockAuthClient{})
 
 	t.Run("valid token", func(t *testing.T) {
-		// Create a valid token
 		now := time.Now()
 		claims := &JWTClaims{
 			Email: "test@example.com",
@@ -342,12 +295,11 @@ func TestValidateJWT(t *testing.T) {
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := token.SignedString(secret)
+		tokenString, err := token.SignedString(testSecret)
 		if err != nil {
 			t.Fatalf("failed to sign token: %v", err)
 		}
 
-		// Validate the token
 		gotClaims, err := handler.validateJWT(tokenString)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -367,7 +319,6 @@ func TestValidateJWT(t *testing.T) {
 	})
 
 	t.Run("expired token", func(t *testing.T) {
-		// Create an expired token
 		now := time.Now()
 		claims := &JWTClaims{
 			Email: "test@example.com",
@@ -380,12 +331,11 @@ func TestValidateJWT(t *testing.T) {
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := token.SignedString(secret)
+		tokenString, err := token.SignedString(testSecret)
 		if err != nil {
 			t.Fatalf("failed to sign token: %v", err)
 		}
 
-		// Validate should fail
 		_, err = handler.validateJWT(tokenString)
 		if err == nil {
 			t.Error("expected error for expired token")
@@ -393,7 +343,6 @@ func TestValidateJWT(t *testing.T) {
 	})
 
 	t.Run("invalid signature", func(t *testing.T) {
-		// Create a token with different secret
 		wrongSecret := []byte("wrong-secret")
 		claims := &JWTClaims{
 			Email: "test@example.com",
@@ -411,7 +360,6 @@ func TestValidateJWT(t *testing.T) {
 			t.Fatalf("failed to sign token: %v", err)
 		}
 
-		// Validate should fail
 		_, err = handler.validateJWT(tokenString)
 		if err == nil {
 			t.Error("expected error for invalid signature")
@@ -433,65 +381,8 @@ func TestValidateJWT(t *testing.T) {
 	})
 }
 
-func TestGetClientInfo(t *testing.T) {
-	tests := []struct {
-		name          string
-		header        http.Header
-		wantIP        string
-		wantUserAgent string
-	}{
-		{
-			name: "X-Forwarded-For present",
-			header: http.Header{
-				"X-Forwarded-For": []string{"192.168.1.1"},
-				"User-Agent":      []string{"TestClient/1.0"},
-			},
-			wantIP:        "192.168.1.1",
-			wantUserAgent: "TestClient/1.0",
-		},
-		{
-			name: "X-Real-IP fallback",
-			header: http.Header{
-				"X-Real-Ip":  []string{"10.0.0.1"},
-				"User-Agent": []string{"TestClient/2.0"},
-			},
-			wantIP:        "10.0.0.1",
-			wantUserAgent: "TestClient/2.0",
-		},
-		{
-			name: "X-Forwarded-For takes precedence",
-			header: http.Header{
-				"X-Forwarded-For": []string{"192.168.1.1"},
-				"X-Real-Ip":       []string{"10.0.0.1"},
-				"User-Agent":      []string{"TestClient/3.0"},
-			},
-			wantIP:        "192.168.1.1",
-			wantUserAgent: "TestClient/3.0",
-		},
-		{
-			name:          "no headers",
-			header:        http.Header{},
-			wantIP:        "",
-			wantUserAgent: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotIP, gotUserAgent := getClientInfo(tt.header)
-			if gotIP != tt.wantIP {
-				t.Errorf("IP = %q, want %q", gotIP, tt.wantIP)
-			}
-			if gotUserAgent != tt.wantUserAgent {
-				t.Errorf("UserAgent = %q, want %q", gotUserAgent, tt.wantUserAgent)
-			}
-		})
-	}
-}
-
 func TestContextHelpers(t *testing.T) {
 	t.Run("UserIDFromContext", func(t *testing.T) {
-		// Test with no value
 		_, ok := UserIDFromContext(t.Context())
 		if ok {
 			t.Error("expected ok to be false for missing value")
@@ -499,7 +390,6 @@ func TestContextHelpers(t *testing.T) {
 	})
 
 	t.Run("EmailFromContext", func(t *testing.T) {
-		// Test with no value
 		_, ok := EmailFromContext(t.Context())
 		if ok {
 			t.Error("expected ok to be false for missing value")
@@ -507,7 +397,6 @@ func TestContextHelpers(t *testing.T) {
 	})
 
 	t.Run("NameFromContext", func(t *testing.T) {
-		// Test with no value
 		_, ok := NameFromContext(t.Context())
 		if ok {
 			t.Error("expected ok to be false for missing value")
@@ -533,10 +422,10 @@ func TestSignUp(t *testing.T) {
 					CreatedAt:     "2024-01-01T00:00:00Z",
 					UpdatedAt:     "2024-01-01T00:00:00Z",
 				},
+				SessionToken: "session-token-123",
 			},
-			createTokensResp: &authinternalv1.CreateTokensResponse{
-				AccessToken:  "access-token-123",
-				RefreshToken: "refresh-token-123",
+			getTokenResp: &authinternalv1.GetTokenResponse{
+				AccessToken: "jwt-access-token-123",
 			},
 		}
 		handler := newTestHandler(mock)
@@ -552,29 +441,22 @@ func TestSignUp(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		// Verify response
 		if resp.Msg.User == nil {
 			t.Fatal("expected user in response")
 		}
 		if resp.Msg.User.Id != "user-123" {
 			t.Errorf("User.Id = %q, want %q", resp.Msg.User.Id, "user-123")
 		}
-		if resp.Msg.AccessToken != "access-token-123" {
-			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "access-token-123")
+		if resp.Msg.AccessToken != "jwt-access-token-123" {
+			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "jwt-access-token-123")
 		}
-		if resp.Msg.RefreshToken != "refresh-token-123" {
-			t.Errorf("RefreshToken = %q, want %q", resp.Msg.RefreshToken, "refresh-token-123")
+		if resp.Msg.RefreshToken != "session-token-123" {
+			t.Errorf("RefreshToken = %q, want %q", resp.Msg.RefreshToken, "session-token-123")
 		}
 
-		// Verify request was forwarded correctly
-		if mock.lastCreateUserWithPasswordReq.Email != "test@example.com" {
-			t.Errorf("CreateUserWithPassword email = %q, want %q", mock.lastCreateUserWithPasswordReq.Email, "test@example.com")
-		}
-		if mock.lastCreateUserWithPasswordReq.Password != "password123" {
-			t.Errorf("CreateUserWithPassword password = %q, want %q", mock.lastCreateUserWithPasswordReq.Password, "password123")
-		}
-		if mock.lastCreateUserWithPasswordReq.Name != "Test User" {
-			t.Errorf("CreateUserWithPassword name = %q, want %q", mock.lastCreateUserWithPasswordReq.Name, "Test User")
+		// Verify GetToken was called with the session token
+		if mock.lastGetTokenReq.SessionToken != "session-token-123" {
+			t.Errorf("GetToken sessionToken = %q, want %q", mock.lastGetTokenReq.SessionToken, "session-token-123")
 		}
 	})
 
@@ -604,7 +486,7 @@ func TestSignUp(t *testing.T) {
 		}
 	})
 
-	t.Run("create tokens error", func(t *testing.T) {
+	t.Run("get token error", func(t *testing.T) {
 		mock := &mockAuthClient{
 			createUserWithPasswordResp: &authinternalv1.CreateUserWithPasswordResponse{
 				User: &authinternalv1.User{
@@ -612,8 +494,9 @@ func TestSignUp(t *testing.T) {
 					Email: "test@example.com",
 					Name:  "Test User",
 				},
+				SessionToken: "session-token-123",
 			},
-			createTokensErr: connect.NewError(connect.CodeInternal, errors.New("token creation failed")),
+			getTokenErr: connect.NewError(connect.CodeInternal, errors.New("token creation failed")),
 		}
 		handler := newTestHandler(mock)
 
@@ -662,6 +545,7 @@ func TestSignIn(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
+		sessionToken := "session-token-456"
 		mock := &mockAuthClient{
 			verifyCredentialsResp: &authinternalv1.VerifyCredentialsResponse{
 				Valid: true,
@@ -670,10 +554,10 @@ func TestSignIn(t *testing.T) {
 					Email: "test@example.com",
 					Name:  "Test User",
 				},
+				SessionToken: &sessionToken,
 			},
-			createTokensResp: &authinternalv1.CreateTokensResponse{
-				AccessToken:  "access-token-123",
-				RefreshToken: "refresh-token-123",
+			getTokenResp: &authinternalv1.GetTokenResponse{
+				AccessToken: "jwt-access-token-456",
 			},
 		}
 		handler := newTestHandler(mock)
@@ -694,8 +578,16 @@ func TestSignIn(t *testing.T) {
 		if resp.Msg.User.Id != "user-123" {
 			t.Errorf("User.Id = %q, want %q", resp.Msg.User.Id, "user-123")
 		}
-		if resp.Msg.AccessToken != "access-token-123" {
-			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "access-token-123")
+		if resp.Msg.AccessToken != "jwt-access-token-456" {
+			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "jwt-access-token-456")
+		}
+		if resp.Msg.RefreshToken != "session-token-456" {
+			t.Errorf("RefreshToken = %q, want %q", resp.Msg.RefreshToken, "session-token-456")
+		}
+
+		// Verify GetToken was called with session token
+		if mock.lastGetTokenReq.SessionToken != "session-token-456" {
+			t.Errorf("GetToken sessionToken = %q, want %q", mock.lastGetTokenReq.SessionToken, "session-token-456")
 		}
 	})
 
@@ -746,7 +638,6 @@ func TestSignIn(t *testing.T) {
 		if !errors.As(err, &connectErr) {
 			t.Fatalf("expected connect.Error, got %T", err)
 		}
-		// Should return unauthenticated to not leak info
 		if connectErr.Code() != connect.CodeUnauthenticated {
 			t.Errorf("error code = %v, want %v", connectErr.Code(), connect.CodeUnauthenticated)
 		}
@@ -784,16 +675,13 @@ func TestSignIn(t *testing.T) {
 func TestSignOut(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("success", func(t *testing.T) {
-		mock := &mockAuthClient{
-			revokeRefreshTokenResp: &authinternalv1.RevokeRefreshTokenResponse{
-				Success: true,
-			},
-		}
+	t.Run("success - stateless", func(t *testing.T) {
+		mock := &mockAuthClient{}
 		handler := newTestHandler(mock)
 
+		refreshToken := "some-refresh-token"
 		req := connect.NewRequest(&authv1.SignOutRequest{
-			RefreshToken: "refresh-token-123",
+			RefreshToken: &refreshToken,
 		})
 
 		resp, err := handler.SignOut(ctx, req)
@@ -804,47 +692,21 @@ func TestSignOut(t *testing.T) {
 		if !resp.Msg.Success {
 			t.Error("expected success to be true")
 		}
-
-		if mock.lastRevokeRefreshTokenReq.RefreshToken != "refresh-token-123" {
-			t.Errorf("RevokeRefreshToken token = %q, want %q", mock.lastRevokeRefreshTokenReq.RefreshToken, "refresh-token-123")
-		}
 	})
 
-	t.Run("empty refresh token", func(t *testing.T) {
+	t.Run("success - no refresh token (optional)", func(t *testing.T) {
 		mock := &mockAuthClient{}
 		handler := newTestHandler(mock)
 
-		req := connect.NewRequest(&authv1.SignOutRequest{
-			RefreshToken: "",
-		})
+		req := connect.NewRequest(&authv1.SignOutRequest{})
 
-		_, err := handler.SignOut(ctx, req)
-		if err == nil {
-			t.Fatal("expected error for empty refresh token")
+		resp, err := handler.SignOut(ctx, req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 
-		connectErr := new(connect.Error)
-		if !errors.As(err, &connectErr) {
-			t.Fatalf("expected connect.Error, got %T", err)
-		}
-		if connectErr.Code() != connect.CodeInvalidArgument {
-			t.Errorf("error code = %v, want %v", connectErr.Code(), connect.CodeInvalidArgument)
-		}
-	})
-
-	t.Run("revoke error", func(t *testing.T) {
-		mock := &mockAuthClient{
-			revokeRefreshTokenErr: connect.NewError(connect.CodeInternal, errors.New("revoke failed")),
-		}
-		handler := newTestHandler(mock)
-
-		req := connect.NewRequest(&authv1.SignOutRequest{
-			RefreshToken: "refresh-token-123",
-		})
-
-		_, err := handler.SignOut(ctx, req)
-		if err == nil {
-			t.Fatal("expected error")
+		if !resp.Msg.Success {
+			t.Error("expected success to be true")
 		}
 	})
 }
@@ -854,15 +716,14 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		mock := &mockAuthClient{
-			refreshTokensResp: &authinternalv1.RefreshTokensResponse{
-				AccessToken:  "new-access-token",
-				RefreshToken: "new-refresh-token",
+			getTokenResp: &authinternalv1.GetTokenResponse{
+				AccessToken: "new-jwt-access-token",
 			},
 		}
 		handler := newTestHandler(mock)
 
 		req := connect.NewRequest(&authv1.RefreshTokenRequest{
-			RefreshToken: "old-refresh-token",
+			RefreshToken: "session-token-789",
 		})
 
 		resp, err := handler.RefreshToken(ctx, req)
@@ -870,11 +731,16 @@ func TestRefreshToken(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		if resp.Msg.AccessToken != "new-access-token" {
-			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "new-access-token")
+		if resp.Msg.AccessToken != "new-jwt-access-token" {
+			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "new-jwt-access-token")
 		}
-		if resp.Msg.RefreshToken != "new-refresh-token" {
-			t.Errorf("RefreshToken = %q, want %q", resp.Msg.RefreshToken, "new-refresh-token")
+		if resp.Msg.RefreshToken != "session-token-789" {
+			t.Errorf("RefreshToken = %q, want %q", resp.Msg.RefreshToken, "session-token-789")
+		}
+
+		// Verify GetToken was called with session token
+		if mock.lastGetTokenReq.SessionToken != "session-token-789" {
+			t.Errorf("GetToken sessionToken = %q, want %q", mock.lastGetTokenReq.SessionToken, "session-token-789")
 		}
 	})
 
@@ -900,14 +766,14 @@ func TestRefreshToken(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid refresh token", func(t *testing.T) {
+	t.Run("invalid session token", func(t *testing.T) {
 		mock := &mockAuthClient{
-			refreshTokensErr: connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token")),
+			getTokenErr: connect.NewError(connect.CodeUnauthenticated, errors.New("session invalid")),
 		}
 		handler := newTestHandler(mock)
 
 		req := connect.NewRequest(&authv1.RefreshTokenRequest{
-			RefreshToken: "invalid-token",
+			RefreshToken: "invalid-session-token",
 		})
 
 		_, err := handler.RefreshToken(ctx, req)
@@ -926,23 +792,13 @@ func TestRefreshToken(t *testing.T) {
 }
 
 func TestGetMe(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		mock := &mockAuthClient{
-			getUserResp: &authinternalv1.GetUserResponse{
-				User: &authinternalv1.User{
-					Id:            "user-123",
-					Email:         "test@example.com",
-					Name:          "Test User",
-					EmailVerified: true,
-					CreatedAt:     "2024-01-01T00:00:00Z",
-					UpdatedAt:     "2024-01-01T00:00:00Z",
-				},
-			},
-		}
+	t.Run("success - serves from JWT claims", func(t *testing.T) {
+		mock := &mockAuthClient{}
 		handler := newTestHandler(mock)
 
-		// Create context with user ID (simulates authenticated request)
 		ctx := context.WithValue(context.Background(), userIDKey, "user-123")
+		ctx = context.WithValue(ctx, emailKey, "test@example.com")
+		ctx = context.WithValue(ctx, nameKey, "Test User")
 
 		req := connect.NewRequest(&emptypb.Empty{})
 
@@ -960,13 +816,15 @@ func TestGetMe(t *testing.T) {
 		if resp.Msg.User.Email != "test@example.com" {
 			t.Errorf("User.Email = %q, want %q", resp.Msg.User.Email, "test@example.com")
 		}
+		if resp.Msg.User.Name != "Test User" {
+			t.Errorf("User.Name = %q, want %q", resp.Msg.User.Name, "Test User")
+		}
 	})
 
 	t.Run("not authenticated", func(t *testing.T) {
 		mock := &mockAuthClient{}
 		handler := newTestHandler(mock)
 
-		// No user ID in context
 		ctx := context.Background()
 
 		req := connect.NewRequest(&emptypb.Empty{})
@@ -982,32 +840,6 @@ func TestGetMe(t *testing.T) {
 		}
 		if connectErr.Code() != connect.CodeUnauthenticated {
 			t.Errorf("error code = %v, want %v", connectErr.Code(), connect.CodeUnauthenticated)
-		}
-	})
-
-	t.Run("user not found", func(t *testing.T) {
-		mock := &mockAuthClient{
-			getUserResp: &authinternalv1.GetUserResponse{
-				User: nil,
-			},
-		}
-		handler := newTestHandler(mock)
-
-		ctx := context.WithValue(context.Background(), userIDKey, "user-123")
-
-		req := connect.NewRequest(&emptypb.Empty{})
-
-		_, err := handler.GetMe(ctx, req)
-		if err == nil {
-			t.Fatal("expected error for user not found")
-		}
-
-		connectErr := new(connect.Error)
-		if !errors.As(err, &connectErr) {
-			t.Fatalf("expected connect.Error, got %T", err)
-		}
-		if connectErr.Code() != connect.CodeNotFound {
-			t.Errorf("error code = %v, want %v", connectErr.Code(), connect.CodeNotFound)
 		}
 	})
 }
@@ -1109,14 +941,6 @@ func TestGetOAuthUrl(t *testing.T) {
 		if resp.Msg.State != "random-state-123" {
 			t.Errorf("State = %q, want %q", resp.Msg.State, "random-state-123")
 		}
-
-		// Verify request was forwarded correctly
-		if mock.lastGetOAuthUrlReq.Provider != authinternalv1.AuthProvider_AUTH_PROVIDER_GOOGLE {
-			t.Errorf("GetOAuthUrl provider = %v, want GOOGLE", mock.lastGetOAuthUrlReq.Provider)
-		}
-		if mock.lastGetOAuthUrlReq.CallbackUrl != "https://example.com/callback" {
-			t.Errorf("GetOAuthUrl callback = %q, want %q", mock.lastGetOAuthUrlReq.CallbackUrl, "https://example.com/callback")
-		}
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -1148,9 +972,11 @@ func TestHandleOAuthCallback(t *testing.T) {
 					Email: "newuser@gmail.com",
 					Name:  "New User",
 				},
-				AccessToken:  "oauth-access-token",
-				RefreshToken: "oauth-refresh-token",
+				SessionToken: "oauth-session-token",
 				IsNewUser:    true,
+			},
+			getTokenResp: &authinternalv1.GetTokenResponse{
+				AccessToken: "oauth-jwt-access-token",
 			},
 		}
 		handler := newTestHandler(mock)
@@ -1172,8 +998,16 @@ func TestHandleOAuthCallback(t *testing.T) {
 		if !resp.Msg.IsNewUser {
 			t.Error("expected IsNewUser to be true")
 		}
-		if resp.Msg.AccessToken != "oauth-access-token" {
-			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "oauth-access-token")
+		if resp.Msg.AccessToken != "oauth-jwt-access-token" {
+			t.Errorf("AccessToken = %q, want %q", resp.Msg.AccessToken, "oauth-jwt-access-token")
+		}
+		if resp.Msg.RefreshToken != "oauth-session-token" {
+			t.Errorf("RefreshToken = %q, want %q", resp.Msg.RefreshToken, "oauth-session-token")
+		}
+
+		// Verify GetToken was called
+		if mock.lastGetTokenReq.SessionToken != "oauth-session-token" {
+			t.Errorf("GetToken sessionToken = %q, want %q", mock.lastGetTokenReq.SessionToken, "oauth-session-token")
 		}
 	})
 
@@ -1185,9 +1019,11 @@ func TestHandleOAuthCallback(t *testing.T) {
 					Email: "existing@gmail.com",
 					Name:  "Existing User",
 				},
-				AccessToken:  "oauth-access-token",
-				RefreshToken: "oauth-refresh-token",
+				SessionToken: "existing-session-token",
 				IsNewUser:    false,
+			},
+			getTokenResp: &authinternalv1.GetTokenResponse{
+				AccessToken: "existing-jwt-access-token",
 			},
 		}
 		handler := newTestHandler(mock)
@@ -1223,6 +1059,55 @@ func TestHandleOAuthCallback(t *testing.T) {
 			t.Fatal("expected error")
 		}
 	})
+}
+
+func TestGetSSOUrl(t *testing.T) {
+	ctx := context.Background()
+
+	mock := &mockAuthClient{}
+	handler := newTestHandler(mock)
+
+	req := connect.NewRequest(&authv1.GetSSOUrlRequest{
+		OrganizationId: "org-123",
+		CallbackUrl:    "https://example.com/sso/callback",
+	})
+
+	_, err := handler.GetSSOUrl(ctx, req)
+	if err == nil {
+		t.Fatal("expected error (unimplemented)")
+	}
+
+	connectErr := new(connect.Error)
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("expected connect.Error, got %T", err)
+	}
+	if connectErr.Code() != connect.CodeUnimplemented {
+		t.Errorf("error code = %v, want %v", connectErr.Code(), connect.CodeUnimplemented)
+	}
+}
+
+func TestHandleSSOCallback(t *testing.T) {
+	ctx := context.Background()
+
+	mock := &mockAuthClient{}
+	handler := newTestHandler(mock)
+
+	req := connect.NewRequest(&authv1.HandleSSOCallbackRequest{
+		Code: "sso-code-123",
+	})
+
+	_, err := handler.HandleSSOCallback(ctx, req)
+	if err == nil {
+		t.Fatal("expected error (unimplemented)")
+	}
+
+	connectErr := new(connect.Error)
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("expected connect.Error, got %T", err)
+	}
+	if connectErr.Code() != connect.CodeUnimplemented {
+		t.Errorf("error code = %v, want %v", connectErr.Code(), connect.CodeUnimplemented)
+	}
 }
 
 func TestConvertInternalUser(t *testing.T) {

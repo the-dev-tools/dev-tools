@@ -18,8 +18,7 @@
     "@the-dev-tools/spec": "workspace:^",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
-    "effect": "catalog:",
-    "jose": "^5.2.0"
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@the-dev-tools/eslint-config": "workspace:^",

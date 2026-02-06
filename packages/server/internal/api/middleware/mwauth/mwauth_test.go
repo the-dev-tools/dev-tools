@@ -2,12 +2,15 @@ package mwauth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/stoken"
 
 	"connectrpc.com/connect"
@@ -81,8 +84,6 @@ func (m mockRequest) Header() http.Header {
 func TestCrashInterceptor(t *testing.T) {
 	t.Run("NoPanic", func(t *testing.T) {
 		req := connect.NewRequest(&struct{}{})
-		// connect.NewRequest creates a request where Spec().IsClient is false by default?
-		// Actually let's wrap it to be sure.
 		mReq := &mockRequest{AnyRequest: req, isClient: false}
 
 		resp, err := CrashInterceptor(context.Background(), mReq, func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
@@ -105,9 +106,6 @@ func TestCrashInterceptor(t *testing.T) {
 	})
 
 	t.Run("ClientSkip", func(t *testing.T) {
-		// If IsClient is true, it should skip the defer recover logic.
-		// If next panics, it should propagate (test crashes).
-		// We use assert.Panics to verify it propagates.
 		req := connect.NewRequest(&struct{}{})
 		mReq := &mockRequest{AnyRequest: req, isClient: true}
 
@@ -234,5 +232,168 @@ func TestAuthInterceptor_Methods(t *testing.T) {
 		wrapped := i.WrapStreamingHandler(next)
 		err := wrapped(context.Background(), nil)
 		assert.NoError(t, err)
+	})
+}
+
+// =============================================================================
+// BetterAuth interceptor tests (JWKS + auto-provisioning)
+// =============================================================================
+
+var testHMACSecret = []byte("test-betterauth-secret")
+
+// testHMACKeyfunc returns a jwt.Keyfunc that validates HMAC tokens (for testing).
+func testHMACKeyfunc() jwt.Keyfunc {
+	return func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return testHMACSecret, nil
+	}
+}
+
+// createTestBetterAuthJWT creates a JWT token with BetterAuth-style claims for testing.
+func createTestBetterAuthJWT(t *testing.T, sub, email, name string, expired bool) string {
+	t.Helper()
+
+	expiry := time.Now().Add(time.Hour)
+	if expired {
+		expiry = time.Now().Add(-time.Hour)
+	}
+
+	claims := BetterAuthClaims{
+		Email: email,
+		Name:  name,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   sub,
+			ExpiresAt: jwt.NewNumericDate(expiry),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(testHMACSecret)
+	require.NoError(t, err)
+	return tokenString
+}
+
+// setupTestDB creates an in-memory SQLite database for testing.
+func setupTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+
+	ctx := context.Background()
+	db, cleanup, err := sqlitemem.NewSQLiteMem(ctx)
+	require.NoError(t, err)
+	t.Cleanup(cleanup)
+
+	return db
+}
+
+func TestBetterAuthInterceptor_ExtractUserID(t *testing.T) {
+	db := setupTestDB(t)
+	interceptor := NewBetterAuthInterceptorWithKeyfunc(testHMACKeyfunc(), db)
+
+	t.Run("auto-provisions new user", func(t *testing.T) {
+		ctx := context.Background()
+		externalID := "betterauth-user-123"
+		token := createTestBetterAuthJWT(t, externalID, "alice@test.com", "Alice", false)
+
+		userID, err := interceptor.extractUserID(ctx, "Bearer "+token)
+		require.NoError(t, err)
+		assert.NotEqual(t, idwrap.IDWrap{}, userID)
+
+		// Verify user was created in DB
+		userSvc := suser.New(nil)
+		_ = userSvc // We'll query directly
+		reader := suser.NewReader(db)
+		user, err := reader.GetUserByExternalID(ctx, externalID)
+		require.NoError(t, err)
+		assert.Equal(t, userID, user.ID)
+		assert.Equal(t, "alice@test.com", user.Email)
+		assert.Equal(t, &externalID, user.ExternalID)
+	})
+
+	t.Run("returns existing user on subsequent request", func(t *testing.T) {
+		ctx := context.Background()
+		externalID := "betterauth-user-456"
+		token := createTestBetterAuthJWT(t, externalID, "bob@test.com", "Bob", false)
+
+		// First request: auto-provisions
+		userID1, err := interceptor.extractUserID(ctx, "Bearer "+token)
+		require.NoError(t, err)
+
+		// Second request: returns same user
+		userID2, err := interceptor.extractUserID(ctx, "Bearer "+token)
+		require.NoError(t, err)
+
+		assert.Equal(t, userID1, userID2, "should return same user ID for same external_id")
+	})
+
+	t.Run("no token", func(t *testing.T) {
+		_, err := interceptor.extractUserID(context.Background(), "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no authentication token")
+	})
+
+	t.Run("invalid header format", func(t *testing.T) {
+		_, err := interceptor.extractUserID(context.Background(), "NotBearer token")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid authorization header format")
+	})
+
+	t.Run("expired token", func(t *testing.T) {
+		token := createTestBetterAuthJWT(t, "expired-user", "expired@test.com", "Expired", true)
+		_, err := interceptor.extractUserID(context.Background(), "Bearer "+token)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid or expired token")
+	})
+
+	t.Run("invalid signature", func(t *testing.T) {
+		// Sign with a different secret
+		claims := BetterAuthClaims{
+			Email: "bad@test.com",
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject:   "bad-user",
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString([]byte("wrong-secret"))
+		require.NoError(t, err)
+
+		_, err = interceptor.extractUserID(context.Background(), "Bearer "+tokenString)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid or expired token")
+	})
+
+	t.Run("missing subject claim", func(t *testing.T) {
+		token := createTestBetterAuthJWT(t, "", "nosub@test.com", "NoSub", false)
+		_, err := interceptor.extractUserID(context.Background(), "Bearer "+token)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "missing subject in token")
+	})
+}
+
+func TestBetterAuthInterceptor_ValidateBetterAuthJWT(t *testing.T) {
+	db := setupTestDB(t)
+	interceptor := NewBetterAuthInterceptorWithKeyfunc(testHMACKeyfunc(), db)
+
+	t.Run("valid token", func(t *testing.T) {
+		tokenString := createTestBetterAuthJWT(t, "user-id", "test@test.com", "Test User", false)
+		claims, err := interceptor.validateBetterAuthJWT(tokenString)
+		require.NoError(t, err)
+		assert.Equal(t, "user-id", claims.Subject)
+		assert.Equal(t, "test@test.com", claims.Email)
+		assert.Equal(t, "Test User", claims.Name)
+	})
+
+	t.Run("expired token", func(t *testing.T) {
+		tokenString := createTestBetterAuthJWT(t, "user-id", "test@test.com", "Test", true)
+		_, err := interceptor.validateBetterAuthJWT(tokenString)
+		assert.Error(t, err)
+	})
+
+	t.Run("malformed token", func(t *testing.T) {
+		_, err := interceptor.validateBetterAuthJWT("not.a.jwt")
+		assert.Error(t, err)
 	})
 }

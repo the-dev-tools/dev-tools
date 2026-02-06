@@ -7,6 +7,7 @@ enum AuthProvider {
   Google,
   GitHub,
   Microsoft,
+  SAML,
 }
 
 model User {
@@ -34,35 +35,7 @@ model Account {
   updatedAt: string;
 }
 
-model RefreshToken {
-  id: string;
-  userId: string;
-  token: string;
-  expiresAt: string;
-  ipAddress?: string;
-  userAgent?: string;
-  createdAt: string;
-}
-
-model JwtClaims {
-  sub: string;
-  email: string;
-  name: string;
-  iat: int64;
-  exp: int64;
-}
-
-model CreateUserRequest {
-  email: string;
-  name: string;
-  image?: string;
-}
-
-model CreateUserResponse {
-  user: User;
-}
-
-op CreateUser(...CreateUserRequest): CreateUserResponse;
+// -- Credential RPCs --
 
 model CreateUserWithPasswordRequest {
   email: string;
@@ -73,6 +46,9 @@ model CreateUserWithPasswordRequest {
 model CreateUserWithPasswordResponse {
   user: User;
   account: Account;
+
+  /** BetterAuth session token — auth-service uses this to call GetToken and returns it as refreshToken to the client. */
+  sessionToken: string;
 }
 
 op CreateUserWithPassword(...CreateUserWithPasswordRequest): CreateUserWithPasswordResponse;
@@ -86,56 +62,28 @@ model VerifyCredentialsResponse {
   valid: boolean;
   user?: User;
   account?: Account;
+
+  /** BetterAuth session token — returned on successful verification. */
+  sessionToken?: string;
 }
 
 op VerifyCredentials(...VerifyCredentialsRequest): VerifyCredentialsResponse;
 
-model GetUserRequest {
-  userId: string;
+// -- Token RPC --
+
+model GetTokenRequest {
+  /** BetterAuth session token — used to authenticate with BetterAuth's jwt() plugin to get a signed JWT. */
+  sessionToken: string;
 }
 
-model GetUserResponse {
-  user?: User;
-}
-
-op GetUser(...GetUserRequest): GetUserResponse;
-
-model CreateTokensRequest {
-  userId: string;
-  email: string;
-  name: string;
-  ipAddress?: string;
-  userAgent?: string;
-}
-
-model CreateTokensResponse {
+model GetTokenResponse {
+  /** JWT access token signed by BetterAuth JWKS. */
   accessToken: string;
-  refreshToken: string;
 }
 
-op CreateTokens(...CreateTokensRequest): CreateTokensResponse;
+op GetToken(...GetTokenRequest): GetTokenResponse;
 
-model RefreshTokensRequest {
-  refreshToken: string;
-}
-
-model RefreshTokensResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-}
-
-op RefreshTokens(...RefreshTokensRequest): RefreshTokensResponse;
-
-model RevokeRefreshTokenRequest {
-  refreshToken: string;
-}
-
-model RevokeRefreshTokenResponse {
-  success: boolean;
-}
-
-op RevokeRefreshToken(...RevokeRefreshTokenRequest): RevokeRefreshTokenResponse;
+// -- OAuth RPCs --
 
 model GetOAuthUrlRequest {
   provider: AuthProvider;
@@ -154,18 +102,19 @@ model ExchangeOAuthCodeRequest {
   provider: AuthProvider;
   code: string;
   state?: string;
-  ipAddress?: string;
-  userAgent?: string;
 }
 
 model ExchangeOAuthCodeResponse {
   user: User;
-  accessToken: string;
-  refreshToken: string;
   isNewUser: boolean;
+
+  /** BetterAuth session token from the OAuth callback. */
+  sessionToken: string;
 }
 
 op ExchangeOAuthCode(...ExchangeOAuthCodeRequest): ExchangeOAuthCodeResponse;
+
+// -- Account RPCs --
 
 model GetAccountsByUserIdRequest {
   userId: string;

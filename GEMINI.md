@@ -40,20 +40,21 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
   - `storybook/`: Storybook configuration and composition.
   - `gha-scripts/`: GitHub Actions helper scripts.
 
-## Two-Server Auth Architecture
+## Three-Service Auth Architecture
 
-The system uses two independent Go servers:
+The system uses three services with two separate databases and JWKS asymmetric key validation:
 
 ```
-Client ─┬─► api.dev.tools:8080 (packages/server)       ─ Business logic, JWT validation only
-        └─► auth.dev.tools:8081 (packages/auth/auth-service) ─► BetterAuth:50051 (internal)
+Client ─┬─► api.dev.tools:8080 (packages/server)              ─ Business logic, JWKS JWT validation
+        └─► auth.dev.tools:8081 (packages/auth/auth-service)  ─► BetterAuth:50051 (internal)
 ```
 
-- **Main Server** (`packages/server`): Workspaces, Flows, HTTP, Files, Credentials. Uses `AUTH_MODE` env var:
+- **Main Server** (`packages/server`): Workspaces, Flows, HTTP, Files, Credentials. Owns Main DB. Uses `AUTH_MODE` env var:
   - `local` (default): Desktop/CLI mode, uses dummy user, no external auth needed.
-  - `betterauth`: SaaS mode, validates JWTs using shared `JWT_SECRET`.
-- **Auth Server** (`packages/auth/auth-service`): SignUp, SignIn, SignOut, OAuth, RefreshToken, GetMe. Proxies to BetterAuth Node.js service internally.
-- **Shared JWT secret**: Both servers use same `JWT_SECRET` so the main server can validate tokens issued by the auth server.
+  - `betterauth`: SaaS mode, validates JWTs via JWKS public keys from BetterAuth. Auto-provisions users on first JWT using `external_id` mapping.
+- **Auth Server** (`packages/auth/auth-service`): SignUp, SignIn, SignOut, OAuth, RefreshToken, GetMe, SSO stubs. Proxies to BetterAuth Node.js service. Stateless — no DB of its own.
+- **BetterAuth** (`packages/auth/betterauth`): Internal Node.js auth engine. Owns Auth DB. Uses `jwt()` plugin for JWKS signing and `bearer()` plugin for server-to-server auth.
+- **No shared secrets**: JWKS asymmetric keys replace `JWT_SECRET`. Main server fetches public keys from `JWKS_URL` (or `BETTERAUTH_URL/api/auth/jwks`).
 - **Auth TypeSpec**: Public API in `packages/spec/api/auth.tsp`, internal API in `packages/spec/api/auth-internal.tsp`.
 
 ## Development Workflows
@@ -61,7 +62,7 @@ Client ─┬─► api.dev.tools:8080 (packages/server)       ─ Business logi
 ### Build & Run
 - **Desktop App:** `direnv exec . task dev:desktop` (starts Electron + React + Go Server).
 - **Server (Go):** `direnv exec . pnpm nx run server:dev` (hot reload).
-- **Auth Server:** `cd packages/auth/auth-service && direnv exec . go run ./cmd/auth-service` (requires `JWT_SECRET` and `BETTERAUTH_URL`).
+- **Auth Server:** `cd packages/auth/auth-service && direnv exec . go run ./cmd/auth-service` (requires `BETTERAUTH_URL`; derives `JWKS_URL` automatically).
 - **UI (Web):** `direnv exec . pnpm nx run client:dev`.
 - **Storybook:** `direnv exec . task storybook` (component library dev).
 - **Spec Generation:** `direnv exec . pnpm nx run spec:build` (run after editing `.tsp` files; outputs to `packages/spec/dist`).
@@ -195,6 +196,7 @@ Use this pattern for tests that require external services (APIs, Cloud), cost mo
 - **Mutation System:** Read `packages/server/docs/specs/MUTATION.md` for details on automatic cascade event collection and transaction management.
 - **Service Architecture:** Read `packages/server/docs/specs/BACKEND_ARCHITECTURE_V2.md` for Reader/Writer service pattern and Fetch-Check-Act concurrency pattern.
 - **Bulk Operations:** Read `packages/server/docs/specs/BULK_SYNC_TRANSACTION_WRAPPERS.md` for bulk sync transaction patterns.
+- **Auth Architecture:** Read `packages/auth/AUTH_ARCHITECTURE.md` for the two-DB, three-service auth design, JWKS token flow, and user provisioning.
 
 ### Security Best Practices
 -   **ID Enumeration Prevention:** When a user requests a resource (Workspace, Flow, etc.) they do not have access to, the server must return `CodeNotFound` (or `ErrWorkspaceNotFound`), **NOT** `CodePermissionDenied`. This prevents attackers from probing the existence of private resources by distinguishing between "does not exist" and "access denied" responses.

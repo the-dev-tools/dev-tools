@@ -1,9 +1,7 @@
-import type { Client } from "@libsql/client";
-
-import { indexes, schema } from "./queries.js";
+import type { Client } from '@libsql/client';
 
 export async function initDatabase(rawDb: Client): Promise<void> {
-  // BetterAuth-managed tables (user, account, session, verification).
+  // BetterAuth-managed tables (user, account, session, verification, jwks).
   // We create them manually because BetterAuth's getMigrations only supports
   // the Kysely adapter, and we use Drizzle with @libsql/client.
   await rawDb.execute(`
@@ -61,16 +59,17 @@ export async function initDatabase(rawDb: Client): Promise<void> {
     )
   `);
 
-  // Indexes for BetterAuth tables
-  await rawDb.execute(
-    `CREATE INDEX IF NOT EXISTS idx_user_email ON user(email)`,
-  );
-  await rawDb.execute(
-    `CREATE INDEX IF NOT EXISTS idx_account_providerId ON account(providerId, accountId)`,
-  );
+  // JWKS table for BetterAuth's jwt() plugin (RS256 key pairs)
+  await rawDb.execute(`
+    CREATE TABLE IF NOT EXISTS jwks (
+      id         TEXT PRIMARY KEY NOT NULL,
+      publicKey  TEXT NOT NULL,
+      privateKey TEXT NOT NULL,
+      createdAt  INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
 
-  // Our custom refresh_token table (not managed by BetterAuth)
-  await rawDb.execute(schema.createRefreshTokenTable);
-  await rawDb.execute(indexes.refreshTokenByToken);
-  await rawDb.execute(indexes.refreshTokenByUserId);
+  // Indexes for BetterAuth tables
+  await rawDb.execute(`CREATE INDEX IF NOT EXISTS idx_user_email ON user(email)`);
+  await rawDb.execute(`CREATE INDEX IF NOT EXISTS idx_account_providerId ON account(providerId, accountId)`);
 }
