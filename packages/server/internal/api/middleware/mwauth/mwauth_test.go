@@ -22,13 +22,10 @@ func mockUnaryNext(t *testing.T, expectedID idwrap.IDWrap) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		id, err := GetContextUserID(ctx)
 		if expectedID == (idwrap.IDWrap{}) {
-			// If we expect no ID, GetContextUserID should return error
-			if err == nil {
-				// But some tests might not check for ID if it's not set.
-				// However, GetContextUserID returns error if not found.
-				// So if expectedID is empty, we probably expect it NOT to be there?
-				// Actually, GetContextUserID returns error if key is missing.
-			}
+			// If we expect no ID, GetContextUserID should return error.
+			// We don't check here because some callers want to verify that
+			// authentication failed before reaching this point.
+			_ = err
 		} else {
 			require.NoError(t, err)
 			assert.Equal(t, expectedID, id)

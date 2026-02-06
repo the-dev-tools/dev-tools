@@ -9,6 +9,12 @@ extern dec project(target: Namespace, version?: int8);
 extern dec primaryKey(target: ModelProperty);
 extern dec foreignKey(target: ModelProperty);
 
+/**
+ * Mark an operation as unauthenticated (no authentication required).
+ * Used to generate a list of public endpoints for auth interceptors.
+ */
+extern dec unauthenticated(target: Reflection.Operation);
+
 enum KeyAs {
   Primary,
   Foreign,

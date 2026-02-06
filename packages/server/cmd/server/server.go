@@ -35,7 +35,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
-
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
@@ -123,6 +122,16 @@ func run() error {
 	if hmacSecret == "" {
 		return errors.New("HMAC_SECRET env var is required")
 	}
+
+	// Auth configuration
+	// AUTH_MODE: "local" (default, for desktop/CLI) or "betterauth" (for SaaS, validates JWTs)
+	authMode := os.Getenv("AUTH_MODE")
+	if authMode == "" {
+		authMode = "local"
+	}
+
+	// JWT_SECRET: Secret for validating BetterAuth JWTs (required if AUTH_MODE=betterauth)
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	currentDB, dbCloseFunc, err := setupDB(ctx)
 	if err != nil {
@@ -224,7 +233,24 @@ func run() error {
 
 	optionsAuth = make([]connect.HandlerOption, len(optionsCompress), len(optionsCompress)+1)
 	copy(optionsAuth, optionsCompress)
-	optionsAuth = append(optionsAuth, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
+
+	// Choose auth interceptor based on AUTH_MODE
+	// - "local": Uses dummy user for desktop/CLI (no auth)
+	// - "betterauth": Validates JWTs signed by the auth-service (for SaaS)
+	var authInterceptor connect.Interceptor
+	switch authMode {
+	case "betterauth":
+		if jwtSecret == "" {
+			return errors.New("JWT_SECRET env var is required when AUTH_MODE=betterauth")
+		}
+		slog.Info("Using BetterAuth authentication mode (JWT validation)")
+		authInterceptor = mwauth.NewBetterAuthInterceptor([]byte(jwtSecret))
+	default:
+		slog.Info("Using local authentication mode")
+		authInterceptor = mwauth.NewAuthInterceptor()
+	}
+
+	optionsAuth = append(optionsAuth, connect.WithInterceptors(authInterceptor))
 	optionsAll = make([]connect.HandlerOption, len(optionsAuth), len(optionsAuth)+len(optionsCompress))
 	copy(optionsAll, optionsAuth)
 	optionsAll = append(optionsAll, optionsCompress...)

@@ -7,6 +7,7 @@ import {
   Model,
   ModelProperty,
   Namespace,
+  Operation,
   Program,
   Type,
 } from '@typespec/compiler';
@@ -25,6 +26,7 @@ export const $decorators = {
     foreignKey,
     primaryKey,
     project,
+    unauthenticated,
     withDelta,
   },
   'DevTools.Private': {
@@ -121,12 +123,20 @@ export const Projects = ({ children }: ProjectsProps) => {
 export const primaryKeys = makeStateSet<ModelProperty>('primaryKeys');
 export const foreignKeys = makeStateSet<ModelProperty>('foreignKeys');
 
+/** Operations marked as unauthenticated (no auth required) */
+export const unauthenticatedOperations = makeStateSet<Operation>('unauthenticatedOperations');
+
 function primaryKey({ program }: DecoratorContext, target: ModelProperty) {
   primaryKeys(program).add(target);
 }
 
 function foreignKey({ program }: DecoratorContext, target: ModelProperty) {
   foreignKeys(program).add(target);
+}
+
+/** Mark an operation as unauthenticated (no authentication required) */
+function unauthenticated({ program }: DecoratorContext, target: Operation) {
+  unauthenticatedOperations(program).add(target);
 }
 
 function copyKeys(

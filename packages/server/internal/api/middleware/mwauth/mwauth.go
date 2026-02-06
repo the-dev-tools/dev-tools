@@ -5,12 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/stoken"
 	"log/slog"
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/stoken"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/authutil"
 )
 
 type ContextKey int
@@ -157,4 +160,123 @@ func GetContextUserID(ctx context.Context) (idwrap.IDWrap, error) {
 		return ulidID, errors.New("user id not found in context")
 	}
 	return ulidID, nil
+}
+
+// BetterAuthClaims represents the JWT claims from BetterAuth tokens.
+// BetterAuth uses standard JWT claims with email and name in the payload.
+type BetterAuthClaims struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+	jwt.RegisteredClaims
+}
+
+// betterAuthInterceptor validates BetterAuth JWT tokens.
+type betterAuthInterceptor struct {
+	jwtSecret []byte
+}
+
+// NewBetterAuthInterceptor creates a new interceptor that validates BetterAuth JWT tokens.
+// It skips authentication for endpoints marked with @unauthenticated in TypeSpec.
+func NewBetterAuthInterceptor(jwtSecret []byte) *betterAuthInterceptor {
+	return &betterAuthInterceptor{jwtSecret: jwtSecret}
+}
+
+func (i *betterAuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return connect.UnaryFunc(func(
+		ctx context.Context,
+		req connect.AnyRequest,
+	) (connect.AnyResponse, error) {
+		proc := req.Spec().Procedure
+
+		// Skip auth for unauthenticated endpoints
+		if authutil.IsUnauthenticated(proc) {
+			return next(ctx, req)
+		}
+
+		userID, err := i.extractUserID(req.Header().Get(stoken.TokenHeaderKey))
+		if err != nil {
+			return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		}
+
+		return next(CreateAuthedContext(ctx, userID), req)
+	})
+}
+
+func (i *betterAuthInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return connect.StreamingClientFunc(func(
+		ctx context.Context,
+		spec connect.Spec,
+	) connect.StreamingClientConn {
+		// Streaming client doesn't need auth interception
+		return next(ctx, spec)
+	})
+}
+
+func (i *betterAuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return connect.StreamingHandlerFunc(func(
+		ctx context.Context,
+		conn connect.StreamingHandlerConn,
+	) error {
+		proc := conn.Spec().Procedure
+
+		// Skip auth for unauthenticated endpoints
+		if authutil.IsUnauthenticated(proc) {
+			return next(ctx, conn)
+		}
+
+		userID, err := i.extractUserID(conn.RequestHeader().Get(stoken.TokenHeaderKey))
+		if err != nil {
+			return connect.NewError(connect.CodeUnauthenticated, err)
+		}
+
+		return next(CreateAuthedContext(ctx, userID), conn)
+	})
+}
+
+// extractUserID extracts and validates the JWT token from the Authorization header.
+func (i *betterAuthInterceptor) extractUserID(headerValue string) (idwrap.IDWrap, error) {
+	if headerValue == "" {
+		return idwrap.IDWrap{}, errors.New("no authentication token")
+	}
+
+	parts := strings.SplitN(headerValue, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return idwrap.IDWrap{}, errors.New("invalid authorization header format")
+	}
+
+	tokenString := parts[1]
+	claims, err := i.validateBetterAuthJWT(tokenString)
+	if err != nil {
+		slog.Error("JWT validation failed", "error", err)
+		return idwrap.IDWrap{}, errors.New("invalid or expired token")
+	}
+
+	// BetterAuth uses the Subject claim for user ID
+	userID, err := idwrap.NewText(claims.Subject)
+	if err != nil {
+		slog.Error("Invalid user ID in token", "subject", claims.Subject, "error", err)
+		return idwrap.IDWrap{}, errors.New("invalid user ID in token")
+	}
+
+	return userID, nil
+}
+
+// validateBetterAuthJWT validates a BetterAuth JWT token.
+func (i *betterAuthInterceptor) validateBetterAuthJWT(tokenString string) (*BetterAuthClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &BetterAuthClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return i.jwtSecret, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*BetterAuthClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	return claims, nil
 }

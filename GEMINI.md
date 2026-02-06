@@ -1,10 +1,11 @@
-# Gemini Context & Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Core Operational Mandates
-1.  **Efficiency:** Always run commands like `task test`, `pnpm nx`, or `npm install` in the background (using `&`) and check their logs periodically to avoid getting stuck or timing out.
-2.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows. **CRITICAL:** Always run commands using `direnv exec . <command>` to ensure the correct environment (e.g., `NX_TUI`, `TASK_OUTPUT`) is loaded.
-3.  **Context Awareness:** Read `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
-4.  **File Editing:**
+1.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows. **CRITICAL:** Always run commands using `direnv exec . <command>` to ensure the correct environment (e.g., `NX_TUI`, `TASK_OUTPUT`) is loaded.
+2.  **Context Awareness:** Read `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
+3.  **File Editing:**
     - Verify files exist before editing.
     - Use `git status` and `git diff` to verify changes.
     - **Never** revert changes you didn't author unless instructed.
@@ -16,11 +17,14 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 
 ## Repository Architecture
 - **Monorepo Tooling:** Nx, pnpm, Nix (for reproducible environments).
+- **Go Workspace:** `go.work` manages multi-module builds. Run `direnv exec . go work sync` after adding/removing Go modules.
 - **Key Directories:**
   - `apps/desktop`: Electron desktop application (TypeScript/React).
   - `apps/cli`: Go CLI. Key internals: `internal/runner` (execution engine), `internal/importer`.
   - `apps/api-recorder-extension`: Chrome extension (currently disabled).
-  - `packages/server`: Go backend (Connect RPC, SQLite/LibSQL).
+  - `packages/server`: Go backend (Connect RPC, SQLite/LibSQL). Business logic server (port 8080).
+  - `packages/auth/auth-service`: Separate Go auth server (Connect RPC, port 8081). Proxies to BetterAuth for SaaS mode.
+  - `packages/auth/betterauth`: Node.js internal auth backend (BetterAuth, port 50051).
   - `packages/client`: React frontend services/hooks.
   - `packages/ui`: Shared React component library (Storybook).
   - `packages/db`: Shared SQL drivers and `sqlc` generated code.
@@ -36,24 +40,44 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
   - `storybook/`: Storybook configuration and composition.
   - `gha-scripts/`: GitHub Actions helper scripts.
 
+## Two-Server Auth Architecture
+
+The system uses two independent Go servers:
+
+```
+Client ─┬─► api.dev.tools:8080 (packages/server)       ─ Business logic, JWT validation only
+        └─► auth.dev.tools:8081 (packages/auth/auth-service) ─► BetterAuth:50051 (internal)
+```
+
+- **Main Server** (`packages/server`): Workspaces, Flows, HTTP, Files, Credentials. Uses `AUTH_MODE` env var:
+  - `local` (default): Desktop/CLI mode, uses dummy user, no external auth needed.
+  - `betterauth`: SaaS mode, validates JWTs using shared `JWT_SECRET`.
+- **Auth Server** (`packages/auth/auth-service`): SignUp, SignIn, SignOut, OAuth, RefreshToken, GetMe. Proxies to BetterAuth Node.js service internally.
+- **Shared JWT secret**: Both servers use same `JWT_SECRET` so the main server can validate tokens issued by the auth server.
+- **Auth TypeSpec**: Public API in `packages/spec/api/auth.tsp`, internal API in `packages/spec/api/auth-internal.tsp`.
+
 ## Development Workflows
 
 ### Build & Run
-- **Desktop App:** `task dev:desktop` (starts Electron + React + Go Server).
-- **Server (Go):** `pnpm nx run server:dev` (hot reload).
-- **UI (Web):** `pnpm nx run client:dev`.
-- **Storybook:** `task storybook` (component library dev).
-- **Spec Generation:** `pnpm nx run spec:build` (run after editing `.tsp` files; outputs to `packages/spec/dist`).
-- **Database:** `pnpm nx run db:generate` (run after editing `sqlc.yaml` or `.sql` files).
-- **Version Plan:** `task version-plan` (create a version plan for release management).
-- **CLI Release:** `cd apps/cli && task build:release` (builds local binary).
+- **Desktop App:** `direnv exec . task dev:desktop` (starts Electron + React + Go Server).
+- **Server (Go):** `direnv exec . pnpm nx run server:dev` (hot reload).
+- **Auth Server:** `cd packages/auth/auth-service && direnv exec . go run ./cmd/auth-service` (requires `JWT_SECRET` and `BETTERAUTH_URL`).
+- **UI (Web):** `direnv exec . pnpm nx run client:dev`.
+- **Storybook:** `direnv exec . task storybook` (component library dev).
+- **Spec Generation:** `direnv exec . pnpm nx run spec:build` (run after editing `.tsp` files; outputs to `packages/spec/dist`).
+- **Database:** `direnv exec . pnpm nx run db:generate` (run after editing `sqlc.yaml` or `.sql` files).
+- **Version Plan:** `direnv exec . task version-plan` (create a version plan for release management).
+- **CLI Release:** `cd apps/cli && direnv exec . task build:release` (builds local binary).
 
 ### Testing & Quality
-- **Lint:** `task lint` (runs ESLint, formatting checks).
-- **Test (Quick):** `task test` (runs unit tests).
-- **Test (CI):** `task test:ci`.
-- **Fix:** `task fix` (runs Prettier and Syncpack).
-- **Go Benchmarks:** Use `task benchmark:run` to run, `task benchmark:baseline` to save baseline, and `task benchmark:compare` to compare.
+- **Lint:** `direnv exec . task lint` (runs ESLint, formatting checks).
+- **Test (Quick):** `direnv exec . task test` (runs unit tests).
+- **Test (CI):** `direnv exec . task test:ci`.
+- **Fix:** `direnv exec . task fix` (runs Prettier and Syncpack).
+- **Go Benchmarks:** Use `direnv exec . task benchmark:run` to run, `task benchmark:baseline` to save baseline, and `task benchmark:compare` to compare.
+- **Single Go test:** `direnv exec . go test ./packages/server/pkg/service/shttp/... -v -run TestSpecificName`
+- **Single Go package:** `direnv exec . go test ./packages/auth/auth-service/pkg/handler/... -v`
+- **Go build check:** `direnv exec . go build ./packages/server/...`
 
 ### Nx Version Plans
 Version plans are file-based versioning for independent releases. They allow contributors to declare version bumps alongside their changes without modifying `package.json` directly.
@@ -105,6 +129,7 @@ Description of the change (used in changelog)
 - **Transactions:** Keep TXs short. Commit before reading in a different connection (e.g., RPC calls).
 - **Seeding:** Use `BaseTestServices.CreateTempCollection` to quickly seed workspace/user/collection state.
 - **Parallelism:** Safe to use `t.Parallel()` *only* if each subtest creates its own independent DB.
+- **Auth-service tests:** Use mock `AuthInternalServiceClient` to test handlers without a real BetterAuth backend. See `packages/auth/auth-service/pkg/handler/auth_test.go` for the pattern.
 
 ### Go Integration Testing Pattern
 Use this pattern for tests that require external services (APIs, Cloud), cost money, or are too slow for standard CI.
@@ -160,8 +185,8 @@ Use this pattern for tests that require external services (APIs, Cloud), cost mo
     *   **Pattern:** Services wrap these generated queries, handling conversion between DB models (`gen.Http`) and Internal Models (`mhttp.HTTP`).
 
 ### Translation Layer
-    *   **Internal:** Explicit conversion functions (often in `converter` or inline) map between Proto messages (API), Internal Models (Service), and DB Models (Storage).
-    *   **External:** `packages/server/pkg/translate` handles import/export for formats like HAR, Curl, and Postman.
+*   **Internal:** Explicit conversion functions (often in `converter` or inline) map between Proto messages (API), Internal Models (Service), and DB Models (Storage).
+*   **External:** `packages/server/pkg/translate` handles import/export for formats like HAR, Curl, and Postman.
 
 ## Domain Documentation
 - **Flow Engine & Nodes:** Read `packages/server/docs/specs/FLOW.md` for details on the execution engine, node types, and variable system.
