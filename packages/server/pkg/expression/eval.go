@@ -203,14 +203,13 @@ func (e *UnifiedEnv) trackExprReads(exprStr string) {
 // Includes the data, custom functions, and built-in helper functions.
 //
 // Data structure:
-//   - env: environment/flow variables (access via env.apiKey or env["key.with.dots"])
+//   - varName: environment/flow variables (access via {{ apiKey }} or {{ varName }})
 //   - nodeName: node outputs (access via nodeName.response.body)
 func (e *UnifiedEnv) buildExprEnv() map[string]any {
 	env := make(map[string]any, len(e.data)+len(e.customFuncs)+10)
 
 	// Copy data directly - no unflattening needed
-	// Environment variables are namespaced under "env" key
-	// Keys with dots can be accessed via bracket notation: env["key.with.dots"]
+	// Environment variables are flat keys at the root level
 	for k, v := range e.data {
 		env[k] = v
 	}

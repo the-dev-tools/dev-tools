@@ -1495,11 +1495,11 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 	for i, httpReq := range httpRequests {
 		t.Logf("  HTTP[%d]: Method=%s, URL=%s", i, httpReq.Method, httpReq.Url)
 
-		// URLs should now use {{env.API_HOST}} instead of https://api.example.com
+		// URLs should now use {{API_HOST}} instead of https://api.example.com
 		require.NotContains(t, httpReq.Url, "https://api.example.com",
 			"URL should not contain the original domain")
-		require.Contains(t, httpReq.Url, "{{env.API_HOST}}",
-			"URL should contain the variable reference {{env.API_HOST}}")
+		require.Contains(t, httpReq.Url, "{{API_HOST}}",
+			"URL should contain the variable reference {{API_HOST}}")
 	}
 
 	// Verify specific URL patterns
@@ -1508,10 +1508,10 @@ func TestImportRPC_DomainReplacement(t *testing.T) {
 		urlsFound[httpReq.Url] = true
 	}
 
-	require.True(t, urlsFound["{{env.API_HOST}}/users"],
-		"Should have URL {{env.API_HOST}}/users")
-	require.True(t, urlsFound["{{env.API_HOST}}/users/create"],
-		"Should have URL {{env.API_HOST}}/users/create")
+	require.True(t, urlsFound["{{API_HOST}}/users"],
+		"Should have URL {{API_HOST}}/users")
+	require.True(t, urlsFound["{{API_HOST}}/users/create"],
+		"Should have URL {{API_HOST}}/users/create")
 
 	t.Log("Domain replacement test passed - URLs are correctly replaced in storage")
 }

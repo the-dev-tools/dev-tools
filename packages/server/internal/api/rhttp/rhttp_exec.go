@@ -206,13 +206,9 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	return nil
 }
 
-// EnvNamespace is the namespace key for environment variables.
-// Access environment variables using {{ env.varName }} syntax.
-const EnvNamespace = "env"
-
 // buildWorkspaceVarMap creates a variable map from workspace environments.
-// Environment variables are stored under the "env" namespace for clean separation.
-// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}.
+// Environment variables are stored as flat keys for direct access.
+// Access via {{ apiKey }} or {{ varName }}.
 func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID idwrap.IDWrap) (map[string]any, error) {
 	// Get workspace to find global environment
 	workspace, err := h.ws.Get(ctx, workspaceID)
@@ -237,9 +233,11 @@ func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID i
 		}
 	}
 
-	// Store under "env" namespace
+	// Spread env vars directly into varMap
 	varMap := make(map[string]any)
-	varMap[EnvNamespace] = envVars
+	for k, v := range envVars {
+		varMap[k] = v
+	}
 
 	return varMap, nil
 }

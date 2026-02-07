@@ -560,7 +560,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			// Filter to only include enabled variables
 			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
-				// Add to env namespace map
+				// Add to env vars map
 				envVarsMap[v.VarKey] = v.Value
 			}
 		}
@@ -614,7 +614,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		sortenabled.GetAllWithState(&flowVars, true)
 		for _, flowVar := range flowVars {
-			// Add flow variables to env namespace (same as workspace env vars)
+			// Add flow variables (same as workspace env vars)
 			envVarsMap[flowVar.Name] = flowVar.Value
 		}
 
@@ -905,10 +905,10 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 	}
 
-	// Add all environment variables under the "env" namespace
-	// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}
-	if len(envVarsMap) > 0 {
-		creator.AddWithKey("env", envVarsMap)
+	// Add all environment variables at root level
+	// Access via {{ apiKey }} or {{ varName }}
+	for k, v := range envVarsMap {
+		creator.AddWithKey(k, v)
 	}
 
 	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
@@ -977,7 +977,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			// Filter to only include enabled variables
 			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
-				// Add to env namespace map
+				// Add to env vars map
 				envVarsMapLookup[v.VarKey] = v.Value
 			}
 		}
@@ -1031,7 +1031,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		sortenabled.GetAllWithState(&flowVars, true)
 		for _, flowVar := range flowVars {
-			// Add flow variables to env namespace (same as workspace env vars)
+			// Add flow variables (same as workspace env vars)
 			envVarsMapLookup[flowVar.Name] = flowVar.Value
 		}
 
@@ -1251,10 +1251,10 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		}
 	}
 
-	// Add all environment variables under the "env" namespace
-	// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}
-	if len(envVarsMapLookup) > 0 {
-		lookup.AddWithKey("env", envVarsMapLookup)
+	// Add all environment variables at root level
+	// Access via {{ apiKey }} or {{ varName }}
+	for k, v := range envVarsMapLookup {
+		lookup.AddWithKey(k, v)
 	}
 
 	value, err := lookup.GetValue(req.Msg.Path)

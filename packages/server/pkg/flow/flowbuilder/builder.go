@@ -276,10 +276,6 @@ func (b *Builder) BuildNodes(
 	return flowNodeMap, startNodeID, nil
 }
 
-// EnvNamespace is the namespace key for environment variables in VarMap.
-// Access environment variables using {{ env.varName }} syntax.
-const EnvNamespace = "env"
-
 func (b *Builder) BuildVariables(
 	ctx context.Context,
 	workspaceID idwrap.IDWrap,
@@ -294,7 +290,7 @@ func (b *Builder) BuildVariables(
 		// If workspace not found, just use flow vars
 		b.Logger.Warn("failed to get workspace for environment variables", "workspace_id", workspaceID.String(), "error", err)
 	} else {
-		// 1. Add global environment variables to env namespace
+		// 1. Add global environment variables
 		if workspace.GlobalEnv != (idwrap.IDWrap{}) {
 			globalVars, err := b.Variable.GetVariableByEnvID(ctx, workspace.GlobalEnv)
 			if err != nil && !errors.Is(err, senv.ErrNoVarFound) {
@@ -308,7 +304,7 @@ func (b *Builder) BuildVariables(
 			}
 		}
 
-		// 2. Add active environment variables (override global) to env namespace
+		// 2. Add active environment variables (override global)
 		// Only if ActiveEnv is different from GlobalEnv
 		if workspace.ActiveEnv != (idwrap.IDWrap{}) && workspace.ActiveEnv != workspace.GlobalEnv {
 			activeVars, err := b.Variable.GetVariableByEnvID(ctx, workspace.ActiveEnv)
@@ -324,16 +320,18 @@ func (b *Builder) BuildVariables(
 		}
 	}
 
-	// 3. Add flow-level variables to env namespace (override environment variables)
+	// 3. Add flow-level variables (override environment variables)
 	for _, variable := range flowVars {
 		if variable.Enabled {
 			envVars[variable.Name] = variable.Value
 		}
 	}
 
-	// Store all environment/flow variables under the "env" namespace
-	// Access via {{ env.apiKey }} or {{ env["key.with.dots"] }}
-	baseVars[EnvNamespace] = envVars
+	// Spread all environment/flow variables directly into baseVars
+	// Access via {{ apiKey }} or {{ varName }}
+	for k, v := range envVars {
+		baseVars[k] = v
+	}
 
 	return baseVars, nil
 }

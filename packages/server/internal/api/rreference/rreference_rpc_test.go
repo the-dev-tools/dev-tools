@@ -135,25 +135,25 @@ func TestReferenceCompletion_Workspace(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Test Completion - search for env namespace
+	// Test Completion - search for env variable
 	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		Start:       "env.env_var",
+		Start:       "env_var",
 	})
 
 	resp, err := svc.ReferenceCompletion(ctx, req)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	// Verify env.env_var_1 is present (variables are under env namespace)
+	// Verify env_var_1 is present (variables are flat at root level)
 	found := false
 	for _, item := range resp.Msg.Items {
-		if item.EndToken == "env.env_var_1" {
+		if item.EndToken == "env_var_1" {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "Expected env.env_var_1 in completions")
+	assert.True(t, found, "Expected env_var_1 in completions")
 }
 
 func TestReferenceCompletion_FlowNode(t *testing.T) {
@@ -220,11 +220,11 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 	require.NotNil(t, resp)
 
 	// Verify completions
-	var foundEnvNamespace, foundSourceNode, foundSelfNode bool
+	var foundFlowVar, foundSourceNode, foundSelfNode bool
 	for _, item := range resp.Msg.Items {
-		// Flow variables are now under env namespace
-		if item.EndToken == "env" || item.EndToken == "env.flow_var_1" {
-			foundEnvNamespace = true
+		// Flow variables are flat at root level
+		if item.EndToken == "flow_var_1" {
+			foundFlowVar = true
 		}
 		if item.EndToken == "SourceRequest" {
 			foundSourceNode = true
@@ -234,7 +234,7 @@ func TestReferenceCompletion_FlowNode(t *testing.T) {
 		}
 	}
 
-	assert.True(t, foundEnvNamespace, "Expected env namespace with flow_var_1")
+	assert.True(t, foundFlowVar, "Expected flow_var_1 in completions")
 	assert.True(t, foundSourceNode, "Expected SourceRequest")
 	assert.True(t, foundSelfNode, "Expected self reference (request/response)")
 }
@@ -296,10 +296,10 @@ func TestReferenceValue_Simple(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Request Value - use env namespace path
+	// Request Value - use flat variable path
 	req := connect.NewRequest(&referencev1.ReferenceValueRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		Path:        "env.my_var",
+		Path:        "my_var",
 	})
 
 	resp, err := svc.ReferenceValue(ctx, req)
