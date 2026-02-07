@@ -13,11 +13,13 @@ import { runtimeAtom } from '~/shared/lib/runtime';
 import { RouterContext } from './context';
 import { startOpenReplay } from './open-replay';
 import { router } from './router';
+import { initUmami } from './umami';
 
 scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 
 const appAtom = runtimeAtom.atom(
   Effect.gen(function* () {
+    yield* initUmami;
     yield* startOpenReplay;
     yield* ApiCollections;
 

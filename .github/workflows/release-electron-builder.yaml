@@ -17,6 +17,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
+    env:
+      PUBLIC_UMAMI__ENABLE: ${{ vars.UMAMI_ENABLE }}
+      PUBLIC_UMAMI__HOST: ${{ vars.UMAMI_HOST }}
+      PUBLIC_UMAMI__ID: ${{ vars.UMAMI_ID }}
+
     steps:
       - uses: actions/checkout@v4
 
