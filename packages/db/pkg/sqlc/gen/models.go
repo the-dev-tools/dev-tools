@@ -377,6 +377,9 @@ type Workspace struct {
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
 	DisplayOrder    float64
+	SyncPath        *string
+	SyncFormat      *string
+	SyncEnabled     bool
 }
 
 type WorkspacesUser struct {

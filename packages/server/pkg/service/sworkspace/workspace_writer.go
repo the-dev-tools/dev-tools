@@ -57,6 +57,20 @@ func (w *WorkspaceWriter) UpdateUpdatedTime(ctx context.Context, org *mworkspace
 	return err
 }
 
+func (w *WorkspaceWriter) UpdateSync(ctx context.Context, ws *mworkspace.Workspace) error {
+	err := w.queries.UpdateWorkspaceSync(ctx, gen.UpdateWorkspaceSyncParams{
+		ID:          ws.ID,
+		SyncPath:    ws.SyncPath,
+		SyncFormat:  ws.SyncFormat,
+		SyncEnabled: ws.SyncEnabled,
+		Updated:     ws.Updated.Unix(),
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNoWorkspaceFound
+	}
+	return err
+}
+
 func (w *WorkspaceWriter) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	err := w.queries.DeleteWorkspace(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {

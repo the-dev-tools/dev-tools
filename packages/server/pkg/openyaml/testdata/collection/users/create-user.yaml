@@ -1,0 +1,15 @@
+name: Create User
+method: POST
+url: "{{base_url}}/users"
+order: 2
+headers:
+  Content-Type: application/json
+body:
+  type: raw
+  raw: |
+    {
+      "name": "John Doe",
+      "email": "john@example.com"
+    }
+assertions:
+  - "res.status eq 201"

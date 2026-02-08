@@ -648,6 +648,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getVariablesByEnvironmentIDOrderedStmt, err = db.PrepareContext(ctx, getVariablesByEnvironmentIDOrdered); err != nil {
 		return nil, fmt.Errorf("error preparing query GetVariablesByEnvironmentIDOrdered: %w", err)
 	}
+	if q.getSyncedWorkspacesStmt, err = db.PrepareContext(ctx, getSyncedWorkspaces); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSyncedWorkspaces: %w", err)
+	}
 	if q.getWorkspaceStmt, err = db.PrepareContext(ctx, getWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspace: %w", err)
 	}
@@ -833,6 +836,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
+	}
+	if q.updateWorkspaceSyncStmt, err = db.PrepareContext(ctx, updateWorkspaceSync); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWorkspaceSync: %w", err)
 	}
 	if q.updateWorkspaceUpdatedTimeStmt, err = db.PrepareContext(ctx, updateWorkspaceUpdatedTime); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUpdatedTime: %w", err)
@@ -1891,6 +1897,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getVariablesByEnvironmentIDOrderedStmt: %w", cerr)
 		}
 	}
+	if q.getSyncedWorkspacesStmt != nil {
+		if cerr := q.getSyncedWorkspacesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSyncedWorkspacesStmt: %w", cerr)
+		}
+	}
 	if q.getWorkspaceStmt != nil {
 		if cerr := q.getWorkspaceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWorkspaceStmt: %w", cerr)
@@ -2201,6 +2212,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateWorkspaceStmt: %w", cerr)
 		}
 	}
+	if q.updateWorkspaceSyncStmt != nil {
+		if cerr := q.updateWorkspaceSyncStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWorkspaceSyncStmt: %w", cerr)
+		}
+	}
 	if q.updateWorkspaceUpdatedTimeStmt != nil {
 		if cerr := q.updateWorkspaceUpdatedTimeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateWorkspaceUpdatedTimeStmt: %w", cerr)
@@ -2468,6 +2484,7 @@ type Queries struct {
 	getVariableStmt                            *sql.Stmt
 	getVariablesByEnvironmentIDStmt            *sql.Stmt
 	getVariablesByEnvironmentIDOrderedStmt     *sql.Stmt
+	getSyncedWorkspacesStmt                    *sql.Stmt
 	getWorkspaceStmt                           *sql.Stmt
 	getWorkspaceByUserIDStmt                   *sql.Stmt
 	getWorkspaceByUserIDandWorkspaceIDStmt     *sql.Stmt
@@ -2530,6 +2547,7 @@ type Queries struct {
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
+	updateWorkspaceSyncStmt                    *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt             *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
 	upsertNodeExecutionStmt                    *sql.Stmt
@@ -2748,6 +2766,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getVariableStmt:                            q.getVariableStmt,
 		getVariablesByEnvironmentIDStmt:            q.getVariablesByEnvironmentIDStmt,
 		getVariablesByEnvironmentIDOrderedStmt:     q.getVariablesByEnvironmentIDOrderedStmt,
+		getSyncedWorkspacesStmt:                    q.getSyncedWorkspacesStmt,
 		getWorkspaceStmt:                           q.getWorkspaceStmt,
 		getWorkspaceByUserIDStmt:                   q.getWorkspaceByUserIDStmt,
 		getWorkspaceByUserIDandWorkspaceIDStmt:     q.getWorkspaceByUserIDandWorkspaceIDStmt,
@@ -2810,6 +2829,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
+		updateWorkspaceSyncStmt:                    q.updateWorkspaceSyncStmt,
 		updateWorkspaceUpdatedTimeStmt:             q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
 		upsertNodeExecutionStmt:                    q.upsertNodeExecutionStmt,

@@ -43,9 +43,9 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order, sync_path, sync_format, sync_enabled)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
@@ -57,6 +57,9 @@ type CreateWorkspaceParams struct {
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
 	DisplayOrder    float64
+	SyncPath        *string
+	SyncFormat      *string
+	SyncEnabled     bool
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
@@ -69,6 +72,9 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 		arg.ActiveEnv,
 		arg.GlobalEnv,
 		arg.DisplayOrder,
+		arg.SyncPath,
+		arg.SyncFormat,
+		arg.SyncEnabled,
 	)
 	return err
 }
@@ -128,7 +134,10 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.sync_path,
+  w.sync_format,
+  w.sync_enabled
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
@@ -157,6 +166,9 @@ func (q *Queries) GetAllWorkspacesByUserID(ctx context.Context, userID idwrap.ID
 			&i.ActiveEnv,
 			&i.GlobalEnv,
 			&i.DisplayOrder,
+			&i.SyncPath,
+			&i.SyncFormat,
+			&i.SyncEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -180,7 +192,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -202,6 +217,9 @@ func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (Workspace
 		&i.ActiveEnv,
 		&i.GlobalEnv,
 		&i.DisplayOrder,
+		&i.SyncPath,
+		&i.SyncFormat,
+		&i.SyncEnabled,
 	)
 	return i, err
 }
@@ -215,7 +233,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -245,6 +266,9 @@ func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap
 		&i.ActiveEnv,
 		&i.GlobalEnv,
 		&i.DisplayOrder,
+		&i.SyncPath,
+		&i.SyncFormat,
+		&i.SyncEnabled,
 	)
 	return i, err
 }
@@ -258,7 +282,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -294,6 +321,9 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 		&i.ActiveEnv,
 		&i.GlobalEnv,
 		&i.DisplayOrder,
+		&i.SyncPath,
+		&i.SyncFormat,
+		&i.SyncEnabled,
 	)
 	return i, err
 }
@@ -445,7 +475,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -477,6 +510,9 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 			&i.ActiveEnv,
 			&i.GlobalEnv,
 			&i.DisplayOrder,
+			&i.SyncPath,
+			&i.SyncFormat,
+			&i.SyncEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -500,7 +536,10 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.sync_path,
+  w.sync_format,
+  w.sync_enabled
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
@@ -528,6 +567,9 @@ func (q *Queries) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwra
 			&i.ActiveEnv,
 			&i.GlobalEnv,
 			&i.DisplayOrder,
+			&i.SyncPath,
+			&i.SyncFormat,
+			&i.SyncEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -573,6 +615,91 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.Updated,
 		arg.ActiveEnv,
 		arg.DisplayOrder,
+		arg.ID,
+	)
+	return err
+}
+
+const getSyncedWorkspaces = `-- name: GetSyncedWorkspaces :many
+SELECT
+  id,
+  name,
+  updated,
+  collection_count,
+  flow_count,
+  active_env,
+  global_env,
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
+FROM
+  workspaces
+WHERE
+  sync_enabled = 1
+`
+
+// Returns all workspaces with sync enabled
+func (q *Queries) GetSyncedWorkspaces(ctx context.Context) ([]Workspace, error) {
+	rows, err := q.query(ctx, q.getSyncedWorkspacesStmt, getSyncedWorkspaces)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Workspace{}
+	for rows.Next() {
+		var i Workspace
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Updated,
+			&i.CollectionCount,
+			&i.FlowCount,
+			&i.ActiveEnv,
+			&i.GlobalEnv,
+			&i.DisplayOrder,
+			&i.SyncPath,
+			&i.SyncFormat,
+			&i.SyncEnabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateWorkspaceSync = `-- name: UpdateWorkspaceSync :exec
+UPDATE workspaces
+SET
+  sync_path = ?,
+  sync_format = ?,
+  sync_enabled = ?,
+  updated = ?
+WHERE
+  id = ?
+`
+
+type UpdateWorkspaceSyncParams struct {
+	SyncPath    *string
+	SyncFormat  *string
+	SyncEnabled bool
+	Updated     int64
+	ID          idwrap.IDWrap
+}
+
+func (q *Queries) UpdateWorkspaceSync(ctx context.Context, arg UpdateWorkspaceSyncParams) error {
+	_, err := q.exec(ctx, q.updateWorkspaceSyncStmt, updateWorkspaceSync,
+		arg.SyncPath,
+		arg.SyncFormat,
+		arg.SyncEnabled,
+		arg.Updated,
 		arg.ID,
 	)
 	return err
