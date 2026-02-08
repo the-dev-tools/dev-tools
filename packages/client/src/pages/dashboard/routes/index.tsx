@@ -164,8 +164,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
         <div
           className={tw`
-            grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight
-            text-fg-muted
+            grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight text-fg-muted
           `}
         >
           <div
