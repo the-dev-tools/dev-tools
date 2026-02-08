@@ -6,9 +6,9 @@ interface DropIndicator {
 }
 
 export const DropIndicatorHorizontal = ({ as: Component = 'div' }: DropIndicator) => (
-  <Component className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />
+  <Component className={tw`relative z-10 col-span-full h-0 w-full ring ring-accent-border`} />
 );
 
 export const DropIndicatorVertical = ({ as: Component = 'div' }: DropIndicator) => (
-  <Component className={tw`relative z-10 row-span-full h-full w-0 ring ring-violet-700`} />
+  <Component className={tw`relative z-10 row-span-full h-full w-0 ring ring-accent-border`} />
 );

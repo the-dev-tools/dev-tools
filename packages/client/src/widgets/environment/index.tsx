@@ -82,7 +82,7 @@ export const EnvironmentsWidget = () => {
   );
 
   return (
-    <div className={tw`flex gap-1 border-b border-slate-200 p-3`}>
+    <div className={tw`flex gap-1 border-b border-border p-3`}>
       <Select
         aria-label='Environment'
         items={environments}
@@ -100,11 +100,13 @@ export const EnvironmentsWidget = () => {
             <SelectItem id={environmentIdCan} textValue={item.name}>
               <div className={tw`flex items-center gap-2`}>
                 <div
-                  className={tw`flex size-6 items-center justify-center rounded-md bg-slate-200 text-xs text-slate-500`}
+                  className={tw`
+                    flex size-6 items-center justify-center rounded-md bg-surface-active text-xs text-fg-muted
+                  `}
                 >
                   {item.isGlobal ? <VariableIcon /> : item.name[0]}
                 </div>
-                <span className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>
+                <span className={tw`text-md leading-5 font-semibold tracking-tight text-fg`}>
                   {item.isGlobal ? 'Global Environment' : item.name}
                 </span>
               </div>
@@ -122,9 +124,9 @@ export const EnvironmentsWidget = () => {
       <DialogTrigger>
         <TooltipTrigger delay={750}>
           <Button className={tw`p-1`} variant='ghost'>
-            <GlobalEnvironmentIcon className={tw`size-4 text-slate-500`} />
+            <GlobalEnvironmentIcon className={tw`size-4 text-fg-muted`} />
           </Button>
-          <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+          <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>
             Manage Variables & Environments
           </Tooltip>
         </TooltipTrigger>
@@ -176,10 +178,10 @@ const EnvironmentModal = () => {
       <Dialog className={tw`h-full outline-hidden`}>
         {({ close }) => (
           <div className={tw`flex h-full`}>
-            <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
+            <div className={tw`flex w-64 flex-col border-r border-border bg-surface-alt p-4 tracking-tight`}>
               <div className={tw`mb-4`}>
-                <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-slate-800`}>Variable Settings</div>
-                <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
+                <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-fg`}>Variable Settings</div>
+                <div className={tw`text-xs leading-4 text-fg-muted`}>Manage variables & environment</div>
               </div>
 
               {globalKey && (
@@ -187,7 +189,7 @@ const EnvironmentModal = () => {
                   className={({ isSelected }) =>
                     twJoin(
                       tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
-                      isSelected && tw`bg-slate-200`,
+                      isSelected && tw`bg-surface-active`,
                     )
                   }
                   isSelected={selectedKey === globalKey}
@@ -195,17 +197,17 @@ const EnvironmentModal = () => {
                     if (isSelected && globalKey) setSelectedKey(globalKey);
                   }}
                 >
-                  <VariableIcon className={tw`size-4 text-slate-500`} />
+                  <VariableIcon className={tw`size-4 text-fg-muted`} />
                   <span className={tw`text-md leading-5 font-semibold`}>Global Variables</span>
                 </ToggleButton>
               )}
 
               <div className={tw`mt-3 mb-1 flex items-center justify-between py-0.5`}>
-                <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
+                <span className={tw`text-md leading-5 text-fg-subtle`}>Environments</span>
 
                 <TooltipTrigger delay={750}>
                   <Button
-                    className={tw`bg-slate-200 p-0.5`}
+                    className={tw`bg-surface-active p-0.5`}
                     onPress={async () => {
                       const environment = Protobuf.create(EnvironmentInsertSchema, {
                         environmentId: Ulid.generate().bytes,
@@ -220,9 +222,9 @@ const EnvironmentModal = () => {
                     }}
                     variant='ghost'
                   >
-                    <FiPlus className={tw`size-4 text-slate-500`} />
+                    <FiPlus className={tw`size-4 text-fg-muted`} />
                   </Button>
-                  <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+                  <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>
                     Add New Environment
                   </Tooltip>
                 </TooltipTrigger>
@@ -246,7 +248,7 @@ const EnvironmentModal = () => {
                     className={({ isSelected }) =>
                       twJoin(
                         tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
-                        isSelected && tw`bg-slate-200`,
+                        isSelected && tw`bg-surface-active`,
                       )
                     }
                     id={environmentCollection.utils.getKey(_)}
@@ -254,7 +256,8 @@ const EnvironmentModal = () => {
                   >
                     <div
                       className={tw`
-                        flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3 text-slate-500
+                        flex size-4 items-center justify-center rounded-sm bg-border-emphasis text-xs leading-3
+                        text-fg-muted
                       `}
                     >
                       {_.name[0]}
@@ -268,7 +271,7 @@ const EnvironmentModal = () => {
             <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
               {selectedKey && <EnvironmentPanel id={selectedKey.toString()} />}
               <div className={tw`flex-1`} />
-              <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
+              <div className={tw`flex justify-end gap-2 border-t border-border px-6 py-3`}>
                 <Button onPress={close} variant='primary'>
                   Close
                 </Button>
@@ -317,11 +320,11 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
     <div className={tw`h-full px-6 py-4`}>
       <div className={tw`mb-4 flex items-center gap-2`} onContextMenu={onContextMenu}>
         {isGlobal ? (
-          <VariableIcon className={tw`size-6 text-slate-500`} />
+          <VariableIcon className={tw`size-6 text-fg-muted`} />
         ) : (
           <div
             className={tw`
-              flex size-6 items-center justify-center rounded-md bg-slate-300 text-xs leading-3 text-slate-500
+              flex size-6 items-center justify-center rounded-md bg-border-emphasis text-xs leading-3 text-fg-muted
             `}
           >
             {name[0]}
@@ -331,12 +334,12 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
         {isEditing ? (
           <TextInputField
             aria-label='Environment name'
-            inputClassName={tw`-my-1 py-1 leading-none font-semibold tracking-tight text-slate-800`}
+            inputClassName={tw`-my-1 py-1 leading-none font-semibold tracking-tight text-fg`}
             {...textFieldProps}
           />
         ) : (
           <AriaButton
-            className={tw`max-w-full cursor-text truncate leading-5 font-semibold tracking-tight text-slate-800`}
+            className={tw`max-w-full cursor-text truncate leading-5 font-semibold tracking-tight text-fg`}
             isDisabled={isGlobal}
             onContextMenu={onContextMenu}
             onPress={() => void edit()}
@@ -350,7 +353,7 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
         {!isGlobal && (
           <MenuTrigger {...menuTriggerProps}>
             <Button className={tw`p-1`} variant='ghost'>
-              <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+              <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
             </Button>
 
             <Menu {...menuProps}>

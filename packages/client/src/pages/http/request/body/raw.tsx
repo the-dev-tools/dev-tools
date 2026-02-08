@@ -6,6 +6,7 @@ import {
   HttpBodyRawCollectionSchema,
   HttpBodyRawDeltaCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { useTheme } from '@the-dev-tools/ui';
 import { Button } from '@the-dev-tools/ui/button';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -52,6 +53,8 @@ export const RawForm = ({ deltaHttpId, httpId, isReadOnly = false }: RawFormProp
   const client = createClient(ReferenceService, transport);
   const reactRender = useReactRender();
 
+  const { resolvedTheme } = useTheme();
+
   // TODO: use pre-composed extensions instead of duplicating code here
   // Combine language extensions with reference extensions
   const combinedExtensions = [...languageExtensions, ...baseCodeMirrorExtensions({ client, context, reactRender })];
@@ -94,6 +97,7 @@ export const RawForm = ({ deltaHttpId, httpId, isReadOnly = false }: RawFormProp
         height='100%'
         onChange={(_) => void setValue(_)}
         readOnly={isReadOnly}
+        theme={resolvedTheme}
         value={value ?? ''}
       />
     </>

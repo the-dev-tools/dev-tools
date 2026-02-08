@@ -153,11 +153,11 @@ const connectionLineStyles = tv({
   base: tw`fill-none stroke-1 transition-colors`,
   variants: {
     state: {
-      [FlowItemState.CANCELED]: tw`stroke-slate-400`,
+      [FlowItemState.CANCELED]: tw`stroke-fg-subtle`,
       [FlowItemState.FAILURE]: tw`stroke-red-600`,
       [FlowItemState.RUNNING]: tw`stroke-violet-600`,
       [FlowItemState.SUCCESS]: tw`stroke-green-600`,
-      [FlowItemState.UNSPECIFIED]: tw`stroke-slate-800`,
+      [FlowItemState.UNSPECIFIED]: tw`stroke-fg-muted`,
     } satisfies Record<FlowItemState, string>,
   },
 });

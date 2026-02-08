@@ -6,10 +6,10 @@ import { composeStyleRenderProps } from './utils';
 
 export const modalStyles = tv({
   slots: {
-    base: tw`size-full overflow-auto rounded-lg bg-white`,
+    base: tw`size-full overflow-auto rounded-lg bg-surface`,
 
     overlay: tw`
-      fixed inset-0 z-20 flex h-(--visual-viewport-height) items-center justify-center bg-slate-800/50
+      fixed inset-0 z-20 flex h-(--visual-viewport-height) items-center justify-center bg-overlay
 
       entering:animate-in entering:duration-200 entering:ease-out entering:fade-in
 

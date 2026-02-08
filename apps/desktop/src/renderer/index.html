@@ -3,6 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <title>DevTools Studio</title>
+    <script>
+      (function(){
+        var t = localStorage.getItem('theme');
+        var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = '#0f172a';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

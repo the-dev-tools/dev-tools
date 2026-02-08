@@ -11,11 +11,11 @@ export const addButtonStyles = tv({
   variants: {
     variant: {
       dark: tw`
-        border-slate-300 text-slate-500
+        border-border-emphasis text-fg-muted
 
-        hover:border-slate-500 hover:text-slate-600
+        hover:border-fg-muted hover:text-fg
 
-        pressed:border-slate-800 pressed:text-slate-900
+        pressed:border-fg pressed:text-fg
       `,
       light: tw`border-white/20 text-white hover:border-white/40 pressed:border-white`,
     },
@@ -41,7 +41,7 @@ export const AddButton = ({ tooltipText, ...props }: AddButtonProps) => {
   button = (
     <RAC.TooltipTrigger delay={750}>
       {button}
-      <RAC.Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{tooltipText}</RAC.Tooltip>
+      <RAC.Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>{tooltipText}</RAC.Tooltip>
     </RAC.TooltipTrigger>
   );
 

@@ -107,15 +107,15 @@ export const HttpRequestPanel = ({
 
   return (
     <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
-      <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+      <TabList className={tw`flex gap-3 border-b border-border`}>
         <Tab
           className={({ isSelected }) =>
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-fg-muted transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent-border text-fg`,
             )
           }
           id='params'
@@ -129,9 +129,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-fg-muted transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent-border text-fg`,
             )
           }
           id='headers'
@@ -145,9 +145,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-fg-muted transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent-border text-fg`,
             )
           }
           id='body'
@@ -166,9 +166,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-fg-muted transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent-border text-fg`,
             )
           }
           id='assertions'

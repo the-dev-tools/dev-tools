@@ -18,8 +18,8 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
     <div className={tw`flex h-full flex-col`}>
       <div
         className={tw`
-          flex h-12 w-full flex-none items-center gap-4 bg-slate-950 px-4 text-sm font-semibold tracking-tight
-          text-white
+          flex h-12 w-full flex-none items-center gap-4 bg-surface-invert px-4 text-sm font-semibold tracking-tight
+          text-fg-invert
         `}
       >
         <ButtonAsRouteLink

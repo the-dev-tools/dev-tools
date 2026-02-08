@@ -41,7 +41,7 @@ export const ResponseInfo = ({ className, httpResponseId }: ResponseInfoProps) =
   return (
     <div
       className={twMerge(
-        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-slate-800`,
+        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-fg`,
         className,
       )}
     >
@@ -101,16 +101,16 @@ export const ResponsePanel = ({ children, className, fullWidth = false, httpResp
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
-      <div className={twMerge(tw`flex items-center gap-3 border-b border-slate-200 text-md`, fullWidth && tw`px-4`)}>
+      <div className={twMerge(tw`flex items-center gap-3 border-b border-border text-md`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             className={({ isSelected }) =>
               twMerge(
                 tw`
                   -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                  text-slate-500 transition-colors
+                  text-fg-muted transition-colors
                 `,
-                isSelected && tw`border-b-violet-700 text-slate-800`,
+                isSelected && tw`border-b-accent-border text-fg`,
               )
             }
             id='body'
@@ -123,9 +123,9 @@ export const ResponsePanel = ({ children, className, fullWidth = false, httpResp
               twMerge(
                 tw`
                   -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                  text-slate-500 transition-colors
+                  text-fg-muted transition-colors
                 `,
-                isSelected && tw`border-b-violet-700 text-slate-800`,
+                isSelected && tw`border-b-accent-border text-fg`,
               )
             }
             id='headers'
@@ -139,9 +139,9 @@ export const ResponsePanel = ({ children, className, fullWidth = false, httpResp
               twMerge(
                 tw`
                   -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                  text-slate-500 transition-colors
+                  text-fg-muted transition-colors
                 `,
-                isSelected && tw`border-b-violet-700 text-slate-800`,
+                isSelected && tw`border-b-accent-border text-fg`,
               )
             }
             id='assertions'

@@ -51,7 +51,7 @@ export const HttpNode = ({ id, selected }: XF.NodeProps) => {
 
   return (
     <SimpleNode
-      className={tw`w-48 text-violet-600`}
+      className={tw`w-48 text-accent-fg`}
       handles={
         <>
           <Handle nodeId={nodeId} position={XF.Position.Left} type='target' />

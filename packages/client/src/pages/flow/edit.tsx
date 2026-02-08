@@ -27,6 +27,7 @@ import {
   NodeCollectionSchema,
   NodeHttpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { useTheme } from '@the-dev-tools/ui';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
@@ -104,7 +105,7 @@ export const FlowEditPage = () => {
             <ActionBar />
 
             {sidebar && (
-              <XF.Panel className={tw`inset-y-0 w-80 border-l border-slate-200 bg-white`} position='top-right'>
+              <XF.Panel className={tw`inset-y-0 w-80 border-l border-border bg-surface`} position='top-right'>
                 {sidebar}
               </XF.Panel>
             )}
@@ -127,6 +128,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const { getNodes, screenToFlowPosition } = XF.useReactFlow();
 
   const { flowId, isReadOnly = false, setSidebar } = use(FlowContext);
+  const { resolvedTheme } = useTheme();
 
   const { duration } =
     useLiveQuery(
@@ -236,7 +238,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     <>
       {statusBarEndSlot &&
         createPortal(
-          <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
+          <div className={tw`flex gap-4 text-xs leading-none text-fg`}>
             <NodeSelectionIndicator />
             {duration && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
           </div>,
@@ -247,7 +249,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
       <XF.ReactFlow
         {...(dropProps as object)}
-        colorMode='light'
+        colorMode={resolvedTheme}
         connectionLineComponent={ConnectionLine}
         deleteKeyCode={['Backspace', 'Delete']}
         edges={edges}
@@ -277,7 +279,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         viewport={viewport}
       >
         <XF.Background
-          className={tw`text-slate-300`}
+          className={tw`text-border-emphasis`}
           color='currentColor'
           gap={20}
           size={2}
@@ -327,16 +329,16 @@ export const TopBar = ({ children }: TopBarProps) => {
   });
 
   return (
-    <div className={tw`flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5`}>
+    <div className={tw`flex items-center gap-2 border-b border-border bg-surface px-3 py-2.5`}>
       {isEditing ? (
         <TextInputField
           aria-label='Flow name'
-          inputClassName={tw`-my-1 py-1 text-md leading-none font-medium tracking-tight text-slate-800`}
+          inputClassName={tw`-my-1 py-1 text-md leading-none font-medium tracking-tight text-fg`}
           {...textFieldProps}
         />
       ) : (
         <AriaButton
-          className={tw`cursor-text text-md leading-5 font-medium tracking-tight text-slate-800`}
+          className={tw`cursor-text text-md leading-5 font-medium tracking-tight text-fg`}
           onContextMenu={onContextMenu}
           onPress={() => void edit()}
         >
@@ -350,9 +352,9 @@ export const TopBar = ({ children }: TopBarProps) => {
 
       <ButtonAsRouteLink
         className={twJoin(
-          tw`px-1 py-0 text-slate-800`,
+          tw`px-1 py-0 text-fg`,
           matchRoute({ to: router.routesById[routes.dashboard.workspace.flow.history.id].fullPath }) &&
-            tw`bg-slate-200`,
+            tw`bg-surface-active`,
         )}
         params={{ flowIdCan, workspaceIdCan }}
         to={
@@ -362,12 +364,12 @@ export const TopBar = ({ children }: TopBarProps) => {
         }
         variant='ghost'
       >
-        <FiClock className={tw`size-4 text-slate-500`} /> Flows History
+        <FiClock className={tw`size-4 text-fg-muted`} /> Flows History
       </ButtonAsRouteLink>
 
       <MenuTrigger {...menuTriggerProps}>
-        <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+        <Button className={tw`bg-surface-active p-0.5`} variant='ghost'>
+          <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
         </Button>
 
         <Menu {...menuProps}>
@@ -396,10 +398,10 @@ export const TopBarWithControls = () => {
         onPress={() => void zoomOut({ duration: 100 })}
         variant='ghost'
       >
-        <FiMinus className={tw`size-4 text-slate-500`} />
+        <FiMinus className={tw`size-4 text-fg-muted`} />
       </Button>
 
-      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-gray-900`}>
+      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-fg`}>
         {Math.floor(zoom * 100)}%
       </div>
 
@@ -409,10 +411,10 @@ export const TopBarWithControls = () => {
         onPress={() => void zoomIn({ duration: 100 })}
         variant='ghost'
       >
-        <FiPlus className={tw`size-4 text-slate-500`} />
+        <FiPlus className={tw`size-4 text-fg-muted`} />
       </Button>
 
-      <div className={tw`h-4 w-px bg-slate-200`} />
+      <div className={tw`h-4 w-px bg-surface-active`} />
     </TopBar>
   );
 };
@@ -567,13 +569,13 @@ const FlowSettings = () => {
 
   return (
     <>
-      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div className={tw`text-sm leading-5 font-medium text-slate-800`}>Flow variables</div>
+      <div className={tw`sticky top-0 z-10 flex items-center border-b border-border bg-surface px-5 py-2`}>
+        <div className={tw`text-sm leading-5 font-medium text-fg`}>Flow variables</div>
 
         <div className={tw`flex-1`} />
 
         <Button className={tw`p-1`} slot='close' variant='ghost'>
-          <FiX className={tw`size-5 text-slate-500`} />
+          <FiX className={tw`size-5 text-fg-muted`} />
         </Button>
       </div>
 

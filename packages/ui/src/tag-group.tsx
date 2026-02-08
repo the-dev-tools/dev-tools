@@ -15,9 +15,9 @@ export const Tag = ({ className, ...props }: TagProps) => (
       focusVisibleRingStyles(),
       tw`
         cursor-pointer rounded-sm bg-transparent px-2 py-1.5 text-xs leading-none font-medium tracking-tight
-        text-slate-400
+        text-fg-subtle
 
-        selected:bg-white selected:text-slate-800 selected:shadow-sm
+        selected:bg-surface selected:text-fg selected:shadow-sm
       `,
     )}
   />
@@ -33,6 +33,6 @@ export interface TagGroupProps<T>
 export const TagGroup = <T extends object>({ children, label, ...props }: TagGroupProps<T>) => (
   <RAC.TagGroup {...props}>
     {label && <RAC.Label>{label}</RAC.Label>}
-    <RAC.TagList className={tw`flex gap-1 rounded-md bg-slate-100 p-0.5`}>{children}</RAC.TagList>
+    <RAC.TagList className={tw`flex gap-1 rounded-md bg-surface-hover p-0.5`}>{children}</RAC.TagList>
   </RAC.TagGroup>
 );

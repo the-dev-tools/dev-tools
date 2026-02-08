@@ -68,15 +68,15 @@ export const FlowHistoryPage = () => {
       <PanelResizeHandle direction='horizontal' />
 
       <Panel
-        className={tw`flex flex-col bg-slate-50 p-4 tracking-tight`}
+        className={tw`flex flex-col bg-surface-alt p-4 tracking-tight`}
         defaultSize='20%'
         maxSize='40%'
         minSize='10%'
         style={{ overflowY: 'auto' }}
       >
         <div className={tw`mb-4`}>
-          <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-slate-800`}>Flow History</div>
-          <div className={tw`text-xs leading-4 text-slate-500`}>History of your flow responses</div>
+          <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-fg`}>Flow History</div>
+          <div className={tw`text-xs leading-4 text-fg-muted`}>History of your flow responses</div>
         </div>
         <div className={tw`grid grid-cols-[auto_1fr] gap-x-0.5`}>
           <div className={tw`flex flex-col items-center gap-0.5`}>
@@ -84,22 +84,22 @@ export const FlowHistoryPage = () => {
             <div className={tw`size-2 rounded-full border border-violet-700 p-px`}>
               <div className={tw`size-full rounded-full border border-inherit`} />
             </div>
-            <div className={tw`w-px flex-1 bg-slate-200`} />
+            <div className={tw`w-px flex-1 bg-surface-active`} />
           </div>
 
           <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-violet-700`}>Current Version</div>
 
           <div className={tw`flex flex-col items-center gap-0.5`}>
-            <div className={tw`w-px flex-1 bg-slate-200`} />
-            <div className={tw`size-2 rounded-full bg-slate-300`} />
-            <div className={tw`w-px flex-1 bg-slate-200`} />
+            <div className={tw`w-px flex-1 bg-surface-active`} />
+            <div className={tw`size-2 rounded-full bg-border-emphasis`} />
+            <div className={tw`w-px flex-1 bg-surface-active`} />
           </div>
 
-          <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-slate-800`}>
+          <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-fg`}>
             {versions.length} previous responses
           </div>
 
-          <div className={tw`mb-2 w-px flex-1 justify-self-center bg-slate-200`} />
+          <div className={tw`mb-2 w-px flex-1 justify-self-center bg-surface-active`} />
 
           <div ref={tabListRef} {...tabListProps}>
             {[...state.collection].map((item) => (
@@ -127,10 +127,8 @@ const Tab = ({ item, state }: TabProps) => {
       {...tabProps}
       className={twJoin(
         tabProps.className,
-        tw`
-          flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md leading-5 font-semibold text-slate-800
-        `,
-        isSelected && tw`bg-slate-200`,
+        tw`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md leading-5 font-semibold text-fg`,
+        isSelected && tw`bg-surface-active`,
       )}
       ref={ref}
     >

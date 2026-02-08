@@ -12,4 +12,10 @@ body,
   height: 100%;
   overflow: hidden;
   user-select: none;
+  background-color: var(--color-surface);
+  color: var(--color-fg);
+}
+
+.dark .react-flow {
+  --xy-background-color: var(--color-surface);
 }
