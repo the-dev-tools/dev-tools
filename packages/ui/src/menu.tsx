@@ -81,7 +81,7 @@ export const MenuItem = <T extends object>({ children, ...props }: MenuItemProps
       <>
         {children}
         <div className={tw`flex-1`} />
-        {hasSubmenu && <FiChevronRight className={tw`size-3 text-slate-500`} />}
+        {hasSubmenu && <FiChevronRight className={tw`size-3 text-fg-muted`} />}
       </>
     ))}
   </RAC.MenuItem>

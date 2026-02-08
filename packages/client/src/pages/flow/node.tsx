@@ -148,16 +148,17 @@ export const useNodesState = () => {
 
 const nodeBodyStyles = tv({
   base: tw`
-    relative size-16 overflow-clip rounded-xl border-2 border-white bg-white outline outline-slate-800 transition-colors
+    relative size-16 overflow-clip rounded-xl border-2 border-surface bg-surface outline outline-border-emphasis
+    transition-colors
   `,
   variants: {
-    selected: { true: tw`bg-slate-200` },
+    selected: { true: tw`bg-surface-alt` },
     state: {
-      [FlowItemState.CANCELED]: tw`outline-slate-300`,
-      [FlowItemState.FAILURE]: tw`outline-red-600`,
-      [FlowItemState.RUNNING]: tw`outline-violet-600`,
-      [FlowItemState.SUCCESS]: tw`outline-green-600`,
-      [FlowItemState.UNSPECIFIED]: tw`outline-slate-800`,
+      [FlowItemState.CANCELED]: tw`outline-fg-subtle`,
+      [FlowItemState.FAILURE]: tw`outline-red-600 dark:outline-red-500`,
+      [FlowItemState.RUNNING]: tw`outline-violet-600 dark:outline-violet-400`,
+      [FlowItemState.SUCCESS]: tw`outline-green-600 dark:outline-green-400`,
+      [FlowItemState.UNSPECIFIED]: tw`outline-border-emphasis`,
     } satisfies Record<FlowItemState, string>,
   },
 });
@@ -185,7 +186,13 @@ export const NodeBody = ({ children, className, icon, nodeId, selected }: NodeBo
 
   return (
     <div className={nodeBodyStyles({ className, selected, state })}>
-      <div className={tw`absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-20 blur-lg`} />
+      <div
+        className={tw`
+        absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-20 blur-lg
+
+        dark:opacity-10
+      `}
+      />
 
       <div className={tw`flex size-full items-center gap-1 p-2.5`}>
         <div className={tw`text-[2.5rem]`}>{icon}</div>
@@ -221,11 +228,11 @@ export const NodeStateIndicator = ({ children, nodeId }: NodeStateIndicatorProps
   let indicator = pipe(
     Match.value(state),
     Match.when(FlowItemState.RUNNING, () => (
-      <TbRefresh className={tw`size-5 animate-spin text-violet-600`} style={{ animationDirection: 'reverse' }} />
+      <TbRefresh className={tw`size-5 animate-spin text-accent-fg`} style={{ animationDirection: 'reverse' }} />
     )),
-    Match.when(FlowItemState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
-    Match.when(FlowItemState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
-    Match.when(FlowItemState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
+    Match.when(FlowItemState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600 dark:text-green-400`} />),
+    Match.when(FlowItemState.CANCELED, () => <TbCancel className={tw`size-5 text-fg-muted`} />),
+    Match.when(FlowItemState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600 dark:text-red-500`} />),
     Match.orElse(() => children),
   );
 
@@ -233,7 +240,7 @@ export const NodeStateIndicator = ({ children, nodeId }: NodeStateIndicatorProps
     indicator = (
       <TooltipTrigger delay={750}>
         <AriaButton className={tw`pointer-events-auto block cursor-help`}>{indicator}</AriaButton>
-        <Tooltip className={tw`max-w-lg rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>{info}</Tooltip>
+        <Tooltip className={tw`max-w-lg rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>{info}</Tooltip>
       </TooltipTrigger>
     );
 
@@ -247,10 +254,7 @@ interface NodeTitleProps {
 
 export const NodeTitle = ({ children, className }: NodeTitleProps) => (
   <div
-    className={twMerge(
-      tw`flex items-center gap-1 text-xs leading-4 font-semibold tracking-tight text-slate-800`,
-      className,
-    )}
+    className={twMerge(tw`flex items-center gap-1 text-xs leading-4 font-semibold tracking-tight text-fg`, className)}
   >
     {children}
   </div>
@@ -283,7 +287,7 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
     <div className={tw`relative`}>
       <AriaButton
         className={twMerge(
-          tw`pointer-events-auto block cursor-text text-xs tracking-tight text-slate-500`,
+          tw`pointer-events-auto block cursor-text text-xs tracking-tight text-fg-muted`,
           isEditing && tw`opacity-0`,
           className,
         )}
@@ -295,7 +299,7 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
       {isEditing && (
         <TextInputField
           aria-label='New node name'
-          inputClassName={tw`absolute top-0 left-0 w-24 bg-white px-1 py-0 text-xs`}
+          inputClassName={tw`absolute top-0 left-0 w-24 bg-surface px-1 py-0 text-xs`}
           {...textFieldProps}
         />
       )}
@@ -362,10 +366,10 @@ export const NodeSettingsContainer = ({
 
   return (
     <div className={tw`flex h-full flex-col`}>
-      <div className={tw`flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-2`}>
+      <div className={tw`flex items-center gap-4 border-b border-border bg-surface px-5 py-2`}>
         <div className='min-w-0'>
-          <div className={tw`text-md leading-5 text-slate-400`}>{name}</div>
-          <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>{title}</div>
+          <div className={tw`text-md leading-5 text-fg-subtle`}>{name}</div>
+          <div className={tw`truncate text-sm leading-5 font-medium text-fg`}>{title}</div>
         </div>
 
         <NodeStateIndicator nodeId={nodeId} />
@@ -377,7 +381,7 @@ export const NodeSettingsContainer = ({
         <div className={tw`w-4`} />
 
         <Button className={tw`p-1`} slot='close' variant='ghost'>
-          <FiX className={tw`size-5 text-slate-500`} />
+          <FiX className={tw`size-5 text-fg-muted`} />
         </Button>
       </div>
 
@@ -468,19 +472,15 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
     >
       <PanelGroup {...nodeSettingsLayout} className={tw`flex-1`} orientation='horizontal'>
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
-          <div
-            className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
-          >
+          <div className={tw`border-b border-border p-5 text-base leading-5 font-semibold tracking-tight text-fg`}>
             Input
           </div>
           <div className={tw`flex-1 overflow-auto p-5`}>
             {!selectedExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
-                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-slate-800`}>
-                  No input data yet
-                </div>
-                <div className={tw`w-48 text-md leading-4 tracking-tight text-slate-500`}>
+                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-fg`}>No input data yet</div>
+                <div className={tw`w-48 text-md leading-4 tracking-tight text-fg-muted`}>
                   The executed result from previous nodes will appear here
                 </div>
               </div>
@@ -497,8 +497,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='40%' maxSize='60%' minSize='10%'>
           <div
             className={tw`
-              flex items-center justify-between border-b border-slate-200 p-5 text-base leading-5 font-semibold
-              tracking-tight text-slate-800
+              flex items-center justify-between border-b border-border p-5 text-base leading-5 font-semibold
+              tracking-tight text-fg
             `}
           >
             <span>Settings</span>
@@ -511,9 +511,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         <PanelResizeHandle direction='horizontal' />
 
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
-          <div
-            className={tw`border-b border-slate-200 p-5 text-base leading-5 font-semibold tracking-tight text-slate-800`}
-          >
+          <div className={tw`border-b border-border p-5 text-base leading-5 font-semibold tracking-tight text-fg`}>
             Output
           </div>
 
@@ -521,10 +519,10 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             {!selectedExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
-                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-slate-800`}>
+                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-fg`}>
                   No output data yet
                 </div>
-                <div className={tw`w-48 text-md leading-4 tracking-tight text-slate-500`}>
+                <div className={tw`w-48 text-md leading-4 tracking-tight text-fg-muted`}>
                   The executed result from this node will appear here
                 </div>
               </div>

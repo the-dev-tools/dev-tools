@@ -3,7 +3,7 @@ import { tv, VariantProps } from 'tailwind-variants';
 import { tw } from './tailwind-literal';
 
 export const separatorStyles = tv({
-  base: tw`bg-slate-200`,
+  base: tw`bg-border`,
   variants: {
     orientation: {
       horizontal: tw`h-px w-full`,

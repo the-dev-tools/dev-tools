@@ -7,6 +7,7 @@ import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';
 import { HttpResponseSchema } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { useTheme } from '@the-dev-tools/ui';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import {
@@ -41,12 +42,12 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
       className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'
       defaultSelectedKey='pretty'
     >
-      <TabList className='flex gap-1 self-start rounded-md border border-slate-100 bg-slate-100 p-0.5 text-xs leading-5 tracking-tight'>
+      <TabList className='flex gap-1 self-start rounded-md border border-surface-hover bg-surface-hover p-0.5 text-xs leading-5 tracking-tight'>
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-fg-subtle transition-colors`,
+              isSelected && tw`bg-surface font-medium text-fg shadow-sm`,
             )
           }
           id='pretty'
@@ -56,8 +57,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-fg-subtle transition-colors`,
+              isSelected && tw`bg-surface font-medium text-fg shadow-sm`,
             )
           }
           id='raw'
@@ -67,8 +68,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-fg-subtle transition-colors`,
+              isSelected && tw`bg-surface font-medium text-fg shadow-sm`,
             )
           }
           id='preview'
@@ -86,7 +87,7 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
       </TabPanel>
 
       <TabPanel className='col-span-full self-stretch' id='preview'>
-        <iframe className='size-full' srcDoc={body} title='Response preview' />
+        <iframe className='size-full bg-white' srcDoc={body} title='Response preview' />
       </TabPanel>
     </Tabs>
   );
@@ -100,6 +101,7 @@ const BodyPretty = ({ body }: BodyPrettyProps) => {
   const [language, setLanguage] = useState(guessLanguage(body));
   const { data: prettierBody } = useQuery(prettierFormatQueryOptions({ language, text: body }));
   const extensions = useCodeMirrorLanguageExtensions(language);
+  const { resolvedTheme } = useTheme();
 
   return (
     <>
@@ -123,6 +125,7 @@ const BodyPretty = ({ body }: BodyPrettyProps) => {
         height='100%'
         indentWithTab={false}
         readOnly
+        theme={resolvedTheme}
         value={prettierBody}
       />
     </>

@@ -64,7 +64,7 @@ export const useFormTableAddRow = <TData, TKey extends keyof TData & string>({
         }}
         variant='ghost'
       >
-        <FiPlus className={tw`size-4 text-slate-500`} />
+        <FiPlus className={tw`size-4 text-fg-muted`} />
         {createLabel}
       </Button>
     ),
@@ -170,16 +170,16 @@ interface ColumnActionDeleteProps {
 
 export const ColumnActionDelete = ({ onDelete }: ColumnActionDeleteProps) => (
   <TooltipTrigger delay={750}>
-    <Button className={tw`p-1 text-red-700`} onPress={onDelete} variant='ghost'>
+    <Button className={tw`p-1 text-danger-fg`} onPress={onDelete} variant='ghost'>
       <LuTrash2 />
     </Button>
-    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
+    <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>Delete</Tooltip>
   </TooltipTrigger>
 );
 
 export const ColumnActionDrag = () => (
   <Button className={tw`p-1`} slot='drag' variant='ghost'>
-    <FiMove className={tw`size-3 text-slate-500`} />
+    <FiMove className={tw`size-3 text-fg-muted`} />
   </Button>
 );
 

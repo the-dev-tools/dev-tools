@@ -7,6 +7,7 @@ import { use } from 'react';
 import { FiTerminal } from 'react-icons/fi';
 import { NodeJsSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeJsCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { useTheme } from '@the-dev-tools/ui';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useCodeMirrorLanguageExtensions } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
@@ -51,6 +52,7 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
   const { isReadOnly = false } = use(FlowContext);
 
   const extensions = useCodeMirrorLanguageExtensions('javascript');
+  const { resolvedTheme } = useTheme();
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='JavaScript'>
@@ -59,6 +61,7 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
         height='100%'
         onChange={(_) => collection.utils.updatePaced({ code: _, nodeId })}
         readOnly={isReadOnly}
+        theme={resolvedTheme}
         value={code}
       />
     </NodeSettingsBody>

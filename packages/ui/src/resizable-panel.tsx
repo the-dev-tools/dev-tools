@@ -5,7 +5,7 @@ import { tw } from './tailwind-literal';
 
 export const panelResizeHandleStyles = tv({
   extend: focusVisibleRingStyles,
-  base: tw`bg-slate-200`,
+  base: tw`bg-border`,
   variants: {
     direction: {
       horizontal: tw`h-full w-px cursor-col-resize`,
