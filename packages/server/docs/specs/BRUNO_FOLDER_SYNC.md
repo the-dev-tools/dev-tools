@@ -58,8 +58,10 @@ Go Server
             ↕  bidirectional
         OpenYAML Folder ←── SOURCE OF TRUTH (git, shared, portable)
             /path/to/my-collection/
-            ├── devtools.yaml
-            ├── requests/
+            ├── environments/
+            ├── users/
+            │   ├── get-users.yaml
+            │   └── create-user.yaml
             └── flows/
 ```
 
@@ -173,7 +175,7 @@ SyncPath = "/Users/dev/my-api-collection", SyncFormat = "open_yaml", SyncEnabled
 6. User can `git init && git add . && git commit` to start versioning
 
 **B) Open existing folder (OpenYAML folder → new workspace):**
-1. User clicks "Open Folder" → picks a directory with `devtools.yaml`
+1. User clicks "Open Folder" → picks a directory containing `.yaml` request/flow files
 2. Server creates a new workspace with `sync_path` set
 3. SyncCoordinator starts → reads entire folder → populates SQLite cache
 4. File watcher starts → folder is the source of truth
@@ -427,6 +429,9 @@ type OpenCollectionResolved struct {
     EnvironmentVars    []menv.Variable
 }
 
+// ConvertOpenCollection walks the directory, parses each .yml file, and converts
+// to DevTools models. Only info.type == "http" requests are imported.
+// GraphQL, WebSocket, and gRPC types are skipped with a log warning.
 func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCollectionResolved, error)
 ```
 
@@ -447,6 +452,9 @@ func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCol
 | `http.auth.type: basic` | `mhttp.HTTPHeader` | → `Authorization: Basic <b64>` |
 | `http.auth.type: apikey` | Header or SearchParam | Based on `placement` |
 | `runtime.assertions` | `[]mhttp.HTTPAssert` | `expr operator value` format |
+| `info.type: graphql` | **Skipped** (log warning) | Not supported yet |
+| `info.type: ws` | **Skipped** (log warning) | WebSocket not supported yet |
+| `info.type: grpc` | **Skipped** (log warning) | gRPC not supported yet |
 | `runtime.scripts` | Not imported (log warning) | DevTools uses JS flow nodes |
 | `docs` | `mhttp.HTTP.Description` | |
 | Directory structure | `mfile.File` hierarchy | Nesting preserved |
@@ -479,7 +487,7 @@ packages/server/pkg/translate/topencollection/
 
 ---
 
-## Part 2: OpenYAML Format (DevTools' Own Format)
+## Part 2: OpenYAML Format — Extending `yamlflowsimplev2`
 
 ### 2.1 Design Goals
 
@@ -487,39 +495,31 @@ packages/server/pkg/translate/topencollection/
 - **One file per entity** — each request and flow is its own `.yaml` file
 - **Git-friendly** — clean diffs, merge-friendly structure
 - **Human-editable** — developers can edit in any text editor or IDE
-- **Flat top-level** — `name`, `method`, `url` at root (no `info`/`http` nesting like OpenCollection)
-- **Reuses existing `yamlflowsimplev2` types** — request types (`YamlRequestDefV2`, `HeaderMapOrSlice`, `YamlBodyUnion`, `AssertionsOrSlice`) and flow types (`YamlFlowFlowV2`) are imported directly, not duplicated. Only `gopkg.in/yaml.v3` for YAML parsing.
+- **No new package** — the format IS `yamlflowsimplev2`. Individual request files are `YamlRequestDefV2`, flow files are `YamlFlowFlowV2`, environment files are `YamlEnvironmentV2`. We add `ReadDirectory()`/`WriteDirectory()` to handle the multi-file layout.
+- **No config files** — no `devtools.yaml` or `_folder.yaml`. The workspace tracks `sync_path` in SQLite. Directory names are folder names. Ordering uses alphabetical/filesystem order.
 
 ### 2.2 Directory Structure
 
 ```
 my-collection/
-├── devtools.yaml              # Collection config
 ├── environments/
 │   ├── dev.yaml
 │   └── prod.yaml
-├── users/                     # Folder = directory
-│   ├── _folder.yaml           # Optional folder metadata
-│   ├── get-users.yaml         # HTTP request
-│   └── create-user.yaml       # HTTP request
+├── users/                     # Folder = directory name
+│   ├── get-users.yaml         # HTTP request (YamlRequestDefV2)
+│   └── create-user.yaml       # HTTP request (YamlRequestDefV2)
 ├── auth/
-│   ├── _folder.yaml
 │   └── login.yaml
 └── flows/                     # Flow definitions
-    ├── smoke-test.yaml        # Flow (yamlflowsimplev2 format)
+    ├── smoke-test.yaml        # Flow (YamlFlowFlowV2)
     └── ci-regression.yaml
 ```
 
-### 2.3 Collection Config (`devtools.yaml`)
+No marker files needed. The workspace knows its `sync_path`. Directory names are the folder names. File names are derived from the entity name.
 
-```yaml
-version: "1"
-name: My API Collection
-```
+### 2.3 Request File Format
 
-This file identifies the directory as a DevTools OpenYAML collection. Its presence is how we detect the format (analogous to `opencollection.yml` for Bruno).
-
-### 2.4 Request File Format
+Request files are `YamlRequestDefV2` (with `Order` field added to the struct):
 
 ```yaml
 name: Get Users
@@ -543,9 +543,6 @@ query_params:
   - name: limit
     value: "10"
     enabled: false
-
-body:
-  type: none  # none | raw | form-data | urlencoded
 ```
 
 ```yaml
@@ -587,12 +584,11 @@ body:
       value: "Test upload"
 ```
 
-### 2.5 Flow File Format
+### 2.4 Flow File Format
 
-Flows use the existing `yamlflowsimplev2` format — this is already implemented and working:
+Flow files are `YamlFlowFlowV2` — already implemented and working:
 
 ```yaml
-# flows/smoke-test.yaml
 name: Smoke Test
 variables:
   - name: auth_token
@@ -623,142 +619,59 @@ steps:
         if (response.status !== 200) throw new Error("Failed");
 ```
 
-### 2.6 Environment File
+### 2.5 Environment File Format
+
+Environment files use `YamlEnvironmentV2` directly:
 
 ```yaml
 name: Development
 variables:
-  - name: base_url
-    value: "http://localhost:3000"
-  - name: token
-    value: "dev-token-123"
-    secret: true
+  base_url: "http://localhost:3000"
+  token: "dev-token-123"
 ```
 
-### 2.7 Folder Metadata (`_folder.yaml`)
+### 2.6 Changes to `yamlflowsimplev2`
 
-```yaml
-name: Users API
-order: 1
-description: "User management endpoints"
-```
-
-### 2.8 OpenYAML Go Types
-
-> **Reuse Policy:** The `topenyaml` package reuses types from `yamlflowsimplev2` wherever possible
-> to avoid duplicating YAML marshaling logic. The types below reference:
-> - `yamlflowsimplev2.YamlRequestDefV2` — request fields (name, method, url, headers, body, etc.)
-> - `yamlflowsimplev2.HeaderMapOrSlice` — flexible header/param list (map or slice with custom marshal)
-> - `yamlflowsimplev2.YamlNameValuePairV2` — individual name/value/enabled entry
-> - `yamlflowsimplev2.YamlBodyUnion` — flexible body (raw string, JSON map, or structured with type)
-> - `yamlflowsimplev2.AssertionsOrSlice` — assertions (string shorthand or structured)
-> - `yamlflowsimplev2.YamlAssertionV2` — individual assertion entry
-> - `yamlflowsimplev2.YamlFlowFlowV2` — flow definition (used directly for flow files)
->
-> Only types that have no equivalent in `yamlflowsimplev2` are defined in `topenyaml`.
+**Only change to existing types** — add `Order` to `YamlRequestDefV2`:
 
 ```go
-package topenyaml
-
-import (
-    yfs "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
-)
-
-// CollectionConfig represents devtools.yaml
-type CollectionConfig struct {
-    Version string `yaml:"version"`
-    Name    string `yaml:"name"`
-}
-
-// RequestFile represents a single request .yaml file.
-// Embeds YamlRequestDefV2 for the core request fields (Name, Method, URL,
-// Headers, QueryParams, Body, Assertions, Description) — all of which reuse
-// the existing custom marshalers (HeaderMapOrSlice, YamlBodyUnion, etc.).
-// Adds Order for file-tree ordering (not present in YamlRequestDefV2).
-type RequestFile struct {
-    yfs.YamlRequestDefV2 `yaml:",inline"`
-    Order                float64 `yaml:"order,omitempty"`
-}
-
-// EnvironmentFile represents an environment .yaml file.
-// NOTE: This differs from yamlflowsimplev2.YamlEnvironmentV2 which uses
-// map[string]string for variables. OpenYAML environments need per-variable
-// metadata (secret flag), so we define our own type here.
-type EnvironmentFile struct {
-    Name      string        `yaml:"name"`
-    Variables []EnvVariable `yaml:"variables"`
-}
-
-type EnvVariable struct {
-    Name   string `yaml:"name"`
-    Value  string `yaml:"value"`
-    Secret bool   `yaml:"secret,omitempty"`
-}
-
-type FolderMeta struct {
-    Name        string  `yaml:"name,omitempty"`
-    Order       float64 `yaml:"order,omitempty"`
-    Description string  `yaml:"description,omitempty"`
+type YamlRequestDefV2 struct {
+    Name        string            `yaml:"name,omitempty"`
+    Method      string            `yaml:"method,omitempty"`
+    URL         string            `yaml:"url,omitempty"`
+    Headers     HeaderMapOrSlice  `yaml:"headers,omitempty"`
+    QueryParams HeaderMapOrSlice  `yaml:"query_params,omitempty"`
+    Body        *YamlBodyUnion    `yaml:"body,omitempty"`
+    Assertions  AssertionsOrSlice `yaml:"assertions,omitempty"`
+    Description string            `yaml:"description,omitempty"`
+    Order       float64           `yaml:"order,omitempty"` // NEW: file-tree ordering
 }
 ```
 
-**Type Reuse Summary:**
-
-| OpenYAML Need | Reused From `yamlflowsimplev2` | Notes |
-|---|---|---|
-| Request fields | `YamlRequestDefV2` (embedded) | Name, Method, URL, Headers, QueryParams, Body, Assertions, Description |
-| Headers / Query params | `HeaderMapOrSlice` → `[]YamlNameValuePairV2` | Supports both map and list YAML forms |
-| Body | `*YamlBodyUnion` | Supports raw string, JSON map, form_data, urlencoded |
-| Assertions | `AssertionsOrSlice` → `[]YamlAssertionV2` | Supports string shorthand and structured |
-| Flow files | `YamlFlowFlowV2` (used directly) | No wrapper needed — flow .yaml files ARE `YamlFlowFlowV2` |
-| Environments | **New** `EnvironmentFile` | Needs `secret` field not in `YamlEnvironmentV2` |
-| Folder metadata | **New** `FolderMeta` | No equivalent in `yamlflowsimplev2` |
-| Collection config | **New** `CollectionConfig` | No equivalent in `yamlflowsimplev2` |
-
-### 2.9 Package Structure
-
-```
-packages/server/pkg/translate/topenyaml/
-├── types.go           # YAML struct definitions
-├── parser.go          # Read collection directory → DevTools models
-├── serializer.go      # DevTools models → YAML files on disk
-├── request.go         # Single request YAML ↔ mhttp conversion
-├── flow.go            # Delegates to yamlflowsimplev2 for flow parsing
-├── environment.go     # Environment YAML ↔ menv conversion
-├── folder.go          # _folder.yaml handling
-├── collection.go      # devtools.yaml config
-└── parser_test.go     # Round-trip tests
-```
-
-### 2.10 Conversion Functions
+**New functions** for multi-file directory I/O:
 
 ```go
-// ReadCollection reads an OpenYAML directory into DevTools models.
-// Uses yamlflowsimplev2 converter functions internally:
-//   - convertToHTTPHeaders() for HeaderMapOrSlice → []mhttp.HTTPHeader
-//   - convertToHTTPSearchParams() for HeaderMapOrSlice → []mhttp.HTTPSearchParam
-//   - convertBodyStruct() for *YamlBodyUnion → mhttp body types
-func ReadCollection(collectionPath string, opts ReadOptions) (*ioworkspace.WorkspaceBundle, error)
+// ReadDirectory reads an OpenYAML folder into a WorkspaceBundle.
+// Walks the directory tree:
+//   - *.yaml files in root/subdirs → YamlRequestDefV2 → mhttp models
+//   - flows/*.yaml → YamlFlowFlowV2 → mflow models
+//   - environments/*.yaml → YamlEnvironmentV2 → menv models
+//   - Subdirectories → mfile.File (ContentTypeFolder)
+func ReadDirectory(dirPath string, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error)
 
-// WriteCollection exports a workspace bundle to an OpenYAML directory.
-func WriteCollection(collectionPath string, bundle *ioworkspace.WorkspaceBundle) error
+// WriteDirectory exports a WorkspaceBundle to an OpenYAML folder.
+// Creates one .yaml file per request, flow, and environment.
+// Directory structure mirrors the mfile.File hierarchy.
+func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error
 
-// ReadRequest parses a single request YAML file into a RequestFile
-// (which embeds yamlflowsimplev2.YamlRequestDefV2).
-func ReadRequest(data []byte) (*RequestFile, error)
+// ReadSingleRequest parses one request .yaml file.
+func ReadSingleRequest(data []byte) (*YamlRequestDefV2, error)
 
-// WriteRequest serializes DevTools models to a single request YAML.
-func WriteRequest(http mhttp.HTTP, headers []mhttp.HTTPHeader,
-    params []mhttp.HTTPSearchParam, body interface{},
-    asserts []mhttp.HTTPAssert) ([]byte, error)
-
-// ReadFlow parses a single flow YAML file (delegates to yamlflowsimplev2).
-// Flow files are yamlflowsimplev2.YamlFlowFlowV2 — no topenyaml wrapper needed.
-func ReadFlow(data []byte, opts yfs.ConvertOptionsV2) (*yfs.YamlFlowDataV2, error)
-
-// WriteFlow serializes a single flow to YAML (delegates to yamlflowsimplev2 exporter).
-func WriteFlow(flow yfs.YamlFlowFlowV2) ([]byte, error)
+// WriteSingleRequest serializes one request to YAML.
+func WriteSingleRequest(req YamlRequestDefV2) ([]byte, error)
 ```
+
+These functions reuse the existing converter functions internally (`convertToHTTPHeaders`, `convertToHTTPSearchParams`, `convertBodyStruct`, etc.).
 
 ---
 
@@ -889,7 +802,7 @@ func (s *SyncCoordinator) ExportAll(ctx context.Context) error
 File change detected (watcher)
     → Debounce (80ms)
     → Skip if self-write
-    → Classify file type (request .yaml, flow .yaml, environment, folder meta)
+    → Classify file type (request .yaml, flow .yaml, environment)
     → Parse YAML → intermediate types
     → Look up entity by path→ID mapping
     → Begin transaction
@@ -1073,19 +986,20 @@ packages/server/pkg/translate/topencollection/
 
 **Deps**: `gopkg.in/yaml.v3` (existing), `mhttp`, `mfile`, `menv`
 
-### Phase 2: OpenYAML Format (Requests + Flows)
+### Phase 2: OpenYAML Multi-File I/O (extend `yamlflowsimplev2`)
 
-**Scope**: DevTools' own YAML format — parser + serializer with round-trip support. Flows delegate to existing `yamlflowsimplev2`.
+**Scope**: Add `Order` field to `YamlRequestDefV2`. Add `ReadDirectory()`/`WriteDirectory()` functions for multi-file collection layout. No new package — all code lives in `yamlflowsimplev2`.
 
 **Files**:
 ```
-packages/server/pkg/translate/topenyaml/
-├── types.go, parser.go, serializer.go, request.go
-├── flow.go, environment.go, folder.go, collection.go
-└── parser_test.go
+packages/server/pkg/translate/yamlflowsimplev2/
+├── types.go               # Add Order to YamlRequestDefV2
+├── directory.go            # NEW: ReadDirectory(), WriteDirectory()
+├── directory_test.go       # NEW: round-trip tests with testdata/
+└── testdata/collection/    # NEW: sample multi-file collection
 ```
 
-**Deps**: `gopkg.in/yaml.v3`, `yamlflowsimplev2` (for flows), `mhttp`, `mfile`, `mflow`
+**Deps**: existing `yamlflowsimplev2` types, `mhttp`, `mfile`, `mflow`, `menv`
 
 ### Phase 3: Workspace Schema + Migration
 
@@ -1110,7 +1024,7 @@ packages/server/pkg/foldersync/
 └── watcher_test.go
 ```
 
-**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (OpenYAML), Phase 3 (workspace schema)
+**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (directory I/O), Phase 3 (workspace schema)
 
 ### Phase 5: RPC Endpoints + CLI Import
 
@@ -1141,7 +1055,7 @@ packages/server/pkg/foldersync/
 **Files**:
 - `apps/cli/cmd/run.go`
 
-**Deps**: Phase 2 (OpenYAML format), existing runner
+**Deps**: Phase 2 (directory I/O), existing runner
 
 ---
 
@@ -1150,7 +1064,7 @@ packages/server/pkg/foldersync/
 ```
 Phase 1: OpenCollection Parser ──────────────────────────┐
                                                          │
-Phase 2: OpenYAML Format ──┬────────────────────────────┤
+Phase 2: yamlflowsimplev2 Dir I/O ──┬───────────────────┤
                             │                            │
 Phase 3: Workspace Schema ──┤                            │
                             │                            │
