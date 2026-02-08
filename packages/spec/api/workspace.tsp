@@ -9,4 +9,7 @@ model Workspace {
   name: string;
   @visibility(Lifecycle.Read) updated?: Protobuf.WellKnown.Timestamp;
   order: float32;
+  syncPath?: string;
+  syncFormat?: string;
+  syncEnabled: boolean;
 }
