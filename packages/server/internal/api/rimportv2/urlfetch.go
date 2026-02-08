@@ -43,7 +43,7 @@ func (f *DefaultURLFetcher) Fetch(ctx context.Context, rawURL string) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("URL returned status %d", resp.StatusCode)
