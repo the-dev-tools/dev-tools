@@ -193,7 +193,9 @@ const onReady = Effect.gen(function* () {
     return methodFunction(...options);
   });
 
-  ipcMain.handle('update:check', () => autoUpdater.checkForUpdates().then((_) => _?.updateInfo.version));
+  ipcMain.handle('update:check', () =>
+    autoUpdater.checkForUpdates().then((_) => (_?.isUpdateAvailable ? _.updateInfo.version : null)),
+  );
   ipcMain.on('update:start', () => void autoUpdater.downloadUpdate());
   autoUpdater.on('download-progress', (_) => void mainWindow.webContents.send('update:progress', _));
   autoUpdater.on('update-downloaded', () => void autoUpdater.quitAndInstall());

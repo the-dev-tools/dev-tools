@@ -11,7 +11,7 @@ const config: Configuration = {
     '**/node_modules/@the-dev-tools/cli/dist/cli*',
   ],
   extraMetadata: {
-    name: 'DevTools Studio',
+    name: 'DevTools-Studio',
   },
   files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
   linux: {
