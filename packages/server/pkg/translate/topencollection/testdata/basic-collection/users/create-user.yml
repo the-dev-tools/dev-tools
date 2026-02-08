@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{base_url}}/users"
+  url: '{{base_url}}/users'
   headers:
     - name: Content-Type
       value: application/json
@@ -18,15 +18,15 @@ http:
       }
   auth:
     type: bearer
-    token: "{{token}}"
+    token: '{{token}}'
 
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "201"
+      value: '201'
     - expression: res.body.id
       operator: neq
-      value: ""
+      value: ''
 
-docs: "Creates a new user account"
+docs: 'Creates a new user account'

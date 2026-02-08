@@ -1,6 +1,6 @@
 name: Create User
 method: POST
-url: "{{base_url}}/users"
+url: '{{base_url}}/users'
 order: 2
 headers:
   Content-Type: application/json
@@ -12,4 +12,4 @@ body:
       "email": "john@example.com"
     }
 assertions:
-  - "res.status eq 201"
+  - 'res.status eq 201'

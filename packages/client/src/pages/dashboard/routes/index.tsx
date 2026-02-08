@@ -231,11 +231,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem
-              onAction={() =>
-                void folderSyncDialog.open({ workspaceId: workspaceUlid.bytes })
-              }
-            >
+            <MenuItem onAction={() => void folderSyncDialog.open({ workspaceId: workspaceUlid.bytes })}>
               Folder Sync...
             </MenuItem>
 

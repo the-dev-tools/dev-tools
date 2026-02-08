@@ -5,22 +5,22 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/users"
+  url: '{{base_url}}/users'
   headers:
     - name: Accept
       value: application/json
   params:
     - name: page
-      value: "1"
+      value: '1'
       type: query
     - name: limit
-      value: "10"
+      value: '10'
       type: query
 
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "200"
+      value: '200'
 
-docs: "Fetch all users with pagination"
+docs: 'Fetch all users with pagination'

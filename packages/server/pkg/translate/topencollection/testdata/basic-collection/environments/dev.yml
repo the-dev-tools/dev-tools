@@ -1,6 +1,6 @@
 name: Development
 variables:
   - name: base_url
-    value: "http://localhost:3000"
+    value: 'http://localhost:3000'
   - name: token
-    value: "dev-token-123"
+    value: 'dev-token-123'

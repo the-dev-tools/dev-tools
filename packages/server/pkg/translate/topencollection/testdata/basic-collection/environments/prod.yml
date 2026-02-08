@@ -1,7 +1,7 @@
 name: Production
 variables:
   - name: base_url
-    value: "https://api.example.com"
+    value: 'https://api.example.com'
   - name: token
-    value: "prod-token-456"
+    value: 'prod-token-456'
     enabled: false

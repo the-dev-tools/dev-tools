@@ -76,26 +76,28 @@ Go Server
 The OpenYAML folder is the **canonical data store**. SQLite is a **runtime cache** that can be fully rebuilt from the folder at any time. This is the same model Bruno uses — their Redux store is just a runtime view of what's on disk.
 
 **Why the folder must be the source of truth:**
+
 - `git pull` brings new changes → folder has the latest data → SQLite must update to match
 - Teammate edits a request in their editor → saves → watcher picks it up → SQLite updates → UI reflects
 - Delete `state.db` → server starts → reads folder → SQLite rebuilt → nothing lost
 - The folder is what gets committed, pushed, reviewed in PRs, and shared across machines
 
 **Why SQLite is still valuable as a cache:**
+
 - Fast indexed queries (no YAML parsing on every read)
 - Transactions for atomic multi-entity operations
 - Existing services, RPC handlers, and runner all work with SQLite
 - Real-time eventstream already wired to SQLite changes
 - Supports non-synced workspaces (Mode 1) that live only in SQLite
 
-| Direction | Trigger | Behavior |
-|-----------|---------|----------|
+| Direction           | Trigger                                              | Behavior                                                   |
+| ------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
 | **Folder → SQLite** | File watcher detects change, or git pull, or startup | Parse YAML → upsert into SQLite → eventstream → UI updates |
-| **SQLite → Folder** | UI edit via RPC handler | Write to SQLite → serialize to YAML → write to disk |
-| **Startup** | Server starts with synced workspace | Read entire folder → populate/reconcile SQLite |
-| **Git pull** | Watcher detects batch changes | Re-parse changed files → update SQLite → UI refreshes |
-| **Conflict** | File changed on disk while UI was editing | **Folder wins** — disk state overwrites SQLite |
-| **Rebuild** | `state.db` deleted or corrupted | Full re-read from folder → SQLite rebuilt from scratch |
+| **SQLite → Folder** | UI edit via RPC handler                              | Write to SQLite → serialize to YAML → write to disk        |
+| **Startup**         | Server starts with synced workspace                  | Read entire folder → populate/reconcile SQLite             |
+| **Git pull**        | Watcher detects batch changes                        | Re-parse changed files → update SQLite → UI refreshes      |
+| **Conflict**        | File changed on disk while UI was editing            | **Folder wins** — disk state overwrites SQLite             |
+| **Rebuild**         | `state.db` deleted or corrupted                      | Full re-read from folder → SQLite rebuilt from scratch     |
 
 ### Reconciliation on Startup
 
@@ -167,6 +169,7 @@ SyncPath = "/Users/dev/my-api-collection", SyncFormat = "open_yaml", SyncEnabled
 **Two sub-scenarios:**
 
 **A) Export to new folder (existing workspace → empty folder):**
+
 1. User has an existing workspace in DevTools (data in SQLite)
 2. User clicks "Sync to Folder" → picks/creates an empty directory
 3. Server sets `sync_path` on the workspace
@@ -175,6 +178,7 @@ SyncPath = "/Users/dev/my-api-collection", SyncFormat = "open_yaml", SyncEnabled
 6. User can `git init && git add . && git commit` to start versioning
 
 **B) Open existing folder (OpenYAML folder → new workspace):**
+
 1. User clicks "Open Folder" → picks a directory containing `.yaml` request/flow files
 2. Server creates a new workspace with `sync_path` set
 3. SyncCoordinator starts → reads entire folder → populates SQLite cache
@@ -189,6 +193,7 @@ SyncPath = "/Users/dev/my-api-devtools/", SyncFormat = "open_yaml", SyncEnabled 
 ```
 
 **Flow:**
+
 1. User clicks "Import Bruno Collection" → picks directory with `opencollection.yml`
 2. Server parses the OpenCollection YAML directory
 3. Server creates a new workspace and populates SQLite with the converted data
@@ -198,6 +203,7 @@ SyncPath = "/Users/dev/my-api-devtools/", SyncFormat = "open_yaml", SyncEnabled 
 7. Original Bruno folder is NOT modified
 
 **Why a separate folder?** The Bruno folder uses OpenCollection YAML format (different schema). We don't want to:
+
 - Corrupt the Bruno collection
 - Mix two different YAML formats in one folder
 - Create confusion about which tool owns the folder
@@ -216,12 +222,12 @@ OpenCollection .yml directory
                 → SyncCoordinator exports to OpenYAML folder
 ```
 
-| Layer | Location | Pattern |
-|-------|----------|---------|
-| CLI Command | `apps/cli/cmd/import.go` | Add `importBrunoCmd` |
-| RPC Endpoint | `packages/server/internal/api/` | "Import Bruno Collection" |
-| Translator | `packages/server/pkg/translate/topencollection/` | New package |
-| Importer | `apps/cli/internal/importer/` | Existing `RunImport()` callback |
+| Layer        | Location                                         | Pattern                         |
+| ------------ | ------------------------------------------------ | ------------------------------- |
+| CLI Command  | `apps/cli/cmd/import.go`                         | Add `importBrunoCmd`            |
+| RPC Endpoint | `packages/server/internal/api/`                  | "Import Bruno Collection"       |
+| Translator   | `packages/server/pkg/translate/topencollection/` | New package                     |
+| Importer     | `apps/cli/internal/importer/`                    | Existing `RunImport()` callback |
 
 ### 1.2 OpenCollection YAML Format Reference
 
@@ -244,14 +250,14 @@ my-bruno-collection/
 #### Collection Root (`opencollection.yml`)
 
 ```yaml
-opencollection: "1.0.0"
+opencollection: '1.0.0'
 info:
-  name: "My API Collection"
-  summary: "A collection for testing our REST API"
-  version: "2.1.0"
+  name: 'My API Collection'
+  summary: 'A collection for testing our REST API'
+  version: '2.1.0'
   authors:
-    - name: "Jane Doe"
-      email: "[email protected]"
+    - name: 'Jane Doe'
+      email: '[email protected]'
 ```
 
 #### Request File Structure
@@ -270,14 +276,14 @@ http:
     - name: Content-Type
       value: application/json
     - name: Authorization
-      value: "Bearer {{token}}"
+      value: 'Bearer {{token}}'
       disabled: true
   params:
     - name: filter
       value: active
       type: query
     - name: id
-      value: "123"
+      value: '123'
       type: path
   body:
     type: json
@@ -288,13 +294,13 @@ http:
       }
   auth:
     type: bearer
-    token: "{{token}}"
+    token: '{{token}}'
 
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "201"
+      value: '201'
 
 settings:
   encodeUrl: true
@@ -437,28 +443,28 @@ func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCol
 
 #### Mapping Table: OpenCollection → DevTools
 
-| OpenCollection YAML | DevTools Model | Notes |
-|---|---|---|
-| `info.name` | `mhttp.HTTP.Name` | |
-| `info.seq` | `mfile.File.Order` | Float64 ordering |
-| `http.method` | `mhttp.HTTP.Method` | Uppercase |
-| `http.url` | `mhttp.HTTP.Url` | |
-| `http.headers` | `[]mhttp.HTTPHeader` | `disabled` → `Enabled: false` |
-| `http.params` (query) | `[]mhttp.HTTPSearchParam` | |
-| `http.body.type: json/xml/text` | `mhttp.HTTPBodyRaw` | `BodyKind: Raw` |
-| `http.body.type: form-urlencoded` | `[]mhttp.HTTPBodyUrlencoded` | |
-| `http.body.type: multipart-form` | `[]mhttp.HTTPBodyForm` | |
-| `http.auth.type: bearer` | `mhttp.HTTPHeader` | → `Authorization: Bearer <token>` |
-| `http.auth.type: basic` | `mhttp.HTTPHeader` | → `Authorization: Basic <b64>` |
-| `http.auth.type: apikey` | Header or SearchParam | Based on `placement` |
-| `runtime.assertions` | `[]mhttp.HTTPAssert` | `expr operator value` format |
-| `info.type: graphql` | **Skipped** (log warning) | Not supported yet |
-| `info.type: ws` | **Skipped** (log warning) | WebSocket not supported yet |
-| `info.type: grpc` | **Skipped** (log warning) | gRPC not supported yet |
-| `runtime.scripts` | Not imported (log warning) | DevTools uses JS flow nodes |
-| `docs` | `mhttp.HTTP.Description` | |
-| Directory structure | `mfile.File` hierarchy | Nesting preserved |
-| `environments/*.yml` | `menv.Env` + `menv.Variable` | |
+| OpenCollection YAML               | DevTools Model               | Notes                             |
+| --------------------------------- | ---------------------------- | --------------------------------- |
+| `info.name`                       | `mhttp.HTTP.Name`            |                                   |
+| `info.seq`                        | `mfile.File.Order`           | Float64 ordering                  |
+| `http.method`                     | `mhttp.HTTP.Method`          | Uppercase                         |
+| `http.url`                        | `mhttp.HTTP.Url`             |                                   |
+| `http.headers`                    | `[]mhttp.HTTPHeader`         | `disabled` → `Enabled: false`     |
+| `http.params` (query)             | `[]mhttp.HTTPSearchParam`    |                                   |
+| `http.body.type: json/xml/text`   | `mhttp.HTTPBodyRaw`          | `BodyKind: Raw`                   |
+| `http.body.type: form-urlencoded` | `[]mhttp.HTTPBodyUrlencoded` |                                   |
+| `http.body.type: multipart-form`  | `[]mhttp.HTTPBodyForm`       |                                   |
+| `http.auth.type: bearer`          | `mhttp.HTTPHeader`           | → `Authorization: Bearer <token>` |
+| `http.auth.type: basic`           | `mhttp.HTTPHeader`           | → `Authorization: Basic <b64>`    |
+| `http.auth.type: apikey`          | Header or SearchParam        | Based on `placement`              |
+| `runtime.assertions`              | `[]mhttp.HTTPAssert`         | `expr operator value` format      |
+| `info.type: graphql`              | **Skipped** (log warning)    | Not supported yet                 |
+| `info.type: ws`                   | **Skipped** (log warning)    | WebSocket not supported yet       |
+| `info.type: grpc`                 | **Skipped** (log warning)    | gRPC not supported yet            |
+| `runtime.scripts`                 | Not imported (log warning)   | DevTools uses JS flow nodes       |
+| `docs`                            | `mhttp.HTTP.Description`     |                                   |
+| Directory structure               | `mfile.File` hierarchy       | Nesting preserved                 |
+| `environments/*.yml`              | `menv.Env` + `menv.Variable` |                                   |
 
 ### 1.5 Package Structure
 
@@ -525,31 +531,31 @@ Request files are `YamlRequestDefV2` (with `Order` field added to the struct):
 ```yaml
 name: Get Users
 method: GET
-url: "{{base_url}}/users"
-description: "Fetch all users with optional pagination"
+url: '{{base_url}}/users'
+description: 'Fetch all users with optional pagination'
 order: 1
 
 headers:
   - name: Authorization
-    value: "Bearer {{token}}"
+    value: 'Bearer {{token}}'
   - name: Accept
     value: application/json
   - name: X-Debug
-    value: "true"
+    value: 'true'
     enabled: false
 
 query_params:
   - name: page
-    value: "1"
+    value: '1'
   - name: limit
-    value: "10"
+    value: '10'
     enabled: false
 ```
 
 ```yaml
 name: Create User
 method: POST
-url: "{{base_url}}/users"
+url: '{{base_url}}/users'
 order: 2
 
 headers:
@@ -565,24 +571,24 @@ body:
     }
 
 assertions:
-  - "res.status eq 201"
-  - "res.body.id neq null"
+  - 'res.status eq 201'
+  - 'res.body.id neq null'
 ```
 
 ```yaml
 name: Upload File
 method: POST
-url: "{{base_url}}/upload"
+url: '{{base_url}}/upload'
 order: 3
 
 body:
   type: form_data
   form_data:
     - name: file
-      value: "@./fixtures/test.png"
-      description: "File to upload"
+      value: '@./fixtures/test.png'
+      description: 'File to upload'
     - name: description
-      value: "Test upload"
+      value: 'Test upload'
 ```
 
 ### 2.4 Flow File Format
@@ -594,13 +600,13 @@ name: Smoke Test
 variables:
   - name: auth_token
     type: string
-    default: ""
+    default: ''
 
 steps:
   - request:
       name: Login
       method: POST
-      url: "{{base_url}}/auth/login"
+      url: '{{base_url}}/auth/login'
       body:
         type: raw
         raw: '{"email": "test@example.com", "password": "test"}'
@@ -609,9 +615,9 @@ steps:
       name: Get Profile
       depends_on: [Login]
       method: GET
-      url: "{{base_url}}/users/me"
+      url: '{{base_url}}/users/me'
       headers:
-        Authorization: "Bearer {{Login.response.body.token}}"
+        Authorization: 'Bearer {{Login.response.body.token}}'
 
   - js:
       name: Validate Response
@@ -627,8 +633,8 @@ Environment files use `YamlEnvironmentV2` directly:
 ```yaml
 name: Development
 variables:
-  base_url: "http://localhost:3000"
-  token: "dev-token-123"
+  base_url: 'http://localhost:3000'
+  token: 'dev-token-123'
 ```
 
 ### 2.6 Changes to `yamlflowsimplev2`
@@ -911,20 +917,20 @@ func (m *SyncManager) Shutdown() error
 
 ### 3.8 Safety Mechanisms
 
-| Mechanism | Implementation |
-|---|---|
-| Path validation | `filepath.Rel()` must not escape collection root |
-| Filename sanitization | Strip invalid chars, truncate at 255 |
-| Write stabilization | 80ms debounce on watcher events |
-| Autosave debounce | 500ms debounce on SQLite→disk writes |
+| Mechanism              | Implementation                                       |
+| ---------------------- | ---------------------------------------------------- |
+| Path validation        | `filepath.Rel()` must not escape collection root     |
+| Filename sanitization  | Strip invalid chars, truncate at 255                 |
+| Write stabilization    | 80ms debounce on watcher events                      |
+| Autosave debounce      | 500ms debounce on SQLite→disk writes                 |
 | Self-write suppression | 2s window to suppress watcher events from our writes |
-| Atomic writes | Write temp file → `os.Rename()` |
-| UID preservation | `pathToID` map persists during session |
-| Conflict resolution | Folder always wins (it's the source of truth) |
-| Large file guard | Skip files >5MB |
-| Cross-platform | `filepath.Clean/Rel/Join`, handle `\r\n` |
-| Recursive watch | Walk tree on start, add subdirs on `DirCreated` |
-| Max depth | 20 levels |
+| Atomic writes          | Write temp file → `os.Rename()`                      |
+| UID preservation       | `pathToID` map persists during session               |
+| Conflict resolution    | Folder always wins (it's the source of truth)        |
+| Large file guard       | Skip files >5MB                                      |
+| Cross-platform         | `filepath.Clean/Rel/Join`, handle `\r\n`             |
+| Recursive watch        | Walk tree on start, add subdirs on `DirCreated`      |
+| Max depth              | 20 levels                                            |
 
 ---
 
@@ -964,6 +970,7 @@ type SyncStatus {
 ### 4.2 Desktop UI Integration
 
 **New UI elements needed:**
+
 - Workspace settings: "Link to Folder" button with folder picker
 - Workspace settings: "Unlink Folder" button
 - Status bar: sync status indicator (synced, syncing, error)
@@ -998,6 +1005,7 @@ devtools run <open-yaml-dir> --env dev              # With environment
 **Scope**: Parse Bruno's OpenCollection YAML directories → DevTools models.
 
 **Files**:
+
 ```
 packages/server/pkg/translate/topencollection/
 ├── types.go, converter.go, collection.go, environment.go
@@ -1012,6 +1020,7 @@ packages/server/pkg/translate/topencollection/
 **Scope**: Add `Order` field to `YamlRequestDefV2` (only change to `yamlflowsimplev2`). Create `openyaml` package — the OpenYAML format with multi-file collection support. No Bruno dependency.
 
 **Files**:
+
 ```
 packages/server/pkg/translate/yamlflowsimplev2/
 └── types.go                    # Add Order to YamlRequestDefV2
@@ -1032,6 +1041,7 @@ packages/server/pkg/openyaml/   # NEW: OpenYAML format
 **Scope**: Add `sync_path`, `sync_format`, `sync_enabled` to workspace table and model.
 
 **Files**:
+
 - `packages/db/pkg/sqlc/schema/` — new migration SQL
 - `packages/db/pkg/sqlc/queries/` — updated workspace queries
 - `packages/server/pkg/model/mworkspace/` — updated model
@@ -1043,6 +1053,7 @@ packages/server/pkg/openyaml/   # NEW: OpenYAML format
 **Scope**: `fsnotify` watcher, debouncer, self-write tracker, SyncCoordinator, SyncManager.
 
 **Files**:
+
 ```
 packages/server/pkg/foldersync/
 ├── watcher.go, debouncer.go, filter.go, selftrack.go
@@ -1057,6 +1068,7 @@ packages/server/pkg/foldersync/
 **Scope**: TypeSpec definitions, RPC handlers for sync management, CLI `import bruno` command.
 
 **Files**:
+
 - `packages/spec/` — new TypeSpec definitions
 - `packages/server/internal/api/` — RPC handlers
 - `apps/cli/cmd/import.go` — `importBrunoCmd`
@@ -1068,6 +1080,7 @@ packages/server/pkg/foldersync/
 **Scope**: Electron folder picker, workspace sync settings UI, status indicators.
 
 **Files**:
+
 - `packages/client/` — React hooks/services for sync
 - `packages/ui/` — sync status components
 - `apps/desktop/` — Electron IPC for folder picker
@@ -1079,6 +1092,7 @@ packages/server/pkg/foldersync/
 **Scope**: `devtools run <folder>` command.
 
 **Files**:
+
 - `apps/cli/cmd/run.go`
 
 **Deps**: Phase 2 (openyaml), existing runner
@@ -1101,6 +1115,7 @@ Phase 2 ────────────────────────
 ```
 
 **Parallel work:**
+
 - Phase 1, 2, 3 can all be developed in parallel
 - Phase 4 depends on 2+3
 - Phase 5 depends on 1+4
@@ -1110,7 +1125,7 @@ Phase 2 ────────────────────────
 
 ## External Dependencies
 
-| Dependency | Purpose | Already in use? |
-|---|---|---|
-| `gopkg.in/yaml.v3` | YAML parsing | Yes (`yamlflowsimplev2`) |
-| `github.com/fsnotify/fsnotify` | Filesystem notifications | No (new) |
+| Dependency                     | Purpose                  | Already in use?          |
+| ------------------------------ | ------------------------ | ------------------------ |
+| `gopkg.in/yaml.v3`             | YAML parsing             | Yes (`yamlflowsimplev2`) |
+| `github.com/fsnotify/fsnotify` | Filesystem notifications | No (new)                 |

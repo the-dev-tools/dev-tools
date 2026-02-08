@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: "{{base_url}}/auth/login"
+  url: '{{base_url}}/auth/login'
   headers:
     - name: Content-Type
       value: application/json
@@ -21,4 +21,4 @@ runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "200"
+      value: '200'

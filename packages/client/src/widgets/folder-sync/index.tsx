@@ -27,9 +27,7 @@ export const useFolderSyncDialog = () => {
   const open = (props: FolderSyncDialogProps): void =>
     void modal.onOpenChange(true, <FolderSyncDialogContent {...props} />);
 
-  const render: ReactNode = modal.children && (
-    <Modal {...modal} className={tw`h-auto`} size='sm' />
-  );
+  const render: ReactNode = modal.children && <Modal {...modal} className={tw`h-auto`} size='sm' />;
 
   return { open, render };
 };
@@ -79,10 +77,7 @@ const FolderSyncDialogContent = ({
     <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
       {({ close }) => (
         <>
-          <Heading
-            className={tw`text-base leading-5 font-semibold tracking-tight text-slate-800`}
-            slot='title'
-          >
+          <Heading className={tw`text-base leading-5 font-semibold tracking-tight text-slate-800`} slot='title'>
             Folder Sync
           </Heading>
 
@@ -102,26 +97,16 @@ const FolderSyncDialogContent = ({
               </Button>
             </div>
 
-            <RadioGroup
-              aria-label='Sync format'
-              onChange={(v) => setFormat(v as SyncFormat)}
-              value={format}
-            >
+            <RadioGroup aria-label='Sync format' onChange={(v) => setFormat(v as SyncFormat)} value={format}>
               <Label className={tw`text-sm font-medium text-slate-700`}>Format</Label>
               <div className={tw`mt-1 flex gap-4`}>
-                <Radio
-                  className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`}
-                  value='openyaml'
-                >
+                <Radio className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`} value='openyaml'>
                   <div
                     className={tw`size-4 rounded-full border-2 border-slate-300 data-[selected]:border-violet-600 data-[selected]:bg-violet-600`}
                   />
                   OpenYAML
                 </Radio>
-                <Radio
-                  className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`}
-                  value='bruno'
-                >
+                <Radio className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`} value='bruno'>
                   <div
                     className={tw`size-4 rounded-full border-2 border-slate-300 data-[selected]:border-violet-600 data-[selected]:bg-violet-600`}
                   />
@@ -169,12 +154,9 @@ const FolderSyncDialogContent = ({
 export const useImportFolderDialog = () => {
   const modal = useProgrammaticModal();
 
-  const open = (): void =>
-    void modal.onOpenChange(true, <ImportFolderDialogContent />);
+  const open = (): void => void modal.onOpenChange(true, <ImportFolderDialogContent />);
 
-  const render: ReactNode = modal.children && (
-    <Modal {...modal} className={tw`h-auto`} size='sm' />
-  );
+  const render: ReactNode = modal.children && <Modal {...modal} className={tw`h-auto`} size='sm' />;
 
   return { open, render };
 };
@@ -221,10 +203,7 @@ const ImportFolderDialogContent = () => {
     <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
       {({ close }) => (
         <>
-          <Heading
-            className={tw`text-base leading-5 font-semibold tracking-tight text-slate-800`}
-            slot='title'
-          >
+          <Heading className={tw`text-base leading-5 font-semibold tracking-tight text-slate-800`} slot='title'>
             Import from Folder
           </Heading>
 
@@ -256,26 +235,16 @@ const ImportFolderDialogContent = () => {
               value={workspaceName}
             />
 
-            <RadioGroup
-              aria-label='Collection format'
-              onChange={(v) => setFormat(v as SyncFormat)}
-              value={format}
-            >
+            <RadioGroup aria-label='Collection format' onChange={(v) => setFormat(v as SyncFormat)} value={format}>
               <Label className={tw`text-sm font-medium text-slate-700`}>Format</Label>
               <div className={tw`mt-1 flex gap-4`}>
-                <Radio
-                  className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`}
-                  value='openyaml'
-                >
+                <Radio className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`} value='openyaml'>
                   <div
                     className={tw`size-4 rounded-full border-2 border-slate-300 data-[selected]:border-violet-600 data-[selected]:bg-violet-600`}
                   />
                   OpenYAML
                 </Radio>
-                <Radio
-                  className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`}
-                  value='bruno'
-                >
+                <Radio className={tw`flex cursor-pointer items-center gap-2 text-sm text-slate-700`} value='bruno'>
                   <div
                     className={tw`size-4 rounded-full border-2 border-slate-300 data-[selected]:border-violet-600 data-[selected]:bg-violet-600`}
                   />
