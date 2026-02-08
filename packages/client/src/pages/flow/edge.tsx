@@ -137,7 +137,7 @@ const DefaultEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, tar
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)` }}
         >
           <Button className={tw`rounded-full p-1`} onPress={() => void deleteElements({ edges: [{ id }] })}>
-            <FiX className={tw`size-3 text-red-700`} />
+            <FiX className={tw`size-3 text-danger-fg`} />
           </Button>
         </div>
       </XF.EdgeLabelRenderer>
@@ -154,9 +154,9 @@ const connectionLineStyles = tv({
   variants: {
     state: {
       [FlowItemState.CANCELED]: tw`stroke-fg-subtle`,
-      [FlowItemState.FAILURE]: tw`stroke-red-600`,
-      [FlowItemState.RUNNING]: tw`stroke-violet-600`,
-      [FlowItemState.SUCCESS]: tw`stroke-green-600`,
+      [FlowItemState.FAILURE]: tw`stroke-red-600 dark:stroke-red-500`,
+      [FlowItemState.RUNNING]: tw`stroke-violet-600 dark:stroke-violet-400`,
+      [FlowItemState.SUCCESS]: tw`stroke-green-600 dark:stroke-green-400`,
       [FlowItemState.UNSPECIFIED]: tw`stroke-fg-muted`,
     } satisfies Record<FlowItemState, string>,
   },

@@ -155,9 +155,9 @@ const nodeBodyStyles = tv({
     selected: { true: tw`bg-surface-alt` },
     state: {
       [FlowItemState.CANCELED]: tw`outline-fg-subtle`,
-      [FlowItemState.FAILURE]: tw`outline-red-600`,
-      [FlowItemState.RUNNING]: tw`outline-violet-600`,
-      [FlowItemState.SUCCESS]: tw`outline-green-600`,
+      [FlowItemState.FAILURE]: tw`outline-red-600 dark:outline-red-500`,
+      [FlowItemState.RUNNING]: tw`outline-violet-600 dark:outline-violet-400`,
+      [FlowItemState.SUCCESS]: tw`outline-green-600 dark:outline-green-400`,
       [FlowItemState.UNSPECIFIED]: tw`outline-border-emphasis`,
     } satisfies Record<FlowItemState, string>,
   },
@@ -186,7 +186,13 @@ export const NodeBody = ({ children, className, icon, nodeId, selected }: NodeBo
 
   return (
     <div className={nodeBodyStyles({ className, selected, state })}>
-      <div className={tw`absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-20 blur-lg`} />
+      <div
+        className={tw`
+        absolute inset-0 size-full translate-y-1/2 rounded-full bg-current opacity-20 blur-lg
+
+        dark:opacity-10
+      `}
+      />
 
       <div className={tw`flex size-full items-center gap-1 p-2.5`}>
         <div className={tw`text-[2.5rem]`}>{icon}</div>
@@ -224,9 +230,9 @@ export const NodeStateIndicator = ({ children, nodeId }: NodeStateIndicatorProps
     Match.when(FlowItemState.RUNNING, () => (
       <TbRefresh className={tw`size-5 animate-spin text-accent-fg`} style={{ animationDirection: 'reverse' }} />
     )),
-    Match.when(FlowItemState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600`} />),
-    Match.when(FlowItemState.CANCELED, () => <TbCancel className={tw`size-5 text-slate-600`} />),
-    Match.when(FlowItemState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600`} />),
+    Match.when(FlowItemState.SUCCESS, () => <CheckIcon className={tw`size-5 text-green-600 dark:text-green-400`} />),
+    Match.when(FlowItemState.CANCELED, () => <TbCancel className={tw`size-5 text-fg-muted`} />),
+    Match.when(FlowItemState.FAILURE, () => <TbAlertTriangle className={tw`size-5 text-red-600 dark:text-red-500`} />),
     Match.orElse(() => children),
   );
 
@@ -491,8 +497,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='40%' maxSize='60%' minSize='10%'>
           <div
             className={tw`
-              flex items-center justify-between border-b border-slate-200 p-5 text-base leading-5 font-semibold
-              tracking-tight text-slate-800
+              flex items-center justify-between border-b border-border p-5 text-base leading-5 font-semibold
+              tracking-tight text-fg
             `}
           >
             <span>Settings</span>

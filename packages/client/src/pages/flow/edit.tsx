@@ -437,11 +437,11 @@ const ActionBar = () => {
 
   return (
     <XF.Panel
-      className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow-sm`}
+      className={tw`mb-4 flex items-center gap-2 rounded-lg bg-surface-invert p-1 shadow-sm`}
       position='bottom-center'
     >
       <Button className={tw`px-1.5 py-1`} onPress={() => void setSidebar?.(<AddNodeSidebar />)} variant='ghost dark'>
-        <FiPlus className={tw`size-5 text-slate-300`} />
+        <FiPlus className={tw`size-5 text-fg-invert`} />
         Add Node
       </Button>
 

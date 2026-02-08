@@ -66,7 +66,7 @@ export const HttpNode = ({ id, selected }: XF.NodeProps) => {
       <div className={tw`min-w-0 flex-1`}>
         <MethodBadge className={tw`border`} method={method ?? HttpMethod.UNSPECIFIED} />
 
-        <div className={tw`truncate text-xs tracking-tight text-slate-500`}>{name}</div>
+        <div className={tw`truncate text-xs tracking-tight text-fg-muted`}>{name}</div>
       </div>
     </SimpleNode>
   );
@@ -117,7 +117,7 @@ export const HttpSettings = ({ nodeId }: NodeSettingsProps) => {
                 to: router.routesById[routes.dashboard.workspace.http.route.id].fullPath,
               })}
         >
-          <FiExternalLink className={tw`size-4 text-slate-500`} />
+          <FiExternalLink className={tw`size-4 text-fg-muted`} />
           Open API
         </ButtonAsLink>
       }
