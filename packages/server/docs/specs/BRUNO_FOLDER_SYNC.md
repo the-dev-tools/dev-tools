@@ -487,7 +487,7 @@ packages/server/pkg/translate/topencollection/
 
 ---
 
-## Part 2: OpenYAML Format — Extending `yamlflowsimplev2`
+## Part 2: OpenYAML Format — Wrapper over `yamlflowsimplev2`
 
 ### 2.1 Design Goals
 
@@ -495,8 +495,9 @@ packages/server/pkg/translate/topencollection/
 - **One file per entity** — each request and flow is its own `.yaml` file
 - **Git-friendly** — clean diffs, merge-friendly structure
 - **Human-editable** — developers can edit in any text editor or IDE
-- **No new package** — the format IS `yamlflowsimplev2`. Individual request files are `YamlRequestDefV2`, flow files are `YamlFlowFlowV2`, environment files are `YamlEnvironmentV2`. We add `ReadDirectory()`/`WriteDirectory()` to handle the multi-file layout.
+- **Thin wrapper, not modification** — the format IS `yamlflowsimplev2` types. A separate small package wraps them with directory I/O (`ReadDirectory()`/`WriteDirectory()`). `yamlflowsimplev2` stays untouched except adding `Order` to `YamlRequestDefV2`.
 - **No config files** — no `devtools.yaml` or `_folder.yaml`. The workspace tracks `sync_path` in SQLite. Directory names are folder names. Ordering uses alphabetical/filesystem order.
+- **Clean separation** — `topencollection/` (Bruno import) is fully isolated and can be removed without affecting the rest. The directory I/O wrapper has no dependency on Bruno types.
 
 ### 2.2 Directory Structure
 
@@ -632,32 +633,36 @@ variables:
 
 ### 2.6 Changes to `yamlflowsimplev2`
 
-**Only change to existing types** — add `Order` to `YamlRequestDefV2`:
+**Only change** — add `Order` to `YamlRequestDefV2`:
 
 ```go
 type YamlRequestDefV2 struct {
-    Name        string            `yaml:"name,omitempty"`
-    Method      string            `yaml:"method,omitempty"`
-    URL         string            `yaml:"url,omitempty"`
-    Headers     HeaderMapOrSlice  `yaml:"headers,omitempty"`
-    QueryParams HeaderMapOrSlice  `yaml:"query_params,omitempty"`
-    Body        *YamlBodyUnion    `yaml:"body,omitempty"`
-    Assertions  AssertionsOrSlice `yaml:"assertions,omitempty"`
-    Description string            `yaml:"description,omitempty"`
+    // ... existing fields unchanged ...
     Order       float64           `yaml:"order,omitempty"` // NEW: file-tree ordering
 }
 ```
 
-**New functions** for multi-file directory I/O:
+No other changes to `yamlflowsimplev2`. No new functions added there.
+
+### 2.7 Directory I/O Wrapper (`packages/server/pkg/openyaml/`)
+
+A thin wrapper package that imports `yamlflowsimplev2` types and handles multi-file directory layout. No new YAML types — just I/O logic.
 
 ```go
+package openyaml
+
+import (
+    yfs "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
+    "github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
+)
+
 // ReadDirectory reads an OpenYAML folder into a WorkspaceBundle.
 // Walks the directory tree:
-//   - *.yaml files in root/subdirs → YamlRequestDefV2 → mhttp models
-//   - flows/*.yaml → YamlFlowFlowV2 → mflow models
-//   - environments/*.yaml → YamlEnvironmentV2 → menv models
+//   - *.yaml files in root/subdirs → yfs.YamlRequestDefV2 → mhttp models
+//   - flows/*.yaml → yfs.YamlFlowFlowV2 → mflow models
+//   - environments/*.yaml → yfs.YamlEnvironmentV2 → menv models
 //   - Subdirectories → mfile.File (ContentTypeFolder)
-func ReadDirectory(dirPath string, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error)
+func ReadDirectory(dirPath string, opts ReadOptions) (*ioworkspace.WorkspaceBundle, error)
 
 // WriteDirectory exports a WorkspaceBundle to an OpenYAML folder.
 // Creates one .yaml file per request, flow, and environment.
@@ -665,13 +670,29 @@ func ReadDirectory(dirPath string, opts ConvertOptionsV2) (*ioworkspace.Workspac
 func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error
 
 // ReadSingleRequest parses one request .yaml file.
-func ReadSingleRequest(data []byte) (*YamlRequestDefV2, error)
+func ReadSingleRequest(data []byte) (*yfs.YamlRequestDefV2, error)
 
 // WriteSingleRequest serializes one request to YAML.
-func WriteSingleRequest(req YamlRequestDefV2) ([]byte, error)
+func WriteSingleRequest(req yfs.YamlRequestDefV2) ([]byte, error)
+
+// ReadSingleFlow parses one flow .yaml file.
+func ReadSingleFlow(data []byte) (*yfs.YamlFlowFlowV2, error)
+
+// WriteSingleFlow serializes one flow to YAML.
+func WriteSingleFlow(flow yfs.YamlFlowFlowV2) ([]byte, error)
 ```
 
-These functions reuse the existing converter functions internally (`convertToHTTPHeaders`, `convertToHTTPSearchParams`, `convertBodyStruct`, etc.).
+```
+packages/server/pkg/openyaml/
+├── directory.go         # ReadDirectory(), WriteDirectory()
+├── request.go           # ReadSingleRequest(), WriteSingleRequest()
+├── flow.go              # ReadSingleFlow(), WriteSingleFlow()
+├── environment.go       # environment file read/write
+├── directory_test.go    # Round-trip tests
+└── testdata/collection/ # Sample multi-file collection
+```
+
+This package uses `yamlflowsimplev2` converter functions internally (`convertToHTTPHeaders`, `convertToHTTPSearchParams`, `convertBodyStruct`, etc.). It has no dependency on `topencollection` (Bruno import).
 
 ---
 
@@ -986,20 +1007,25 @@ packages/server/pkg/translate/topencollection/
 
 **Deps**: `gopkg.in/yaml.v3` (existing), `mhttp`, `mfile`, `menv`
 
-### Phase 2: OpenYAML Multi-File I/O (extend `yamlflowsimplev2`)
+### Phase 2: OpenYAML Directory I/O Wrapper
 
-**Scope**: Add `Order` field to `YamlRequestDefV2`. Add `ReadDirectory()`/`WriteDirectory()` functions for multi-file collection layout. No new package — all code lives in `yamlflowsimplev2`.
+**Scope**: Add `Order` field to `YamlRequestDefV2` (only change to `yamlflowsimplev2`). Create thin `openyaml` wrapper package for multi-file directory read/write. No Bruno dependency.
 
 **Files**:
 ```
 packages/server/pkg/translate/yamlflowsimplev2/
-├── types.go               # Add Order to YamlRequestDefV2
-├── directory.go            # NEW: ReadDirectory(), WriteDirectory()
-├── directory_test.go       # NEW: round-trip tests with testdata/
-└── testdata/collection/    # NEW: sample multi-file collection
+└── types.go                    # Add Order to YamlRequestDefV2
+
+packages/server/pkg/openyaml/   # NEW: directory I/O wrapper
+├── directory.go                # ReadDirectory(), WriteDirectory()
+├── request.go                  # ReadSingleRequest(), WriteSingleRequest()
+├── flow.go                     # ReadSingleFlow(), WriteSingleFlow()
+├── environment.go              # environment file read/write
+├── directory_test.go           # Round-trip tests
+└── testdata/collection/        # Sample multi-file collection
 ```
 
-**Deps**: existing `yamlflowsimplev2` types, `mhttp`, `mfile`, `mflow`, `menv`
+**Deps**: `yamlflowsimplev2` (types only), `mhttp`, `mfile`, `mflow`, `menv`
 
 ### Phase 3: Workspace Schema + Migration
 
@@ -1064,7 +1090,7 @@ packages/server/pkg/foldersync/
 ```
 Phase 1: OpenCollection Parser ──────────────────────────┐
                                                          │
-Phase 2: yamlflowsimplev2 Dir I/O ──┬───────────────────┤
+Phase 2: openyaml Dir I/O ──────┬───────────────────────┤
                             │                            │
 Phase 3: Workspace Schema ──┤                            │
                             │                            │
