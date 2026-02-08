@@ -26,6 +26,7 @@ import { useApiCollection } from '~/shared/api';
 import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { DashboardLayout } from '~/shared/ui';
+import { useFolderSyncDialog, useImportFolderDialog } from '~/widgets/folder-sync';
 
 export const Route = createFileRoute('/(dashboard)/')({
   component: RouteComponent,
@@ -65,8 +66,12 @@ export const WorkspaceListPage = () => {
     renderDropIndicator: () => <DropIndicatorHorizontal />,
   });
 
+  const importFolderDialog = useImportFolderDialog();
+
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
+      {importFolderDialog.render}
+
       <div className={tw`col-span-full`}>
         <span className={tw`mb-1 text-sm leading-5 tracking-tight text-slate-500`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
@@ -77,6 +82,9 @@ export const WorkspaceListPage = () => {
       <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-slate-200`} ref={containerRef}>
         <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
+          <Button onPress={() => void importFolderDialog.open()} variant='secondary'>
+            Import from Folder
+          </Button>
           <Button
             onPress={async () =>
               void workspaceCollection.utils.insert({
@@ -152,10 +160,12 @@ const Item = ({ containerRef, id }: ItemProps) => {
   });
 
   const deleteModal = useProgrammaticModal();
+  const folderSyncDialog = useFolderSyncDialog();
 
   return (
     <ListBoxItem id={id} textValue={name}>
       {deleteModal.children && <Modal {...deleteModal} className={tw`h-auto`} size='xs' />}
+      {folderSyncDialog.render}
 
       <div className={tw`flex items-center gap-3 px-5 py-4`} onContextMenu={onContextMenu}>
         <Avatar shape='square' size='md'>
@@ -220,6 +230,14 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <MenuItem
+              onAction={() =>
+                void folderSyncDialog.open({ workspaceId: workspaceUlid.bytes })
+              }
+            >
+              Folder Sync...
+            </MenuItem>
 
             <MenuItem
               onAction={() =>
