@@ -168,6 +168,26 @@ func workspaceUpdatedUnion(ts *timestamppb.Timestamp) *apiv1.WorkspaceSyncUpdate
 	}
 }
 
+func syncPathSyncUnion(s *string) *apiv1.WorkspaceSyncUpdate_SyncPathUnion {
+	if s == nil {
+		return nil
+	}
+	return &apiv1.WorkspaceSyncUpdate_SyncPathUnion{
+		Kind:  apiv1.WorkspaceSyncUpdate_SyncPathUnion_KIND_VALUE,
+		Value: s,
+	}
+}
+
+func syncFormatSyncUnion(s *string) *apiv1.WorkspaceSyncUpdate_SyncFormatUnion {
+	if s == nil {
+		return nil
+	}
+	return &apiv1.WorkspaceSyncUpdate_SyncFormatUnion{
+		Kind:  apiv1.WorkspaceSyncUpdate_SyncFormatUnion_KIND_VALUE,
+		Value: s,
+	}
+}
+
 func toAPIWorkspace(ws mworkspace.Workspace) *apiv1.Workspace {
 	apiWorkspace := &apiv1.Workspace{
 		WorkspaceId:           ws.ID.Bytes(),
@@ -217,8 +237,8 @@ func workspaceSyncResponseFrom(evt WorkspaceEvent) *apiv1.WorkspaceSyncResponse 
 			Name:        stringPtr(evt.Workspace.Name),
 			Order:       float32Ptr(evt.Workspace.Order),
 			Updated:     workspaceUpdatedUnion(evt.Workspace.Updated),
-			SyncPath:    evt.Workspace.SyncPath,
-			SyncFormat:  evt.Workspace.SyncFormat,
+			SyncPath:    syncPathSyncUnion(evt.Workspace.SyncPath),
+			SyncFormat:  syncFormatSyncUnion(evt.Workspace.SyncFormat),
 			SyncEnabled: boolPtr(evt.Workspace.SyncEnabled),
 		}
 		if len(evt.Workspace.SelectedEnvironmentId) > 0 {
@@ -479,10 +499,18 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 				ws.Order = float64(*item.Order)
 			}
 			if item.SyncPath != nil {
-				ws.SyncPath = item.SyncPath
+				if item.SyncPath.Kind == apiv1.WorkspaceUpdate_SyncPathUnion_KIND_VALUE {
+					ws.SyncPath = item.SyncPath.Value
+				} else if item.SyncPath.Kind == apiv1.WorkspaceUpdate_SyncPathUnion_KIND_UNSET {
+					ws.SyncPath = nil
+				}
 			}
 			if item.SyncFormat != nil {
-				ws.SyncFormat = item.SyncFormat
+				if item.SyncFormat.Kind == apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_VALUE {
+					ws.SyncFormat = item.SyncFormat.Value
+				} else if item.SyncFormat.Kind == apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_UNSET {
+					ws.SyncFormat = nil
+				}
 			}
 			if item.SyncEnabled != nil {
 				ws.SyncEnabled = *item.SyncEnabled
