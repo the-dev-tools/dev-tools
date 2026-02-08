@@ -1,23 +1,20 @@
-# OpenCollection Import & YAML Folder Sync Plan
+# OpenCollection Import & Open YAML Folder Sync Plan
 
 ## Overview
 
 This document describes the plan to add:
 
-1. **OpenCollection YAML Import** — Parse Bruno's OpenCollection YAML collections (`.yml` format with `opencollection.yml` root) and convert them into DevTools' data model
-2. **DevTools YAML Folder Sync** — Bidirectional filesystem sync using DevTools' own YAML format, inspired by Bruno's folder sync architecture
-3. **CLI Runner Integration** — Execute imported/synced collections from the CLI
+1. **OpenCollection YAML Import** — Parse Bruno's OpenCollection YAML collections and convert them into DevTools' Open YAML format in a separate folder
+2. **Open YAML Folder Sync** — Bidirectional filesystem sync using DevTools' own "Open YAML" format (requests + flows), with SQLite as the runtime source of truth
+3. **Workspace Sync Modes** — A workspace can be synced to a local folder, opened from a Bruno collection (auto-converted), or used without sync (current behavior)
+4. **CLI Runner Integration** — Execute collections from Open YAML folders
 
-The goal is to support Bruno users migrating to DevTools, while building a first-class filesystem-based workflow using DevTools' own YAML format for git-friendly, local-first API development.
+### Key Concepts
 
-### Why OpenCollection YAML only (no .bru)?
-
-Bruno is moving to the OpenCollection YAML format as the recommended standard going forward. The legacy `.bru` DSL format is being phased out. By focusing exclusively on the YAML format:
-
-- No custom parser needed — we use standard `gopkg.in/yaml.v3` (already a dependency)
-- Forward-compatible with Bruno's direction
-- Simpler codebase to maintain
-- YAML tooling (linting, schema validation, IDE support) works out of the box
+- **Open YAML** — DevTools' own YAML format for collections. Includes both HTTP requests and flows. One file per request, one file per flow, folder hierarchy maps to the file tree.
+- **OpenCollection YAML** — Bruno's YAML format (`opencollection.yml` root). We import FROM this format.
+- **SQLite** — Remains the runtime source of truth. Folder sync mirrors SQLite ↔ filesystem bidirectionally.
+- **Workspace Sync Modes** — Each workspace can optionally be linked to a folder on disk.
 
 ### Sources
 
@@ -25,8 +22,150 @@ Bruno is moving to the OpenCollection YAML format as the recommended standard go
 - [YAML Structure Reference](https://docs.usebruno.com/opencollection-yaml/structure-reference)
 - [YAML Samples](https://docs.usebruno.com/opencollection-yaml/samples)
 - [OpenCollection Spec](https://spec.opencollection.com/)
-- [OpenCollection GitHub](https://github.com/opencollection-dev/opencollection)
-- [RFC Discussion](https://github.com/usebruno/bruno/discussions/6634)
+
+---
+
+## Architecture: SQLite + Folder Sync Coexistence
+
+### Current State
+
+```
+Desktop App (React UI)
+    ↕  Connect RPC over Unix Socket
+Go Server
+    ↕  Reader/Writer services
+Single SQLite DB (state.db in userData)
+    └── All workspaces, requests, flows, environments in one DB
+```
+
+- One `state.db` file contains ALL workspaces
+- Workspace model: `ID, Name, Updated, Order, ActiveEnv, GlobalEnv` — **no path/folder field**
+- All data lives exclusively in SQLite
+- Real-time UI sync via in-memory eventstream
+
+### Proposed State: SQLite + Folder Sync
+
+```
+Desktop App (React UI)
+    ↕  Connect RPC over Unix Socket
+Go Server
+    ↕  Reader/Writer services
+    ├── SQLite DB (state.db) ←── RUNTIME SOURCE OF TRUTH
+    │   └── workspace.sync_path = "/path/to/my-collection"
+    │
+    └── SyncCoordinator (per synced workspace)
+            ↕  bidirectional
+        Open YAML Folder ←── GIT-FRIENDLY PERSISTENCE
+            /path/to/my-collection/
+            ├── devtools.yaml
+            ├── requests/
+            └── flows/
+```
+
+### Design Principle: SQLite is King
+
+SQLite remains the **single source of truth at runtime**. The folder sync is a **persistence mirror**:
+
+| Direction | Trigger | Behavior |
+|-----------|---------|----------|
+| **Folder → SQLite** | File watcher detects change | Parse YAML → upsert into SQLite → eventstream → UI updates |
+| **SQLite → Folder** | Eventstream publishes change | Serialize from SQLite → write YAML to disk |
+| **Initial load** | Workspace opened with `sync_path` | Read entire folder → populate SQLite (folder wins on first load) |
+| **Conflict** | Both change simultaneously | Disk wins (matching Bruno behavior). Last-write-wins with debounce. |
+
+### Why SQLite Stays as Source of Truth
+
+1. **Performance** — SQLite queries are instant; parsing YAML on every read would be slow
+2. **Transactions** — Atomic multi-entity updates (e.g., creating a request + headers + body in one tx)
+3. **Indexing** — Fast lookups by ID, workspace, folder
+4. **Existing code** — All services, RPC handlers, runner already work with SQLite
+5. **Offline** — No filesystem dependency for core functionality
+6. **Real-time sync** — Eventstream already works with SQLite changes
+
+### Workspace Schema Change
+
+Add `sync_path` and `sync_format` to the workspace model:
+
+```sql
+-- New columns on workspaces table
+ALTER TABLE workspaces ADD COLUMN sync_path TEXT;         -- NULL = no sync
+ALTER TABLE workspaces ADD COLUMN sync_format TEXT;       -- "open_yaml" | "opencollection"
+ALTER TABLE workspaces ADD COLUMN sync_enabled BOOLEAN NOT NULL DEFAULT 0;
+```
+
+```go
+// Updated workspace model
+type Workspace struct {
+    ID              idwrap.IDWrap
+    Name            string
+    Updated         time.Time
+    Order           float64
+    ActiveEnv       idwrap.IDWrap
+    GlobalEnv       idwrap.IDWrap
+    FlowCount       int32
+    CollectionCount int32
+    // NEW: Folder sync fields
+    SyncPath        *string          // nil = no sync, else absolute path to folder
+    SyncFormat      *string          // "open_yaml" (our format) or nil
+    SyncEnabled     bool             // Whether sync is currently active
+}
+```
+
+---
+
+## Workspace Sync Modes
+
+### Mode 1: No Sync (Default — Current Behavior)
+
+```
+User creates workspace → data lives only in SQLite
+SyncPath = nil, SyncEnabled = false
+```
+
+Nothing changes from the current behavior. Workspaces work exactly as they do today.
+
+### Mode 2: Sync to Folder (Open YAML)
+
+```
+User creates workspace → links to a folder → bidirectional sync
+SyncPath = "/Users/dev/my-api-collection", SyncFormat = "open_yaml", SyncEnabled = true
+```
+
+**Two sub-scenarios:**
+
+**A) New sync — empty folder:**
+1. User creates workspace in DevTools
+2. User clicks "Sync to Folder" → picks/creates an empty directory
+3. Server sets `sync_path` on the workspace
+4. SyncCoordinator starts → exports all existing SQLite data to Open YAML files in the folder
+5. File watcher starts → bidirectional sync is live
+
+**B) New sync — existing Open YAML folder:**
+1. User clicks "Open Folder" → picks a directory with `devtools.yaml`
+2. Server creates a new workspace with `sync_path` set
+3. SyncCoordinator starts → reads entire folder → populates SQLite
+4. File watcher starts → bidirectional sync is live
+
+### Mode 3: Import from Bruno (OpenCollection → Open YAML)
+
+```
+User opens Bruno collection → DevTools converts to Open YAML in a NEW folder → syncs there
+SyncPath = "/Users/dev/my-api-devtools/", SyncFormat = "open_yaml", SyncEnabled = true
+```
+
+**Flow:**
+1. User clicks "Import Bruno Collection" → picks directory with `opencollection.yml`
+2. Server parses the OpenCollection YAML directory
+3. Server creates a new workspace and populates SQLite with the converted data
+4. Server creates a NEW folder (e.g., next to the Bruno folder, or user picks location)
+5. SyncCoordinator exports SQLite data to Open YAML format in the new folder
+6. File watcher starts → bidirectional sync is live on the NEW folder
+7. Original Bruno folder is NOT modified
+
+**Why a separate folder?** The Bruno folder uses OpenCollection YAML format (different schema). We don't want to:
+- Corrupt the Bruno collection
+- Mix two different YAML formats in one folder
+- Create confusion about which tool owns the folder
 
 ---
 
@@ -34,19 +173,18 @@ Bruno is moving to the OpenCollection YAML format as the recommended standard go
 
 ### 1.1 Architecture Fit
 
-OpenCollection import follows the exact same pattern as existing HAR, Postman, and curl importers:
-
 ```
-OpenCollection .yml files on disk
+OpenCollection .yml directory
     → topencollection.ConvertOpenCollection()
-        → OpenCollectionResolved (mhttp.HTTP, mfile.File, etc.)
-            → importer.RunImport() + services.Create()
-                → SQLite DB
+        → OpenCollectionResolved (mhttp.HTTP, mfile.File, mflow.Flow, etc.)
+            → SQLite (workspace created + populated)
+                → SyncCoordinator exports to Open YAML folder
 ```
 
 | Layer | Location | Pattern |
 |-------|----------|---------|
 | CLI Command | `apps/cli/cmd/import.go` | Add `importBrunoCmd` |
+| RPC Endpoint | `packages/server/internal/api/` | "Import Bruno Collection" |
 | Translator | `packages/server/pkg/translate/topencollection/` | New package |
 | Importer | `apps/cli/internal/importer/` | Existing `RunImport()` callback |
 
@@ -55,7 +193,7 @@ OpenCollection .yml files on disk
 #### Directory Structure
 
 ```
-my-collection/
+my-bruno-collection/
 ├── opencollection.yml       # Collection root config
 ├── environments/
 │   └── development.yml
@@ -83,168 +221,52 @@ info:
 
 #### Request File Structure
 
-Each `.yml` request file has these top-level sections:
-
 ```yaml
 info:
   name: Create User
-  type: http               # http | graphql | grpc | ws
+  type: http
   seq: 5
-  tags:
-    - smoke
-    - regression
+  tags: [smoke, regression]
 
 http:
-  method: POST             # GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|TRACE|CONNECT
+  method: POST
   url: https://api.example.com/users
   headers:
     - name: Content-Type
       value: application/json
     - name: Authorization
       value: "Bearer {{token}}"
-      disabled: true        # Optional, marks header as disabled
+      disabled: true
   params:
     - name: filter
       value: active
-      type: query           # query | path
+      type: query
     - name: id
       value: "123"
       type: path
   body:
-    type: json              # json | xml | text | form-urlencoded | multipart-form | graphql | none
+    type: json
     data: |-
       {
         "name": "John Doe",
         "email": "john@example.com"
       }
-  auth:                     # none | inherit | basic | bearer | apikey | digest | oauth2 | awsv4 | ntlm
+  auth:
     type: bearer
     token: "{{token}}"
 
 runtime:
-  scripts:
-    - type: before-request
-      code: |-
-        const timestamp = Date.now();
-        bru.setVar("timestamp", timestamp);
-    - type: after-response
-      code: |-
-        console.log(res.status);
-    - type: tests
-      code: |-
-        test("should return 201", function() {
-          expect(res.status).to.equal(201);
-        });
   assertions:
     - expression: res.status
       operator: eq
       value: "201"
-    - expression: res.body.name
-      operator: isString
-  actions:
-    - type: set-variable
-      phase: after-response
-      selector:
-        expression: res.body.token
-        method: jsonPath
-      variable:
-        name: auth_token
-        scope: collection
 
 settings:
   encodeUrl: true
-  timeout: 0
-  followRedirects: true
-  maxRedirects: 5
 
 docs: |-
-  # Create User
-  Creates a new user account in the system.
+  Creates a new user account.
 ```
-
-#### Auth Variants
-
-```yaml
-# No auth
-auth: none
-
-# Inherit from parent
-auth: inherit
-
-# Bearer token
-auth:
-  type: bearer
-  token: "{{token}}"
-
-# Basic auth
-auth:
-  type: basic
-  username: admin
-  password: secret
-
-# API Key
-auth:
-  type: apikey
-  key: x-api-key
-  value: "{{api-key}}"
-  placement: header        # header | query
-```
-
-#### Body Variants
-
-```yaml
-# JSON body
-body:
-  type: json
-  data: |-
-    {"key": "value"}
-
-# XML body
-body:
-  type: xml
-  data: |-
-    <root><key>value</key></root>
-
-# Text body
-body:
-  type: text
-  data: "plain text content"
-
-# Form URL-encoded
-body:
-  type: form-urlencoded
-  data:
-    - name: username
-      value: johndoe
-    - name: password
-      value: secret123
-
-# Multipart form data
-body:
-  type: multipart-form
-  data:
-    - name: file
-      value: "@/path/to/file.pdf"
-      contentType: application/pdf
-    - name: description
-      value: "My file"
-```
-
-#### Environment File (`environments/dev.yml`)
-
-```yaml
-name: development
-variables:
-  - name: api_url
-    value: http://localhost:3000
-    enabled: true
-    secret: false
-    type: text
-```
-
-#### Folder Config (`folder.yml`)
-
-Contains folder-level metadata, auth, headers, and scripts that apply to all requests in the folder.
 
 ### 1.3 Go Types for OpenCollection Parsing
 
@@ -252,48 +274,41 @@ Contains folder-level metadata, auth, headers, and scripts that apply to all req
 package topencollection
 
 // --- Collection Root ---
-
 type OpenCollectionRoot struct {
-    OpenCollection string               `yaml:"opencollection"`
-    Info           OpenCollectionInfo    `yaml:"info"`
+    OpenCollection string            `yaml:"opencollection"`
+    Info           OpenCollectionInfo `yaml:"info"`
 }
 
 type OpenCollectionInfo struct {
-    Name    string                    `yaml:"name"`
-    Summary string                   `yaml:"summary,omitempty"`
-    Version string                   `yaml:"version,omitempty"`
-    Authors []OpenCollectionAuthor    `yaml:"authors,omitempty"`
-}
-
-type OpenCollectionAuthor struct {
-    Name  string `yaml:"name"`
-    Email string `yaml:"email,omitempty"`
+    Name    string                 `yaml:"name"`
+    Summary string                `yaml:"summary,omitempty"`
+    Version string                `yaml:"version,omitempty"`
+    Authors []OpenCollectionAuthor `yaml:"authors,omitempty"`
 }
 
 // --- Request File ---
-
 type OCRequest struct {
-    Info     OCRequestInfo     `yaml:"info"`
-    HTTP     *OCHTTPBlock      `yaml:"http,omitempty"`
-    Runtime  *OCRuntime        `yaml:"runtime,omitempty"`
-    Settings *OCSettings       `yaml:"settings,omitempty"`
-    Docs     string            `yaml:"docs,omitempty"`
+    Info     OCRequestInfo `yaml:"info"`
+    HTTP     *OCHTTPBlock  `yaml:"http,omitempty"`
+    Runtime  *OCRuntime    `yaml:"runtime,omitempty"`
+    Settings *OCSettings   `yaml:"settings,omitempty"`
+    Docs     string        `yaml:"docs,omitempty"`
 }
 
 type OCRequestInfo struct {
     Name string   `yaml:"name"`
-    Type string   `yaml:"type"`           // "http", "graphql", "grpc", "ws"
+    Type string   `yaml:"type"`
     Seq  int      `yaml:"seq,omitempty"`
     Tags []string `yaml:"tags,omitempty"`
 }
 
 type OCHTTPBlock struct {
-    Method  string        `yaml:"method"`
-    URL     string        `yaml:"url"`
-    Headers []OCHeader    `yaml:"headers,omitempty"`
-    Params  []OCParam     `yaml:"params,omitempty"`
-    Body    *OCBody       `yaml:"body,omitempty"`
-    Auth    *OCAuth       `yaml:"auth,omitempty"` // Can also be string "inherit"/"none"
+    Method  string     `yaml:"method"`
+    URL     string     `yaml:"url"`
+    Headers []OCHeader `yaml:"headers,omitempty"`
+    Params  []OCParam  `yaml:"params,omitempty"`
+    Body    *OCBody    `yaml:"body,omitempty"`
+    Auth    *OCAuth    `yaml:"auth,omitempty"`
 }
 
 type OCHeader struct {
@@ -305,43 +320,36 @@ type OCHeader struct {
 type OCParam struct {
     Name     string `yaml:"name"`
     Value    string `yaml:"value"`
-    Type     string `yaml:"type"`             // "query" | "path"
+    Type     string `yaml:"type"`
     Disabled bool   `yaml:"disabled,omitempty"`
 }
 
 type OCBody struct {
-    Type string      `yaml:"type"` // "json"|"xml"|"text"|"form-urlencoded"|"multipart-form"|"graphql"|"none"
-    Data interface{} `yaml:"data"` // string for raw types, []OCFormField for form types
+    Type string      `yaml:"type"` // json|xml|text|form-urlencoded|multipart-form|graphql|none
+    Data interface{} `yaml:"data"` // string for raw, []OCFormField for forms
 }
 
 type OCFormField struct {
     Name        string `yaml:"name"`
     Value       string `yaml:"value"`
     Disabled    bool   `yaml:"disabled,omitempty"`
-    ContentType string `yaml:"contentType,omitempty"` // For multipart file uploads
+    ContentType string `yaml:"contentType,omitempty"`
 }
 
 type OCAuth struct {
-    Type      string `yaml:"type"`                  // "none"|"inherit"|"basic"|"bearer"|"apikey"|...
-    Token     string `yaml:"token,omitempty"`        // For bearer
-    Username  string `yaml:"username,omitempty"`     // For basic
-    Password  string `yaml:"password,omitempty"`     // For basic
-    Key       string `yaml:"key,omitempty"`          // For apikey
-    Value     string `yaml:"value,omitempty"`        // For apikey
-    Placement string `yaml:"placement,omitempty"`    // For apikey: "header"|"query"
+    Type      string `yaml:"type"`               // none|inherit|basic|bearer|apikey|...
+    Token     string `yaml:"token,omitempty"`     // bearer
+    Username  string `yaml:"username,omitempty"`  // basic
+    Password  string `yaml:"password,omitempty"`  // basic
+    Key       string `yaml:"key,omitempty"`       // apikey
+    Value     string `yaml:"value,omitempty"`     // apikey
+    Placement string `yaml:"placement,omitempty"` // apikey: header|query
 }
-
-// --- Runtime ---
 
 type OCRuntime struct {
     Scripts    []OCScript    `yaml:"scripts,omitempty"`
     Assertions []OCAssertion `yaml:"assertions,omitempty"`
     Actions    []OCAction    `yaml:"actions,omitempty"`
-}
-
-type OCScript struct {
-    Type string `yaml:"type"` // "before-request"|"after-response"|"tests"
-    Code string `yaml:"code"`
 }
 
 type OCAssertion struct {
@@ -350,33 +358,12 @@ type OCAssertion struct {
     Value      string `yaml:"value,omitempty"`
 }
 
-type OCAction struct {
-    Type     string     `yaml:"type"`     // "set-variable"
-    Phase    string     `yaml:"phase"`    // "after-response"
-    Selector OCSelector `yaml:"selector"`
-    Variable OCVariable `yaml:"variable"`
-}
-
-type OCSelector struct {
-    Expression string `yaml:"expression"`
-    Method     string `yaml:"method"`
-}
-
-type OCVariable struct {
-    Name  string `yaml:"name"`
-    Scope string `yaml:"scope"`
-}
-
-// --- Settings ---
-
 type OCSettings struct {
     EncodeUrl       *bool `yaml:"encodeUrl,omitempty"`
     Timeout         *int  `yaml:"timeout,omitempty"`
     FollowRedirects *bool `yaml:"followRedirects,omitempty"`
     MaxRedirects    *int  `yaml:"maxRedirects,omitempty"`
 }
-
-// --- Environment ---
 
 type OCEnvironment struct {
     Name      string          `yaml:"name"`
@@ -388,19 +375,13 @@ type OCEnvVariable struct {
     Value   string `yaml:"value"`
     Enabled *bool  `yaml:"enabled,omitempty"`
     Secret  *bool  `yaml:"secret,omitempty"`
-    Type    string `yaml:"type,omitempty"` // "text"
 }
 ```
 
-### 1.4 Converter (`topencollection/converter.go`)
+### 1.4 Converter
 
 ```go
-package topencollection
-
-// OpenCollectionResolved contains all entities extracted from an OpenCollection,
-// following the same pattern as tpostmanv2.PostmanResolvedV2 and harv2.HARResolved.
 type OpenCollectionResolved struct {
-    // HTTP entities
     HTTPRequests       []mhttp.HTTP
     HTTPHeaders        []mhttp.HTTPHeader
     HTTPSearchParams   []mhttp.HTTPSearchParam
@@ -408,90 +389,48 @@ type OpenCollectionResolved struct {
     HTTPBodyUrlencoded []mhttp.HTTPBodyUrlencoded
     HTTPBodyRaw        []mhttp.HTTPBodyRaw
     HTTPAsserts        []mhttp.HTTPAssert
-
-    // File hierarchy (folders + request files)
-    Files []mfile.File
-
-    // Environments
-    Environments    []menv.Env
-    EnvironmentVars []menv.Variable
-
-    // Flow (optional — one flow with sequential request nodes)
-    Flow         *mflow.Flow
-    FlowNodes    []mflow.Node
-    RequestNodes []mflow.NodeRequest
-    FlowEdges    []mflow.Edge
+    Files              []mfile.File
+    Environments       []menv.Env
+    EnvironmentVars    []menv.Variable
 }
 
-type ConvertOptions struct {
-    WorkspaceID    idwrap.IDWrap
-    FolderID       *idwrap.IDWrap  // Optional parent folder to import into
-    CollectionName string          // Override collection name
-    CreateFlow     bool            // Whether to generate a flow from the collection
-    GenerateFiles  bool            // Whether to create File entries for hierarchy
-}
-
-// ConvertOpenCollection reads an OpenCollection YAML directory and returns resolved entities.
 func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCollectionResolved, error)
 ```
 
-#### Conversion Logic
-
-1. **Detect format**: Check for `opencollection.yml` in the directory root
-2. **Parse root config**: Read collection name, version from `opencollection.yml`
-3. **Walk directory tree** (depth-first):
-   - Skip ignored paths (`node_modules`, `.git`, dotenv files)
-   - For each directory: create `mfile.File` with `ContentTypeFolder`
-   - For each `.yml` file (not `opencollection.yml`, not `folder.yml`, not in `environments/`):
-     - Parse with `yaml.Unmarshal()` into `OCRequest`
-     - Convert to `mhttp.HTTP` + child entities
-   - For `folder.yml`: extract folder metadata
-   - For `environments/*.yml`: convert to `menv.Env` + `menv.Variable`
-4. **Map to DevTools models** (see mapping table)
-5. **Generate flow** (optional): Create a linear flow with request nodes ordered by `seq`
-
-#### Mapping Table: OpenCollection YAML → DevTools
+#### Mapping Table: OpenCollection → DevTools
 
 | OpenCollection YAML | DevTools Model | Notes |
 |---|---|---|
 | `info.name` | `mhttp.HTTP.Name` | |
 | `info.seq` | `mfile.File.Order` | Float64 ordering |
-| `info.type` | Determines request type | "http" only for now |
 | `http.method` | `mhttp.HTTP.Method` | Uppercase |
 | `http.url` | `mhttp.HTTP.Url` | |
-| `http.headers` | `[]mhttp.HTTPHeader` | `disabled: true` → `Enabled: false` |
-| `http.params` (type=query) | `[]mhttp.HTTPSearchParam` | Filter by `type: query` |
-| `http.params` (type=path) | Embedded in URL | DevTools uses URL template vars |
-| `http.body.type: json` | `mhttp.HTTPBodyRaw`, `BodyKind: Raw` | |
-| `http.body.type: xml` | `mhttp.HTTPBodyRaw`, `BodyKind: Raw` | |
-| `http.body.type: text` | `mhttp.HTTPBodyRaw`, `BodyKind: Raw` | |
+| `http.headers` | `[]mhttp.HTTPHeader` | `disabled` → `Enabled: false` |
+| `http.params` (query) | `[]mhttp.HTTPSearchParam` | |
+| `http.body.type: json/xml/text` | `mhttp.HTTPBodyRaw` | `BodyKind: Raw` |
 | `http.body.type: form-urlencoded` | `[]mhttp.HTTPBodyUrlencoded` | |
 | `http.body.type: multipart-form` | `[]mhttp.HTTPBodyForm` | |
 | `http.auth.type: bearer` | `mhttp.HTTPHeader` | → `Authorization: Bearer <token>` |
-| `http.auth.type: basic` | `mhttp.HTTPHeader` | → `Authorization: Basic <base64>` |
-| `http.auth.type: apikey` | `mhttp.HTTPHeader` or `mhttp.HTTPSearchParam` | Based on `placement` |
-| `runtime.assertions` | `[]mhttp.HTTPAssert` | Convert `expr operator value` format |
-| `runtime.scripts` | Not imported (log warning) | DevTools uses JS nodes in flows |
-| `runtime.actions` | Not imported (log warning) | DevTools uses flow variables |
+| `http.auth.type: basic` | `mhttp.HTTPHeader` | → `Authorization: Basic <b64>` |
+| `http.auth.type: apikey` | Header or SearchParam | Based on `placement` |
+| `runtime.assertions` | `[]mhttp.HTTPAssert` | `expr operator value` format |
+| `runtime.scripts` | Not imported (log warning) | DevTools uses JS flow nodes |
 | `docs` | `mhttp.HTTP.Description` | |
-| `settings` | Not imported (log info) | DevTools has own request settings |
-| Directory structure | `mfile.File` hierarchy | Folder nesting preserved |
-| `folder.yml` | Folder metadata | Name used for folder |
+| Directory structure | `mfile.File` hierarchy | Nesting preserved |
 | `environments/*.yml` | `menv.Env` + `menv.Variable` | |
-| `opencollection.yml` | Collection config | Name used as root folder name |
 
 ### 1.5 Package Structure
 
 ```
 packages/server/pkg/translate/topencollection/
-├── types.go              # OCRequest, OCHTTPBlock, etc. (YAML struct definitions)
-├── converter.go          # Main conversion: directory → OpenCollectionResolved
+├── types.go              # YAML struct definitions
+├── converter.go          # Directory → OpenCollectionResolved
 ├── converter_test.go     # Tests with sample collections
 ├── collection.go         # opencollection.yml parsing
-├── environment.go        # Environment .yml → menv conversion
-├── auth.go               # Auth type → header/param conversion
+├── environment.go        # Environment conversion
+├── auth.go               # Auth → header/param conversion
 ├── body.go               # Body type → mhttp body conversion
-└── testdata/             # Sample OpenCollection directories for tests
+└── testdata/
     └── basic-collection/
         ├── opencollection.yml
         ├── environments/
@@ -502,105 +441,59 @@ packages/server/pkg/translate/topencollection/
         │   ├── get-users.yml
         │   └── create-user.yml
         └── auth/
-            ├── folder.yml
             └── login.yml
 ```
 
-### 1.6 CLI Command
-
-Add `import bruno <directory>` to the existing import command tree:
-
-```go
-// apps/cli/cmd/import.go — add alongside importCurlCmd, importPostmanCmd, importHarCmd
-
-var importBrunoCmd = &cobra.Command{
-    Use:   "bruno [directory]",
-    Short: "Import a Bruno OpenCollection YAML directory",
-    Args:  cobra.ExactArgs(1),
-    RunE: func(cmd *cobra.Command, args []string) error {
-        collectionPath := args[0]
-        return importer.RunImport(ctx, logger, workspaceID, folderID,
-            func(ctx context.Context, services *common.Services, wsID idwrap.IDWrap, folderIDPtr *idwrap.IDWrap) error {
-                resolved, err := topencollection.ConvertOpenCollection(collectionPath, topencollection.ConvertOptions{
-                    WorkspaceID:   wsID,
-                    FolderID:      folderIDPtr,
-                    GenerateFiles: true,
-                    CreateFlow:    false,
-                })
-                if err != nil {
-                    return err
-                }
-                // Save all resolved entities via services (same pattern as Postman/HAR)
-                return saveResolved(ctx, services, resolved)
-            },
-        )
-    },
-}
-```
-
-### 1.7 Testing Strategy
-
-- **YAML parsing tests**: Parse sample `.yml` request files, verify struct output
-- **Converter tests**: Use `testdata/` sample collections → verify `OpenCollectionResolved` output
-- **Auth conversion tests**: Test all auth types (bearer, basic, apikey) → correct headers/params
-- **Body conversion tests**: Test all body types (json, xml, form-urlencoded, multipart-form)
-- **Integration test**: Import sample collection into in-memory SQLite → verify all entities created
-
 ---
 
-## Part 2: DevTools YAML Folder Sync
-
-This is the core feature — a bidirectional filesystem sync that uses DevTools' own YAML format, inspired by Bruno's chokidar-based sync but built for Go.
+## Part 2: Open YAML Format (DevTools' Own Format)
 
 ### 2.1 Design Goals
 
-1. **Git-friendly**: YAML files that diff and merge cleanly
-2. **Human-readable**: Developers can edit requests in their editor/IDE
-3. **Bidirectional**: Changes in the UI persist to disk; changes on disk reflect in the UI
-4. **Compatible**: Similar UX to Bruno's folder sync (users understand the concept)
-5. **DevTools-native**: Uses DevTools' own YAML format
-6. **OpenCollection-compatible import**: Can import from OpenCollection and sync in DevTools format
+- **Includes flows** — not just HTTP requests, but full flow definitions
+- **One file per entity** — each request and flow is its own `.yaml` file
+- **Git-friendly** — clean diffs, merge-friendly structure
+- **Human-editable** — developers can edit in any text editor or IDE
+- **Flat top-level** — `name`, `method`, `url` at root (no `info`/`http` nesting like OpenCollection)
+- **Compatible with existing `yamlflowsimplev2`** — flow files use the same format
 
-### 2.2 DevTools Collection YAML Format
-
-Simplified for individual request files. Intentionally similar to OpenCollection for easy migration, but with DevTools-specific conventions.
-
-#### Directory Structure
+### 2.2 Directory Structure
 
 ```
 my-collection/
-├── devtools.yaml              # Collection config (name, version, settings)
+├── devtools.yaml              # Collection config
 ├── environments/
 │   ├── dev.yaml
 │   └── prod.yaml
-├── users/
-│   ├── _folder.yaml           # Folder metadata (optional)
-│   ├── get-users.yaml         # Individual request
-│   └── create-user.yaml
+├── users/                     # Folder = directory
+│   ├── _folder.yaml           # Optional folder metadata
+│   ├── get-users.yaml         # HTTP request
+│   └── create-user.yaml       # HTTP request
 ├── auth/
 │   ├── _folder.yaml
 │   └── login.yaml
-└── flows/                     # Optional: flow definitions
-    └── smoke-test.yaml        # Uses yamlflowsimplev2 format
+└── flows/                     # Flow definitions
+    ├── smoke-test.yaml        # Flow (yamlflowsimplev2 format)
+    └── ci-regression.yaml
 ```
 
-#### Collection Config (`devtools.yaml`)
+### 2.3 Collection Config (`devtools.yaml`)
 
 ```yaml
 version: "1"
 name: My API Collection
-settings:
-  base_url: "https://api.example.com"
-  timeout: 30
 ```
 
-#### Request File (`get-users.yaml`)
+This file identifies the directory as a DevTools Open YAML collection. Its presence is how we detect the format (analogous to `opencollection.yml` for Bruno).
+
+### 2.4 Request File Format
 
 ```yaml
 name: Get Users
 method: GET
 url: "{{base_url}}/users"
 description: "Fetch all users with optional pagination"
+order: 1
 
 headers:
   - name: Authorization
@@ -622,12 +515,11 @@ body:
   type: none  # none | raw | form-data | urlencoded
 ```
 
-#### Request with JSON body (`create-user.yaml`)
-
 ```yaml
 name: Create User
 method: POST
 url: "{{base_url}}/users"
+order: 2
 
 headers:
   - name: Content-Type
@@ -646,12 +538,11 @@ assertions:
   - "res.body.id neq null"
 ```
 
-#### Request with form body (`upload.yaml`)
-
 ```yaml
 name: Upload File
 method: POST
 url: "{{base_url}}/upload"
+order: 3
 
 body:
   type: form-data
@@ -663,7 +554,43 @@ body:
       value: "Test upload"
 ```
 
-#### Environment (`environments/dev.yaml`)
+### 2.5 Flow File Format
+
+Flows use the existing `yamlflowsimplev2` format — this is already implemented and working:
+
+```yaml
+# flows/smoke-test.yaml
+name: Smoke Test
+variables:
+  - name: auth_token
+    type: string
+    default: ""
+
+steps:
+  - request:
+      name: Login
+      method: POST
+      url: "{{base_url}}/auth/login"
+      body:
+        type: raw
+        content: '{"email": "test@example.com", "password": "test"}'
+
+  - request:
+      name: Get Profile
+      depends_on: [Login]
+      method: GET
+      url: "{{base_url}}/users/me"
+      headers:
+        Authorization: "Bearer {{Login.response.body.token}}"
+
+  - js:
+      name: Validate Response
+      depends_on: [Get Profile]
+      code: |
+        if (response.status !== 200) throw new Error("Failed");
+```
+
+### 2.6 Environment File
 
 ```yaml
 name: Development
@@ -675,85 +602,36 @@ variables:
     secret: true
 ```
 
-#### Folder metadata (`_folder.yaml`)
+### 2.7 Folder Metadata (`_folder.yaml`)
 
 ```yaml
 name: Users API
 order: 1
 description: "User management endpoints"
-
-# Folder-level defaults (applied to all requests in this folder)
-defaults:
-  headers:
-    - name: X-Api-Version
-      value: "v2"
 ```
 
-#### Flow file (`flows/smoke-test.yaml`)
-
-```yaml
-# Uses existing yamlflowsimplev2 format exactly
-name: Smoke Test
-steps:
-  - request:
-      name: Login
-      method: POST
-      url: "{{base_url}}/auth/login"
-      body:
-        type: raw
-        content: '{"email": "test@example.com", "password": "test"}'
-  - request:
-      name: Get Profile
-      depends_on: [Login]
-      method: GET
-      url: "{{base_url}}/users/me"
-      headers:
-        Authorization: "Bearer {{Login.response.body.token}}"
-```
-
-### 2.3 YAML Serializer/Deserializer (`tyamlcollection/`)
-
-New package for the collection YAML format:
-
-```
-packages/server/pkg/translate/tyamlcollection/
-├── types.go           # YAML struct definitions with yaml tags
-├── parser.go          # YAML file → DevTools models
-├── serializer.go      # DevTools models → YAML files
-├── collection.go      # devtools.yaml config handling
-├── request.go         # Single request YAML ↔ mhttp conversion
-├── environment.go     # Environment YAML ↔ menv conversion
-├── folder.go          # _folder.yaml ↔ folder metadata
-└── parser_test.go     # Round-trip tests
-```
-
-#### Core Types
+### 2.8 Open YAML Go Types
 
 ```go
-package tyamlcollection
+package openyaml
 
 // CollectionConfig represents devtools.yaml
 type CollectionConfig struct {
-    Version  string              `yaml:"version"`
-    Name     string              `yaml:"name"`
-    Settings *CollectionSettings `yaml:"settings,omitempty"`
+    Version string `yaml:"version"`
+    Name    string `yaml:"name"`
 }
 
-type CollectionSettings struct {
-    BaseURL string `yaml:"base_url,omitempty"`
-    Timeout int    `yaml:"timeout,omitempty"`
-}
-
-// RequestFile represents a single .yaml request file
+// RequestFile represents a single request .yaml file
 type RequestFile struct {
     Name        string           `yaml:"name"`
     Method      string           `yaml:"method"`
     URL         string           `yaml:"url"`
     Description string           `yaml:"description,omitempty"`
+    Order       float64          `yaml:"order,omitempty"`
     Headers     []HeaderEntry    `yaml:"headers,omitempty"`
     QueryParams []HeaderEntry    `yaml:"query_params,omitempty"`
     Body        *BodyDef         `yaml:"body,omitempty"`
-    Assertions  []AssertionEntry `yaml:"assertions,omitempty"`
+    Assertions  AssertionList    `yaml:"assertions,omitempty"`
 }
 
 type HeaderEntry struct {
@@ -764,18 +642,21 @@ type HeaderEntry struct {
 }
 
 type BodyDef struct {
-    Type    string        `yaml:"type"`              // "none", "raw", "form-data", "urlencoded"
+    Type    string        `yaml:"type"`              // none|raw|form-data|urlencoded
     Content string        `yaml:"content,omitempty"` // For raw bodies
     Fields  []HeaderEntry `yaml:"fields,omitempty"`  // For form-data / urlencoded
 }
+
+// AssertionList supports both string shorthand and structured form
+// - "res.status eq 200"
+// - {value: "res.status eq 200", enabled: false, description: "..."}
+type AssertionList []AssertionEntry
 
 type AssertionEntry struct {
     Value       string `yaml:"value,omitempty"`
     Enabled     *bool  `yaml:"enabled,omitempty"`
     Description string `yaml:"description,omitempty"`
 }
-
-// Custom unmarshaler handles both "res.status eq 200" and {value: ..., enabled: false}
 
 type EnvironmentFile struct {
     Name      string        `yaml:"name"`
@@ -789,60 +670,71 @@ type EnvVariable struct {
 }
 
 type FolderMeta struct {
-    Name        string          `yaml:"name,omitempty"`
-    Order       int             `yaml:"order,omitempty"`
-    Description string          `yaml:"description,omitempty"`
-    Defaults    *FolderDefaults `yaml:"defaults,omitempty"`
-}
-
-type FolderDefaults struct {
-    Headers []HeaderEntry `yaml:"headers,omitempty"`
+    Name        string  `yaml:"name,omitempty"`
+    Order       float64 `yaml:"order,omitempty"`
+    Description string  `yaml:"description,omitempty"`
 }
 ```
 
-#### Conversion Functions
+### 2.9 Package Structure
+
+```
+packages/server/pkg/translate/openyaml/
+├── types.go           # YAML struct definitions
+├── parser.go          # Read collection directory → DevTools models
+├── serializer.go      # DevTools models → YAML files on disk
+├── request.go         # Single request YAML ↔ mhttp conversion
+├── flow.go            # Delegates to yamlflowsimplev2 for flow parsing
+├── environment.go     # Environment YAML ↔ menv conversion
+├── folder.go          # _folder.yaml handling
+├── collection.go      # devtools.yaml config
+└── parser_test.go     # Round-trip tests
+```
+
+### 2.10 Conversion Functions
 
 ```go
-// ParseRequestFile reads a .yaml request file and returns DevTools model entities.
-func ParseRequestFile(data []byte, opts ParseOptions) (*RequestResolved, error)
+// ReadCollection reads an Open YAML directory into DevTools models.
+func ReadCollection(collectionPath string, opts ReadOptions) (*ioworkspace.WorkspaceBundle, error)
 
-// SerializeRequest converts DevTools model entities to YAML bytes for a single request.
-func SerializeRequest(http mhttp.HTTP, headers []mhttp.HTTPHeader,
-    params []mhttp.HTTPSearchParam, bodyRaw *mhttp.HTTPBodyRaw,
-    bodyForms []mhttp.HTTPBodyForm, bodyUrlencoded []mhttp.HTTPBodyUrlencoded,
-    asserts []mhttp.HTTPAssert) ([]byte, error)
-
-// ReadCollection reads a full collection directory into DevTools models.
-func ReadCollection(collectionPath string, opts ConvertOptions) (*CollectionResolved, error)
-
-// WriteCollection writes a full workspace/collection to disk as YAML files.
+// WriteCollection exports a workspace bundle to an Open YAML directory.
 func WriteCollection(collectionPath string, bundle *ioworkspace.WorkspaceBundle) error
 
-// WriteRequest writes a single request to a YAML file on disk.
-func WriteRequest(filePath string, http mhttp.HTTP, children RequestChildren) error
+// ReadRequest parses a single request YAML file.
+func ReadRequest(data []byte) (*RequestFile, error)
+
+// WriteRequest serializes a single request to YAML.
+func WriteRequest(http mhttp.HTTP, headers []mhttp.HTTPHeader,
+    params []mhttp.HTTPSearchParam, body interface{},
+    asserts []mhttp.HTTPAssert) ([]byte, error)
+
+// ReadFlow parses a single flow YAML file (delegates to yamlflowsimplev2).
+func ReadFlow(data []byte, opts FlowReadOptions) (*FlowResolved, error)
+
+// WriteFlow serializes a single flow to YAML (delegates to yamlflowsimplev2 exporter).
+func WriteFlow(flow FlowBundle) ([]byte, error)
 ```
 
-### 2.4 File Watcher (`packages/server/pkg/foldersync/`)
+---
 
-Replaces Bruno's chokidar with Go's `fsnotify`. This is a new package in the server.
+## Part 3: Folder Sync Engine
+
+### 3.1 File Watcher (`packages/server/pkg/foldersync/`)
 
 ```
 packages/server/pkg/foldersync/
-├── watcher.go         # Core CollectionWatcher using fsnotify
-├── debouncer.go       # Write stabilization (coalesce rapid events)
-├── filter.go          # Ignore patterns (.git, node_modules, etc.)
-├── sync.go            # Bidirectional sync coordinator
-├── types.go           # Event types, config
-└── watcher_test.go    # Integration tests with temp directories
+├── watcher.go         # fsnotify-based CollectionWatcher
+├── debouncer.go       # Write stabilization (80ms coalescing)
+├── filter.go          # Ignore .git, node_modules, non-.yaml
+├── selftrack.go       # Self-write tracker (prevent infinite loops)
+├── sync.go            # SyncCoordinator (bidirectional orchestrator)
+├── types.go           # Event types, SyncOptions
+└── watcher_test.go    # Integration tests
 ```
 
-#### Watcher
+### 3.2 Watcher
 
 ```go
-package foldersync
-
-import "github.com/fsnotify/fsnotify"
-
 type EventType int
 const (
     EventFileCreated EventType = iota
@@ -858,133 +750,125 @@ type WatchEvent struct {
     RelPath string // Relative to collection root
 }
 
-// CollectionWatcher watches a collection directory for filesystem changes.
 type CollectionWatcher struct {
     collectionPath string
-    ignorePatterns []string
     watcher        *fsnotify.Watcher
-    events         chan WatchEvent
     debouncer      *Debouncer
-    selfWrites     *SelfWriteTracker // Suppress events from our own writes
+    selfWrites     *SelfWriteTracker
+    events         chan WatchEvent
 }
 
-func NewCollectionWatcher(collectionPath string, opts WatcherOptions) (*CollectionWatcher, error)
+func NewCollectionWatcher(path string, opts WatcherOptions) (*CollectionWatcher, error)
 func (w *CollectionWatcher) Start(ctx context.Context) error
 func (w *CollectionWatcher) Events() <-chan WatchEvent
 func (w *CollectionWatcher) Stop() error
 ```
 
-#### Debouncer
+### 3.3 Debouncer (80ms stabilization)
 
 ```go
-// Debouncer coalesces rapid filesystem events for the same path.
-// fsnotify fires multiple events for a single write operation.
-// We wait for stabilityThreshold (80ms) of no events before emitting.
 type Debouncer struct {
-    stabilityThreshold time.Duration // 80ms (matching Bruno)
-    timers             map[string]*time.Timer
-    mu                 sync.Mutex
-    output             chan WatchEvent
+    threshold time.Duration // 80ms
+    timers    map[string]*time.Timer
+    mu        sync.Mutex
+    output    chan WatchEvent
 }
-
-func NewDebouncer(threshold time.Duration) *Debouncer
-func (d *Debouncer) Add(event WatchEvent)
-func (d *Debouncer) Events() <-chan WatchEvent
 ```
 
-#### Self-Write Tracker
+### 3.4 Self-Write Tracker
 
 ```go
-// SelfWriteTracker prevents infinite loops when the sync engine writes a file
-// and the watcher detects the change.
 type SelfWriteTracker struct {
     mu       sync.Mutex
-    writes   map[string]time.Time // path → write timestamp
-    lifetime time.Duration        // How long to suppress (e.g., 2s)
+    writes   map[string]time.Time
+    lifetime time.Duration // 2s suppression window
 }
 
 func (t *SelfWriteTracker) MarkWrite(path string)
 func (t *SelfWriteTracker) IsSelfWrite(path string) bool
 ```
 
-#### Key Implementation Notes
+### 3.5 SyncCoordinator
 
-- **Recursive watching**: `fsnotify` doesn't watch subdirectories automatically. Walk the tree on start and add watchers for new directories on `EventDirCreated`
-- **Initial scan**: On start, walk the tree and emit `EventFileCreated` for all existing `.yaml` files (like chokidar's `ignoreInitial: false`)
-- **Ignore patterns**: Filter `.git`, `node_modules`, dotfiles, non-`.yaml` files
-- **WSL compatibility**: Detect WSL paths and use polling mode if needed
-- **Max depth**: Limit to 20 levels (matching Bruno)
-
-### 2.5 Sync Coordinator (`foldersync/sync.go`)
-
-The central orchestrator that bridges the filesystem watcher with the DevTools database/services.
+The central orchestrator. One instance per synced workspace.
 
 ```go
-// SyncCoordinator manages bidirectional sync between filesystem and database.
 type SyncCoordinator struct {
     collectionPath string
     workspaceID    idwrap.IDWrap
-    format         tyamlcollection.CollectionConfig
 
-    // Filesystem → Database
-    watcher  *CollectionWatcher
-    parser   *tyamlcollection.Parser
-
-    // Database → Filesystem
+    // Components
+    watcher    *CollectionWatcher
     selfWrites *SelfWriteTracker
-    serializer *tyamlcollection.Serializer
     autosaver  *AutoSaver
 
-    // State mapping
+    // State mapping (UID preservation across re-parses)
     mu       sync.RWMutex
-    pathToID map[string]idwrap.IDWrap // filepath → entity ID (UID preservation)
-    idToPath map[idwrap.IDWrap]string // entity ID → filepath (reverse mapping)
+    pathToID map[string]idwrap.IDWrap
+    idToPath map[idwrap.IDWrap]string
 
-    // Services
+    // Services (read/write to SQLite)
+    db       *sql.DB
     services *common.Services
 
-    // Event publishing for real-time sync to UI
-    publisher *eventstream.Publisher
+    // Real-time sync to UI
+    publisher eventstream.Publisher
+}
+
+type SyncOptions struct {
+    CollectionPath string
+    WorkspaceID    idwrap.IDWrap
+    DB             *sql.DB
+    Services       *common.Services
+    Publisher       eventstream.Publisher
 }
 
 func NewSyncCoordinator(opts SyncOptions) (*SyncCoordinator, error)
 func (s *SyncCoordinator) Start(ctx context.Context) error
 func (s *SyncCoordinator) Stop() error
+
+// InitialLoad reads the entire folder and populates SQLite.
+// Called when a workspace is first opened with sync enabled.
+func (s *SyncCoordinator) InitialLoad(ctx context.Context) error
+
+// ExportAll writes all SQLite data for this workspace to the folder.
+// Called when sync is first enabled on an existing workspace.
+func (s *SyncCoordinator) ExportAll(ctx context.Context) error
 ```
 
-#### Disk → Database Flow
+#### Disk → SQLite Flow
 
 ```
-Filesystem event (watcher)
-    → Debounce (80ms stabilization)
-    → Check self-write tracker (skip if we wrote it)
-    → Parse YAML file
-    → Look up existing entity by path→ID mapping
-    → If new file: Create HTTP + File + children via services
-    → If changed file: Update HTTP + children via services
-    → If deleted file: Delete HTTP + File via services
-    → Publish events to eventstream (UI updates in real-time)
+File change detected (watcher)
+    → Debounce (80ms)
+    → Skip if self-write
+    → Classify file type (request .yaml, flow .yaml, environment, folder meta)
+    → Parse YAML → intermediate types
+    → Look up entity by path→ID mapping
+    → Begin transaction
+        → If new: INSERT into SQLite (HTTP + headers + params + body + asserts)
+        → If changed: UPDATE in SQLite
+        → If deleted: DELETE from SQLite
+    → Commit transaction
+    → Publish events to eventstream → UI updates in real-time
 ```
 
-#### Database → Disk Flow
+#### SQLite → Disk Flow
 
 ```
-User edits in UI
-    → RPC handler persists to database
-    → Eventstream publishes change event
+UI edit → RPC handler → SQLite write → eventstream publishes event
     → SyncCoordinator receives event via subscription
-    → AutoSaver debounces (500ms, matching Bruno)
-    → Serialize entity to YAML
+    → AutoSaver debounces (500ms)
+    → Read full entity from SQLite (HTTP + all children)
+    → Serialize to YAML
     → Mark path in self-write tracker
-    → Write YAML file to disk
-    → Watcher detects change → self-write tracker suppresses
+    → Atomic write (temp file + rename)
+    → Watcher detects → self-write tracker suppresses → no loop
 ```
 
-#### AutoSaver
+### 3.6 AutoSaver (500ms debounce)
 
 ```go
-// AutoSaver handles debounced persistence from database changes to disk.
-// Matches Bruno's 500ms debounce behavior.
 type AutoSaver struct {
     delay   time.Duration // 500ms
     timers  map[idwrap.IDWrap]*time.Timer
@@ -993,289 +877,239 @@ type AutoSaver struct {
 }
 
 func (a *AutoSaver) ScheduleSave(entityID idwrap.IDWrap)
-func (a *AutoSaver) Flush() // Force all pending saves (for graceful shutdown)
+func (a *AutoSaver) Flush() // Force-save all pending (graceful shutdown)
 ```
 
-### 2.6 Integration with Existing Architecture
+### 3.7 Sync Manager (Server-Level)
 
-#### RPC Layer Integration
-
-New RPC endpoints for folder sync management:
-
-```
-// In packages/spec — new TypeSpec definitions
-
-@route("/folder-sync")
-interface FolderSync {
-    // Open a collection folder for sync
-    @post open(workspaceId: string, collectionPath: string): FolderSyncStatus;
-
-    // Close/stop syncing a collection
-    @post close(workspaceId: string): void;
-
-    // Get current sync status
-    @get status(workspaceId: string): FolderSyncStatus;
-
-    // Export workspace as a collection folder
-    @post export(workspaceId: string, outputPath: string): void;
-}
-```
-
-#### Server Startup
-
-The folder sync coordinator starts/stops with the server:
+Manages all active SyncCoordinators across workspaces.
 
 ```go
-// On workspace open with folder sync enabled:
-coordinator := foldersync.NewSyncCoordinator(foldersync.SyncOptions{
-    CollectionPath: "/path/to/collection",
-    WorkspaceID:    workspaceID,
-    Services:       services,
-    Publisher:      publisher,
-})
-coordinator.Start(ctx)
+// packages/server/pkg/foldersync/manager.go
 
-// On workspace close:
-coordinator.Stop()
-```
-
-#### Eventstream Integration
-
-Subscribe to entity change events for Database → Disk sync:
-
-```go
-sub := publisher.Subscribe(eventstream.Topic{
-    WorkspaceID: workspaceID,
-    EntityTypes: []eventstream.EntityType{
-        eventstream.EntityHTTP,
-        eventstream.EntityHTTPHeader,
-        eventstream.EntityHTTPSearchParam,
-        eventstream.EntityHTTPBodyRaw,
-        eventstream.EntityHTTPBodyForm,
-        eventstream.EntityHTTPBodyUrlencoded,
-        eventstream.EntityHTTPAssert,
-        eventstream.EntityFile,
-    },
-})
-
-for event := range sub.Events() {
-    switch event.Op {
-    case eventstream.OpInsert, eventstream.OpUpdate:
-        autosaver.ScheduleSave(event.ID)
-    case eventstream.OpDelete:
-        deleteFileFromDisk(event.ID)
-    }
+type SyncManager struct {
+    mu           sync.RWMutex
+    coordinators map[idwrap.IDWrap]*SyncCoordinator // workspaceID → coordinator
+    db           *sql.DB
+    services     *common.Services
+    publisher    eventstream.Publisher
 }
+
+func NewSyncManager(db *sql.DB, services *common.Services, publisher eventstream.Publisher) *SyncManager
+
+// StartSync begins folder sync for a workspace.
+func (m *SyncManager) StartSync(ctx context.Context, workspaceID idwrap.IDWrap, path string) error
+
+// StopSync stops folder sync for a workspace.
+func (m *SyncManager) StopSync(workspaceID idwrap.IDWrap) error
+
+// IsActive returns whether a workspace has active sync.
+func (m *SyncManager) IsActive(workspaceID idwrap.IDWrap) bool
+
+// RestoreAll starts sync for all workspaces that have sync_enabled=true.
+// Called on server startup.
+func (m *SyncManager) RestoreAll(ctx context.Context) error
+
+// Shutdown stops all coordinators gracefully.
+func (m *SyncManager) Shutdown() error
 ```
 
-### 2.7 Safety Mechanisms
+### 3.8 Safety Mechanisms
 
-| Mechanism | Implementation | Matches Bruno? |
-|---|---|---|
-| Path validation | `filepath.Rel()` must not escape collection root | Yes |
-| Filename sanitization | Strip invalid chars, truncate at 255 | Yes |
-| Write stabilization | 80ms debounce on watcher events | Yes (stabilityThreshold: 80) |
-| Autosave debounce | 500ms debounce on UI changes | Yes |
-| Self-write suppression | Track recently-written paths (2s window) | Improved (Bruno re-parses) |
-| Atomic writes | Write to temp file, then `os.Rename()` | Improved (Bruno doesn't) |
-| UID preservation | `pathToID` map persists across re-parses | Yes |
-| Conflict resolution | Disk wins over in-memory (matching Bruno) | Yes |
-| Large file handling | Skip files >5MB, warn on collections >20MB | Yes |
-| Cross-platform paths | `filepath.Clean/Rel/Join` consistently | Yes |
-| Line endings | Handle `\r\n` and `\n` | Yes |
+| Mechanism | Implementation |
+|---|---|
+| Path validation | `filepath.Rel()` must not escape collection root |
+| Filename sanitization | Strip invalid chars, truncate at 255 |
+| Write stabilization | 80ms debounce on watcher events |
+| Autosave debounce | 500ms debounce on SQLite→disk writes |
+| Self-write suppression | 2s window to suppress watcher events from our writes |
+| Atomic writes | Write temp file → `os.Rename()` |
+| UID preservation | `pathToID` map persists during session |
+| Conflict resolution | Disk wins (last-write-wins with debounce) |
+| Large file guard | Skip files >5MB |
+| Cross-platform | `filepath.Clean/Rel/Join`, handle `\r\n` |
+| Recursive watch | Walk tree on start, add subdirs on `DirCreated` |
+| Max depth | 20 levels |
 
 ---
 
-## Part 3: CLI Runner Integration
+## Part 4: RPC Endpoints
 
-### 3.1 Run from Collection Folder
+### 4.1 Workspace Sync API
 
-Add a CLI command to run requests directly from a synced collection folder:
+New TypeSpec definitions for folder sync management:
 
 ```
-devtools run ./my-collection                       # Run all requests sequentially
-devtools run ./my-collection/users/get-users.yaml  # Run single request
-devtools run ./my-collection --env dev             # With environment
-devtools run ./my-collection/flows/smoke-test.yaml # Run a flow
-```
+// Folder sync operations on workspaces
 
-This reuses the existing `apps/cli/internal/runner/` infrastructure:
+// Enable folder sync on a workspace
+EnableFolderSync(workspaceId, folderPath) → SyncStatus
 
-1. Read collection folder → `tyamlcollection.ReadCollection()`
-2. Create in-memory SQLite → populate with resolved entities
-3. Execute via existing `runner.RunFlow()` or direct HTTP execution
-4. Report results
+// Disable folder sync
+DisableFolderSync(workspaceId) → void
 
-### 3.2 CLI Commands
+// Get sync status
+GetFolderSyncStatus(workspaceId) → SyncStatus
 
-```go
-// apps/cli/cmd/run.go — extend existing run command
+// Import Bruno collection → create workspace + Open YAML folder
+ImportBrunoCollection(brunoFolderPath, outputFolderPath) → Workspace
 
-var runCollectionCmd = &cobra.Command{
-    Use:   "collection [directory-or-file]",
-    Short: "Run requests from a DevTools collection folder",
-    RunE: func(cmd *cobra.Command, args []string) error {
-        // 1. Read collection
-        // 2. Import into in-memory DB
-        // 3. Execute via runner
-        // 4. Report results
-    },
+// Export workspace to Open YAML folder
+ExportToFolder(workspaceId, folderPath) → void
+
+type SyncStatus {
+    enabled: boolean
+    folderPath: string
+    lastSyncAt: timestamp
+    fileCount: number
+    errors: string[]  // Any sync errors
 }
+```
+
+### 4.2 Desktop UI Integration
+
+**New UI elements needed:**
+- Workspace settings: "Link to Folder" button with folder picker
+- Workspace settings: "Unlink Folder" button
+- Status bar: sync status indicator (synced, syncing, error)
+- Import dialog: "Import Bruno Collection" with source folder picker + destination folder picker
+- New workspace dialog: option to "Create from folder" or "Create empty"
+
+---
+
+## Part 5: CLI Integration
+
+### 5.1 CLI Import Command
+
+```
+devtools import bruno <bruno-dir> --output <open-yaml-dir> --workspace <id>
+```
+
+### 5.2 CLI Run from Folder
+
+```
+devtools run <open-yaml-dir>                        # Run all requests
+devtools run <open-yaml-dir>/users/get-users.yaml   # Single request
+devtools run <open-yaml-dir>/flows/smoke-test.yaml  # Run a flow
+devtools run <open-yaml-dir> --env dev              # With environment
 ```
 
 ---
 
-## Part 4: Implementation Phases
+## Implementation Phases
 
 ### Phase 1: OpenCollection YAML Parser + Converter
 
-**Scope**: Parse OpenCollection YAML directories and convert to DevTools models.
+**Scope**: Parse Bruno's OpenCollection YAML directories → DevTools models.
 
 **Files**:
-- `packages/server/pkg/translate/topencollection/types.go`
-- `packages/server/pkg/translate/topencollection/converter.go`
-- `packages/server/pkg/translate/topencollection/collection.go`
-- `packages/server/pkg/translate/topencollection/environment.go`
-- `packages/server/pkg/translate/topencollection/auth.go`
-- `packages/server/pkg/translate/topencollection/body.go`
-- `packages/server/pkg/translate/topencollection/converter_test.go`
-- `packages/server/pkg/translate/topencollection/testdata/` (sample collections)
+```
+packages/server/pkg/translate/topencollection/
+├── types.go, converter.go, collection.go, environment.go
+├── auth.go, body.go, converter_test.go
+└── testdata/basic-collection/...
+```
 
-**Dependencies**: `gopkg.in/yaml.v3` (already a dependency), existing models (`mhttp`, `mfile`, `menv`)
+**Deps**: `gopkg.in/yaml.v3` (existing), `mhttp`, `mfile`, `menv`
 
-**Testing**: Parse sample OpenCollection directories, verify all entities
+### Phase 2: Open YAML Format (Requests + Flows)
 
-### Phase 2: CLI Import Command
-
-**Scope**: Add `import bruno <dir>` CLI command.
+**Scope**: DevTools' own YAML format — parser + serializer with round-trip support. Flows delegate to existing `yamlflowsimplev2`.
 
 **Files**:
-- `apps/cli/cmd/import.go` (add `importBrunoCmd`)
+```
+packages/server/pkg/translate/openyaml/
+├── types.go, parser.go, serializer.go, request.go
+├── flow.go, environment.go, folder.go, collection.go
+└── parser_test.go
+```
 
-**Dependencies**: Phase 1 (converter), existing importer infrastructure
+**Deps**: `gopkg.in/yaml.v3`, `yamlflowsimplev2` (for flows), `mhttp`, `mfile`, `mflow`
 
-**Testing**: End-to-end import into in-memory SQLite
+### Phase 3: Workspace Schema + Migration
 
-### Phase 3: DevTools YAML Collection Format
-
-**Scope**: Define and implement DevTools' own YAML format for individual request files with round-trip serialization.
-
-**Files**:
-- `packages/server/pkg/translate/tyamlcollection/types.go`
-- `packages/server/pkg/translate/tyamlcollection/parser.go`
-- `packages/server/pkg/translate/tyamlcollection/serializer.go`
-- `packages/server/pkg/translate/tyamlcollection/request.go`
-- `packages/server/pkg/translate/tyamlcollection/environment.go`
-- `packages/server/pkg/translate/tyamlcollection/folder.go`
-- `packages/server/pkg/translate/tyamlcollection/collection.go`
-- `packages/server/pkg/translate/tyamlcollection/parser_test.go`
-
-**Dependencies**: Existing models, `gopkg.in/yaml.v3`
-
-**Testing**: Round-trip tests (parse → serialize → parse), verify equivalence
-
-### Phase 4: File Watcher
-
-**Scope**: `fsnotify`-based watcher with debouncing, filtering, self-write tracking.
+**Scope**: Add `sync_path`, `sync_format`, `sync_enabled` to workspace table and model.
 
 **Files**:
-- `packages/server/pkg/foldersync/watcher.go`
-- `packages/server/pkg/foldersync/debouncer.go`
-- `packages/server/pkg/foldersync/filter.go`
-- `packages/server/pkg/foldersync/types.go`
-- `packages/server/pkg/foldersync/watcher_test.go`
+- `packages/db/pkg/sqlc/schema/` — new migration SQL
+- `packages/db/pkg/sqlc/queries/` — updated workspace queries
+- `packages/server/pkg/model/mworkspace/` — updated model
+- `packages/server/pkg/service/sworkspace/` — updated reader/writer
+- Run `pnpm nx run db:generate` to regenerate sqlc
 
-**Dependencies**: `github.com/fsnotify/fsnotify`
+### Phase 4: File Watcher + Sync Engine
 
-**Testing**: Create temp dirs, write files, verify events
-
-### Phase 5: Sync Coordinator
-
-**Scope**: Bidirectional sync engine — disk↔database with eventstream integration.
+**Scope**: `fsnotify` watcher, debouncer, self-write tracker, SyncCoordinator, SyncManager.
 
 **Files**:
-- `packages/server/pkg/foldersync/sync.go`
-- `packages/server/pkg/foldersync/autosaver.go`
+```
+packages/server/pkg/foldersync/
+├── watcher.go, debouncer.go, filter.go, selftrack.go
+├── sync.go, manager.go, types.go
+└── watcher_test.go
+```
 
-**Dependencies**: Phase 3 (YAML format), Phase 4 (watcher), services, eventstream
+**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (Open YAML), Phase 3 (workspace schema)
 
-**Testing**: Full integration tests — modify files on disk, verify DB updates; modify DB, verify files written
+### Phase 5: RPC Endpoints + CLI Import
 
-### Phase 6: RPC Endpoints + Desktop Integration
-
-**Scope**: TypeSpec definitions for folder sync management, RPC handlers, desktop UI.
+**Scope**: TypeSpec definitions, RPC handlers for sync management, CLI `import bruno` command.
 
 **Files**:
-- `packages/spec/` (TypeSpec definitions)
-- `packages/server/internal/api/` (RPC handlers)
-- `packages/client/` (React hooks/services)
-- `apps/desktop/` (Electron integration — folder picker, sync status)
+- `packages/spec/` — new TypeSpec definitions
+- `packages/server/internal/api/` — RPC handlers
+- `apps/cli/cmd/import.go` — `importBrunoCmd`
 
-**Dependencies**: Phase 5 (sync coordinator)
+**Deps**: Phase 1 (OpenCollection parser), Phase 4 (sync engine)
+
+### Phase 6: Desktop Integration
+
+**Scope**: Electron folder picker, workspace sync settings UI, status indicators.
+
+**Files**:
+- `packages/client/` — React hooks/services for sync
+- `packages/ui/` — sync status components
+- `apps/desktop/` — Electron IPC for folder picker
+
+**Deps**: Phase 5 (RPC endpoints)
 
 ### Phase 7: CLI Collection Runner
 
-**Scope**: Run requests/flows directly from collection folders.
+**Scope**: `devtools run <folder>` command.
 
 **Files**:
-- `apps/cli/cmd/run.go` (extend with `collection` subcommand)
+- `apps/cli/cmd/run.go`
 
-**Dependencies**: Phase 3 (YAML format), existing runner
+**Deps**: Phase 2 (Open YAML format), existing runner
 
 ---
 
 ## Phase Dependency Graph
 
 ```
-Phase 1: OpenCollection Parser ──→ Phase 2: CLI Import
-                                          │
-Phase 3: DevTools YAML Format ──┬─────────┼──→ Phase 7: CLI Collection Runner
-                                │         │
-Phase 4: File Watcher ──────────┤         │
-                                │         │
-                                └──→ Phase 5: Sync Coordinator ──→ Phase 6: RPC + Desktop
+Phase 1: OpenCollection Parser ──────────────────────────┐
+                                                         │
+Phase 2: Open YAML Format ──┬────────────────────────────┤
+                            │                            │
+Phase 3: Workspace Schema ──┤                            │
+                            │                            │
+                            └──→ Phase 4: Sync Engine ───┼──→ Phase 5: RPC + CLI Import
+                                                         │
+                                                         └──→ Phase 6: Desktop UI
+Phase 2 ─────────────────────────────────────────────────────→ Phase 7: CLI Runner
 ```
 
-Phases 1 and 3-4 can be developed **in parallel** (no dependencies between them).
+**Parallel work:**
+- Phase 1, 2, 3 can all be developed in parallel
+- Phase 4 depends on 2+3
+- Phase 5 depends on 1+4
+- Phase 7 depends only on 2
 
 ---
 
 ## External Dependencies
 
-| Dependency | Purpose | Phase |
+| Dependency | Purpose | Already in use? |
 |---|---|---|
-| `gopkg.in/yaml.v3` | YAML parsing (already in use by `yamlflowsimplev2`) | 1, 3 |
-| `github.com/fsnotify/fsnotify` | Cross-platform file system notifications | 4 |
-
----
-
-## Key Design Decisions
-
-### Why OpenCollection YAML only (no .bru parser)?
-
-1. **Bruno's direction** — OpenCollection YAML is the recommended format going forward
-2. **No custom parser** — standard `gopkg.in/yaml.v3` handles everything
-3. **Forward-compatible** — .bru is being phased out
-4. **Less code to maintain** — no hand-written PEG parser
-5. **Better tooling** — YAML linting, schema validation, IDE support
-
-### Why a separate DevTools YAML format?
-
-1. **Control** — we define the schema, we evolve it independently
-2. **Simplicity** — OpenCollection has sections we don't use (`runtime.scripts`, `runtime.actions`)
-3. **Flat structure** — our format puts `name`, `method`, `url` at top level (no `info`/`http` nesting)
-4. **Consistency** — matches existing `yamlflowsimplev2` conventions
-5. **Import, don't adopt** — import OpenCollection, sync in DevTools format
-
-### Why fsnotify instead of polling?
-
-1. **Efficient** — kernel-level notifications, no CPU overhead from polling
-2. **Low latency** — events arrive in milliseconds vs polling interval
-3. **Standard** — most Go file-watching libraries use fsnotify
-4. **Exception**: WSL paths use polling (matching Bruno's approach)
-
-### Why autosave debounce at 500ms?
-
-1. **Matches Bruno** — users expect similar behavior
-2. **Prevents rapid writes** — typing in URL field doesn't cause per-keystroke disk writes
-3. **Balances responsiveness** — changes appear on disk within ~500ms, fast enough for git workflows
+| `gopkg.in/yaml.v3` | YAML parsing | Yes (`yamlflowsimplev2`) |
+| `github.com/fsnotify/fsnotify` | Filesystem notifications | No (new) |
