@@ -2,6 +2,7 @@ package expression
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"os"
 	"path/filepath"
@@ -9,7 +10,31 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/secretresolver"
 )
+
+// mockSecretResolver is a test double for secretresolver.SecretResolver.
+type mockSecretResolver struct {
+	secrets map[string]string // "provider:ref#fragment" -> value
+	err     error
+}
+
+var _ secretresolver.SecretResolver = (*mockSecretResolver)(nil)
+
+func (m *mockSecretResolver) ResolveSecret(_ context.Context, provider, ref, fragment string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	key := provider + ":" + ref
+	if fragment != "" {
+		key += "#" + fragment
+	}
+	val, ok := m.secrets[key]
+	if !ok {
+		return "", fmt.Errorf("secret not found: %s", key)
+	}
+	return val, nil
+}
 
 // =============================================================================
 // Path Resolution Tests
@@ -1256,4 +1281,214 @@ func BenchmarkExtractExprPaths(b *testing.B) {
 			_ = ExtractExprPaths(`nodeA.result == "success" && nodeB.value > 30 && config.enabled`)
 		}
 	})
+}
+
+// =============================================================================
+// Cloud Secret Reference Tests
+// =============================================================================
+
+func TestInterpolate_GCPSecret_SimpleValue(t *testing.T) {
+	resolver := &mockSecretResolver{
+		secrets: map[string]string{
+			"gcp:projects/p/secrets/s/versions/latest": "my-secret-value",
+		},
+	}
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver)
+
+	result, err := env.Interpolate("Secret: {{ #gcp:projects/p/secrets/s/versions/latest }}")
+	require.NoError(t, err)
+	require.Equal(t, "Secret: my-secret-value", result)
+}
+
+func TestInterpolate_GCPSecret_WithFragment(t *testing.T) {
+	resolver := &mockSecretResolver{
+		secrets: map[string]string{
+			"gcp:projects/p/secrets/oauth/versions/latest#client_secret": "xyz-secret",
+		},
+	}
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver)
+
+	result, err := env.Interpolate("{{ #gcp:projects/p/secrets/oauth/versions/latest#client_secret }}")
+	require.NoError(t, err)
+	require.Equal(t, "xyz-secret", result)
+}
+
+func TestInterpolate_GCPSecret_NoResolver(t *testing.T) {
+	env := NewUnifiedEnv(nil) // No secret resolver configured
+
+	_, err := env.Interpolate("{{ #gcp:projects/p/secrets/s/versions/latest }}")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no secret resolver configured")
+
+	var secretErr *SecretReferenceError
+	require.ErrorAs(t, err, &secretErr)
+}
+
+func TestInterpolate_GCPSecret_EmptyPath(t *testing.T) {
+	resolver := &mockSecretResolver{secrets: map[string]string{}}
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver)
+
+	_, err := env.Interpolate("{{ #gcp: }}")
+	require.Error(t, err)
+}
+
+func TestInterpolate_GCPSecret_MixedReferences(t *testing.T) {
+	t.Setenv("TEST_MIX_VAR", "env-value")
+
+	resolver := &mockSecretResolver{
+		secrets: map[string]string{
+			"gcp:projects/p/secrets/s/versions/1": "secret-value",
+		},
+	}
+	env := NewUnifiedEnv(map[string]any{
+		"name": "John",
+	}).WithSecretResolver(resolver)
+
+	result, err := env.Interpolate("{{ name }} {{ #env:TEST_MIX_VAR }} {{ #gcp:projects/p/secrets/s/versions/1 }}")
+	require.NoError(t, err)
+	require.Equal(t, "John env-value secret-value", result)
+}
+
+func TestInterpolate_GCPSecret_TrackedAsMasked(t *testing.T) {
+	resolver := &mockSecretResolver{
+		secrets: map[string]string{
+			"gcp:projects/p/secrets/s/versions/latest": "super-secret",
+		},
+	}
+	tracker := tracking.NewVariableTracker()
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver).WithTracking(tracker)
+
+	result, err := env.Interpolate("{{ #gcp:projects/p/secrets/s/versions/latest }}")
+	require.NoError(t, err)
+	require.Equal(t, "super-secret", result)
+
+	// Tracker should record masked value, not the actual secret
+	readVars := tracker.GetReadVars()
+	require.Contains(t, readVars, "#gcp:projects/p/secrets/s/versions/latest")
+	require.Equal(t, "***", readVars["#gcp:projects/p/secrets/s/versions/latest"])
+}
+
+func TestInterpolate_GCPSecret_ResolverError(t *testing.T) {
+	resolver := &mockSecretResolver{
+		err: fmt.Errorf("permission denied"),
+	}
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver)
+
+	_, err := env.Interpolate("{{ #gcp:projects/p/secrets/s/versions/latest }}")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "permission denied")
+}
+
+func TestResolveValue_GCPSecret(t *testing.T) {
+	resolver := &mockSecretResolver{
+		secrets: map[string]string{
+			"gcp:projects/p/secrets/s/versions/latest": "typed-secret",
+		},
+	}
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver)
+
+	val, err := env.ResolveValue("{{ #gcp:projects/p/secrets/s/versions/latest }}")
+	require.NoError(t, err)
+	require.Equal(t, "typed-secret", val)
+}
+
+func TestInterpolate_AWSSecret_NoResolver(t *testing.T) {
+	// AWS prefix is recognized but no resolver means clear error
+	env := NewUnifiedEnv(nil)
+
+	_, err := env.Interpolate("{{ #aws:my-secret#key }}")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no secret resolver configured")
+}
+
+func TestInterpolate_AzureSecret_NoResolver(t *testing.T) {
+	// Azure prefix is recognized but no resolver means clear error
+	env := NewUnifiedEnv(nil)
+
+	_, err := env.Interpolate("{{ #azure:vault/secret#key }}")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no secret resolver configured")
+}
+
+// =============================================================================
+// Secret Reference Helper Tests
+// =============================================================================
+
+func TestIsSecretReference(t *testing.T) {
+	require.True(t, IsSecretReference("#gcp:projects/p/secrets/s"))
+	require.True(t, IsSecretReference("#aws:my-secret"))
+	require.True(t, IsSecretReference("#azure:vault/secret"))
+	require.False(t, IsSecretReference("#env:VAR"))
+	require.False(t, IsSecretReference("#file:/path"))
+	require.False(t, IsSecretReference("plain"))
+}
+
+func TestParseSecretReference(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		expectedProvider string
+		expectedRef      string
+		expectedFragment string
+	}{
+		{
+			name:             "gcp with fragment",
+			input:            "#gcp:projects/p/secrets/s/versions/latest#client_secret",
+			expectedProvider: "gcp",
+			expectedRef:      "projects/p/secrets/s/versions/latest",
+			expectedFragment: "client_secret",
+		},
+		{
+			name:             "gcp without fragment",
+			input:            "#gcp:projects/p/secrets/s/versions/latest",
+			expectedProvider: "gcp",
+			expectedRef:      "projects/p/secrets/s/versions/latest",
+			expectedFragment: "",
+		},
+		{
+			name:             "aws with fragment",
+			input:            "#aws:secret-name#key",
+			expectedProvider: "aws",
+			expectedRef:      "secret-name",
+			expectedFragment: "key",
+		},
+		{
+			name:             "azure with fragment",
+			input:            "#azure:vault/secret-name#field",
+			expectedProvider: "azure",
+			expectedRef:      "vault/secret-name",
+			expectedFragment: "field",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider, ref, fragment := ParseSecretReference(tt.input)
+			require.Equal(t, tt.expectedProvider, provider)
+			require.Equal(t, tt.expectedRef, ref)
+			require.Equal(t, tt.expectedFragment, fragment)
+		})
+	}
+}
+
+func TestWithSecretResolver_ClonePreservesResolver(t *testing.T) {
+	resolver := &mockSecretResolver{
+		secrets: map[string]string{
+			"gcp:projects/p/secrets/s/versions/latest": "value",
+		},
+	}
+	env := NewUnifiedEnv(nil).WithSecretResolver(resolver)
+
+	// Clone should preserve the resolver
+	clone := env.Clone()
+	result, err := clone.Interpolate("{{ #gcp:projects/p/secrets/s/versions/latest }}")
+	require.NoError(t, err)
+	require.Equal(t, "value", result)
+}
+
+func TestExtractVarRefs_IncludesSecretRefs(t *testing.T) {
+	refs := ExtractVarRefs("{{ #gcp:projects/p/secrets/s/versions/latest#key }} and {{ name }}")
+	require.Len(t, refs, 2)
+	require.Contains(t, refs, "#gcp:projects/p/secrets/s/versions/latest#key")
+	require.Contains(t, refs, "name")
 }

@@ -101,3 +101,26 @@ func (e *EnvReferenceError) Error() string {
 func (e *EnvReferenceError) Unwrap() error {
 	return e.Cause
 }
+
+// SecretReferenceError represents an error when resolving a cloud secret reference.
+type SecretReferenceError struct {
+	Provider string // "gcp", "aws", "azure"
+	Ref      string // The resource path
+	Fragment string // Optional JSON fragment key
+	Cause    error
+}
+
+func (e *SecretReferenceError) Error() string {
+	loc := e.Ref
+	if e.Fragment != "" {
+		loc += "#" + e.Fragment
+	}
+	if e.Cause != nil {
+		return fmt.Sprintf("secret reference '%s:%s' failed: %v", e.Provider, loc, e.Cause)
+	}
+	return fmt.Sprintf("secret reference '%s:%s' failed", e.Provider, loc)
+}
+
+func (e *SecretReferenceError) Unwrap() error {
+	return e.Cause
+}
