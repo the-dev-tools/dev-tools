@@ -1,19 +1,19 @@
-# OpenCollection Import & Open YAML Folder Sync Plan
+# OpenCollection Import & OpenYAML Folder Sync Plan
 
 ## Overview
 
 This document describes the plan to add:
 
-1. **OpenCollection YAML Import** — Parse Bruno's OpenCollection YAML collections and convert them into DevTools' Open YAML format in a separate folder
-2. **Open YAML Folder Sync** — Bidirectional filesystem sync using DevTools' own "Open YAML" format (requests + flows), with the **folder as the source of truth** and SQLite as a runtime cache
+1. **OpenCollection YAML Import** — Parse Bruno's OpenCollection YAML collections and convert them into DevTools' OpenYAML format in a separate folder
+2. **OpenYAML Folder Sync** — Bidirectional filesystem sync using DevTools' own "OpenYAML" format (requests + flows), with the **folder as the source of truth** and SQLite as a runtime cache
 3. **Workspace Sync Modes** — A workspace can be synced to a local folder, opened from a Bruno collection (auto-converted), or used without sync (current behavior)
-4. **CLI Runner Integration** — Execute collections from Open YAML folders
+4. **CLI Runner Integration** — Execute collections from OpenYAML folders
 
 ### Key Concepts
 
-- **Open YAML** — DevTools' own YAML format for collections. Includes both HTTP requests and flows. One file per request, one file per flow, folder hierarchy maps to the file tree.
+- **OpenYAML** — DevTools' own YAML format for collections. Includes both HTTP requests and flows. One file per request, one file per flow, folder hierarchy maps to the file tree.
 - **OpenCollection YAML** — Bruno's YAML format (`opencollection.yml` root). We import FROM this format.
-- **Folder = Source of Truth** — The Open YAML folder is what gets committed to git, shared with teammates, and survives across machines. It is the canonical data.
+- **Folder = Source of Truth** — The OpenYAML folder is what gets committed to git, shared with teammates, and survives across machines. It is the canonical data.
 - **SQLite = Runtime Cache** — SQLite is populated from the folder and provides fast indexed queries for the UI. It can be fully rebuilt from the folder at any time.
 - **Workspace Sync Modes** — Each workspace can optionally be linked to a folder on disk.
 
@@ -56,7 +56,7 @@ Go Server
     │
     └── SyncCoordinator (per synced workspace)
             ↕  bidirectional
-        Open YAML Folder ←── SOURCE OF TRUTH (git, shared, portable)
+        OpenYAML Folder ←── SOURCE OF TRUTH (git, shared, portable)
             /path/to/my-collection/
             ├── devtools.yaml
             ├── requests/
@@ -65,7 +65,13 @@ Go Server
 
 ### Design Principle: Folder is the Source of Truth
 
-The Open YAML folder is the **canonical data store**. SQLite is a **runtime cache** that can be fully rebuilt from the folder at any time. This is the same model Bruno uses — their Redux store is just a runtime view of what's on disk.
+> **Scope:** The folder-as-source-of-truth / SQLite-as-cache behavior described in this section
+> **only applies to synced workspaces** (Mode 2: Sync to Folder, Mode 3: Import from Bruno).
+> Non-synced workspaces (Mode 1) continue to use SQLite as the sole data store — no folder
+> is involved, and no reconciliation or file watching occurs. The SyncCoordinator is never
+> created for Mode 1 workspaces.
+
+The OpenYAML folder is the **canonical data store**. SQLite is a **runtime cache** that can be fully rebuilt from the folder at any time. This is the same model Bruno uses — their Redux store is just a runtime view of what's on disk.
 
 **Why the folder must be the source of truth:**
 - `git pull` brings new changes → folder has the latest data → SQLite must update to match
@@ -94,7 +100,7 @@ The Open YAML folder is the **canonical data store**. SQLite is a **runtime cach
 When a synced workspace is opened, the SyncCoordinator must reconcile SQLite with the folder:
 
 ```
-1. Walk the Open YAML folder, build a map of path → parsed content
+1. Walk the OpenYAML folder, build a map of path → parsed content
 2. Read all entities for this workspace from SQLite
 3. Compare:
    a. File exists on disk but not in SQLite → INSERT (new file from git pull)
@@ -147,9 +153,9 @@ User creates workspace → data lives only in SQLite
 SyncPath = nil, SyncEnabled = false
 ```
 
-Nothing changes from the current behavior. Workspaces work exactly as they do today.
+Nothing changes from the current behavior. Workspaces work exactly as they do today. **SQLite is the sole data store** — no folder sync, no file watcher, no reconciliation. All existing services, RPC handlers, and eventstream work unchanged.
 
-### Mode 2: Sync to Folder (Open YAML)
+### Mode 2: Sync to Folder (OpenYAML)
 
 ```
 User creates workspace → links to a folder → folder becomes source of truth
@@ -162,21 +168,21 @@ SyncPath = "/Users/dev/my-api-collection", SyncFormat = "open_yaml", SyncEnabled
 1. User has an existing workspace in DevTools (data in SQLite)
 2. User clicks "Sync to Folder" → picks/creates an empty directory
 3. Server sets `sync_path` on the workspace
-4. SyncCoordinator starts → exports all SQLite data to Open YAML files in the folder
+4. SyncCoordinator starts → exports all SQLite data to OpenYAML files in the folder
 5. File watcher starts → from now on, folder is the source of truth
 6. User can `git init && git add . && git commit` to start versioning
 
-**B) Open existing folder (Open YAML folder → new workspace):**
+**B) Open existing folder (OpenYAML folder → new workspace):**
 1. User clicks "Open Folder" → picks a directory with `devtools.yaml`
 2. Server creates a new workspace with `sync_path` set
 3. SyncCoordinator starts → reads entire folder → populates SQLite cache
 4. File watcher starts → folder is the source of truth
 5. This is the common flow after `git clone` on a new machine
 
-### Mode 3: Import from Bruno (OpenCollection → Open YAML)
+### Mode 3: Import from Bruno (OpenCollection → OpenYAML)
 
 ```
-User opens Bruno collection → DevTools converts to Open YAML in a NEW folder → syncs there
+User opens Bruno collection → DevTools converts to OpenYAML in a NEW folder → syncs there
 SyncPath = "/Users/dev/my-api-devtools/", SyncFormat = "open_yaml", SyncEnabled = true
 ```
 
@@ -185,7 +191,7 @@ SyncPath = "/Users/dev/my-api-devtools/", SyncFormat = "open_yaml", SyncEnabled 
 2. Server parses the OpenCollection YAML directory
 3. Server creates a new workspace and populates SQLite with the converted data
 4. Server creates a NEW folder (e.g., next to the Bruno folder, or user picks location)
-5. SyncCoordinator exports SQLite data to Open YAML format in the new folder
+5. SyncCoordinator exports SQLite data to OpenYAML format in the new folder
 6. File watcher starts → bidirectional sync is live on the NEW folder
 7. Original Bruno folder is NOT modified
 
@@ -205,7 +211,7 @@ OpenCollection .yml directory
     → topencollection.ConvertOpenCollection()
         → OpenCollectionResolved (mhttp.HTTP, mfile.File, mflow.Flow, etc.)
             → SQLite (workspace created + populated)
-                → SyncCoordinator exports to Open YAML folder
+                → SyncCoordinator exports to OpenYAML folder
 ```
 
 | Layer | Location | Pattern |
@@ -473,7 +479,7 @@ packages/server/pkg/translate/topencollection/
 
 ---
 
-## Part 2: Open YAML Format (DevTools' Own Format)
+## Part 2: OpenYAML Format (DevTools' Own Format)
 
 ### 2.1 Design Goals
 
@@ -482,7 +488,7 @@ packages/server/pkg/translate/topencollection/
 - **Git-friendly** — clean diffs, merge-friendly structure
 - **Human-editable** — developers can edit in any text editor or IDE
 - **Flat top-level** — `name`, `method`, `url` at root (no `info`/`http` nesting like OpenCollection)
-- **Compatible with existing `yamlflowsimplev2`** — flow files use the same format
+- **Reuses existing `yamlflowsimplev2` types** — request types (`YamlRequestDefV2`, `HeaderMapOrSlice`, `YamlBodyUnion`, `AssertionsOrSlice`) and flow types (`YamlFlowFlowV2`) are imported directly, not duplicated. Only `gopkg.in/yaml.v3` for YAML parsing.
 
 ### 2.2 Directory Structure
 
@@ -511,7 +517,7 @@ version: "1"
 name: My API Collection
 ```
 
-This file identifies the directory as a DevTools Open YAML collection. Its presence is how we detect the format (analogous to `opencollection.yml` for Bruno).
+This file identifies the directory as a DevTools OpenYAML collection. Its presence is how we detect the format (analogous to `opencollection.yml` for Bruno).
 
 ### 2.4 Request File Format
 
@@ -554,7 +560,7 @@ headers:
 
 body:
   type: raw
-  content: |
+  raw: |
     {
       "name": "John Doe",
       "email": "john@example.com"
@@ -572,8 +578,8 @@ url: "{{base_url}}/upload"
 order: 3
 
 body:
-  type: form-data
-  fields:
+  type: form_data
+  form_data:
     - name: file
       value: "@./fixtures/test.png"
       description: "File to upload"
@@ -600,7 +606,7 @@ steps:
       url: "{{base_url}}/auth/login"
       body:
         type: raw
-        content: '{"email": "test@example.com", "password": "test"}'
+        raw: '{"email": "test@example.com", "password": "test"}'
 
   - request:
       name: Get Profile
@@ -637,10 +643,26 @@ order: 1
 description: "User management endpoints"
 ```
 
-### 2.8 Open YAML Go Types
+### 2.8 OpenYAML Go Types
+
+> **Reuse Policy:** The `topenyaml` package reuses types from `yamlflowsimplev2` wherever possible
+> to avoid duplicating YAML marshaling logic. The types below reference:
+> - `yamlflowsimplev2.YamlRequestDefV2` — request fields (name, method, url, headers, body, etc.)
+> - `yamlflowsimplev2.HeaderMapOrSlice` — flexible header/param list (map or slice with custom marshal)
+> - `yamlflowsimplev2.YamlNameValuePairV2` — individual name/value/enabled entry
+> - `yamlflowsimplev2.YamlBodyUnion` — flexible body (raw string, JSON map, or structured with type)
+> - `yamlflowsimplev2.AssertionsOrSlice` — assertions (string shorthand or structured)
+> - `yamlflowsimplev2.YamlAssertionV2` — individual assertion entry
+> - `yamlflowsimplev2.YamlFlowFlowV2` — flow definition (used directly for flow files)
+>
+> Only types that have no equivalent in `yamlflowsimplev2` are defined in `topenyaml`.
 
 ```go
-package openyaml
+package topenyaml
+
+import (
+    yfs "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
+)
 
 // CollectionConfig represents devtools.yaml
 type CollectionConfig struct {
@@ -648,43 +670,20 @@ type CollectionConfig struct {
     Name    string `yaml:"name"`
 }
 
-// RequestFile represents a single request .yaml file
+// RequestFile represents a single request .yaml file.
+// Embeds YamlRequestDefV2 for the core request fields (Name, Method, URL,
+// Headers, QueryParams, Body, Assertions, Description) — all of which reuse
+// the existing custom marshalers (HeaderMapOrSlice, YamlBodyUnion, etc.).
+// Adds Order for file-tree ordering (not present in YamlRequestDefV2).
 type RequestFile struct {
-    Name        string           `yaml:"name"`
-    Method      string           `yaml:"method"`
-    URL         string           `yaml:"url"`
-    Description string           `yaml:"description,omitempty"`
-    Order       float64          `yaml:"order,omitempty"`
-    Headers     []HeaderEntry    `yaml:"headers,omitempty"`
-    QueryParams []HeaderEntry    `yaml:"query_params,omitempty"`
-    Body        *BodyDef         `yaml:"body,omitempty"`
-    Assertions  AssertionList    `yaml:"assertions,omitempty"`
+    yfs.YamlRequestDefV2 `yaml:",inline"`
+    Order                float64 `yaml:"order,omitempty"`
 }
 
-type HeaderEntry struct {
-    Name        string `yaml:"name"`
-    Value       string `yaml:"value"`
-    Enabled     *bool  `yaml:"enabled,omitempty"`     // Default: true
-    Description string `yaml:"description,omitempty"`
-}
-
-type BodyDef struct {
-    Type    string        `yaml:"type"`              // none|raw|form-data|urlencoded
-    Content string        `yaml:"content,omitempty"` // For raw bodies
-    Fields  []HeaderEntry `yaml:"fields,omitempty"`  // For form-data / urlencoded
-}
-
-// AssertionList supports both string shorthand and structured form
-// - "res.status eq 200"
-// - {value: "res.status eq 200", enabled: false, description: "..."}
-type AssertionList []AssertionEntry
-
-type AssertionEntry struct {
-    Value       string `yaml:"value,omitempty"`
-    Enabled     *bool  `yaml:"enabled,omitempty"`
-    Description string `yaml:"description,omitempty"`
-}
-
+// EnvironmentFile represents an environment .yaml file.
+// NOTE: This differs from yamlflowsimplev2.YamlEnvironmentV2 which uses
+// map[string]string for variables. OpenYAML environments need per-variable
+// metadata (secret flag), so we define our own type here.
 type EnvironmentFile struct {
     Name      string        `yaml:"name"`
     Variables []EnvVariable `yaml:"variables"`
@@ -703,10 +702,23 @@ type FolderMeta struct {
 }
 ```
 
+**Type Reuse Summary:**
+
+| OpenYAML Need | Reused From `yamlflowsimplev2` | Notes |
+|---|---|---|
+| Request fields | `YamlRequestDefV2` (embedded) | Name, Method, URL, Headers, QueryParams, Body, Assertions, Description |
+| Headers / Query params | `HeaderMapOrSlice` → `[]YamlNameValuePairV2` | Supports both map and list YAML forms |
+| Body | `*YamlBodyUnion` | Supports raw string, JSON map, form_data, urlencoded |
+| Assertions | `AssertionsOrSlice` → `[]YamlAssertionV2` | Supports string shorthand and structured |
+| Flow files | `YamlFlowFlowV2` (used directly) | No wrapper needed — flow .yaml files ARE `YamlFlowFlowV2` |
+| Environments | **New** `EnvironmentFile` | Needs `secret` field not in `YamlEnvironmentV2` |
+| Folder metadata | **New** `FolderMeta` | No equivalent in `yamlflowsimplev2` |
+| Collection config | **New** `CollectionConfig` | No equivalent in `yamlflowsimplev2` |
+
 ### 2.9 Package Structure
 
 ```
-packages/server/pkg/translate/openyaml/
+packages/server/pkg/translate/topenyaml/
 ├── types.go           # YAML struct definitions
 ├── parser.go          # Read collection directory → DevTools models
 ├── serializer.go      # DevTools models → YAML files on disk
@@ -721,25 +733,31 @@ packages/server/pkg/translate/openyaml/
 ### 2.10 Conversion Functions
 
 ```go
-// ReadCollection reads an Open YAML directory into DevTools models.
+// ReadCollection reads an OpenYAML directory into DevTools models.
+// Uses yamlflowsimplev2 converter functions internally:
+//   - convertToHTTPHeaders() for HeaderMapOrSlice → []mhttp.HTTPHeader
+//   - convertToHTTPSearchParams() for HeaderMapOrSlice → []mhttp.HTTPSearchParam
+//   - convertBodyStruct() for *YamlBodyUnion → mhttp body types
 func ReadCollection(collectionPath string, opts ReadOptions) (*ioworkspace.WorkspaceBundle, error)
 
-// WriteCollection exports a workspace bundle to an Open YAML directory.
+// WriteCollection exports a workspace bundle to an OpenYAML directory.
 func WriteCollection(collectionPath string, bundle *ioworkspace.WorkspaceBundle) error
 
-// ReadRequest parses a single request YAML file.
+// ReadRequest parses a single request YAML file into a RequestFile
+// (which embeds yamlflowsimplev2.YamlRequestDefV2).
 func ReadRequest(data []byte) (*RequestFile, error)
 
-// WriteRequest serializes a single request to YAML.
+// WriteRequest serializes DevTools models to a single request YAML.
 func WriteRequest(http mhttp.HTTP, headers []mhttp.HTTPHeader,
     params []mhttp.HTTPSearchParam, body interface{},
     asserts []mhttp.HTTPAssert) ([]byte, error)
 
 // ReadFlow parses a single flow YAML file (delegates to yamlflowsimplev2).
-func ReadFlow(data []byte, opts FlowReadOptions) (*FlowResolved, error)
+// Flow files are yamlflowsimplev2.YamlFlowFlowV2 — no topenyaml wrapper needed.
+func ReadFlow(data []byte, opts yfs.ConvertOptionsV2) (*yfs.YamlFlowDataV2, error)
 
 // WriteFlow serializes a single flow to YAML (delegates to yamlflowsimplev2 exporter).
-func WriteFlow(flow FlowBundle) ([]byte, error)
+func WriteFlow(flow yfs.YamlFlowFlowV2) ([]byte, error)
 ```
 
 ---
@@ -994,10 +1012,10 @@ DisableFolderSync(workspaceId) → void
 // Get sync status
 GetFolderSyncStatus(workspaceId) → SyncStatus
 
-// Import Bruno collection → create workspace + Open YAML folder
+// Import Bruno collection → create workspace + OpenYAML folder
 ImportBrunoCollection(brunoFolderPath, outputFolderPath) → Workspace
 
-// Export workspace to Open YAML folder
+// Export workspace to OpenYAML folder
 ExportToFolder(workspaceId, folderPath) → void
 
 type SyncStatus {
@@ -1055,13 +1073,13 @@ packages/server/pkg/translate/topencollection/
 
 **Deps**: `gopkg.in/yaml.v3` (existing), `mhttp`, `mfile`, `menv`
 
-### Phase 2: Open YAML Format (Requests + Flows)
+### Phase 2: OpenYAML Format (Requests + Flows)
 
 **Scope**: DevTools' own YAML format — parser + serializer with round-trip support. Flows delegate to existing `yamlflowsimplev2`.
 
 **Files**:
 ```
-packages/server/pkg/translate/openyaml/
+packages/server/pkg/translate/topenyaml/
 ├── types.go, parser.go, serializer.go, request.go
 ├── flow.go, environment.go, folder.go, collection.go
 └── parser_test.go
@@ -1092,7 +1110,7 @@ packages/server/pkg/foldersync/
 └── watcher_test.go
 ```
 
-**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (Open YAML), Phase 3 (workspace schema)
+**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (OpenYAML), Phase 3 (workspace schema)
 
 ### Phase 5: RPC Endpoints + CLI Import
 
@@ -1123,7 +1141,7 @@ packages/server/pkg/foldersync/
 **Files**:
 - `apps/cli/cmd/run.go`
 
-**Deps**: Phase 2 (Open YAML format), existing runner
+**Deps**: Phase 2 (OpenYAML format), existing runner
 
 ---
 
@@ -1132,7 +1150,7 @@ packages/server/pkg/foldersync/
 ```
 Phase 1: OpenCollection Parser ──────────────────────────┐
                                                          │
-Phase 2: Open YAML Format ──┬────────────────────────────┤
+Phase 2: OpenYAML Format ──┬────────────────────────────┤
                             │                            │
 Phase 3: Workspace Schema ──┤                            │
                             │                            │
