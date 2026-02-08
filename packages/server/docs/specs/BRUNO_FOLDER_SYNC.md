@@ -5,7 +5,7 @@
 This document describes the plan to add:
 
 1. **OpenCollection YAML Import** — Parse Bruno's OpenCollection YAML collections and convert them into DevTools' Open YAML format in a separate folder
-2. **Open YAML Folder Sync** — Bidirectional filesystem sync using DevTools' own "Open YAML" format (requests + flows), with SQLite as the runtime source of truth
+2. **Open YAML Folder Sync** — Bidirectional filesystem sync using DevTools' own "Open YAML" format (requests + flows), with the **folder as the source of truth** and SQLite as a runtime cache
 3. **Workspace Sync Modes** — A workspace can be synced to a local folder, opened from a Bruno collection (auto-converted), or used without sync (current behavior)
 4. **CLI Runner Integration** — Execute collections from Open YAML folders
 
@@ -13,7 +13,8 @@ This document describes the plan to add:
 
 - **Open YAML** — DevTools' own YAML format for collections. Includes both HTTP requests and flows. One file per request, one file per flow, folder hierarchy maps to the file tree.
 - **OpenCollection YAML** — Bruno's YAML format (`opencollection.yml` root). We import FROM this format.
-- **SQLite** — Remains the runtime source of truth. Folder sync mirrors SQLite ↔ filesystem bidirectionally.
+- **Folder = Source of Truth** — The Open YAML folder is what gets committed to git, shared with teammates, and survives across machines. It is the canonical data.
+- **SQLite = Runtime Cache** — SQLite is populated from the folder and provides fast indexed queries for the UI. It can be fully rebuilt from the folder at any time.
 - **Workspace Sync Modes** — Each workspace can optionally be linked to a folder on disk.
 
 ### Sources
@@ -43,44 +44,68 @@ Single SQLite DB (state.db in userData)
 - All data lives exclusively in SQLite
 - Real-time UI sync via in-memory eventstream
 
-### Proposed State: SQLite + Folder Sync
+### Proposed State: Folder-First Architecture
 
 ```
 Desktop App (React UI)
     ↕  Connect RPC over Unix Socket
 Go Server
     ↕  Reader/Writer services
-    ├── SQLite DB (state.db) ←── RUNTIME SOURCE OF TRUTH
+    ├── SQLite DB (state.db) ←── RUNTIME CACHE (disposable, rebuildable)
     │   └── workspace.sync_path = "/path/to/my-collection"
     │
     └── SyncCoordinator (per synced workspace)
             ↕  bidirectional
-        Open YAML Folder ←── GIT-FRIENDLY PERSISTENCE
+        Open YAML Folder ←── SOURCE OF TRUTH (git, shared, portable)
             /path/to/my-collection/
             ├── devtools.yaml
             ├── requests/
             └── flows/
 ```
 
-### Design Principle: SQLite is King
+### Design Principle: Folder is the Source of Truth
 
-SQLite remains the **single source of truth at runtime**. The folder sync is a **persistence mirror**:
+The Open YAML folder is the **canonical data store**. SQLite is a **runtime cache** that can be fully rebuilt from the folder at any time. This is the same model Bruno uses — their Redux store is just a runtime view of what's on disk.
+
+**Why the folder must be the source of truth:**
+- `git pull` brings new changes → folder has the latest data → SQLite must update to match
+- Teammate edits a request in their editor → saves → watcher picks it up → SQLite updates → UI reflects
+- Delete `state.db` → server starts → reads folder → SQLite rebuilt → nothing lost
+- The folder is what gets committed, pushed, reviewed in PRs, and shared across machines
+
+**Why SQLite is still valuable as a cache:**
+- Fast indexed queries (no YAML parsing on every read)
+- Transactions for atomic multi-entity operations
+- Existing services, RPC handlers, and runner all work with SQLite
+- Real-time eventstream already wired to SQLite changes
+- Supports non-synced workspaces (Mode 1) that live only in SQLite
 
 | Direction | Trigger | Behavior |
 |-----------|---------|----------|
-| **Folder → SQLite** | File watcher detects change | Parse YAML → upsert into SQLite → eventstream → UI updates |
-| **SQLite → Folder** | Eventstream publishes change | Serialize from SQLite → write YAML to disk |
-| **Initial load** | Workspace opened with `sync_path` | Read entire folder → populate SQLite (folder wins on first load) |
-| **Conflict** | Both change simultaneously | Disk wins (matching Bruno behavior). Last-write-wins with debounce. |
+| **Folder → SQLite** | File watcher detects change, or git pull, or startup | Parse YAML → upsert into SQLite → eventstream → UI updates |
+| **SQLite → Folder** | UI edit via RPC handler | Write to SQLite → serialize to YAML → write to disk |
+| **Startup** | Server starts with synced workspace | Read entire folder → populate/reconcile SQLite |
+| **Git pull** | Watcher detects batch changes | Re-parse changed files → update SQLite → UI refreshes |
+| **Conflict** | File changed on disk while UI was editing | **Folder wins** — disk state overwrites SQLite |
+| **Rebuild** | `state.db` deleted or corrupted | Full re-read from folder → SQLite rebuilt from scratch |
 
-### Why SQLite Stays as Source of Truth
+### Reconciliation on Startup
 
-1. **Performance** — SQLite queries are instant; parsing YAML on every read would be slow
-2. **Transactions** — Atomic multi-entity updates (e.g., creating a request + headers + body in one tx)
-3. **Indexing** — Fast lookups by ID, workspace, folder
-4. **Existing code** — All services, RPC handlers, runner already work with SQLite
-5. **Offline** — No filesystem dependency for core functionality
-6. **Real-time sync** — Eventstream already works with SQLite changes
+When a synced workspace is opened, the SyncCoordinator must reconcile SQLite with the folder:
+
+```
+1. Walk the Open YAML folder, build a map of path → parsed content
+2. Read all entities for this workspace from SQLite
+3. Compare:
+   a. File exists on disk but not in SQLite → INSERT (new file from git pull)
+   b. File exists in both, content differs → UPDATE SQLite from disk (folder wins)
+   c. Entity in SQLite but no file on disk → DELETE from SQLite (file was deleted/moved)
+   d. File and SQLite match → no-op
+4. Rebuild pathToID / idToPath maps
+5. Start file watcher for live changes
+```
+
+This ensures that after a `git pull`, `git merge`, `git checkout`, or any external file changes, SQLite is always in sync with the folder.
 
 ### Workspace Schema Change
 
@@ -127,24 +152,26 @@ Nothing changes from the current behavior. Workspaces work exactly as they do to
 ### Mode 2: Sync to Folder (Open YAML)
 
 ```
-User creates workspace → links to a folder → bidirectional sync
+User creates workspace → links to a folder → folder becomes source of truth
 SyncPath = "/Users/dev/my-api-collection", SyncFormat = "open_yaml", SyncEnabled = true
 ```
 
 **Two sub-scenarios:**
 
-**A) New sync — empty folder:**
-1. User creates workspace in DevTools
+**A) Export to new folder (existing workspace → empty folder):**
+1. User has an existing workspace in DevTools (data in SQLite)
 2. User clicks "Sync to Folder" → picks/creates an empty directory
 3. Server sets `sync_path` on the workspace
-4. SyncCoordinator starts → exports all existing SQLite data to Open YAML files in the folder
-5. File watcher starts → bidirectional sync is live
+4. SyncCoordinator starts → exports all SQLite data to Open YAML files in the folder
+5. File watcher starts → from now on, folder is the source of truth
+6. User can `git init && git add . && git commit` to start versioning
 
-**B) New sync — existing Open YAML folder:**
+**B) Open existing folder (Open YAML folder → new workspace):**
 1. User clicks "Open Folder" → picks a directory with `devtools.yaml`
 2. Server creates a new workspace with `sync_path` set
-3. SyncCoordinator starts → reads entire folder → populates SQLite
-4. File watcher starts → bidirectional sync is live
+3. SyncCoordinator starts → reads entire folder → populates SQLite cache
+4. File watcher starts → folder is the source of truth
+5. This is the common flow after `git clone` on a new machine
 
 ### Mode 3: Import from Bruno (OpenCollection → Open YAML)
 
@@ -827,16 +854,18 @@ func NewSyncCoordinator(opts SyncOptions) (*SyncCoordinator, error)
 func (s *SyncCoordinator) Start(ctx context.Context) error
 func (s *SyncCoordinator) Stop() error
 
-// InitialLoad reads the entire folder and populates SQLite.
-// Called when a workspace is first opened with sync enabled.
-func (s *SyncCoordinator) InitialLoad(ctx context.Context) error
+// Reconcile reads the entire folder and reconciles SQLite cache to match.
+// Called on startup, after git pull, or when opening a synced workspace.
+// The folder always wins — SQLite is rebuilt to match the folder state.
+func (s *SyncCoordinator) Reconcile(ctx context.Context) error
 
 // ExportAll writes all SQLite data for this workspace to the folder.
-// Called when sync is first enabled on an existing workspace.
+// Called ONCE when sync is first enabled on an existing (non-synced) workspace.
+// After this initial export, the folder becomes the source of truth.
 func (s *SyncCoordinator) ExportAll(ctx context.Context) error
 ```
 
-#### Disk → SQLite Flow
+#### Folder → SQLite (external changes: git pull, editor saves, etc.)
 
 ```
 File change detected (watcher)
@@ -846,25 +875,37 @@ File change detected (watcher)
     → Parse YAML → intermediate types
     → Look up entity by path→ID mapping
     → Begin transaction
-        → If new: INSERT into SQLite (HTTP + headers + params + body + asserts)
-        → If changed: UPDATE in SQLite
-        → If deleted: DELETE from SQLite
+        → If new file: INSERT into SQLite cache
+        → If changed file: UPDATE SQLite cache (folder wins)
+        → If deleted file: DELETE from SQLite cache
     → Commit transaction
     → Publish events to eventstream → UI updates in real-time
 ```
 
-#### SQLite → Disk Flow
+#### SQLite → Folder (UI edits)
 
 ```
-UI edit → RPC handler → SQLite write → eventstream publishes event
-    → SyncCoordinator receives event via subscription
-    → AutoSaver debounces (500ms)
-    → Read full entity from SQLite (HTTP + all children)
-    → Serialize to YAML
+UI edit → RPC handler
+    → Write to SQLite cache (for immediate UI responsiveness)
+    → Serialize entity to YAML
     → Mark path in self-write tracker
-    → Atomic write (temp file + rename)
+    → Atomic write to disk (temp file + rename) ← this is the canonical write
     → Watcher detects → self-write tracker suppresses → no loop
 ```
+
+**Key difference from "SQLite is king" model:** The RPC handler writes to BOTH SQLite and disk. The disk write is the one that matters — if SQLite is lost, the disk file survives. The SQLite write is for UI performance (instant queries without re-parsing YAML).
+
+#### Git Pull / Branch Switch (batch reconciliation)
+
+```
+User runs `git pull` or `git checkout` outside DevTools
+    → Watcher detects batch of file changes
+    → For each changed/added/deleted file:
+        → Update SQLite cache to match folder state
+    → Publish batch events to eventstream → UI refreshes
+```
+
+This is the critical flow that "SQLite is king" would break — after git pull, the folder has the truth and SQLite must catch up.
 
 ### 3.6 AutoSaver (500ms debounce)
 
@@ -907,7 +948,9 @@ func (m *SyncManager) StopSync(workspaceID idwrap.IDWrap) error
 func (m *SyncManager) IsActive(workspaceID idwrap.IDWrap) bool
 
 // RestoreAll starts sync for all workspaces that have sync_enabled=true.
-// Called on server startup.
+// Called on server startup. For each synced workspace:
+// 1. Reconcile SQLite cache from folder (folder wins)
+// 2. Start file watcher
 func (m *SyncManager) RestoreAll(ctx context.Context) error
 
 // Shutdown stops all coordinators gracefully.
@@ -925,7 +968,7 @@ func (m *SyncManager) Shutdown() error
 | Self-write suppression | 2s window to suppress watcher events from our writes |
 | Atomic writes | Write temp file → `os.Rename()` |
 | UID preservation | `pathToID` map persists during session |
-| Conflict resolution | Disk wins (last-write-wins with debounce) |
+| Conflict resolution | Folder always wins (it's the source of truth) |
 | Large file guard | Skip files >5MB |
 | Cross-platform | `filepath.Clean/Rel/Join`, handle `\r\n` |
 | Recursive watch | Walk tree on start, add subdirs on `DirCreated` |
