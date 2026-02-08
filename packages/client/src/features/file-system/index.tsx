@@ -586,7 +586,13 @@ const HttpFile = ({ id }: FileItemProps) => {
                               </Button>
                             </div>
 
-                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={resolvedTheme} value={data} />
+                            <CodeMirror
+                              className={tw`flex-1`}
+                              height='100%'
+                              readOnly
+                              theme={resolvedTheme}
+                              value={data}
+                            />
                           </>
                         )}
                       </Dialog>,
@@ -747,7 +753,13 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
                               </Button>
                             </div>
 
-                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={resolvedTheme} value={data} />
+                            <CodeMirror
+                              className={tw`flex-1`}
+                              height='100%'
+                              readOnly
+                              theme={resolvedTheme}
+                              value={data}
+                            />
                           </>
                         )}
                       </Dialog>,

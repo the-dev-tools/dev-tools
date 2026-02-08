@@ -248,10 +248,7 @@ interface NodeTitleProps {
 
 export const NodeTitle = ({ children, className }: NodeTitleProps) => (
   <div
-    className={twMerge(
-      tw`flex items-center gap-1 text-xs leading-4 font-semibold tracking-tight text-fg`,
-      className,
-    )}
+    className={twMerge(tw`flex items-center gap-1 text-xs leading-4 font-semibold tracking-tight text-fg`, className)}
   >
     {children}
   </div>
@@ -469,18 +466,14 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
     >
       <PanelGroup {...nodeSettingsLayout} className={tw`flex-1`} orientation='horizontal'>
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
-          <div
-            className={tw`border-b border-border p-5 text-base leading-5 font-semibold tracking-tight text-fg`}
-          >
+          <div className={tw`border-b border-border p-5 text-base leading-5 font-semibold tracking-tight text-fg`}>
             Input
           </div>
           <div className={tw`flex-1 overflow-auto p-5`}>
             {!selectedExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
-                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-fg`}>
-                  No input data yet
-                </div>
+                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-fg`}>No input data yet</div>
                 <div className={tw`w-48 text-md leading-4 tracking-tight text-fg-muted`}>
                   The executed result from previous nodes will appear here
                 </div>
@@ -512,9 +505,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         <PanelResizeHandle direction='horizontal' />
 
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
-          <div
-            className={tw`border-b border-border p-5 text-base leading-5 font-semibold tracking-tight text-fg`}
-          >
+          <div className={tw`border-b border-border p-5 text-base leading-5 font-semibold tracking-tight text-fg`}>
             Output
           </div>
 

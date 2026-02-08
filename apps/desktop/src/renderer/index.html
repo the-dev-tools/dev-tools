@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>DevTools Studio</title>
     <script>
-      (function(){
+      (function () {
         var t = localStorage.getItem('theme');
         var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) {

@@ -40,10 +40,7 @@ export const ResponseInfo = ({ className, httpResponseId }: ResponseInfoProps) =
 
   return (
     <div
-      className={twMerge(
-        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-fg`,
-        className,
-      )}
+      className={twMerge(tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-fg`, className)}
     >
       <div className={tw`flex gap-1 p-2`}>
         <span>Status:</span>

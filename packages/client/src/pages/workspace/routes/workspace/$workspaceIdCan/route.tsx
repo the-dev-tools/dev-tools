@@ -112,7 +112,9 @@ function RouteComponent() {
                   <Button className={tw`bg-surface-active p-0.5`} variant='ghost'>
                     <FiPlus className={tw`size-4 stroke-[1.2px] text-fg-muted`} />
                   </Button>
-                  <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>Add New File</Tooltip>
+                  <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>
+                    Add New File
+                  </Tooltip>
                 </TooltipTrigger>
 
                 <FileCreateMenu navigate />

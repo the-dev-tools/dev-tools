@@ -168,10 +168,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
           `}
         >
           <div
-            className={twJoin(
-              tw`text-md leading-5 font-semibold tracking-tight text-fg`,
-              isEditing && tw`opacity-0`,
-            )}
+            className={twJoin(tw`text-md leading-5 font-semibold tracking-tight text-fg`, isEditing && tw`opacity-0`)}
             ref={escapeRef}
           >
             <RouteLink
@@ -225,16 +222,13 @@ const Item = ({ containerRef, id }: ItemProps) => {
                 void deleteModal.onOpenChange(
                   true,
                   <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
-                    <Heading
-                      className={tw`text-base leading-5 font-semibold tracking-tight text-fg`}
-                      slot='title'
-                    >
+                    <Heading className={tw`text-base leading-5 font-semibold tracking-tight text-fg`} slot='title'>
                       Delete workspace?
                     </Heading>
 
                     <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-fg-muted`}>
-                      Are you sure you want to delete <span className={tw`text-fg`}>“{name}”</span>? This action
-                      cannot be undone.
+                      Are you sure you want to delete <span className={tw`text-fg`}>“{name}”</span>? This action cannot
+                      be undone.
                     </div>
 
                     <div className={tw`mt-5 flex justify-end gap-2`}>

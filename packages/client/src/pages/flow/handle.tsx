@@ -176,7 +176,9 @@ export const Handle = ({
 };
 
 export const HandleHalo = () => (
-  <div className={tw`
+  <div
+    className={tw`
     absolute size-5 -translate-1/2 rounded-full border border-border-emphasis bg-surface-active shadow-xs
-  `} />
+  `}
+  />
 );
