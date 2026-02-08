@@ -487,7 +487,7 @@ packages/server/pkg/translate/topencollection/
 
 ---
 
-## Part 2: OpenYAML Format — Wrapper over `yamlflowsimplev2`
+## Part 2: OpenYAML Format (`openyaml` package)
 
 ### 2.1 Design Goals
 
@@ -495,7 +495,7 @@ packages/server/pkg/translate/topencollection/
 - **One file per entity** — each request and flow is its own `.yaml` file
 - **Git-friendly** — clean diffs, merge-friendly structure
 - **Human-editable** — developers can edit in any text editor or IDE
-- **Thin wrapper, not modification** — the format IS `yamlflowsimplev2` types. A separate small package wraps them with directory I/O (`ReadDirectory()`/`WriteDirectory()`). `yamlflowsimplev2` stays untouched except adding `Order` to `YamlRequestDefV2`.
+- **Own package, reuses types** — `openyaml` is the OpenYAML format package. It reuses `yamlflowsimplev2` types (`YamlRequestDefV2`, `YamlFlowFlowV2`, `YamlEnvironmentV2`) and adds multi-file collection support. `yamlflowsimplev2` stays untouched except adding `Order` to `YamlRequestDefV2`.
 - **No config files** — no `devtools.yaml` or `_folder.yaml`. The workspace tracks `sync_path` in SQLite. Directory names are folder names. Ordering uses alphabetical/filesystem order.
 - **Clean separation** — `topencollection/` (Bruno import) is fully isolated and can be removed without affecting the rest. The directory I/O wrapper has no dependency on Bruno types.
 
@@ -644,9 +644,9 @@ type YamlRequestDefV2 struct {
 
 No other changes to `yamlflowsimplev2`. No new functions added there.
 
-### 2.7 Directory I/O Wrapper (`packages/server/pkg/openyaml/`)
+### 2.7 OpenYAML Package (`packages/server/pkg/openyaml/`)
 
-A thin wrapper package that imports `yamlflowsimplev2` types and handles multi-file directory layout. No new YAML types — just I/O logic.
+The OpenYAML format package. Reuses `yamlflowsimplev2` types for individual files and adds multi-file collection support.
 
 ```go
 package openyaml
@@ -692,7 +692,7 @@ packages/server/pkg/openyaml/
 └── testdata/collection/ # Sample multi-file collection
 ```
 
-This package uses `yamlflowsimplev2` converter functions internally (`convertToHTTPHeaders`, `convertToHTTPSearchParams`, `convertBodyStruct`, etc.). It has no dependency on `topencollection` (Bruno import).
+Uses `yamlflowsimplev2` converter functions internally. No dependency on `topencollection` (Bruno import).
 
 ---
 
@@ -1007,16 +1007,16 @@ packages/server/pkg/translate/topencollection/
 
 **Deps**: `gopkg.in/yaml.v3` (existing), `mhttp`, `mfile`, `menv`
 
-### Phase 2: OpenYAML Directory I/O Wrapper
+### Phase 2: OpenYAML Format (`openyaml` package)
 
-**Scope**: Add `Order` field to `YamlRequestDefV2` (only change to `yamlflowsimplev2`). Create thin `openyaml` wrapper package for multi-file directory read/write. No Bruno dependency.
+**Scope**: Add `Order` field to `YamlRequestDefV2` (only change to `yamlflowsimplev2`). Create `openyaml` package — the OpenYAML format with multi-file collection support. No Bruno dependency.
 
 **Files**:
 ```
 packages/server/pkg/translate/yamlflowsimplev2/
 └── types.go                    # Add Order to YamlRequestDefV2
 
-packages/server/pkg/openyaml/   # NEW: directory I/O wrapper
+packages/server/pkg/openyaml/   # NEW: OpenYAML format
 ├── directory.go                # ReadDirectory(), WriteDirectory()
 ├── request.go                  # ReadSingleRequest(), WriteSingleRequest()
 ├── flow.go                     # ReadSingleFlow(), WriteSingleFlow()
@@ -1050,7 +1050,7 @@ packages/server/pkg/foldersync/
 └── watcher_test.go
 ```
 
-**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (directory I/O), Phase 3 (workspace schema)
+**Deps**: `github.com/fsnotify/fsnotify`, Phase 2 (openyaml), Phase 3 (workspace schema)
 
 ### Phase 5: RPC Endpoints + CLI Import
 
@@ -1081,7 +1081,7 @@ packages/server/pkg/foldersync/
 **Files**:
 - `apps/cli/cmd/run.go`
 
-**Deps**: Phase 2 (directory I/O), existing runner
+**Deps**: Phase 2 (openyaml), existing runner
 
 ---
 
@@ -1090,7 +1090,7 @@ packages/server/pkg/foldersync/
 ```
 Phase 1: OpenCollection Parser ──────────────────────────┐
                                                          │
-Phase 2: openyaml Dir I/O ──────┬───────────────────────┤
+Phase 2: openyaml format ───────┬───────────────────────┤
                             │                            │
 Phase 3: Workspace Schema ──┤                            │
                             │                            │
