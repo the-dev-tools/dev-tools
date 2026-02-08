@@ -1,27 +1,45 @@
-# Bruno Import & YAML Folder Sync Plan
+# OpenCollection Import & YAML Folder Sync Plan
 
 ## Overview
 
 This document describes the plan to add:
 
-1. **Bruno Import** — Parse `.bru` collections and convert them into DevTools' data model
+1. **OpenCollection YAML Import** — Parse Bruno's OpenCollection YAML collections (`.yml` format with `opencollection.yml` root) and convert them into DevTools' data model
 2. **DevTools YAML Folder Sync** — Bidirectional filesystem sync using DevTools' own YAML format, inspired by Bruno's folder sync architecture
 3. **CLI Runner Integration** — Execute imported/synced collections from the CLI
 
 The goal is to support Bruno users migrating to DevTools, while building a first-class filesystem-based workflow using DevTools' own YAML format for git-friendly, local-first API development.
 
+### Why OpenCollection YAML only (no .bru)?
+
+Bruno is moving to the OpenCollection YAML format as the recommended standard going forward. The legacy `.bru` DSL format is being phased out. By focusing exclusively on the YAML format:
+
+- No custom parser needed — we use standard `gopkg.in/yaml.v3` (already a dependency)
+- Forward-compatible with Bruno's direction
+- Simpler codebase to maintain
+- YAML tooling (linting, schema validation, IDE support) works out of the box
+
+### Sources
+
+- [OpenCollection YAML Format (Bruno Docs)](https://docs.usebruno.com/opencollection-yaml/overview)
+- [YAML Structure Reference](https://docs.usebruno.com/opencollection-yaml/structure-reference)
+- [YAML Samples](https://docs.usebruno.com/opencollection-yaml/samples)
+- [OpenCollection Spec](https://spec.opencollection.com/)
+- [OpenCollection GitHub](https://github.com/opencollection-dev/opencollection)
+- [RFC Discussion](https://github.com/usebruno/bruno/discussions/6634)
+
 ---
 
-## Part 1: Bruno Import
+## Part 1: OpenCollection YAML Import
 
 ### 1.1 Architecture Fit
 
-Bruno import follows the exact same pattern as the existing HAR, Postman, and curl importers:
+OpenCollection import follows the exact same pattern as existing HAR, Postman, and curl importers:
 
 ```
-.bru files on disk
-    → tbruno.ConvertBrunoCollection()
-        → BrunoResolved (mhttp.HTTP, mfile.File, etc.)
+OpenCollection .yml files on disk
+    → topencollection.ConvertOpenCollection()
+        → OpenCollectionResolved (mhttp.HTTP, mfile.File, etc.)
             → importer.RunImport() + services.Create()
                 → SQLite DB
 ```
@@ -29,141 +47,359 @@ Bruno import follows the exact same pattern as the existing HAR, Postman, and cu
 | Layer | Location | Pattern |
 |-------|----------|---------|
 | CLI Command | `apps/cli/cmd/import.go` | Add `importBrunoCmd` |
-| Translator | `packages/server/pkg/translate/tbruno/` | New package |
-| BRU Parser | `packages/server/pkg/translate/tbruno/bruparser/` | Hand-written recursive descent |
+| Translator | `packages/server/pkg/translate/topencollection/` | New package |
 | Importer | `apps/cli/internal/importer/` | Existing `RunImport()` callback |
 
-### 1.2 BRU Parser (`tbruno/bruparser/`)
+### 1.2 OpenCollection YAML Format Reference
 
-The `.bru` format has three block types that need a hand-written parser (no external dependency needed):
-
-**Dictionary blocks** (key-value):
-```bru
-headers {
-  content-type: application/json
-  ~disabled-header: value
-}
-```
-
-**Text blocks** (freeform content):
-```bru
-body:json {
-  {
-    "key": "value"
-  }
-}
-```
-
-**List blocks** (arrays inside dictionary blocks):
-```bru
-meta {
-  tags: [
-    regression
-    smoke
-  ]
-}
-```
-
-#### Files
+#### Directory Structure
 
 ```
-packages/server/pkg/translate/tbruno/bruparser/
-├── parser.go          # .bru → BruFile struct (recursive descent)
-├── serializer.go      # BruFile → .bru string (for round-trip tests)
-├── types.go           # BruFile, Block, KeyValue types
-└── parser_test.go     # Test with real .bru samples
+my-collection/
+├── opencollection.yml       # Collection root config
+├── environments/
+│   └── development.yml
+├── users/
+│   ├── folder.yml           # Folder configuration
+│   ├── create-user.yml
+│   ├── get-user.yml
+│   └── delete-user.yml
+└── orders/
+    └── create-order.yml
 ```
 
-#### Core Types
+#### Collection Root (`opencollection.yml`)
+
+```yaml
+opencollection: "1.0.0"
+info:
+  name: "My API Collection"
+  summary: "A collection for testing our REST API"
+  version: "2.1.0"
+  authors:
+    - name: "Jane Doe"
+      email: "[email protected]"
+```
+
+#### Request File Structure
+
+Each `.yml` request file has these top-level sections:
+
+```yaml
+info:
+  name: Create User
+  type: http               # http | graphql | grpc | ws
+  seq: 5
+  tags:
+    - smoke
+    - regression
+
+http:
+  method: POST             # GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|TRACE|CONNECT
+  url: https://api.example.com/users
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{token}}"
+      disabled: true        # Optional, marks header as disabled
+  params:
+    - name: filter
+      value: active
+      type: query           # query | path
+    - name: id
+      value: "123"
+      type: path
+  body:
+    type: json              # json | xml | text | form-urlencoded | multipart-form | graphql | none
+    data: |-
+      {
+        "name": "John Doe",
+        "email": "john@example.com"
+      }
+  auth:                     # none | inherit | basic | bearer | apikey | digest | oauth2 | awsv4 | ntlm
+    type: bearer
+    token: "{{token}}"
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const timestamp = Date.now();
+        bru.setVar("timestamp", timestamp);
+    - type: after-response
+      code: |-
+        console.log(res.status);
+    - type: tests
+      code: |-
+        test("should return 201", function() {
+          expect(res.status).to.equal(201);
+        });
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+    - expression: res.body.name
+      operator: isString
+  actions:
+    - type: set-variable
+      phase: after-response
+      selector:
+        expression: res.body.token
+        method: jsonPath
+      variable:
+        name: auth_token
+        scope: collection
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  # Create User
+  Creates a new user account in the system.
+```
+
+#### Auth Variants
+
+```yaml
+# No auth
+auth: none
+
+# Inherit from parent
+auth: inherit
+
+# Bearer token
+auth:
+  type: bearer
+  token: "{{token}}"
+
+# Basic auth
+auth:
+  type: basic
+  username: admin
+  password: secret
+
+# API Key
+auth:
+  type: apikey
+  key: x-api-key
+  value: "{{api-key}}"
+  placement: header        # header | query
+```
+
+#### Body Variants
+
+```yaml
+# JSON body
+body:
+  type: json
+  data: |-
+    {"key": "value"}
+
+# XML body
+body:
+  type: xml
+  data: |-
+    <root><key>value</key></root>
+
+# Text body
+body:
+  type: text
+  data: "plain text content"
+
+# Form URL-encoded
+body:
+  type: form-urlencoded
+  data:
+    - name: username
+      value: johndoe
+    - name: password
+      value: secret123
+
+# Multipart form data
+body:
+  type: multipart-form
+  data:
+    - name: file
+      value: "@/path/to/file.pdf"
+      contentType: application/pdf
+    - name: description
+      value: "My file"
+```
+
+#### Environment File (`environments/dev.yml`)
+
+```yaml
+name: development
+variables:
+  - name: api_url
+    value: http://localhost:3000
+    enabled: true
+    secret: false
+    type: text
+```
+
+#### Folder Config (`folder.yml`)
+
+Contains folder-level metadata, auth, headers, and scripts that apply to all requests in the folder.
+
+### 1.3 Go Types for OpenCollection Parsing
 
 ```go
-package bruparser
+package topencollection
 
-// BruFile represents a fully parsed .bru file
-type BruFile struct {
-    Meta          Meta
-    HTTP          *HTTPBlock       // get/post/put/delete/patch/options/head/connect/trace block
-    GraphQL       *GraphQLBlock
-    Params        *ParamsBlock     // params:query, params:path
-    Headers       []KeyValue
-    Auth          *AuthBlock       // auth:bearer, auth:basic, auth:apikey, etc.
-    Body          *BodyBlock       // body:json, body:xml, body:text, body:form-urlencoded, body:multipart-form, body:graphql
-    Script        *ScriptBlock     // script:pre-request, script:post-response
-    Tests         string           // freeform JS
-    Vars          *VarsBlock       // vars:pre-request, vars:post-response
-    Assertions    []AssertEntry    // assert block
-    Docs          string           // docs block
+// --- Collection Root ---
+
+type OpenCollectionRoot struct {
+    OpenCollection string               `yaml:"opencollection"`
+    Info           OpenCollectionInfo    `yaml:"info"`
 }
 
-type Meta struct {
-    Name string
-    Type string // "http", "graphql", "grpc"
-    Seq  int
-    Tags []string
+type OpenCollectionInfo struct {
+    Name    string                    `yaml:"name"`
+    Summary string                   `yaml:"summary,omitempty"`
+    Version string                   `yaml:"version,omitempty"`
+    Authors []OpenCollectionAuthor    `yaml:"authors,omitempty"`
 }
 
-type KeyValue struct {
-    Key     string
-    Value   string
-    Enabled bool // false if prefixed with ~
+type OpenCollectionAuthor struct {
+    Name  string `yaml:"name"`
+    Email string `yaml:"email,omitempty"`
 }
 
-type AssertEntry struct {
-    Expression string // e.g. "res.status eq 200"
-    Enabled    bool
+// --- Request File ---
+
+type OCRequest struct {
+    Info     OCRequestInfo     `yaml:"info"`
+    HTTP     *OCHTTPBlock      `yaml:"http,omitempty"`
+    Runtime  *OCRuntime        `yaml:"runtime,omitempty"`
+    Settings *OCSettings       `yaml:"settings,omitempty"`
+    Docs     string            `yaml:"docs,omitempty"`
+}
+
+type OCRequestInfo struct {
+    Name string   `yaml:"name"`
+    Type string   `yaml:"type"`           // "http", "graphql", "grpc", "ws"
+    Seq  int      `yaml:"seq,omitempty"`
+    Tags []string `yaml:"tags,omitempty"`
+}
+
+type OCHTTPBlock struct {
+    Method  string        `yaml:"method"`
+    URL     string        `yaml:"url"`
+    Headers []OCHeader    `yaml:"headers,omitempty"`
+    Params  []OCParam     `yaml:"params,omitempty"`
+    Body    *OCBody       `yaml:"body,omitempty"`
+    Auth    *OCAuth       `yaml:"auth,omitempty"` // Can also be string "inherit"/"none"
+}
+
+type OCHeader struct {
+    Name     string `yaml:"name"`
+    Value    string `yaml:"value"`
+    Disabled bool   `yaml:"disabled,omitempty"`
+}
+
+type OCParam struct {
+    Name     string `yaml:"name"`
+    Value    string `yaml:"value"`
+    Type     string `yaml:"type"`             // "query" | "path"
+    Disabled bool   `yaml:"disabled,omitempty"`
+}
+
+type OCBody struct {
+    Type string      `yaml:"type"` // "json"|"xml"|"text"|"form-urlencoded"|"multipart-form"|"graphql"|"none"
+    Data interface{} `yaml:"data"` // string for raw types, []OCFormField for form types
+}
+
+type OCFormField struct {
+    Name        string `yaml:"name"`
+    Value       string `yaml:"value"`
+    Disabled    bool   `yaml:"disabled,omitempty"`
+    ContentType string `yaml:"contentType,omitempty"` // For multipart file uploads
+}
+
+type OCAuth struct {
+    Type      string `yaml:"type"`                  // "none"|"inherit"|"basic"|"bearer"|"apikey"|...
+    Token     string `yaml:"token,omitempty"`        // For bearer
+    Username  string `yaml:"username,omitempty"`     // For basic
+    Password  string `yaml:"password,omitempty"`     // For basic
+    Key       string `yaml:"key,omitempty"`          // For apikey
+    Value     string `yaml:"value,omitempty"`        // For apikey
+    Placement string `yaml:"placement,omitempty"`    // For apikey: "header"|"query"
+}
+
+// --- Runtime ---
+
+type OCRuntime struct {
+    Scripts    []OCScript    `yaml:"scripts,omitempty"`
+    Assertions []OCAssertion `yaml:"assertions,omitempty"`
+    Actions    []OCAction    `yaml:"actions,omitempty"`
+}
+
+type OCScript struct {
+    Type string `yaml:"type"` // "before-request"|"after-response"|"tests"
+    Code string `yaml:"code"`
+}
+
+type OCAssertion struct {
+    Expression string `yaml:"expression"`
+    Operator   string `yaml:"operator"`
+    Value      string `yaml:"value,omitempty"`
+}
+
+type OCAction struct {
+    Type     string     `yaml:"type"`     // "set-variable"
+    Phase    string     `yaml:"phase"`    // "after-response"
+    Selector OCSelector `yaml:"selector"`
+    Variable OCVariable `yaml:"variable"`
+}
+
+type OCSelector struct {
+    Expression string `yaml:"expression"`
+    Method     string `yaml:"method"`
+}
+
+type OCVariable struct {
+    Name  string `yaml:"name"`
+    Scope string `yaml:"scope"`
+}
+
+// --- Settings ---
+
+type OCSettings struct {
+    EncodeUrl       *bool `yaml:"encodeUrl,omitempty"`
+    Timeout         *int  `yaml:"timeout,omitempty"`
+    FollowRedirects *bool `yaml:"followRedirects,omitempty"`
+    MaxRedirects    *int  `yaml:"maxRedirects,omitempty"`
+}
+
+// --- Environment ---
+
+type OCEnvironment struct {
+    Name      string          `yaml:"name"`
+    Variables []OCEnvVariable `yaml:"variables"`
+}
+
+type OCEnvVariable struct {
+    Name    string `yaml:"name"`
+    Value   string `yaml:"value"`
+    Enabled *bool  `yaml:"enabled,omitempty"`
+    Secret  *bool  `yaml:"secret,omitempty"`
+    Type    string `yaml:"type,omitempty"` // "text"
 }
 ```
 
-#### Parser Implementation Notes
-
-- **Line-based parsing**: Read line by line, detect block openings (`blockname {`), track nesting depth
-- **Dictionary vs Text blocks**: Dictionary blocks have `key: value` lines; text blocks (body, script, tests, docs) have freeform content with 2-space indent
-- **Disabled items**: `~` prefix means disabled (`Enabled: false`)
-- **Multiline values**: `'''...'''` syntax with optional `@contentType()` annotation
-- **Quoted keys**: Keys can be quoted with single quotes for special characters
-- **Assert delimiter**: Assert keys use `: ` (space after colon) as the delimiter since keys can contain colons
-
-### 1.3 Bruno Collection Reader (`tbruno/`)
-
-Reads the full Bruno collection directory structure and converts to DevTools models.
-
-#### Files
-
-```
-packages/server/pkg/translate/tbruno/
-├── bruparser/           # .bru parser (above)
-├── converter.go         # Main conversion: directory → BrunoResolved
-├── converter_test.go    # Tests with sample collections
-├── types.go             # BrunoResolved, ConvertOptions
-├── collection.go        # bruno.json / opencollection.yml detection + parsing
-├── environment.go       # Environment .bru/.yml → menv conversion
-└── testdata/            # Sample Bruno collections for tests
-    ├── bru-format/
-    │   ├── bruno.json
-    │   ├── collection.bru
-    │   ├── environments/
-    │   │   ├── dev.bru
-    │   │   └── prod.bru
-    │   ├── users/
-    │   │   ├── folder.bru
-    │   │   ├── get-users.bru
-    │   │   └── create-user.bru
-    │   └── auth/
-    │       ├── folder.bru
-    │       └── login.bru
-    └── yml-format/
-        ├── opencollection.yml
-        └── ...
-```
-
-#### Core Types
+### 1.4 Converter (`topencollection/converter.go`)
 
 ```go
-package tbruno
+package topencollection
 
-// BrunoResolved contains all entities extracted from a Bruno collection,
+// OpenCollectionResolved contains all entities extracted from an OpenCollection,
 // following the same pattern as tpostmanv2.PostmanResolvedV2 and harv2.HARResolved.
-type BrunoResolved struct {
+type OpenCollectionResolved struct {
     // HTTP entities
     HTTPRequests       []mhttp.HTTP
     HTTPHeaders        []mhttp.HTTPHeader
@@ -188,74 +424,89 @@ type BrunoResolved struct {
 }
 
 type ConvertOptions struct {
-    WorkspaceID   idwrap.IDWrap
-    FolderID      *idwrap.IDWrap  // Optional parent folder to import into
-    CollectionName string         // Override collection name
-    CreateFlow     bool           // Whether to generate a flow from the collection
-    GenerateFiles  bool           // Whether to create File entries for hierarchy
+    WorkspaceID    idwrap.IDWrap
+    FolderID       *idwrap.IDWrap  // Optional parent folder to import into
+    CollectionName string          // Override collection name
+    CreateFlow     bool            // Whether to generate a flow from the collection
+    GenerateFiles  bool            // Whether to create File entries for hierarchy
 }
 
-// ConvertBrunoCollection reads a Bruno collection directory and returns resolved entities.
-func ConvertBrunoCollection(collectionPath string, opts ConvertOptions) (*BrunoResolved, error)
+// ConvertOpenCollection reads an OpenCollection YAML directory and returns resolved entities.
+func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCollectionResolved, error)
 ```
 
 #### Conversion Logic
 
-1. **Detect format**: Check for `bruno.json` (BRU format) or `opencollection.yml` (YML format)
-2. **Parse config**: Read collection name, version, ignore patterns from config file
+1. **Detect format**: Check for `opencollection.yml` in the directory root
+2. **Parse root config**: Read collection name, version from `opencollection.yml`
 3. **Walk directory tree** (depth-first):
    - Skip ignored paths (`node_modules`, `.git`, dotenv files)
    - For each directory: create `mfile.File` with `ContentTypeFolder`
-   - For each `.bru` file: parse with `bruparser.Parse()`, convert to `mhttp.HTTP` + children
-   - For `folder.bru`: extract folder-level metadata (auth, headers) — apply as defaults to child requests
-   - For `collection.bru`: extract collection-level defaults
-   - For `environments/*.bru`: convert to `menv.Env` + `menv.Variable`
-4. **Map to DevTools models**:
-   - BRU `meta.name` → `mhttp.HTTP.Name`
-   - BRU method block (`get`, `post`, etc.) → `mhttp.HTTP.Method` + `mhttp.HTTP.Url`
-   - BRU `headers {}` → `[]mhttp.HTTPHeader`
-   - BRU `params:query {}` → `[]mhttp.HTTPSearchParam`
-   - BRU `body:json {}` → `mhttp.HTTPBodyRaw` with `BodyKind = Raw`
-   - BRU `body:form-urlencoded {}` → `[]mhttp.HTTPBodyUrlencoded`
-   - BRU `body:multipart-form {}` → `[]mhttp.HTTPBodyForm`
-   - BRU `assert {}` → `[]mhttp.HTTPAssert`
-   - BRU `meta.seq` → `mfile.File.Order`
-   - Directory nesting → `mfile.File.ParentID` hierarchy
+   - For each `.yml` file (not `opencollection.yml`, not `folder.yml`, not in `environments/`):
+     - Parse with `yaml.Unmarshal()` into `OCRequest`
+     - Convert to `mhttp.HTTP` + child entities
+   - For `folder.yml`: extract folder metadata
+   - For `environments/*.yml`: convert to `menv.Env` + `menv.Variable`
+4. **Map to DevTools models** (see mapping table)
 5. **Generate flow** (optional): Create a linear flow with request nodes ordered by `seq`
 
-#### Mapping Table: Bruno → DevTools
+#### Mapping Table: OpenCollection YAML → DevTools
 
-| Bruno (.bru) | DevTools Model | Notes |
+| OpenCollection YAML | DevTools Model | Notes |
 |---|---|---|
-| `meta.name` | `mhttp.HTTP.Name` | |
-| `meta.seq` | `mfile.File.Order` | Float64 ordering |
-| `meta.type` | Determines request type | "http", "graphql" |
-| `get/post/put/...` block | `mhttp.HTTP.Method` | Block name = method |
-| `url` in method block | `mhttp.HTTP.Url` | |
-| `body` in method block | `mhttp.HTTP.BodyKind` | "json"→Raw, "form"→FormData, etc. |
-| `headers {}` | `[]mhttp.HTTPHeader` | `~` prefix → `Enabled: false` |
-| `params:query {}` | `[]mhttp.HTTPSearchParam` | `~` prefix → `Enabled: false` |
-| `params:path {}` | Embedded in URL | DevTools uses URL template vars |
-| `body:json {}` | `mhttp.HTTPBodyRaw` | `BodyKind: Raw` |
-| `body:xml {}` | `mhttp.HTTPBodyRaw` | `BodyKind: Raw` |
-| `body:text {}` | `mhttp.HTTPBodyRaw` | `BodyKind: Raw` |
-| `body:form-urlencoded {}` | `[]mhttp.HTTPBodyUrlencoded` | |
-| `body:multipart-form {}` | `[]mhttp.HTTPBodyForm` | |
-| `auth:bearer` | `mhttp.HTTPHeader` | Converted to Authorization header |
-| `auth:basic` | `mhttp.HTTPHeader` | Converted to Authorization header |
-| `auth:apikey` | `mhttp.HTTPHeader` | Key/value in header or query param |
-| `assert {}` | `[]mhttp.HTTPAssert` | Expression syntax may differ |
-| `script:pre-request {}` | Not imported (log warning) | DevTools uses JS nodes in flows |
-| `script:post-response {}` | Not imported (log warning) | DevTools uses JS nodes in flows |
-| `tests {}` | Not imported (log warning) | DevTools uses assert system |
-| `vars:pre-request {}` | Not imported (log warning) | DevTools uses flow variables |
-| `docs {}` | `mhttp.HTTP.Description` | |
+| `info.name` | `mhttp.HTTP.Name` | |
+| `info.seq` | `mfile.File.Order` | Float64 ordering |
+| `info.type` | Determines request type | "http" only for now |
+| `http.method` | `mhttp.HTTP.Method` | Uppercase |
+| `http.url` | `mhttp.HTTP.Url` | |
+| `http.headers` | `[]mhttp.HTTPHeader` | `disabled: true` → `Enabled: false` |
+| `http.params` (type=query) | `[]mhttp.HTTPSearchParam` | Filter by `type: query` |
+| `http.params` (type=path) | Embedded in URL | DevTools uses URL template vars |
+| `http.body.type: json` | `mhttp.HTTPBodyRaw`, `BodyKind: Raw` | |
+| `http.body.type: xml` | `mhttp.HTTPBodyRaw`, `BodyKind: Raw` | |
+| `http.body.type: text` | `mhttp.HTTPBodyRaw`, `BodyKind: Raw` | |
+| `http.body.type: form-urlencoded` | `[]mhttp.HTTPBodyUrlencoded` | |
+| `http.body.type: multipart-form` | `[]mhttp.HTTPBodyForm` | |
+| `http.auth.type: bearer` | `mhttp.HTTPHeader` | → `Authorization: Bearer <token>` |
+| `http.auth.type: basic` | `mhttp.HTTPHeader` | → `Authorization: Basic <base64>` |
+| `http.auth.type: apikey` | `mhttp.HTTPHeader` or `mhttp.HTTPSearchParam` | Based on `placement` |
+| `runtime.assertions` | `[]mhttp.HTTPAssert` | Convert `expr operator value` format |
+| `runtime.scripts` | Not imported (log warning) | DevTools uses JS nodes in flows |
+| `runtime.actions` | Not imported (log warning) | DevTools uses flow variables |
+| `docs` | `mhttp.HTTP.Description` | |
+| `settings` | Not imported (log info) | DevTools has own request settings |
 | Directory structure | `mfile.File` hierarchy | Folder nesting preserved |
-| `folder.bru` | Folder metadata | Auth/headers applied to children |
-| `environments/*.bru` | `menv.Env` + `menv.Variable` | |
-| `bruno.json` | Collection config | Name used as root folder name |
+| `folder.yml` | Folder metadata | Name used for folder |
+| `environments/*.yml` | `menv.Env` + `menv.Variable` | |
+| `opencollection.yml` | Collection config | Name used as root folder name |
 
-### 1.4 CLI Command
+### 1.5 Package Structure
+
+```
+packages/server/pkg/translate/topencollection/
+├── types.go              # OCRequest, OCHTTPBlock, etc. (YAML struct definitions)
+├── converter.go          # Main conversion: directory → OpenCollectionResolved
+├── converter_test.go     # Tests with sample collections
+├── collection.go         # opencollection.yml parsing
+├── environment.go        # Environment .yml → menv conversion
+├── auth.go               # Auth type → header/param conversion
+├── body.go               # Body type → mhttp body conversion
+└── testdata/             # Sample OpenCollection directories for tests
+    └── basic-collection/
+        ├── opencollection.yml
+        ├── environments/
+        │   ├── dev.yml
+        │   └── prod.yml
+        ├── users/
+        │   ├── folder.yml
+        │   ├── get-users.yml
+        │   └── create-user.yml
+        └── auth/
+            ├── folder.yml
+            └── login.yml
+```
+
+### 1.6 CLI Command
 
 Add `import bruno <directory>` to the existing import command tree:
 
@@ -264,13 +515,13 @@ Add `import bruno <directory>` to the existing import command tree:
 
 var importBrunoCmd = &cobra.Command{
     Use:   "bruno [directory]",
-    Short: "Import a Bruno collection directory",
+    Short: "Import a Bruno OpenCollection YAML directory",
     Args:  cobra.ExactArgs(1),
     RunE: func(cmd *cobra.Command, args []string) error {
         collectionPath := args[0]
         return importer.RunImport(ctx, logger, workspaceID, folderID,
             func(ctx context.Context, services *common.Services, wsID idwrap.IDWrap, folderIDPtr *idwrap.IDWrap) error {
-                resolved, err := tbruno.ConvertBrunoCollection(collectionPath, tbruno.ConvertOptions{
+                resolved, err := topencollection.ConvertOpenCollection(collectionPath, topencollection.ConvertOptions{
                     WorkspaceID:   wsID,
                     FolderID:      folderIDPtr,
                     GenerateFiles: true,
@@ -287,12 +538,13 @@ var importBrunoCmd = &cobra.Command{
 }
 ```
 
-### 1.5 Testing Strategy
+### 1.7 Testing Strategy
 
-- **Parser unit tests**: Port/create test cases from real `.bru` files — parse, verify struct output
-- **Round-trip tests**: Parse `.bru` → serialize back → parse again, verify equality
-- **Converter tests**: Use `testdata/` sample collections → verify `BrunoResolved` output
-- **Integration test**: Import sample collection into in-memory SQLite → verify all entities created correctly
+- **YAML parsing tests**: Parse sample `.yml` request files, verify struct output
+- **Converter tests**: Use `testdata/` sample collections → verify `OpenCollectionResolved` output
+- **Auth conversion tests**: Test all auth types (bearer, basic, apikey) → correct headers/params
+- **Body conversion tests**: Test all body types (json, xml, form-urlencoded, multipart-form)
+- **Integration test**: Import sample collection into in-memory SQLite → verify all entities created
 
 ---
 
@@ -306,11 +558,12 @@ This is the core feature — a bidirectional filesystem sync that uses DevTools'
 2. **Human-readable**: Developers can edit requests in their editor/IDE
 3. **Bidirectional**: Changes in the UI persist to disk; changes on disk reflect in the UI
 4. **Compatible**: Similar UX to Bruno's folder sync (users understand the concept)
-5. **DevTools-native**: Uses DevTools' own YAML format, not `.bru` format
+5. **DevTools-native**: Uses DevTools' own YAML format
+6. **OpenCollection-compatible import**: Can import from OpenCollection and sync in DevTools format
 
 ### 2.2 DevTools Collection YAML Format
 
-Inspired by `yamlflowsimplev2` but simplified for individual request files (not full flows).
+Simplified for individual request files. Intentionally similar to OpenCollection for easy migration, but with DevTools-specific conventions.
 
 #### Directory Structure
 
@@ -481,8 +734,8 @@ package tyamlcollection
 
 // CollectionConfig represents devtools.yaml
 type CollectionConfig struct {
-    Version  string            `yaml:"version"`
-    Name     string            `yaml:"name"`
+    Version  string              `yaml:"version"`
+    Name     string              `yaml:"name"`
     Settings *CollectionSettings `yaml:"settings,omitempty"`
 }
 
@@ -511,9 +764,9 @@ type HeaderEntry struct {
 }
 
 type BodyDef struct {
-    Type       string        `yaml:"type"`                  // "none", "raw", "form-data", "urlencoded"
-    Content    string        `yaml:"content,omitempty"`     // For raw bodies
-    Fields     []HeaderEntry `yaml:"fields,omitempty"`      // For form-data / urlencoded
+    Type    string        `yaml:"type"`              // "none", "raw", "form-data", "urlencoded"
+    Content string        `yaml:"content,omitempty"` // For raw bodies
+    Fields  []HeaderEntry `yaml:"fields,omitempty"`  // For form-data / urlencoded
 }
 
 type AssertionEntry struct {
@@ -522,12 +775,11 @@ type AssertionEntry struct {
     Description string `yaml:"description,omitempty"`
 }
 
-// Simplified assertion: can be just a string
 // Custom unmarshaler handles both "res.status eq 200" and {value: ..., enabled: false}
 
 type EnvironmentFile struct {
-    Name      string         `yaml:"name"`
-    Variables []EnvVariable  `yaml:"variables"`
+    Name      string        `yaml:"name"`
+    Variables []EnvVariable `yaml:"variables"`
 }
 
 type EnvVariable struct {
@@ -537,9 +789,9 @@ type EnvVariable struct {
 }
 
 type FolderMeta struct {
-    Name        string `yaml:"name,omitempty"`
-    Order       int    `yaml:"order,omitempty"`
-    Description string `yaml:"description,omitempty"`
+    Name        string          `yaml:"name,omitempty"`
+    Order       int             `yaml:"order,omitempty"`
+    Description string          `yaml:"description,omitempty"`
     Defaults    *FolderDefaults `yaml:"defaults,omitempty"`
 }
 
@@ -601,9 +853,9 @@ const (
 )
 
 type WatchEvent struct {
-    Type     EventType
-    Path     string        // Absolute path
-    RelPath  string        // Relative to collection root
+    Type    EventType
+    Path    string // Absolute path
+    RelPath string // Relative to collection root
 }
 
 // CollectionWatcher watches a collection directory for filesystem changes.
@@ -675,24 +927,24 @@ type SyncCoordinator struct {
     format         tyamlcollection.CollectionConfig
 
     // Filesystem → Database
-    watcher     *CollectionWatcher
-    parser      *tyamlcollection.Parser
+    watcher  *CollectionWatcher
+    parser   *tyamlcollection.Parser
 
     // Database → Filesystem
-    selfWrites  *SelfWriteTracker
-    serializer  *tyamlcollection.Serializer
-    autosaver   *AutoSaver
+    selfWrites *SelfWriteTracker
+    serializer *tyamlcollection.Serializer
+    autosaver  *AutoSaver
 
     // State mapping
-    mu          sync.RWMutex
-    pathToID    map[string]idwrap.IDWrap // filepath → entity ID (UID preservation)
-    idToPath    map[idwrap.IDWrap]string // entity ID → filepath (reverse mapping)
+    mu       sync.RWMutex
+    pathToID map[string]idwrap.IDWrap // filepath → entity ID (UID preservation)
+    idToPath map[idwrap.IDWrap]string // entity ID → filepath (reverse mapping)
 
     // Services
-    services    *common.Services
+    services *common.Services
 
     // Event publishing for real-time sync to UI
-    publisher   *eventstream.Publisher
+    publisher *eventstream.Publisher
 }
 
 func NewSyncCoordinator(opts SyncOptions) (*SyncCoordinator, error)
@@ -774,8 +1026,6 @@ interface FolderSync {
 The folder sync coordinator starts/stops with the server:
 
 ```go
-// packages/server/internal/app/app.go or similar
-
 // On workspace open with folder sync enabled:
 coordinator := foldersync.NewSyncCoordinator(foldersync.SyncOptions{
     CollectionPath: "/path/to/collection",
@@ -794,7 +1044,6 @@ coordinator.Stop()
 Subscribe to entity change events for Database → Disk sync:
 
 ```go
-// Subscribe to HTTP entity changes for this workspace
 sub := publisher.Subscribe(eventstream.Topic{
     WorkspaceID: workspaceID,
     EntityTypes: []eventstream.EntityType{
@@ -844,9 +1093,9 @@ for event := range sub.Events() {
 Add a CLI command to run requests directly from a synced collection folder:
 
 ```
-devtools run ./my-collection                    # Run all requests sequentially
+devtools run ./my-collection                       # Run all requests sequentially
 devtools run ./my-collection/users/get-users.yaml  # Run single request
-devtools run ./my-collection --env dev           # With environment
+devtools run ./my-collection --env dev             # With environment
 devtools run ./my-collection/flows/smoke-test.yaml # Run a flow
 ```
 
@@ -878,52 +1127,38 @@ var runCollectionCmd = &cobra.Command{
 
 ## Part 4: Implementation Phases
 
-### Phase 1: BRU Parser (Foundation)
+### Phase 1: OpenCollection YAML Parser + Converter
 
-**Scope**: Hand-written `.bru` parser + serializer with full test coverage.
-
-**Files**:
-- `packages/server/pkg/translate/tbruno/bruparser/types.go`
-- `packages/server/pkg/translate/tbruno/bruparser/parser.go`
-- `packages/server/pkg/translate/tbruno/bruparser/serializer.go`
-- `packages/server/pkg/translate/tbruno/bruparser/parser_test.go`
-
-**Dependencies**: None (pure Go, no external libs)
-
-**Testing**: Parse real `.bru` files, verify struct output, round-trip test
-
-**Estimate**: Self-contained, no cross-cutting concerns
-
-### Phase 2: Bruno Collection Converter
-
-**Scope**: Walk Bruno collection directory → produce `BrunoResolved` with all DevTools models.
+**Scope**: Parse OpenCollection YAML directories and convert to DevTools models.
 
 **Files**:
-- `packages/server/pkg/translate/tbruno/types.go`
-- `packages/server/pkg/translate/tbruno/converter.go`
-- `packages/server/pkg/translate/tbruno/collection.go`
-- `packages/server/pkg/translate/tbruno/environment.go`
-- `packages/server/pkg/translate/tbruno/converter_test.go`
-- `packages/server/pkg/translate/tbruno/testdata/` (sample collections)
+- `packages/server/pkg/translate/topencollection/types.go`
+- `packages/server/pkg/translate/topencollection/converter.go`
+- `packages/server/pkg/translate/topencollection/collection.go`
+- `packages/server/pkg/translate/topencollection/environment.go`
+- `packages/server/pkg/translate/topencollection/auth.go`
+- `packages/server/pkg/translate/topencollection/body.go`
+- `packages/server/pkg/translate/topencollection/converter_test.go`
+- `packages/server/pkg/translate/topencollection/testdata/` (sample collections)
 
-**Dependencies**: Phase 1 (BRU parser), existing models (`mhttp`, `mfile`, `menv`)
+**Dependencies**: `gopkg.in/yaml.v3` (already a dependency), existing models (`mhttp`, `mfile`, `menv`)
 
-**Testing**: Convert sample Bruno collections, verify all entities
+**Testing**: Parse sample OpenCollection directories, verify all entities
 
-### Phase 3: CLI Import Command
+### Phase 2: CLI Import Command
 
 **Scope**: Add `import bruno <dir>` CLI command.
 
 **Files**:
 - `apps/cli/cmd/import.go` (add `importBrunoCmd`)
 
-**Dependencies**: Phase 2 (converter), existing importer infrastructure
+**Dependencies**: Phase 1 (converter), existing importer infrastructure
 
 **Testing**: End-to-end import into in-memory SQLite
 
-### Phase 4: DevTools YAML Collection Format
+### Phase 3: DevTools YAML Collection Format
 
-**Scope**: Define and implement DevTools' own YAML format for individual request files.
+**Scope**: Define and implement DevTools' own YAML format for individual request files with round-trip serialization.
 
 **Files**:
 - `packages/server/pkg/translate/tyamlcollection/types.go`
@@ -939,7 +1174,7 @@ var runCollectionCmd = &cobra.Command{
 
 **Testing**: Round-trip tests (parse → serialize → parse), verify equivalence
 
-### Phase 5: File Watcher
+### Phase 4: File Watcher
 
 **Scope**: `fsnotify`-based watcher with debouncing, filtering, self-write tracking.
 
@@ -954,7 +1189,7 @@ var runCollectionCmd = &cobra.Command{
 
 **Testing**: Create temp dirs, write files, verify events
 
-### Phase 6: Sync Coordinator
+### Phase 5: Sync Coordinator
 
 **Scope**: Bidirectional sync engine — disk↔database with eventstream integration.
 
@@ -962,11 +1197,11 @@ var runCollectionCmd = &cobra.Command{
 - `packages/server/pkg/foldersync/sync.go`
 - `packages/server/pkg/foldersync/autosaver.go`
 
-**Dependencies**: Phase 4 (YAML format), Phase 5 (watcher), services, eventstream
+**Dependencies**: Phase 3 (YAML format), Phase 4 (watcher), services, eventstream
 
 **Testing**: Full integration tests — modify files on disk, verify DB updates; modify DB, verify files written
 
-### Phase 7: RPC Endpoints + Desktop Integration
+### Phase 6: RPC Endpoints + Desktop Integration
 
 **Scope**: TypeSpec definitions for folder sync management, RPC handlers, desktop UI.
 
@@ -976,33 +1211,32 @@ var runCollectionCmd = &cobra.Command{
 - `packages/client/` (React hooks/services)
 - `apps/desktop/` (Electron integration — folder picker, sync status)
 
-**Dependencies**: Phase 6 (sync coordinator)
+**Dependencies**: Phase 5 (sync coordinator)
 
-### Phase 8: CLI Collection Runner
+### Phase 7: CLI Collection Runner
 
 **Scope**: Run requests/flows directly from collection folders.
 
 **Files**:
 - `apps/cli/cmd/run.go` (extend with `collection` subcommand)
 
-**Dependencies**: Phase 4 (YAML format), existing runner
+**Dependencies**: Phase 3 (YAML format), existing runner
 
 ---
 
 ## Phase Dependency Graph
 
 ```
-Phase 1: BRU Parser ──────────────┐
-                                   ├──→ Phase 2: Bruno Converter ──→ Phase 3: CLI Import
-                                   │
-Phase 4: YAML Collection Format ──┼──→ Phase 8: CLI Collection Runner
-                                   │
-Phase 5: File Watcher ────────────┤
-                                   │
-                                   └──→ Phase 6: Sync Coordinator ──→ Phase 7: RPC + Desktop
+Phase 1: OpenCollection Parser ──→ Phase 2: CLI Import
+                                          │
+Phase 3: DevTools YAML Format ──┬─────────┼──→ Phase 7: CLI Collection Runner
+                                │         │
+Phase 4: File Watcher ──────────┤         │
+                                │         │
+                                └──→ Phase 5: Sync Coordinator ──→ Phase 6: RPC + Desktop
 ```
 
-Phases 1 and 4-5 can be developed in parallel (no dependencies between them).
+Phases 1 and 3-4 can be developed **in parallel** (no dependencies between them).
 
 ---
 
@@ -1010,29 +1244,28 @@ Phases 1 and 4-5 can be developed in parallel (no dependencies between them).
 
 | Dependency | Purpose | Phase |
 |---|---|---|
-| `github.com/fsnotify/fsnotify` | Cross-platform file system notifications | 5 |
-| `gopkg.in/yaml.v3` | YAML parsing (already in use by `yamlflowsimplev2`) | 4 |
-| No new dependencies | BRU parser is hand-written | 1 |
+| `gopkg.in/yaml.v3` | YAML parsing (already in use by `yamlflowsimplev2`) | 1, 3 |
+| `github.com/fsnotify/fsnotify` | Cross-platform file system notifications | 4 |
 
 ---
 
 ## Key Design Decisions
 
-### Why DevTools YAML instead of .bru format?
+### Why OpenCollection YAML only (no .bru parser)?
 
-1. **YAML is universal** — every developer knows it, every editor supports it
-2. **No custom parser maintenance** — leverage `gopkg.in/yaml.v3` vs maintaining a PEG parser
-3. **Extensible** — easy to add new fields as DevTools evolves
-4. **Consistent with existing YAML flow format** — `yamlflowsimplev2` already uses YAML
-5. **Better tooling** — YAML schema validation, IDE autocomplete via JSON Schema
-6. **Import, don't adopt** — import Bruno collections but don't tie DevTools to Bruno's format
+1. **Bruno's direction** — OpenCollection YAML is the recommended format going forward
+2. **No custom parser** — standard `gopkg.in/yaml.v3` handles everything
+3. **Forward-compatible** — .bru is being phased out
+4. **Less code to maintain** — no hand-written PEG parser
+5. **Better tooling** — YAML linting, schema validation, IDE support
 
-### Why hand-written BRU parser instead of PEG library?
+### Why a separate DevTools YAML format?
 
-1. **Simple grammar** — only 3 block types, line-based parsing
-2. **No external dependency** — keeps the import path dependency-free
-3. **Better error messages** — hand-written parsers produce clearer diagnostics
-4. **One-way** — we only need to parse `.bru` for import, not write it back
+1. **Control** — we define the schema, we evolve it independently
+2. **Simplicity** — OpenCollection has sections we don't use (`runtime.scripts`, `runtime.actions`)
+3. **Flat structure** — our format puts `name`, `method`, `url` at top level (no `info`/`http` nesting)
+4. **Consistency** — matches existing `yamlflowsimplev2` conventions
+5. **Import, don't adopt** — import OpenCollection, sync in DevTools format
 
 ### Why fsnotify instead of polling?
 
