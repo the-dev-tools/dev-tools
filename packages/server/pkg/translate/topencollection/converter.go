@@ -36,7 +36,7 @@ func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*ioworks
 
 	// Parse collection root
 	rootPath := filepath.Join(collectionPath, "opencollection.yml")
-	rootData, err := os.ReadFile(rootPath)
+	rootData, err := os.ReadFile(rootPath) //nolint:gosec // Intentional: reading user-specified collection path
 	if err != nil {
 		return nil, fmt.Errorf("failed to read opencollection.yml: %w", err)
 	}
@@ -73,7 +73,7 @@ func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*ioworks
 				continue
 			}
 
-			envData, err := os.ReadFile(filepath.Join(envDir, entry.Name()))
+			envData, err := os.ReadFile(filepath.Join(envDir, entry.Name())) //nolint:gosec // Intentional: reading from collection directory
 			if err != nil {
 				logger.Warn("failed to read environment file", "file", entry.Name(), "error", err)
 				continue
@@ -138,7 +138,7 @@ func walkCollection(
 	order := float64(1)
 	for _, fileEntry := range files {
 		filePath := filepath.Join(dirPath, fileEntry.Name())
-		data, err := os.ReadFile(filePath)
+		data, err := os.ReadFile(filePath) //nolint:gosec // Intentional: reading from collection directory
 		if err != nil {
 			logger.Warn("failed to read file", "file", filePath, "error", err)
 			continue

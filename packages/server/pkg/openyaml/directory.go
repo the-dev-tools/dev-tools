@@ -122,7 +122,7 @@ func ReadDirectory(dirPath string, opts ReadOptions) (*ioworkspace.WorkspaceBund
 // Creates one .yaml file per request, flow, and environment.
 // Directory structure mirrors the mfile.File hierarchy.
 func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error {
-	if err := os.MkdirAll(dirPath, 0o755); err != nil {
+	if err := os.MkdirAll(dirPath, 0o750); err != nil {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
@@ -131,7 +131,7 @@ func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error {
 	// Write environments
 	if len(bundle.Environments) > 0 {
 		envDir := filepath.Join(dirPath, environmentsDir)
-		if err := os.MkdirAll(envDir, 0o755); err != nil {
+		if err := os.MkdirAll(envDir, 0o750); err != nil {
 			return fmt.Errorf("create environments dir: %w", err)
 		}
 
@@ -168,7 +168,7 @@ func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error {
 	// Write flows
 	if len(bundle.Flows) > 0 {
 		flowDir := filepath.Join(dirPath, flowsDir)
-		if err := os.MkdirAll(flowDir, 0o755); err != nil {
+		if err := os.MkdirAll(flowDir, 0o750); err != nil {
 			return fmt.Errorf("create flows dir: %w", err)
 		}
 
@@ -541,7 +541,7 @@ func writeFilesRecursive(
 		switch f.ContentType {
 		case mfile.ContentTypeFolder:
 			subDir := filepath.Join(currentDir, sanitizeFilename(f.Name))
-			if err := os.MkdirAll(subDir, 0o755); err != nil {
+			if err := os.MkdirAll(subDir, 0o750); err != nil {
 				return fmt.Errorf("create dir %q: %w", f.Name, err)
 			}
 			if err := writeFilesRecursive(subDir, f.ID.String(), childrenByParent, lk); err != nil {
@@ -567,6 +567,9 @@ func writeFilesRecursive(
 			if err := atomicWrite(filepath.Join(currentDir, filename), data); err != nil {
 				return fmt.Errorf("write request %q: %w", httpReq.Name, err)
 			}
+
+		case mfile.ContentTypeHTTPDelta, mfile.ContentTypeFlow, mfile.ContentTypeCredential:
+			// These content types are not exported to OpenYAML format
 		}
 	}
 
@@ -707,12 +710,12 @@ func atomicWrite(path string, data []byte) error {
 	tmpName := tmp.Name()
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return err
 	}
 

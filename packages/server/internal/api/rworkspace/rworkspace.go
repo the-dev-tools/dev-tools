@@ -499,16 +499,18 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 				ws.Order = float64(*item.Order)
 			}
 			if item.SyncPath != nil {
-				if item.SyncPath.Kind == apiv1.WorkspaceUpdate_SyncPathUnion_KIND_VALUE {
+				switch item.SyncPath.Kind {
+				case apiv1.WorkspaceUpdate_SyncPathUnion_KIND_VALUE:
 					ws.SyncPath = item.SyncPath.Value
-				} else if item.SyncPath.Kind == apiv1.WorkspaceUpdate_SyncPathUnion_KIND_UNSET {
+				case apiv1.WorkspaceUpdate_SyncPathUnion_KIND_UNSET:
 					ws.SyncPath = nil
 				}
 			}
 			if item.SyncFormat != nil {
-				if item.SyncFormat.Kind == apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_VALUE {
+				switch item.SyncFormat.Kind {
+				case apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_VALUE:
 					ws.SyncFormat = item.SyncFormat.Value
-				} else if item.SyncFormat.Kind == apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_UNSET {
+				case apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_UNSET:
 					ws.SyncFormat = nil
 				}
 			}
