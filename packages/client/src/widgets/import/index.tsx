@@ -151,14 +151,14 @@ const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
         `}
       >
         <FiInfo className={tw`mr-1.5 inline-block size-4 align-bottom`} />
-        Import Postman or HAR files
+        Import Postman, HAR, Swagger or OpenAPI files, or paste a URL
       </div>
 
       <TextInputField
         className={tw`mt-4`}
         label='Text value'
         onChange={setText}
-        placeholder='Paste cURL, Raw text or URL...'
+        placeholder='Paste cURL, Swagger/OpenAPI URL, or raw text...'
         value={text}
       />
 
