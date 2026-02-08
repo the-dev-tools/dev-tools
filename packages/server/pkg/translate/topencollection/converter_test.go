@@ -27,8 +27,8 @@ func TestConvertOpenCollection_BasicCollection(t *testing.T) {
 	}
 
 	// Verify collection name
-	if result.CollectionName != "Test API Collection" {
-		t.Errorf("expected collection name 'Test API Collection', got %q", result.CollectionName)
+	if result.Workspace.Name != "Test API Collection" {
+		t.Errorf("expected collection name 'Test API Collection', got %q", result.Workspace.Name)
 	}
 
 	// Verify HTTP requests: Get Users, Create User, Login = 3

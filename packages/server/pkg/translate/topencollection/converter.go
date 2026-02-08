@@ -1,6 +1,8 @@
 package topencollection
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,9 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 )
 
 // ConvertOptions configures the OpenCollection import.
@@ -22,26 +25,10 @@ type ConvertOptions struct {
 	Logger      *slog.Logger
 }
 
-// OpenCollectionResolved contains all converted DevTools models.
-type OpenCollectionResolved struct {
-	CollectionName string
-
-	HTTPRequests       []mhttp.HTTP
-	HTTPHeaders        []mhttp.HTTPHeader
-	HTTPSearchParams   []mhttp.HTTPSearchParam
-	HTTPBodyForms      []mhttp.HTTPBodyForm
-	HTTPBodyUrlencoded []mhttp.HTTPBodyUrlencoded
-	HTTPBodyRaw        []mhttp.HTTPBodyRaw
-	HTTPAsserts        []mhttp.HTTPAssert
-	Files              []mfile.File
-	Environments       []menv.Env
-	EnvironmentVars    []menv.Variable
-}
-
 // ConvertOpenCollection walks the given directory, parses each .yml file, and converts
 // to DevTools models. Only info.type == "http" requests are imported.
 // GraphQL, WebSocket, and gRPC types are skipped with a log warning.
-func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCollectionResolved, error) {
+func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*ioworkspace.WorkspaceBundle, error) {
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -59,14 +46,17 @@ func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCol
 		return nil, fmt.Errorf("failed to parse opencollection.yml: %w", err)
 	}
 
-	result := &OpenCollectionResolved{
-		CollectionName: root.Info.Name,
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   opts.WorkspaceID,
+			Name: root.Info.Name,
+		},
 	}
 
 	now := time.Now().UnixMilli()
 
 	// Walk directory tree recursively
-	if err := walkCollection(collectionPath, collectionPath, nil, opts.WorkspaceID, now, result, logger); err != nil {
+	if err := walkCollection(collectionPath, collectionPath, nil, opts.WorkspaceID, now, bundle, logger); err != nil {
 		return nil, fmt.Errorf("failed to walk collection: %w", err)
 	}
 
@@ -96,12 +86,12 @@ func ConvertOpenCollection(collectionPath string, opts ConvertOptions) (*OpenCol
 			}
 
 			env, vars := convertEnvironment(ocEnv, opts.WorkspaceID)
-			result.Environments = append(result.Environments, env)
-			result.EnvironmentVars = append(result.EnvironmentVars, vars...)
+			bundle.Environments = append(bundle.Environments, env)
+			bundle.EnvironmentVars = append(bundle.EnvironmentVars, vars...)
 		}
 	}
 
-	return result, nil
+	return bundle, nil
 }
 
 // walkCollection recursively walks a directory in the collection, creating
@@ -112,7 +102,7 @@ func walkCollection(
 	parentID *idwrap.IDWrap,
 	workspaceID idwrap.IDWrap,
 	now int64,
-	result *OpenCollectionResolved,
+	bundle *ioworkspace.WorkspaceBundle,
 	logger *slog.Logger,
 ) error {
 	entries, err := os.ReadDir(dirPath)
@@ -142,13 +132,6 @@ func walkCollection(
 			}
 			files = append(files, entry)
 		}
-	}
-
-	// Try to read folder.yml for folder metadata
-	folderSeqMap := make(map[string]int)
-	folderYMLPath := filepath.Join(dirPath, "folder.yml")
-	if _, err := os.Stat(folderYMLPath); err == nil {
-		// folder.yml exists but we don't need it for folder name — directory name is used
 	}
 
 	// Process request files first
@@ -190,17 +173,17 @@ func walkCollection(
 		if ocReq.Info.Seq > 0 {
 			fileOrder = float64(ocReq.Info.Seq)
 		}
-		if seq, ok := folderSeqMap[fileEntry.Name()]; ok {
-			fileOrder = float64(seq)
-		}
 
-		convertRequest(ocReq, workspaceID, parentID, fileOrder, now, result)
+		relPath, _ := filepath.Rel(rootPath, filePath)
+		convertRequest(ocReq, workspaceID, parentID, fileOrder, now, relPath, bundle)
 		order++
 	}
 
 	// Process subdirectories
 	for _, dirEntry := range dirs {
 		subDirPath := filepath.Join(dirPath, dirEntry.Name())
+		relPath, _ := filepath.Rel(rootPath, subDirPath)
+		pathHash := computePathHash(relPath)
 
 		// Create a folder file entry
 		folderID := idwrap.NewNow()
@@ -213,12 +196,13 @@ func walkCollection(
 			ContentType: mfile.ContentTypeFolder,
 			Name:        dirEntry.Name(),
 			Order:       order,
+			PathHash:    &pathHash,
 			UpdatedAt:   time.UnixMilli(now),
 		}
-		result.Files = append(result.Files, folderFile)
+		bundle.Files = append(bundle.Files, folderFile)
 
 		// Recurse into subdirectory
-		if err := walkCollection(rootPath, subDirPath, &folderID, workspaceID, now, result, logger); err != nil {
+		if err := walkCollection(rootPath, subDirPath, &folderID, workspaceID, now, bundle, logger); err != nil {
 			return err
 		}
 		order++
@@ -234,7 +218,8 @@ func convertRequest(
 	parentID *idwrap.IDWrap,
 	order float64,
 	now int64,
-	result *OpenCollectionResolved,
+	relPath string,
+	bundle *ioworkspace.WorkspaceBundle,
 ) {
 	httpID := idwrap.NewNow()
 
@@ -266,11 +251,12 @@ func convertRequest(
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	result.HTTPRequests = append(result.HTTPRequests, httpReq)
+	bundle.HTTPRequests = append(bundle.HTTPRequests, httpReq)
 
 	// Create file entry for this request
 	contentID := httpID
 	fileID := idwrap.NewNow()
+	pathHash := computePathHash(relPath)
 	file := mfile.File{
 		ID:          fileID,
 		WorkspaceID: workspaceID,
@@ -279,9 +265,10 @@ func convertRequest(
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        ocReq.Info.Name,
 		Order:       order,
+		PathHash:    &pathHash,
 		UpdatedAt:   time.UnixMilli(now),
 	}
-	result.Files = append(result.Files, file)
+	bundle.Files = append(bundle.Files, file)
 
 	if ocReq.HTTP == nil {
 		return
@@ -289,7 +276,7 @@ func convertRequest(
 
 	// Convert headers
 	for i, h := range ocReq.HTTP.Headers {
-		result.HTTPHeaders = append(result.HTTPHeaders, mhttp.HTTPHeader{
+		bundle.HTTPHeaders = append(bundle.HTTPHeaders, mhttp.HTTPHeader{
 			ID:           idwrap.NewNow(),
 			HttpID:       httpID,
 			Key:          h.Name,
@@ -304,7 +291,7 @@ func convertRequest(
 	// Convert params
 	for i, p := range ocReq.HTTP.Params {
 		if strings.ToLower(p.Type) == "query" || p.Type == "" {
-			result.HTTPSearchParams = append(result.HTTPSearchParams, mhttp.HTTPSearchParam{
+			bundle.HTTPSearchParams = append(bundle.HTTPSearchParams, mhttp.HTTPSearchParam{
 				ID:           idwrap.NewNow(),
 				HttpID:       httpID,
 				Key:          p.Name,
@@ -320,18 +307,18 @@ func convertRequest(
 
 	// Convert auth → headers/params
 	authHeaders, authParams := convertAuth(ocReq.HTTP.Auth, httpID)
-	result.HTTPHeaders = append(result.HTTPHeaders, authHeaders...)
-	result.HTTPSearchParams = append(result.HTTPSearchParams, authParams...)
+	bundle.HTTPHeaders = append(bundle.HTTPHeaders, authHeaders...)
+	bundle.HTTPSearchParams = append(bundle.HTTPSearchParams, authParams...)
 
 	// Convert body
 	_, bodyRaw, bodyForms, bodyUrlencoded := convertBody(ocReq.HTTP.Body, httpID)
 	if bodyRaw != nil {
 		bodyRaw.CreatedAt = now
 		bodyRaw.UpdatedAt = now
-		result.HTTPBodyRaw = append(result.HTTPBodyRaw, *bodyRaw)
+		bundle.HTTPBodyRaw = append(bundle.HTTPBodyRaw, *bodyRaw)
 	}
-	result.HTTPBodyForms = append(result.HTTPBodyForms, bodyForms...)
-	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, bodyUrlencoded...)
+	bundle.HTTPBodyForms = append(bundle.HTTPBodyForms, bodyForms...)
+	bundle.HTTPBodyUrlencoded = append(bundle.HTTPBodyUrlencoded, bodyUrlencoded...)
 
 	// Convert assertions
 	if ocReq.Runtime != nil {
@@ -340,7 +327,7 @@ func convertRequest(
 			if a.Operator != "" {
 				expr = fmt.Sprintf("%s %s %s", a.Expression, a.Operator, a.Value)
 			}
-			result.HTTPAsserts = append(result.HTTPAsserts, mhttp.HTTPAssert{
+			bundle.HTTPAsserts = append(bundle.HTTPAsserts, mhttp.HTTPAssert{
 				ID:           idwrap.NewNow(),
 				HttpID:       httpID,
 				Value:        strings.TrimSpace(expr),
@@ -350,12 +337,13 @@ func convertRequest(
 				UpdatedAt:    now,
 			})
 		}
-
-		// Log warning for scripts (not imported)
-		if len(ocReq.Runtime.Scripts) > 0 {
-			// Scripts are intentionally not imported — DevTools uses JS flow nodes instead
-		}
 	}
+}
+
+// computePathHash returns a SHA-256 hash of the given path for deduplication.
+func computePathHash(relPath string) string {
+	h := sha256.Sum256([]byte(relPath))
+	return hex.EncodeToString(h[:])
 }
 
 // isYAMLFile checks if a filename has a YAML extension.

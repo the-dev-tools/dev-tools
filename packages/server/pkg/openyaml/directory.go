@@ -1,6 +1,8 @@
 package openyaml
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,6 +31,51 @@ const (
 // ReadOptions configures directory reading.
 type ReadOptions struct {
 	WorkspaceID idwrap.IDWrap
+}
+
+// httpLookup holds pre-built index maps for writing HTTP requests to disk.
+type httpLookup struct {
+	HTTP       map[idwrap.IDWrap]mhttp.HTTP
+	Headers    map[idwrap.IDWrap][]mhttp.HTTPHeader
+	Params     map[idwrap.IDWrap][]mhttp.HTTPSearchParam
+	BodyRaw    map[idwrap.IDWrap]mhttp.HTTPBodyRaw
+	BodyForm   map[idwrap.IDWrap][]mhttp.HTTPBodyForm
+	BodyURL    map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded
+	Assertions map[idwrap.IDWrap][]mhttp.HTTPAssert
+}
+
+func buildHTTPLookup(bundle *ioworkspace.WorkspaceBundle) *httpLookup {
+	lk := &httpLookup{
+		HTTP:       make(map[idwrap.IDWrap]mhttp.HTTP, len(bundle.HTTPRequests)),
+		Headers:    make(map[idwrap.IDWrap][]mhttp.HTTPHeader),
+		Params:     make(map[idwrap.IDWrap][]mhttp.HTTPSearchParam),
+		BodyRaw:    make(map[idwrap.IDWrap]mhttp.HTTPBodyRaw),
+		BodyForm:   make(map[idwrap.IDWrap][]mhttp.HTTPBodyForm),
+		BodyURL:    make(map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded),
+		Assertions: make(map[idwrap.IDWrap][]mhttp.HTTPAssert),
+	}
+	for _, h := range bundle.HTTPRequests {
+		lk.HTTP[h.ID] = h
+	}
+	for _, h := range bundle.HTTPHeaders {
+		lk.Headers[h.HttpID] = append(lk.Headers[h.HttpID], h)
+	}
+	for _, p := range bundle.HTTPSearchParams {
+		lk.Params[p.HttpID] = append(lk.Params[p.HttpID], p)
+	}
+	for _, b := range bundle.HTTPBodyRaw {
+		lk.BodyRaw[b.HttpID] = b
+	}
+	for _, f := range bundle.HTTPBodyForms {
+		lk.BodyForm[f.HttpID] = append(lk.BodyForm[f.HttpID], f)
+	}
+	for _, u := range bundle.HTTPBodyUrlencoded {
+		lk.BodyURL[u.HttpID] = append(lk.BodyURL[u.HttpID], u)
+	}
+	for _, a := range bundle.HTTPAsserts {
+		lk.Assertions[a.HttpID] = append(lk.Assertions[a.HttpID], a)
+	}
+	return lk
 }
 
 // ReadDirectory reads an OpenYAML folder into a WorkspaceBundle.
@@ -79,46 +126,7 @@ func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error {
 		return fmt.Errorf("create directory: %w", err)
 	}
 
-	// Build lookup maps
-	fileByID := make(map[idwrap.IDWrap]mfile.File)
-	for _, f := range bundle.Files {
-		fileByID[f.ID] = f
-	}
-
-	httpByID := make(map[idwrap.IDWrap]mhttp.HTTP)
-	for _, h := range bundle.HTTPRequests {
-		httpByID[h.ID] = h
-	}
-
-	headersByHTTP := make(map[idwrap.IDWrap][]mhttp.HTTPHeader)
-	for _, h := range bundle.HTTPHeaders {
-		headersByHTTP[h.HttpID] = append(headersByHTTP[h.HttpID], h)
-	}
-
-	paramsByHTTP := make(map[idwrap.IDWrap][]mhttp.HTTPSearchParam)
-	for _, p := range bundle.HTTPSearchParams {
-		paramsByHTTP[p.HttpID] = append(paramsByHTTP[p.HttpID], p)
-	}
-
-	bodyRawByHTTP := make(map[idwrap.IDWrap]mhttp.HTTPBodyRaw)
-	for _, b := range bundle.HTTPBodyRaw {
-		bodyRawByHTTP[b.HttpID] = b
-	}
-
-	bodyFormByHTTP := make(map[idwrap.IDWrap][]mhttp.HTTPBodyForm)
-	for _, f := range bundle.HTTPBodyForms {
-		bodyFormByHTTP[f.HttpID] = append(bodyFormByHTTP[f.HttpID], f)
-	}
-
-	bodyUrlByHTTP := make(map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded)
-	for _, u := range bundle.HTTPBodyUrlencoded {
-		bodyUrlByHTTP[u.HttpID] = append(bodyUrlByHTTP[u.HttpID], u)
-	}
-
-	assertsByHTTP := make(map[idwrap.IDWrap][]mhttp.HTTPAssert)
-	for _, a := range bundle.HTTPAsserts {
-		assertsByHTTP[a.HttpID] = append(assertsByHTTP[a.HttpID], a)
-	}
+	lk := buildHTTPLookup(bundle)
 
 	// Write environments
 	if len(bundle.Environments) > 0 {
@@ -179,8 +187,7 @@ func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error {
 	}
 
 	// Write requests organized by file hierarchy
-	// Build parent->children map
-	childrenByParent := make(map[string][]mfile.File) // parentID string -> children
+	childrenByParent := make(map[string][]mfile.File)
 	for _, f := range bundle.Files {
 		parentKey := ""
 		if f.ParentID != nil {
@@ -189,12 +196,7 @@ func WriteDirectory(dirPath string, bundle *ioworkspace.WorkspaceBundle) error {
 		childrenByParent[parentKey] = append(childrenByParent[parentKey], f)
 	}
 
-	// Write recursively starting from root files
-	if err := writeFilesRecursive(dirPath, "", childrenByParent, httpByID, headersByHTTP, paramsByHTTP, bodyRawByHTTP, bodyFormByHTTP, bodyUrlByHTTP, assertsByHTTP); err != nil {
-		return err
-	}
-
-	return nil
+	return writeFilesRecursive(dirPath, "", childrenByParent, lk)
 }
 
 func readEnvironments(envDir string, workspaceID idwrap.IDWrap, bundle *ioworkspace.WorkspaceBundle) error {
@@ -335,6 +337,7 @@ func readRequestsRecursive(
 			// Create folder file entry
 			folderID := idwrap.NewNow()
 			folderContentID := folderID
+			pathHash := computePathHash(rel)
 			bundle.Files = append(bundle.Files, mfile.File{
 				ID:          folderID,
 				WorkspaceID: workspaceID,
@@ -343,6 +346,7 @@ func readRequestsRecursive(
 				ContentType: mfile.ContentTypeFolder,
 				Name:        name,
 				Order:       order,
+				PathHash:    &pathHash,
 				UpdatedAt:   now,
 			})
 
@@ -406,6 +410,8 @@ func readRequestsRecursive(
 
 		// Create file entry
 		contentID := httpID
+		relPath, _ := filepath.Rel(rootDir, filepath.Join(dirPath, name))
+		pathHash := computePathHash(relPath)
 		bundle.Files = append(bundle.Files, mfile.File{
 			ID:          idwrap.NewNow(),
 			WorkspaceID: workspaceID,
@@ -414,6 +420,7 @@ func readRequestsRecursive(
 			ContentType: mfile.ContentTypeHTTP,
 			Name:        yamlReq.Name,
 			Order:       fileOrder,
+			PathHash:    &pathHash,
 			UpdatedAt:   now,
 		})
 
@@ -525,13 +532,7 @@ func writeFilesRecursive(
 	currentDir string,
 	parentIDStr string,
 	childrenByParent map[string][]mfile.File,
-	httpByID map[idwrap.IDWrap]mhttp.HTTP,
-	headersByHTTP map[idwrap.IDWrap][]mhttp.HTTPHeader,
-	paramsByHTTP map[idwrap.IDWrap][]mhttp.HTTPSearchParam,
-	bodyRawByHTTP map[idwrap.IDWrap]mhttp.HTTPBodyRaw,
-	bodyFormByHTTP map[idwrap.IDWrap][]mhttp.HTTPBodyForm,
-	bodyUrlByHTTP map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded,
-	assertsByHTTP map[idwrap.IDWrap][]mhttp.HTTPAssert,
+	lk *httpLookup,
 ) error {
 	children := childrenByParent[parentIDStr]
 	sort.Slice(children, func(i, j int) bool { return children[i].Order < children[j].Order })
@@ -543,7 +544,7 @@ func writeFilesRecursive(
 			if err := os.MkdirAll(subDir, 0o755); err != nil {
 				return fmt.Errorf("create dir %q: %w", f.Name, err)
 			}
-			if err := writeFilesRecursive(subDir, f.ID.String(), childrenByParent, httpByID, headersByHTTP, paramsByHTTP, bodyRawByHTTP, bodyFormByHTTP, bodyUrlByHTTP, assertsByHTTP); err != nil {
+			if err := writeFilesRecursive(subDir, f.ID.String(), childrenByParent, lk); err != nil {
 				return err
 			}
 
@@ -551,12 +552,12 @@ func writeFilesRecursive(
 			if f.ContentID == nil {
 				continue
 			}
-			httpReq, ok := httpByID[*f.ContentID]
+			httpReq, ok := lk.HTTP[*f.ContentID]
 			if !ok {
 				continue
 			}
 
-			yamlReq := exportHTTPRequest(httpReq, f.Order, headersByHTTP, paramsByHTTP, bodyRawByHTTP, bodyFormByHTTP, bodyUrlByHTTP, assertsByHTTP)
+			yamlReq := exportHTTPRequest(httpReq, f.Order, lk)
 			data, err := WriteSingleRequest(yamlReq)
 			if err != nil {
 				return fmt.Errorf("marshal request %q: %w", httpReq.Name, err)
@@ -572,16 +573,7 @@ func writeFilesRecursive(
 	return nil
 }
 
-func exportHTTPRequest(
-	httpReq mhttp.HTTP,
-	order float64,
-	headersByHTTP map[idwrap.IDWrap][]mhttp.HTTPHeader,
-	paramsByHTTP map[idwrap.IDWrap][]mhttp.HTTPSearchParam,
-	bodyRawByHTTP map[idwrap.IDWrap]mhttp.HTTPBodyRaw,
-	bodyFormByHTTP map[idwrap.IDWrap][]mhttp.HTTPBodyForm,
-	bodyUrlByHTTP map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded,
-	assertsByHTTP map[idwrap.IDWrap][]mhttp.HTTPAssert,
-) yfs.YamlRequestDefV2 {
+func exportHTTPRequest(httpReq mhttp.HTTP, order float64, lk *httpLookup) yfs.YamlRequestDefV2 {
 	req := yfs.YamlRequestDefV2{
 		Name:        httpReq.Name,
 		Method:      httpReq.Method,
@@ -591,7 +583,7 @@ func exportHTTPRequest(
 	}
 
 	// Headers
-	headers := headersByHTTP[httpReq.ID]
+	headers := lk.Headers[httpReq.ID]
 	if len(headers) > 0 {
 		var pairs []yfs.YamlNameValuePairV2
 		for _, h := range headers {
@@ -606,7 +598,7 @@ func exportHTTPRequest(
 	}
 
 	// Query params
-	params := paramsByHTTP[httpReq.ID]
+	params := lk.Params[httpReq.ID]
 	if len(params) > 0 {
 		var pairs []yfs.YamlNameValuePairV2
 		for _, p := range params {
@@ -623,7 +615,7 @@ func exportHTTPRequest(
 	// Body
 	switch httpReq.BodyKind {
 	case mhttp.HttpBodyKindFormData:
-		forms := bodyFormByHTTP[httpReq.ID]
+		forms := lk.BodyForm[httpReq.ID]
 		if len(forms) > 0 {
 			var pairs []yfs.YamlNameValuePairV2
 			for _, f := range forms {
@@ -640,7 +632,7 @@ func exportHTTPRequest(
 			}
 		}
 	case mhttp.HttpBodyKindUrlEncoded:
-		urls := bodyUrlByHTTP[httpReq.ID]
+		urls := lk.BodyURL[httpReq.ID]
 		if len(urls) > 0 {
 			var pairs []yfs.YamlNameValuePairV2
 			for _, u := range urls {
@@ -657,7 +649,7 @@ func exportHTTPRequest(
 			}
 		}
 	case mhttp.HttpBodyKindRaw:
-		if raw, ok := bodyRawByHTTP[httpReq.ID]; ok && len(raw.RawData) > 0 {
+		if raw, ok := lk.BodyRaw[httpReq.ID]; ok && len(raw.RawData) > 0 {
 			req.Body = &yfs.YamlBodyUnion{
 				Type: "raw",
 				Raw:  string(raw.RawData),
@@ -666,7 +658,7 @@ func exportHTTPRequest(
 	}
 
 	// Assertions
-	asserts := assertsByHTTP[httpReq.ID]
+	asserts := lk.Assertions[httpReq.ID]
 	if len(asserts) > 0 {
 		var yamlAsserts []yfs.YamlAssertionV2
 		for _, a := range asserts {
@@ -697,6 +689,12 @@ func exportFlow(flow mflow.Flow, bundle *ioworkspace.WorkspaceBundle) yfs.YamlFl
 	}
 
 	return yamlFlow
+}
+
+// computePathHash returns a SHA-256 hash of the given path for deduplication.
+func computePathHash(relPath string) string {
+	h := sha256.Sum256([]byte(relPath))
+	return hex.EncodeToString(h[:])
 }
 
 // atomicWrite writes data to a temp file then renames for safety.
