@@ -210,7 +210,7 @@ func readEnvironments(envDir string, workspaceID idwrap.IDWrap, bundle *ioworksp
 			continue
 		}
 
-		data, err := os.ReadFile(filepath.Join(envDir, entry.Name()))
+		data, err := os.ReadFile(filepath.Join(envDir, entry.Name())) //nolint:gosec // Intentional: reading from user-specified sync directory
 		if err != nil {
 			return fmt.Errorf("read %s: %w", entry.Name(), err)
 		}
@@ -263,7 +263,7 @@ func readFlows(flowDir string, workspaceID idwrap.IDWrap, bundle *ioworkspace.Wo
 			continue
 		}
 
-		data, err := os.ReadFile(filepath.Join(flowDir, entry.Name()))
+		data, err := os.ReadFile(filepath.Join(flowDir, entry.Name())) //nolint:gosec // Intentional: reading from user-specified sync directory
 		if err != nil {
 			return fmt.Errorf("read %s: %w", entry.Name(), err)
 		}
@@ -361,7 +361,7 @@ func readRequestsRecursive(
 			continue
 		}
 
-		data, err := os.ReadFile(filepath.Join(dirPath, name))
+		data, err := os.ReadFile(filepath.Join(dirPath, name)) //nolint:gosec // Intentional: reading from user-specified sync directory
 		if err != nil {
 			return fmt.Errorf("read %s: %w", name, err)
 		}
