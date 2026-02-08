@@ -12,7 +12,7 @@ import (
 const MigrationAddWorkspaceSyncID = "01KGZ57RM25ANJQA21JQGJ6D2M"
 
 // MigrationAddWorkspaceSyncChecksum is a stable hash of this migration.
-const MigrationAddWorkspaceSyncChecksum = "sha256:add-workspace-sync-v1"
+const MigrationAddWorkspaceSyncChecksum = "sha256:add-workspace-sync-v2"
 
 func init() {
 	if err := migrate.Register(migrate.Migration{
@@ -27,18 +27,41 @@ func init() {
 	}
 }
 
+// columnExists checks if a column exists on a table using pragma_table_info.
+func columnExists(ctx context.Context, tx *sql.Tx, table, column string) (bool, error) {
+	var count int
+	err := tx.QueryRowContext(ctx,
+		fmt.Sprintf(`SELECT COUNT(*) FROM pragma_table_info('%s') WHERE name = '%s'`, table, column),
+	).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // applyWorkspaceSync adds folder sync columns to the workspaces table.
+// Idempotent: skips columns that already exist (e.g. from fresh schema).
 func applyWorkspaceSync(ctx context.Context, tx *sql.Tx) error {
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN sync_path TEXT`); err != nil {
-		return fmt.Errorf("add sync_path column: %w", err)
+	columns := []struct {
+		name string
+		ddl  string
+	}{
+		{"sync_path", `ALTER TABLE workspaces ADD COLUMN sync_path TEXT`},
+		{"sync_format", `ALTER TABLE workspaces ADD COLUMN sync_format TEXT`},
+		{"sync_enabled", `ALTER TABLE workspaces ADD COLUMN sync_enabled BOOLEAN NOT NULL DEFAULT 0`},
 	}
 
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN sync_format TEXT`); err != nil {
-		return fmt.Errorf("add sync_format column: %w", err)
-	}
-
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN sync_enabled BOOLEAN NOT NULL DEFAULT 0`); err != nil {
-		return fmt.Errorf("add sync_enabled column: %w", err)
+	for _, col := range columns {
+		exists, err := columnExists(ctx, tx, "workspaces", col.name)
+		if err != nil {
+			return fmt.Errorf("check %s column: %w", col.name, err)
+		}
+		if exists {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, col.ddl); err != nil {
+			return fmt.Errorf("add %s column: %w", col.name, err)
+		}
 	}
 
 	return nil
