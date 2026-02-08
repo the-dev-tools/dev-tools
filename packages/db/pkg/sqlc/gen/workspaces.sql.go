@@ -183,6 +183,61 @@ func (q *Queries) GetAllWorkspacesByUserID(ctx context.Context, userID idwrap.ID
 	return items, nil
 }
 
+const getSyncedWorkspaces = `-- name: GetSyncedWorkspaces :many
+SELECT
+  id,
+  name,
+  updated,
+  collection_count,
+  flow_count,
+  active_env,
+  global_env,
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
+FROM
+  workspaces
+WHERE
+  sync_enabled = 1
+`
+
+// Returns all workspaces with sync enabled
+func (q *Queries) GetSyncedWorkspaces(ctx context.Context) ([]Workspace, error) {
+	rows, err := q.query(ctx, q.getSyncedWorkspacesStmt, getSyncedWorkspaces)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Workspace{}
+	for rows.Next() {
+		var i Workspace
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Updated,
+			&i.CollectionCount,
+			&i.FlowCount,
+			&i.ActiveEnv,
+			&i.GlobalEnv,
+			&i.DisplayOrder,
+			&i.SyncPath,
+			&i.SyncFormat,
+			&i.SyncEnabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWorkspace = `-- name: GetWorkspace :one
 SELECT
   id,
@@ -618,61 +673,6 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.ID,
 	)
 	return err
-}
-
-const getSyncedWorkspaces = `-- name: GetSyncedWorkspaces :many
-SELECT
-  id,
-  name,
-  updated,
-  collection_count,
-  flow_count,
-  active_env,
-  global_env,
-  display_order,
-  sync_path,
-  sync_format,
-  sync_enabled
-FROM
-  workspaces
-WHERE
-  sync_enabled = 1
-`
-
-// Returns all workspaces with sync enabled
-func (q *Queries) GetSyncedWorkspaces(ctx context.Context) ([]Workspace, error) {
-	rows, err := q.query(ctx, q.getSyncedWorkspacesStmt, getSyncedWorkspaces)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Workspace{}
-	for rows.Next() {
-		var i Workspace
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Updated,
-			&i.CollectionCount,
-			&i.FlowCount,
-			&i.ActiveEnv,
-			&i.GlobalEnv,
-			&i.DisplayOrder,
-			&i.SyncPath,
-			&i.SyncFormat,
-			&i.SyncEnabled,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const updateWorkspaceSync = `-- name: UpdateWorkspaceSync :exec
