@@ -1,3 +1,13 @@
+## 0.2.1 (2026-02-09)
+
+### 🩹 Fixes
+
+- Fix auto-update not working correctly ([764e4384](https://github.com/the-dev-tools/dev-tools/commit/764e4384))
+
+### ❤️ Thank You
+
+- Tomas Zaluckij @Tomaszal
+
 ## 0.1.6 (2026-01-12)
 
 ### 🩹 Fixes
