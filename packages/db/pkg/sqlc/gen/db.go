@@ -579,6 +579,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPSnapshotPageStmt, err = db.PrepareContext(ctx, getHTTPSnapshotPage); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotPage: %w", err)
 	}
+	if q.getHTTPSnapshotsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPSnapshotsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotsByWorkspaceID: %w", err)
+	}
 	if q.getHTTPStreamingMetricsStmt, err = db.PrepareContext(ctx, getHTTPStreamingMetrics); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPStreamingMetrics: %w", err)
 	}
@@ -1776,6 +1779,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPSnapshotPageStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPSnapshotsByWorkspaceIDStmt != nil {
+		if cerr := q.getHTTPSnapshotsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPSnapshotsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPStreamingMetricsStmt != nil {
 		if cerr := q.getHTTPStreamingMetricsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPStreamingMetricsStmt: %w", cerr)
@@ -2445,6 +2453,7 @@ type Queries struct {
 	getHTTPSearchParamsStreamingStmt           *sql.Stmt
 	getHTTPSnapshotCountStmt                   *sql.Stmt
 	getHTTPSnapshotPageStmt                    *sql.Stmt
+	getHTTPSnapshotsByWorkspaceIDStmt          *sql.Stmt
 	getHTTPStreamingMetricsStmt                *sql.Stmt
 	getHTTPWorkspaceActivityStmt               *sql.Stmt
 	getHTTPWorkspaceIDStmt                     *sql.Stmt
@@ -2725,6 +2734,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPSearchParamsStreamingStmt:           q.getHTTPSearchParamsStreamingStmt,
 		getHTTPSnapshotCountStmt:                   q.getHTTPSnapshotCountStmt,
 		getHTTPSnapshotPageStmt:                    q.getHTTPSnapshotPageStmt,
+		getHTTPSnapshotsByWorkspaceIDStmt:          q.getHTTPSnapshotsByWorkspaceIDStmt,
 		getHTTPStreamingMetricsStmt:                q.getHTTPStreamingMetricsStmt,
 		getHTTPWorkspaceActivityStmt:               q.getHTTPWorkspaceActivityStmt,
 		getHTTPWorkspaceIDStmt:                     q.getHTTPWorkspaceIDStmt,

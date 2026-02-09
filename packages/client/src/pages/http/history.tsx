@@ -99,7 +99,7 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
                       </div>
                     }
                   >
-                    <Version deltaHttpId={deltaHttpId} httpId={_.httpVersionId} />
+                    <Version httpId={_.httpVersionId} />
                   </Suspense>
                 </TabPanel>
               )}
@@ -112,11 +112,10 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
 };
 
 interface VersionProps {
-  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
 }
 
-const Version = ({ deltaHttpId, httpId }: VersionProps) => {
+const Version = ({ httpId }: VersionProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
   const { httpResponseId } =
@@ -137,10 +136,10 @@ const Version = ({ deltaHttpId, httpId }: VersionProps) => {
     <PanelGroup {...endpointVersionsLayout} orientation='vertical'>
       <Panel className={tw`flex h-full flex-col`} id='request'>
         <div className={tw`p-6 pb-2`}>
-          <HttpUrl deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly />
+          <HttpUrl httpId={httpId} isReadOnly />
         </div>
 
-        <HttpRequestPanel deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly />
+        <HttpRequestPanel httpId={httpId} isReadOnly />
       </Panel>
 
       {httpResponseId && (

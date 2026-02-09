@@ -25,6 +25,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/patch"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
@@ -34,20 +35,34 @@ import (
 	logv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/log/v1"
 )
 
-func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhttp.HTTP) error {
+// executeHTTPResult holds the resolved request data alongside the response ID.
+// This allows callers to snapshot the exact request state that was executed.
+type executeHTTPResult struct {
+	ResponseID     idwrap.IDWrap
+	ResolvedHTTP   mhttp.HTTP
+	Headers        []mhttp.HTTPHeader
+	SearchParams   []mhttp.HTTPSearchParam
+	RawBody        *mhttp.HTTPBodyRaw
+	FormBody       []mhttp.HTTPBodyForm
+	UrlEncodedBody []mhttp.HTTPBodyUrlencoded
+	Asserts        []mhttp.HTTPAssert
+}
+
+func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhttp.HTTP) (*executeHTTPResult, error) {
 	var resolvedHTTP mhttp.HTTP
 	var mHeaders []mhttp.HTTPHeader
 	var mQueries []mhttp.HTTPSearchParam
 	var rawBody *mhttp.HTTPBodyRaw
 	var mFormBody []mhttp.HTTPBodyForm
 	var mUrlEncodedBody []mhttp.HTTPBodyUrlencoded
+	var resolvedAsserts []mhttp.HTTPAssert
 
 	// Check if this is a delta request and resolve it using the resolver
 	if httpEntry.IsDelta && httpEntry.ParentHttpID != nil {
 		// Use the resolver to merge base + delta
 		resolved, err := h.resolver.Resolve(ctx, *httpEntry.ParentHttpID, &httpEntry.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resolve delta request: %w", err))
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resolve delta request: %w", err))
 		}
 
 		resolvedHTTP = resolved.Resolved
@@ -56,6 +71,7 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		mFormBody = resolved.ResolvedFormBody
 		mUrlEncodedBody = resolved.ResolvedUrlEncodedBody
 		rawBody = &resolved.ResolvedRawBody
+		resolvedAsserts = resolved.ResolvedAsserts
 
 		// Use workspace ID from original entry (base might have different workspace)
 		resolvedHTTP.WorkspaceID = httpEntry.WorkspaceID
@@ -67,11 +83,13 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		if err != nil {
 			headers = []mhttp.HTTPHeader{}
 		}
+		mHeaders = headers
 
 		queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpEntry.ID)
 		if err != nil {
 			queries = []mhttp.HTTPSearchParam{}
 		}
+		mQueries = queries
 
 		rawBodyFetched, err := h.bodyService.GetByHttpID(ctx, httpEntry.ID)
 		if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
@@ -83,48 +101,19 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		if err != nil {
 			formBody = []mhttp.HTTPBodyForm{}
 		}
+		mFormBody = formBody
 
 		urlEncodedBody, err := h.httpBodyUrlEncodedService.GetByHttpID(ctx, httpEntry.ID)
 		if err != nil {
 			urlEncodedBody = []mhttp.HTTPBodyUrlencoded{}
 		}
+		mUrlEncodedBody = urlEncodedBody
 
-		// Convert to mhttp types for request preparation
-		mHeaders = make([]mhttp.HTTPHeader, len(headers))
-		for i, v := range headers {
-			mHeaders[i] = mhttp.HTTPHeader{
-				Key:     v.Key,
-				Value:   v.Value,
-				Enabled: v.Enabled,
-			}
+		asserts, err := h.httpAssertService.GetByHttpID(ctx, httpEntry.ID)
+		if err != nil {
+			asserts = []mhttp.HTTPAssert{}
 		}
-
-		mQueries = make([]mhttp.HTTPSearchParam, len(queries))
-		for i, v := range queries {
-			mQueries[i] = mhttp.HTTPSearchParam{
-				Key:     v.Key,
-				Value:   v.Value,
-				Enabled: v.Enabled,
-			}
-		}
-
-		mFormBody = make([]mhttp.HTTPBodyForm, len(formBody))
-		for i, v := range formBody {
-			mFormBody[i] = mhttp.HTTPBodyForm{
-				Key:     v.Key,
-				Value:   v.Value,
-				Enabled: v.Enabled,
-			}
-		}
-
-		mUrlEncodedBody = make([]mhttp.HTTPBodyUrlencoded, len(urlEncodedBody))
-		for i, v := range urlEncodedBody {
-			mUrlEncodedBody[i] = mhttp.HTTPBodyUrlencoded{
-				Key:     v.Key,
-				Value:   v.Value,
-				Enabled: v.Enabled,
-			}
-		}
+		resolvedAsserts = asserts
 	}
 
 	// Build variable context from previous HTTP responses in the workspace
@@ -145,7 +134,7 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		varMap,
 	)
 	if err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to prepare request: %w", err))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to prepare request: %w", err))
 	}
 	httpReq := res.Request
 
@@ -161,29 +150,29 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		var netErr net.Error
 		if errors.As(err, &netErr) {
 			if netErr.Timeout() {
-				return connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("request timeout: %w", err))
+				return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("request timeout: %w", err))
 			}
 			// Note: Temporary() is deprecated since Go 1.18 - treating temporary network errors as unavailable without checking
-			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("network error: %w", err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("network error: %w", err))
 		}
 
 		// Handle DNS resolution errors
 		if strings.Contains(err.Error(), "no such host") || strings.Contains(err.Error(), "dns") {
-			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("DNS resolution failed: %w", err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("DNS resolution failed: %w", err))
 		}
 
 		// Handle connection refused errors
 		if strings.Contains(err.Error(), "connection refused") {
-			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("connection refused: %w", err))
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("connection refused: %w", err))
 		}
 
 		// Handle SSL/TLS errors
 		if strings.Contains(err.Error(), "certificate") || strings.Contains(err.Error(), "tls") {
-			return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("TLS/SSL error: %w", err))
+			return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("TLS/SSL error: %w", err))
 		}
 
 		// Generic HTTP execution error
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("HTTP request failed: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("HTTP request failed: %w", err))
 	}
 
 	// Store HTTP response in database
@@ -194,8 +183,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		responseID = idwrap.IDWrap{} // Use empty ID as fallback
 	}
 
-	// Load and evaluate assertions with comprehensive error handling
-	if err := h.evaluateAndStoreAssertions(ctx, httpEntry.ID, responseID, httpResp); err != nil {
+	// Evaluate assertions using the resolved set (handles both delta and non-delta)
+	if err := h.evaluateResolvedAssertions(ctx, httpEntry.ID, responseID, httpResp, resolvedAsserts); err != nil {
 		// Log detailed error but don't fail the request
 		slog.WarnContext(ctx, "Failed to evaluate assertions",
 			"http_id", httpEntry.ID.String(),
@@ -203,7 +192,16 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 			"error", err)
 	}
 
-	return nil
+	return &executeHTTPResult{
+		ResponseID:     responseID,
+		ResolvedHTTP:   resolvedHTTP,
+		Headers:        mHeaders,
+		SearchParams:   mQueries,
+		RawBody:        rawBody,
+		FormBody:       mFormBody,
+		UrlEncodedBody: mUrlEncodedBody,
+		Asserts:        resolvedAsserts,
+	}, nil
 }
 
 // buildWorkspaceVarMap creates a variable map from workspace environments.
@@ -275,7 +273,8 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	}
 
 	// Execute HTTP request with proper error handling
-	if err := h.executeHTTPRequest(ctx, httpEntry); err != nil {
+	execResult, err := h.executeHTTPRequest(ctx, httpEntry)
+	if err != nil {
 		h.logExecution(userID, httpEntry, err)
 
 		// Handle different types of errors appropriately
@@ -291,35 +290,48 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Update LastRunAt, create version, and publish events
+	// Build snapshot data from resolved execution result + response from DB
+	snapshotData, err := h.buildSnapshotData(ctx, execResult)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build snapshot data: %w", err))
+	}
+
+	// Update LastRunAt, create version with snapshot, and publish events
 	now := time.Now().Unix()
 	httpEntry.LastRunAt = &now
 
-	// Use minimal transaction for update and version creation
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
+	// Use mutation context for update, version creation, and snapshot
+	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to begin transaction: %w", err))
 	}
-	defer devtoolsdb.TxnRollback(tx)
+	defer mut.Rollback()
 
-	hsWriter := shttp.NewWriter(tx)
+	hsWriter := shttp.NewWriter(mut.TX())
 
 	if err := hsWriter.Update(ctx, httpEntry); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update LastRunAt: %w", err))
 	}
 
-	// Create a new version for this run
-	versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
-	versionDesc := "Auto-saved version (Run)"
-
-	version, err := hsWriter.CreateHttpVersion(ctx, httpEntry.ID, userID, versionName, versionDesc)
+	// Create version with full snapshot using resolved data (handles both base and delta correctly).
+	// httpEntry.ID is the original entry that was run (base or delta) — used as the version's foreign key.
+	// execResult.ResolvedHTTP has the merged data — used for the snapshot content.
+	version, err := h.createVersionWithSnapshot(ctx, mut, httpEntry.ID, &execResult.ResolvedHTTP, userID, snapshotData)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create version on run: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create version with snapshot: %w", err))
 	}
 
-	if err := tx.Commit(); err != nil {
+	// Collect events before commit for manual publishing of responses
+	snapshotEvents := mut.Events()
+
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to commit transaction: %w", err))
 	}
+
+	// The mutation publisher handles HTTP/Header/Param/Body/Assert/Version events.
+	// We need to manually publish response/response-header/response-assert events
+	// since those are not handled by the mutation publisher.
+	h.publishSnapshotSyncEvents(snapshotEvents, httpEntry.WorkspaceID)
 
 	h.publishUpdateEvent(*httpEntry, patch.HTTPDeltaPatch{})
 	h.publishVersionInsertEvent(*version, httpEntry.WorkspaceID)
@@ -411,19 +423,14 @@ type AssertionResult struct {
 	EvaluatedAt time.Time
 }
 
-func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID idwrap.IDWrap, responseID idwrap.IDWrap, resp httpclient.Response) error {
-	// Load assertions for this HTTP entry
-	asserts, err := h.httpAssertService.GetByHttpID(ctx, httpID)
-	if err != nil {
-		return fmt.Errorf("failed to load assertions for HTTP %s: %w", httpID.String(), err)
-	}
-
+// evaluateResolvedAssertions evaluates pre-resolved assertions against the response and stores the results.
+// This accepts the assertion list directly instead of re-fetching from DB,
+// which is necessary for delta runs where the resolved (merged) asserts differ from the delta's own asserts.
+func (h *HttpServiceRPC) evaluateResolvedAssertions(ctx context.Context, httpID idwrap.IDWrap, responseID idwrap.IDWrap, resp httpclient.Response, asserts []mhttp.HTTPAssert) error {
 	if len(asserts) == 0 {
-		// No assertions to evaluate
 		return nil
 	}
 
-	// Filter enabled assertions and log statistics
 	enabledAsserts := make([]mhttp.HTTPAssert, 0, len(asserts))
 	for _, assert := range asserts {
 		if assert.Enabled {
@@ -432,17 +439,12 @@ func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID 
 	}
 
 	if len(enabledAsserts) == 0 {
-		// No enabled assertions to evaluate
 		return nil
 	}
 
-	// Create evaluation context with response data (shared across all assertions)
 	evalContext := h.createAssertionEvalContext(resp)
-
-	// Evaluate assertions in parallel and collect results
 	results := h.evaluateAssertionsParallel(ctx, enabledAsserts, evalContext)
 
-	// Store assertion results in batch with enhanced error handling
 	if err := h.storeAssertionResultsBatch(ctx, httpID, responseID, results); err != nil {
 		return fmt.Errorf("failed to store assertion results for HTTP %s: %w", httpID.String(), err)
 	}

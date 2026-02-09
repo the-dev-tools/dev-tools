@@ -140,7 +140,7 @@ func TestHttpUpdate_Partial(t *testing.T) {
 	require.Equal(t, "GET", httpModel.Method)
 }
 
-func TestHttpUpdate_CreatesVersion(t *testing.T) {
+func TestHttpUpdate_DoesNotCreateVersion(t *testing.T) {
 	t.Parallel()
 
 	f := newHttpFixture(t)
@@ -166,11 +166,10 @@ func TestHttpUpdate_CreatesVersion(t *testing.T) {
 	_, err = f.handler.HttpUpdate(f.ctx, req)
 	require.NoError(t, err)
 
-	// Verify version created
+	// Verify NO version created (versions only come from HttpRun with snapshot data)
 	versions, err = f.hs.GetHttpVersionsByHttpID(f.ctx, httpID)
 	require.NoError(t, err)
-	require.Len(t, versions, 1)
-	require.Equal(t, httpID, versions[0].HttpID)
+	require.Empty(t, versions)
 }
 
 func TestHttpDelete_Success(t *testing.T) {
@@ -279,18 +278,8 @@ func TestHttpVersionCollection_Success(t *testing.T) {
 	ws := f.createWorkspace(t, "test-workspace")
 	httpID := f.createHttp(t, ws, "version-test")
 
-	// Create a version manually or via update
-	// Let's use Update to create a version
-	newName := "updated-version-test"
-	updateReq := connect.NewRequest(&apiv1.HttpUpdateRequest{
-		Items: []*apiv1.HttpUpdate{
-			{
-				HttpId: httpID.Bytes(),
-				Name:   &newName,
-			},
-		},
-	})
-	_, err := f.handler.HttpUpdate(f.ctx, updateReq)
+	// Create a version directly via service
+	_, err := f.hs.CreateHttpVersion(f.ctx, httpID, f.userID, "v1", "test version")
 	require.NoError(t, err)
 
 	// Test Collection

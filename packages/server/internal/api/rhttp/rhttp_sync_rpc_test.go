@@ -941,7 +941,9 @@ func TestHttpUpdateSync_PartialFields(t *testing.T) {
 	}
 }
 
-func TestHttpUpdateSync_VersionCreation(t *testing.T) {
+// TestHttpUpdateSync_NoVersionCreation verifies that HTTP updates do NOT create
+// versions. Versions are only created by HttpRun with full snapshot data.
+func TestHttpUpdateSync_NoVersionCreation(t *testing.T) {
 	t.Parallel()
 
 	f := newHttpStreamingFixture(t)
@@ -987,8 +989,8 @@ func TestHttpUpdateSync_VersionCreation(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	// Update HTTP - should create version
-	newName := "updated-with-version"
+	// Update HTTP - should NOT create version
+	newName := "updated-without-version"
 	req := connect.NewRequest(&httpv1.HttpUpdateRequest{
 		Items: []*httpv1.HttpUpdate{
 			{HttpId: httpID.Bytes(), Name: &newName},
@@ -1003,17 +1005,13 @@ func TestHttpUpdateSync_VersionCreation(t *testing.T) {
 	require.Equal(t, httpv1.HttpSync_ValueUnion_KIND_UPDATE, httpVal.GetKind())
 	require.Equal(t, newName, httpVal.GetUpdate().GetName())
 
-	// Verify HttpVersion insert event
-	versionItems := collectHttpVersionSyncItems(t, versionMsgCh, 1)
-	versionVal := versionItems[0].GetValue()
-	require.Equal(t, httpv1.HttpVersionSync_ValueUnion_KIND_INSERT, versionVal.GetKind())
-	// Version should have auto-generated name (format: v<timestamp>)
-	require.NotEmpty(t, versionVal.GetInsert().GetName())
-	require.Contains(t, versionVal.GetInsert().GetName(), "v")
-	// Version description should be "Auto-saved version"
-	require.Equal(t, "Auto-saved version", versionVal.GetInsert().GetDescription())
-	// Version linked to correct HTTP ID
-	require.Equal(t, httpID.Bytes(), versionVal.GetInsert().GetHttpId())
+	// Verify NO HttpVersion insert event is published
+	select {
+	case msg := <-versionMsgCh:
+		require.FailNow(t, "Unexpected version sync event after HTTP update", "got: %v", msg)
+	case <-time.After(500 * time.Millisecond):
+		// Good - no version event
+	}
 
 	cancel()
 	err = <-httpErrCh

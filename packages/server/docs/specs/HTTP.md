@@ -20,14 +20,41 @@ A Request is the fundamental unit, defining _what_ to send.
   - `Binary` (File uploads)
 - **Authentication:** Auth configurations (Bearer, Basic, etc.) are abstracted into the header generation logic.
 
-### 2. The "Delta" System
+### 2. The Delta & Snapshot System
 
-To support non-destructive edits and history tracking, requests often use a delta mechanism.
+Every `http` record is classified by two independent boolean columns (`is_delta`, `is_snapshot`) into one of three mutually exclusive states:
 
-- **Base Request:** The saved state of a request in a collection.
-- **Delta:** A temporary or modified state (e.g., when a user types in the UI but hasn't saved).
-- **Parent Relationship:** Deltas link back to a `ParentHttpID`.
-- **Field Overrides:** Deltas store only what changed (conceptually), though the storage model may store full snapshots for simplicity depending on the implementation.
+| `is_delta` | `is_snapshot` | State        | Description                                                          |
+| ---------- | ------------- | ------------ | -------------------------------------------------------------------- |
+| `FALSE`    | `FALSE`       | **Base**     | The canonical saved request in a collection. Visible in the sidebar. |
+| `TRUE`     | `FALSE`       | **Delta**    | A transient overlay on a base record (unsaved UI edits, variants).   |
+| `FALSE`    | `TRUE`        | **Snapshot** | An immutable, fully-resolved copy captured at execution time.        |
+
+The combination `is_delta=TRUE, is_snapshot=TRUE` is **invalid** and enforced by:
+
+- A `CHECK` constraint in the DDL schema (for fresh databases).
+- `BEFORE INSERT/UPDATE` triggers (for migrated databases).
+
+#### Base Records
+
+The normal saved requests users see in the workspace tree.
+
+#### Delta Records
+
+Non-destructive overlays on top of a base record. Used when users edit a request in the UI before saving.
+
+- **Parent Relationship:** Deltas link back to a `ParentHttpID` (enforced by a `CHECK` constraint).
+- **NULL-means-no-change:** Delta override fields (`delta_url`, `delta_method`, etc.) use `NULL` to indicate "inherit from parent". Only non-NULL fields override the base.
+- **Resolution:** `packages/server/pkg/delta` merges base + delta into a resolved view at read time.
+
+#### Snapshot Records
+
+Immutable point-in-time captures created when a request is executed via `HttpRun`.
+
+- **Fully resolved:** If the executed request was a delta, the snapshot stores the merged result, not raw delta data.
+- **Deep cloned:** All child entities (headers, params, body, asserts, response) are copied with new IDs.
+- **Linked to versions:** The snapshot ID matches the `http_version.id` that triggered it.
+- **Hidden from sidebar:** `GetHTTPsByWorkspaceID` excludes snapshots; they are only surfaced via the version/history UI.
 
 ### 3. Execution & History
 
@@ -62,8 +89,9 @@ When a request is "Run":
 
 - **Pure Go Structs:** Decoupled from DB and API.
 - **Key Fields:**
-  - `IsDelta` (bool): Marks a request as a transient edit.
-  - `ParentHttpID` (UUID): Links a delta to its source.
+  - `IsDelta` (bool): Marks a request as a transient edit (delta overlay).
+  - `IsSnapshot` (bool): Marks a request as an immutable version snapshot.
+  - `ParentHttpID` (UUID): Links a delta to its source base record.
   - `DisplayOrder` (float): Manages sorting in the collection list.
 
 ## Database Schema

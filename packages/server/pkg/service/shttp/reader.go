@@ -107,6 +107,7 @@ func (r *Reader) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap
 			Description:      h.Description,
 			ParentHttpID:     h.ParentHttpID,
 			IsDelta:          h.IsDelta,
+			IsSnapshot:       h.IsSnapshot,
 			DeltaName:        h.DeltaName,
 			DeltaUrl:         h.DeltaUrl,
 			DeltaMethod:      h.DeltaMethod,
@@ -115,6 +116,22 @@ func (r *Reader) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap
 			CreatedAt:        h.CreatedAt,
 			UpdatedAt:        h.UpdatedAt,
 		}
+	}
+	return result, nil
+}
+
+func (r *Reader) GetSnapshotsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
+	https, err := r.queries.GetHTTPSnapshotsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mhttp.HTTP{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mhttp.HTTP, len(https))
+	for i, http := range https {
+		result[i] = *ConvertToModelHTTP(http)
 	}
 	return result, nil
 }

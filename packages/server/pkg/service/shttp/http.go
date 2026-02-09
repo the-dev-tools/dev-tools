@@ -83,6 +83,10 @@ func (hs HTTPService) GetDeltasByWorkspaceID(ctx context.Context, workspaceID id
 	return hs.reader.GetDeltasByWorkspaceID(ctx, workspaceID)
 }
 
+func (hs HTTPService) GetSnapshotsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
+	return hs.reader.GetSnapshotsByWorkspaceID(ctx, workspaceID)
+}
+
 func (hs HTTPService) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mhttp.HTTP, error) {
 	return hs.reader.GetDeltasByParentID(ctx, parentID)
 }

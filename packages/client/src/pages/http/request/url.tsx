@@ -24,7 +24,7 @@ import { MAX_FLOAT, useApiCollection } from '~/shared/api';
 import { pick, queryCollection } from '~/shared/lib';
 
 export interface HttpUrlProps {
-  deltaHttpId: Uint8Array | undefined;
+  deltaHttpId?: Uint8Array | undefined;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }

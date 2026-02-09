@@ -25,13 +25,26 @@ import (
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
+// getHTTPsWithSnapshotsForWorkspace returns both base and snapshot HTTP entries for a workspace.
+func (h *HttpServiceRPC) getHTTPsWithSnapshotsForWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
+	httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	snapshotList, err := h.httpReader.GetSnapshotsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	all := make([]mhttp.HTTP, 0, len(httpList)+len(snapshotList))
+	return append(append(all, httpList...), snapshotList...), nil
+}
+
 func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -39,11 +52,11 @@ func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error)
 
 	var allHttp []mhttp.HTTP
 	for _, workspace := range workspaces {
-		httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspace.ID)
+		entries, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, err
 		}
-		allHttp = append(allHttp, httpList...)
+		allHttp = append(allHttp, entries...)
 	}
 
 	return allHttp, nil

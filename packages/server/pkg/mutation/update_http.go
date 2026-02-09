@@ -2,11 +2,8 @@ package mutation
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
@@ -468,16 +465,16 @@ type HTTPUpdateItem struct {
 	WorkspaceID idwrap.IDWrap // For event routing
 	IsDelta     bool          // Whether this is a delta update
 	Patch       any           // The patch object for sync (e.g., patch.HTTPDeltaPatch)
-	UserID      idwrap.IDWrap // For version creation
+	UserID      idwrap.IDWrap // Kept for compatibility
 }
 
 // HTTPUpdateResult contains the result of an HTTP update.
 type HTTPUpdateResult struct {
-	HTTP    mhttp.HTTP
-	Version *mhttp.HttpVersion
+	HTTP mhttp.HTTP
 }
 
-// UpdateHTTP updates an HTTP entry and creates a version, tracking events.
+// UpdateHTTP updates an HTTP entry, tracking events.
+// Versions are only created by HttpRun, which includes full snapshot data.
 func (c *Context) UpdateHTTP(ctx context.Context, item HTTPUpdateItem) (*HTTPUpdateResult, error) {
 	writer := shttp.NewWriterFromQueries(c.q)
 
@@ -497,32 +494,12 @@ func (c *Context) UpdateHTTP(ctx context.Context, item HTTPUpdateItem) (*HTTPUpd
 		Patch:       item.Patch,
 	})
 
-	// Create a new version for this update
-	versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
-	versionDesc := "Auto-saved version"
-
-	version, err := writer.CreateHttpVersion(ctx, item.HTTP.ID, item.UserID, versionName, versionDesc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create http version: %w", err)
-	}
-
-	// Track the version insert event
-	c.track(Event{
-		Entity:      EntityHTTPVersion,
-		Op:          OpInsert,
-		ID:          version.ID,
-		WorkspaceID: item.WorkspaceID,
-		ParentID:    item.HTTP.ID,
-		Payload:     version,
-	})
-
 	return &HTTPUpdateResult{
-		HTTP:    *item.HTTP,
-		Version: version,
+		HTTP: *item.HTTP,
 	}, nil
 }
 
-// UpdateHTTPBatch updates multiple HTTP entries and creates versions.
+// UpdateHTTPBatch updates multiple HTTP entries.
 func (c *Context) UpdateHTTPBatch(ctx context.Context, items []HTTPUpdateItem) ([]HTTPUpdateResult, error) {
 	results := make([]HTTPUpdateResult, 0, len(items))
 	for _, item := range items {
@@ -535,27 +512,3 @@ func (c *Context) UpdateHTTPBatch(ctx context.Context, items []HTTPUpdateItem) (
 	return results, nil
 }
 
-// CreateHTTPVersion creates a version for an HTTP entry and tracks the event.
-func (c *Context) CreateHTTPVersion(ctx context.Context, httpID, workspaceID, userID idwrap.IDWrap) (*mhttp.HttpVersion, error) {
-	writer := shttp.NewWriterFromQueries(c.q)
-
-	versionName := fmt.Sprintf("v%d", dbtime.DBNow().UnixNano())
-	versionDesc := "Auto-saved version"
-
-	version, err := writer.CreateHttpVersion(ctx, httpID, userID, versionName, versionDesc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create http version: %w", err)
-	}
-
-	// Track the version insert event
-	c.track(Event{
-		Entity:      EntityHTTPVersion,
-		Op:          OpInsert,
-		ID:          version.ID,
-		WorkspaceID: workspaceID,
-		ParentID:    httpID,
-		Payload:     version,
-	})
-
-	return version, nil
-}

@@ -27,7 +27,6 @@ func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -35,23 +34,18 @@ func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *co
 
 	var allBodyForms []*apiv1.HttpBodyFormData
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
-		httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspace.ID)
+		allHTTPs, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get body forms for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			bodyForms, err := h.httpBodyFormService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-
-			// Convert to API format
 			for _, bodyForm := range bodyForms {
-				apiBodyForm := converter.ToAPIHttpBodyFormData(bodyForm)
-				allBodyForms = append(allBodyForms, apiBodyForm)
+				allBodyForms = append(allBodyForms, converter.ToAPIHttpBodyFormData(bodyForm))
 			}
 		}
 	}
@@ -398,7 +392,6 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -406,23 +399,18 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *
 
 	var allBodyUrlEncodeds []*apiv1.HttpBodyUrlEncoded
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
-		httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspace.ID)
+		allHTTPs, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get body URL encoded for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-
-			// Convert to API format
 			for _, bodyUrlEncoded := range bodyUrlEncodeds {
-				apiBodyUrlEncoded := converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded)
-				allBodyUrlEncodeds = append(allBodyUrlEncodeds, apiBodyUrlEncoded)
+				allBodyUrlEncodeds = append(allBodyUrlEncodeds, converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded))
 			}
 		}
 	}
@@ -768,7 +756,6 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -776,28 +763,23 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 
 	var allBodies []*apiv1.HttpBodyRaw
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
-		httpList, err := h.httpReader.GetByWorkspaceID(ctx, workspace.ID)
+		allHTTPs, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get body for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			body, err := h.bodyService.GetByHttpID(ctx, http.ID)
 			if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-
 			if body != nil {
 				allBodies = append(allBodies, converter.ToAPIHttpBodyRawFromMHttp(*body))
 			}
 		}
 	}
 
-	return connect.NewResponse(&apiv1.HttpBodyRawCollectionResponse{
-		Items: allBodies,
-	}), nil
+	return connect.NewResponse(&apiv1.HttpBodyRawCollectionResponse{Items: allBodies}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawInsertRequest]) (*connect.Response[emptypb.Empty], error) {

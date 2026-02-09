@@ -10,11 +10,14 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
-func TestHttpVersionSync_Concurrency(t *testing.T) {
+// TestHttpVersionSync_ConcurrentUpdatesNoVersions verifies that concurrent HTTP
+// updates do NOT create version events. Versions are only created by HttpRun.
+func TestHttpVersionSync_ConcurrentUpdatesNoVersions(t *testing.T) {
 	f := newHttpFixture(t)
 	ctx := f.ctx
 
@@ -45,14 +48,14 @@ func TestHttpVersionSync_Concurrency(t *testing.T) {
 	ctxStream, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	ready := make(chan struct{})
+
 	// Start listener
 	go func() {
-		f.handler.streamHttpVersionSync(ctxStream, f.userID, func(resp *apiv1.HttpVersionSyncResponse) error {
+		f.handler.streamHttpVersionSyncWithOptions(ctxStream, f.userID, func(resp *apiv1.HttpVersionSyncResponse) error {
 			if len(resp.Items) > 0 {
 				for _, item := range resp.Items {
 					if item.GetValue().GetInsert() != nil {
-						// Log for debug
-						// fmt.Printf("Received insert event for %s\n", item.GetValue().GetInsert().HttpVersionId)
 						eventMu.Lock()
 						eventCount++
 						eventMu.Unlock()
@@ -60,11 +63,10 @@ func TestHttpVersionSync_Concurrency(t *testing.T) {
 				}
 			}
 			return nil
-		})
+		}, &eventstream.BulkOptions{Ready: ready})
 	}()
 
-	// Give listener time to start
-	time.Sleep(100 * time.Millisecond)
+	<-ready
 
 	for i := 0; i < count; i++ {
 		wg.Add(1)
@@ -92,9 +94,6 @@ func TestHttpVersionSync_Concurrency(t *testing.T) {
 	eventMu.Lock()
 	defer eventMu.Unlock()
 
-	// We expect 5 insert events (one per update) + 1 initial snapshot insert?
-	// The initial snapshot might have 0 versions if we didn't create any manually.
-	// HttpInsert does NOT create a version in current logic (only HttpUpdate).
-	// So we expect exactly 5 events.
-	require.Equal(t, count, eventCount, "Should receive exactly 5 HttpVersionSync insert events")
+	// Updates should NOT create version events - only HttpRun creates versions
+	require.Equal(t, 0, eventCount, "HTTP updates should not produce version sync events")
 }

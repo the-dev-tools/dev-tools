@@ -27,7 +27,6 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -35,14 +34,12 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 
 	var allParams []*apiv1.HttpSearchParam
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		allHTTPs, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get search params for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
 			if err != nil {
 				if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
@@ -50,11 +47,8 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-
-			// Convert to API format
 			for _, param := range params {
-				apiParam := converter.ToAPIHttpSearchParam(param)
-				allParams = append(allParams, apiParam)
+				allParams = append(allParams, converter.ToAPIHttpSearchParam(param))
 			}
 		}
 	}

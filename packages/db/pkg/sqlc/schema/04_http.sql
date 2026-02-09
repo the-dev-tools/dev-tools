@@ -21,6 +21,9 @@ CREATE TABLE http (
   parent_http_id BLOB DEFAULT NULL,        -- Parent HTTP for delta records
   is_delta BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE for delta records
 
+  -- Snapshot flag for version snapshots
+  is_snapshot BOOLEAN NOT NULL DEFAULT FALSE,
+
   -- Delta override fields (NULL means "no change" for delta records)
   delta_name TEXT NULL,
   delta_url TEXT NULL,
@@ -38,7 +41,8 @@ CREATE TABLE http (
   FOREIGN KEY (parent_http_id) REFERENCES http (id) ON DELETE CASCADE,
 
   -- Constraints
-  CHECK (is_delta = FALSE OR parent_http_id IS NOT NULL) -- Delta records must have a parent
+  CHECK (is_delta = FALSE OR parent_http_id IS NOT NULL), -- Delta records must have a parent
+  CHECK (NOT (is_delta = TRUE AND is_snapshot = TRUE))    -- A record cannot be both a delta and a snapshot
 );
 
 -- Performance indexes for HTTP table

@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
@@ -44,9 +45,11 @@ func TestHttpRun_CreatesVersionOnEveryRun(t *testing.T) {
 	ctxStream, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	ready := make(chan struct{})
+
 	// Start listener
 	go func() {
-		f.handler.streamHttpVersionSync(ctxStream, f.userID, func(resp *apiv1.HttpVersionSyncResponse) error {
+		f.handler.streamHttpVersionSyncWithOptions(ctxStream, f.userID, func(resp *apiv1.HttpVersionSyncResponse) error {
 			if len(resp.Items) > 0 {
 				for _, item := range resp.Items {
 					if item.GetValue().GetInsert() != nil {
@@ -57,11 +60,10 @@ func TestHttpRun_CreatesVersionOnEveryRun(t *testing.T) {
 				}
 			}
 			return nil
-		})
+		}, &eventstream.BulkOptions{Ready: ready})
 	}()
 
-	// Give listener time to start
-	time.Sleep(100 * time.Millisecond)
+	<-ready
 
 	for i := 0; i < count; i++ {
 		wg.Add(1)

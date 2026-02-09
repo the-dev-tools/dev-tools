@@ -17,6 +17,7 @@ type HTTP struct {
 	ContentHash      *string        `json:"content_hash,omitempty"`
 	ParentHttpID     *idwrap.IDWrap `json:"parent_http_id,omitempty"`
 	IsDelta          bool           `json:"is_delta"`
+	IsSnapshot       bool           `json:"is_snapshot"`
 	DeltaName        *string        `json:"delta_name,omitempty"`
 	DeltaUrl         *string        `json:"delta_url,omitempty"`
 	DeltaMethod      *string        `json:"delta_method,omitempty"`

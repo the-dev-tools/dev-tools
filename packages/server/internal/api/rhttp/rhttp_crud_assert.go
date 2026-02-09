@@ -27,7 +27,6 @@ func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -35,23 +34,18 @@ func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.
 
 	var allAsserts []*apiv1.HttpAssert
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		allHTTPs, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get asserts for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			asserts, err := h.httpAssertService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-
-			// Convert to API format
 			for _, assert := range asserts {
-				apiAssert := converter.ToAPIHttpAssert(assert)
-				allAsserts = append(allAsserts, apiAssert)
+				allAsserts = append(allAsserts, converter.ToAPIHttpAssert(assert))
 			}
 		}
 	}

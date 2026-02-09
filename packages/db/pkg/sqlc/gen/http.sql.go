@@ -17,10 +17,10 @@ import (
 const createHTTP = `-- name: CreateHTTP :exec
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,
-  content_hash, parent_http_id, is_delta, delta_name, delta_url, delta_method,
+  content_hash, parent_http_id, is_delta, is_snapshot, delta_name, delta_url, delta_method,
   delta_body_kind, delta_description, last_run_at, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPParams struct {
@@ -35,6 +35,7 @@ type CreateHTTPParams struct {
 	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
+	IsSnapshot       bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
@@ -58,6 +59,7 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 		arg.ContentHash,
 		arg.ParentHttpID,
 		arg.IsDelta,
+		arg.IsSnapshot,
 		arg.DeltaName,
 		arg.DeltaUrl,
 		arg.DeltaMethod,
@@ -1699,6 +1701,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -1712,6 +1715,7 @@ WHERE workspace_id = ?
   AND url = ?
   AND method = ?
   AND is_delta = FALSE
+  AND is_snapshot = FALSE
 LIMIT 1
 `
 
@@ -1737,6 +1741,7 @@ func (q *Queries) FindHTTPByURLAndMethod(ctx context.Context, arg FindHTTPByURLA
 		&i.ContentHash,
 		&i.ParentHttpID,
 		&i.IsDelta,
+		&i.IsSnapshot,
 		&i.DeltaName,
 		&i.DeltaUrl,
 		&i.DeltaMethod,
@@ -1773,6 +1778,8 @@ SELECT
   parent_http_id,
 
   is_delta,
+
+  is_snapshot,
 
   delta_name,
 
@@ -1811,6 +1818,7 @@ func (q *Queries) GetHTTP(ctx context.Context, id idwrap.IDWrap) (Http, error) {
 		&i.ContentHash,
 		&i.ParentHttpID,
 		&i.IsDelta,
+		&i.IsSnapshot,
 		&i.DeltaName,
 		&i.DeltaUrl,
 		&i.DeltaMethod,
@@ -2826,6 +2834,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -2850,6 +2859,7 @@ type GetHTTPDeltasByParentIDRow struct {
 	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
+	IsSnapshot       bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
@@ -2880,6 +2890,7 @@ func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idw
 			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
+			&i.IsSnapshot,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
@@ -2914,6 +2925,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -2948,6 +2960,7 @@ func (q *Queries) GetHTTPDeltasByWorkspaceID(ctx context.Context, workspaceID id
 			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
+			&i.IsSnapshot,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
@@ -3378,6 +3391,7 @@ SELECT
   h.updated_at
 FROM http h
 WHERE h.workspace_id = ?
+  AND h.is_snapshot = FALSE
   AND h.updated_at > ?
   AND h.updated_at <= ?
 ORDER BY h.updated_at ASC, h.id
@@ -4359,6 +4373,7 @@ SELECT COUNT(*) as total_count
 FROM http h
 WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
+  AND h.is_snapshot = FALSE
   AND h.updated_at <= ?
 `
 
@@ -4404,6 +4419,7 @@ SELECT
 FROM http h
 WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
+  AND h.is_snapshot = FALSE
   AND h.updated_at <= ?
 ORDER BY h.updated_at DESC, h.id
 LIMIT ?
@@ -4463,6 +4479,77 @@ func (q *Queries) GetHTTPSnapshotPage(ctx context.Context, arg GetHTTPSnapshotPa
 			&i.DeltaMethod,
 			&i.DeltaBodyKind,
 			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPSnapshotsByWorkspaceID = `-- name: GetHTTPSnapshotsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  content_hash,
+  parent_http_id,
+  is_delta,
+  is_snapshot,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  last_run_at,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ? AND is_snapshot = TRUE
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) GetHTTPSnapshotsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPSnapshotsByWorkspaceIDStmt, getHTTPSnapshotsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.BodyKind,
+			&i.Description,
+			&i.ContentHash,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.IsSnapshot,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaBodyKind,
+			&i.DeltaDescription,
+			&i.LastRunAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -4603,6 +4690,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -4611,7 +4699,7 @@ SELECT
   created_at,
   updated_at
 FROM http
-WHERE folder_id = ? AND is_delta = FALSE
+WHERE folder_id = ? AND is_delta = FALSE AND is_snapshot = FALSE
 ORDER BY updated_at DESC
 `
 
@@ -4627,6 +4715,7 @@ type GetHTTPsByFolderIDRow struct {
 	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
+	IsSnapshot       bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
@@ -4657,6 +4746,7 @@ func (q *Queries) GetHTTPsByFolderID(ctx context.Context, folderID *idwrap.IDWra
 			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
+			&i.IsSnapshot,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
@@ -4691,6 +4781,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -4714,6 +4805,7 @@ type GetHTTPsByIDsRow struct {
 	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
+	IsSnapshot       bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
@@ -4754,6 +4846,7 @@ func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]Get
 			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
+			&i.IsSnapshot,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
@@ -4788,6 +4881,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -4797,7 +4891,7 @@ SELECT
   created_at,
   updated_at
 FROM http
-WHERE workspace_id = ? AND is_delta = FALSE
+WHERE workspace_id = ? AND is_delta = FALSE AND is_snapshot = FALSE
 ORDER BY updated_at DESC
 `
 
@@ -4822,6 +4916,7 @@ func (q *Queries) GetHTTPsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.ContentHash,
 			&i.ParentHttpID,
 			&i.IsDelta,
+			&i.IsSnapshot,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,

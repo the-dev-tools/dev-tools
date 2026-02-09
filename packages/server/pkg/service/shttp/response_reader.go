@@ -21,6 +21,63 @@ func NewHttpResponseReaderFromQueries(queries *gen.Queries) *HttpResponseReader 
 	return &HttpResponseReader{queries: queries}
 }
 
+func (r *HttpResponseReader) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPResponse, error) {
+	response, err := r.queries.GetHTTPResponse(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoHttpResponseFound
+		}
+		return nil, err
+	}
+
+	result := ConvertToModelHttpResponse(response)
+	return &result, nil
+}
+
+func (r *HttpResponseReader) GetHeadersByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
+	headers, err := r.queries.GetHTTPResponseHeadersByResponseID(ctx, responseID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mhttp.HTTPResponseHeader{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mhttp.HTTPResponseHeader, len(headers))
+	for i, header := range headers {
+		result[i] = mhttp.HTTPResponseHeader{
+			ID:          header.ID,
+			ResponseID:  header.ResponseID,
+			HeaderKey:   header.Key,
+			HeaderValue: header.Value,
+			CreatedAt:   header.CreatedAt,
+		}
+	}
+	return result, nil
+}
+
+func (r *HttpResponseReader) GetAssertsByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {
+	asserts, err := r.queries.GetHTTPResponseAssertsByResponseID(ctx, responseID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mhttp.HTTPResponseAssert{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mhttp.HTTPResponseAssert, len(asserts))
+	for i, assert := range asserts {
+		result[i] = mhttp.HTTPResponseAssert{
+			ID:         assert.ID,
+			ResponseID: assert.ResponseID,
+			Value:      assert.Value,
+			Success:    assert.Success,
+			CreatedAt:  assert.CreatedAt,
+		}
+	}
+	return result, nil
+}
+
 func (r *HttpResponseReader) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponse, error) {
 	responses, err := r.queries.GetHTTPResponsesByHttpID(ctx, httpID)
 	if err != nil {

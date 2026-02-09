@@ -692,9 +692,12 @@ func (h *HttpServiceRPC) HttpAssertSync(ctx context.Context, req *connect.Reques
 
 // streamHttpAssertSync streams HTTP assert events to the client
 func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpAssertSyncResponse) error) error {
+	return h.streamHttpAssertSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpAssertSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpAssertSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
-	// Filter for workspace-based access control
 	filter := func(topic HttpAssertTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -729,7 +732,7 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
@@ -775,9 +778,12 @@ func (h *HttpServiceRPC) HttpBodyRawSync(ctx context.Context, req *connect.Reque
 
 // streamHttpBodyRawSync streams HTTP body raw events to the client
 func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyRawSyncResponse) error) error {
+	return h.streamHttpBodyRawSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpBodyRawSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyRawSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
-	// Filter for workspace-based access control
 	filter := func(topic HttpBodyRawTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -812,14 +818,17 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
 func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyFormDataSyncResponse) error) error {
+	return h.streamHttpBodyFormSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpBodyFormSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpBodyFormDataSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
-	// Filter for workspace-based access control
 	filter := func(topic HttpBodyFormTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -854,7 +863,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
@@ -929,6 +938,10 @@ func (h *HttpServiceRPC) HttpHeaderSync(ctx context.Context, req *connect.Reques
 }
 
 func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpHeaderSyncResponse) error) error {
+	return h.streamHttpHeaderSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpHeaderSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpHeaderSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	filter := func(topic HttpHeaderTopic) bool {
@@ -965,11 +978,15 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
 func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseSyncResponse) error) error {
+	return h.streamHttpResponseSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpResponseSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	filter := func(topic HttpResponseTopic) bool {
@@ -1003,11 +1020,15 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
 func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpVersionSyncResponse) error) error {
+	return h.streamHttpVersionSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpVersionSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpVersionSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	filter := func(topic HttpVersionTopic) bool {
@@ -1041,7 +1062,7 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
@@ -1118,6 +1139,10 @@ func (h *HttpServiceRPC) HttpResponseAssertSync(ctx context.Context, req *connec
 }
 
 func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpSearchParamSyncResponse) error) error {
+	return h.streamHttpSearchParamSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpSearchParamSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpSearchParamSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	filter := func(topic HttpSearchParamTopic) bool {
@@ -1154,11 +1179,15 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
 func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseHeaderSyncResponse) error) error {
+	return h.streamHttpResponseHeaderSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpResponseHeaderSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseHeaderSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	filter := func(topic HttpResponseHeaderTopic) bool {
@@ -1192,11 +1221,15 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 
 func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseAssertSyncResponse) error) error {
+	return h.streamHttpResponseAssertSyncWithOptions(ctx, userID, send, nil)
+}
+
+func (h *HttpServiceRPC) streamHttpResponseAssertSyncWithOptions(ctx context.Context, userID idwrap.IDWrap, send func(*httpv1.HttpResponseAssertSyncResponse) error, opts *eventstream.BulkOptions) error {
 	var workspaceSet sync.Map
 
 	filter := func(topic HttpResponseAssertTopic) bool {
@@ -1230,7 +1263,7 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 		filter,
 		converter,
 		send,
-		nil,
+		opts,
 	)
 }
 

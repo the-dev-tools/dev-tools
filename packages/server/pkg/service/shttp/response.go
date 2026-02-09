@@ -85,6 +85,10 @@ func (hrs HttpResponseService) Create(ctx context.Context, response mhttp.HTTPRe
 	return NewHttpResponseWriterFromQueries(hrs.queries).Create(ctx, response)
 }
 
+func (hrs HttpResponseService) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPResponse, error) {
+	return hrs.reader.Get(ctx, id)
+}
+
 func (hrs HttpResponseService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponse, error) {
 	return hrs.reader.GetByHttpID(ctx, httpID)
 }
@@ -95,6 +99,14 @@ func (hrs HttpResponseService) CreateHeader(ctx context.Context, header mhttp.HT
 
 func (hrs HttpResponseService) GetHeadersByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
 	return hrs.reader.GetHeadersByHttpID(ctx, httpID)
+}
+
+func (hrs HttpResponseService) GetHeadersByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
+	return hrs.reader.GetHeadersByResponseID(ctx, responseID)
+}
+
+func (hrs HttpResponseService) GetAssertsByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {
+	return hrs.reader.GetAssertsByResponseID(ctx, responseID)
 }
 
 func (hrs HttpResponseService) GetAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {

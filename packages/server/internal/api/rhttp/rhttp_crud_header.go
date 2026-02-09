@@ -27,7 +27,6 @@ func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	// Get user's workspaces
 	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -35,23 +34,18 @@ func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.
 
 	var allHeaders []*apiv1.HttpHeader
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		allHTTPs, err := h.getHTTPsWithSnapshotsForWorkspace(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get headers for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			headers, err := h.httpHeaderService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-
-			// Convert to API format
 			for _, header := range headers {
-				apiHeader := converter.ToAPIHttpHeader(header)
-				allHeaders = append(allHeaders, apiHeader)
+				allHeaders = append(allHeaders, converter.ToAPIHttpHeader(header))
 			}
 		}
 	}

@@ -23,7 +23,7 @@ import { SearchParamTable } from './search-param';
 
 export interface HttpRequestPanelProps {
   className?: string;
-  deltaHttpId: Uint8Array | undefined;
+  deltaHttpId?: Uint8Array | undefined;
   hideDescription?: boolean;
   httpId: Uint8Array;
   isReadOnly?: boolean;

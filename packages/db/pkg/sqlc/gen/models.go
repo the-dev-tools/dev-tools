@@ -168,6 +168,7 @@ type Http struct {
 	ContentHash      sql.NullString
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
+	IsSnapshot       bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string

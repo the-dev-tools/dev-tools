@@ -26,6 +26,8 @@ SELECT
 
   is_delta,
 
+  is_snapshot,
+
   delta_name,
 
   delta_url,
@@ -59,6 +61,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -68,7 +71,33 @@ SELECT
   created_at,
   updated_at
 FROM http
-WHERE workspace_id = ? AND is_delta = FALSE
+WHERE workspace_id = ? AND is_delta = FALSE AND is_snapshot = FALSE
+ORDER BY updated_at DESC;
+
+-- name: GetHTTPSnapshotsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  content_hash,
+  parent_http_id,
+  is_delta,
+  is_snapshot,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  last_run_at,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ? AND is_snapshot = TRUE
 ORDER BY updated_at DESC;
 
 -- name: GetHTTPDeltasByWorkspaceID :many
@@ -84,6 +113,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -109,6 +139,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -117,7 +148,7 @@ SELECT
   created_at,
   updated_at
 FROM http
-WHERE folder_id = ? AND is_delta = FALSE
+WHERE folder_id = ? AND is_delta = FALSE AND is_snapshot = FALSE
 ORDER BY updated_at DESC;
 
 -- name: GetHTTPsByIDs :many
@@ -133,6 +164,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -163,6 +195,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -176,6 +209,7 @@ WHERE workspace_id = ?
   AND url = ?
   AND method = ?
   AND is_delta = FALSE
+  AND is_snapshot = FALSE
 LIMIT 1;
 
 -- name: FindHTTPByContentHash :one
@@ -188,10 +222,10 @@ LIMIT 1;
 -- name: CreateHTTP :exec
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,
-  content_hash, parent_http_id, is_delta, delta_name, delta_url, delta_method,
+  content_hash, parent_http_id, is_delta, is_snapshot, delta_name, delta_url, delta_method,
   delta_body_kind, delta_description, last_run_at, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHTTP :exec
 UPDATE http
@@ -234,6 +268,7 @@ SELECT
   content_hash,
   parent_http_id,
   is_delta,
+  is_snapshot,
   delta_name,
   delta_url,
   delta_method,
@@ -1182,6 +1217,7 @@ SELECT
 FROM http h
 WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
+  AND h.is_snapshot = FALSE
   AND h.updated_at <= ?
 ORDER BY h.updated_at DESC, h.id
 LIMIT ?;
@@ -1192,6 +1228,7 @@ SELECT COUNT(*) as total_count
 FROM http h
 WHERE h.workspace_id = ?
   AND h.is_delta = FALSE
+  AND h.is_snapshot = FALSE
   AND h.updated_at <= ?;
 
 -- HTTP Incremental Streaming Queries
@@ -1218,6 +1255,7 @@ SELECT
   h.updated_at
 FROM http h
 WHERE h.workspace_id = ?
+  AND h.is_snapshot = FALSE
   AND h.updated_at > ?
   AND h.updated_at <= ?
 ORDER BY h.updated_at ASC, h.id;
