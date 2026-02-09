@@ -3,17 +3,20 @@ import { NodeContext } from '@effect/platform-node';
 import { Config, Effect, pipe } from 'effect';
 import { build, type Configuration } from 'electron-builder';
 
+const libFiles = (lib: string) => [`node_modules/${lib}/package.json`, `node_modules/${lib}/dist`];
+
 const config: Configuration = {
   artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
-  asarUnpack: [
-    'resources/**',
-    '**/node_modules/@the-dev-tools/server/dist/server*',
-    '**/node_modules/@the-dev-tools/cli/dist/cli*',
-  ],
   extraMetadata: {
     name: 'DevTools-Studio',
   },
-  files: ['!src/*', '!*.{js,ts}', '!{tsconfig.json,tsconfig.*.json}'],
+  files: [
+    '!**/*',
+    'out',
+    ...libFiles('@the-dev-tools/cli'),
+    ...libFiles('@the-dev-tools/server'),
+    ...libFiles('@the-dev-tools/worker-js'),
+  ],
   linux: {
     category: 'Development',
     target: ['AppImage'],
