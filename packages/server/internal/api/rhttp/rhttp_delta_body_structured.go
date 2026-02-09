@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -97,24 +98,51 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 
 	// FETCH: Gather data and check permissions OUTSIDE transaction
 	type insertItem struct {
-		bodyFormID  idwrap.IDWrap
-		workspaceID idwrap.IDWrap
-		item        *apiv1.HttpBodyFormDataDeltaInsert
+		httpID       idwrap.IDWrap
+		newID        idwrap.IDWrap
+		parentID     idwrap.IDWrap
+		workspaceID  idwrap.IDWrap
+		baseBodyForm mhttp.HTTPBodyForm
+		item         *apiv1.HttpBodyFormDataDeltaInsert
 	}
 	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpBodyFormDataId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required"))
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required for each delta item"))
 		}
 
-		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check workspace write access
-		bodyForm, err := h.httpBodyFormService.GetByID(ctx, bodyFormID)
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		if len(item.HttpBodyFormDataId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_data_id is required"))
+		}
+
+		parentBodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		baseBodyForm, err := h.httpBodyFormService.GetByID(ctx, parentBodyFormID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -122,54 +150,64 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		httpEntry, err := h.hs.Get(ctx, bodyForm.HttpID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
-			return nil, err
+		newID := idwrap.NewNow()
+		if len(item.DeltaHttpBodyFormDataId) > 0 {
+			newID, err = idwrap.NewFromBytes(item.DeltaHttpBodyFormDataId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
 		}
 
 		insertData = append(insertData, insertItem{
-			bodyFormID:  bodyFormID,
-			workspaceID: httpEntry.WorkspaceID,
-			item:        item,
+			httpID:       httpID,
+			newID:        newID,
+			parentID:     parentBodyFormID,
+			workspaceID:  httpEntry.WorkspaceID,
+			baseBodyForm: *baseBodyForm,
+			item:         item,
 		})
 	}
 
-	// ACT: Update delta fields using mutation context
+	// ACT: Insert new delta records using mutation context
 	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer mut.Rollback()
 
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		bodyFormService := h.httpBodyFormService.TX(mut.TX())
-		bodyForm, err := bodyFormService.GetByID(ctx, data.bodyFormID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		params := gen.CreateHTTPBodyFormParams{
+			ID:                   data.newID,
+			HttpID:               data.httpID,
+			Key:                  data.baseBodyForm.Key,
+			Value:                data.baseBodyForm.Value,
+			Description:          data.baseBodyForm.Description,
+			Enabled:              data.baseBodyForm.Enabled,
+			DisplayOrder:         float64(data.baseBodyForm.DisplayOrder),
+			ParentHttpBodyFormID: data.parentID.Bytes(),
+			IsDelta:              true,
+			DeltaKey:             ptrToNullString(data.item.Key),
+			DeltaValue:           ptrToNullString(data.item.Value),
+			DeltaDescription:     data.item.Description,
+			DeltaEnabled:         data.item.Enabled,
+			DeltaDisplayOrder:    ptrToNullFloat64(data.item.Order),
+			CreatedAt:            now,
+			UpdatedAt:            now,
 		}
 
-		if err := mut.UpdateHTTPBodyFormDelta(ctx, mutation.HTTPBodyFormDeltaUpdateItem{
-			ID:          data.bodyFormID,
-			HttpID:      bodyForm.HttpID,
+		if err := mut.InsertHTTPBodyForm(ctx, mutation.HTTPBodyFormInsertItem{
+			ID:          data.newID,
+			HttpID:      data.httpID,
 			WorkspaceID: data.workspaceID,
-			Params: gen.UpdateHTTPBodyFormDeltaParams{
-				ID:                data.bodyFormID,
-				DeltaKey:          ptrToNullString(data.item.Key),
-				DeltaValue:        ptrToNullString(data.item.Value),
-				DeltaEnabled:      data.item.Enabled,
-				DeltaDescription:  data.item.Description,
-				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
-			},
+			IsDelta:     true,
+			Params:      params,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Update payload in tracked event
-		updated, err := bodyFormService.GetByID(ctx, data.bodyFormID)
+		bodyFormService := h.httpBodyFormService.TX(mut.TX())
+		updated, err := bodyFormService.GetByID(ctx, data.newID)
 		if err == nil {
 			mut.UpdateLastEventPayload(*updated)
 		}
@@ -567,24 +605,51 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 
 	// FETCH: Gather data and check permissions OUTSIDE transaction
 	type insertItem struct {
-		bodyUrlEncodedID idwrap.IDWrap
-		workspaceID      idwrap.IDWrap
-		item             *apiv1.HttpBodyUrlEncodedDeltaInsert
+		httpID             idwrap.IDWrap
+		newID              idwrap.IDWrap
+		parentID           idwrap.IDWrap
+		workspaceID        idwrap.IDWrap
+		baseBodyUrlEncoded mhttp.HTTPBodyUrlencoded
+		item               *apiv1.HttpBodyUrlEncodedDeltaInsert
 	}
 	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpBodyUrlEncodedId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_url_encoded_id is required"))
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required for each delta item"))
 		}
 
-		bodyUrlEncodedID, err := idwrap.NewFromBytes(item.HttpBodyUrlEncodedId)
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check workspace write access
-		bodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyUrlEncodedID)
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		if len(item.HttpBodyUrlEncodedId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_url_encoded_id is required"))
+		}
+
+		parentBodyUrlEncodedID, err := idwrap.NewFromBytes(item.HttpBodyUrlEncodedId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		baseBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, parentBodyUrlEncodedID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -592,54 +657,64 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		httpEntry, err := h.hs.Get(ctx, bodyUrlEncoded.HttpID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
-			return nil, err
+		newID := idwrap.NewNow()
+		if len(item.DeltaHttpBodyUrlEncodedId) > 0 {
+			newID, err = idwrap.NewFromBytes(item.DeltaHttpBodyUrlEncodedId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
 		}
 
 		insertData = append(insertData, insertItem{
-			bodyUrlEncodedID: bodyUrlEncodedID,
-			workspaceID:      httpEntry.WorkspaceID,
-			item:             item,
+			httpID:             httpID,
+			newID:              newID,
+			parentID:           parentBodyUrlEncodedID,
+			workspaceID:        httpEntry.WorkspaceID,
+			baseBodyUrlEncoded: *baseBodyUrlEncoded,
+			item:               item,
 		})
 	}
 
-	// ACT: Update delta fields using mutation context
+	// ACT: Insert new delta records using mutation context
 	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer mut.Rollback()
 
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		bodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(mut.TX())
-		bodyUrlEncoded, err := bodyUrlEncodedService.GetByID(ctx, data.bodyUrlEncodedID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		params := gen.CreateHTTPBodyUrlEncodedParams{
+			ID:                         data.newID,
+			HttpID:                     data.httpID,
+			Key:                        data.baseBodyUrlEncoded.Key,
+			Value:                      data.baseBodyUrlEncoded.Value,
+			Enabled:                    data.baseBodyUrlEncoded.Enabled,
+			Description:                data.baseBodyUrlEncoded.Description,
+			DisplayOrder:               float64(data.baseBodyUrlEncoded.DisplayOrder),
+			ParentHttpBodyUrlencodedID: data.parentID.Bytes(),
+			IsDelta:                    true,
+			DeltaKey:                   ptrToNullString(data.item.Key),
+			DeltaValue:                 ptrToNullString(data.item.Value),
+			DeltaEnabled:               data.item.Enabled,
+			DeltaDescription:           data.item.Description,
+			DeltaDisplayOrder:          ptrToNullFloat64(data.item.Order),
+			CreatedAt:                  now,
+			UpdatedAt:                  now,
 		}
 
-		if err := mut.UpdateHTTPBodyUrlEncodedDelta(ctx, mutation.HTTPBodyUrlEncodedDeltaUpdateItem{
-			ID:          data.bodyUrlEncodedID,
-			HttpID:      bodyUrlEncoded.HttpID,
+		if err := mut.InsertHTTPBodyUrlEncoded(ctx, mutation.HTTPBodyUrlEncodedInsertItem{
+			ID:          data.newID,
+			HttpID:      data.httpID,
 			WorkspaceID: data.workspaceID,
-			Params: gen.UpdateHTTPBodyUrlEncodedDeltaParams{
-				ID:                data.bodyUrlEncodedID,
-				DeltaKey:          ptrToNullString(data.item.Key),
-				DeltaValue:        ptrToNullString(data.item.Value),
-				DeltaDescription:  data.item.Description,
-				DeltaEnabled:      data.item.Enabled,
-				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
-			},
+			IsDelta:     true,
+			Params:      params,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Update payload in tracked event
-		updated, err := bodyUrlEncodedService.GetByID(ctx, data.bodyUrlEncodedID)
+		bodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(mut.TX())
+		updated, err := bodyUrlEncodedService.GetByID(ctx, data.newID)
 		if err == nil {
 			mut.UpdateLastEventPayload(*updated)
 		}

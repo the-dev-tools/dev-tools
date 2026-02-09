@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -96,23 +97,51 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 
 	// FETCH: Gather data and check permissions OUTSIDE transaction
 	type insertItem struct {
-		headerID    idwrap.IDWrap
-		workspaceID idwrap.IDWrap
-		item        *apiv1.HttpHeaderDeltaInsert
+		httpID        idwrap.IDWrap
+		newID         idwrap.IDWrap
+		parentID      idwrap.IDWrap
+		workspaceID   idwrap.IDWrap
+		baseHeader    mhttp.HTTPHeader
+		item          *apiv1.HttpHeaderDeltaInsert
 	}
 	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpHeaderId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_header_id is required"))
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required for each delta item"))
 		}
 
-		headerID, err := idwrap.NewFromBytes(item.HttpHeaderId)
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		header, err := h.httpHeaderService.GetByID(ctx, headerID)
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		if len(item.HttpHeaderId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_header_id is required"))
+		}
+
+		parentHeaderID, err := idwrap.NewFromBytes(item.HttpHeaderId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		baseHeader, err := h.httpHeaderService.GetByID(ctx, parentHeaderID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -120,56 +149,65 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		httpEntry, err := h.hs.Get(ctx, header.HttpID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
-			return nil, err
+		newID := idwrap.NewNow()
+		if len(item.DeltaHttpHeaderId) > 0 {
+			newID, err = idwrap.NewFromBytes(item.DeltaHttpHeaderId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
 		}
 
 		insertData = append(insertData, insertItem{
-			headerID:    headerID,
+			httpID:      httpID,
+			newID:       newID,
+			parentID:    parentHeaderID,
 			workspaceID: httpEntry.WorkspaceID,
+			baseHeader:  baseHeader,
 			item:        item,
 		})
 	}
 
-	// ACT: Update delta fields using mutation context
+	// ACT: Insert new delta records using mutation context
 	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer mut.Rollback()
 
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
-		// Use TX service to read current state within TX
-		headerService := h.httpHeaderService.TX(mut.TX())
-		header, err := headerService.GetByID(ctx, data.headerID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		parentID := data.parentID
+		params := gen.CreateHTTPHeaderParams{
+			ID:                data.newID,
+			HttpID:            data.httpID,
+			HeaderKey:         data.baseHeader.Key,
+			HeaderValue:       data.baseHeader.Value,
+			Description:       data.baseHeader.Description,
+			Enabled:           data.baseHeader.Enabled,
+			DisplayOrder:      float64(data.baseHeader.DisplayOrder),
+			ParentHeaderID:    &parentID,
+			IsDelta:           true,
+			DeltaHeaderKey:    data.item.Key,
+			DeltaHeaderValue:  data.item.Value,
+			DeltaDescription:  data.item.Description,
+			DeltaEnabled:      data.item.Enabled,
+			DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
+			CreatedAt:         now,
+			UpdatedAt:         now,
 		}
 
-		if err := mut.UpdateHTTPHeaderDelta(ctx, mutation.HTTPHeaderDeltaUpdateItem{
-			ID:          data.headerID,
-			HttpID:      header.HttpID,
+		if err := mut.InsertHTTPHeader(ctx, mutation.HTTPHeaderInsertItem{
+			ID:          data.newID,
+			HttpID:      data.httpID,
 			WorkspaceID: data.workspaceID,
-			Params: gen.UpdateHTTPHeaderDeltaParams{
-				ID:                data.headerID,
-				DeltaHeaderKey:    data.item.Key,
-				DeltaHeaderValue:  data.item.Value,
-				DeltaDescription:  data.item.Description,
-				DeltaEnabled:      data.item.Enabled,
-				DeltaDisplayOrder: ptrToNullFloat64(data.item.Order),
-			},
-			// Fetch updated model for publisher
+			IsDelta:     true,
+			Params:      params,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Update payload in tracked event
-		updated, err := headerService.GetByID(ctx, data.headerID)
+		headerService := h.httpHeaderService.TX(mut.TX())
+		updated, err := headerService.GetByID(ctx, data.newID)
 		if err == nil {
 			mut.UpdateLastEventPayload(updated)
 		}

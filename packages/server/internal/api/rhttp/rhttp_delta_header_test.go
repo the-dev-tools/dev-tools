@@ -14,7 +14,7 @@ import (
 	globalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/global/v1"
 )
 
-// TestHttpHeaderDeltaInsert_CreatesNewDelta verifies that inserting a delta header works correctly
+// TestHttpHeaderDeltaInsert_CreatesNewDelta verifies that inserting a delta header creates a new child record
 func TestHttpHeaderDeltaInsert_CreatesNewDelta(t *testing.T) {
 	t.Parallel()
 
@@ -35,22 +35,38 @@ func TestHttpHeaderDeltaInsert_CreatesNewDelta(t *testing.T) {
 	})
 	require.NoError(t, err, "create base header")
 
-	// Insert delta using RPC
+	// Create delta HTTP request
+	deltaHttpID := idwrap.NewNow()
+	err = f.hs.Create(f.ctx, &mhttp.HTTP{
+		ID:           deltaHttpID,
+		WorkspaceID:  ws,
+		Name:         "delta-request",
+		Url:          "https://example.com",
+		Method:       "POST",
+		ParentHttpID: &baseHttpID,
+		IsDelta:      true,
+	})
+	require.NoError(t, err, "create delta http")
+
+	// Insert delta using RPC — creates a new delta child record
 	newKey := "Authorization"
 	newValue := "Bearer delta-token"
 	newDesc := "Delta auth token"
 	newEnabled := false
 	newOrder := float32(2.0)
+	newDeltaHeaderID := idwrap.NewNow()
 
 	req := connect.NewRequest(&apiv1.HttpHeaderDeltaInsertRequest{
 		Items: []*apiv1.HttpHeaderDeltaInsert{
 			{
-				HttpHeaderId: baseHeaderID.Bytes(),
-				Key:          &newKey,
-				Value:        &newValue,
-				Description:  &newDesc,
-				Enabled:      &newEnabled,
-				Order:        &newOrder,
+				HttpId:            deltaHttpID.Bytes(),
+				HttpHeaderId:      baseHeaderID.Bytes(),
+				DeltaHttpHeaderId: newDeltaHeaderID.Bytes(),
+				Key:               &newKey,
+				Value:             &newValue,
+				Description:       &newDesc,
+				Enabled:           &newEnabled,
+				Order:             &newOrder,
 			},
 		},
 	})
@@ -58,9 +74,14 @@ func TestHttpHeaderDeltaInsert_CreatesNewDelta(t *testing.T) {
 	_, err = f.handler.HttpHeaderDeltaInsert(f.ctx, req)
 	require.NoError(t, err, "HttpHeaderDeltaInsert")
 
-	// Verify delta was created by fetching the header
-	header, err := f.handler.httpHeaderService.GetByID(f.ctx, baseHeaderID)
-	require.NoError(t, err, "get header after insert")
+	// Verify the new delta child record was created
+	header, err := f.handler.httpHeaderService.GetByID(f.ctx, newDeltaHeaderID)
+	require.NoError(t, err, "get created delta header")
+
+	require.True(t, header.IsDelta, "should be a delta record")
+	require.Equal(t, deltaHttpID, header.HttpID, "should belong to delta HTTP")
+	require.NotNil(t, header.ParentHttpHeaderID, "should reference the base header")
+	require.Equal(t, baseHeaderID, *header.ParentHttpHeaderID)
 
 	require.NotNil(t, header.DeltaKey, "delta key should be set")
 	require.Equal(t, newKey, *header.DeltaKey, "delta key should match")
@@ -72,6 +93,11 @@ func TestHttpHeaderDeltaInsert_CreatesNewDelta(t *testing.T) {
 	require.Equal(t, newEnabled, *header.DeltaEnabled, "delta enabled should match")
 	require.NotNil(t, header.DeltaDisplayOrder, "delta order should be set")
 	require.Equal(t, newOrder, *header.DeltaDisplayOrder, "delta order should match")
+
+	// Verify the base header was NOT modified
+	baseHeader, err := f.handler.httpHeaderService.GetByID(f.ctx, baseHeaderID)
+	require.NoError(t, err)
+	require.Nil(t, baseHeader.DeltaKey, "base header should not have delta columns set")
 }
 
 // TestHttpHeaderDeltaUpdate_UpdatesFields verifies that updating delta fields works correctly

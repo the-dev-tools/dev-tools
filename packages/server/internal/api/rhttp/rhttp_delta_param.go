@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -100,24 +101,51 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 
 	// FETCH: Gather data and check permissions OUTSIDE transaction
 	type insertItem struct {
-		paramID     idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		newID       idwrap.IDWrap
+		parentID    idwrap.IDWrap
 		workspaceID idwrap.IDWrap
+		baseParam   mhttp.HTTPSearchParam
 		item        *apiv1.HttpSearchParamDeltaInsert
 	}
 	insertData := make([]insertItem, 0, len(req.Msg.Items))
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpSearchParamId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_search_param_id is required"))
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required for each delta item"))
 		}
 
-		paramID, err := idwrap.NewFromBytes(item.HttpSearchParamId)
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check workspace write access
-		param, err := h.httpSearchParamService.GetByID(ctx, paramID)
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		if len(item.HttpSearchParamId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_search_param_id is required"))
+		}
+
+		parentParamID, err := idwrap.NewFromBytes(item.HttpSearchParamId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		baseParam, err := h.httpSearchParamService.GetByID(ctx, parentParamID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -125,29 +153,32 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		httpEntry, err := h.hs.Get(ctx, param.HttpID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
-			return nil, err
+		newID := idwrap.NewNow()
+		if len(item.DeltaHttpSearchParamId) > 0 {
+			newID, err = idwrap.NewFromBytes(item.DeltaHttpSearchParamId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
 		}
 
 		insertData = append(insertData, insertItem{
-			paramID:     paramID,
+			httpID:      httpID,
+			newID:       newID,
+			parentID:    parentParamID,
 			workspaceID: httpEntry.WorkspaceID,
+			baseParam:   *baseParam,
 			item:        item,
 		})
 	}
 
-	// ACT: Update delta fields using mutation context
+	// ACT: Insert new delta records using mutation context
 	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
 	if err := mut.Begin(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer mut.Rollback()
 
+	now := time.Now().UnixMilli()
 	for _, data := range insertData {
 		var deltaOrder *float64
 		if data.item.Order != nil {
@@ -155,30 +186,37 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 			deltaOrder = &order
 		}
 
-		paramService := h.httpSearchParamService.TX(mut.TX())
-		param, err := paramService.GetByID(ctx, data.paramID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		params := gen.CreateHTTPSearchParamParams{
+			ID:                      data.newID,
+			HttpID:                  data.httpID,
+			Key:                     data.baseParam.Key,
+			Value:                   data.baseParam.Value,
+			Description:             data.baseParam.Description,
+			Enabled:                 data.baseParam.Enabled,
+			DisplayOrder:            float64(data.baseParam.DisplayOrder),
+			ParentHttpSearchParamID: data.parentID.Bytes(),
+			IsDelta:                 true,
+			DeltaKey:                ptrToNullString(data.item.Key),
+			DeltaValue:              ptrToNullString(data.item.Value),
+			DeltaDescription:        data.item.Description,
+			DeltaEnabled:            data.item.Enabled,
+			DeltaDisplayOrder:       ptrToNullFloat64(ptrToFloat32(deltaOrder)),
+			CreatedAt:               now,
+			UpdatedAt:               now,
 		}
 
-		if err := mut.UpdateHTTPSearchParamDelta(ctx, mutation.HTTPSearchParamDeltaUpdateItem{
-			ID:          data.paramID,
-			HttpID:      param.HttpID,
+		if err := mut.InsertHTTPSearchParam(ctx, mutation.HTTPSearchParamInsertItem{
+			ID:          data.newID,
+			HttpID:      data.httpID,
 			WorkspaceID: data.workspaceID,
-			Params: gen.UpdateHTTPSearchParamDeltaParams{
-				ID:                data.paramID,
-				DeltaKey:          ptrToNullString(data.item.Key),
-				DeltaValue:        ptrToNullString(data.item.Value),
-				DeltaDescription:  data.item.Description,
-				DeltaEnabled:      data.item.Enabled,
-				DeltaDisplayOrder: ptrToNullFloat64(ptrToFloat32(deltaOrder)),
-			},
+			IsDelta:     true,
+			Params:      params,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Update payload in tracked event
-		updated, err := paramService.GetByID(ctx, data.paramID)
+		paramService := h.httpSearchParamService.TX(mut.TX())
+		updated, err := paramService.GetByID(ctx, data.newID)
 		if err == nil {
 			mut.UpdateLastEventPayload(*updated)
 		}

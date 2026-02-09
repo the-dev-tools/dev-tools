@@ -119,32 +119,25 @@ func TestHttpBodyFormDataDeltaInsert_CreatesNewDelta(t *testing.T) {
 	}
 	require.NoError(t, f.hs.Create(f.ctx, deltaHttp), "create delta http")
 
-	// 3. Create Delta BodyForm (empty delta, just the record)
-	deltaFormID := idwrap.NewNow()
-	deltaForm := &mhttp.HTTPBodyForm{
-		ID:                   deltaFormID,
-		HttpID:               deltaHttpID,
-		ParentHttpBodyFormID: &baseFormID,
-		IsDelta:              true,
-	}
-	require.NoError(t, f.handler.httpBodyFormService.Create(f.ctx, deltaForm), "create delta form")
-
-	// 4. Call DeltaInsert to set delta fields
+	// 3. Call DeltaInsert to create a new delta child record
 	newKey := "field1_override"
 	newValue := "delta-value"
 	enabled := true
 	desc := "Override description"
 	order := float32(1.5)
+	newDeltaFormID := idwrap.NewNow()
 
 	req := &apiv1.HttpBodyFormDataDeltaInsertRequest{
 		Items: []*apiv1.HttpBodyFormDataDeltaInsert{
 			{
-				HttpBodyFormDataId: baseFormID.Bytes(),
-				Key:                &newKey,
-				Value:              &newValue,
-				Enabled:            &enabled,
-				Description:        &desc,
-				Order:              &order,
+				HttpId:                  deltaHttpID.Bytes(),
+				HttpBodyFormDataId:      baseFormID.Bytes(),
+				DeltaHttpBodyFormDataId: newDeltaFormID.Bytes(),
+				Key:                     &newKey,
+				Value:                   &newValue,
+				Enabled:                 &enabled,
+				Description:             &desc,
+				Order:                   &order,
 			},
 		},
 	}
@@ -152,24 +145,34 @@ func TestHttpBodyFormDataDeltaInsert_CreatesNewDelta(t *testing.T) {
 	_, err := f.handler.HttpBodyFormDataDeltaInsert(f.ctx, connect.NewRequest(req))
 	require.NoError(t, err, "DeltaInsert failed")
 
-	// 5. Verify delta fields were set
-	updatedForm, err := f.handler.httpBodyFormService.GetByID(f.ctx, baseFormID)
-	require.NoError(t, err, "get updated form")
+	// 4. Verify the new delta child record was created
+	createdForm, err := f.handler.httpBodyFormService.GetByID(f.ctx, newDeltaFormID)
+	require.NoError(t, err, "get created delta form")
 
-	require.NotNil(t, updatedForm.DeltaKey, "DeltaKey should be set")
-	require.Equal(t, newKey, *updatedForm.DeltaKey)
+	require.True(t, createdForm.IsDelta, "created record should be a delta")
+	require.Equal(t, deltaHttpID, createdForm.HttpID, "should belong to delta HTTP")
+	require.NotNil(t, createdForm.ParentHttpBodyFormID, "should reference the base form")
+	require.Equal(t, baseFormID, *createdForm.ParentHttpBodyFormID)
 
-	require.NotNil(t, updatedForm.DeltaValue, "DeltaValue should be set")
-	require.Equal(t, newValue, *updatedForm.DeltaValue)
+	require.NotNil(t, createdForm.DeltaKey, "DeltaKey should be set")
+	require.Equal(t, newKey, *createdForm.DeltaKey)
 
-	require.NotNil(t, updatedForm.DeltaEnabled, "DeltaEnabled should be set")
-	require.Equal(t, enabled, *updatedForm.DeltaEnabled)
+	require.NotNil(t, createdForm.DeltaValue, "DeltaValue should be set")
+	require.Equal(t, newValue, *createdForm.DeltaValue)
 
-	require.NotNil(t, updatedForm.DeltaDescription, "DeltaDescription should be set")
-	require.Equal(t, desc, *updatedForm.DeltaDescription)
+	require.NotNil(t, createdForm.DeltaEnabled, "DeltaEnabled should be set")
+	require.Equal(t, enabled, *createdForm.DeltaEnabled)
 
-	require.NotNil(t, updatedForm.DeltaDisplayOrder, "DeltaDisplayOrder should be set")
-	require.Equal(t, order, *updatedForm.DeltaDisplayOrder)
+	require.NotNil(t, createdForm.DeltaDescription, "DeltaDescription should be set")
+	require.Equal(t, desc, *createdForm.DeltaDescription)
+
+	require.NotNil(t, createdForm.DeltaDisplayOrder, "DeltaDisplayOrder should be set")
+	require.Equal(t, order, *createdForm.DeltaDisplayOrder)
+
+	// 5. Verify the base form was NOT modified
+	baseFormAfter, err := f.handler.httpBodyFormService.GetByID(f.ctx, baseFormID)
+	require.NoError(t, err)
+	require.Nil(t, baseFormAfter.DeltaKey, "base form should not have delta columns set")
 }
 
 func TestHttpBodyFormDataDeltaUpdate_UpdatesFields(t *testing.T) {

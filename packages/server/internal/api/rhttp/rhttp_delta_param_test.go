@@ -123,30 +123,23 @@ func TestHttpSearchParamDeltaInsert_CreatesNewDelta(t *testing.T) {
 	}
 	require.NoError(t, f.hs.Create(f.ctx, deltaHttp), "failed to create delta http")
 
-	// 3. Create Delta Param pointing to Base
-	deltaParamID := idwrap.NewNow()
-	deltaParam := &mhttp.HTTPSearchParam{
-		ID:                      deltaParamID,
-		HttpID:                  deltaHttpID,
-		ParentHttpSearchParamID: &baseParamID,
-		IsDelta:                 true,
-	}
-	require.NoError(t, f.handler.httpSearchParamService.Create(f.ctx, deltaParam), "failed to create delta param")
-
-	// 4. Call HttpSearchParamDeltaInsert to set delta values
+	// 3. Call HttpSearchParamDeltaInsert to create a new delta child record
 	newValue := "overridden"
 	newEnabled := false
 	newDesc := "test description"
 	newOrder := float32(1.5)
+	newDeltaParamID := idwrap.NewNow()
 
 	insertReq := connect.NewRequest(&httpv1.HttpSearchParamDeltaInsertRequest{
 		Items: []*httpv1.HttpSearchParamDeltaInsert{
 			{
-				HttpSearchParamId: baseParamID.Bytes(),
-				Value:             &newValue,
-				Enabled:           &newEnabled,
-				Description:       &newDesc,
-				Order:             &newOrder,
+				HttpId:                 deltaHttpID.Bytes(),
+				HttpSearchParamId:      baseParamID.Bytes(),
+				DeltaHttpSearchParamId: newDeltaParamID.Bytes(),
+				Value:                  &newValue,
+				Enabled:                &newEnabled,
+				Description:            &newDesc,
+				Order:                  &newOrder,
 			},
 		},
 	})
@@ -154,21 +147,31 @@ func TestHttpSearchParamDeltaInsert_CreatesNewDelta(t *testing.T) {
 	_, err := f.handler.HttpSearchParamDeltaInsert(f.ctx, insertReq)
 	require.NoError(t, err, "HttpSearchParamDeltaInsert failed")
 
-	// 5. Verify the delta was created with correct values
-	updatedParam, err := f.handler.httpSearchParamService.GetByID(f.ctx, baseParamID)
-	require.NoError(t, err, "failed to get updated param")
+	// 4. Verify the new delta child record was created
+	createdParam, err := f.handler.httpSearchParamService.GetByID(f.ctx, newDeltaParamID)
+	require.NoError(t, err, "failed to get created delta param")
 
-	require.NotNil(t, updatedParam.DeltaValue, "DeltaValue should be set")
-	require.Equal(t, newValue, *updatedParam.DeltaValue, "DeltaValue should match")
+	require.True(t, createdParam.IsDelta, "should be a delta record")
+	require.Equal(t, deltaHttpID, createdParam.HttpID, "should belong to delta HTTP")
+	require.NotNil(t, createdParam.ParentHttpSearchParamID, "should reference the base param")
+	require.Equal(t, baseParamID, *createdParam.ParentHttpSearchParamID)
 
-	require.NotNil(t, updatedParam.DeltaEnabled, "DeltaEnabled should be set")
-	require.Equal(t, newEnabled, *updatedParam.DeltaEnabled, "DeltaEnabled should match")
+	require.NotNil(t, createdParam.DeltaValue, "DeltaValue should be set")
+	require.Equal(t, newValue, *createdParam.DeltaValue, "DeltaValue should match")
 
-	require.NotNil(t, updatedParam.DeltaDescription, "DeltaDescription should be set")
-	require.Equal(t, newDesc, *updatedParam.DeltaDescription, "DeltaDescription should match")
+	require.NotNil(t, createdParam.DeltaEnabled, "DeltaEnabled should be set")
+	require.Equal(t, newEnabled, *createdParam.DeltaEnabled, "DeltaEnabled should match")
 
-	require.NotNil(t, updatedParam.DeltaDisplayOrder, "DeltaDisplayOrder should be set")
-	require.Equal(t, float64(newOrder), *updatedParam.DeltaDisplayOrder, "DeltaDisplayOrder should match")
+	require.NotNil(t, createdParam.DeltaDescription, "DeltaDescription should be set")
+	require.Equal(t, newDesc, *createdParam.DeltaDescription, "DeltaDescription should match")
+
+	require.NotNil(t, createdParam.DeltaDisplayOrder, "DeltaDisplayOrder should be set")
+	require.Equal(t, float64(newOrder), *createdParam.DeltaDisplayOrder, "DeltaDisplayOrder should match")
+
+	// 5. Verify the base param was NOT modified
+	baseParamAfter, err := f.handler.httpSearchParamService.GetByID(f.ctx, baseParamID)
+	require.NoError(t, err)
+	require.Nil(t, baseParamAfter.DeltaValue, "base param should not have delta columns set")
 }
 
 func TestHttpSearchParamDeltaUpdate_UpdatesFields(t *testing.T) {

@@ -142,7 +142,6 @@ func TestHttpDelta_Assert(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1. Insert Assert Delta
-	// Asserts must also have a parent assert if they are deltas
 	// Create a base assert first
 	baseAssertID := idwrap.NewNow()
 	err = f.handler.httpAssertService.Create(ctx, &mhttp.HTTPAssert{
@@ -153,48 +152,16 @@ func TestHttpDelta_Assert(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Manually create the delta assert since the API endpoint HttpAssertDeltaInsert seems to modify an existing one or expects logic we simulate
-	// Actually, looking at HttpAssertDeltaInsert implementation:
-	// It takes HttpAssertId (which seems to be the BASE assert ID or the DELTA assert ID?)
-	// "assertID, err := idwrap.NewFromBytes(item.HttpAssertId)"
-	// "assert, err := h.httpAssertService.GetByID(ctx, assertID)"
-	// "err = h.httpAssertService.UpdateDelta(..."
-	// So it UPDATES an existing assert to add delta fields.
-	// This means the assert MUST exist.
-	// And it seems it doesn't create a NEW delta assert record, but updates fields on an existing one?
-	// Wait, the schema has `is_delta` and `parent_http_assert_id`.
-	// If `UpdateHttpAssertDelta` is called, does it create a NEW record or update the existing?
-	// The service `UpdateHttpAssertDelta` executes `UPDATE http_assert SET delta_... WHERE id = ?`.
-	// This implies we are updating the DELTA record itself.
-	// But the RPC calls it "Insert".
-	// If "Insert" updates a record, it's confusing naming.
-	// Let's re-read `HttpAssertDeltaInsert` in `rhttp_delta.go`.
-	// It fetches assert by ID. Then calls `UpdateHttpAssertDelta`.
-	// This means the `HttpAssertDeltaInsert` RPC is actually populating delta fields on an EXISTING delta assert.
-	// So we must first CREATE the delta assert record.
-	// But where is it created?
-	// In HAR import, `CreateDeltaHeaders` creates them.
-	// In standard usage, maybe `HttpInsert` creates them?
-	// Or maybe we assume the delta assert is created when the delta request is created (copied)?
-	// If so, let's create the delta assert manually first.
-
-	deltaAssertID := idwrap.NewNow()
-	err = f.handler.httpAssertService.Create(ctx, &mhttp.HTTPAssert{
-		ID:                 deltaAssertID,
-		HttpID:             deltaID,
-		IsDelta:            true,
-		ParentHttpAssertID: &baseAssertID, // Required by constraint
-		Enabled:            true,
-	})
-	require.NoError(t, err)
-
-	// Now call "Insert" which effectively sets the delta values
+	// Call DeltaInsert — this creates a new delta child record on the delta HTTP
 	newValue := "delta-value"
+	deltaAssertID := idwrap.NewNow()
 	_, err = f.handler.HttpAssertDeltaInsert(ctx, connect.NewRequest(&apiv1.HttpAssertDeltaInsertRequest{
 		Items: []*apiv1.HttpAssertDeltaInsert{
 			{
-				HttpAssertId: deltaAssertID.Bytes(), // Target the delta assert
-				Value:        &newValue,
+				HttpId:            deltaID.Bytes(),
+				HttpAssertId:      baseAssertID.Bytes(),
+				DeltaHttpAssertId: deltaAssertID.Bytes(),
+				Value:             &newValue,
 			},
 		},
 	}))
@@ -203,6 +170,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	// Verify
 	assert, err := f.handler.httpAssertService.GetByID(ctx, deltaAssertID)
 	require.NoError(t, err)
+	require.True(t, assert.IsDelta)
 	require.NotNil(t, assert.DeltaValue)
 	require.Equal(t, newValue, *assert.DeltaValue)
 
@@ -228,7 +196,6 @@ func TestHttpDelta_Assert(t *testing.T) {
 	require.Equal(t, updatedValue, *assert.DeltaValue)
 
 	// Delete Delta
-	// This deletes the entire delta assert record
 	_, err = f.handler.HttpAssertDeltaDelete(ctx, connect.NewRequest(&apiv1.HttpAssertDeltaDeleteRequest{
 		Items: []*apiv1.HttpAssertDeltaDelete{
 			{
