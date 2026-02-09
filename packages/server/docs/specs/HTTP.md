@@ -24,11 +24,11 @@ A Request is the fundamental unit, defining _what_ to send.
 
 Every `http` record is classified by two independent boolean columns (`is_delta`, `is_snapshot`) into one of three mutually exclusive states:
 
-| `is_delta` | `is_snapshot` | State        | Description                                                          |
-| ---------- | ------------- | ------------ | -------------------------------------------------------------------- |
-| `FALSE`    | `FALSE`       | **Base**     | The canonical saved request in a collection. Visible in the sidebar. |
-| `TRUE`     | `FALSE`       | **Delta**    | A transient overlay on a base record (unsaved UI edits, variants).   |
-| `FALSE`    | `TRUE`        | **Snapshot** | An immutable, fully-resolved copy captured at execution time.        |
+| `is_delta` | `is_snapshot` | State        | Description                                                                                 |
+| ---------- | ------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| `FALSE`    | `FALSE`       | **Base**     | The canonical saved request in a collection. Visible in the sidebar.                        |
+| `TRUE`     | `FALSE`       | **Delta**    | An inheritance-based override of a base record. Inherits all fields, overrides selectively. |
+| `FALSE`    | `TRUE`        | **Snapshot** | An immutable, fully-resolved copy captured at execution time.                               |
 
 The combination `is_delta=TRUE, is_snapshot=TRUE` is **invalid** and enforced by:
 
@@ -41,11 +41,14 @@ The normal saved requests users see in the workspace tree.
 
 #### Delta Records
 
-Non-destructive overlays on top of a base record. Used when users edit a request in the UI before saving.
+Deltas implement an **inheritance/override system** on top of base records. A delta is a child of a base record that inherits every field from its parent and selectively overrides only the fields it specifies. This is used when users edit a request in the UI before saving — the edits are stored as a delta, leaving the original base untouched.
 
-- **Parent Relationship:** Deltas link back to a `ParentHttpID` (enforced by a `CHECK` constraint).
-- **NULL-means-no-change:** Delta override fields (`delta_url`, `delta_method`, etc.) use `NULL` to indicate "inherit from parent". Only non-NULL fields override the base.
-- **Resolution:** `packages/server/pkg/delta` merges base + delta into a resolved view at read time.
+- **Parent Relationship:** Every delta links back to a `ParentHttpID` (enforced by a `CHECK` constraint: `is_delta = FALSE OR parent_http_id IS NOT NULL`). Deleting the parent cascades to all its deltas.
+- **NULL-means-inherit:** Each overridable field has a corresponding `delta_*` column (e.g., `delta_url`, `delta_method`, `delta_name`, `delta_body_kind`, `delta_description`). A `NULL` delta field means "inherit from the parent base". Only non-NULL delta fields override the base value.
+- **Child entity inheritance:** The same override pattern extends to child entities (headers, params, body forms, URL-encoded entries, body raw, asserts). Each child delta can either:
+  - **Override** an existing parent child (via `parent_http_header_id`, `parent_http_search_param_id`, etc.) — inheriting its fields and selectively overriding them.
+  - **Add** a new child (when the parent link is `NULL`) — appended to the resolved collection.
+- **Resolution:** `packages/server/pkg/delta` merges base + delta into a fully resolved view at read time. The resolver walks every field and child entity, applying the override-or-inherit logic, and returns a complete HTTP request with `IsDelta = false`.
 
 #### Snapshot Records
 
@@ -89,9 +92,10 @@ When a request is "Run":
 
 - **Pure Go Structs:** Decoupled from DB and API.
 - **Key Fields:**
-  - `IsDelta` (bool): Marks a request as a transient edit (delta overlay).
+  - `IsDelta` (bool): Marks a request as an inherited override of a base record (see Delta Records).
   - `IsSnapshot` (bool): Marks a request as an immutable version snapshot.
-  - `ParentHttpID` (UUID): Links a delta to its source base record.
+  - `ParentHttpID` (UUID): Links a delta to its parent base record for inheritance.
+  - `Delta*` fields (`DeltaName *string`, `DeltaUrl *string`, etc.): Nullable override fields. `nil` = inherit from parent.
   - `DisplayOrder` (float): Manages sorting in the collection list.
 
 ## Database Schema
