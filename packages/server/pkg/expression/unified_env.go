@@ -2,16 +2,19 @@
 package expression
 
 import (
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
 	"maps"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/secretresolver"
 )
 
 // UnifiedEnv provides a unified interface for variable resolution, expression evaluation,
 // and string interpolation. It operates on hierarchical (non-flattened) data.
 type UnifiedEnv struct {
-	data        map[string]any            // Hierarchical data (not flattened)
-	tracker     *tracking.VariableTracker // Optional tracking
-	customFuncs map[string]any            // Custom expr-lang functions
+	data           map[string]any                  // Hierarchical data (not flattened)
+	tracker        *tracking.VariableTracker       // Optional tracking
+	customFuncs    map[string]any                  // Custom expr-lang functions
+	secretResolver secretresolver.SecretResolver   // Optional: cloud secret resolution
 }
 
 // NewUnifiedEnv creates a new UnifiedEnv with the given hierarchical data.
@@ -41,6 +44,14 @@ func (e *UnifiedEnv) WithFunc(name string, fn any) *UnifiedEnv {
 	return clone
 }
 
+// WithSecretResolver returns a copy of the UnifiedEnv with a secret resolver
+// for cloud secret references (#gcp:, #aws:, #azure:).
+func (e *UnifiedEnv) WithSecretResolver(r secretresolver.SecretResolver) *UnifiedEnv {
+	clone := e.Clone()
+	clone.secretResolver = r
+	return clone
+}
+
 // Clone creates a deep copy of the UnifiedEnv.
 func (e *UnifiedEnv) Clone() *UnifiedEnv {
 	if e == nil {
@@ -54,9 +65,10 @@ func (e *UnifiedEnv) Clone() *UnifiedEnv {
 	maps.Copy(newFuncs, e.customFuncs)
 
 	return &UnifiedEnv{
-		data:        newData,
-		tracker:     e.tracker, // Share tracker reference
-		customFuncs: newFuncs,
+		data:           newData,
+		tracker:        e.tracker,        // Share tracker reference
+		customFuncs:    newFuncs,
+		secretResolver: e.secretResolver, // Share resolver reference
 	}
 }
 

@@ -11,6 +11,12 @@ const (
 	FileRefPrefix = "#file:"
 	// EnvRefPrefix is the prefix for environment variable references.
 	EnvRefPrefix = "#env:"
+	// GCPRefPrefix is the prefix for GCP Secret Manager references.
+	GCPRefPrefix = "#gcp:"
+	// AWSRefPrefix is the prefix for AWS Secrets Manager references (future).
+	AWSRefPrefix = "#aws:"
+	// AzureRefPrefix is the prefix for Azure Key Vault references (future).
+	AzureRefPrefix = "#azure:"
 )
 
 // IsFileReference checks if a string is a file reference (#file:/path).
@@ -98,6 +104,38 @@ func IsVarPattern(s string) bool {
 	s = strings.TrimSpace(s)
 	return strings.HasPrefix(s, "{{") && strings.HasSuffix(s, "}}") &&
 		strings.Count(s, "{{") == 1 && strings.Count(s, "}}") == 1
+}
+
+// IsSecretReference checks if a string is a cloud secret reference (#gcp:, #aws:, #azure:).
+func IsSecretReference(s string) bool {
+	s = strings.TrimSpace(s)
+	return strings.HasPrefix(s, GCPRefPrefix) ||
+		strings.HasPrefix(s, AWSRefPrefix) ||
+		strings.HasPrefix(s, AzureRefPrefix)
+}
+
+// ParseSecretReference parses a secret reference like "#gcp:path#fragment".
+// Returns (provider, resourcePath, fragment).
+func ParseSecretReference(s string) (provider, ref, fragment string) {
+	s = strings.TrimSpace(s)
+
+	switch {
+	case strings.HasPrefix(s, GCPRefPrefix):
+		provider = "gcp"
+		s = strings.TrimPrefix(s, GCPRefPrefix)
+	case strings.HasPrefix(s, AWSRefPrefix):
+		provider = "aws"
+		s = strings.TrimPrefix(s, AWSRefPrefix)
+	case strings.HasPrefix(s, AzureRefPrefix):
+		provider = "azure"
+		s = strings.TrimPrefix(s, AzureRefPrefix)
+	}
+
+	// Split on last '#' for fragment
+	if idx := strings.LastIndex(s, "#"); idx != -1 {
+		return provider, s[:idx], s[idx+1:]
+	}
+	return provider, s, ""
 }
 
 // ExtractVarKeysFromMultiple extracts all unique variable keys from multiple strings.

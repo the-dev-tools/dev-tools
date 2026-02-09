@@ -123,6 +123,9 @@ func (n NodeAI) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 
 	// 4. Resolve prompt variables (supports expressions and AI marker functions)
 	env := expression.NewUnifiedEnv(req.VarMap)
+	if req.SecretResolver != nil {
+		env = env.WithSecretResolver(req.SecretResolver)
+	}
 	resolvedPrompt, err := env.Interpolate(n.Prompt)
 	if err != nil {
 		// Use raw prompt as fallback if variable resolution fails

@@ -3,6 +3,7 @@ module github.com/the-dev-tools/dev-tools/packages/server
 go 1.25
 
 require (
+	cloud.google.com/go/secretmanager v1.14.3
 	connectrpc.com/connect v1.19.1
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/andybalholm/brotli v1.2.0

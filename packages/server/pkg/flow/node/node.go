@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"log/slog"
 	"sync"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/secretresolver"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
@@ -56,10 +58,11 @@ type FlowNodeRequest struct {
 	Timeout          time.Duration
 	LogPushFunc      LogPushFunc
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
-	VariableTracker  *tracking.VariableTracker // Optional tracking for input/output data
-	IterationContext *runner.IterationContext  // For hierarchical execution naming in loops
-	ExecutionID      idwrap.IDWrap             // Unique ID for this specific execution of the node
-	Logger           *slog.Logger              // Optional structured logger for node diagnostics
+	VariableTracker  *tracking.VariableTracker      // Optional tracking for input/output data
+	IterationContext *runner.IterationContext        // For hierarchical execution naming in loops
+	ExecutionID      idwrap.IDWrap                   // Unique ID for this specific execution of the node
+	Logger           *slog.Logger                    // Optional structured logger for node diagnostics
+	SecretResolver   secretresolver.SecretResolver   // Optional resolver for cloud secret references
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)

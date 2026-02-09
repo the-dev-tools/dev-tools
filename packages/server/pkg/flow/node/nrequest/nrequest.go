@@ -149,7 +149,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	varMapCopy := node.DeepCopyVarMap(req)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
-		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy, req.SecretResolver)
 	if err != nil {
 		result.Err = err
 		return result
@@ -344,7 +344,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	varMapCopy := node.DeepCopyVarMap(req)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
-		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy, req.SecretResolver)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

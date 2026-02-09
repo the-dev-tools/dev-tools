@@ -26,6 +26,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/secretresolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
@@ -58,6 +59,7 @@ type PrepareHTTPRequestResult struct {
 //   - {{ a + b }} - Expressions
 //   - {{ #env:VAR }} - Environment variables
 //   - {{ #file:/path }} - File contents
+//   - {{ #gcp:path }} - Cloud secret references (requires secretResolver)
 func PrepareHTTPRequestWithTracking(
 	httpReq mhttp.HTTP,
 	headers []mhttp.HTTPHeader,
@@ -66,9 +68,13 @@ func PrepareHTTPRequestWithTracking(
 	formBody []mhttp.HTTPBodyForm,
 	urlBody []mhttp.HTTPBodyUrlencoded,
 	varMap map[string]any,
+	secretResolver ...secretresolver.SecretResolver,
 ) (*PrepareHTTPRequestResult, error) {
 	// Create UnifiedEnv for expression interpolation
 	env := expression.NewUnifiedEnv(varMap)
+	if len(secretResolver) > 0 && secretResolver[0] != nil {
+		env = env.WithSecretResolver(secretResolver[0])
+	}
 	readVars := make(map[string]any)
 
 	// Helper to interpolate and collect reads

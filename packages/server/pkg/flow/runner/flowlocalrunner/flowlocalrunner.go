@@ -5,15 +5,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"runtime"
+	"sync"
+	"time"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"log/slog"
-	"runtime"
-	"sync"
-	"time"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/secretresolver"
 )
 
 // ExecutionMode controls how FlowLocalRunner schedules nodes.
@@ -39,6 +41,14 @@ type FlowLocalRunner struct {
 	selectedMode       ExecutionMode
 	enableDataTracking bool
 	logger             *slog.Logger
+	secretResolver     secretresolver.SecretResolver // Optional resolver for cloud secret references
+}
+
+// WithSecretResolver sets the secret resolver for cloud secret references
+// in flow expressions (e.g., {{#gcp:...}}).
+func (r *FlowLocalRunner) WithSecretResolver(resolver secretresolver.SecretResolver) *FlowLocalRunner {
+	r.secretResolver = resolver
+	return r
 }
 
 var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
@@ -500,6 +510,7 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
 		Logger:           r.logger,
+		SecretResolver:   r.secretResolver,
 	}
 	predecessorMap := BuildPredecessorMap(r.EdgesMap)
 

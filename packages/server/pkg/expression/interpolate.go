@@ -33,18 +33,27 @@ func (e *UnifiedEnv) Interpolate(raw string) (string, error) {
 	return result.Value, nil
 }
 
-// InterpolateCtx is like Interpolate but accepts a context for cancellation.
+// InterpolateCtx is like Interpolate but accepts a context for cancellation
+// and cloud secret resolution.
 func (e *UnifiedEnv) InterpolateCtx(ctx context.Context, raw string) (string, error) {
-	// Check context before starting
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}
-	return e.Interpolate(raw)
+	result, err := e.interpolateWithResultCtx(ctx, raw)
+	if err != nil {
+		return "", err
+	}
+	return result.Value, nil
 }
 
 // InterpolateWithResult replaces {{ varKey }} patterns and returns both the result
 // and a map of all variables that were read during interpolation.
 func (e *UnifiedEnv) InterpolateWithResult(raw string) (InterpolationResult, error) {
+	return e.interpolateWithResultCtx(context.Background(), raw)
+}
+
+// interpolateWithResultCtx is the context-aware implementation of InterpolateWithResult.
+func (e *UnifiedEnv) interpolateWithResultCtx(ctx context.Context, raw string) (InterpolationResult, error) {
 	if e == nil {
 		return InterpolationResult{Value: raw, ReadVars: make(map[string]any)}, nil
 	}
@@ -75,7 +84,7 @@ func (e *UnifiedEnv) InterpolateWithResult(raw string) (InterpolationResult, err
 		varRef = strings.TrimSpace(varRef)
 
 		// Resolve the variable/expression
-		_, strVal, err := e.resolveVar(varRef, readVars)
+		_, strVal, err := e.resolveVar(ctx, varRef, readVars)
 		if err != nil {
 			return InterpolationResult{}, &InterpolationError{
 				Input:  raw,
@@ -114,7 +123,7 @@ func (e *UnifiedEnv) ResolveValue(raw string) (any, error) {
 		if !strings.Contains(inner, menv.Prefix) && !strings.Contains(inner, menv.Suffix) {
 			// Single expression - return typed value
 			readVars := make(map[string]any)
-			val, _, err := e.resolveVar(strings.TrimSpace(inner), readVars)
+			val, _, err := e.resolveVar(context.Background(), strings.TrimSpace(inner), readVars)
 			return val, err
 		}
 	}
@@ -130,13 +139,16 @@ func (e *UnifiedEnv) ResolveValue(raw string) (any, error) {
 
 // resolveVar resolves a single variable/expression reference and tracks the read.
 // Returns the resolved value (typed) and its string representation.
-func (e *UnifiedEnv) resolveVar(varRef string, readVars map[string]any) (any, string, error) {
+func (e *UnifiedEnv) resolveVar(ctx context.Context, varRef string, readVars map[string]any) (any, string, error) {
 	switch {
 	case isEnvReference(varRef):
 		str, err := e.resolveEnvVar(varRef, readVars)
 		return str, str, err
 	case isFileReference(varRef):
 		str, err := e.resolveFileVar(varRef, readVars)
+		return str, str, err
+	case isSecretReference(varRef):
+		str, err := e.resolveSecretVar(ctx, varRef, readVars)
 		return str, str, err
 	default:
 		// Use expr-lang - supports paths AND expressions like now(), a > 5
@@ -218,6 +230,34 @@ func (e *UnifiedEnv) resolveExprVar(varRef string, readVars map[string]any) (any
 	return output, nil
 }
 
+// resolveSecretVar resolves a cloud secret reference (#gcp:path#fragment, #aws:name#key, etc.).
+func (e *UnifiedEnv) resolveSecretVar(ctx context.Context, varRef string, readVars map[string]any) (string, error) {
+	if e.secretResolver == nil {
+		return "", &SecretReferenceError{
+			Provider: "unknown",
+			Ref:      varRef,
+			Cause:    fmt.Errorf("no secret resolver configured; cloud secret references require a SecretResolver"),
+		}
+	}
+
+	provider, ref, fragment := ParseSecretReference(varRef)
+	if ref == "" {
+		return "", &SecretReferenceError{Provider: provider, Ref: varRef, Cause: ErrEmptyPath}
+	}
+
+	value, err := e.secretResolver.ResolveSecret(ctx, provider, ref, fragment)
+	if err != nil {
+		return "", &SecretReferenceError{Provider: provider, Ref: ref, Fragment: fragment, Cause: err}
+	}
+
+	readVars[varRef] = value
+	if e.tracker != nil {
+		e.tracker.TrackRead(varRef, "***") // Mask secret values in tracking
+	}
+
+	return value, nil
+}
+
 // isEnvReference checks if a variable reference is an environment variable.
 func isEnvReference(varRef string) bool {
 	return strings.HasPrefix(strings.TrimSpace(varRef), EnvRefPrefix)
@@ -226,6 +266,11 @@ func isEnvReference(varRef string) bool {
 // isFileReference checks if a variable reference is a file reference.
 func isFileReference(varRef string) bool {
 	return strings.HasPrefix(strings.TrimSpace(varRef), FileRefPrefix)
+}
+
+// isSecretReference checks if a variable reference is a cloud secret reference.
+func isSecretReference(varRef string) bool {
+	return IsSecretReference(varRef)
 }
 
 // anyToString converts any value to its string representation.
