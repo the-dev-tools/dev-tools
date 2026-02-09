@@ -1,0 +1,26 @@
+info:
+  name: Get Users
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: '{{base_url}}/users'
+  headers:
+    - name: Accept
+      value: application/json
+  params:
+    - name: page
+      value: '1'
+      type: query
+    - name: limit
+      value: '10'
+      type: query
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: '200'
+
+docs: 'Fetch all users with pagination'

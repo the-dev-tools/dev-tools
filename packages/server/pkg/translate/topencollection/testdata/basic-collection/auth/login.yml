@@ -1,0 +1,24 @@
+info:
+  name: Login
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: '{{base_url}}/auth/login'
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "test@example.com",
+        "password": "test123"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: '200'

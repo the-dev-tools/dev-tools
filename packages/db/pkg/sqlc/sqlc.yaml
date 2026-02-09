@@ -62,6 +62,16 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
               pointer: true
+          ### sync_path
+          - column: 'workspaces.sync_path'
+            go_type:
+              type: 'string'
+              pointer: true
+          ### sync_format
+          - column: 'workspaces.sync_format'
+            go_type:
+              type: 'string'
+              pointer: true
           ## workspaces_users
           ### id
           - column: 'workspaces_users.id'

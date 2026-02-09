@@ -1,0 +1,4 @@
+name: Development
+variables:
+  base_url: 'http://localhost:3000'
+  token: 'dev-token-123'

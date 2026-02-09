@@ -17,6 +17,9 @@ func ConvertToDBWorkspace(workspace mworkspace.Workspace) gen.Workspace {
 		ActiveEnv:       workspace.ActiveEnv,
 		GlobalEnv:       workspace.GlobalEnv,
 		DisplayOrder:    workspace.Order,
+		SyncPath:        workspace.SyncPath,
+		SyncFormat:      workspace.SyncFormat,
+		SyncEnabled:     workspace.SyncEnabled,
 	}
 }
 
@@ -30,5 +33,8 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 		ActiveEnv:       workspace.ActiveEnv,
 		GlobalEnv:       workspace.GlobalEnv,
 		Order:           workspace.DisplayOrder,
+		SyncPath:        workspace.SyncPath,
+		SyncFormat:      workspace.SyncFormat,
+		SyncEnabled:     workspace.SyncEnabled,
 	}
 }

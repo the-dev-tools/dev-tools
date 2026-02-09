@@ -82,4 +82,12 @@ func (ws WorkspaceService) GetWorkspacesByUserIDOrdered(ctx context.Context, use
 	return ws.reader.GetWorkspacesByUserIDOrdered(ctx, userID)
 }
 
+func (ws WorkspaceService) UpdateSync(ctx context.Context, w *mworkspace.Workspace) error {
+	return NewWorkspaceWriterFromQueries(ws.queries).UpdateSync(ctx, w)
+}
+
+func (ws WorkspaceService) GetSynced(ctx context.Context) ([]mworkspace.Workspace, error) {
+	return ws.reader.GetSynced(ctx)
+}
+
 func (ws WorkspaceService) Reader() *WorkspaceReader { return ws.reader }

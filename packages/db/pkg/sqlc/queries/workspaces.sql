@@ -10,7 +10,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -27,7 +30,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -53,7 +59,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -75,7 +84,10 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
 FROM
   workspaces
 WHERE
@@ -95,9 +107,9 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order, sync_path, sync_format, sync_enabled)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
@@ -118,6 +130,16 @@ SET
 WHERE
   id = ?;
 
+-- name: UpdateWorkspaceSync :exec
+UPDATE workspaces
+SET
+  sync_path = ?,
+  sync_format = ?,
+  sync_enabled = ?,
+  updated = ?
+WHERE
+  id = ?;
+
 -- name: DeleteWorkspace :exec
 DELETE FROM workspaces
 WHERE
@@ -132,7 +154,10 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.sync_path,
+  w.sync_format,
+  w.sync_enabled
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
@@ -151,7 +176,10 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.sync_path,
+  w.sync_format,
+  w.sync_enabled
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
@@ -159,6 +187,25 @@ WHERE
   wu.user_id = ?
 ORDER BY
   w.updated DESC;
+
+-- name: GetSyncedWorkspaces :many
+-- Returns all workspaces with sync enabled
+SELECT
+  id,
+  name,
+  updated,
+  collection_count,
+  flow_count,
+  active_env,
+  global_env,
+  display_order,
+  sync_path,
+  sync_format,
+  sync_enabled
+FROM
+  workspaces
+WHERE
+  sync_enabled = 1;
 
 --
 -- WorkspaceUsers

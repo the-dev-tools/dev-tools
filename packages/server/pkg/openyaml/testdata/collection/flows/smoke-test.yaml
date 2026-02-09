@@ -1,0 +1,9 @@
+name: Smoke Test
+variables:
+  - name: auth_token
+    value: ''
+steps:
+  - request:
+      name: Get Users
+      method: GET
+      url: '{{base_url}}/users'
