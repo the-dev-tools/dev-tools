@@ -1,3 +1,13 @@
+## 0.2.1 (2026-02-09)
+
+### 🩹 Fixes
+
+- Revert env vars from {{ env.varName }} back to flat {{ varName }} syntax ([b4914257](https://github.com/the-dev-tools/dev-tools/commit/b4914257))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.2.0 (2026-02-07)
 
 ### 🚀 Features

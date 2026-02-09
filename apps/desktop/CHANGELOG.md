@@ -1,3 +1,17 @@
+## 0.2.2 (2026-02-09)
+
+### 🩹 Fixes
+
+- Version snapshots with is_snapshot column and deterministic test sync ([e6c2b883](https://github.com/the-dev-tools/dev-tools/commit/e6c2b883))
+
+### 🧱 Updated Dependencies
+
+- Updated cli to 0.2.1
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.2.1 (2026-02-09)
 
 ### 🩹 Fixes
