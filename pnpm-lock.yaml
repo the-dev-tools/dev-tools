@@ -476,6 +476,16 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@the-dev-tools/cli':
+        specifier: workspace:^
+        version: link:../cli
+      '@the-dev-tools/server':
+        specifier: workspace:^
+        version: link:../../packages/server
+      '@the-dev-tools/worker-js':
+        specifier: workspace:^
+        version: link:../../packages/worker-js
+    devDependencies:
       '@bufbuild/protobuf':
         specifier: 'catalog:'
         version: 2.10.2
@@ -497,49 +507,6 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 0.104.0(@effect/cluster@0.56.1(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/workflow@0.16.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(@effect/rpc@0.73.0(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/sql@0.49.0(@effect/experimental@0.57.11(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(@effect/platform@0.94.1(effect@3.19.14))(effect@3.19.14))(effect@3.19.14)
-      '@the-dev-tools/cli':
-        specifier: workspace:^
-        version: link:../cli
-      '@the-dev-tools/client':
-        specifier: workspace:^
-        version: link:../../packages/client
-      '@the-dev-tools/server':
-        specifier: workspace:^
-        version: link:../../packages/server
-      '@the-dev-tools/ui':
-        specifier: workspace:^
-        version: link:../../packages/ui
-      '@the-dev-tools/worker-js':
-        specifier: workspace:^
-        version: link:../../packages/worker-js
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
-      builder-util-runtime:
-        specifier: 'catalog:'
-        version: 9.5.1
-      effect:
-        specifier: 'catalog:'
-        version: 3.19.14
-      electron-updater:
-        specifier: 6.7.3
-        version: 6.7.3
-      react:
-        specifier: 'catalog:'
-        version: 19.2.3
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.3(react@19.2.3)
-      react-markdown:
-        specifier: 'catalog:'
-        version: 10.1.0(@types/react@19.2.7)(react@19.2.3)
-      undici:
-        specifier: 'catalog:'
-        version: 7.18.2
-      yaml:
-        specifier: 'catalog:'
-        version: 2.8.2
-    devDependencies:
       '@lezer/generator':
         specifier: 'catalog:'
         version: 1.8.0
@@ -549,18 +516,33 @@ importers:
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.1.18(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+      '@the-dev-tools/client':
+        specifier: workspace:^
+        version: link:../../packages/client
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
+      '@the-dev-tools/ui':
+        specifier: workspace:^
+        version: link:../../packages/ui
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.7
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.7)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 5.1.2(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       babel-plugin-react-compiler:
         specifier: 'catalog:'
         version: 19.1.0-rc.3
+      builder-util-runtime:
+        specifier: 'catalog:'
+        version: 9.5.1
+      effect:
+        specifier: 'catalog:'
+        version: 3.19.14
       electron:
         specifier: 'catalog:'
         version: 39.2.7
@@ -570,24 +552,42 @@ importers:
       electron-devtools-installer:
         specifier: 'catalog:'
         version: 4.0.0
+      electron-updater:
+        specifier: 6.7.3
+        version: 6.7.3
       electron-vite:
         specifier: 'catalog:'
         version: 5.0.0(@swc/core@1.15.8(@swc/helpers@0.5.18))(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.6.1)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.3
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.3(react@19.2.3)
+      react-markdown:
+        specifier: 'catalog:'
+        version: 10.1.0(@types/react@19.2.7)(react@19.2.3)
       tailwindcss:
         specifier: 'catalog:'
         version: 4.1.18
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      undici:
+        specifier: 'catalog:'
+        version: 7.18.2
       vite:
         specifier: 'catalog:'
         version: 7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
       vite-tsconfig-paths:
         specifier: 'catalog:'
         version: 6.0.3(typescript@5.9.3)(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))
+      yaml:
+        specifier: 'catalog:'
+        version: 2.8.2
 
   packages/client:
     dependencies:
