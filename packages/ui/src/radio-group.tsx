@@ -49,7 +49,7 @@ export const RadioGroup = ({ children, className, error, label, ...props }: Radi
 export const radioStyles = tv({
   slots: {
     base: tw`
-      group/radio flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-fg
+      group/radio flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-foreground
 
       disabled:text-gray-300
     `,
@@ -57,21 +57,21 @@ export const radioStyles = tv({
     indicator: [
       focusVisibleRingStyles(),
       tw`
-        size-4 rounded-full border border-border bg-surface
+        size-4 rounded-full border border-border bg-background
 
-        group-invalid/radio:border-danger-fg group-invalid/radio:bg-danger-fg
+        group-invalid/radio:border-destructive group-invalid/radio:bg-destructive
 
         group-disabled/radio:border-border group-disabled/radio:bg-border
 
-        group-pressed/radio:not-selected:border-fg-subtle
+        group-pressed/radio:not-selected:border-muted-foreground
 
-        group-selected/radio:border-accent group-selected/radio:bg-accent
+        group-selected/radio:border-primary group-selected/radio:bg-primary
 
-        group-invalid/radio:pressed:border-danger-pressed
+        group-invalid/radio:pressed:border-destructive/80
       `,
     ],
 
-    dot: tw`size-full rounded-full border-2 border-surface`,
+    dot: tw`size-full rounded-full border-2 border-background`,
   },
 });
 

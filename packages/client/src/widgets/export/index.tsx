@@ -33,23 +33,23 @@ export const ExportDialog = () => {
     <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
       <TooltipTrigger delay={750}>
         <Button className={tw`p-1`} variant='ghost'>
-          <TbFileExport className={tw`size-4 text-fg-muted`} />
+          <TbFileExport className={tw`size-4 text-muted-foreground`} />
         </Button>
-        <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>Export Files</Tooltip>
+        <Tooltip className={tw`rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground`}>Export Files</Tooltip>
       </TooltipTrigger>
 
       <Modal style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>
-              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-fg`}>Export Files</div>
+              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-foreground`}>Export Files</div>
 
               <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
-                <FiX className={tw`size-5 text-fg-muted`} />
+                <FiX className={tw`size-5 text-muted-foreground`} />
               </Button>
             </div>
 
-            <div className={tw`text-xs leading-5 tracking-tight text-fg-muted`}>
+            <div className={tw`text-xs leading-5 tracking-tight text-muted-foreground`}>
               Please select the files that you would like to export.
             </div>
 

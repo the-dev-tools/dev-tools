@@ -22,11 +22,11 @@ export const Route = createFileRoute('/(dashboard)/(workspace)/workspace/$worksp
 function RouteComponent() {
   return (
     <div className={tw`px-4 py-16 text-center`}>
-      <span className={tw`block text-xl leading-6 font-semibold tracking-tight text-fg`}>
+      <span className={tw`block text-xl leading-6 font-semibold tracking-tight text-foreground`}>
         Discover what you can do in DevTools
       </span>
 
-      <span className={tw`block text-xs leading-5 tracking-tight text-fg-muted`}>
+      <span className={tw`block text-xs leading-5 tracking-tight text-muted-foreground`}>
         Discover the tools to make your workflow easier and faster.
       </span>
 
@@ -49,17 +49,17 @@ interface CtaButtonProps {
 const CtaButton = ({ description, icon, onPress, title }: CtaButtonProps) => (
   <RAC.Button
     className={tw`
-      flex w-52 cursor-pointer flex-col items-center rounded-lg bg-surface-hover py-10 text-center transition-colors
+      flex w-52 cursor-pointer flex-col items-center rounded-lg bg-secondary py-10 text-center transition-colors
 
-      hover:bg-surface-active
+      hover:bg-accent
     `}
     onPress={onPress}
   >
     {icon}
 
-    <span className={tw`mt-3 text-sm leading-5 font-semibold tracking-tight text-fg`}>{title}</span>
+    <span className={tw`mt-3 text-sm leading-5 font-semibold tracking-tight text-foreground`}>{title}</span>
 
-    <span className={tw`text-xs leading-5 tracking-tight text-fg-muted`}>{description}</span>
+    <span className={tw`text-xs leading-5 tracking-tight text-muted-foreground`}>{description}</span>
   </RAC.Button>
 );
 

@@ -35,7 +35,7 @@ export const Spinner = (props: SpinnerProps) => (
       <foreignObject clipPath='url(#spinner)' height='100%' width='100%' x='0' y='0'>
         <div
           className={tw`size-full rounded-full`}
-          style={{ backgroundImage: 'conic-gradient(var(--color-surface-active), var(--color-fg-muted))' }}
+          style={{ backgroundImage: 'conic-gradient(var(--color-accent), var(--color-muted-foreground))' }}
         />
       </foreignObject>
     </svg>

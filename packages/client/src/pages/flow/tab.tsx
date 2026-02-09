@@ -37,7 +37,7 @@ export const FlowTab = ({ flowId }: FlowTabProps) => {
 
   return (
     <>
-      <FlowsIcon className={tw`size-5 shrink-0 text-fg-muted`} />
+      <FlowsIcon className={tw`size-5 shrink-0 text-muted-foreground`} />
       <span className={tw`min-w-0 flex-1 truncate`}>{flow?.name}</span>
     </>
   );

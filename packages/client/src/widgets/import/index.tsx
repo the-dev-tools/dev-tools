@@ -51,9 +51,9 @@ export const ImportDialogTrigger = () => {
     <>
       <TooltipTrigger delay={750}>
         <Button className={tw`p-1`} onPress={() => void dialog.open()} variant='ghost'>
-          <FileImportIcon className={tw`size-4 text-fg-muted`} />
+          <FileImportIcon className={tw`size-4 text-muted-foreground`} />
         </Button>
-        <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>
+        <Tooltip className={tw`rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground`}>
           Import Collections and Flows
         </Tooltip>
       </TooltipTrigger>
@@ -74,12 +74,12 @@ const InnerDialog = ({ action, children }: InnerDialogProps) => (
       <>
         <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
           <div className={tw`flex items-center justify-between`}>
-            <Heading className={tw`text-xl leading-6 font-semibold tracking-tighter text-fg`} slot='title'>
+            <Heading className={tw`text-xl leading-6 font-semibold tracking-tighter text-foreground`} slot='title'>
               Import Collections and Flows
             </Heading>
 
             <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
-              <FiX className={tw`size-5 text-fg-muted`} />
+              <FiX className={tw`size-5 text-muted-foreground`} />
             </Button>
           </div>
 
@@ -146,8 +146,8 @@ const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
     >
       <div
         className={tw`
-          mt-6 rounded-lg border border-border bg-surface-alt p-4 text-sm leading-4 font-medium tracking-tight
-          text-fg-muted
+          mt-6 rounded-lg border border-border bg-muted p-4 text-sm leading-4 font-medium tracking-tight
+          text-muted-foreground
         `}
       >
         <FiInfo className={tw`mr-1.5 inline-block size-4 align-bottom`} />
@@ -222,7 +222,7 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
         </Button>
       }
     >
-      <div className={tw`text-xs leading-5 tracking-tight text-fg-muted`}>
+      <div className={tw`text-xs leading-5 tracking-tight text-muted-foreground`}>
         Please deselect the domain names to be excluded in the flow. There might be requests that you may not want to
         import.
       </div>

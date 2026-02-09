@@ -63,17 +63,17 @@ export const TreeItem = <T extends object>({
         focusVisibleRingStyles(),
         tw`
           group/tree-item cursor-pointer rounded-md bg-transparent px-3 py-1.5 text-md leading-5 font-medium
-          tracking-tight text-fg
+          tracking-tight text-foreground
 
-          hover:bg-surface-hover
+          hover:bg-secondary
 
-          active:bg-surface-active
+          active:bg-accent
 
-          pressed:bg-surface-active
+          pressed:bg-accent
 
-          selected:bg-surface-active
+          selected:bg-accent
 
-          drop-target:bg-accent-soft-active
+          drop-target:bg-primary/20
         `,
       )}
       ref={(node) => {
@@ -103,7 +103,7 @@ export const TreeItem = <T extends object>({
               <RAC.Button className={tw`shrink-0 cursor-pointer`} slot='chevron'>
                 <ChevronSolidDownIcon
                   className={tw`
-                    size-5 rotate-0 p-1 text-fg-muted transition-transform
+                    size-5 rotate-0 p-1 text-muted-foreground transition-transform
 
                     group-expanded/tree-item:rotate-90
                   `}
@@ -121,7 +121,7 @@ export const TreeItem = <T extends object>({
               {children}
               {allowsDragging && (
                 <Button className={tw`absolute right-0 -z-10 p-1 opacity-0 focus:z-10 focus:opacity-100`} slot='drag'>
-                  <FiMove className={tw`size-3 text-fg-muted`} />
+                  <FiMove className={tw`size-3 text-muted-foreground`} />
                 </Button>
               )}
             </div>

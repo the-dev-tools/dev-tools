@@ -84,7 +84,7 @@ function RouteComponent() {
     >
       <PanelGroup {...workspaceSidebarLayout} orientation='horizontal'>
         <Panel
-          className={tw`flex flex-col bg-surface-alt`}
+          className={tw`flex flex-col bg-muted`}
           defaultSize='20%'
           maxSize='40%'
           minSize='10%'
@@ -99,20 +99,20 @@ function RouteComponent() {
               to={router.routesById[routes.dashboard.workspace.route.id].fullPath}
               variant='ghost'
             >
-              <OverviewIcon className={tw`size-5 text-fg-muted`} />
-              <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-fg`}>Overview</h2>
+              <OverviewIcon className={tw`size-5 text-muted-foreground`} />
+              <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-foreground`}>Overview</h2>
             </ButtonAsRouteLink>
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
-              <CollectionIcon className={tw`size-5 text-fg-muted`} />
-              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-fg`}>Files</h2>
+              <CollectionIcon className={tw`size-5 text-muted-foreground`} />
+              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-foreground`}>Files</h2>
 
               <MenuTrigger>
                 <TooltipTrigger delay={750}>
-                  <Button className={tw`bg-surface-active p-0.5`} variant='ghost'>
-                    <FiPlus className={tw`size-4 stroke-[1.2px] text-fg-muted`} />
+                  <Button className={tw`bg-accent p-0.5`} variant='ghost'>
+                    <FiPlus className={tw`size-4 stroke-[1.2px] text-muted-foreground`} />
                   </Button>
-                  <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>
+                  <Tooltip className={tw`rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground`}>
                     Add New File
                   </Tooltip>
                 </TooltipTrigger>
@@ -124,7 +124,7 @@ function RouteComponent() {
             <FileTree navigate showControls />
           </div>
 
-          <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-fg`}>
+          <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-foreground`}>
             DevTools v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
           </div>
         </Panel>

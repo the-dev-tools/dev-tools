@@ -37,10 +37,10 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
     <Modal isDismissable size='lg'>
       <Dialog className={tw`size-full outline-hidden`}>
         <Tabs className={tw`flex h-full`} orientation='vertical'>
-          <div className={tw`flex w-64 flex-col border-r border-border bg-surface-alt p-4 tracking-tight`}>
+          <div className={tw`flex w-64 flex-col border-r border-border bg-muted p-4 tracking-tight`}>
             <div className={tw`mb-4`}>
-              <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-fg`}>Response History</div>
-              <div className={tw`text-xs leading-4 text-fg-muted`}>History of your API response</div>
+              <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-foreground`}>Response History</div>
+              <div className={tw`text-xs leading-4 text-muted-foreground`}>History of your API response</div>
             </div>
             <div className={tw`grid min-h-0 grid-cols-[auto_1fr] gap-x-0.5`}>
               <div className={tw`flex flex-col items-center gap-0.5`}>
@@ -48,7 +48,7 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
                 <div className={tw`size-2 rounded-full border border-violet-700 p-px`}>
                   <div className={tw`size-full rounded-full border border-inherit`} />
                 </div>
-                <div className={tw`w-px flex-1 bg-surface-active`} />
+                <div className={tw`w-px flex-1 bg-accent`} />
               </div>
 
               <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-violet-700`}>
@@ -56,16 +56,16 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
               </div>
 
               <div className={tw`flex flex-col items-center gap-0.5`}>
-                <div className={tw`w-px flex-1 bg-surface-active`} />
-                <div className={tw`size-2 rounded-full bg-border-emphasis`} />
-                <div className={tw`w-px flex-1 bg-surface-active`} />
+                <div className={tw`w-px flex-1 bg-accent`} />
+                <div className={tw`size-2 rounded-full bg-input`} />
+                <div className={tw`w-px flex-1 bg-accent`} />
               </div>
 
-              <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-fg`}>
+              <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-foreground`}>
                 {versions.length} previous responses
               </div>
 
-              <div className={tw`mb-2 w-px flex-1 justify-self-center bg-surface-active`} />
+              <div className={tw`mb-2 w-px flex-1 justify-self-center bg-accent`} />
 
               <TabList className={tw`overflow-auto`} items={versions}>
                 {(_) => (
@@ -74,9 +74,9 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
                       twJoin(
                         tw`
                           flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md leading-5
-                          font-semibold text-fg
+                          font-semibold text-foreground
                         `,
-                        isSelected && tw`bg-surface-active`,
+                        isSelected && tw`bg-accent`,
                       )
                     }
                     id={collection.utils.getKey(_)}

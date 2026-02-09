@@ -10,7 +10,7 @@ export interface FieldLabelProps extends RAC.LabelProps {}
 export const FieldLabel = ({ className, ...props }: FieldLabelProps) => (
   <RAC.Label
     {...props}
-    className={twMerge(className, tw`flex items-center text-sm leading-5 font-medium tracking-tight text-fg`)}
+    className={twMerge(className, tw`flex items-center text-sm leading-5 font-medium tracking-tight text-foreground`)}
   />
 );
 
@@ -19,5 +19,5 @@ export const FieldLabel = ({ className, ...props }: FieldLabelProps) => (
 export interface FieldErrorProps extends RAC.FieldErrorProps {}
 
 export const FieldError = ({ className, ...props }: FieldErrorProps) => (
-  <RAC.FieldError {...props} className={composeTailwindRenderProps(className, tw`text-danger-fg`)} />
+  <RAC.FieldError {...props} className={composeTailwindRenderProps(className, tw`text-destructive`)} />
 );

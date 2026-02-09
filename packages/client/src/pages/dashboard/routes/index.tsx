@@ -68,15 +68,15 @@ export const WorkspaceListPage = () => {
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
       <div className={tw`col-span-full`}>
-        <span className={tw`mb-1 text-sm leading-5 tracking-tight text-fg-muted`}>
+        <span className={tw`mb-1 text-sm leading-5 tracking-tight text-muted-foreground`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
         </span>
-        <h1 className={tw`text-2xl leading-8 font-medium tracking-tight text-fg`}>Welcome to DevTools 👋</h1>
+        <h1 className={tw`text-2xl leading-8 font-medium tracking-tight text-foreground`}>Welcome to DevTools 👋</h1>
       </div>
 
       <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-border`} ref={containerRef}>
         <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
-          <span className={tw`flex-1 font-semibold tracking-tight text-fg`}>Your Workspaces</span>
+          <span className={tw`flex-1 font-semibold tracking-tight text-foreground`}>Your Workspaces</span>
           <Button
             onPress={async () =>
               void workspaceCollection.utils.insert({
@@ -164,11 +164,14 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
         <div
           className={tw`
-            grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight text-fg-muted
+            grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight
+            text-muted-foreground
           `}
         >
           <div
-            className={twJoin(tw`text-md leading-5 font-semibold tracking-tight text-fg`, isEditing && tw`opacity-0`)}
+            className={twJoin(tw`text-md leading-5 font-semibold tracking-tight text-foreground`, isEditing && tw`
+              opacity-0
+            `)}
             ref={escapeRef}
           >
             <RouteLink
@@ -184,7 +187,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
               <TextInputField
                 aria-label='Workspace name'
                 className={tw`justify-self-start`}
-                inputClassName={tw`-mt-1 py-1 text-md leading-none font-semibold tracking-tight text-fg`}
+                inputClassName={tw`-mt-1 py-1 text-md leading-none font-semibold tracking-tight text-foreground`}
                 {...textFieldProps}
               />,
             )}
@@ -195,7 +198,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
             </span>
             {updated && (
               <>
-                <div className={tw`size-0.5 rounded-full bg-fg-subtle`} />
+                <div className={tw`size-0.5 rounded-full bg-muted-foreground`} />
                 <span>
                   Updated <TimeAgo date={timestampDate(updated)} minPeriod={60} />
                 </span>
@@ -205,13 +208,13 @@ const Item = ({ containerRef, id }: ItemProps) => {
           <span>Files</span>
           <div className={tw`flex items-center gap-1`}>
             <CollectionIcon />
-            <strong className={tw`font-semibold text-fg`}>{fileCount}</strong>
+            <strong className={tw`font-semibold text-foreground`}>{fileCount}</strong>
           </div>
         </div>
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`ml-6 p-1`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-fg-muted`} />
+            <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-muted-foreground`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -222,12 +225,12 @@ const Item = ({ containerRef, id }: ItemProps) => {
                 void deleteModal.onOpenChange(
                   true,
                   <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
-                    <Heading className={tw`text-base leading-5 font-semibold tracking-tight text-fg`} slot='title'>
+                    <Heading className={tw`text-base leading-5 font-semibold tracking-tight text-foreground`} slot='title'>
                       Delete workspace?
                     </Heading>
 
-                    <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-fg-muted`}>
-                      Are you sure you want to delete <span className={tw`text-fg`}>“{name}”</span>? This action cannot
+                    <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-muted-foreground`}>
+                      Are you sure you want to delete <span className={tw`text-foreground`}>“{name}”</span>? This action cannot
                       be undone.
                     </div>
 

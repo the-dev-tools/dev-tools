@@ -19,32 +19,32 @@ export const buttonStyles = tv({
   variants: {
     variant: {
       primary: tw`
-        border-accent-border bg-accent text-fg-invert
+        border-primary bg-primary text-primary-foreground
 
-        hover:border-accent-border-hover hover:bg-accent-hover
+        hover:border-primary/80 hover:bg-primary/90
 
-        disabled:border-accent-disabled disabled:bg-accent-disabled
+        disabled:border-primary/50 disabled:bg-primary/50
 
-        pressed:border-accent-border-pressed pressed:bg-accent-pressed
+        pressed:border-primary/70 pressed:bg-primary/80
       `,
 
       secondary: tw`
-        border-border bg-surface text-fg
+        border-border bg-background text-foreground
 
-        hover:border-border hover:bg-surface-hover
+        hover:border-border hover:bg-secondary
 
-        pressed:border-border-emphasis pressed:bg-surface
+        pressed:border-input pressed:bg-background
       `,
 
       danger: tw`
-        border-danger-border bg-danger text-fg-invert
+        border-destructive bg-destructive text-primary-foreground
 
-        hover:border-danger-pressed hover:bg-danger-hover
+        hover:border-destructive/80 hover:bg-destructive/90
 
-        pressed:border-danger-pressed pressed:bg-danger-pressed
+        pressed:border-destructive/80 pressed:bg-destructive/80
       `,
 
-      ghost: tw`text-fg hover:bg-surface-hover pressed:bg-surface-active`,
+      ghost: tw`text-foreground hover:bg-secondary pressed:bg-accent`,
 
       'ghost dark': tw`text-white hover:bg-slate-600 pressed:bg-slate-700`,
     },

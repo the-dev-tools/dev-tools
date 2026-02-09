@@ -16,16 +16,16 @@ export const ProgressBar = ({ className, label, ...props }: ProgressBarProps) =>
       <>
         <div className={tw`flex justify-between gap-2`}>
           <FieldLabel>{label}</FieldLabel>
-          <span className={tw`text-sm text-fg-muted`}>{valueText}</span>
+          <span className={tw`text-sm text-muted-foreground`}>{valueText}</span>
         </div>
 
         <div
           className={tw`
-            relative h-2 max-w-full overflow-hidden rounded-full bg-surface-active outline-1 -outline-offset-1
+            relative h-2 max-w-full overflow-hidden rounded-full bg-accent outline-1 -outline-offset-1
             outline-transparent
           `}
         >
-          <div className={tw`absolute top-0 h-full rounded-full bg-accent`} style={{ width: `${percentage}%` }} />
+          <div className={tw`absolute top-0 h-full rounded-full bg-primary`} style={{ width: `${percentage}%` }} />
         </div>
       </>
     )}

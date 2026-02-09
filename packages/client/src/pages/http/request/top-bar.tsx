@@ -58,7 +58,7 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
       <div className='flex items-center gap-2 border-b border-border px-4 py-2.5'>
         <div
           className={tw`
-            flex min-w-0 flex-1 gap-1 text-md leading-5 font-medium tracking-tight text-fg-subtle select-none
+            flex min-w-0 flex-1 gap-1 text-md leading-5 font-medium tracking-tight text-muted-foreground select-none
           `}
         >
           {/* {example.breadcrumbs.map((_, index) => {
@@ -76,12 +76,12 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
           {isEditing ? (
             <TextInputField
               aria-label='Example name'
-              inputClassName={tw`-my-1 py-1 leading-none text-fg`}
+              inputClassName={tw`-my-1 py-1 leading-none text-foreground`}
               {...textFieldProps}
             />
           ) : (
             <AriaButton
-              className={tw`max-w-full cursor-text truncate text-fg`}
+              className={tw`max-w-full cursor-text truncate text-foreground`}
               onContextMenu={onContextMenu}
               onPress={() => void edit()}
             >
@@ -93,8 +93,8 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
         </div>
 
         <DialogTrigger>
-          <Button className={tw`px-2 py-1 text-fg`} variant='ghost'>
-            <FiClock className={tw`size-4 text-fg-muted`} /> Response History
+          <Button className={tw`px-2 py-1 text-foreground`} variant='ghost'>
+            <FiClock className={tw`size-4 text-muted-foreground`} /> Response History
           </Button>
 
           <HistoryModal deltaHttpId={deltaHttpId} httpId={httpId} />
@@ -102,7 +102,7 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-1`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
+            <FiMoreHorizontal className={tw`size-4 text-muted-foreground`} />
           </Button>
 
           <Menu {...menuProps}>

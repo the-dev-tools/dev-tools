@@ -121,7 +121,7 @@ const TabItem = ({ id }: TabItemProps) => {
       aria-label='Tab'
       className={tw`
         relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs
-        leading-4 font-medium tracking-tight text-fg
+        leading-4 font-medium tracking-tight text-foreground
 
         not-route-active:border-b not-route-active:border-transparent not-route-active:border-b-border
         not-route-active:opacity-60
@@ -129,7 +129,7 @@ const TabItem = ({ id }: TabItemProps) => {
         before:absolute before:-left-px before:h-6 before:w-px before:bg-border
 
         route-active:rounded-t-md route-active:border route-active:border-border route-active:border-b-transparent
-        route-active:bg-surface
+        route-active:bg-background
       `}
       id={id}
       onAuxClick={(event) => {
@@ -147,7 +147,7 @@ const TabItem = ({ id }: TabItemProps) => {
         }}
         variant='ghost'
       >
-        <FiX className={tw`size-4 text-fg-muted`} />
+        <FiX className={tw`size-4 text-muted-foreground`} />
       </Button>
     </Primitive.ListBoxItemRouteLink>
   );

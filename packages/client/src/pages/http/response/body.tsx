@@ -42,12 +42,12 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
       className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'
       defaultSelectedKey='pretty'
     >
-      <TabList className='flex gap-1 self-start rounded-md border border-surface-hover bg-surface-hover p-0.5 text-xs leading-5 tracking-tight'>
+      <TabList className='flex gap-1 self-start rounded-md border border-secondary bg-secondary p-0.5 text-xs leading-5 tracking-tight'>
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-fg-subtle transition-colors`,
-              isSelected && tw`bg-surface font-medium text-fg shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-muted-foreground transition-colors`,
+              isSelected && tw`bg-background font-medium text-foreground shadow-sm`,
             )
           }
           id='pretty'
@@ -57,8 +57,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-fg-subtle transition-colors`,
-              isSelected && tw`bg-surface font-medium text-fg shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-muted-foreground transition-colors`,
+              isSelected && tw`bg-background font-medium text-foreground shadow-sm`,
             )
           }
           id='raw'
@@ -68,8 +68,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-fg-subtle transition-colors`,
-              isSelected && tw`bg-surface font-medium text-fg shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-muted-foreground transition-colors`,
+              isSelected && tw`bg-background font-medium text-foreground shadow-sm`,
             )
           }
           id='preview'

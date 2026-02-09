@@ -142,7 +142,7 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
   };
 
   return (
-    <div className={tw`flex flex-1 items-center gap-3 rounded-lg border border-border-emphasis px-3 py-2 shadow-xs`}>
+    <div className={tw`flex flex-1 items-center gap-3 rounded-lg border border-input px-3 py-2 shadow-xs`}>
       <Select
         aria-label='Method'
         isDisabled={isReadOnly}

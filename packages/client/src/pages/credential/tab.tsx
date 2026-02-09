@@ -42,10 +42,10 @@ export const CredentialTab = ({ credentialId }: CredentialTabProps) => {
     <>
       {pipe(
         Match.value(credential?.kind),
-        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 shrink-0 text-fg-muted`} />),
-        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 shrink-0 text-fg-muted`} />),
-        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 shrink-0 text-fg-muted`} />),
-        Match.orElse(() => <TbGauge className={tw`size-4 shrink-0 text-fg-muted`} />),
+        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 shrink-0 text-muted-foreground`} />),
+        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 shrink-0 text-muted-foreground`} />),
+        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 shrink-0 text-muted-foreground`} />),
+        Match.orElse(() => <TbGauge className={tw`size-4 shrink-0 text-muted-foreground`} />),
       )}
 
       <span className={tw`min-w-0 flex-1 truncate`}>{credential?.name}</span>

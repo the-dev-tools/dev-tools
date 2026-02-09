@@ -17,7 +17,7 @@ declare module '@tanstack/react-table' {
 
 export const tableStyles = tv({
   slots: {
-    base: tw`grid w-full border-inherit text-md leading-5 text-fg`,
+    base: tw`grid w-full border-inherit text-md leading-5 text-foreground`,
     body: tw`col-span-full grid grid-cols-subgrid divide-y border-inherit`,
     cell: tw`flex h-full min-w-0 items-center border-inherit align-middle break-all select-text`,
     container: tw`block overflow-auto rounded-lg border border-border`,
@@ -25,7 +25,7 @@ export const tableStyles = tv({
       col-span-full block min-w-0 items-center divide-x border-t border-inherit align-middle break-all select-text
     `,
     header: tw`
-      col-span-full grid grid-cols-subgrid divide-x border-b border-inherit bg-surface-alt font-medium tracking-tight
+      col-span-full grid grid-cols-subgrid divide-x border-b border-inherit bg-muted font-medium tracking-tight
 
       *:contents
     `,

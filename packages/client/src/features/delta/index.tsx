@@ -187,7 +187,7 @@ export const DeltaResetButton = <Schema extends ApiCollectionSchema, Key extends
   return (
     <TooltipTrigger delay={750}>
       <Button
-        className={tw`shrink-0 p-1 text-fg-muted`}
+        className={tw`shrink-0 p-1 text-muted-foreground`}
         isDisabled={!deltaId || !hasDelta}
         onPress={() =>
           void collection.utils.update?.({
@@ -200,7 +200,7 @@ export const DeltaResetButton = <Schema extends ApiCollectionSchema, Key extends
       >
         <RedoIcon />
       </Button>
-      <Tooltip className={tw`rounded-md bg-tooltip px-2 py-1 text-xs text-tooltip-fg`}>Reset delta</Tooltip>
+      <Tooltip className={tw`rounded-md bg-popover px-2 py-1 text-xs text-popover-foreground`}>Reset delta</Tooltip>
     </TooltipTrigger>
   );
 };

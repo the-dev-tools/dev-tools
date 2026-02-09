@@ -12,10 +12,10 @@ const checkboxStyles = tv({
     box: [
       focusVisibleRingStyles(),
       tw`
-        flex size-4 flex-none cursor-pointer items-center justify-center rounded-sm border border-border bg-surface
-        p-0.5 text-fg-invert
+        flex size-4 flex-none cursor-pointer items-center justify-center rounded-sm border border-border bg-background
+        p-0.5 text-primary-foreground
 
-        group-selected/checkbox:border-accent group-selected/checkbox:bg-accent
+        group-selected/checkbox:border-primary group-selected/checkbox:bg-primary
       `,
     ],
   },

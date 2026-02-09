@@ -30,7 +30,7 @@ export const Basic: Story = {
     return (
       <MenuTrigger>
         <Button className={tw`p-1`}>
-          <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-fg-muted`} />
+          <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-muted-foreground`} />
         </Button>
 
         <Menu {...props}>
@@ -68,7 +68,7 @@ export const WithAvatars: Story = {
     return (
       <MenuTrigger>
         <Button className={tw`p-1`}>
-          <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-fg-muted`} />
+          <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-muted-foreground`} />
         </Button>
 
         <Menu {...props}>

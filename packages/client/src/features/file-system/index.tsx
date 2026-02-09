@@ -387,11 +387,11 @@ const FolderFile = ({ id }: FileItemProps) => {
       {({ isExpanded }) => (
         <>
           {name === 'Credentials' ? (
-            <TbGauge className={tw`size-4 text-fg-muted`} />
+            <TbGauge className={tw`size-4 text-muted-foreground`} />
           ) : isExpanded ? (
-            <FolderOpenedIcon className={tw`size-4 text-fg-muted`} />
+            <FolderOpenedIcon className={tw`size-4 text-muted-foreground`} />
           ) : (
-            <FiFolder className={tw`size-4 text-fg-muted`} />
+            <FiFolder className={tw`size-4 text-muted-foreground`} />
           )}
 
           <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -411,7 +411,7 @@ const FolderFile = ({ id }: FileItemProps) => {
           {showControls && (
             <MenuTrigger {...menuTriggerProps}>
               <Button className={tw`p-0.5`} variant='ghost'>
-                <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
+                <FiMoreHorizontal className={tw`size-4 text-muted-foreground`} />
               </Button>
 
               <Menu {...menuProps}>
@@ -519,7 +519,7 @@ const HttpFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
+            <FiMoreHorizontal className={tw`size-4 text-muted-foreground`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -575,14 +575,14 @@ const HttpFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-fg`}
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-foreground`}
                                 slot='title'
                               >
                                 cURL export
                               </Heading>
 
                               <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
-                                <FiX className={tw`size-5 text-fg-muted`} />
+                                <FiX className={tw`size-5 text-muted-foreground`} />
                               </Button>
                             </div>
 
@@ -618,7 +618,7 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-surface-active` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-accent` : '',
     id,
     item: (_) => <FileItem id={fileCollection.utils.getKey(_)} />,
     items: files,
@@ -713,7 +713,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
+            <FiMoreHorizontal className={tw`size-4 text-muted-foreground`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -742,14 +742,14 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-fg`}
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-foreground`}
                                 slot='title'
                               >
                                 cURL export
                               </Heading>
 
                               <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
-                                <FiX className={tw`size-5 text-fg-muted`} />
+                                <FiX className={tw`size-5 text-muted-foreground`} />
                               </Button>
                             </div>
 
@@ -782,7 +782,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-surface-active` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-accent` : '',
     id,
     onContextMenu,
     textValue: name ?? '',
@@ -835,7 +835,7 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const content = (
     <>
-      <FlowsIcon className={tw`size-4 text-fg-muted`} />
+      <FlowsIcon className={tw`size-4 text-muted-foreground`} />
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
@@ -854,7 +854,7 @@ const FlowFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
+            <FiMoreHorizontal className={tw`size-4 text-muted-foreground`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -885,7 +885,7 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-surface-active` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-accent` : '',
     id,
     onContextMenu,
     textValue: name,
@@ -935,10 +935,10 @@ const CredentialFile = ({ id }: FileItemProps) => {
     <>
       {pipe(
         Match.value(kind),
-        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 text-fg-muted`} />),
-        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 text-fg-muted`} />),
-        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 text-fg-muted`} />),
-        Match.orElse(() => <TbGauge className={tw`size-4 text-fg-muted`} />),
+        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 text-muted-foreground`} />),
+        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 text-muted-foreground`} />),
+        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 text-muted-foreground`} />),
+        Match.orElse(() => <TbGauge className={tw`size-4 text-muted-foreground`} />),
       )}
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -958,7 +958,7 @@ const CredentialFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-fg-muted`} />
+            <FiMoreHorizontal className={tw`size-4 text-muted-foreground`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -978,7 +978,7 @@ const CredentialFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-surface-active` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-accent` : '',
     id,
     onContextMenu,
     textValue: name,

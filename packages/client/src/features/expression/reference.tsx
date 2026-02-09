@@ -135,27 +135,27 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
       textValue={keyText ?? kindIndexTag ?? ''}
     >
       {key.kind === ReferenceKeyKind.GROUP && (
-        <span className={tw`text-xs leading-5 font-semibold tracking-tight text-fg`}>{key.group}</span>
+        <span className={tw`text-xs leading-5 font-semibold tracking-tight text-foreground`}>{key.group}</span>
       )}
 
       {key.kind === ReferenceKeyKind.KEY && (
-        <span className={tw`font-mono text-xs leading-5 text-danger-fg`}>{key.key}</span>
+        <span className={tw`font-mono text-xs leading-5 text-destructive`}>{key.key}</span>
       )}
 
       {tags.map((tag, index) => (
         <span
-          className={tw`rounded-sm bg-surface-active px-2 py-0.5 text-xs font-medium tracking-tight text-fg-muted`}
+          className={tw`rounded-sm bg-accent px-2 py-0.5 text-xs font-medium tracking-tight text-muted-foreground`}
           key={index}
         >
           {tag}
         </span>
       ))}
 
-      {quantity && <span className={tw`text-xs leading-5 font-medium tracking-tight text-fg-muted`}>{quantity}</span>}
+      {quantity && <span className={tw`text-xs leading-5 font-medium tracking-tight text-muted-foreground`}>{quantity}</span>}
 
       {reference.kind === ReferenceKind.VALUE && (
         <>
-          <span className={tw`font-mono text-xs leading-5 text-fg`}>:</span>
+          <span className={tw`font-mono text-xs leading-5 text-foreground`}>:</span>
           <span className={tw`flex-1 font-mono text-xs leading-5 break-all text-blue-700`}>{reference.value}</span>
         </>
       )}
@@ -164,7 +164,7 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
 };
 
 const fieldStyles = tv({
-  base: tw`min-w-0 rounded-md border border-border px-3 py-0.5 text-md text-fg`,
+  base: tw`min-w-0 rounded-md border border-border px-3 py-0.5 text-md text-foreground`,
   variants: {
     variant: {
       'table-cell': tw`w-full rounded-none border-transparent px-5 py-0.5 -outline-offset-4`,

@@ -113,9 +113,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-fg-muted transition-colors
+                text-muted-foreground transition-colors
               `,
-              isSelected && tw`border-b-accent-border text-fg`,
+              isSelected && tw`border-b-primary text-foreground`,
             )
           }
           id='params'
@@ -129,9 +129,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-fg-muted transition-colors
+                text-muted-foreground transition-colors
               `,
-              isSelected && tw`border-b-accent-border text-fg`,
+              isSelected && tw`border-b-primary text-foreground`,
             )
           }
           id='headers'
@@ -145,9 +145,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-fg-muted transition-colors
+                text-muted-foreground transition-colors
               `,
-              isSelected && tw`border-b-accent-border text-fg`,
+              isSelected && tw`border-b-primary text-foreground`,
             )
           }
           id='body'
@@ -166,9 +166,9 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-fg-muted transition-colors
+                text-muted-foreground transition-colors
               `,
-              isSelected && tw`border-b-accent-border text-fg`,
+              isSelected && tw`border-b-primary text-foreground`,
             )
           }
           id='assertions'

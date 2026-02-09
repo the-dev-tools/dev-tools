@@ -344,7 +344,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
                     params={{ credentialIdCan: Ulid.construct(data.credentialId).toCanonical() }}
                     to={router.routesById[routes.dashboard.workspace.credential.id].fullPath}
                   >
-                    <FiExternalLink className={tw`size-4 text-fg-muted`} />
+                    <FiExternalLink className={tw`size-4 text-muted-foreground`} />
                     Open
                   </ButtonAsRouteLink>
                 )}
@@ -412,7 +412,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
                   }}
                   variant='ghost'
                 >
-                  <FiPlus className={tw`size-4 text-fg-muted`} />
+                  <FiPlus className={tw`size-4 text-muted-foreground`} />
                   New {credentialKindTitle} credential
                 </Button>
 

@@ -94,21 +94,21 @@ export const Handle = ({
             >
               <div
                 className={twJoin(
-                  tw`h-12 w-16 bg-fg-muted`,
+                  tw`h-12 w-16 bg-muted-foreground`,
                   (position === XF.Position.Right || position === XF.Position.Left) && tw`h-px`,
                   (position === XF.Position.Top || position === XF.Position.Bottom) && tw`w-px`,
                 )}
               />
 
               <div className={tw`size-0`}>
-                <div className={tw`pointer-events-none size-1.5 -translate-1/2 rounded-full bg-fg-muted`} />
+                <div className={tw`pointer-events-none size-1.5 -translate-1/2 rounded-full bg-muted-foreground`} />
               </div>
 
               <button
                 className={focusVisibleRingStyles({
                   className: tw`
                     pointer-events-auto flex size-5 cursor-pointer items-center justify-center rounded-full border
-                    border-border-emphasis bg-surface
+                    border-input bg-background
                   `,
                 })}
                 onClick={() => {
@@ -135,7 +135,7 @@ export const Handle = ({
                   setSidebar?.(<Sidebar handleKind={kind} position={nodePosition} sourceId={nodeId} />);
                 }}
               >
-                <FiPlus className={tw`size-3 text-fg-muted`} />
+                <FiPlus className={tw`size-3 text-muted-foreground`} />
               </button>
             </div>
           )}
@@ -154,7 +154,8 @@ export const Handle = ({
         >
           <div
             className={tw`
-              mx-4 my-3 rounded-sm bg-surface p-1 text-xs leading-4 tracking-tight whitespace-nowrap text-fg-muted
+              mx-4 my-3 rounded-sm bg-background p-1 text-xs leading-4 tracking-tight whitespace-nowrap
+              text-muted-foreground
             `}
           >
             {label}
@@ -165,7 +166,7 @@ export const Handle = ({
       <div className={tw`absolute size-10 min-h-0 min-w-0 -translate-1/2 rounded-full border-none bg-transparent`}>
         <div
           className={twJoin(
-            tw`absolute inset-0 m-auto bg-fg`,
+            tw`absolute inset-0 m-auto bg-foreground`,
             type === 'source' && tw`size-2 rounded-full`,
             type === 'target' && tw`size-2.5`,
           )}
@@ -177,6 +178,6 @@ export const Handle = ({
 
 export const HandleHalo = () => (
   <div
-    className={tw`absolute size-5 -translate-1/2 rounded-full border border-border-emphasis bg-surface-active shadow-xs`}
+    className={tw`absolute size-5 -translate-1/2 rounded-full border border-input bg-accent shadow-xs`}
   />
 );

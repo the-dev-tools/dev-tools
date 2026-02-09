@@ -23,7 +23,7 @@ const logTextStyles = tv({
   variants: {
     level: {
       [LogLevel.ERROR]: tw`text-red-600`,
-      [LogLevel.UNSPECIFIED]: tw`text-fg`,
+      [LogLevel.UNSPECIFIED]: tw`text-foreground`,
       [LogLevel.WARNING]: tw`text-yellow-600`,
     } satisfies Record<LogLevel, string>,
   },
@@ -37,9 +37,9 @@ export const StatusBar = () => {
   const separator = <div className={tw`h-3.5 w-px bg-border`} />;
 
   const bar = (
-    <div className={twMerge(tw`flex items-center gap-2 bg-surface-alt px-2 py-1`, showLogs && tw`bg-surface`)}>
+    <div className={twMerge(tw`flex items-center gap-2 bg-muted px-2 py-1`, showLogs && tw`bg-background`)}>
       <ButtonAsRouteLink
-        className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-fg`}
+        className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-foreground`}
         search={(_) => ({ ..._, showLogs: showLogs ? undefined : true })}
         to='.'
         variant='ghost'
@@ -55,7 +55,7 @@ export const StatusBar = () => {
       {showLogs && (
         <>
           <Button
-            className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-fg`}
+            className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-foreground`}
             onPress={() => {
               const state = logCollection.utils.state();
               state.begin();
@@ -64,7 +64,7 @@ export const StatusBar = () => {
             }}
             variant='ghost'
           >
-            <FiTrash2 className={tw`size-3 text-fg-muted`} />
+            <FiTrash2 className={tw`size-3 text-muted-foreground`} />
             <span>Clear Logs</span>
           </Button>
 
@@ -76,7 +76,7 @@ export const StatusBar = () => {
             to='.'
             variant='ghost'
           >
-            <FiX className={tw`size-4 text-fg-muted`} />
+            <FiX className={tw`size-4 text-muted-foreground`} />
           </ButtonAsRouteLink>
         </>
       )}

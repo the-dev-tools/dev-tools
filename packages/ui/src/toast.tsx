@@ -25,8 +25,8 @@ export const ToastRegion = () => {
       {({ toast }) => (
         <RAC.UNSTABLE_Toast
           className={tw`
-            flex flex-col gap-1 rounded-md border border-border bg-surface px-3 py-2 text-sm leading-5 font-medium
-            tracking-tight text-fg shadow-xl
+            flex flex-col gap-1 rounded-md border border-border bg-background px-3 py-2 text-sm leading-5 font-medium
+            tracking-tight text-foreground shadow-xl
           `}
           toast={toast}
         >
@@ -34,7 +34,7 @@ export const ToastRegion = () => {
             <RAC.Text>{toast.content.title}</RAC.Text>
 
             <Button className={tw`p-0.5`} slot='close' variant='ghost'>
-              <FiX className={tw`size-4 text-fg-muted`} />
+              <FiX className={tw`size-4 text-muted-foreground`} />
             </Button>
           </div>
 

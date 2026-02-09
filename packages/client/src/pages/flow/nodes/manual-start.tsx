@@ -15,7 +15,7 @@ export const ManualStartNode = ({ id, selected }: XF.NodeProps) => {
       handles={
         <>
           <div className={tw`absolute top-1/2 -translate-x-full -translate-y-1/2 p-1`}>
-            <FiZap className={tw`size-5 text-accent-fg`} />
+            <FiZap className={tw`size-5 text-primary`} />
           </div>
 
           <Handle nodeId={nodeId} position={XF.Position.Right} type='source' />

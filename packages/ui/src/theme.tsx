@@ -23,10 +23,6 @@ const getStoredTheme = (): Theme => {
   return 'system';
 };
 
-const applyTheme = (resolved: ResolvedTheme) => {
-  document.documentElement.classList.toggle('dark', resolved === 'dark');
-};
-
 export interface ThemeProviderProps {
   children: ReactNode;
 }
@@ -46,23 +42,22 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     }
   }, []);
 
-  // Listen for system preference changes
+  // Listen for system preference changes & apply dark class
   useEffect(() => {
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => void setSystemTheme(e.matches ? 'dark' : 'light');
     mql.addEventListener('change', handler);
     return () => void mql.removeEventListener('change', handler);
-  }, []);
-
-  // Apply dark class whenever resolved theme changes
-  useEffect(() => void applyTheme(resolvedTheme), [resolvedTheme]);
+  }, [resolvedTheme]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({ resolvedTheme, setTheme, theme }),
     [resolvedTheme, setTheme, theme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return <ThemeContext value={value}>{children}</ThemeContext>;
 };
 
 export const useTheme = (): ThemeContextValue => {
