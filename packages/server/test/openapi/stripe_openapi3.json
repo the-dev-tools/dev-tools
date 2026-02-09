@@ -1,0 +1,342 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Stripe-like Payment API",
+    "description": "A realistic payment processing API modeled after Stripe",
+    "version": "2024-01-01",
+    "contact": {
+      "name": "Developer Support",
+      "url": "https://docs.stripe-example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.stripe-example.com/v1",
+      "description": "Production server"
+    },
+    {
+      "url": "https://sandbox.stripe-example.com/v1",
+      "description": "Sandbox server"
+    }
+  ],
+  "paths": {
+    "/customers": {
+      "get": {
+        "summary": "List all customers",
+        "operationId": "listCustomers",
+        "tags": ["Customers"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "maximum": 100 },
+            "example": 10
+          },
+          {
+            "name": "starting_after",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "example": "cus_abc123"
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "example": "jenny@example.com"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of customers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "object": { "type": "string", "example": "list" },
+                    "data": { "type": "array" },
+                    "has_more": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a customer",
+        "operationId": "createCustomer",
+        "tags": ["Customers"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "example": "unique-key-123"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "jenny@example.com" },
+                  "name": { "type": "string", "example": "Jenny Rosen" },
+                  "description": { "type": "string", "example": "Premium customer" },
+                  "metadata": {
+                    "type": "object",
+                    "properties": {
+                      "order_id": { "type": "string", "example": "6735" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns the created Customer object" },
+          "400": { "description": "Bad request" }
+        }
+      }
+    },
+    "/customers/{customerId}": {
+      "parameters": [
+        {
+          "name": "customerId",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" },
+          "example": "cus_abc123"
+        }
+      ],
+      "get": {
+        "summary": "Retrieve a customer",
+        "operationId": "retrieveCustomer",
+        "tags": ["Customers"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns the Customer object" },
+          "404": { "description": "Customer not found" }
+        }
+      },
+      "post": {
+        "summary": "Update a customer",
+        "operationId": "updateCustomer",
+        "tags": ["Customers"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "jenny_updated@example.com" },
+                  "name": { "type": "string", "example": "Jenny Rosen-Updated" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns the updated Customer object" },
+          "400": { "description": "Bad request" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a customer",
+        "operationId": "deleteCustomer",
+        "tags": ["Customers"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns a deleted object" },
+          "404": { "description": "Customer not found" }
+        }
+      }
+    },
+    "/charges": {
+      "get": {
+        "summary": "List all charges",
+        "operationId": "listCharges",
+        "tags": ["Charges"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer" },
+            "example": 25
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "example": "cus_abc123"
+          }
+        ],
+        "responses": {
+          "200": { "description": "A list of charges" }
+        }
+      },
+      "post": {
+        "summary": "Create a charge",
+        "operationId": "createCharge",
+        "tags": ["Charges"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "example": "charge-key-456"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": { "type": "integer", "example": 2000 },
+                  "currency": { "type": "string", "example": "usd" },
+                  "customer": { "type": "string", "example": "cus_abc123" },
+                  "description": { "type": "string", "example": "Payment for order #1234" },
+                  "source": { "type": "string", "example": "tok_visa" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns the created Charge object" },
+          "402": { "description": "Card declined" },
+          "400": { "description": "Bad request" }
+        }
+      }
+    },
+    "/charges/{chargeId}": {
+      "parameters": [
+        {
+          "name": "chargeId",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" },
+          "example": "ch_abc123"
+        }
+      ],
+      "get": {
+        "summary": "Retrieve a charge",
+        "operationId": "retrieveCharge",
+        "tags": ["Charges"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns the Charge object" },
+          "404": { "description": "Charge not found" }
+        }
+      }
+    },
+    "/refunds": {
+      "post": {
+        "summary": "Create a refund",
+        "operationId": "createRefund",
+        "tags": ["Refunds"],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "Bearer sk_test_123456"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "charge": { "type": "string", "example": "ch_abc123" },
+                  "amount": { "type": "integer", "example": 1000 },
+                  "reason": { "type": "string", "example": "requested_by_customer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns the created Refund object" },
+          "400": { "description": "Bad request" }
+        }
+      }
+    }
+  }
+}
