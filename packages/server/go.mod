@@ -9,6 +9,7 @@ require (
 	github.com/expr-lang/expr v1.17.7
 	github.com/goccy/go-json v0.10.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.18.2
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/oklog/ulid/v2 v2.1.1
@@ -43,7 +44,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/generative-ai-go v0.20.1 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

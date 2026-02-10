@@ -226,6 +226,10 @@ func (e *UnifiedEnv) buildExprEnv() map[string]any {
 	// Add built-in AI helper function (closure that captures 'e' for variable lookup)
 	env["ai"] = e.helperAI
 
+	// Add built-in ID generator functions
+	env["uuid"] = helperUUID
+	env["ulid"] = helperULID
+
 	return env
 }
 
@@ -344,7 +348,7 @@ func isKeyword(s string) bool {
 		"contains": true, "startsWith": true, "endsWith": true,
 		"now": true, "date": true, "duration": true,
 		// Custom helper functions
-		"get": true, "has": true, "ai": true,
+		"get": true, "has": true, "ai": true, "uuid": true, "ulid": true,
 	}
 	return keywords[s]
 }

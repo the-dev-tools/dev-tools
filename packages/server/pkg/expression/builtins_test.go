@@ -2,9 +2,207 @@ package expression
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+// =============================================================================
+// UUID Built-in Tests
+// =============================================================================
+
+var (
+	uuidV4Regex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	uuidV7Regex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+)
+
+func TestBuiltinUUID_DefaultIsV4(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, "uuid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if !uuidV4Regex.MatchString(str) {
+		t.Errorf("expected valid UUID v4, got: %s", str)
+	}
+}
+
+func TestBuiltinUUID_ExplicitV4(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, `uuid("v4")`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if !uuidV4Regex.MatchString(str) {
+		t.Errorf("expected valid UUID v4, got: %s", str)
+	}
+}
+
+func TestBuiltinUUID_V7(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, `uuid("v7")`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if !uuidV7Regex.MatchString(str) {
+		t.Errorf("expected valid UUID v7, got: %s", str)
+	}
+}
+
+func TestBuiltinUUID_InvalidVersion(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	_, err := env.Eval(ctx, `uuid("v5")`)
+	if err == nil {
+		t.Fatal("expected error for unsupported version, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "unsupported version") {
+		t.Errorf("expected 'unsupported version' in error, got: %v", err)
+	}
+}
+
+func TestBuiltinUUID_UniquePerCall(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result1, err := env.Eval(ctx, "uuid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	result2, err := env.Eval(ctx, "uuid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result1 == result2 {
+		t.Errorf("expected unique UUIDs, got same value twice: %v", result1)
+	}
+}
+
+func TestBuiltinUUID_Interpolation(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+
+	result, err := env.Interpolate("id={{ uuid() }}")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.HasPrefix(result, "id=") {
+		t.Errorf("expected 'id=' prefix, got: %s", result)
+	}
+
+	uuidPart := strings.TrimPrefix(result, "id=")
+	if !uuidV4Regex.MatchString(uuidPart) {
+		t.Errorf("expected valid UUID v4 after prefix, got: %s", uuidPart)
+	}
+}
+
+func TestBuiltinUUID_V7Interpolation(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+
+	result, err := env.Interpolate(`id={{ uuid("v7") }}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	uuidPart := strings.TrimPrefix(result, "id=")
+	if !uuidV7Regex.MatchString(uuidPart) {
+		t.Errorf("expected valid UUID v7 after prefix, got: %s", uuidPart)
+	}
+}
+
+// =============================================================================
+// ULID Built-in Tests
+// =============================================================================
+
+var ulidRegex = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
+
+func TestBuiltinULID_Eval(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, "ulid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if !ulidRegex.MatchString(str) {
+		t.Errorf("expected valid ULID, got: %s", str)
+	}
+}
+
+func TestBuiltinULID_UniquePerCall(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result1, err := env.Eval(ctx, "ulid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	result2, err := env.Eval(ctx, "ulid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result1 == result2 {
+		t.Errorf("expected unique ULIDs, got same value twice: %v", result1)
+	}
+}
+
+func TestBuiltinULID_Interpolation(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+
+	result, err := env.Interpolate("id={{ ulid() }}")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.HasPrefix(result, "id=") {
+		t.Errorf("expected 'id=' prefix, got: %s", result)
+	}
+
+	ulidPart := strings.TrimPrefix(result, "id=")
+	if !ulidRegex.MatchString(ulidPart) {
+		t.Errorf("expected valid ULID after prefix, got: %s", ulidPart)
+	}
+}
+
+// =============================================================================
+// AI Built-in Tests
+// =============================================================================
 
 func TestBuiltinAI_ErrorWhenNotFound(t *testing.T) {
 	env := NewUnifiedEnv(nil)
