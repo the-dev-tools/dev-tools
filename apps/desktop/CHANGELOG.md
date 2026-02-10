@@ -1,3 +1,14 @@
+## 0.2.3 (2026-02-10)
+
+### 🩹 Fixes
+
+- Version snapshots with is_snapshot column and deterministic test sync ([e6c2b883](https://github.com/the-dev-tools/dev-tools/commit/e6c2b883))
+- Add uuid() and ulid() built-in expression functions with v4/v7 support ([ecfa35df](https://github.com/the-dev-tools/dev-tools/commit/ecfa35df))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.2.2 (2026-02-09)
 
 ### 🩹 Fixes
