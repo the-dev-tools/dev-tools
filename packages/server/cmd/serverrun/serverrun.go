@@ -1,5 +1,4 @@
-//nolint:revive // exported
-package main
+package serverrun
 
 import (
 	"context"
@@ -17,16 +16,13 @@ import (
 
 	"connectrpc.com/connect"
 
-	"github.com/the-dev-tools/dev-tools/packages/auth-lib/jwks"
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/tursolocal"
-	"github.com/the-dev-tools/dev-tools/packages/server/cmd/serverrun"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcodec"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcompress"
-	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rauthadapter"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
@@ -37,10 +33,8 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
-	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/ruser"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/migrations"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/authadapter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
@@ -101,13 +95,9 @@ func (w *workspaceImporterAdapter) ImportWorkspaceFromCurl(ctx context.Context, 
 	return w.ImportWorkspaceFromYAML(ctx, curlData, workspaceID)
 }
 
-func main() {
-	if err := serverrun.Run(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func run() error {
+// Run starts the server. This is the main entry point extracted from cmd/server
+// so it can be called from the unified CLI binary.
+func Run() error {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
@@ -123,20 +113,9 @@ func run() error {
 		port = "8080"
 	}
 
-	// Auth configuration
-	// AUTH_MODE: "local" (default, single-user desktop/CLI) or "betterauth" (multi-user, self-hosted or hosted)
-	authMode := os.Getenv("AUTH_MODE")
-	if authMode == "" {
-		authMode = "local"
-	}
-
-	// JWKS_URL: URL to fetch JWKS public keys for JWT validation (required if AUTH_MODE=betterauth)
-	// Defaults to BETTERAUTH_URL + "/api/auth/jwks" if BETTERAUTH_URL is set.
-	jwksURL := os.Getenv("JWKS_URL")
-	if jwksURL == "" {
-		if betterAuthURL := os.Getenv("BETTERAUTH_URL"); betterAuthURL != "" {
-			jwksURL = betterAuthURL + "/api/auth/jwks"
-		}
+	hmacSecret := os.Getenv("HMAC_SECRET")
+	if hmacSecret == "" {
+		return errors.New("HMAC_SECRET env var is required")
 	}
 
 	currentDB, dbCloseFunc, err := setupDB(ctx)
@@ -156,7 +135,6 @@ func run() error {
 	userReader := sworkspace.NewUserReader(currentDB)
 
 	userService := suser.New(queries)
-	// No dedicated userReader service struct yet, we use the reader from userService or just pass queries
 
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
@@ -215,8 +193,8 @@ func run() error {
 	nodeExecutionReader := sflow.NewNodeExecutionReader(currentDB)
 
 	// Initialize Streamers
-	streamers := NewStreamers()
-	defer streamers.Shutdown()
+	streamers := newStreamers()
+	defer streamers.shutdown()
 
 	var optionsCompress, optionsAuth, optionsAll []connect.HandlerOption
 	optionsCompress = append(optionsCompress, mwcodec.WithJSONCodec()) // Custom JSON codec that emits zero values
@@ -239,43 +217,16 @@ func run() error {
 
 	optionsAuth = make([]connect.HandlerOption, len(optionsCompress), len(optionsCompress)+1)
 	copy(optionsAuth, optionsCompress)
-
-	// Choose auth interceptor based on AUTH_MODE
-	// - "local": Single-user mode for desktop/CLI (no auth, dummy user)
-	// - "betterauth": Multi-user mode with BetterAuth (self-hosted or hosted, JWKS JWT validation)
-	var authInterceptor connect.Interceptor
-	switch authMode {
-	case "betterauth":
-		if jwksURL == "" {
-			return errors.New("JWKS_URL (or BETTERAUTH_URL) env var is required when AUTH_MODE=betterauth")
-		}
-		slog.Info("Using BetterAuth authentication mode (JWKS validation)", "jwks_url", jwksURL)
-		provider, err := jwks.NewProvider(jwksURL)
-		if err != nil {
-			return fmt.Errorf("failed to create JWKS provider: %w", err)
-		}
-		provider.Start(ctx)
-		authInterceptor = mwauth.NewBetterAuthInterceptor(provider.Keyfunc(), userService)
-	default:
-		slog.Info("Using local authentication mode")
-		authInterceptor = mwauth.NewAuthInterceptor()
-	}
-
-	optionsAuth = append(optionsAuth, connect.WithInterceptors(authInterceptor))
+	optionsAuth = append(optionsAuth, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
 	optionsAll = make([]connect.HandlerOption, len(optionsAuth), len(optionsAuth)+len(optionsCompress))
 	copy(optionsAll, optionsAuth)
 	optionsAll = append(optionsAll, optionsCompress...)
 
 	// Services Connect RPC
-	newServiceManager := NewServiceManager(30)
+	newServiceManager := newServiceManager(30)
 
 	healthSrv := rhealth.New()
-	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
-
-	// Auth Adapter (private, no auth middleware — used by BetterAuth itself)
-	authAdapter := authadapter.New(queries, currentDB)
-	authAdapterSrv := rauthadapter.New(rauthadapter.AuthAdapterRPCDeps{Adapter: authAdapter})
-	newServiceManager.AddService(rauthadapter.CreateService(authAdapterSrv, optionsCompress))
+	newServiceManager.addService(rhealth.CreateService(healthSrv, optionsCompress))
 
 	httpStreamers := &rhttp.HttpStreamers{
 		Http:               streamers.Http,
@@ -315,16 +266,7 @@ func run() error {
 		},
 		Publisher: registry,
 	})
-	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
-
-	userSrv := ruser.New(ruser.UserServiceRPCDeps{
-		DB:                    currentDB,
-		Queries:               queries,
-		User:                  userService,
-		Streamer:              streamers.User,
-		LinkedAccountStreamer: streamers.LinkedAccount,
-	})
-	newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
+	newServiceManager.addService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
 	envSrv := renv.New(renv.EnvRPCDeps{
 		DB: currentDB,
@@ -344,7 +286,7 @@ func run() error {
 		},
 		Publisher: registry,
 	})
-	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
+	newServiceManager.addService(renv.CreateService(envSrv, optionsAll))
 
 	// Create request resolver for HTTP delta resolution (shared with flow service)
 	// IMPORTANT: Resolvers should use Read-Only services for lookups
@@ -384,7 +326,7 @@ func run() error {
 		Resolver:  requestResolver,
 		Streamers: httpStreamers,
 	})
-	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
+	newServiceManager.addService(rhttp.CreateService(httpSrv, optionsAll))
 
 	// ImportV2 Service
 	importV2Srv := rimportv2.NewImportV2RPC(rimportv2.ImportV2Deps{
@@ -428,7 +370,7 @@ func run() error {
 			EnvVar:             streamers.EnvironmentVariable,
 		},
 	})
-	newServiceManager.AddService(rimportv2.CreateImportV2Service(importV2Srv, optionsAll))
+	newServiceManager.addService(rimportv2.CreateImportV2Service(importV2Srv, optionsAll))
 
 	// Create workspace importer adapter for flow service
 	workspaceImporter := &workspaceImporterAdapter{
@@ -494,28 +436,28 @@ func run() error {
 			HttpResponse:  httpResponseReader,
 		},
 		Services: rflowv2.FlowServiceV2Services{
-			Workspace:     &workspaceService,
-			Flow:          &flowService,
-			Edge:          &flowEdgeService,
-			Node:          &flowNodeService,
-			NodeRequest:   &flowNodeRequestSevice,
-			NodeFor:       &flowNodeForService,
-			NodeForEach:   &flowNodeForeachService,
-			NodeIf:        flowNodeConditionService,
-			NodeJs:        &flowNodeNodeJsService,
-			NodeAI:        &flowNodeAIService,
+			Workspace:      &workspaceService,
+			Flow:           &flowService,
+			Edge:           &flowEdgeService,
+			Node:           &flowNodeService,
+			NodeRequest:    &flowNodeRequestSevice,
+			NodeFor:        &flowNodeForService,
+			NodeForEach:    &flowNodeForeachService,
+			NodeIf:         flowNodeConditionService,
+			NodeJs:         &flowNodeNodeJsService,
+			NodeAI:         &flowNodeAIService,
 			NodeAiProvider: &flowNodeAiProviderService,
-			NodeMemory:    &flowNodeMemoryService,
-			NodeExecution: &nodeExecutionService,
-			FlowVariable:  &flowVariableService,
-			Env:           &environmentService,
-			Var:           &variableService,
-			Http:          &httpService,
-			HttpBodyRaw:   httpBodyRawService,
-			HttpResponse:  httpResponseService,
-			File:          fileService,
-			Importer:      workspaceImporter,
-			Credential:    credentialService,
+			NodeMemory:     &flowNodeMemoryService,
+			NodeExecution:  &nodeExecutionService,
+			FlowVariable:   &flowVariableService,
+			Env:            &environmentService,
+			Var:            &variableService,
+			Http:           &httpService,
+			HttpBodyRaw:    httpBodyRawService,
+			HttpResponse:   httpResponseService,
+			File:           fileService,
+			Importer:       workspaceImporter,
+			Credential:     credentialService,
 		},
 		Streamers: rflowv2.FlowServiceV2Streamers{
 			Flow:               streamers.Flow,
@@ -541,10 +483,10 @@ func run() error {
 		Logger:   logger,
 		JsClient: jsClient,
 	})
-	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
+	newServiceManager.addService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
 	logSrv := rlog.New(streamers.Log)
-	newServiceManager.AddService(rlog.CreateService(logSrv, optionsAll))
+	newServiceManager.addService(rlog.CreateService(logSrv, optionsAll))
 
 	// ExportV2 Service
 	exportV2Srv := rexportv2.NewExportV2RPC(rexportv2.ExportV2Deps{
@@ -557,7 +499,7 @@ func run() error {
 		File:      fileService,
 		Logger:    logger,
 	})
-	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
+	newServiceManager.addService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
 
 	fileSrv := rfile.New(rfile.FileServiceRPCDeps{
 		DB: currentDB,
@@ -569,7 +511,7 @@ func run() error {
 		Stream:    streamers.File,
 		Publisher: registry,
 	})
-	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
+	newServiceManager.addService(rfile.CreateService(fileSrv, optionsAll))
 
 	credentialSrv := rcredential.New(rcredential.CredentialRPCDeps{
 		DB: currentDB,
@@ -589,7 +531,7 @@ func run() error {
 		},
 		Publisher: registry,
 	})
-	newServiceManager.AddService(rcredential.CreateService(credentialSrv, optionsAll))
+	newServiceManager.addService(rcredential.CreateService(credentialSrv, optionsAll))
 
 	// Reference Service
 	refServiceRPC := rreference.NewReferenceServiceRPC(rreference.ReferenceServiceRPCDeps{
@@ -608,11 +550,11 @@ func run() error {
 			HttpResponse:  httpResponseReader,
 		},
 	})
-	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
+	newServiceManager.addService(rreference.CreateService(refServiceRPC, optionsAll))
 
 	// Start services
 	go func() {
-		err := api.ListenServices(newServiceManager.GetServices(), port)
+		err := api.ListenServices(newServiceManager.getServices(), port)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -623,18 +565,18 @@ func run() error {
 	return nil
 }
 
-type ServiceManager struct {
+type serviceManager struct {
 	s []api.Service
 }
 
 // size is not max size, but initial allocation size for the slice
-func NewServiceManager(size int) *ServiceManager {
-	return &ServiceManager{
+func newServiceManager(size int) *serviceManager {
+	return &serviceManager{
 		s: make([]api.Service, 0, size),
 	}
 }
 
-func (sm *ServiceManager) AddService(s *api.Service, e error) {
+func (sm *serviceManager) addService(s *api.Service, e error) {
 	if e != nil {
 		log.Fatalf("error: %v on %s", e, s.Path)
 	}
@@ -644,7 +586,7 @@ func (sm *ServiceManager) AddService(s *api.Service, e error) {
 	sm.s = append(sm.s, *s)
 }
 
-func (sm *ServiceManager) GetServices() []api.Service {
+func (sm *serviceManager) getServices() []api.Service {
 	return sm.s
 }
 
@@ -676,17 +618,17 @@ func setupDB(ctx context.Context) (*sql.DB, func(), error) {
 	if dbMode == "" {
 		return nil, nil, errors.New("DB_MODE env var is required")
 	}
-	slog.Info("DB mode", "mode", dbMode)
+	fmt.Println("DB_MODE: ", dbMode)
 
 	switch dbMode {
 	case devtoolsdb.LOCAL:
-		return GetDBLocal(ctx)
+		return getDBLocal(ctx)
 	default:
 		return nil, nil, errors.New("invalid db mode")
 	}
 }
 
-func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
+func getDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
 		return nil, nil, errors.New("DB_NAME env var is required")
@@ -724,9 +666,7 @@ func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 	return localDB.WriteDB, cleanup, nil
 }
 
-type Streamers struct {
-	User                eventstream.SyncStreamer[ruser.UserTopic, ruser.UserEvent]
-	LinkedAccount       eventstream.SyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent]
+type streamers struct {
 	Workspace           eventstream.SyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]
 	Environment         eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 	EnvironmentVariable eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
@@ -762,10 +702,8 @@ type Streamers struct {
 	CredentialAnthropic eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent]
 }
 
-func NewStreamers() *Streamers {
-	return &Streamers{
-		User:                memory.NewInMemorySyncStreamer[ruser.UserTopic, ruser.UserEvent](),
-		LinkedAccount:       memory.NewInMemorySyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent](),
+func newStreamers() *streamers {
+	return &streamers{
 		Workspace:           memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent](),
 		Environment:         memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent](),
 		EnvironmentVariable: memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent](),
@@ -802,9 +740,7 @@ func NewStreamers() *Streamers {
 	}
 }
 
-func (s *Streamers) Shutdown() {
-	s.User.Shutdown()
-	s.LinkedAccount.Shutdown()
+func (s *streamers) shutdown() {
 	s.Workspace.Shutdown()
 	s.Environment.Shutdown()
 	s.EnvironmentVariable.Shutdown()
@@ -842,7 +778,7 @@ func (s *Streamers) Shutdown() {
 
 // registerCascadeHandlers registers all handlers needed for cascade deletion events.
 // This wires the streamregistry to the concrete streamers from rhttp, rflowv2, rfile, renv, and rworkspace.
-func registerCascadeHandlers(registry *streamregistry.Registry, httpStreamers *rhttp.HttpStreamers, streamers *Streamers) {
+func registerCascadeHandlers(registry *streamregistry.Registry, httpStreamers *rhttp.HttpStreamers, streamers *streamers) {
 	// Workspace entity
 	if streamers.Workspace != nil {
 		registry.Register(mutation.EntityWorkspace, func(evt mutation.Event) {

@@ -96,6 +96,66 @@ jobs:
           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
 ```
 
+## Unified Binary & CLI Mode
+
+The binary is primarily a **server**. It can optionally act as a CLI when the `cli` build tag is included and the `DEVTOOLS_MODE` environment variable is set.
+
+### Build Variants
+
+| Variant | Build Command | Includes CLI | Typical Use |
+|---------|---------------|--------------|-------------|
+| Server-only | `go build -o devtools .` | No | Desktop app backend, production deployment |
+| Unified | `go build -tags cli -o devtools .` | Yes | All-in-one distribution, CI pipelines |
+
+The server-only build excludes CLI dependencies (Cobra, Viper, config management) and produces a smaller binary. The unified build links the CLI in via the `cli` build tag.
+
+### Runtime Mode Selection
+
+Set the `DEVTOOLS_MODE` environment variable to switch modes:
+
+| Value | Behaviour |
+|-------|-----------|
+| `server` | Starts the HTTP server (Connect RPC) |
+| `cli` | Runs the CLI (Cobra commands: flow run, import, etc.) |
+| *(unset)* | Defaults to `server` |
+
+Any other value is rejected with an error.
+
+```bash
+# Run as server (default, DEVTOOLS_MODE unset)
+./devtools
+
+# Run as server (explicit)
+DEVTOOLS_MODE=server ./devtools
+
+# Run as CLI
+DEVTOOLS_MODE=cli ./devtools flow run workspace.yamlflow.yaml FlowA
+```
+
+If `DEVTOOLS_MODE=cli` is set on a server-only build (compiled without `-tags cli`), the binary prints an error and exits.
+
+### Desktop App Integration
+
+The desktop Electron app spawns the binary as its backend. No `DEVTOOLS_MODE` is needed since server is the default:
+
+```typescript
+Command.env({
+  DB_MODE: 'local',
+  DB_NAME: 'state',
+  DB_PATH: app.getPath('userData'),
+  DB_ENCRYPTION_KEY: 'secret',
+  HMAC_SECRET: 'secret',
+})
+```
+
+The server requires the same environment variables as before (`DB_MODE`, `DB_NAME`, `DB_PATH`, `DB_ENCRYPTION_KEY`, `HMAC_SECRET`).
+
+### Source Layout
+
+- `apps/cli/main.go` — Entry point with mode switch and constants (`EnvDevToolsMode`, `ModeServer`, `ModeCLI`)
+- `apps/cli/mode_cli.go` — Build-tagged file (`//go:build cli`) that wires the CLI commands
+- `packages/server/cmd/serverrun/serverrun.go` — Extracted server startup logic, importable from any module in the workspace
+
 ## Debugging and Troubleshooting
 
 - **Flow not found**: Ensure the `run` entry or flow name matches the exported data exactly (case-sensitive). Use `devtoolscli flow run workspace.yamlflow.yaml` without a name to list flows.
