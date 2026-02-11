@@ -12,6 +12,9 @@
       "path": "../../packages/worker-js"
     },
     {
+      "path": "../../packages/ui/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/client/tsconfig.lib.json"
     },
     {

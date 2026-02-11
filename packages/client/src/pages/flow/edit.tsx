@@ -11,14 +11,7 @@ import { createPortal } from 'react-dom';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
-import {
-  FlowSchema,
-  FlowService,
-  FlowVariable,
-  HandleKind,
-  NodeKind,
-  NodeSchema,
-} from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { FlowSchema, FlowService, HandleKind, NodeKind, NodeSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   EdgeCollectionSchema,
@@ -28,22 +21,17 @@ import {
   NodeHttpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
-import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { Separator } from '@the-dev-tools/ui/separator';
+import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, TableRow } from '@the-dev-tools/ui/table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { ReferenceContext } from '~/features/expression';
-import {
-  columnActionsCommon,
-  columnCheckboxField,
-  columnReferenceField,
-  columnTextField,
-  useFormTableAddRow,
-} from '~/features/form-table';
+import { ReferenceContext, ReferenceField } from '~/features/expression';
+import { ColumnActionDelete } from '~/features/form-table';
 import { request, useApiCollection } from '~/shared/api';
 import {
   eqStruct,
@@ -469,95 +457,14 @@ const FlowSettings = () => {
 
   const collection = useApiCollection(FlowVariableCollectionSchema);
 
-  const { data: variables } = useLiveQuery(
+  const { data: items } = useLiveQuery(
     (_) =>
-      _.from({ variable: collection })
-        .where((_) => eq(_.variable.flowId, flowId))
-        .orderBy((_) => _.variable.order),
+      _.from({ item: collection })
+        .where(eqStruct({ flowId }))
+        .select(pickStruct('flowVariableId', 'order'))
+        .orderBy((_) => _.item.order),
     [collection, flowId],
   );
-
-  const baseQuery = (_: Uint8Array) =>
-    new Query()
-      .from({ item: collection })
-      .where(eqStruct({ flowVariableId: _ }))
-      .findOne();
-
-  const table = useReactTable({
-    columns: [
-      columnCheckboxField<FlowVariable>(
-        'enabled',
-        {
-          onChange: (enabled, { row: { original } }) =>
-            collection.utils.update({ enabled, flowVariableId: original.flowVariableId }),
-          value: (provide, { row: { original } }) => (
-            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('enabled'))}>
-              {(_) => provide(_.data?.enabled ?? false)}
-            </LiveQuery>
-          ),
-        },
-        { meta: { divider: false } },
-      ),
-      columnReferenceField<FlowVariable>(
-        'key',
-        {
-          onChange: (key, { row: { original } }) =>
-            collection.utils.updatePaced({ flowVariableId: original.flowVariableId, key }),
-          value: (provide, { row: { original } }) => (
-            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('key'))}>
-              {(_) => provide(_.data?.key ?? '')}
-            </LiveQuery>
-          ),
-        },
-        { meta: { isRowHeader: true } },
-      ),
-      columnReferenceField<FlowVariable>(
-        'value',
-        {
-          onChange: (value, { row: { original } }) =>
-            collection.utils.updatePaced({ flowVariableId: original.flowVariableId, value }),
-          value: (provide, { row: { original } }) => (
-            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('value'))}>
-              {(_) => provide(_.data?.value ?? '')}
-            </LiveQuery>
-          ),
-        },
-        { allowFiles: true },
-      ),
-      columnTextField<FlowVariable>(
-        'description',
-        {
-          onChange: (description, { row: { original } }) =>
-            collection.utils.updatePaced({ description, flowVariableId: original.flowVariableId }),
-          value: (provide, { row: { original } }) => (
-            <LiveQuery query={() => baseQuery(original.flowVariableId).select(pickStruct('description'))}>
-              {(_) => provide(_.data?.description ?? '')}
-            </LiveQuery>
-          ),
-        },
-        { meta: { divider: false } },
-      ),
-      columnActionsCommon<FlowVariable>({
-        onDelete: (_) => collection.utils.delete(collection.utils.getKeyObject(_)),
-      }),
-    ],
-    data: variables,
-    getRowId: (_) => collection.utils.getKey(_),
-  });
-
-  const addRow = useFormTableAddRow({
-    createLabel: 'New variable',
-    items: variables,
-    onCreate: async () =>
-      collection.utils.insert({
-        enabled: true,
-        flowId,
-        flowVariableId: Ulid.generate().bytes,
-        key: `FLOW_VARIABLE_${variables.length}`,
-        order: await getNextOrder(collection),
-      }),
-    primaryColumn: 'key',
-  });
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
@@ -578,7 +485,107 @@ const FlowSettings = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable {...addRow} aria-label='Flow variables' dragAndDropHooks={dragAndDropHooks} table={table} />
+        <Table aria-label='Flow variables' dragAndDropHooks={dragAndDropHooks}>
+          <TableHeader>
+            <TableColumn width={32} />
+            <TableColumn isRowHeader>Key</TableColumn>
+            <TableColumn>Value</TableColumn>
+            <TableColumn>Description</TableColumn>
+            <TableColumn width={32} />
+          </TableHeader>
+
+          <TableBody items={items}>
+            {({ flowVariableId }) => {
+              const query = new Query().from({ item: collection }).where(eqStruct({ flowVariableId })).findOne();
+
+              return (
+                <TableRow id={collection.utils.getKey({ flowVariableId })}>
+                  <TableCell className={tw`border-r-0`}>
+                    <LiveQuery query={() => query.select(pickStruct('enabled'))}>
+                      {({ data }) => (
+                        <Checkbox
+                          aria-label='Enabled'
+                          isSelected={data?.enabled ?? false}
+                          isTableCell
+                          onChange={(_) => void collection.utils.update({ enabled: _, flowVariableId })}
+                        />
+                      )}
+                    </LiveQuery>
+                  </TableCell>
+
+                  <TableCell>
+                    <LiveQuery query={() => query.select(pickStruct('key'))}>
+                      {({ data }) => (
+                        <ReferenceField
+                          className='flex-1'
+                          kind='StringExpression'
+                          onChange={(_) => void collection.utils.update({ flowVariableId, key: _ })}
+                          placeholder={`Enter key`}
+                          value={data?.key ?? ''}
+                          variant='table-cell'
+                        />
+                      )}
+                    </LiveQuery>
+                  </TableCell>
+
+                  <TableCell>
+                    <LiveQuery query={() => query.select(pickStruct('value'))}>
+                      {({ data }) => (
+                        <ReferenceField
+                          allowFiles
+                          className='flex-1'
+                          kind='StringExpression'
+                          onChange={(_) => void collection.utils.update({ flowVariableId, value: _ })}
+                          placeholder={`Enter value`}
+                          value={data?.value ?? ''}
+                          variant='table-cell'
+                        />
+                      )}
+                    </LiveQuery>
+                  </TableCell>
+
+                  <TableCell>
+                    <LiveQuery query={() => query.select(pickStruct('description'))}>
+                      {({ data }) => (
+                        <TextInputField
+                          aria-label='Description'
+                          className='flex-1'
+                          isTableCell
+                          onChange={(_) => void collection.utils.update({ description: _, flowVariableId })}
+                          placeholder={`Enter description`}
+                          value={data?.description ?? ''}
+                        />
+                      )}
+                    </LiveQuery>
+                  </TableCell>
+
+                  <TableCell className={tw`border-r-0 px-1`}>
+                    <ColumnActionDelete onDelete={() => void collection.utils.delete({ flowVariableId })} />
+                  </TableCell>
+                </TableRow>
+              );
+            }}
+          </TableBody>
+
+          <TableFooter>
+            <Button
+              className={tw`w-full justify-start -outline-offset-4`}
+              onPress={async () => {
+                collection.utils.insert({
+                  enabled: true,
+                  flowId,
+                  flowVariableId: Ulid.generate().bytes,
+                  key: `FLOW_VARIABLE_${items.length}`,
+                  order: await getNextOrder(collection),
+                });
+              }}
+              variant='ghost'
+            >
+              <FiPlus className={tw`size-4 text-slate-500`} />
+              New variable
+            </Button>
+          </TableFooter>
+        </Table>
       </div>
     </>
   );

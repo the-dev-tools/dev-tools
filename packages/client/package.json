@@ -40,8 +40,6 @@
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
-    "@tanstack/react-table": "catalog:",
-    "@tanstack/table-core": "catalog:",
     "@tanstack/virtual-file-routes": "catalog:",
     "@the-dev-tools/spec": "workspace:^",
     "@the-dev-tools/spec-lib": "workspace:^",

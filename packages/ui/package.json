@@ -14,7 +14,6 @@
     "@fontsource/dm-mono": "catalog:",
     "@react-aria/collections": "catalog:",
     "@tanstack/react-router": "catalog:",
-    "@tanstack/react-table": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
     "react-aria": "catalog:",

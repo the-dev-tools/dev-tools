@@ -1,15 +1,16 @@
 import { eq, or, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
+import { FiPlus } from 'react-icons/fi';
 import {
   HttpBodyUrlEncodedCollectionSchema,
   HttpBodyUrlEncodedDeltaCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { Button } from '@the-dev-tools/ui/button';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
+import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, TableRow } from '@the-dev-tools/ui/table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { deltaActionsColumn, deltaCheckboxColumn, deltaReferenceColumn, deltaTextFieldColumn } from '~/features/delta';
-import { ReactTableNoMemo, useFormTableAddRow } from '~/features/form-table';
+import { ColumnActionDeleteDelta, DeltaCheckbox, DeltaReference, DeltaTextField } from '~/features/delta';
 import { useApiCollection } from '~/shared/api';
 import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 
@@ -46,18 +47,6 @@ export const BodyUrlEncodedTable = ({
     originSchema: HttpBodyUrlEncodedCollectionSchema,
   } as const;
 
-  const addRow = useFormTableAddRow({
-    createLabel: 'New body item',
-    items,
-    onCreate: async () =>
-      void collection.utils.insert({
-        enabled: true,
-        httpBodyUrlEncodedId: Ulid.generate().bytes,
-        httpId: deltaHttpId ?? httpId,
-        order: await getNextOrder(collection),
-      }),
-  });
-
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
     onReorder: handleCollectionReorder(collection),
@@ -65,28 +54,86 @@ export const BodyUrlEncodedTable = ({
   });
 
   return (
-    <ReactTableNoMemo
-      columns={[
-        deltaCheckboxColumn({ ...deltaColumnOptions, header: '', isReadOnly, valueKey: 'enabled' }),
-        deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, meta: { isRowHeader: true }, valueKey: 'key' }),
-        deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'value' }),
-        ...(hideDescription
-          ? []
-          : [deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' })]),
-        ...(isReadOnly ? [] : [deltaActionsColumn(deltaColumnOptions)]),
-      ]}
-      data={items}
-      getRowId={(_) => collection.utils.getKey({ httpBodyUrlEncodedId: _.httpBodyUrlEncodedId! })}
-    >
-      {(table) => (
-        <DataTable
-          {...(!isReadOnly && addRow)}
-          aria-label='Body items'
-          containerClassName={tw`col-span-full`}
-          dragAndDropHooks={dragAndDropHooks}
-          table={table}
-        />
+    <Table {...(!isReadOnly && { dragAndDropHooks })} aria-label='Body items' containerClassName={tw`col-span-full`}>
+      <TableHeader>
+        <TableColumn width={32} />
+        <TableColumn isRowHeader>Key</TableColumn>
+        <TableColumn>Value</TableColumn>
+        {!hideDescription && <TableColumn>Description</TableColumn>}
+        {!isReadOnly && <TableColumn width={32} />}
+      </TableHeader>
+
+      <TableBody items={items}>
+        {({ httpBodyUrlEncodedId }) => (
+          <TableRow id={collection.utils.getKey({ httpBodyUrlEncodedId })}>
+            <TableCell className={tw`border-r-0`}>
+              <DeltaCheckbox
+                {...deltaColumnOptions}
+                isReadOnly={isReadOnly}
+                originKeyObject={{ httpBodyUrlEncodedId }}
+                valueKey='enabled'
+              />
+            </TableCell>
+
+            <TableCell>
+              <DeltaReference
+                {...deltaColumnOptions}
+                allowFiles
+                isReadOnly={isReadOnly}
+                originKeyObject={{ httpBodyUrlEncodedId }}
+                valueKey='key'
+              />
+            </TableCell>
+
+            <TableCell>
+              <DeltaReference
+                {...deltaColumnOptions}
+                allowFiles
+                isReadOnly={isReadOnly}
+                originKeyObject={{ httpBodyUrlEncodedId }}
+                valueKey='value'
+              />
+            </TableCell>
+
+            {!hideDescription && (
+              <TableCell>
+                <DeltaTextField
+                  {...deltaColumnOptions}
+                  isReadOnly={isReadOnly}
+                  originKeyObject={{ httpBodyUrlEncodedId }}
+                  valueKey='description'
+                />
+              </TableCell>
+            )}
+
+            {!isReadOnly && (
+              <TableCell className={tw`border-r-0 px-1`}>
+                <ColumnActionDeleteDelta {...deltaColumnOptions} originKeyObject={{ httpBodyUrlEncodedId }} />
+              </TableCell>
+            )}
+          </TableRow>
+        )}
+      </TableBody>
+
+      {!isReadOnly && (
+        <TableFooter>
+          <Button
+            className={tw`w-full justify-start -outline-offset-4`}
+            onPress={async () => {
+              collection.utils.insert({
+                enabled: true,
+                httpBodyUrlEncodedId: Ulid.generate().bytes,
+                httpId: deltaHttpId ?? httpId,
+                order: await getNextOrder(collection),
+              });
+            }}
+            variant='ghost'
+          >
+            <FiPlus className={tw`size-4 text-slate-500`} />
+            New body item
+          </Button>
+        </TableFooter>
       )}
-    </ReactTableNoMemo>
+    </Table>
   );
 };

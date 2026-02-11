@@ -7,20 +7,19 @@ import { ReactNode, useState, useTransition } from 'react';
 import { Dialog, Heading, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
 import {
-  ImportDomainData,
   ImportDomainDataSchema,
   ImportMissingDataKind,
   ImportRequestSchema,
   ImportService,
 } from '@the-dev-tools/spec/buf/api/import/v1/import_pb';
 import { Button } from '@the-dev-tools/ui/button';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
 import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
+import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from '@the-dev-tools/ui/table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
-import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo } from '~/features/form-table';
 import { request } from '~/shared/api';
 import { eqStruct, LiveQuery, pickStruct } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -188,12 +187,6 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
     }),
   );
 
-  const baseQuery = (_: string) =>
-    new Query()
-      .from({ item: collection })
-      .where(eqStruct({ domain: _ }))
-      .findOne();
-
   const importAction = async () => {
     const {
       message: { flowId },
@@ -227,40 +220,53 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
         import.
       </div>
 
-      <ReactTableNoMemo
-        columns={[
-          columnCheckboxField<ImportDomainData>(
-            'enabled',
-            {
-              onChange: (enabled, { row: { original } }) =>
-                collection.update(original.domain, (_) => (_.enabled = enabled)),
-              value: (provide, { row: { original } }) => (
-                <LiveQuery query={() => baseQuery(original.domain).select(pickStruct('enabled'))}>
-                  {(_) => provide(_.data?.enabled ?? false)}
-                </LiveQuery>
-              ),
-            },
-            { meta: { divider: false } },
-          ),
-          columnText<ImportDomainData>('domain', {
-            cell: ({ row: { original } }) => original.domain,
-            meta: { isRowHeader: true },
-          }),
-          columnTextField<ImportDomainData>('variable', {
-            onChange: (variable, { row: { original } }) =>
-              collection.update(original.domain, (_) => (_.variable = variable)),
-            value: (provide, { row: { original } }) => (
-              <LiveQuery query={() => baseQuery(original.domain).select(pickStruct('variable'))}>
-                {(_) => provide(_.data?.variable ?? '')}
-              </LiveQuery>
-            ),
-          }),
-        ]}
-        data={domains.map((_) => create(ImportDomainDataSchema, { domain: _ }))}
-        getRowId={(_) => _.domain}
-      >
-        {(table) => <DataTable aria-label='Import domains' containerClassName={tw`mt-4`} table={table} />}
-      </ReactTableNoMemo>
+      <Table aria-label='Import domains' containerClassName={tw`mt-4`}>
+        <TableHeader>
+          <TableColumn width={32} />
+          <TableColumn isRowHeader>Domain</TableColumn>
+          <TableColumn>Variable</TableColumn>
+        </TableHeader>
+
+        <TableBody items={domains.map((_) => ({ domain: _ }))}>
+          {({ domain }) => {
+            const query = new Query().from({ item: collection }).where(eqStruct({ domain })).findOne();
+
+            return (
+              <TableRow id={domain}>
+                <TableCell className={tw`border-r-0`}>
+                  <LiveQuery query={() => query.select(pickStruct('enabled'))}>
+                    {({ data }) => (
+                      <Checkbox
+                        aria-label='Enabled'
+                        isSelected={data?.enabled ?? false}
+                        isTableCell
+                        onChange={(_) => void collection.update(domain, (draft) => (draft.enabled = _))}
+                      />
+                    )}
+                  </LiveQuery>
+                </TableCell>
+
+                <TableCell className={tw`px-5 py-1.5`}>{domain}</TableCell>
+
+                <TableCell>
+                  <LiveQuery query={() => query.select(pickStruct('variable'))}>
+                    {({ data }) => (
+                      <TextInputField
+                        aria-label='Variable'
+                        className='flex-1'
+                        isTableCell
+                        onChange={(_) => void collection.update(domain, (draft) => (draft.variable = _))}
+                        placeholder={`Enter variable`}
+                        value={data?.variable ?? ''}
+                      />
+                    )}
+                  </LiveQuery>
+                </TableCell>
+              </TableRow>
+            );
+          }}
+        </TableBody>
+      </Table>
     </InnerDialog>
   );
 };

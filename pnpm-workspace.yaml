@@ -63,9 +63,7 @@ catalog:
   '@tanstack/react-query-devtools': 5.91.2
   '@tanstack/react-router': 1.145.7
   '@tanstack/react-router-devtools': 1.145.7
-  '@tanstack/react-table': 8.21.3
   '@tanstack/router-plugin': 1.145.10
-  '@tanstack/table-core': 8.21.3
   '@tanstack/virtual-file-routes': 1.145.4
   '@tsconfig/strictest': 2.0.8
   '@types/eslint-plugin-jsx-a11y': 6.10.1

@@ -1,7 +1,5 @@
 import { Message, MessageShape } from '@bufbuild/protobuf';
 import { debounceStrategy, eq, Ref, useLiveQuery, usePacedMutations } from '@tanstack/react-db';
-import { DisplayColumnDef } from '@tanstack/table-core';
-import { String } from 'effect';
 import { Ulid } from 'id128';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { Button } from '@the-dev-tools/ui/button';
@@ -10,7 +8,7 @@ import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { ReferenceField } from '~/features/expression';
-import { ColumnActionDelete, ColumnActionDrag, columnActions } from '~/features/form-table';
+import { ColumnActionDelete } from '~/features/form-table';
 import { ApiCollectionSchema, request, useApiCollection } from '~/shared/api';
 import { eqStruct, Filter, PartialUndefined, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -275,168 +273,122 @@ export const useDeltaColumnState = <
   return { deltaOptions, setValue, value };
 };
 
-export interface DeltaCheckboxColumnProps<
+export interface DeltaCheckboxProps<
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
-  TData extends Partial<MessageShape<TOriginSchema['item']>>,
->
-  extends DeltaOptions<TOriginSchema, TDeltaSchema>, Omit<DisplayColumnDef<TData>, 'id'> {
+> extends UseDeltaColumnStateProps<TOriginSchema, TDeltaSchema> {
   isReadOnly?: boolean | undefined;
-  valueKey: keyof Filter<MessageShape<TOriginSchema['item']>, boolean> & string;
 }
 
-export const deltaCheckboxColumn = <
-  TOriginSchema extends ApiCollectionSchema,
-  TDeltaSchema extends ApiCollectionSchema,
-  TData extends Partial<MessageShape<TOriginSchema['item']>>,
->(
-  props: DeltaCheckboxColumnProps<TOriginSchema, TDeltaSchema, TData>,
-): DisplayColumnDef<TData> => {
-  const { isReadOnly = false, valueKey } = props;
-  return {
-    cell: function Cell({ row }) {
-      const { deltaOptions, setValue, value } = useDeltaColumnState({ ...props, originKeyObject: row.original });
+export const DeltaCheckbox = <TOriginSchema extends ApiCollectionSchema, TDeltaSchema extends ApiCollectionSchema>(
+  props: DeltaCheckboxProps<TOriginSchema, TDeltaSchema>,
+) => {
+  const { isReadOnly = false } = props;
+  const { deltaOptions, setValue, value } = useDeltaColumnState(props);
 
-      return (
-        <div className={tw`flex flex-1 gap-1 px-1`}>
-          <Checkbox
-            isReadOnly={isReadOnly}
-            isSelected={value as unknown as boolean}
-            isTableCell
-            onChange={(_) => void setValue(_ as never)}
-          />
+  return (
+    <div className={tw`flex flex-1 gap-1 px-1`}>
+      <Checkbox
+        isReadOnly={isReadOnly}
+        isSelected={value as unknown as boolean}
+        isTableCell
+        onChange={(_) => void setValue(_ as never)}
+      />
 
-          {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
-        </div>
-      );
-    },
-    header: String.capitalize(valueKey),
-    id: valueKey,
-    size: 0,
-    ...props,
-  };
+      {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
+    </div>
+  );
 };
 
-export interface DeltaTextFieldColumnProps<
+export interface DeltaTextFieldProps<
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
-  TData extends Partial<MessageShape<TOriginSchema['item']>>,
->
-  extends DeltaOptions<TOriginSchema, TDeltaSchema>, Omit<DisplayColumnDef<TData>, 'id'> {
+> extends UseDeltaColumnStateProps<TOriginSchema, TDeltaSchema> {
   isReadOnly?: boolean | undefined;
   valueKey: keyof Filter<MessageShape<TOriginSchema['item']>, string> & string;
 }
 
-export const deltaTextFieldColumn = <
-  TOriginSchema extends ApiCollectionSchema,
-  TDeltaSchema extends ApiCollectionSchema,
-  TData extends Partial<MessageShape<TOriginSchema['item']>>,
->(
-  props: DeltaTextFieldColumnProps<TOriginSchema, TDeltaSchema, TData>,
-): DisplayColumnDef<TData> => {
+export const DeltaTextField = <TOriginSchema extends ApiCollectionSchema, TDeltaSchema extends ApiCollectionSchema>(
+  props: DeltaTextFieldProps<TOriginSchema, TDeltaSchema>,
+) => {
   const { isReadOnly = false, valueKey } = props;
-  return {
-    cell: function Cell({ row }) {
-      const { deltaOptions, setValue, value } = useDeltaColumnState({ ...props, originKeyObject: row.original });
+  const { deltaOptions, setValue, value } = useDeltaColumnState(props);
 
-      return (
-        <div className={tw`flex min-w-0 flex-1 gap-1`}>
-          <TextInputField
-            aria-label={valueKey}
-            className={tw`flex-1`}
-            isReadOnly={isReadOnly}
-            isTableCell
-            onChange={(_) => void setValue(_ as never)}
-            placeholder={`Enter ${valueKey}`}
-            value={value as unknown as string}
-          />
+  return (
+    <div className={tw`flex min-w-0 flex-1 gap-1`}>
+      <TextInputField
+        aria-label={valueKey}
+        className={tw`flex-1`}
+        isReadOnly={isReadOnly}
+        isTableCell
+        onChange={(_) => void setValue(_ as never)}
+        placeholder={`Enter ${valueKey}`}
+        value={value as unknown as string}
+      />
 
-          {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
-        </div>
-      );
-    },
-    header: String.capitalize(valueKey),
-    id: valueKey,
-    ...props,
-  };
+      {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
+    </div>
+  );
 };
 
-export interface DeltaReferenceColumnProps<
+export interface DeltaReferenceProps<
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
-  TData extends Partial<MessageShape<TOriginSchema['item']>>,
->
-  extends DeltaOptions<TOriginSchema, TDeltaSchema>, Omit<DisplayColumnDef<TData>, 'id'> {
+> extends UseDeltaColumnStateProps<TOriginSchema, TDeltaSchema> {
   allowFiles?: boolean;
   fullExpression?: boolean;
   isReadOnly?: boolean | undefined;
   valueKey: keyof Filter<MessageShape<TOriginSchema['item']>, string> & string;
 }
 
-export const deltaReferenceColumn = <
-  TOriginSchema extends ApiCollectionSchema,
-  TDeltaSchema extends ApiCollectionSchema,
-  TData extends Partial<MessageShape<TOriginSchema['item']>>,
->(
-  props: DeltaReferenceColumnProps<TOriginSchema, TDeltaSchema, TData>,
-): DisplayColumnDef<TData> => {
+export const DeltaReference = <TOriginSchema extends ApiCollectionSchema, TDeltaSchema extends ApiCollectionSchema>(
+  props: DeltaReferenceProps<TOriginSchema, TDeltaSchema>,
+) => {
   const { allowFiles, fullExpression, isReadOnly = false, valueKey } = props;
-  return {
-    cell: function Cell({ row }) {
-      const { deltaOptions, setValue, value } = useDeltaColumnState({ ...props, originKeyObject: row.original });
+  const { deltaOptions, setValue, value } = useDeltaColumnState(props);
 
-      return (
-        <div className={tw`flex min-w-0 flex-1 gap-1`}>
-          <ReferenceField
-            allowFiles={allowFiles}
-            className='flex-1'
-            kind={fullExpression ? 'FullExpression' : 'StringExpression'}
-            onChange={(_) => void setValue(_ as never)}
-            placeholder={`Enter ${valueKey}`}
-            readOnly={isReadOnly}
-            value={value as unknown as string}
-            variant='table-cell'
-          />
+  return (
+    <div className={tw`flex min-w-0 flex-1 gap-1`}>
+      <ReferenceField
+        allowFiles={allowFiles}
+        className='flex-1'
+        kind={fullExpression ? 'FullExpression' : 'StringExpression'}
+        onChange={(_) => void setValue(_ as never)}
+        placeholder={`Enter ${valueKey}`}
+        readOnly={isReadOnly}
+        value={value as unknown as string}
+        variant='table-cell'
+      />
 
-          {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
-        </div>
-      );
-    },
-    header: String.capitalize(valueKey),
-    id: valueKey,
-    ...props,
-  };
+      {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
+    </div>
+  );
 };
 
-export const deltaActionsColumn = <
+export const ColumnActionDeleteDelta = <
   TOriginSchema extends ApiCollectionSchema,
   TDeltaSchema extends ApiCollectionSchema,
 >({
   deltaParentKey,
   isDelta,
+  originKeyObject,
   originSchema,
-}: DeltaOptions<TOriginSchema, TDeltaSchema>) =>
-  columnActions<Partial<MessageShape<TOriginSchema['item']>>>({
-    cell: function Cell({ row }) {
-      const originCollection = useApiCollection(originSchema as ApiCollectionSchema);
+}: Omit<UseDeltaColumnStateProps<TOriginSchema, TDeltaSchema>, 'valueKey'>) => {
+  const originCollection = useApiCollection(originSchema as ApiCollectionSchema);
 
-      const isExtra =
-        useLiveQuery(
-          (_) =>
-            _.from({ item: originCollection })
-              .where(eqStruct(row.original as Message))
-              .select((_) => ({ isExtra: eqStruct(deltaParentKey as Message)(_) }))
-              .findOne(),
-          [originCollection, row.original],
-        ).data?.isExtra ?? false;
+  const isExtra =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: originCollection })
+          .where(eqStruct(originKeyObject as Message))
+          .select((_) => ({ isExtra: eqStruct(deltaParentKey as Message)(_) }))
+          .findOne(),
+      [deltaParentKey, originCollection, originKeyObject],
+    ).data?.isExtra ?? false;
 
-      return (
-        <>
-          {(!isDelta || isExtra) && (
-            <ColumnActionDelete onDelete={() => void originCollection.utils.delete?.(row.original as never)} />
-          )}
-          <ColumnActionDrag />
-        </>
-      );
-    },
-  });
+  return (
+    (!isDelta || isExtra) && (
+      <ColumnActionDelete onDelete={() => void originCollection.utils.delete?.(originKeyObject as never)} />
+    )
+  );
+};

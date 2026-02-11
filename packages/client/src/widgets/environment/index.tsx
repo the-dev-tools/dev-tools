@@ -18,33 +18,25 @@ import {
 } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
-import {
-  EnvironmentInsertSchema,
-  EnvironmentVariable,
-} from '@the-dev-tools/spec/buf/api/environment/v1/environment_pb';
+import { EnvironmentInsertSchema } from '@the-dev-tools/spec/buf/api/environment/v1/environment_pb';
 import {
   EnvironmentCollectionSchema,
   EnvironmentVariableCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/environment';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Button } from '@the-dev-tools/ui/button';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
+import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, TableRow } from '@the-dev-tools/ui/table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import {
-  columnActionsCommon,
-  columnCheckboxField,
-  columnReferenceField,
-  columnTextField,
-  ReactTableNoMemo,
-  useFormTableAddRow,
-} from '~/features/form-table';
+import { ReferenceField } from '~/features/expression';
+import { ColumnActionDelete } from '~/features/form-table';
 import { useApiCollection } from '~/shared/api';
 import { eqStruct, getNextOrder, handleCollectionReorder, LiveQuery, pick, pickStruct } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -384,27 +376,14 @@ interface VariablesTableProps {
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   const collection = useApiCollection(EnvironmentVariableCollectionSchema);
 
-  const { data: variables } = useLiveQuery(
+  const { data: items } = useLiveQuery(
     (_) =>
-      _.from({ variable: collection })
-        .where((_) => eq(_.variable.environmentId, environmentId))
-        .orderBy((_) => _.variable.order),
+      _.from({ item: collection })
+        .where(eqStruct({ environmentId }))
+        .select(pickStruct('environmentVariableId', 'order'))
+        .orderBy((_) => _.item.order),
     [environmentId, collection],
   );
-
-  const addRow = useFormTableAddRow({
-    createLabel: 'New variable',
-    items: variables,
-    onCreate: async () =>
-      collection.utils.insert({
-        enabled: true,
-        environmentId,
-        environmentVariableId: Ulid.generate().bytes,
-        key: `VARIABLE_${variables.length}`,
-        order: await getNextOrder(collection),
-      }),
-    primaryColumn: 'key',
-  });
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
@@ -412,77 +391,107 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
-  const baseQuery = (_: Uint8Array) =>
-    new Query()
-      .from({ item: collection })
-      .where(eqStruct({ environmentVariableId: _ }))
-      .findOne();
-
   return (
-    <ReactTableNoMemo
-      columns={[
-        columnCheckboxField<EnvironmentVariable>(
-          'enabled',
-          {
-            onChange: (enabled, { row: { original } }) =>
-              collection.utils.update({ enabled, environmentVariableId: original.environmentVariableId }),
-            value: (provide, { row: { original } }) => (
-              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('enabled'))}>
-                {(_) => provide(_.data?.enabled ?? false)}
-              </LiveQuery>
-            ),
-          },
-          { meta: { divider: false } },
-        ),
-        columnReferenceField<EnvironmentVariable>(
-          'key',
-          {
-            onChange: (key, { row: { original } }) =>
-              collection.utils.updatePaced({ environmentVariableId: original.environmentVariableId, key }),
-            value: (provide, { row: { original } }) => (
-              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('key'))}>
-                {(_) => provide(_.data?.key ?? '')}
-              </LiveQuery>
-            ),
-          },
-          { meta: { isRowHeader: true } },
-        ),
-        columnReferenceField<EnvironmentVariable>(
-          'value',
-          {
-            onChange: (value, { row: { original } }) =>
-              collection.utils.updatePaced({ environmentVariableId: original.environmentVariableId, value }),
-            value: (provide, { row: { original } }) => (
-              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('value'))}>
-                {(_) => provide(_.data?.value ?? '')}
-              </LiveQuery>
-            ),
-          },
-          { allowFiles: true },
-        ),
-        columnTextField<EnvironmentVariable>(
-          'description',
-          {
-            onChange: (description, { row: { original } }) =>
-              collection.utils.updatePaced({ description, environmentVariableId: original.environmentVariableId }),
-            value: (provide, { row: { original } }) => (
-              <LiveQuery query={() => baseQuery(original.environmentVariableId).select(pickStruct('description'))}>
-                {(_) => provide(_.data?.description ?? '')}
-              </LiveQuery>
-            ),
-          },
-          { meta: { divider: false } },
-        ),
-        columnActionsCommon<EnvironmentVariable>({
-          onDelete: (_) => collection.utils.delete(pick(_, 'environmentVariableId')),
-        }),
-      ]}
-      data={variables}
-      getRowId={(_) => collection.utils.getKey(_)}
-    >
-      {(table) => (
-        <DataTable {...addRow} aria-label='Environment variables' dragAndDropHooks={dragAndDropHooks} table={table} />
-      )}
-    </ReactTableNoMemo>
+    <Table aria-label='Environment variables' dragAndDropHooks={dragAndDropHooks}>
+      <TableHeader>
+        <TableColumn width={32} />
+        <TableColumn isRowHeader>Key</TableColumn>
+        <TableColumn>Value</TableColumn>
+        <TableColumn>Description</TableColumn>
+        <TableColumn width={32} />
+      </TableHeader>
+
+      <TableBody items={items}>
+        {({ environmentVariableId }) => {
+          const query = new Query().from({ item: collection }).where(eqStruct({ environmentVariableId })).findOne();
+
+          return (
+            <TableRow id={collection.utils.getKey({ environmentVariableId })}>
+              <TableCell className={tw`border-r-0`}>
+                <LiveQuery query={() => query.select(pickStruct('enabled'))}>
+                  {({ data }) => (
+                    <Checkbox
+                      aria-label='Enabled'
+                      isSelected={data?.enabled ?? false}
+                      isTableCell
+                      onChange={(_) => void collection.utils.update({ enabled: _, environmentVariableId })}
+                    />
+                  )}
+                </LiveQuery>
+              </TableCell>
+
+              <TableCell>
+                <LiveQuery query={() => query.select(pickStruct('key'))}>
+                  {({ data }) => (
+                    <ReferenceField
+                      className='flex-1'
+                      kind='StringExpression'
+                      onChange={(_) => void collection.utils.update({ environmentVariableId, key: _ })}
+                      placeholder={`Enter key`}
+                      value={data?.key ?? ''}
+                      variant='table-cell'
+                    />
+                  )}
+                </LiveQuery>
+              </TableCell>
+
+              <TableCell>
+                <LiveQuery query={() => query.select(pickStruct('value'))}>
+                  {({ data }) => (
+                    <ReferenceField
+                      allowFiles
+                      className='flex-1'
+                      kind='StringExpression'
+                      onChange={(_) => void collection.utils.update({ environmentVariableId, value: _ })}
+                      placeholder={`Enter value`}
+                      value={data?.value ?? ''}
+                      variant='table-cell'
+                    />
+                  )}
+                </LiveQuery>
+              </TableCell>
+
+              <TableCell>
+                <LiveQuery query={() => query.select(pickStruct('description'))}>
+                  {({ data }) => (
+                    <TextInputField
+                      aria-label='Description'
+                      className='flex-1'
+                      isTableCell
+                      onChange={(_) => void collection.utils.update({ description: _, environmentVariableId })}
+                      placeholder={`Enter description`}
+                      value={data?.description ?? ''}
+                    />
+                  )}
+                </LiveQuery>
+              </TableCell>
+
+              <TableCell className={tw`border-r-0 px-1`}>
+                <ColumnActionDelete onDelete={() => void collection.utils.delete({ environmentVariableId })} />
+              </TableCell>
+            </TableRow>
+          );
+        }}
+      </TableBody>
+
+      <TableFooter>
+        <Button
+          className={tw`w-full justify-start -outline-offset-4`}
+          onPress={async () => {
+            collection.utils.insert({
+              enabled: true,
+              environmentId,
+              environmentVariableId: Ulid.generate().bytes,
+              key: `VARIABLE_${items.length}`,
+              order: await getNextOrder(collection),
+            });
+          }}
+          variant='ghost'
+        >
+          <FiPlus className={tw`size-4 text-slate-500`} />
+          New variable
+        </Button>
+      </TableFooter>
+    </Table>
   );
 };

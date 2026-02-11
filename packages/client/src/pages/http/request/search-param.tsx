@@ -1,14 +1,16 @@
 import { eq, or, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
+import { FiPlus } from 'react-icons/fi';
 import {
   HttpSearchParamCollectionSchema,
   HttpSearchParamDeltaCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { Button } from '@the-dev-tools/ui/button';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
-import { deltaActionsColumn, deltaCheckboxColumn, deltaReferenceColumn, deltaTextFieldColumn } from '~/features/delta';
-import { ReactTableNoMemo, useFormTableAddRow } from '~/features/form-table';
+import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, TableRow } from '@the-dev-tools/ui/table';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { ColumnActionDeleteDelta, DeltaCheckbox, DeltaReference, DeltaTextField } from '~/features/delta';
 import { useApiCollection } from '~/shared/api';
 import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 
@@ -45,18 +47,6 @@ export const SearchParamTable = ({
     originSchema: HttpSearchParamCollectionSchema,
   } as const;
 
-  const addRow = useFormTableAddRow({
-    createLabel: 'New search param',
-    items,
-    onCreate: async () =>
-      void collection.utils.insert({
-        enabled: true,
-        httpId: deltaHttpId ?? httpId,
-        httpSearchParamId: Ulid.generate().bytes,
-        order: await getNextOrder(collection),
-      }),
-  });
-
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
     onReorder: handleCollectionReorder(collection),
@@ -64,27 +54,86 @@ export const SearchParamTable = ({
   });
 
   return (
-    <ReactTableNoMemo
-      columns={[
-        deltaCheckboxColumn({ ...deltaColumnOptions, header: '', isReadOnly, valueKey: 'enabled' }),
-        deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, meta: { isRowHeader: true }, valueKey: 'key' }),
-        deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'value' }),
-        ...(hideDescription
-          ? []
-          : [deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' })]),
-        ...(isReadOnly ? [] : [deltaActionsColumn(deltaColumnOptions)]),
-      ]}
-      data={items}
-      getRowId={(_) => collection.utils.getKey({ httpSearchParamId: _.httpSearchParamId! })}
-    >
-      {(table) => (
-        <DataTable
-          {...(!isReadOnly && addRow)}
-          aria-label='Search params'
-          dragAndDropHooks={dragAndDropHooks}
-          table={table}
-        />
+    <Table {...(!isReadOnly && { dragAndDropHooks })} aria-label='Search params'>
+      <TableHeader>
+        <TableColumn width={32} />
+        <TableColumn isRowHeader>Key</TableColumn>
+        <TableColumn>Value</TableColumn>
+        {!hideDescription && <TableColumn>Description</TableColumn>}
+        {!isReadOnly && <TableColumn width={32} />}
+      </TableHeader>
+
+      <TableBody items={items}>
+        {({ httpSearchParamId }) => (
+          <TableRow id={collection.utils.getKey({ httpSearchParamId })}>
+            <TableCell className={tw`border-r-0`}>
+              <DeltaCheckbox
+                {...deltaColumnOptions}
+                isReadOnly={isReadOnly}
+                originKeyObject={{ httpSearchParamId }}
+                valueKey='enabled'
+              />
+            </TableCell>
+
+            <TableCell>
+              <DeltaReference
+                {...deltaColumnOptions}
+                allowFiles
+                isReadOnly={isReadOnly}
+                originKeyObject={{ httpSearchParamId }}
+                valueKey='key'
+              />
+            </TableCell>
+
+            <TableCell>
+              <DeltaReference
+                {...deltaColumnOptions}
+                allowFiles
+                isReadOnly={isReadOnly}
+                originKeyObject={{ httpSearchParamId }}
+                valueKey='value'
+              />
+            </TableCell>
+
+            {!hideDescription && (
+              <TableCell>
+                <DeltaTextField
+                  {...deltaColumnOptions}
+                  isReadOnly={isReadOnly}
+                  originKeyObject={{ httpSearchParamId }}
+                  valueKey='description'
+                />
+              </TableCell>
+            )}
+
+            {!isReadOnly && (
+              <TableCell className={tw`border-r-0 px-1`}>
+                <ColumnActionDeleteDelta {...deltaColumnOptions} originKeyObject={{ httpSearchParamId }} />
+              </TableCell>
+            )}
+          </TableRow>
+        )}
+      </TableBody>
+
+      {!isReadOnly && (
+        <TableFooter>
+          <Button
+            className={tw`w-full justify-start -outline-offset-4`}
+            onPress={async () => {
+              collection.utils.insert({
+                enabled: true,
+                httpId: deltaHttpId ?? httpId,
+                httpSearchParamId: Ulid.generate().bytes,
+                order: await getNextOrder(collection),
+              });
+            }}
+            variant='ghost'
+          >
+            <FiPlus className={tw`size-4 text-slate-500`} />
+            New search param
+          </Button>
+        </TableFooter>
       )}
-    </ReactTableNoMemo>
+    </Table>
   );
 };
