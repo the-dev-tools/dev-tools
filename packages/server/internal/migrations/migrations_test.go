@@ -226,6 +226,66 @@ func TestFilesTableConstraintUpdated(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSyncColumnsCreated(t *testing.T) {
+	ctx := context.Background()
+
+	db, cleanup, err := sqlitemem.NewSQLiteMem(ctx)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	t.Cleanup(cleanup)
+
+	cfg := Config{
+		DatabasePath: ":memory:",
+		DataDir:      t.TempDir(),
+	}
+	if err := Run(ctx, db, cfg); err != nil {
+		t.Fatalf("failed to run migrations: %v", err)
+	}
+
+	// Verify workspace sync migration is registered
+	migrations := migrate.List()
+	found := false
+	for _, m := range migrations {
+		if m.ID == MigrationAddWorkspaceSyncID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("MigrationAddWorkspaceSyncID not found in registered migrations")
+	}
+
+	// Verify sync columns exist on workspaces table
+	columns := []string{"sync_path", "sync_format", "sync_enabled"}
+	for _, col := range columns {
+		var cid int
+		var name, ctype string
+		var notnull int
+		var dfltValue *string
+		var pk int
+		err := db.QueryRowContext(ctx,
+			"SELECT cid, name, type, \"notnull\", dflt_value, pk FROM pragma_table_info('workspaces') WHERE name = '"+col+"'",
+		).Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
+		if err != nil {
+			t.Errorf("column %s not found in workspaces table: %v", col, err)
+		}
+	}
+
+	// Verify sync_enabled has a default of 0
+	var notnull int
+	var dfltValue *string
+	err = db.QueryRowContext(ctx,
+		"SELECT \"notnull\", dflt_value FROM pragma_table_info('workspaces') WHERE name = 'sync_enabled'",
+	).Scan(&notnull, &dfltValue)
+	if err != nil {
+		t.Fatalf("failed to check sync_enabled column: %v", err)
+	}
+	if notnull != 1 {
+		t.Errorf("sync_enabled should be NOT NULL, got notnull=%d", notnull)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }

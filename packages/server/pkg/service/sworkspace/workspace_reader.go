@@ -75,3 +75,11 @@ func (r *WorkspaceReader) GetWorkspacesByUserIDOrdered(ctx context.Context, user
 	}
 	return tgeneric.MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
 }
+
+func (r *WorkspaceReader) GetSynced(ctx context.Context) ([]mworkspace.Workspace, error) {
+	rawWorkspaces, err := r.queries.GetSyncedWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return tgeneric.MassConvert(rawWorkspaces, ConvertToModelWorkspace), nil
+}

@@ -1,0 +1,5 @@
+opencollection: '1.0.0'
+info:
+  name: 'Test API Collection'
+  summary: 'A test collection for unit tests'
+  version: '1.0.0'

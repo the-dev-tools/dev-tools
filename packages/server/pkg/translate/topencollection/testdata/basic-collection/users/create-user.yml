@@ -1,0 +1,32 @@
+info:
+  name: Create User
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: '{{base_url}}/users'
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": "John Doe",
+        "email": "john@example.com"
+      }
+  auth:
+    type: bearer
+    token: '{{token}}'
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: '201'
+    - expression: res.body.id
+      operator: neq
+      value: ''
+
+docs: 'Creates a new user account'

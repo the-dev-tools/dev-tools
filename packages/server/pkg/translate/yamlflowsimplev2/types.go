@@ -49,6 +49,7 @@ type YamlRequestDefV2 struct {
 	Body        *YamlBodyUnion    `yaml:"body,omitempty"`
 	Assertions  AssertionsOrSlice `yaml:"assertions,omitempty"`
 	Description string            `yaml:"description,omitempty"`
+	Order       float64           `yaml:"order,omitempty"` // File-tree ordering for multi-file collections
 }
 
 // YamlFlowFlowV2 represents a flow in the modern YAML format

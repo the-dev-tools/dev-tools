@@ -624,6 +624,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getRootFilesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getRootFilesByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetRootFilesByWorkspaceID: %w", err)
 	}
+	if q.getSyncedWorkspacesStmt, err = db.PrepareContext(ctx, getSyncedWorkspaces); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSyncedWorkspaces: %w", err)
+	}
 	if q.getTagStmt, err = db.PrepareContext(ctx, getTag); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTag: %w", err)
 	}
@@ -836,6 +839,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
+	}
+	if q.updateWorkspaceSyncStmt, err = db.PrepareContext(ctx, updateWorkspaceSync); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWorkspaceSync: %w", err)
 	}
 	if q.updateWorkspaceUpdatedTimeStmt, err = db.PrepareContext(ctx, updateWorkspaceUpdatedTime); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUpdatedTime: %w", err)
@@ -1854,6 +1860,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getRootFilesByWorkspaceIDStmt: %w", cerr)
 		}
 	}
+	if q.getSyncedWorkspacesStmt != nil {
+		if cerr := q.getSyncedWorkspacesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSyncedWorkspacesStmt: %w", cerr)
+		}
+	}
 	if q.getTagStmt != nil {
 		if cerr := q.getTagStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getTagStmt: %w", cerr)
@@ -2209,6 +2220,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateWorkspaceStmt: %w", cerr)
 		}
 	}
+	if q.updateWorkspaceSyncStmt != nil {
+		if cerr := q.updateWorkspaceSyncStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWorkspaceSyncStmt: %w", cerr)
+		}
+	}
 	if q.updateWorkspaceUpdatedTimeStmt != nil {
 		if cerr := q.updateWorkspaceUpdatedTimeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateWorkspaceUpdatedTimeStmt: %w", cerr)
@@ -2468,6 +2484,7 @@ type Queries struct {
 	getNodeExecutionStmt                       *sql.Stmt
 	getNodeExecutionsByNodeIDStmt              *sql.Stmt
 	getRootFilesByWorkspaceIDStmt              *sql.Stmt
+	getSyncedWorkspacesStmt                    *sql.Stmt
 	getTagStmt                                 *sql.Stmt
 	getTagsByWorkspaceIDStmt                   *sql.Stmt
 	getUserStmt                                *sql.Stmt
@@ -2539,6 +2556,7 @@ type Queries struct {
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
+	updateWorkspaceSyncStmt                    *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt             *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
 	upsertNodeExecutionStmt                    *sql.Stmt
@@ -2749,6 +2767,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getNodeExecutionStmt:                       q.getNodeExecutionStmt,
 		getNodeExecutionsByNodeIDStmt:              q.getNodeExecutionsByNodeIDStmt,
 		getRootFilesByWorkspaceIDStmt:              q.getRootFilesByWorkspaceIDStmt,
+		getSyncedWorkspacesStmt:                    q.getSyncedWorkspacesStmt,
 		getTagStmt:                                 q.getTagStmt,
 		getTagsByWorkspaceIDStmt:                   q.getTagsByWorkspaceIDStmt,
 		getUserStmt:                                q.getUserStmt,
@@ -2820,6 +2839,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
+		updateWorkspaceSyncStmt:                    q.updateWorkspaceSyncStmt,
 		updateWorkspaceUpdatedTimeStmt:             q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
 		upsertNodeExecutionStmt:                    q.upsertNodeExecutionStmt,

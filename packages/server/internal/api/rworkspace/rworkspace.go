@@ -156,6 +156,8 @@ func stringPtr(s string) *string { return &s }
 
 func float32Ptr(f float32) *float32 { return &f }
 
+func boolPtr(b bool) *bool { return &b }
+
 func workspaceUpdatedUnion(ts *timestamppb.Timestamp) *apiv1.WorkspaceSyncUpdate_UpdatedUnion {
 	if ts == nil {
 		return nil
@@ -166,15 +168,42 @@ func workspaceUpdatedUnion(ts *timestamppb.Timestamp) *apiv1.WorkspaceSyncUpdate
 	}
 }
 
+func syncPathSyncUnion(s *string) *apiv1.WorkspaceSyncUpdate_SyncPathUnion {
+	if s == nil {
+		return nil
+	}
+	return &apiv1.WorkspaceSyncUpdate_SyncPathUnion{
+		Kind:  apiv1.WorkspaceSyncUpdate_SyncPathUnion_KIND_VALUE,
+		Value: s,
+	}
+}
+
+func syncFormatSyncUnion(s *string) *apiv1.WorkspaceSyncUpdate_SyncFormatUnion {
+	if s == nil {
+		return nil
+	}
+	return &apiv1.WorkspaceSyncUpdate_SyncFormatUnion{
+		Kind:  apiv1.WorkspaceSyncUpdate_SyncFormatUnion_KIND_VALUE,
+		Value: s,
+	}
+}
+
 func toAPIWorkspace(ws mworkspace.Workspace) *apiv1.Workspace {
 	apiWorkspace := &apiv1.Workspace{
 		WorkspaceId:           ws.ID.Bytes(),
 		SelectedEnvironmentId: ws.ActiveEnv.Bytes(),
 		Name:                  ws.Name,
 		Order:                 float32(ws.Order),
+		SyncEnabled:           ws.SyncEnabled,
 	}
 	if !ws.Updated.IsZero() {
 		apiWorkspace.Updated = timestamppb.New(ws.Updated)
+	}
+	if ws.SyncPath != nil {
+		apiWorkspace.SyncPath = ws.SyncPath
+	}
+	if ws.SyncFormat != nil {
+		apiWorkspace.SyncFormat = ws.SyncFormat
 	}
 	return apiWorkspace
 }
@@ -195,6 +224,9 @@ func workspaceSyncResponseFrom(evt WorkspaceEvent) *apiv1.WorkspaceSyncResponse 
 					Name:                  evt.Workspace.Name,
 					Updated:               evt.Workspace.Updated,
 					Order:                 evt.Workspace.Order,
+					SyncPath:              evt.Workspace.SyncPath,
+					SyncFormat:            evt.Workspace.SyncFormat,
+					SyncEnabled:           evt.Workspace.SyncEnabled,
 				},
 			},
 		}
@@ -205,6 +237,9 @@ func workspaceSyncResponseFrom(evt WorkspaceEvent) *apiv1.WorkspaceSyncResponse 
 			Name:        stringPtr(evt.Workspace.Name),
 			Order:       float32Ptr(evt.Workspace.Order),
 			Updated:     workspaceUpdatedUnion(evt.Workspace.Updated),
+			SyncPath:    syncPathSyncUnion(evt.Workspace.SyncPath),
+			SyncFormat:  syncFormatSyncUnion(evt.Workspace.SyncFormat),
+			SyncEnabled: boolPtr(evt.Workspace.SyncEnabled),
 		}
 		if len(evt.Workspace.SelectedEnvironmentId) > 0 {
 			update.SelectedEnvironmentId = evt.Workspace.SelectedEnvironmentId
@@ -307,12 +342,15 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 		}
 
 		ws := &mworkspace.Workspace{
-			ID:        workspaceID,
-			Name:      name,
-			Updated:   dbtime.DBNow(),
-			ActiveEnv: envID,
-			GlobalEnv: envID,
-			Order:     float64(item.Order),
+			ID:          workspaceID,
+			Name:        name,
+			Updated:     dbtime.DBNow(),
+			ActiveEnv:   envID,
+			GlobalEnv:   envID,
+			Order:       float64(item.Order),
+			SyncPath:    item.SyncPath,
+			SyncFormat:  item.SyncFormat,
+			SyncEnabled: item.SyncEnabled,
 		}
 
 		if err := wsWriter.Create(ctx, ws); err != nil {
@@ -459,6 +497,25 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 			}
 			if item.Order != nil {
 				ws.Order = float64(*item.Order)
+			}
+			if item.SyncPath != nil {
+				switch item.SyncPath.Kind {
+				case apiv1.WorkspaceUpdate_SyncPathUnion_KIND_VALUE:
+					ws.SyncPath = item.SyncPath.Value
+				case apiv1.WorkspaceUpdate_SyncPathUnion_KIND_UNSET:
+					ws.SyncPath = nil
+				}
+			}
+			if item.SyncFormat != nil {
+				switch item.SyncFormat.Kind {
+				case apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_VALUE:
+					ws.SyncFormat = item.SyncFormat.Value
+				case apiv1.WorkspaceUpdate_SyncFormatUnion_KIND_UNSET:
+					ws.SyncFormat = nil
+				}
+			}
+			if item.SyncEnabled != nil {
+				ws.SyncEnabled = *item.SyncEnabled
 			}
 			break
 		}

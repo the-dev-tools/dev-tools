@@ -1,0 +1,15 @@
+name: Get Users
+method: GET
+url: '{{base_url}}/users'
+description: Fetch all users
+order: 1
+headers:
+  Accept: application/json
+query_params:
+  - name: page
+    value: '1'
+  - name: limit
+    value: '10'
+    enabled: false
+assertions:
+  - 'res.status eq 200'

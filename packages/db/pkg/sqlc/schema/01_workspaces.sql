@@ -7,7 +7,10 @@ CREATE TABLE workspaces (
   flow_count INT NOT NULL DEFAULT 0,
   active_env BLOB,
   global_env BLOB,
-  display_order REAL NOT NULL DEFAULT 0
+  display_order REAL NOT NULL DEFAULT 0,
+  sync_path TEXT,
+  sync_format TEXT,
+  sync_enabled BOOLEAN NOT NULL DEFAULT 0
 );
 
 CREATE INDEX workspaces_idx1 ON workspaces (
