@@ -13,7 +13,6 @@ const config: Configuration = {
   files: [
     '!**/*',
     'out',
-    ...libFiles('@the-dev-tools/cli'),
     ...libFiles('@the-dev-tools/server'),
     ...libFiles('@the-dev-tools/worker-js'),
   ],

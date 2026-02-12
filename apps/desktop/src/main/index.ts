@@ -256,28 +256,4 @@ const desktop = pipe(
   Effect.scoped,
 );
 
-const args = process.argv.slice(process.defaultApp ? 2 : 1);
-const cli = pipe(
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-
-    const dist = yield* pipe(
-      import.meta.resolve('@the-dev-tools/cli'),
-      Url.fromString,
-      Effect.flatMap(path.fromFileUrl),
-    );
-
-    const bin = pipe(
-      path.join(dist, os.platform() === 'win32' ? 'cli.exe' : 'cli'),
-      String.replaceAll('app.asar', 'app.asar.unpacked'),
-    );
-
-    yield* pipe(Command.make(bin, ...args), Command.stdout('inherit'), Command.stderr('inherit'), Command.exitCode);
-
-    app.quit();
-  }),
-);
-
-const main = args.length > 0 ? cli : desktop;
-
-pipe(main, Effect.provide(NodeContext.layer), Effect.provide(FetchHttpClient.layer), NodeRuntime.runMain);
+pipe(desktop, Effect.provide(NodeContext.layer), Effect.provide(FetchHttpClient.layer), NodeRuntime.runMain);
