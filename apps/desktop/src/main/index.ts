@@ -118,6 +118,7 @@ const server = pipe(
         DB_MODE: 'local',
         DB_NAME: 'state',
         DB_PATH: app.getPath('userData'),
+        DEVTOOLS_MODE: 'server',
         HMAC_SECRET: 'secret',
       }),
       Command.stdout('inherit'),
@@ -263,17 +264,23 @@ const cli = pipe(
     const path = yield* Path.Path;
 
     const dist = yield* pipe(
-      import.meta.resolve('@the-dev-tools/cli'),
+      import.meta.resolve('@the-dev-tools/server'),
       Url.fromString,
       Effect.flatMap(path.fromFileUrl),
     );
 
     const bin = pipe(
-      path.join(dist, os.platform() === 'win32' ? 'cli.exe' : 'cli'),
+      path.join(dist, os.platform() === 'win32' ? 'server.exe' : 'server'),
       String.replaceAll('app.asar', 'app.asar.unpacked'),
     );
 
-    yield* pipe(Command.make(bin, ...args), Command.stdout('inherit'), Command.stderr('inherit'), Command.exitCode);
+    yield* pipe(
+      Command.make(bin, ...args),
+      Command.env({ DEVTOOLS_MODE: 'cli' }),
+      Command.stdout('inherit'),
+      Command.stderr('inherit'),
+      Command.exitCode,
+    );
 
     app.quit();
   }),

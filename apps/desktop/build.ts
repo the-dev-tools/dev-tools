@@ -10,13 +10,7 @@ const config: Configuration = {
   extraMetadata: {
     name: 'DevTools-Studio',
   },
-  files: [
-    '!**/*',
-    'out',
-    ...libFiles('@the-dev-tools/cli'),
-    ...libFiles('@the-dev-tools/server'),
-    ...libFiles('@the-dev-tools/worker-js'),
-  ],
+  files: ['!**/*', 'out', ...libFiles('@the-dev-tools/server'), ...libFiles('@the-dev-tools/worker-js')],
   linux: {
     category: 'Development',
     target: ['AppImage'],
