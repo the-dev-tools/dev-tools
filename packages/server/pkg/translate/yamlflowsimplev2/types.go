@@ -9,6 +9,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 )
 
 // YamlFlowFormatV2 represents the modern YAML structure for simplified workflows
@@ -20,6 +21,7 @@ type YamlFlowFormatV2 struct {
 	Run               []YamlRunEntryV2            `yaml:"run,omitempty"`
 	RequestTemplates  map[string]YamlRequestDefV2 `yaml:"request_templates,omitempty"`
 	Requests          []YamlRequestDefV2          `yaml:"requests,omitempty"`
+	GraphQLRequests   []YamlGraphQLDefV2          `yaml:"graphql_requests,omitempty"`
 	Flows             []YamlFlowFlowV2            `yaml:"flows"`
 	Environments      []YamlEnvironmentV2         `yaml:"environments,omitempty"`
 }
@@ -51,6 +53,15 @@ type YamlRequestDefV2 struct {
 	Description string            `yaml:"description,omitempty"`
 }
 
+// YamlGraphQLDefV2 represents a GraphQL request definition (template or standalone)
+type YamlGraphQLDefV2 struct {
+	Name      string           `yaml:"name,omitempty"`
+	URL       string           `yaml:"url,omitempty"`
+	Query     string           `yaml:"query"`
+	Variables string           `yaml:"variables,omitempty"`
+	Headers   HeaderMapOrSlice `yaml:"headers,omitempty"`
+}
+
 // YamlFlowFlowV2 represents a flow in the modern YAML format
 type YamlFlowFlowV2 struct {
 	Name      string                 `yaml:"name"`
@@ -64,6 +75,7 @@ type YamlFlowFlowV2 struct {
 // A step is a map with a single key that identifies the type
 type YamlStepWrapper struct {
 	Request     *YamlStepRequest    `yaml:"request,omitempty"`
+	GraphQL     *YamlStepGraphQL    `yaml:"graphql,omitempty"`
 	If          *YamlStepIf         `yaml:"if,omitempty"`
 	For         *YamlStepFor        `yaml:"for,omitempty"`
 	ForEach     *YamlStepForEach    `yaml:"for_each,omitempty"`
@@ -89,6 +101,15 @@ type YamlStepRequest struct {
 	QueryParams    HeaderMapOrSlice  `yaml:"query_params,omitempty"`
 	Body           *YamlBodyUnion    `yaml:"body,omitempty"`
 	Assertions     AssertionsOrSlice `yaml:"assertions,omitempty"`
+}
+
+type YamlStepGraphQL struct {
+	YamlStepCommon `yaml:",inline"`
+	UseRequest     string           `yaml:"use_request,omitempty"`
+	URL            string           `yaml:"url,omitempty"`
+	Query          string           `yaml:"query,omitempty"`
+	Variables      string           `yaml:"variables,omitempty"`
+	Headers        HeaderMapOrSlice `yaml:"headers,omitempty"`
 }
 
 type YamlStepIf struct {
@@ -380,6 +401,10 @@ type YamlFlowDataV2 struct {
 	// HTTP request data
 	HTTPRequests []YamlHTTPRequestV2
 
+	// GraphQL request data
+	GraphQLRequests []mgraphql.GraphQL
+	GraphQLHeaders  []mgraphql.GraphQLHeader
+
 	// Flow node implementations
 	RequestNodes     []mflow.NodeRequest
 	ConditionNodes   []mflow.NodeIf
@@ -389,6 +414,7 @@ type YamlFlowDataV2 struct {
 	AINodes          []mflow.NodeAI
 	AIProviderNodes  []mflow.NodeAiProvider
 	AIMemoryNodes    []mflow.NodeMemory
+	GraphQLNodes     []mflow.NodeGraphQL
 }
 
 // YamlVariableV2 represents a variable during parsing

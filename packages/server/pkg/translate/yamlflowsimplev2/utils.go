@@ -236,6 +236,17 @@ func ValidateYAMLStructure(yamlFormat *YamlFlowFormatV2) error {
 		}
 	}
 
+	// Check for duplicate GraphQL request names
+	graphqlNames := make(map[string]bool)
+	for _, gql := range yamlFormat.GraphQLRequests {
+		if gql.Name != "" {
+			if graphqlNames[gql.Name] {
+				return NewYamlFlowErrorV2(fmt.Sprintf("duplicate graphql request name: %s", gql.Name), "graphql_requests", gql.Name)
+			}
+			graphqlNames[gql.Name] = true
+		}
+	}
+
 	// Check for flow dependencies that reference non-existent flows
 	for _, runEntry := range yamlFormat.Run {
 		flowName := runEntry.Flow

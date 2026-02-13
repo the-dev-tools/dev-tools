@@ -11,6 +11,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
 	"gopkg.in/yaml.v3"
@@ -117,6 +118,21 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		aiMemoryNodeMap[n.FlowNodeID] = n
 	}
 
+	graphqlNodeMap := make(map[idwrap.IDWrap]mflow.NodeGraphQL)
+	for _, n := range data.FlowGraphQLNodes {
+		graphqlNodeMap[n.FlowNodeID] = n
+	}
+
+	graphqlMap := make(map[idwrap.IDWrap]mgraphql.GraphQL)
+	for _, g := range data.GraphQLRequests {
+		graphqlMap[g.ID] = g
+	}
+
+	graphqlHeadersMap := make(map[idwrap.IDWrap][]mgraphql.GraphQLHeader)
+	for _, h := range data.GraphQLHeaders {
+		graphqlHeadersMap[h.GraphQLID] = append(graphqlHeadersMap[h.GraphQLID], h)
+	}
+
 	// Credential Map (ID -> Credential)
 	credentialMap := make(map[idwrap.IDWrap]mcredential.Credential)
 	for _, c := range data.Credentials {
@@ -211,6 +227,73 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 	if len(requests) > 0 {
 		yamlFormat.Requests = requests
+	}
+
+	// 2b. Build top-level graphql_requests section
+	graphqlIDToRequestName := make(map[idwrap.IDWrap]string)
+	graphqlNameUsed := make(map[string]bool)
+
+	// First pass: collect all GraphQL requests used in flows
+	for _, flow := range data.Flows {
+		for _, n := range data.FlowNodes {
+			if n.FlowID != flow.ID || n.NodeKind != mflow.NODE_KIND_GRAPHQL {
+				continue
+			}
+			gqlNode, ok := graphqlNodeMap[n.ID]
+			if !ok || gqlNode.GraphQLID == nil {
+				continue
+			}
+			gqlReq, ok := graphqlMap[*gqlNode.GraphQLID]
+			if !ok {
+				continue
+			}
+
+			if _, exists := graphqlIDToRequestName[gqlReq.ID]; exists {
+				continue
+			}
+
+			gqlName := gqlReq.Name
+			if gqlName == "" {
+				gqlName = "GraphQL Request"
+			}
+
+			baseName := gqlName
+			counter := 1
+			for graphqlNameUsed[gqlName] {
+				gqlName = fmt.Sprintf("%s_%d", baseName, counter)
+				counter++
+			}
+			graphqlNameUsed[gqlName] = true
+			graphqlIDToRequestName[gqlReq.ID] = gqlName
+		}
+	}
+
+	// Second pass: build the graphql_requests section
+	var graphqlRequests []YamlGraphQLDefV2
+	var graphqlIDs []idwrap.IDWrap
+	for gqlID := range graphqlIDToRequestName {
+		graphqlIDs = append(graphqlIDs, gqlID)
+	}
+	sort.Slice(graphqlIDs, func(i, j int) bool {
+		return graphqlIDToRequestName[graphqlIDs[i]] < graphqlIDToRequestName[graphqlIDs[j]]
+	})
+
+	for _, gqlID := range graphqlIDs {
+		gqlName := graphqlIDToRequestName[gqlID]
+		gqlReq := graphqlMap[gqlID]
+
+		gqlDef := YamlGraphQLDefV2{
+			Name:      gqlName,
+			URL:       gqlReq.Url,
+			Query:     gqlReq.Query,
+			Variables: gqlReq.Variables,
+			Headers:   buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlID]),
+		}
+		graphqlRequests = append(graphqlRequests, gqlDef)
+	}
+
+	if len(graphqlRequests) > 0 {
+		yamlFormat.GraphQLRequests = graphqlRequests
 	}
 
 	// 3. Process each Flow
@@ -444,6 +527,30 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 				stepWrapper.AIMemory = memoryStep
 
+			case mflow.NODE_KIND_GRAPHQL:
+				gqlNode, ok := graphqlNodeMap[node.ID]
+				if !ok || gqlNode.GraphQLID == nil {
+					continue
+				}
+				gqlReq, ok := graphqlMap[*gqlNode.GraphQLID]
+				if !ok {
+					continue
+				}
+
+				gqlStep := &YamlStepGraphQL{
+					YamlStepCommon: common,
+				}
+
+				if gqlName, exists := graphqlIDToRequestName[gqlReq.ID]; exists {
+					gqlStep.UseRequest = gqlName
+				} else {
+					gqlStep.URL = gqlReq.Url
+					gqlStep.Query = gqlReq.Query
+					gqlStep.Variables = gqlReq.Variables
+					gqlStep.Headers = buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlReq.ID])
+				}
+				stepWrapper.GraphQL = gqlStep
+
 			case mflow.NODE_KIND_MANUAL_START:
 				if node.ID == startNodeID {
 					stepWrapper.ManualStart = &common
@@ -455,7 +562,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			// Add to flow
 			// Because stepWrapper has pointer fields, "empty" fields are nil
 			// Checking if any field is set (simplified check, assume one set if we got here)
-			isValid := stepWrapper.Request != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
+			isValid := stepWrapper.Request != nil || stepWrapper.GraphQL != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
 				stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil ||
 				stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.ManualStart != nil
 			if isValid {
@@ -522,6 +629,22 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	return yaml.Marshal(yamlFormat)
+}
+
+func buildGraphQLHeaderMapOrSlice(headers []mgraphql.GraphQLHeader) HeaderMapOrSlice {
+	if len(headers) == 0 {
+		return nil
+	}
+	var result []YamlNameValuePairV2
+	for _, h := range headers {
+		result = append(result, YamlNameValuePairV2{
+			Name:        h.Key,
+			Value:       h.Value,
+			Enabled:     h.Enabled,
+			Description: h.Description,
+		})
+	}
+	return HeaderMapOrSlice(result)
 }
 
 type deltaLookupContext struct {

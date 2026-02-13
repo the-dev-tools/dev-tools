@@ -55,9 +55,17 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		}
 	}
 
+	// Prepare GraphQL request templates
+	graphqlTemplates := make(map[string]YamlGraphQLDefV2)
+	for _, gql := range yamlFormat.GraphQLRequests {
+		if gql.Name != "" {
+			graphqlTemplates[gql.Name] = gql
+		}
+	}
+
 	// Process flows and generate HTTP requests
 	for _, flowEntry := range yamlFormat.Flows {
-		flowData, err := processFlow(flowEntry, yamlFormat.Run, requestTemplates, opts)
+		flowData, err := processFlow(flowEntry, yamlFormat.Run, requestTemplates, graphqlTemplates, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process flow '%s': %w", flowEntry.Name, err)
 		}

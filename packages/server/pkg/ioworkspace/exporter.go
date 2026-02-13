@@ -12,6 +12,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
@@ -51,6 +52,10 @@ func (s *IOWorkspaceService) Export(ctx context.Context, opts ExportOptions) (*W
 	if opts.IncludeHTTP {
 		if err := s.exportHTTP(ctx, opts, bundle); err != nil {
 			return nil, fmt.Errorf("failed to export HTTP requests: %w", err)
+		}
+
+		if err := s.exportGraphQL(ctx, opts, bundle); err != nil {
+			return nil, fmt.Errorf("failed to export GraphQL requests: %w", err)
 		}
 	}
 
@@ -213,6 +218,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	nodeForService := sflow.NewNodeForService(s.queries)
 	nodeForEachService := sflow.NewNodeForEachService(s.queries)
 	nodeJSService := sflow.NewNodeJsService(s.queries)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(s.queries)
 
 	var flowIDs []idwrap.IDWrap
 
@@ -266,7 +272,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
-			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService); err != nil {
+			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeGraphQLService); err != nil {
 				return fmt.Errorf("failed to export node implementation for node %s: %w", node.ID.String(), err)
 			}
 		}
@@ -280,7 +286,34 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 		"condition_nodes", len(bundle.FlowConditionNodes),
 		"for_nodes", len(bundle.FlowForNodes),
 		"foreach_nodes", len(bundle.FlowForEachNodes),
-		"js_nodes", len(bundle.FlowJSNodes))
+		"js_nodes", len(bundle.FlowJSNodes),
+		"graphql_nodes", len(bundle.FlowGraphQLNodes))
+
+	return nil
+}
+
+// exportGraphQL exports GraphQL requests and their headers
+func (s *IOWorkspaceService) exportGraphQL(ctx context.Context, opts ExportOptions, bundle *WorkspaceBundle) error {
+	graphqlService := sgraphql.New(s.queries, s.logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(s.queries)
+
+	gqlRequests, err := graphqlService.GetByWorkspaceID(ctx, opts.WorkspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to get GraphQL requests: %w", err)
+	}
+	bundle.GraphQLRequests = gqlRequests
+
+	for _, gql := range gqlRequests {
+		headers, err := graphqlHeaderService.GetByGraphQLID(ctx, gql.ID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("failed to get headers for GraphQL %s: %w", gql.ID.String(), err)
+		}
+		bundle.GraphQLHeaders = append(bundle.GraphQLHeaders, headers...)
+	}
+
+	s.logger.DebugContext(ctx, "Exported GraphQL requests",
+		"count", len(bundle.GraphQLRequests),
+		"headers", len(bundle.GraphQLHeaders))
 
 	return nil
 }
@@ -295,6 +328,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	nodeForService sflow.NodeForService,
 	nodeForEachService sflow.NodeForEachService,
 	nodeJSService sflow.NodeJsService,
+	nodeGraphQLService sflow.NodeGraphQLService,
 ) error {
 	switch node.NodeKind {
 	case mflow.NODE_KIND_REQUEST:
@@ -340,6 +374,15 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 		}
 		if nodeJS != nil {
 			bundle.FlowJSNodes = append(bundle.FlowJSNodes, *nodeJS)
+		}
+
+	case mflow.NODE_KIND_GRAPHQL:
+		nodeGraphQL, err := nodeGraphQLService.GetNodeGraphQL(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get graphql node: %w", err)
+		}
+		if nodeGraphQL != nil {
+			bundle.FlowGraphQLNodes = append(bundle.FlowGraphQLNodes, *nodeGraphQL)
 		}
 	}
 
