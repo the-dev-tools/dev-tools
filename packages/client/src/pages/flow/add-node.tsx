@@ -6,7 +6,7 @@ import * as RAC from 'react-aria-components';
 import { FiArrowLeft, FiBriefcase, FiChevronRight, FiTerminal, FiX } from 'react-icons/fi';
 import { TbRobotFace } from 'react-icons/tb';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
-import { HandleKind, NodeHttpInsertSchema, NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { HandleKind, NodeGraphQLInsertSchema, NodeHttpInsertSchema, NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
@@ -16,9 +16,11 @@ import {
   NodeConditionCollectionSchema,
   NodeForCollectionSchema,
   NodeForEachCollectionSchema,
+  NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
   NodeJsCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Button } from '@the-dev-tools/ui/button';
 import { FlowsIcon, ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
@@ -247,6 +249,13 @@ const AddCoreNodeSidebar = (props: AddNodeSidebarProps) => {
           onAction={() => void setSidebar?.((_) => <AddHttpRequestNodeSidebar {...props} previous={_} />)}
           title='HTTP Request'
         />
+
+        <SidebarItem
+          description='Makes a GraphQL request and returns the response data'
+          icon={<SendRequestIcon />}
+          onAction={() => void setSidebar?.((_) => <AddGraphQLRequestNodeSidebar {...props} previous={_} />)}
+          title='GraphQL Request'
+        />
       </RAC.ListBox>
     </>
   );
@@ -311,6 +320,69 @@ const AddHttpRequestNodeSidebar = ({ handleKind, position, previous, sourceId, t
 
           nodeHttpCollection.utils.insert(data);
           insertNode({ handleKind, kind: NodeKind.HTTP, name: 'http', nodeId, position, sourceId, targetId });
+        }}
+        showControls
+      />
+    </>
+  );
+};
+
+const AddGraphQLRequestNodeSidebar = ({ handleKind, position, previous, sourceId, targetId }: AddNodeSidebarProps) => {
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
+  const insertNode = useInsertNode();
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+  const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
+  const nodeGraphQLCollection = useApiCollection(NodeGraphQLCollectionSchema);
+
+  return (
+    <>
+      <SidebarHeader previous={previous} title='GraphQL request' />
+
+      <div className={tw`mx-4 my-3`}>
+        <Button
+          className={tw`w-full`}
+          onPress={async () => {
+            const graphqlId = Ulid.generate().bytes;
+
+            graphqlCollection.utils.insert({
+              graphqlId,
+              name: 'New GraphQL request',
+              url: '',
+            });
+
+            fileCollection.utils.insert({
+              fileId: graphqlId,
+              kind: FileKind.GRAPH_Q_L,
+              order: await getNextOrder(fileCollection),
+              workspaceId,
+            });
+
+            const nodeId = Ulid.generate().bytes;
+            nodeGraphQLCollection.utils.insert({ graphqlId, nodeId });
+            insertNode({ handleKind, kind: NodeKind.GRAPH_Q_L, name: 'graphql', nodeId, position, sourceId, targetId });
+          }}
+        >
+          New GraphQL request
+        </Button>
+      </div>
+
+      <FileTree
+        onAction={(key) => {
+          const nodeId = Ulid.generate().bytes;
+          const data: MessageInitShape<typeof NodeGraphQLInsertSchema> = { nodeId };
+
+          const file = fileCollection.get(key.toString())!;
+
+          if (file.kind === FileKind.GRAPH_Q_L) {
+            data.graphqlId = file.fileId;
+          } else {
+            return;
+          }
+
+          nodeGraphQLCollection.utils.insert(data);
+          insertNode({ handleKind, kind: NodeKind.GRAPH_Q_L, name: 'graphql', nodeId, position, sourceId, targetId });
         }}
         showControls
       />

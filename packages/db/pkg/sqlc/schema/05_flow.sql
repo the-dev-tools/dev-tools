@@ -83,6 +83,12 @@ CREATE TABLE flow_node_http (
 );
 
 
+CREATE TABLE flow_node_graphql (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  graphql_id BLOB NOT NULL,
+  FOREIGN KEY (graphql_id) REFERENCES graphql (id) ON DELETE CASCADE
+);
+
 CREATE TABLE flow_node_condition (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   expression TEXT NOT NULL
@@ -122,8 +128,10 @@ CREATE TABLE node_execution (
   output_data_compress_type INT8 NOT NULL DEFAULT 0,
   -- Add new fields
   http_response_id BLOB, -- Response ID for HTTP request nodes (NULL for non-request nodes)
+  graphql_response_id BLOB, -- Response ID for GraphQL request nodes
   completed_at BIGINT, -- Unix timestamp in milliseconds
-  FOREIGN KEY (http_response_id) REFERENCES http_response (id) ON DELETE SET NULL
+  FOREIGN KEY (http_response_id) REFERENCES http_response (id) ON DELETE SET NULL,
+  FOREIGN KEY (graphql_response_id) REFERENCES graphql_response (id) ON DELETE SET NULL
 );
 
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);

@@ -113,6 +113,9 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		nil, // NodeAIService - not needed for CLI tests
 		nil, // NodeAiProviderService - not needed for CLI tests
 		nil, // NodeMemoryService - not needed for CLI tests
+		nil, // NodeGraphQLService - not needed for CLI tests
+		nil, // GraphQLService - not needed for CLI tests
+		nil, // GraphQLHeaderService - not needed for CLI tests
 		&workspaceService,
 		&varService,
 		&flowVariableService,

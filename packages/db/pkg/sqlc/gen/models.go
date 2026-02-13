@@ -122,6 +122,11 @@ type FlowNodeForEach struct {
 	Expression     string
 }
 
+type FlowNodeGraphql struct {
+	FlowNodeID idwrap.IDWrap
+	GraphqlID  idwrap.IDWrap
+}
+
 type FlowNodeHttp struct {
 	FlowNodeID  idwrap.IDWrap
 	HttpID      idwrap.IDWrap
@@ -154,6 +159,51 @@ type FlowVariable struct {
 	Enabled      bool
 	Description  string
 	DisplayOrder float64
+}
+
+type Graphql struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	FolderID    *idwrap.IDWrap
+	Name        string
+	Url         string
+	Query       string
+	Variables   string
+	Description string
+	LastRunAt   interface{}
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+type GraphqlHeader struct {
+	ID           idwrap.IDWrap
+	GraphqlID    idwrap.IDWrap
+	HeaderKey    string
+	HeaderValue  string
+	Description  string
+	Enabled      bool
+	DisplayOrder float64
+	CreatedAt    int64
+	UpdatedAt    int64
+}
+
+type GraphqlResponse struct {
+	ID        idwrap.IDWrap
+	GraphqlID idwrap.IDWrap
+	Status    interface{}
+	Body      []byte
+	Time      time.Time
+	Duration  interface{}
+	Size      interface{}
+	CreatedAt int64
+}
+
+type GraphqlResponseHeader struct {
+	ID         idwrap.IDWrap
+	ResponseID idwrap.IDWrap
+	Key        string
+	Value      string
+	CreatedAt  int64
 }
 
 type Http struct {
@@ -340,6 +390,7 @@ type NodeExecution struct {
 	OutputData             []byte
 	OutputDataCompressType int8
 	HttpResponseID         *idwrap.IDWrap
+	GraphqlResponseID      *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 }
 

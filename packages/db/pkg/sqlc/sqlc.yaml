@@ -274,6 +274,19 @@ sql:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ## flow_node_graphql
+          ### flow_node_id
+          - column: 'flow_node_graphql.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### graphql_id
+          - column: 'flow_node_graphql.graphql_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ## flow_node_condition
           ### flow_node_id
           - column: 'flow_node_condition.flow_node_id'
@@ -363,6 +376,13 @@ sql:
               type: 'IDWrap'
           ### http_response_id
           - column: 'node_execution.http_response_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### graphql_response_id
+          - column: 'node_execution.graphql_response_id'
             go_type:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
@@ -775,6 +795,65 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
           - column: 'http_response_assert.response_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ## GraphQL system
+          ### graphql table
+          - column: 'graphql.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'graphql.workspace_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'graphql.folder_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'graphql.created_at'
+            go_type: 'int64'
+          - column: 'graphql.updated_at'
+            go_type: 'int64'
+          ### graphql_header table
+          - column: 'graphql_header.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'graphql_header.graphql_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'graphql_header.created_at'
+            go_type: 'int64'
+          - column: 'graphql_header.updated_at'
+            go_type: 'int64'
+          ### graphql_response table
+          - column: 'graphql_response.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'graphql_response.graphql_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### graphql_response_header table
+          - column: 'graphql_response_header.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'graphql_response_header.response_id'
             go_type:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'

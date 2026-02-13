@@ -16,6 +16,7 @@ import (
 
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/ngraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
@@ -208,6 +209,45 @@ func (s *FlowServiceV2RPC) executeFlow(
 		respDrain.Wait()
 	}()
 
+	gqlRespChan := make(chan ngraphql.NodeGraphQLSideResp, len(nodes)*2+1)
+	gqlResponsePublished := make(map[string]chan struct{})
+	var gqlResponsePublishedMu sync.Mutex
+	var gqlRespDrain sync.WaitGroup
+	gqlRespDrain.Add(1)
+	go func() {
+		defer gqlRespDrain.Done()
+		for resp := range gqlRespChan {
+			responseID := resp.Response.ID.String()
+
+			gqlResponsePublishedMu.Lock()
+			publishedChan := make(chan struct{})
+			gqlResponsePublished[responseID] = publishedChan
+			gqlResponsePublishedMu.Unlock()
+
+			// Save GraphQL Response
+			if err := s.graphqlResponseService.Create(ctx, resp.Response); err != nil {
+				s.logger.Error("failed to save graphql response", "error", err)
+			}
+
+			// Save Response Headers
+			for _, h := range resp.RespHeaders {
+				if err := s.graphqlResponseService.CreateHeader(ctx, h); err != nil {
+					s.logger.Error("failed to save graphql response header", "error", err)
+				}
+			}
+
+			close(publishedChan)
+
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+	defer func() {
+		close(gqlRespChan)
+		gqlRespDrain.Wait()
+	}()
+
 	sharedHTTPClient := httpclient.New()
 	edgeMap := mflow.NewEdgesMap(edges)
 	// Build edgesBySource map for O(1) edge lookup by source node ID
@@ -226,6 +266,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 		timeoutDuration,
 		sharedHTTPClient,
 		requestRespChan,
+		gqlRespChan,
 		s.jsClient,
 	)
 	if err != nil {
@@ -357,11 +398,20 @@ func (s *FlowServiceV2RPC) executeFlow(
 				}
 
 				model := mflow.NodeExecution{
-					ID:         execID,
-					NodeID:     status.NodeID,
-					Name:       executionName,
-					State:      status.State,
-					ResponseID: status.AuxiliaryID,
+					ID:     execID,
+					NodeID: status.NodeID,
+					Name:   executionName,
+					State:  status.State,
+				}
+
+				// Set the appropriate response ID based on node kind
+				nodeKindForAux := nodeKindMap[status.NodeID]
+				if status.AuxiliaryID != nil {
+					if nodeKindForAux == mflow.NODE_KIND_GRAPHQL {
+						model.GraphQLResponseID = status.AuxiliaryID
+					} else {
+						model.ResponseID = status.AuxiliaryID
+					}
 				}
 
 				if status.Error != nil {
@@ -403,23 +453,36 @@ func (s *FlowServiceV2RPC) executeFlow(
 				}
 
 				// If this execution has a ResponseID, wait for the response to be published first
-				// This ensures frontend receives HttpResponse before NodeExecution
+				// This ensures frontend receives HttpResponse/GraphQLResponse before NodeExecution
 				if status.AuxiliaryID != nil {
 					respIDStr := status.AuxiliaryID.String()
+
+					// Check HTTP response published map
 					responsePublishedMu.Lock()
 					publishedChan, ok := responsePublished[respIDStr]
 					responsePublishedMu.Unlock()
 					if ok {
 						select {
 						case <-publishedChan:
-							// Response published, safe to continue
 						case <-ctx.Done():
-							// Context cancelled, continue anyway
 						}
-						// Clean up map entry to prevent memory leak
 						responsePublishedMu.Lock()
 						delete(responsePublished, respIDStr)
 						responsePublishedMu.Unlock()
+					}
+
+					// Check GraphQL response published map
+					gqlResponsePublishedMu.Lock()
+					gqlPublishedChan, gqlOK := gqlResponsePublished[respIDStr]
+					gqlResponsePublishedMu.Unlock()
+					if gqlOK {
+						select {
+						case <-gqlPublishedChan:
+						case <-ctx.Done():
+						}
+						gqlResponsePublishedMu.Lock()
+						delete(gqlResponsePublished, respIDStr)
+						gqlResponsePublishedMu.Unlock()
 					}
 				}
 
@@ -650,6 +713,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		aiData         *mflow.NodeAI
 		aiProviderData *mflow.NodeAiProvider
 		memoryData     *mflow.NodeMemory
+		graphqlData    *mflow.NodeGraphQL
 	}
 
 	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))
@@ -719,6 +783,14 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			} else if memoryData != nil {
 				config.memoryData = memoryData
 			}
+
+		case mflow.NODE_KIND_GRAPHQL:
+			graphqlData, err := s.ngqs.GetNodeGraphQL(ctx, sourceNode.ID)
+			if err != nil {
+				s.logger.Warn("failed to get graphql node config, using defaults", "node_id", sourceNode.ID.String(), "error", err)
+			} else if graphqlData != nil {
+				config.graphqlData = graphqlData
+			}
 		}
 
 		nodeConfigs = append(nodeConfigs, config)
@@ -753,6 +825,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	if s.nmems != nil {
 		txService := s.nmems.TX(tx)
 		nmemsWriter = &txService
+	}
+	var ngqsWriter *sflow.NodeGraphQLService
+	if s.ngqs != nil {
+		txService := s.ngqs.TX(tx)
+		ngqsWriter = &txService
 	}
 	edgeWriter := s.es.TX(tx)
 	varWriter := s.fvs.TX(tx)
@@ -957,6 +1034,19 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					return mflow.Flow{}, nil, fmt.Errorf("create memory node: %w", err)
 				}
 				// Memory node events are handled through nodeStream subscription
+			}
+
+		case mflow.NODE_KIND_GRAPHQL:
+			if ngqsWriter == nil {
+				s.logger.Warn("NodeGraphQL service not available, skipping GraphQL node config", "node_id", sourceNode.ID.String())
+			} else if config.graphqlData != nil {
+				newGraphQLData := mflow.NodeGraphQL{
+					FlowNodeID: newNodeID,
+					GraphQLID:  config.graphqlData.GraphQLID,
+				}
+				if err := ngqsWriter.CreateNodeGraphQL(ctx, newGraphQLData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create graphql node: %w", err)
+				}
 			}
 		}
 
