@@ -124,6 +124,16 @@ func serializeNodeAI(n mflow.NodeAI) *flowv1.NodeAi {
 	}
 }
 
+func serializeNodeGraphQL(n mflow.NodeGraphQL) *flowv1.NodeGraphQL {
+	msg := &flowv1.NodeGraphQL{
+		NodeId: n.FlowNodeID.Bytes(),
+	}
+	if n.GraphQLID != nil && !isZeroID(*n.GraphQLID) {
+		msg.GraphqlId = n.GraphQLID.Bytes()
+	}
+	return msg
+}
+
 func serializeNodeExecution(execution mflow.NodeExecution) *flowv1.NodeExecution {
 	result := &flowv1.NodeExecution{
 		NodeExecutionId: execution.ID.Bytes(),
@@ -180,6 +190,11 @@ func serializeNodeExecution(execution mflow.NodeExecution) *flowv1.NodeExecution
 	// Handle HTTP response ID
 	if execution.ResponseID != nil {
 		result.HttpResponseId = execution.ResponseID.Bytes()
+	}
+
+	// Handle GraphQL response ID
+	if execution.GraphQLResponseID != nil {
+		result.GraphqlResponseId = execution.GraphQLResponseID.Bytes()
 	}
 
 	// Handle completion timestamp

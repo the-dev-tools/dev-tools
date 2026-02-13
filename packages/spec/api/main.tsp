@@ -7,6 +7,7 @@ import "./environment.tsp";
 import "./export.tsp";
 import "./file-system.tsp";
 import "./flow.tsp";
+import "./graphql.tsp";
 import "./health.tsp";
 import "./http.tsp";
 import "./import.tsp";

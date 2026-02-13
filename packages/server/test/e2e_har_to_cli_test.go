@@ -27,6 +27,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/ngraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
@@ -271,6 +272,9 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		nil, // NodeAIService
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
+		nil, // NodeGraphQLService
+		nil, // GraphQLService
+		nil, // GraphQLHeaderService
 		cli.Workspace,
 		cli.Variable,
 		cli.FlowVariable,
@@ -475,6 +479,16 @@ func executeFlow(ctx context.Context, flowPtr *mflow.Flow, c *cliServices, build
 	}()
 	defer close(requestRespChan)
 
+	gqlRespChan := make(chan ngraphql.NodeGraphQLSideResp, requestBufferSize)
+	go func() {
+		for resp := range gqlRespChan {
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+	defer close(gqlRespChan)
+
 	// Build flow node map
 	flowNodeMap, startNodeID, err := builder.BuildNodes(
 		ctx,
@@ -483,6 +497,7 @@ func executeFlow(ctx context.Context, flowPtr *mflow.Flow, c *cliServices, build
 		nodeTimeout,
 		httpClient,
 		requestRespChan,
+		gqlRespChan,
 		nil, // No JS client needed for this test
 	)
 	if err != nil {
