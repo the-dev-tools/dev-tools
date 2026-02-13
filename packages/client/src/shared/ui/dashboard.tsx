@@ -1,9 +1,11 @@
 import { Outlet, useRouter } from '@tanstack/react-router';
 import { Suspense } from 'react';
-import { ButtonAsRouteLink } from '@the-dev-tools/ui/button';
+import { FiMoon, FiSun } from 'react-icons/fi';
+import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { routes } from '../routes';
 
 interface DashboardLayoutProps {
@@ -13,6 +15,8 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
   const router = useRouter();
+
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className={tw`flex h-full flex-col`}>
@@ -33,6 +37,13 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
         <div className={tw`h-5 w-px bg-on-inverse-lower`} />
 
         {navbar}
+
+        <Button className={tw`p-1 text-xl`} onPress={() => void toggleTheme()} variant='ghost dark'>
+          {theme === 'light' && <FiSun />}
+          {theme === 'dark' && <FiMoon />}
+        </Button>
+
+        <div className={tw`-ml-1.5 h-5 w-px bg-on-inverse-lower`} />
 
         <a href='https://github.com/the-dev-tools/dev-tools' rel='noreferrer' target='_blank'>
           <img alt='GitHub Repo stars' src='https://img.shields.io/github/stars/the-dev-tools/dev-tools' />

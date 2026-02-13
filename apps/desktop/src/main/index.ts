@@ -2,7 +2,7 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, nativeTheme, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import os from 'node:os';
 import { Agent } from 'undici';
@@ -31,6 +31,7 @@ const createWindow = Effect.gen(function* () {
 
   // Create the browser window.
   const mainWindow = new BrowserWindow({
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#18181b' : 'white',
     height: 600,
     icon,
     title: 'DevTools Studio',
