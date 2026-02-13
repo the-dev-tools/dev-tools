@@ -52,6 +52,15 @@ func (q *Queries) CleanupOrphanedFlowNodeForEach(ctx context.Context) error {
 	return err
 }
 
+const cleanupOrphanedFlowNodeGraphQL = `-- name: CleanupOrphanedFlowNodeGraphQL :exec
+DELETE FROM flow_node_graphql WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeGraphQL(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeGraphQLStmt, cleanupOrphanedFlowNodeGraphQL)
+	return err
+}
+
 const cleanupOrphanedFlowNodeHttp = `-- name: CleanupOrphanedFlowNodeHttp :exec
 DELETE FROM flow_node_http WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
 `
@@ -227,6 +236,20 @@ func (q *Queries) CreateFlowNodeForEach(ctx context.Context, arg CreateFlowNodeF
 		arg.ErrorHandling,
 		arg.Expression,
 	)
+	return err
+}
+
+const createFlowNodeGraphQL = `-- name: CreateFlowNodeGraphQL :exec
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id) VALUES (?, ?)
+`
+
+type CreateFlowNodeGraphQLParams struct {
+	FlowNodeID idwrap.IDWrap
+	GraphqlID  idwrap.IDWrap
+}
+
+func (q *Queries) CreateFlowNodeGraphQL(ctx context.Context, arg CreateFlowNodeGraphQLParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeGraphQLStmt, createFlowNodeGraphQL, arg.FlowNodeID, arg.GraphqlID)
 	return err
 }
 
@@ -870,10 +893,10 @@ func (q *Queries) CreateMigration(ctx context.Context, arg CreateMigrationParams
 const createNodeExecution = `-- name: CreateNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, http_response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 `
 
 type CreateNodeExecutionParams struct {
@@ -887,6 +910,7 @@ type CreateNodeExecutionParams struct {
 	OutputData             []byte
 	OutputDataCompressType int8
 	HttpResponseID         *idwrap.IDWrap
+	GraphqlResponseID      *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 }
 
@@ -902,6 +926,7 @@ func (q *Queries) CreateNodeExecution(ctx context.Context, arg CreateNodeExecuti
 		arg.OutputData,
 		arg.OutputDataCompressType,
 		arg.HttpResponseID,
+		arg.GraphqlResponseID,
 		arg.CompletedAt,
 	)
 	var i NodeExecution
@@ -916,6 +941,7 @@ func (q *Queries) CreateNodeExecution(ctx context.Context, arg CreateNodeExecuti
 		&i.OutputData,
 		&i.OutputDataCompressType,
 		&i.HttpResponseID,
+		&i.GraphqlResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -1009,6 +1035,15 @@ WHERE
 
 func (q *Queries) DeleteFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeForEachStmt, deleteFlowNodeForEach, flowNodeID)
+	return err
+}
+
+const deleteFlowNodeGraphQL = `-- name: DeleteFlowNodeGraphQL :exec
+DELETE FROM flow_node_graphql WHERE flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeGraphQL(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeGraphQLStmt, deleteFlowNodeGraphQL, flowNodeID)
 	return err
 }
 
@@ -1499,6 +1534,17 @@ func (q *Queries) GetFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWr
 	return i, err
 }
 
+const getFlowNodeGraphQL = `-- name: GetFlowNodeGraphQL :one
+SELECT flow_node_id, graphql_id FROM flow_node_graphql WHERE flow_node_id = ? LIMIT 1
+`
+
+func (q *Queries) GetFlowNodeGraphQL(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeGraphql, error) {
+	row := q.queryRow(ctx, q.getFlowNodeGraphQLStmt, getFlowNodeGraphQL, flowNodeID)
+	var i FlowNodeGraphql
+	err := row.Scan(&i.FlowNodeID, &i.GraphqlID)
+	return i, err
+}
+
 const getFlowNodeHTTP = `-- name: GetFlowNodeHTTP :one
 SELECT
   flow_node_id,
@@ -1981,7 +2027,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 }
 
 const getLatestNodeExecutionByNodeID = `-- name: GetLatestNodeExecutionByNodeID :one
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 FROM node_execution
 WHERE node_id = ? AND completed_at IS NOT NULL
 ORDER BY completed_at DESC, id DESC
@@ -2002,6 +2048,7 @@ func (q *Queries) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idw
 		&i.OutputData,
 		&i.OutputDataCompressType,
 		&i.HttpResponseID,
+		&i.GraphqlResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -2105,7 +2152,7 @@ func (q *Queries) GetMigrations(ctx context.Context) ([]Migration, error) {
 }
 
 const getNodeExecution = `-- name: GetNodeExecution :one
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at FROM node_execution
 WHERE id = ?
 `
 
@@ -2124,13 +2171,14 @@ func (q *Queries) GetNodeExecution(ctx context.Context, id idwrap.IDWrap) (NodeE
 		&i.OutputData,
 		&i.OutputDataCompressType,
 		&i.HttpResponseID,
+		&i.GraphqlResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
 }
 
 const getNodeExecutionsByNodeID = `-- name: GetNodeExecutionsByNodeID :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 FROM node_execution
 WHERE node_id = ? AND completed_at IS NOT NULL
 ORDER BY completed_at DESC, id DESC
@@ -2156,6 +2204,7 @@ func (q *Queries) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.I
 			&i.OutputData,
 			&i.OutputDataCompressType,
 			&i.HttpResponseID,
+			&i.GraphqlResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -2237,7 +2286,7 @@ func (q *Queries) GetTagsByWorkspaceID(ctx context.Context, workspaceID idwrap.I
 }
 
 const listNodeExecutions = `-- name: ListNodeExecutions :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at FROM node_execution
 WHERE node_id = ?
 ORDER BY completed_at DESC, id DESC
 LIMIT ? OFFSET ?
@@ -2269,6 +2318,7 @@ func (q *Queries) ListNodeExecutions(ctx context.Context, arg ListNodeExecutions
 			&i.OutputData,
 			&i.OutputDataCompressType,
 			&i.HttpResponseID,
+			&i.GraphqlResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -2285,7 +2335,7 @@ func (q *Queries) ListNodeExecutions(ctx context.Context, arg ListNodeExecutions
 }
 
 const listNodeExecutionsByFlowRun = `-- name: ListNodeExecutionsByFlowRun :many
-SELECT ne.id, ne.node_id, ne.name, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.http_response_id, ne.completed_at FROM node_execution ne
+SELECT ne.id, ne.node_id, ne.name, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.http_response_id, ne.graphql_response_id, ne.completed_at FROM node_execution ne
 JOIN flow_node fn ON ne.node_id = fn.id
 WHERE fn.flow_id = ?
 ORDER BY ne.completed_at DESC, ne.id DESC
@@ -2311,6 +2361,7 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 			&i.OutputData,
 			&i.OutputDataCompressType,
 			&i.HttpResponseID,
+			&i.GraphqlResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -2327,7 +2378,7 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 }
 
 const listNodeExecutionsByState = `-- name: ListNodeExecutionsByState :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at FROM node_execution
 WHERE node_id = ? AND state = ?
 ORDER BY completed_at DESC, id DESC
 LIMIT ? OFFSET ?
@@ -2365,6 +2416,7 @@ func (q *Queries) ListNodeExecutionsByState(ctx context.Context, arg ListNodeExe
 			&i.OutputData,
 			&i.OutputDataCompressType,
 			&i.HttpResponseID,
+			&i.GraphqlResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -2554,6 +2606,21 @@ func (q *Queries) UpdateFlowNodeForEach(ctx context.Context, arg UpdateFlowNodeF
 	return err
 }
 
+const updateFlowNodeGraphQL = `-- name: UpdateFlowNodeGraphQL :exec
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id) VALUES (?, ?)
+ON CONFLICT(flow_node_id) DO UPDATE SET graphql_id = excluded.graphql_id
+`
+
+type UpdateFlowNodeGraphQLParams struct {
+	FlowNodeID idwrap.IDWrap
+	GraphqlID  idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeGraphQL(ctx context.Context, arg UpdateFlowNodeGraphQLParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeGraphQLStmt, updateFlowNodeGraphQL, arg.FlowNodeID, arg.GraphqlID)
+	return err
+}
+
 const updateFlowNodeHTTP = `-- name: UpdateFlowNodeHTTP :exec
 INSERT INTO flow_node_http (
     flow_node_id,
@@ -2682,10 +2749,10 @@ func (q *Queries) UpdateFlowVariableOrder(ctx context.Context, arg UpdateFlowVar
 
 const updateNodeExecution = `-- name: UpdateNodeExecution :one
 UPDATE node_execution
-SET state = ?, error = ?, output_data = ?, 
-    output_data_compress_type = ?, http_response_id = ?, completed_at = ?
+SET state = ?, error = ?, output_data = ?,
+    output_data_compress_type = ?, http_response_id = ?, graphql_response_id = ?, completed_at = ?
 WHERE id = ?
-RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 `
 
 type UpdateNodeExecutionParams struct {
@@ -2694,6 +2761,7 @@ type UpdateNodeExecutionParams struct {
 	OutputData             []byte
 	OutputDataCompressType int8
 	HttpResponseID         *idwrap.IDWrap
+	GraphqlResponseID      *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 	ID                     idwrap.IDWrap
 }
@@ -2705,6 +2773,7 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 		arg.OutputData,
 		arg.OutputDataCompressType,
 		arg.HttpResponseID,
+		arg.GraphqlResponseID,
 		arg.CompletedAt,
 		arg.ID,
 	)
@@ -2720,6 +2789,7 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 		&i.OutputData,
 		&i.OutputDataCompressType,
 		&i.HttpResponseID,
+		&i.GraphqlResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -2764,19 +2834,20 @@ func (q *Queries) UpdateTag(ctx context.Context, arg UpdateTagParams) error {
 const upsertNodeExecution = `-- name: UpsertNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, http_response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   state = excluded.state,
-  error = excluded.error, 
+  error = excluded.error,
   input_data = excluded.input_data,
   input_data_compress_type = excluded.input_data_compress_type,
   output_data = excluded.output_data,
   output_data_compress_type = excluded.output_data_compress_type,
   http_response_id = excluded.http_response_id,
+  graphql_response_id = excluded.graphql_response_id,
   completed_at = excluded.completed_at
-RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 `
 
 type UpsertNodeExecutionParams struct {
@@ -2790,6 +2861,7 @@ type UpsertNodeExecutionParams struct {
 	OutputData             []byte
 	OutputDataCompressType int8
 	HttpResponseID         *idwrap.IDWrap
+	GraphqlResponseID      *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 }
 
@@ -2805,6 +2877,7 @@ func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecuti
 		arg.OutputData,
 		arg.OutputDataCompressType,
 		arg.HttpResponseID,
+		arg.GraphqlResponseID,
 		arg.CompletedAt,
 	)
 	var i NodeExecution
@@ -2819,6 +2892,7 @@ func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecuti
 		&i.OutputData,
 		&i.OutputDataCompressType,
 		&i.HttpResponseID,
+		&i.GraphqlResponseID,
 		&i.CompletedAt,
 	)
 	return i, err

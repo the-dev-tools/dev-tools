@@ -13,6 +13,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/ngraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
@@ -251,6 +252,17 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	}()
 	defer close(requestRespChan)
 
+	// Initialize GraphQL response channel
+	gqlRespChan := make(chan ngraphql.NodeGraphQLSideResp, requestBufferSize)
+	go func() {
+		for resp := range gqlRespChan {
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+	defer close(gqlRespChan)
+
 	// Build flow node map using flowbuilder
 	flowNodeMap, startNodeID, err := services.Builder.BuildNodes(
 		ctx,
@@ -259,6 +271,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 		nodeTimeout,
 		httpClient,
 		requestRespChan,
+		gqlRespChan,
 		services.JSClient,
 	)
 	if err != nil {

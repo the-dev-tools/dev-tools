@@ -1,0 +1,129 @@
+import { create } from '@bufbuild/protobuf';
+import { count, eq, useLiveQuery } from '@tanstack/react-db';
+import { Duration, pipe } from 'effect';
+import { Suspense } from 'react';
+import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import { twJoin, twMerge } from 'tailwind-merge';
+import { GraphQLResponseSchema } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
+import {
+  GraphQLResponseCollectionSchema,
+  GraphQLResponseHeaderCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
+import { Separator } from '@the-dev-tools/ui/separator';
+import { Spinner } from '@the-dev-tools/ui/spinner';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { formatSize } from '@the-dev-tools/ui/utils';
+import { useApiCollection } from '~/shared/api';
+import { pick } from '~/shared/lib';
+import { GraphQLResponseBody } from './body';
+import { GraphQLResponseHeaderTable } from './header';
+
+interface GraphQLResponsePanelProps {
+  graphqlResponseId: Uint8Array;
+}
+
+export const GraphQLResponsePanel = ({ graphqlResponseId }: GraphQLResponsePanelProps) => {
+  const responseCollection = useApiCollection(GraphQLResponseCollectionSchema);
+
+  const { duration, size, status } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: responseCollection })
+          .where((_) => eq(_.item.graphqlResponseId, graphqlResponseId))
+          .select((_) => pick(_.item, 'duration', 'size', 'status'))
+          .findOne(),
+      [responseCollection, graphqlResponseId],
+    ).data ?? create(GraphQLResponseSchema);
+
+  const headerCollection = useApiCollection(GraphQLResponseHeaderCollectionSchema);
+
+  const { headerCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: headerCollection })
+          .where((_) => eq(_.item.graphqlResponseId, graphqlResponseId))
+          .select((_) => ({ headerCount: count(_.item.graphqlResponseHeaderId) }))
+          .findOne(),
+      [headerCollection, graphqlResponseId],
+    ).data ?? {};
+
+  return (
+    <Tabs className={tw`flex h-full flex-col pb-4`}>
+      <div className={tw`flex items-center gap-3 border-b border-neutral px-4 text-md`}>
+        <TabList className={tw`flex items-center gap-3`}>
+          <Tab
+            className={({ isSelected }) =>
+              twMerge(
+                tw`
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  text-on-neutral-low transition-colors
+                `,
+                isSelected && tw`border-b-accent text-on-neutral`,
+              )
+            }
+            id='body'
+          >
+            Body
+          </Tab>
+
+          <Tab
+            className={({ isSelected }) =>
+              twMerge(
+                tw`
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  text-on-neutral-low transition-colors
+                `,
+                isSelected && tw`border-b-accent text-on-neutral`,
+              )
+            }
+            id='headers'
+          >
+            Headers
+            {headerCount > 0 && <span className={tw`text-xs text-success`}> ({headerCount})</span>}
+          </Tab>
+        </TabList>
+
+        <div className={tw`flex-1`} />
+
+        <div className={tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-on-neutral`}>
+          <div className={tw`flex gap-1 p-2`}>
+            <span>Status:</span>
+            <span className={tw`text-success`}>{status}</span>
+          </div>
+
+          <Separator className={tw`h-4`} orientation='vertical' />
+
+          <div className={tw`flex gap-1 p-2`}>
+            <span>Time:</span>
+            <span className={tw`text-success`}>{pipe(duration, Duration.millis, Duration.format)}</span>
+          </div>
+
+          <Separator className={tw`h-4`} orientation='vertical' />
+
+          <div className={tw`flex gap-1 p-2`}>
+            <span>Size:</span>
+            <span>{formatSize(size)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={twJoin(tw`flex-1 overflow-auto px-4 pt-4`)}>
+        <Suspense
+          fallback={
+            <div className={tw`flex h-full items-center justify-center`}>
+              <Spinner size='lg' />
+            </div>
+          }
+        >
+          <TabPanel className={twJoin(tw`flex h-full flex-col gap-4`)} id='body'>
+            <GraphQLResponseBody graphqlResponseId={graphqlResponseId} />
+          </TabPanel>
+
+          <TabPanel id='headers'>
+            <GraphQLResponseHeaderTable graphqlResponseId={graphqlResponseId} />
+          </TabPanel>
+        </Suspense>
+      </div>
+    </Tabs>
+  );
+};

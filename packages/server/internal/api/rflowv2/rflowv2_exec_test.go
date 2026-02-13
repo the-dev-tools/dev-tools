@@ -75,6 +75,9 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		nil, // NodeAIService
 		&aiProviderService,
 		&memoryService,
+		nil, // NodeGraphQLService
+		nil, // GraphQLService
+		nil, // GraphQLHeaderService
 		&wsService,
 		&varService,
 		&flowVarService,
