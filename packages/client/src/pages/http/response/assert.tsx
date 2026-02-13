@@ -27,8 +27,8 @@ export const AssertTable = ({ httpResponseId }: AssertTableProps) => {
         <Fragment key={collection.utils.getKey(_)}>
           <div
             className={twJoin(
-              tw`rounded-sm px-2 py-1 text-center font-light text-white uppercase`,
-              _.success ? tw`bg-green-600` : tw`bg-red-600`,
+              tw`rounded-sm px-2 py-1 text-center font-light text-on-inverse uppercase`,
+              _.success ? tw`bg-success` : tw`bg-danger`,
             )}
           >
             {_.success ? 'Pass' : 'Fail'}

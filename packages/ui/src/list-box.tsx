@@ -12,7 +12,7 @@ import { createLinkGeneric } from './utils/link';
 
 export const listBoxStyles = tv({
   base: tw`
-    pointer-events-auto overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md outline-hidden
+    pointer-events-auto overflow-auto rounded-lg border border-neutral bg-neutral-lowest py-0.5 shadow-md outline-hidden
   `,
 });
 
@@ -33,9 +33,25 @@ export const listBoxItemStyles = tv({
   `,
   variants: {
     variant: {
-      accent: tw`text-violet-600 hover:bg-violet-100 pressed:bg-violet-200 selected:bg-violet-200`,
-      danger: tw`text-rose-700 hover:bg-rose-100 pressed:bg-rose-200 selected:bg-rose-200`,
-      default: tw`text-slate-800 hover:bg-slate-100 pressed:bg-slate-200 selected:bg-slate-200`,
+      accent: tw`
+        text-accent
+
+        hover:bg-accent-lowest hover:text-on-accent
+
+        pressed:bg-accent-low pressed:text-on-accent
+
+        selected:bg-accent-low selected:text-on-accent
+      `,
+      danger: tw`
+        text-danger
+
+        hover:bg-danger-lowest hover:text-on-danger
+
+        pressed:bg-danger-low pressed:text-on-danger
+
+        selected:bg-danger-low selected:text-on-danger
+      `,
+      default: tw`text-on-neutral hover:bg-neutral-low pressed:bg-neutral selected:bg-neutral`,
     },
   },
   defaultVariants: {
@@ -63,7 +79,7 @@ export const ListBoxHeader = ({ className, ...props }: ListBoxHeaderProps) => (
   <RAC.Header
     {...props}
     className={twMerge(
-      tw`px-3 pt-2 pb-0.5 text-xs leading-5 font-semibold tracking-tight text-slate-500 select-none`,
+      tw`px-3 pt-2 pb-0.5 text-xs leading-5 font-semibold tracking-tight text-on-neutral-low select-none`,
       className,
     )}
   />

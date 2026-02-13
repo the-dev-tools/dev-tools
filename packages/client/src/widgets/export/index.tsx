@@ -33,23 +33,23 @@ export const ExportDialog = () => {
     <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
       <TooltipTrigger delay={750}>
         <Button className={tw`p-1`} variant='ghost'>
-          <TbFileExport className={tw`size-4 text-slate-500`} />
+          <TbFileExport className={tw`size-4 text-on-neutral-low`} />
         </Button>
-        <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Export Files</Tooltip>
+        <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Export Files</Tooltip>
       </TooltipTrigger>
 
       <Modal style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>
-              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}>Export Files</div>
+              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
 
               <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
-                <FiX className={tw`size-5 text-slate-500`} />
+                <FiX className={tw`size-5 text-on-neutral-low`} />
               </Button>
             </div>
 
-            <div className={tw`text-xs leading-5 tracking-tight text-slate-500`}>
+            <div className={tw`text-xs leading-5 tracking-tight text-on-neutral-low`}>
               Please select the files that you would like to export.
             </div>
 
@@ -65,7 +65,7 @@ export const ExportDialog = () => {
             </div>
           </div>
 
-          <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
+          <div className={tw`flex justify-end gap-2 border-t border-neutral px-6 py-3`}>
             <Button onPress={() => void onOpenChange(false)}>Cancel</Button>
 
             <Button

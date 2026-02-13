@@ -73,10 +73,10 @@ export const TextField = ({ children, className, error, label, ...props }: TextF
 
 export const textInputFieldStyles = tv({
   extend: focusVisibleRingStyles,
-  base: tw`rounded-md border border-slate-200 px-3 py-1.5 text-md leading-5 text-slate-800`,
+  base: tw`rounded-md border border-neutral px-3 py-1.5 text-md leading-5 text-on-neutral`,
   variants: {
     isTableCell: {
-      false: tw`disabled:bg-slate-100 disabled:opacity-50`,
+      false: tw`disabled:bg-neutral-low disabled:opacity-50`,
       true: tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
     },
   },

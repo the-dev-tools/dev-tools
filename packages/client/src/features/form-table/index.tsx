@@ -9,9 +9,9 @@ interface ColumnActionDeleteProps {
 
 export const ColumnActionDelete = ({ onDelete }: ColumnActionDeleteProps) => (
   <TooltipTrigger delay={750}>
-    <Button className={tw`p-1 text-red-700`} onPress={onDelete} variant='ghost'>
+    <Button className={tw`p-1 text-danger`} onPress={onDelete} variant='ghost'>
       <LuTrash2 />
     </Button>
-    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
+    <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Delete</Tooltip>
   </TooltipTrigger>
 );

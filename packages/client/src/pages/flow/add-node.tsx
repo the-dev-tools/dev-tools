@@ -75,17 +75,17 @@ export const SidebarHeader = ({ previous, title }: SidebarHeaderProps) => {
   const { setSidebar } = use(FlowContext);
 
   return (
-    <div className={tw`flex items-center gap-2 border-b border-slate-200 px-3 py-2`}>
+    <div className={tw`flex items-center gap-2 border-b border-neutral px-3 py-2`}>
       {previous && (
         <Button className={tw`p-1`} onPress={() => void setSidebar?.(previous)} variant='ghost'>
-          <FiArrowLeft className={tw`size-5 text-slate-500`} />
+          <FiArrowLeft className={tw`size-5 text-on-neutral-low`} />
         </Button>
       )}
 
-      <div className={tw`flex-1 leading-6 font-semibold tracking-tight text-slate-800`}>{title}</div>
+      <div className={tw`flex-1 leading-6 font-semibold tracking-tight text-on-neutral`}>{title}</div>
 
       <Button className={tw`p-1`} onPress={() => void setSidebar?.(null)} variant='ghost'>
-        <FiX className={tw`size-5 text-slate-500`} />
+        <FiX className={tw`size-5 text-on-neutral-low`} />
       </Button>
     </div>
   );
@@ -100,14 +100,16 @@ interface SidebarItemProps {
 
 export const SidebarItem = ({ description, icon, onAction, title }: SidebarItemProps) => (
   <ListBoxItem className={tw`gap-2 px-3 py-2`} onAction={onAction} textValue={title}>
-    <div className={tw`rounded-md border border-slate-200 bg-white p-1.5 text-xl text-slate-500`}>{icon}</div>
-
-    <div className={tw`flex-1`}>
-      <div className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>{title}</div>
-      {description && <div className={tw`text-xs leading-4 tracking-tight text-slate-500`}>{description}</div>}
+    <div className={tw`rounded-md border border-neutral bg-neutral-lowest p-1.5 text-xl text-on-neutral-low`}>
+      {icon}
     </div>
 
-    <FiChevronRight className={tw`m-1 size-4 text-slate-500`} />
+    <div className={tw`flex-1`}>
+      <div className={tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`}>{title}</div>
+      {description && <div className={tw`text-xs leading-4 tracking-tight text-on-neutral-low`}>{description}</div>}
+    </div>
+
+    <FiChevronRight className={tw`m-1 size-4 text-on-neutral-low`} />
   </ListBoxItem>
 );
 

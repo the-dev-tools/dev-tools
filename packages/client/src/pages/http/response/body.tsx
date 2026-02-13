@@ -38,15 +38,20 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
 
   return (
     <Tabs
-      className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'
+      className={tw`grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4`}
       defaultSelectedKey='pretty'
     >
-      <TabList className='flex gap-1 self-start rounded-md border border-slate-100 bg-slate-100 p-0.5 text-xs leading-5 tracking-tight'>
+      <TabList
+        className={tw`
+          flex gap-1 self-start rounded-md border border-neutral-lower bg-neutral-lower p-0.5 text-xs leading-5
+          tracking-tight
+        `}
+      >
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-neutral-higher transition-colors`,
+              isSelected && tw`bg-neutral-lowest font-medium text-on-neutral shadow-sm`,
             )
           }
           id='pretty'
@@ -56,8 +61,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-neutral-higher transition-colors`,
+              isSelected && tw`bg-neutral-lowest font-medium text-on-neutral shadow-sm`,
             )
           }
           id='raw'
@@ -67,8 +72,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-slate-400 transition-colors`,
-              isSelected && tw`bg-white font-medium text-slate-800 shadow-sm`,
+              tw`cursor-pointer rounded-sm bg-transparent px-2 py-0.5 text-neutral-higher transition-colors`,
+              isSelected && tw`bg-neutral-lowest font-medium text-on-neutral shadow-sm`,
             )
           }
           id='preview'
@@ -77,7 +82,7 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         </Tab>
       </TabList>
 
-      <TabPanel className='contents' id='pretty'>
+      <TabPanel className={tw`contents`} id='pretty'>
         <BodyPretty body={body} />
       </TabPanel>
 
@@ -85,8 +90,8 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
         {body}
       </TabPanel>
 
-      <TabPanel className='col-span-full self-stretch' id='preview'>
-        <iframe className='size-full' srcDoc={body} title='Response preview' />
+      <TabPanel className={tw`col-span-full self-stretch`} id='preview'>
+        <iframe className={tw`size-full bg-white`} srcDoc={body} title='Response preview' />
       </TabPanel>
     </Tabs>
   );
@@ -105,7 +110,7 @@ const BodyPretty = ({ body }: BodyPrettyProps) => {
     <>
       <Select
         aria-label='Language'
-        className='self-center justify-self-start'
+        className={tw`self-center justify-self-start`}
         onChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
         triggerClassName={tw`px-4 py-1`}
         value={language}

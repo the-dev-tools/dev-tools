@@ -92,7 +92,7 @@ export const FlowEditPage = () => {
             <ActionBar />
 
             {sidebar && (
-              <XF.Panel className={tw`inset-y-0 w-80 border-l border-slate-200 bg-white`} position='top-right'>
+              <XF.Panel className={tw`inset-y-0 w-80 border-l border-neutral bg-neutral-lowest`} position='top-right'>
                 {sidebar}
               </XF.Panel>
             )}
@@ -224,7 +224,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     <>
       {statusBarEndSlot &&
         createPortal(
-          <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
+          <div className={tw`flex gap-4 text-xs leading-none text-on-neutral`}>
             <NodeSelectionIndicator />
             {duration && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
           </div>,
@@ -265,7 +265,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         viewport={viewport}
       >
         <XF.Background
-          className={tw`text-slate-300`}
+          className={tw`text-neutral-high`}
           color='currentColor'
           gap={20}
           size={2}
@@ -315,16 +315,16 @@ export const TopBar = ({ children }: TopBarProps) => {
   });
 
   return (
-    <div className={tw`flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5`}>
+    <div className={tw`flex items-center gap-2 border-b border-neutral bg-neutral-lowest px-3 py-2.5`}>
       {isEditing ? (
         <TextInputField
           aria-label='Flow name'
-          inputClassName={tw`-my-1 py-1 text-md leading-none font-medium tracking-tight text-slate-800`}
+          inputClassName={tw`-my-1 py-1 text-md leading-none font-medium tracking-tight text-on-neutral`}
           {...textFieldProps}
         />
       ) : (
         <AriaButton
-          className={tw`cursor-text text-md leading-5 font-medium tracking-tight text-slate-800`}
+          className={tw`cursor-text text-md leading-5 font-medium tracking-tight text-on-neutral`}
           onContextMenu={onContextMenu}
           onPress={() => void edit()}
         >
@@ -338,9 +338,8 @@ export const TopBar = ({ children }: TopBarProps) => {
 
       <ButtonAsRouteLink
         className={twJoin(
-          tw`px-1 py-0 text-slate-800`,
-          matchRoute({ to: router.routesById[routes.dashboard.workspace.flow.history.id].fullPath }) &&
-            tw`bg-slate-200`,
+          tw`px-1 py-0 text-on-neutral`,
+          matchRoute({ to: router.routesById[routes.dashboard.workspace.flow.history.id].fullPath }) && tw`bg-neutral`,
         )}
         params={{ flowIdCan, workspaceIdCan }}
         to={
@@ -350,12 +349,12 @@ export const TopBar = ({ children }: TopBarProps) => {
         }
         variant='ghost'
       >
-        <FiClock className={tw`size-4 text-slate-500`} /> Flows History
+        <FiClock className={tw`size-4 text-on-neutral-low`} /> Flows History
       </ButtonAsRouteLink>
 
       <MenuTrigger {...menuTriggerProps}>
-        <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
-          <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+        <Button className={tw`bg-neutral p-0.5`} variant='ghost'>
+          <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
         </Button>
 
         <Menu {...menuProps}>
@@ -384,10 +383,10 @@ export const TopBarWithControls = () => {
         onPress={() => void zoomOut({ duration: 100 })}
         variant='ghost'
       >
-        <FiMinus className={tw`size-4 text-slate-500`} />
+        <FiMinus className={tw`size-4 text-on-neutral-low`} />
       </Button>
 
-      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-gray-900`}>
+      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-on-neutral`}>
         {Math.floor(zoom * 100)}%
       </div>
 
@@ -397,10 +396,10 @@ export const TopBarWithControls = () => {
         onPress={() => void zoomIn({ duration: 100 })}
         variant='ghost'
       >
-        <FiPlus className={tw`size-4 text-slate-500`} />
+        <FiPlus className={tw`size-4 text-on-neutral-low`} />
       </Button>
 
-      <div className={tw`h-4 w-px bg-slate-200`} />
+      <div className={tw`h-4 w-px bg-neutral`} />
     </TopBar>
   );
 };
@@ -422,12 +421,9 @@ const ActionBar = () => {
     ).data ?? create(FlowSchema);
 
   return (
-    <XF.Panel
-      className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow-sm`}
-      position='bottom-center'
-    >
+    <XF.Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-inverse p-1 shadow-sm`} position='bottom-center'>
       <Button className={tw`px-1.5 py-1`} onPress={() => void setSidebar?.(<AddNodeSidebar />)} variant='ghost dark'>
-        <FiPlus className={tw`size-5 text-slate-300`} />
+        <FiPlus className={tw`size-5 text-on-inverse-low`} />
         Add Node
       </Button>
 
@@ -474,13 +470,13 @@ const FlowSettings = () => {
 
   return (
     <>
-      <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div className={tw`text-sm leading-5 font-medium text-slate-800`}>Flow variables</div>
+      <div className={tw`sticky top-0 z-10 flex items-center border-b border-neutral bg-neutral-lowest px-5 py-2`}>
+        <div className={tw`text-sm leading-5 font-medium text-on-neutral`}>Flow variables</div>
 
         <div className={tw`flex-1`} />
 
         <Button className={tw`p-1`} slot='close' variant='ghost'>
-          <FiX className={tw`size-5 text-slate-500`} />
+          <FiX className={tw`size-5 text-on-neutral-low`} />
         </Button>
       </div>
 
@@ -581,7 +577,7 @@ const FlowSettings = () => {
               }}
               variant='ghost'
             >
-              <FiPlus className={tw`size-4 text-slate-500`} />
+              <FiPlus className={tw`size-4 text-on-neutral-low`} />
               New variable
             </Button>
           </TableFooter>

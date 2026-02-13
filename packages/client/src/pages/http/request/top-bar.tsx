@@ -55,10 +55,10 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
 
   return (
     <>
-      <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
+      <div className='flex items-center gap-2 border-b border-neutral px-4 py-2.5'>
         <div
           className={tw`
-            flex min-w-0 flex-1 gap-1 text-md leading-5 font-medium tracking-tight text-slate-400 select-none
+            flex min-w-0 flex-1 gap-1 text-md leading-5 font-medium tracking-tight text-neutral-higher select-none
           `}
         >
           {/* {example.breadcrumbs.map((_, index) => {
@@ -76,12 +76,12 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
           {isEditing ? (
             <TextInputField
               aria-label='Example name'
-              inputClassName={tw`-my-1 py-1 leading-none text-slate-800`}
+              inputClassName={tw`-my-1 py-1 leading-none text-on-neutral`}
               {...textFieldProps}
             />
           ) : (
             <AriaButton
-              className={tw`max-w-full cursor-text truncate text-slate-800`}
+              className={tw`max-w-full cursor-text truncate text-on-neutral`}
               onContextMenu={onContextMenu}
               onPress={() => void edit()}
             >
@@ -93,8 +93,8 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
         </div>
 
         <DialogTrigger>
-          <Button className={tw`px-2 py-1 text-slate-800`} variant='ghost'>
-            <FiClock className={tw`size-4 text-slate-500`} /> Response History
+          <Button className={tw`px-2 py-1 text-on-neutral`} variant='ghost'>
+            <FiClock className={tw`size-4 text-on-neutral-low`} /> Response History
           </Button>
 
           <HistoryModal deltaHttpId={deltaHttpId} httpId={httpId} />
@@ -102,7 +102,7 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-1`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
 
           <Menu {...menuProps}>
