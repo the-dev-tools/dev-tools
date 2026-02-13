@@ -15,7 +15,7 @@ import (
 )
 
 // processFlow processes a single flow and returns the generated data
-func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, templates map[string]YamlRequestDefV2, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
+func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, templates map[string]YamlRequestDefV2, graphqlTemplates map[string]YamlGraphQLDefV2, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
 	result := &ioworkspace.WorkspaceBundle{}
 
 	flowID := idwrap.NewNow()
@@ -68,7 +68,7 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, template
 	startNodeID := idwrap.NewNow()
 
 	// Process steps
-	processRes, err := processSteps(flowEntry, templates, varMap, flowID, startNodeID, opts, result)
+	processRes, err := processSteps(flowEntry, templates, graphqlTemplates, varMap, flowID, startNodeID, opts, result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process steps: %w", err)
 	}
@@ -270,6 +270,10 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 	result.FlowAINodes = append(result.FlowAINodes, flowData.FlowAINodes...)
 	result.FlowAIProviderNodes = append(result.FlowAIProviderNodes, flowData.FlowAIProviderNodes...)
 	result.FlowAIMemoryNodes = append(result.FlowAIMemoryNodes, flowData.FlowAIMemoryNodes...)
+
+	result.GraphQLRequests = append(result.GraphQLRequests, flowData.GraphQLRequests...)
+	result.GraphQLHeaders = append(result.GraphQLHeaders, flowData.GraphQLHeaders...)
+	result.FlowGraphQLNodes = append(result.FlowGraphQLNodes, flowData.FlowGraphQLNodes...)
 }
 
 func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssociatedData) {

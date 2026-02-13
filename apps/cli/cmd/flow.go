@@ -176,9 +176,9 @@ var yamlflowRunCmd = &cobra.Command{
 			&services.NodeAI,
 			&services.NodeAiProvider,
 			&services.NodeMemory,
-			nil, // NodeGraphQLService - not yet supported in CLI
-			nil, // GraphQLService - not yet supported in CLI
-			nil, // GraphQLHeaderService - not yet supported in CLI
+			&services.NodeGraphQL,
+			&services.GraphQL,
+			&services.GraphQLHeader,
 			&services.Workspace,
 			&services.Variable,
 			&services.FlowVariable,

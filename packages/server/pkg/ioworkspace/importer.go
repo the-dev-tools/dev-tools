@@ -9,6 +9,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 )
 
@@ -35,6 +36,9 @@ type ImportResult struct {
 	FlowAINodesCreated          int
 	FlowAIProviderNodesCreated  int
 	FlowAIMemoryNodesCreated    int
+	FlowGraphQLNodesCreated     int
+	GraphQLRequestsCreated      int
+	GraphQLHeadersCreated       int
 	EnvironmentsCreated         int
 	EnvironmentVarsCreated    int
 
@@ -85,6 +89,10 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	nodeAIService := sflow.NewNodeAIService(s.queries).TX(tx)
 	nodeAIProviderService := sflow.NewNodeAiProviderService(s.queries).TX(tx)
 	nodeMemoryService := sflow.NewNodeMemoryService(s.queries).TX(tx)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(s.queries).TX(tx)
+
+	graphqlService := sgraphql.New(s.queries, nil).TX(tx)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
 	envService := senv.NewEnvironmentService(s.queries, nil).TX(tx)
@@ -101,6 +109,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	if opts.ImportHTTP && len(bundle.HTTPRequests) > 0 {
 		if err := s.importHTTPRequests(ctx, httpService, bundle, opts, result); err != nil {
 			return nil, fmt.Errorf("failed to import HTTP requests: %w", err)
+		}
+	}
+
+	if opts.ImportHTTP && len(bundle.GraphQLRequests) > 0 {
+		if err := s.importGraphQLRequests(ctx, graphqlService, bundle, opts, result); err != nil {
+			return nil, fmt.Errorf("failed to import GraphQL requests: %w", err)
 		}
 	}
 
@@ -128,6 +142,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 			if err := s.importFlowNodes(ctx, nodeService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow nodes: %w", err)
 			}
+		}
+	}
+
+	if opts.ImportHTTP && len(bundle.GraphQLHeaders) > 0 {
+		if err := s.importGraphQLHeaders(ctx, graphqlHeaderService, bundle, opts, result); err != nil {
+			return nil, fmt.Errorf("failed to import GraphQL headers: %w", err)
 		}
 	}
 
@@ -229,6 +249,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		if len(bundle.FlowAIMemoryNodes) > 0 {
 			if err := s.importFlowAIMemoryNodes(ctx, nodeMemoryService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow AI memory nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowGraphQLNodes) > 0 {
+			if err := s.importFlowGraphQLNodes(ctx, nodeGraphQLService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow GraphQL nodes: %w", err)
 			}
 		}
 	}

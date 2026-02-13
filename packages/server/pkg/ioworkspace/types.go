@@ -6,6 +6,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 )
@@ -18,13 +19,17 @@ type WorkspaceBundle struct {
 	Workspace mworkspace.Workspace
 
 	// HTTP requests and associated data structures
-	HTTPRequests       []mhttp.HTTP
+	HTTPRequests []mhttp.HTTP
 	HTTPSearchParams   []mhttp.HTTPSearchParam
 	HTTPHeaders        []mhttp.HTTPHeader
 	HTTPBodyForms      []mhttp.HTTPBodyForm
 	HTTPBodyUrlencoded []mhttp.HTTPBodyUrlencoded
 	HTTPBodyRaw        []mhttp.HTTPBodyRaw
 	HTTPAsserts        []mhttp.HTTPAssert
+
+	// GraphQL requests and associated data
+	GraphQLRequests []mgraphql.GraphQL
+	GraphQLHeaders  []mgraphql.GraphQLHeader
 
 	// File organization
 	Files []mfile.File
@@ -44,6 +49,7 @@ type WorkspaceBundle struct {
 	FlowAINodes         []mflow.NodeAI
 	FlowAIProviderNodes []mflow.NodeAiProvider
 	FlowAIMemoryNodes   []mflow.NodeMemory
+	FlowGraphQLNodes    []mflow.NodeGraphQL
 
 	// Environments and variables
 	Environments    []menv.Env
@@ -64,6 +70,8 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"http_body_urlencoded": len(wb.HTTPBodyUrlencoded),
 		"http_body_raw":        len(wb.HTTPBodyRaw),
 		"http_asserts":         len(wb.HTTPAsserts),
+		"graphql_requests":     len(wb.GraphQLRequests),
+		"graphql_headers":      len(wb.GraphQLHeaders),
 		"files":                len(wb.Files),
 		"flows":                len(wb.Flows),
 		"flow_variables":       len(wb.FlowVariables),
@@ -76,8 +84,9 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"flow_js_nodes":          len(wb.FlowJSNodes),
 		"flow_ai_nodes":          len(wb.FlowAINodes),
 		"flow_ai_provider_nodes": len(wb.FlowAIProviderNodes),
-		"flow_ai_memory_nodes": len(wb.FlowAIMemoryNodes),
-		"environments":         len(wb.Environments),
+		"flow_ai_memory_nodes":   len(wb.FlowAIMemoryNodes),
+		"flow_graphql_nodes":     len(wb.FlowGraphQLNodes),
+		"environments":           len(wb.Environments),
 		"environment_vars":     len(wb.EnvironmentVars),
 		"credentials":          len(wb.Credentials),
 	}
@@ -89,6 +98,17 @@ func (wb *WorkspaceBundle) GetHTTPByID(id idwrap.IDWrap) *mhttp.HTTP {
 	for i := range wb.HTTPRequests {
 		if wb.HTTPRequests[i].ID.Compare(id) == 0 {
 			return &wb.HTTPRequests[i]
+		}
+	}
+	return nil
+}
+
+// GetGraphQLByID finds and returns a GraphQL request by its ID.
+// Returns nil if the GraphQL request is not found.
+func (wb *WorkspaceBundle) GetGraphQLByID(id idwrap.IDWrap) *mgraphql.GraphQL {
+	for i := range wb.GraphQLRequests {
+		if wb.GraphQLRequests[i].ID.Compare(id) == 0 {
+			return &wb.GraphQLRequests[i]
 		}
 	}
 	return nil

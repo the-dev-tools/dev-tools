@@ -10,6 +10,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
@@ -40,6 +41,11 @@ type Services struct {
 	NodeAI         sflow.NodeAIService
 	NodeAiProvider sflow.NodeAiProviderService
 	NodeMemory     sflow.NodeMemoryService
+	NodeGraphQL    sflow.NodeGraphQLService
+
+	// GraphQL
+	GraphQL       sgraphql.GraphQLService
+	GraphQLHeader sgraphql.GraphQLHeaderService
 
 	// Credentials
 	Credential scredential.CredentialService
@@ -87,6 +93,11 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		NodeAI:         sflow.NewNodeAIService(queries),
 		NodeAiProvider: sflow.NewNodeAiProviderService(queries),
 		NodeMemory:     sflow.NewNodeMemoryService(queries),
+		NodeGraphQL:    sflow.NewNodeGraphQLService(queries),
+
+		// GraphQL
+		GraphQL:       sgraphql.New(queries, logger),
+		GraphQLHeader: sgraphql.NewGraphQLHeaderService(queries),
 
 		// Credentials
 		Credential: scredential.NewCredentialService(queries),
