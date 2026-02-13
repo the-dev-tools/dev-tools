@@ -47,6 +47,7 @@ import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { TreeItem, TreeItemProps, TreeItemRouteLink } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useDeltaState } from '~/features/delta';
@@ -442,6 +443,8 @@ const HttpFile = ({ id }: FileItemProps) => {
   const router = useRouter();
   const navigate = useNavigate();
 
+  const { theme } = useTheme();
+
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
   const fileCollection = useApiCollection(FileCollectionSchema);
@@ -584,7 +587,7 @@ const HttpFile = ({ id }: FileItemProps) => {
                               </Button>
                             </div>
 
-                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={theme} value={data} />
                           </>
                         )}
                       </Dialog>,
@@ -624,6 +627,8 @@ const HttpFile = ({ id }: FileItemProps) => {
 const HttpDeltaFile = ({ id }: FileItemProps) => {
   const router = useRouter();
   const matchRoute = useMatchRoute();
+
+  const { theme } = useTheme();
 
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
@@ -744,7 +749,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
                               </Button>
                             </div>
 
-                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={theme} value={data} />
                           </>
                         )}
                       </Dialog>,

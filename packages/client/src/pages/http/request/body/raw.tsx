@@ -9,6 +9,7 @@ import {
 import { Button } from '@the-dev-tools/ui/button';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { DeltaResetButton, useDeltaState } from '~/features/delta';
 import {
   baseCodeMirrorExtensions,
@@ -29,6 +30,8 @@ export interface RawFormProps {
 }
 
 export const RawForm = ({ deltaHttpId, httpId, isReadOnly = false }: RawFormProps) => {
+  const { theme } = useTheme();
+
   const { transport } = routes.root.useRouteContext();
 
   const deltaOptions = {
@@ -94,6 +97,7 @@ export const RawForm = ({ deltaHttpId, httpId, isReadOnly = false }: RawFormProp
         height='100%'
         onChange={(_) => void setValue(_)}
         readOnly={isReadOnly}
+        theme={theme}
         value={value ?? ''}
       />
     </>

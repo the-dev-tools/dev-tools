@@ -18,6 +18,7 @@ import {
   ReferenceTreeItem,
 } from '@the-dev-tools/spec/buf/api/reference/v1/reference_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/shared/api';
 import { useReactRender } from '~/shared/lib';
@@ -194,6 +195,8 @@ export const ReferenceField = ({
   const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
   const variantProps = Struct.pick(forwardedProps, ...fieldStyles.variantKeys);
 
+  const { theme } = useTheme();
+
   const transport = useTransport();
   const client = createClient(ReferenceService, transport);
 
@@ -229,6 +232,7 @@ export const ReferenceField = ({
         else if (refProp) refProp.current = _;
         ref.current = _;
       }}
+      theme={theme}
       {...props}
     />
   );

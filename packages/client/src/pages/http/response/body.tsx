@@ -9,6 +9,7 @@ import { HttpResponseSchema } from '@the-dev-tools/spec/buf/api/http/v1/http_pb'
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import {
   CodeMirrorMarkupLanguage,
   CodeMirrorMarkupLanguages,
@@ -102,6 +103,8 @@ interface BodyPrettyProps {
 }
 
 const BodyPretty = ({ body }: BodyPrettyProps) => {
+  const { theme } = useTheme();
+
   const [language, setLanguage] = useState(guessLanguage(body));
   const { data: prettierBody } = useQuery(prettierFormatQueryOptions({ language, text: body }));
   const extensions = useCodeMirrorLanguageExtensions(language);
@@ -128,6 +131,7 @@ const BodyPretty = ({ body }: BodyPrettyProps) => {
         height='100%'
         indentWithTab={false}
         readOnly
+        theme={theme}
         value={prettierBody}
       />
     </>
