@@ -47,6 +47,7 @@ import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { TreeItem, TreeItemProps, TreeItemRouteLink } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useDeltaState } from '~/features/delta';
@@ -386,11 +387,11 @@ const FolderFile = ({ id }: FileItemProps) => {
       {({ isExpanded }) => (
         <>
           {name === 'Credentials' ? (
-            <TbGauge className={tw`size-4 text-slate-500`} />
+            <TbGauge className={tw`size-4 text-on-neutral-low`} />
           ) : isExpanded ? (
-            <FolderOpenedIcon className={tw`size-4 text-slate-500`} />
+            <FolderOpenedIcon className={tw`size-4 text-on-neutral-low`} />
           ) : (
-            <FiFolder className={tw`size-4 text-slate-500`} />
+            <FiFolder className={tw`size-4 text-on-neutral-low`} />
           )}
 
           <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -410,7 +411,7 @@ const FolderFile = ({ id }: FileItemProps) => {
           {showControls && (
             <MenuTrigger {...menuTriggerProps}>
               <Button className={tw`p-0.5`} variant='ghost'>
-                <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+                <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
               </Button>
 
               <Menu {...menuProps}>
@@ -441,6 +442,8 @@ const HttpFile = ({ id }: FileItemProps) => {
   const matchRoute = useMatchRoute();
   const router = useRouter();
   const navigate = useNavigate();
+
+  const { theme } = useTheme();
 
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
@@ -517,7 +520,7 @@ const HttpFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -573,18 +576,18 @@ const HttpFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
                                 slot='title'
                               >
                                 cURL export
                               </Heading>
 
                               <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
-                                <FiX className={tw`size-5 text-slate-500`} />
+                                <FiX className={tw`size-5 text-on-neutral-low`} />
                               </Button>
                             </div>
 
-                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={theme} value={data} />
                           </>
                         )}
                       </Dialog>,
@@ -610,7 +613,7 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
     id,
     item: (_) => <FileItem id={fileCollection.utils.getKey(_)} />,
     items: files,
@@ -624,6 +627,8 @@ const HttpFile = ({ id }: FileItemProps) => {
 const HttpDeltaFile = ({ id }: FileItemProps) => {
   const router = useRouter();
   const matchRoute = useMatchRoute();
+
+  const { theme } = useTheme();
 
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
@@ -704,7 +709,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -733,18 +738,18 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
                                 slot='title'
                               >
                                 cURL export
                               </Heading>
 
                               <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
-                                <FiX className={tw`size-5 text-slate-500`} />
+                                <FiX className={tw`size-5 text-on-neutral-low`} />
                               </Button>
                             </div>
 
-                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={theme} value={data} />
                           </>
                         )}
                       </Dialog>,
@@ -767,7 +772,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
     id,
     onContextMenu,
     textValue: name ?? '',
@@ -820,7 +825,7 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const content = (
     <>
-      <FlowsIcon className={tw`size-4 text-slate-500`} />
+      <FlowsIcon className={tw`size-4 text-on-neutral-low`} />
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
@@ -839,7 +844,7 @@ const FlowFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -870,7 +875,7 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
     id,
     onContextMenu,
     textValue: name,
@@ -920,10 +925,10 @@ const CredentialFile = ({ id }: FileItemProps) => {
     <>
       {pipe(
         Match.value(kind),
-        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 text-slate-500`} />),
-        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 text-slate-500`} />),
-        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 text-slate-500`} />),
-        Match.orElse(() => <TbGauge className={tw`size-4 text-slate-500`} />),
+        Match.when(CredentialKind.OPEN_AI, () => <RiOpenaiFill className={tw`size-4 text-on-neutral-low`} />),
+        Match.when(CredentialKind.ANTHROPIC, () => <RiAnthropicFill className={tw`size-4 text-on-neutral-low`} />),
+        Match.when(CredentialKind.GEMINI, () => <RiGeminiFill className={tw`size-4 text-on-neutral-low`} />),
+        Match.orElse(() => <TbGauge className={tw`size-4 text-on-neutral-low`} />),
       )}
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -943,7 +948,7 @@ const CredentialFile = ({ id }: FileItemProps) => {
       {showControls && (
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-0.5`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -963,7 +968,7 @@ const CredentialFile = ({ id }: FileItemProps) => {
 
   const props = {
     children: content,
-    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
     id,
     onContextMenu,
     textValue: name,

@@ -7,7 +7,7 @@
 
 @plugin 'tailwindcss-react-aria-components';
 
-@source '.';
+@source '..';
 
 @theme {
   --font-sans: 'DM Sans Variable', ui-sans-serif, system-ui, sans-serif;
@@ -20,4 +20,12 @@
   &[data-status='active'] {
     @slot;
   }
+}
+
+@import './colors/index.css';
+
+html {
+  @apply bg-neutral-lowest text-on-neutral;
+
+  scrollbar-color: var(--on-neutral-low) transparent;
 }

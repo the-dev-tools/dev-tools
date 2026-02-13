@@ -129,7 +129,7 @@ export const SearchParamTable = ({
             }}
             variant='ghost'
           >
-            <FiPlus className={tw`size-4 text-slate-500`} />
+            <FiPlus className={tw`size-4 text-on-neutral-low`} />
             New search param
           </Button>
         </TableFooter>

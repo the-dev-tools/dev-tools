@@ -19,34 +19,34 @@ export const buttonStyles = tv({
   variants: {
     variant: {
       primary: tw`
-        border-violet-700 bg-violet-600 text-white
+        border-accent-high bg-accent text-on-accent
 
-        hover:border-violet-800 hover:bg-violet-700
+        hover:border-accent-higher hover:bg-accent-high
 
-        disabled:border-violet-400 disabled:bg-violet-400
+        disabled:border-accent-low disabled:bg-accent-low
 
-        pressed:border-violet-900 pressed:bg-violet-800
+        pressed:border-accent-highest pressed:bg-accent-higher
       `,
 
       secondary: tw`
-        border-slate-200 bg-white text-slate-800
+        border-neutral bg-neutral-lowest text-on-neutral
 
-        hover:border-slate-200 hover:bg-slate-100
+        hover:bg-neutral-low
 
-        pressed:border-slate-300 pressed:bg-white
+        pressed:border-neutral-high pressed:bg-neutral
       `,
 
       danger: tw`
-        border-red-700 bg-red-600 text-white
+        border-danger bg-danger-low text-on-danger
 
-        hover:border-red-800 hover:bg-red-700
+        hover:border-danger-high hover:bg-danger
 
-        pressed:border-red-900 pressed:bg-red-800
+        pressed:border-danger-higher pressed:bg-danger-high
       `,
 
-      ghost: tw`text-slate-800 hover:bg-slate-100 pressed:bg-slate-200`,
+      ghost: tw`text-on-neutral hover:bg-neutral-low pressed:bg-neutral`,
 
-      'ghost dark': tw`text-white hover:bg-slate-600 pressed:bg-slate-700`,
+      'ghost dark': tw`text-on-inverse hover:bg-inverse-lower pressed:bg-inverse-low`,
     },
   },
   defaultVariants: {

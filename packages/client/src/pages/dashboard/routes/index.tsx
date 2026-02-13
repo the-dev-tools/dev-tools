@@ -68,15 +68,15 @@ export const WorkspaceListPage = () => {
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
       <div className={tw`col-span-full`}>
-        <span className={tw`mb-1 text-sm leading-5 tracking-tight text-slate-500`}>
+        <span className={tw`mb-1 text-sm leading-5 tracking-tight text-on-neutral-low`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
         </span>
-        <h1 className={tw`text-2xl leading-8 font-medium tracking-tight text-slate-800`}>Welcome to DevTools 👋</h1>
+        <h1 className={tw`text-2xl leading-8 font-medium tracking-tight text-on-neutral`}>Welcome to DevTools 👋</h1>
       </div>
 
-      <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-slate-200`} ref={containerRef}>
+      <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-neutral`} ref={containerRef}>
         <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
-          <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
+          <span className={tw`flex-1 font-semibold tracking-tight text-on-neutral`}>Your Workspaces</span>
           <Button
             onPress={async () =>
               void workspaceCollection.utils.insert({
@@ -93,7 +93,7 @@ export const WorkspaceListPage = () => {
 
         <ListBox
           aria-label='Workspaces'
-          className={tw`flex-1 divide-y divide-slate-200 overflow-auto`}
+          className={tw`flex-1 divide-y divide-neutral overflow-auto`}
           dragAndDropHooks={dragAndDropHooks}
           items={workspaces}
           selectionMode='none'
@@ -165,12 +165,12 @@ const Item = ({ containerRef, id }: ItemProps) => {
         <div
           className={tw`
             grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight
-            text-slate-500
+            text-on-neutral-low
           `}
         >
           <div
             className={twJoin(
-              tw`text-md leading-5 font-semibold tracking-tight text-slate-800`,
+              tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`,
               isEditing && tw`opacity-0`,
             )}
             ref={escapeRef}
@@ -188,7 +188,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
               <TextInputField
                 aria-label='Workspace name'
                 className={tw`justify-self-start`}
-                inputClassName={tw`-mt-1 py-1 text-md leading-none font-semibold tracking-tight text-slate-800`}
+                inputClassName={tw`-mt-1 py-1 text-md leading-none font-semibold tracking-tight text-on-neutral`}
                 {...textFieldProps}
               />,
             )}
@@ -199,7 +199,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
             </span>
             {updated && (
               <>
-                <div className={tw`size-0.5 rounded-full bg-slate-400`} />
+                <div className={tw`size-0.5 rounded-full bg-neutral-higher`} />
                 <span>
                   Updated <TimeAgo date={timestampDate(updated)} minPeriod={60} />
                 </span>
@@ -209,13 +209,13 @@ const Item = ({ containerRef, id }: ItemProps) => {
           <span>Files</span>
           <div className={tw`flex items-center gap-1`}>
             <CollectionIcon />
-            <strong className={tw`font-semibold text-slate-800`}>{fileCount}</strong>
+            <strong className={tw`font-semibold text-on-neutral`}>{fileCount}</strong>
           </div>
         </div>
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`ml-6 p-1`} variant='ghost'>
-            <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+            <FiMoreHorizontal className={tw`size-4 stroke-[1.2px] text-on-neutral-low`} />
           </Button>
 
           <Menu {...menuProps}>
@@ -227,14 +227,14 @@ const Item = ({ containerRef, id }: ItemProps) => {
                   true,
                   <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
                     <Heading
-                      className={tw`text-base leading-5 font-semibold tracking-tight text-slate-800`}
+                      className={tw`text-base leading-5 font-semibold tracking-tight text-on-neutral`}
                       slot='title'
                     >
                       Delete workspace?
                     </Heading>
 
-                    <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-slate-500`}>
-                      Are you sure you want to delete <span className={tw`text-slate-800`}>“{name}”</span>? This action
+                    <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-on-neutral-low`}>
+                      Are you sure you want to delete <span className={tw`text-on-neutral`}>“{name}”</span>? This action
                       cannot be undone.
                     </div>
 

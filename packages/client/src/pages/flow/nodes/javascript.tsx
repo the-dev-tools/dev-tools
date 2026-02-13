@@ -8,6 +8,7 @@ import { FiTerminal } from 'react-icons/fi';
 import { NodeJsSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeJsCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { useCodeMirrorLanguageExtensions } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
@@ -36,6 +37,8 @@ export const JavaScriptNode = ({ id, selected }: XF.NodeProps) => {
 };
 
 export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
+  const { theme } = useTheme();
+
   const collection = useApiCollection(NodeJsCollectionSchema);
 
   const { code } =
@@ -59,6 +62,7 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
         height='100%'
         onChange={(_) => collection.utils.updatePaced({ code: _, nodeId })}
         readOnly={isReadOnly}
+        theme={theme}
         value={code}
       />
     </NodeSettingsBody>

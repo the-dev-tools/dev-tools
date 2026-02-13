@@ -21,13 +21,13 @@ export const Table = ({ children, className, containerClassName, ...props }: Tab
 
   return (
     <RAC.ResizableTableContainer
-      className={twMerge(tw`relative w-full overflow-auto rounded-lg border border-slate-200`, containerClassName)}
+      className={twMerge(tw`relative w-full overflow-auto rounded-lg border border-neutral`, containerClassName)}
       onScroll={props.onScroll}
     >
       <RAC.Table
         className={composeTailwindRenderProps(
           className,
-          tw`w-full overflow-hidden border-inherit text-md leading-5 text-slate-800`,
+          tw`w-full overflow-hidden border-inherit text-md leading-5 text-on-neutral`,
         )}
         // @ts-expect-error patched workaround until fixed upstream https://github.com/adobe/react-spectrum/issues/2328
         isKeyboardNavigationDisabled
@@ -51,7 +51,7 @@ export const TableHeader = <T extends object>({ children, className, columns, ..
       {...props}
       className={composeTailwindRenderProps(
         className,
-        tw`sticky top-0 z-10 border-b border-inherit bg-slate-50 font-medium tracking-tight`,
+        tw`sticky top-0 z-10 border-b border-inherit bg-neutral-lower font-medium tracking-tight`,
       )}
     >
       <RAC.Collection items={columns ?? []}>{children}</RAC.Collection>
@@ -80,7 +80,7 @@ export const TableColumn = ({ children, className, ...props }: TableColumnProps)
 
         {!props.width && (
           <RAC.ColumnResizer className={tw`absolute inset-y-0 right-0 z-10 translate-x-2 cursor-col-resize px-2`}>
-            <div className={tw`mx-auto h-full w-px bg-slate-200`} />
+            <div className={tw`mx-auto h-full w-px bg-neutral`} />
           </RAC.ColumnResizer>
         )}
       </>
@@ -113,7 +113,7 @@ export const TableRow = <T extends object>({ children, className, columns, ...pr
       {allowsDragging && (
         <TableCell className={tw`cursor-move px-1`}>
           <Button className={tw`p-1`} slot='drag' variant='ghost'>
-            <FiMove className={tw`size-3 text-slate-500`} />
+            <FiMove className={tw`size-3 text-on-neutral-low`} />
           </Button>
         </TableCell>
       )}

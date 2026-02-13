@@ -25,8 +25,8 @@ export const Default: Story = {
 
         <Modal {...props}>
           <Dialog className={tw`flex h-full flex-col p-4 outline-hidden`}>
-            <h1 className={tw`mb-1 leading-5 font-semibold tracking-tight text-slate-800`}>Delete workspace?</h1>
-            <span className={tw`text-sm leading-5 font-medium tracking-tight text-slate-500`}>
+            <h1 className={tw`mb-1 leading-5 font-semibold tracking-tight text-on-neutral`}>Delete workspace?</h1>
+            <span className={tw`text-sm leading-5 font-medium tracking-tight text-on-neutral-low`}>
               This action will remove the workspace permanently
             </span>
 
@@ -36,7 +36,7 @@ export const Default: Story = {
               <Button slot='close' variant='secondary'>
                 Cancel
               </Button>
-              <Button className={tw`border-red-700 bg-red-600`} slot='close' variant='primary'>
+              <Button className={tw`border-danger bg-danger-low`} slot='close' variant='primary'>
                 Delete
               </Button>
             </div>

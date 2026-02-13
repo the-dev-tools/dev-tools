@@ -1,0 +1,53 @@
+@custom-variant dark (&:is(.dark *));
+
+.dark {
+  /* Neutral */
+
+  --neutral-lowest: var(--color-zinc-900);
+  --neutral-lower: var(--color-zinc-800);
+  --neutral-low: var(--color-zinc-700);
+  --neutral: var(--color-zinc-700);
+  --neutral-high: var(--color-zinc-500);
+  --neutral-higher: var(--color-zinc-400);
+
+  --on-neutral-lower: var(--color-zinc-400);
+  --on-neutral-low: var(--color-zinc-300);
+  --on-neutral: var(--color-zinc-50);
+
+  /* Inverse */
+
+  --inverse-lower: var(--color-zinc-600);
+  --inverse-low: var(--color-zinc-700);
+  --inverse: var(--color-zinc-950);
+
+  /* Accent */
+
+  --accent-lowest: var(--color-violet-900);
+  --accent-lower: var(--color-violet-800);
+  --accent-low: var(--color-violet-600);
+  --accent: var(--color-violet-600);
+  --accent-high: var(--color-violet-700);
+  --accent-higher: var(--color-violet-800);
+  --accent-highest: var(--color-violet-900);
+
+  --on-accent: var(--color-zinc-50);
+
+  /* Success */
+
+  --success: var(--color-green-400);
+
+  /* Danger */
+
+  --danger-lowest: var(--color-red-900);
+  --danger-lower: var(--color-red-800);
+  --danger-low: var(--color-red-700);
+  --danger: var(--color-red-500);
+  --danger-high: var(--color-red-600);
+  --danger-higher: var(--color-red-700);
+
+  --on-danger: var(--color-zinc-50);
+
+  /* Info */
+
+  --info: var(--color-blue-400);
+}

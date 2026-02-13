@@ -9,9 +9,12 @@ import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { ProgressBar } from '@the-dev-tools/ui/progress-bar';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { setTheme } from '@the-dev-tools/ui/theme';
 import packageJson from '../../package.json';
 
 import './styles.css';
+
+setTheme();
 
 pipe(configProviderFromMetaEnv({ VERSION: packageJson.version }), Layer.setConfigProvider, addGlobalLayer);
 
@@ -63,7 +66,7 @@ const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
       </div>
 
       {/* eslint-disable-next-line better-tailwindcss/no-unregistered-classes */}
-      <div className={tw`prose flex-1 overflow-auto`}>
+      <div className={tw`prose dark:prose-invert flex-1 overflow-auto`}>
         <Markdown>{children}</Markdown>
       </div>
 

@@ -84,7 +84,7 @@ function RouteComponent() {
     >
       <PanelGroup {...workspaceSidebarLayout} orientation='horizontal'>
         <Panel
-          className={tw`flex flex-col bg-slate-50`}
+          className={tw`flex flex-col bg-neutral-lower`}
           defaultSize='20%'
           maxSize='40%'
           minSize='10%'
@@ -99,20 +99,22 @@ function RouteComponent() {
               to={router.routesById[routes.dashboard.workspace.route.id].fullPath}
               variant='ghost'
             >
-              <OverviewIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>Overview</h2>
+              <OverviewIcon className={tw`size-5 text-on-neutral-low`} />
+              <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`}>Overview</h2>
             </ButtonAsRouteLink>
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
-              <CollectionIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-slate-800`}>Files</h2>
+              <CollectionIcon className={tw`size-5 text-on-neutral-low`} />
+              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-on-neutral`}>Files</h2>
 
               <MenuTrigger>
                 <TooltipTrigger delay={750}>
-                  <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
-                    <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+                  <Button className={tw`bg-neutral p-0.5`} variant='ghost'>
+                    <FiPlus className={tw`size-4 stroke-[1.2px] text-on-neutral-low`} />
                   </Button>
-                  <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Add New File</Tooltip>
+                  <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>
+                    Add New File
+                  </Tooltip>
                 </TooltipTrigger>
 
                 <FileCreateMenu navigate />
@@ -122,14 +124,14 @@ function RouteComponent() {
             <FileTree navigate showControls />
           </div>
 
-          <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-slate-800`}>
+          <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-on-neutral`}>
             DevTools v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
           </div>
         </Panel>
 
         <PanelResizeHandle direction='horizontal' />
 
-        <Panel defaultSize='80%'>
+        <Panel className={tw`bg-neutral-lowest`} defaultSize='80%'>
           <PanelGroup {...workspaceOutletLayout} orientation='vertical'>
             <div className={tw`-mt-px pt-2`}>
               <RouteTabList />

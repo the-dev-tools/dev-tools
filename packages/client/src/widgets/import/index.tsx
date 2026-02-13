@@ -50,9 +50,9 @@ export const ImportDialogTrigger = () => {
     <>
       <TooltipTrigger delay={750}>
         <Button className={tw`p-1`} onPress={() => void dialog.open()} variant='ghost'>
-          <FileImportIcon className={tw`size-4 text-slate-500`} />
+          <FileImportIcon className={tw`size-4 text-on-neutral-low`} />
         </Button>
-        <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>
+        <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>
           Import Collections and Flows
         </Tooltip>
       </TooltipTrigger>
@@ -73,19 +73,19 @@ const InnerDialog = ({ action, children }: InnerDialogProps) => (
       <>
         <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
           <div className={tw`flex items-center justify-between`}>
-            <Heading className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`} slot='title'>
+            <Heading className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`} slot='title'>
               Import Collections and Flows
             </Heading>
 
             <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
-              <FiX className={tw`size-5 text-slate-500`} />
+              <FiX className={tw`size-5 text-on-neutral-low`} />
             </Button>
           </div>
 
           {children}
         </div>
 
-        <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
+        <div className={tw`flex justify-end gap-2 border-t border-neutral px-6 py-3`}>
           <Button onPress={() => void close()}>Cancel</Button>
 
           {action}
@@ -145,8 +145,8 @@ const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
     >
       <div
         className={tw`
-          mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-4 font-medium tracking-tight
-          text-slate-500
+          mt-6 rounded-lg border border-neutral bg-neutral-lower p-4 text-sm leading-4 font-medium tracking-tight
+          text-on-neutral-low
         `}
       >
         <FiInfo className={tw`mr-1.5 inline-block size-4 align-bottom`} />
@@ -215,7 +215,7 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
         </Button>
       }
     >
-      <div className={tw`text-xs leading-5 tracking-tight text-slate-500`}>
+      <div className={tw`text-xs leading-5 tracking-tight text-on-neutral-low`}>
         Please deselect the domain names to be excluded in the flow. There might be requests that you may not want to
         import.
       </div>

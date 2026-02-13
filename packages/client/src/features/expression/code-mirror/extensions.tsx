@@ -89,7 +89,7 @@ const CompletionInfo = ({ completion, context, path }: CompletionInfoProps) => {
           }}
           variant='ghost'
         >
-          <LuClipboardCopy className={tw`size-4 text-slate-500`} />
+          <LuClipboardCopy className={tw`size-4 text-on-neutral-low`} />
         </Button>
       </div>
 

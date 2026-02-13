@@ -136,8 +136,11 @@ const DefaultEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, tar
           className={tw`nodrag nopan pointer-events-auto absolute`}
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)` }}
         >
-          <Button className={tw`rounded-full p-1`} onPress={() => void deleteElements({ edges: [{ id }] })}>
-            <FiX className={tw`size-3 text-red-700`} />
+          <Button
+            className={tw`rounded-full border-on-neutral p-1`}
+            onPress={() => void deleteElements({ edges: [{ id }] })}
+          >
+            <FiX className={tw`size-3 text-danger-high`} />
           </Button>
         </div>
       </XF.EdgeLabelRenderer>
@@ -153,11 +156,11 @@ const connectionLineStyles = tv({
   base: tw`fill-none stroke-1 transition-colors`,
   variants: {
     state: {
-      [FlowItemState.CANCELED]: tw`stroke-slate-400`,
-      [FlowItemState.FAILURE]: tw`stroke-red-600`,
-      [FlowItemState.RUNNING]: tw`stroke-violet-600`,
-      [FlowItemState.SUCCESS]: tw`stroke-green-600`,
-      [FlowItemState.UNSPECIFIED]: tw`stroke-slate-800`,
+      [FlowItemState.CANCELED]: tw`stroke-neutral-higher`,
+      [FlowItemState.FAILURE]: tw`stroke-danger`,
+      [FlowItemState.RUNNING]: tw`stroke-accent`,
+      [FlowItemState.SUCCESS]: tw`stroke-success`,
+      [FlowItemState.UNSPECIFIED]: tw`stroke-on-neutral`,
     } satisfies Record<FlowItemState, string>,
   },
 });

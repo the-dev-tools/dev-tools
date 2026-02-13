@@ -121,15 +121,15 @@ const TabItem = ({ id }: TabItemProps) => {
       aria-label='Tab'
       className={tw`
         relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs
-        leading-4 font-medium tracking-tight text-slate-800
+        leading-4 font-medium tracking-tight text-on-neutral
 
-        not-route-active:border-b not-route-active:border-transparent not-route-active:border-b-gray-200
+        not-route-active:border-b not-route-active:border-transparent not-route-active:border-b-neutral
         not-route-active:opacity-60
 
-        before:absolute before:-left-px before:h-6 before:w-px before:bg-gray-200
+        before:absolute before:-left-px before:h-6 before:w-px before:bg-neutral
 
-        route-active:rounded-t-md route-active:border route-active:border-gray-200 route-active:border-b-transparent
-        route-active:bg-white
+        route-active:rounded-t-md route-active:border route-active:border-neutral route-active:border-b-transparent
+        route-active:bg-neutral-lowest
       `}
       id={id}
       onAuxClick={(event) => {
@@ -147,7 +147,7 @@ const TabItem = ({ id }: TabItemProps) => {
         }}
         variant='ghost'
       >
-        <FiX className={tw`size-4 text-slate-500`} />
+        <FiX className={tw`size-4 text-on-neutral-low`} />
       </Button>
     </Primitive.ListBoxItemRouteLink>
   );
@@ -244,7 +244,7 @@ export const RouteTabList = () => {
       className={tw`
         relative flex h-11 w-full overflow-x-auto overflow-y-hidden
 
-        before:absolute before:bottom-0 before:w-full before:border-b before:border-gray-200
+        before:absolute before:bottom-0 before:w-full before:border-b before:border-neutral
       `}
       dragAndDropHooks={dragAndDropHooks}
       items={tabs}

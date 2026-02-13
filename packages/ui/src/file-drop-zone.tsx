@@ -48,10 +48,10 @@ export const FileDropZone = ({
         className,
         focusVisibleRingStyles(),
         tw`
-          flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300
-          bg-white p-4
+          flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-neutral-high
+          bg-neutral-lowest p-4
 
-          drop-target:bg-violet-100 drop-target:outline-4 drop-target:outline-violet-200
+          drop-target:bg-accent-lowest drop-target:outline-4 drop-target:outline-accent-lower
         `,
       )}
       isDisabled={isDisabled || (hasFiles && !allowsMultiple)}
@@ -74,9 +74,9 @@ export const FileDropZone = ({
         </div>
       ) : (
         <>
-          <CloudUploadIcon className={tw`size-7 text-slate-500`} />
+          <CloudUploadIcon className={tw`size-7 text-on-neutral-low`} />
 
-          <RAC.Text className={tw`mb-1 text-sm leading-5 font-semibold tracking-tight text-slate-800`} slot='label'>
+          <RAC.Text className={tw`mb-1 text-sm leading-5 font-semibold tracking-tight text-on-neutral`} slot='label'>
             Drag and drop your files or
           </RAC.Text>
 
@@ -96,19 +96,19 @@ interface FilePreviewProps {
 
 const FilePreview = ({ file, onRemove }: FilePreviewProps) => (
   <div className={tw`flex w-40 flex-col items-center`}>
-    <div className={tw`mb-3 rounded-md border border-slate-200 bg-white p-1.5`}>
-      <FiFile className={tw`size-5 text-slate-500`} />
+    <div className={tw`mb-3 rounded-md border border-neutral bg-neutral-lowest p-1.5`}>
+      <FiFile className={tw`size-5 text-on-neutral-low`} />
     </div>
 
-    <div className={tw`w-full truncate text-center text-md leading-5 font-medium tracking-tight text-slate-800`}>
+    <div className={tw`w-full truncate text-center text-md leading-5 font-medium tracking-tight text-on-neutral`}>
       {file.name}
     </div>
 
-    <div className={tw`text-xs leading-4 tracking-tight text-slate-500`}>{formatSize(file.size)}</div>
+    <div className={tw`text-xs leading-4 tracking-tight text-on-neutral-low`}>{formatSize(file.size)}</div>
 
     {onRemove && (
       <Button className={tw`mt-1 p-1`} onPress={() => void onRemove()} variant='ghost'>
-        <DeleteIcon className={tw`size-4 text-rose-700`} />
+        <DeleteIcon className={tw`size-4 text-danger`} />
       </Button>
     )}
   </div>

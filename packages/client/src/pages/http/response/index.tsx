@@ -41,20 +41,20 @@ export const ResponseInfo = ({ className, httpResponseId }: ResponseInfoProps) =
   return (
     <div
       className={twMerge(
-        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-slate-800`,
+        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-on-neutral`,
         className,
       )}
     >
       <div className={tw`flex gap-1 p-2`}>
         <span>Status:</span>
-        <span className={tw`text-green-600`}>{status}</span>
+        <span className={tw`text-success`}>{status}</span>
       </div>
 
       <Separator className={tw`h-4`} orientation='vertical' />
 
       <div className={tw`flex gap-1 p-2`}>
         <span>Time:</span>
-        <span className={tw`text-green-600`}>{pipe(duration, Duration.millis, Duration.format)}</span>
+        <span className={tw`text-success`}>{pipe(duration, Duration.millis, Duration.format)}</span>
       </div>
 
       <Separator className={tw`h-4`} orientation='vertical' />
@@ -101,16 +101,16 @@ export const ResponsePanel = ({ children, className, fullWidth = false, httpResp
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
-      <div className={twMerge(tw`flex items-center gap-3 border-b border-slate-200 text-md`, fullWidth && tw`px-4`)}>
+      <div className={twMerge(tw`flex items-center gap-3 border-b border-neutral text-md`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             className={({ isSelected }) =>
               twMerge(
                 tw`
                   -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                  text-slate-500 transition-colors
+                  text-on-neutral-low transition-colors
                 `,
-                isSelected && tw`border-b-violet-700 text-slate-800`,
+                isSelected && tw`border-b-accent text-on-neutral`,
               )
             }
             id='body'
@@ -123,15 +123,15 @@ export const ResponsePanel = ({ children, className, fullWidth = false, httpResp
               twMerge(
                 tw`
                   -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                  text-slate-500 transition-colors
+                  text-on-neutral-low transition-colors
                 `,
-                isSelected && tw`border-b-violet-700 text-slate-800`,
+                isSelected && tw`border-b-accent text-on-neutral`,
               )
             }
             id='headers'
           >
             Headers
-            {headerCount > 0 && <span className={tw`text-xs text-green-600`}> ({headerCount})</span>}
+            {headerCount > 0 && <span className={tw`text-xs text-success`}> ({headerCount})</span>}
           </Tab>
 
           <Tab
@@ -139,15 +139,15 @@ export const ResponsePanel = ({ children, className, fullWidth = false, httpResp
               twMerge(
                 tw`
                   -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
-                  text-slate-500 transition-colors
+                  text-on-neutral-low transition-colors
                 `,
-                isSelected && tw`border-b-violet-700 text-slate-800`,
+                isSelected && tw`border-b-accent text-on-neutral`,
               )
             }
             id='assertions'
           >
             Assertion Results
-            {assertCount > 0 && <span className={tw`text-xs text-green-600`}> ({assertCount})</span>}
+            {assertCount > 0 && <span className={tw`text-xs text-success`}> ({assertCount})</span>}
           </Tab>
         </TabList>
 

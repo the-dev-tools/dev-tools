@@ -62,7 +62,7 @@ const tailwind = defineConfig({
   rules: tailwindPlugin.configs['recommended']!.rules,
   settings: {
     'better-tailwindcss': {
-      entryPoint: resolve(root, 'packages/ui/src/styles.css'),
+      entryPoint: resolve(root, 'packages/ui/src/styles/index.css'),
 
       attributes: [],
       callees: [],

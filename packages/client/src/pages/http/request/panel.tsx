@@ -107,21 +107,21 @@ export const HttpRequestPanel = ({
 
   return (
     <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}>
-      <TabList className={tw`flex gap-3 border-b border-slate-200`}>
+      <TabList className={tw`flex gap-3 border-b border-neutral`}>
         <Tab
           className={({ isSelected }) =>
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-on-neutral-low transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent text-on-neutral`,
             )
           }
           id='params'
         >
           Search Params
-          {searchParamCount > 0 && <span className={tw`text-xs text-green-600`}> ({searchParamCount})</span>}
+          {searchParamCount > 0 && <span className={tw`text-xs text-success`}> ({searchParamCount})</span>}
         </Tab>
 
         <Tab
@@ -129,15 +129,15 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-on-neutral-low transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent text-on-neutral`,
             )
           }
           id='headers'
         >
           Headers
-          {headerCount > 0 && <span className={tw`text-xs text-green-600`}> ({headerCount})</span>}
+          {headerCount > 0 && <span className={tw`text-xs text-success`}> ({headerCount})</span>}
         </Tab>
 
         <Tab
@@ -145,19 +145,19 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-on-neutral-low transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent text-on-neutral`,
             )
           }
           id='body'
         >
           Body
           {bodyKind === HttpBodyKind.FORM_DATA && bodyFormDataCount > 0 && (
-            <span className={tw`text-xs text-green-600`}> ({bodyFormDataCount})</span>
+            <span className={tw`text-xs text-success`}> ({bodyFormDataCount})</span>
           )}
           {bodyKind === HttpBodyKind.URL_ENCODED && bodyUrlEncodedCount > 0 && (
-            <span className={tw`text-xs text-green-600`}> ({bodyUrlEncodedCount})</span>
+            <span className={tw`text-xs text-success`}> ({bodyUrlEncodedCount})</span>
           )}
         </Tab>
 
@@ -166,15 +166,15 @@ export const HttpRequestPanel = ({
             twMerge(
               tw`
                 -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
-                text-slate-500 transition-colors
+                text-on-neutral-low transition-colors
               `,
-              isSelected && tw`border-b-violet-700 text-slate-800`,
+              isSelected && tw`border-b-accent text-on-neutral`,
             )
           }
           id='assertions'
         >
           Assertion
-          {assertCount > 0 && <span className={tw`text-xs text-green-600`}> ({assertCount})</span>}
+          {assertCount > 0 && <span className={tw`text-xs text-success`}> ({assertCount})</span>}
         </Tab>
       </TabList>
 

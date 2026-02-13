@@ -22,8 +22,8 @@ const logTextStyles = tv({
   base: tw`font-mono text-sm`,
   variants: {
     level: {
-      [LogLevel.ERROR]: tw`text-red-600`,
-      [LogLevel.UNSPECIFIED]: tw`text-slate-800`,
+      [LogLevel.ERROR]: tw`text-danger`,
+      [LogLevel.UNSPECIFIED]: tw`text-on-neutral`,
       [LogLevel.WARNING]: tw`text-yellow-600`,
     } satisfies Record<LogLevel, string>,
   },
@@ -34,12 +34,12 @@ export const StatusBar = () => {
 
   const { showLogs } = routes.dashboard.workspace.route.useSearch();
 
-  const separator = <div className={tw`h-3.5 w-px bg-slate-200`} />;
+  const separator = <div className={tw`h-3.5 w-px bg-neutral`} />;
 
   const bar = (
-    <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
+    <div className={twMerge(tw`flex items-center gap-2 bg-neutral-lower px-2 py-1`, showLogs && tw`bg-neutral-lowest`)}>
       <ButtonAsRouteLink
-        className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
+        className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-on-neutral`}
         search={(_) => ({ ..._, showLogs: showLogs ? undefined : true })}
         to='.'
         variant='ghost'
@@ -55,7 +55,7 @@ export const StatusBar = () => {
       {showLogs && (
         <>
           <Button
-            className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
+            className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-on-neutral`}
             onPress={() => {
               const state = logCollection.utils.state();
               state.begin();
@@ -64,7 +64,7 @@ export const StatusBar = () => {
             }}
             variant='ghost'
           >
-            <FiTrash2 className={tw`size-3 text-slate-500`} />
+            <FiTrash2 className={tw`size-3 text-on-neutral-low`} />
             <span>Clear Logs</span>
           </Button>
 
@@ -76,7 +76,7 @@ export const StatusBar = () => {
             to='.'
             variant='ghost'
           >
-            <FiX className={tw`size-4 text-slate-500`} />
+            <FiX className={tw`size-4 text-on-neutral-low`} />
           </ButtonAsRouteLink>
         </>
       )}

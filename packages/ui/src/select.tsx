@@ -37,7 +37,7 @@ export const Select = <T extends object>({
     {label && <FieldLabel>{label}</FieldLabel>}
     <Button className={triggerClassName!} variant={triggerVariant}>
       <RAC.SelectValue>{renderValue}</RAC.SelectValue>
-      <FiChevronDown className={tw`-mr-1 size-4 text-slate-500 transition-transform group-open:rotate-180`} />
+      <FiChevronDown className={tw`-mr-1 size-4 text-on-neutral-low transition-transform group-open:rotate-180`} />
     </Button>
     {error && <FieldError>{error}</FieldError>}
     <Popover>
@@ -56,7 +56,7 @@ export const SelectItem = <T extends object>(props: ListBoxItemProps<T>) => (
       <>
         {children}
         <div className={tw`flex-1`} />
-        <FiCheckCircle className={tw`hidden size-3.5 stroke-[1.2px] text-green-600 group-selected/list-item:block`} />
+        <FiCheckCircle className={tw`hidden size-3.5 stroke-[1.2px] text-success group-selected/list-item:block`} />
       </>
     ))}
   </ListBoxItem>
