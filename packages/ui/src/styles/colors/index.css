@@ -1,0 +1,58 @@
+@import './light.css';
+@import './dark.css';
+
+@theme inline {
+  /* Neutral */
+
+  --color-neutral-lowest: var(--neutral-lowest);
+  --color-neutral-lower: var(--neutral-lower);
+  --color-neutral-low: var(--neutral-low);
+  --color-neutral: var(--neutral);
+  --color-neutral-high: var(--neutral-high);
+  --color-neutral-higher: var(--neutral-higher);
+
+  --color-on-neutral-lower: var(--on-neutral-lower);
+  --color-on-neutral-low: var(--on-neutral-low);
+  --color-on-neutral: var(--on-neutral);
+
+  /* Inverse */
+
+  --color-inverse-lower: var(--inverse-lower);
+  --color-inverse-low: var(--inverse-low);
+  --color-inverse: var(--inverse);
+
+  --color-on-inverse-lower: var(--on-inverse-lower);
+  --color-on-inverse-low: var(--on-inverse-low);
+  --color-on-inverse: var(--on-inverse);
+
+  /* Accent */
+
+  --color-accent-lowest: var(--accent-lowest);
+  --color-accent-lower: var(--accent-lower);
+  --color-accent-low: var(--accent-low);
+  --color-accent: var(--accent);
+  --color-accent-high: var(--accent-high);
+  --color-accent-higher: var(--accent-higher);
+  --color-accent-highest: var(--accent-highest);
+
+  --color-on-accent: var(--on-accent);
+
+  /* Success */
+
+  --color-success: var(--success);
+
+  /* Danger */
+
+  --color-danger-lowest: var(--danger-lowest);
+  --color-danger-lower: var(--danger-lower);
+  --color-danger-low: var(--danger-low);
+  --color-danger: var(--danger);
+  --color-danger-high: var(--danger-high);
+  --color-danger-higher: var(--danger-higher);
+
+  --color-on-danger: var(--on-danger);
+
+  /* Info */
+
+  --color-info: var(--info);
+}

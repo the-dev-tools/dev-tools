@@ -6,7 +6,7 @@
     ".": "./src/index.tsx",
     "./*": "./src/*.tsx",
     "./storybook-config/*": "./.storybook/*",
-    "./styles": "./src/styles.css"
+    "./styles": "./src/styles/index.css"
   },
   "dependencies": {
     "@bufbuild/protobuf": "catalog:",

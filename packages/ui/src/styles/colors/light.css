@@ -1,0 +1,55 @@
+:root {
+  /* Neutral */
+
+  --neutral-lowest: var(--color-white);
+  --neutral-lower: var(--color-slate-50);
+  --neutral-low: var(--color-slate-100);
+  --neutral: var(--color-slate-200);
+  --neutral-high: var(--color-slate-300);
+  --neutral-higher: var(--color-slate-400);
+
+  --on-neutral-lower: var(--color-slate-300);
+  --on-neutral-low: var(--color-slate-500);
+  --on-neutral: var(--color-slate-800);
+
+  /* Inverse */
+
+  --inverse-lower: var(--color-slate-600);
+  --inverse-low: var(--color-slate-700);
+  --inverse: var(--color-slate-900);
+
+  --on-inverse-lower: rgba(255, 255, 255, 0.2);
+  --on-inverse-low: var(--color-slate-300);
+  --on-inverse: var(--color-white);
+
+  /* Accent */
+
+  --accent-lowest: var(--color-violet-100);
+  --accent-lower: var(--color-violet-200);
+  --accent-low: var(--color-violet-400);
+  --accent: var(--color-violet-600);
+  --accent-high: var(--color-violet-700);
+  --accent-higher: var(--color-violet-800);
+  --accent-highest: var(--color-violet-900);
+
+  --on-accent: var(--color-white);
+
+  /* Success */
+
+  --success: var(--color-green-600);
+
+  /* Danger */
+
+  --danger-lowest: var(--color-red-100);
+  --danger-lower: var(--color-red-200);
+  --danger-low: var(--color-red-600);
+  --danger: var(--color-red-700);
+  --danger-high: var(--color-red-800);
+  --danger-higher: var(--color-red-900);
+
+  --on-danger: var(--color-white);
+
+  /* Info */
+
+  --info: var(--color-blue-700);
+}
