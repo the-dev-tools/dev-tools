@@ -7,6 +7,7 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 )
 
 // importFlows imports flows from the bundle.
@@ -276,6 +277,63 @@ func (s *IOWorkspaceService) importFlowAIMemoryNodes(ctx context.Context, nodeMe
 		}
 
 		result.FlowAIMemoryNodesCreated++
+	}
+	return nil
+}
+
+// importGraphQLRequests imports GraphQL requests from the bundle.
+func (s *IOWorkspaceService) importGraphQLRequests(ctx context.Context, graphqlService sgraphql.GraphQLService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, gql := range bundle.GraphQLRequests {
+		// Generate new ID if not preserving
+		if !opts.PreserveIDs {
+			gql.ID = idwrap.NewNow()
+		}
+
+		// Update workspace ID
+		gql.WorkspaceID = opts.WorkspaceID
+
+		// Create GraphQL request
+		if err := graphqlService.Create(ctx, &gql); err != nil {
+			return fmt.Errorf("failed to create GraphQL request %s: %w", gql.Name, err)
+		}
+
+		result.GraphQLRequestsCreated++
+	}
+	return nil
+}
+
+// importGraphQLHeaders imports GraphQL headers from the bundle.
+func (s *IOWorkspaceService) importGraphQLHeaders(ctx context.Context, graphqlHeaderService sgraphql.GraphQLHeaderService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, header := range bundle.GraphQLHeaders {
+		// Generate new ID if not preserving
+		if !opts.PreserveIDs {
+			header.ID = idwrap.NewNow()
+		}
+
+		// Create header
+		if err := graphqlHeaderService.Create(ctx, &header); err != nil {
+			return fmt.Errorf("failed to create GraphQL header: %w", err)
+		}
+
+		result.GraphQLHeadersCreated++
+	}
+	return nil
+}
+
+// importFlowGraphQLNodes imports flow GraphQL nodes from the bundle.
+func (s *IOWorkspaceService) importFlowGraphQLNodes(ctx context.Context, nodeGraphQLService sflow.NodeGraphQLService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, gqlNode := range bundle.FlowGraphQLNodes {
+		// Remap flow node ID
+		if newNodeID, ok := result.NodeIDMap[gqlNode.FlowNodeID]; ok {
+			gqlNode.FlowNodeID = newNodeID
+		}
+
+		// Create GraphQL node
+		if err := nodeGraphQLService.CreateNodeGraphQL(ctx, gqlNode); err != nil {
+			return fmt.Errorf("failed to create flow GraphQL node: %w", err)
+		}
+
+		result.FlowGraphQLNodesCreated++
 	}
 	return nil
 }
