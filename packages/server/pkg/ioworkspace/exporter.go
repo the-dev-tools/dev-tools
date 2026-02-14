@@ -9,6 +9,7 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
@@ -66,6 +67,11 @@ func (s *IOWorkspaceService) Export(ctx context.Context, opts ExportOptions) (*W
 		if err := s.exportEnvironments(ctx, opts, bundle); err != nil {
 			return nil, fmt.Errorf("failed to export environments: %w", err)
 		}
+	}
+
+	// Export credentials
+	if err := s.exportCredentials(ctx, opts, bundle); err != nil {
+		return nil, fmt.Errorf("failed to export credentials: %w", err)
 	}
 
 	counts := bundle.CountEntities()
@@ -213,6 +219,9 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	nodeForService := sflow.NewNodeForService(s.queries)
 	nodeForEachService := sflow.NewNodeForEachService(s.queries)
 	nodeJSService := sflow.NewNodeJsService(s.queries)
+	nodeAIService := sflow.NewNodeAIService(s.queries)
+	nodeAIProviderService := sflow.NewNodeAiProviderService(s.queries)
+	nodeMemoryService := sflow.NewNodeMemoryService(s.queries)
 
 	var flowIDs []idwrap.IDWrap
 
@@ -266,7 +275,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
-			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService); err != nil {
+			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService); err != nil {
 				return fmt.Errorf("failed to export node implementation for node %s: %w", node.ID.String(), err)
 			}
 		}
@@ -280,7 +289,10 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 		"condition_nodes", len(bundle.FlowConditionNodes),
 		"for_nodes", len(bundle.FlowForNodes),
 		"foreach_nodes", len(bundle.FlowForEachNodes),
-		"js_nodes", len(bundle.FlowJSNodes))
+		"js_nodes", len(bundle.FlowJSNodes),
+		"ai_nodes", len(bundle.FlowAINodes),
+		"ai_provider_nodes", len(bundle.FlowAIProviderNodes),
+		"ai_memory_nodes", len(bundle.FlowAIMemoryNodes))
 
 	return nil
 }
@@ -295,6 +307,9 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	nodeForService sflow.NodeForService,
 	nodeForEachService sflow.NodeForEachService,
 	nodeJSService sflow.NodeJsService,
+	nodeAIService sflow.NodeAIService,
+	nodeAIProviderService sflow.NodeAiProviderService,
+	nodeMemoryService sflow.NodeMemoryService,
 ) error {
 	switch node.NodeKind {
 	case mflow.NODE_KIND_REQUEST:
@@ -341,8 +356,48 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 		if nodeJS != nil {
 			bundle.FlowJSNodes = append(bundle.FlowJSNodes, *nodeJS)
 		}
+
+	case mflow.NODE_KIND_AI:
+		nodeAI, err := nodeAIService.GetNodeAI(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get AI node: %w", err)
+		}
+		if nodeAI != nil {
+			bundle.FlowAINodes = append(bundle.FlowAINodes, *nodeAI)
+		}
+
+	case mflow.NODE_KIND_AI_PROVIDER:
+		nodeAIProvider, err := nodeAIProviderService.GetNodeAiProvider(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get AI provider node: %w", err)
+		}
+		if nodeAIProvider != nil {
+			bundle.FlowAIProviderNodes = append(bundle.FlowAIProviderNodes, *nodeAIProvider)
+		}
+
+	case mflow.NODE_KIND_AI_MEMORY:
+		nodeMemory, err := nodeMemoryService.GetNodeMemory(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get AI memory node: %w", err)
+		}
+		if nodeMemory != nil {
+			bundle.FlowAIMemoryNodes = append(bundle.FlowAIMemoryNodes, *nodeMemory)
+		}
 	}
 
+	return nil
+}
+
+// exportCredentials exports workspace credentials (metadata only, no secrets).
+func (s *IOWorkspaceService) exportCredentials(ctx context.Context, opts ExportOptions, bundle *WorkspaceBundle) error {
+	credentialReader := scredential.NewCredentialReaderFromQueries(s.queries)
+	creds, err := credentialReader.ListCredentials(ctx, opts.WorkspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to list credentials: %w", err)
+	}
+	bundle.Credentials = creds
+
+	s.logger.DebugContext(ctx, "Exported credentials", "count", len(bundle.Credentials))
 	return nil
 }
 

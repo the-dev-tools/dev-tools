@@ -48,6 +48,16 @@ const (
 	EnvVarTemplateAPIKey = "{{ #env:%s_API_KEY }}" //nolint:gosec // G101: template pattern, not a credential
 )
 
+// envVarInvalidChars matches any character that is not a letter, digit, or underscore.
+var envVarInvalidChars = regexp.MustCompile(`[^A-Za-z0-9_]`)
+
+// credentialNameToEnvVar converts a credential name to a valid environment variable
+// name by replacing all non-alphanumeric characters (spaces, hyphens, dots, etc.)
+// with underscores and uppercasing the result.
+func credentialNameToEnvVar(name string) string {
+	return strings.ToUpper(envVarInvalidChars.ReplaceAllString(name, "_"))
+}
+
 // Helper functions for additional utilities and transformations
 
 // ValidateURL validates and normalizes a URL

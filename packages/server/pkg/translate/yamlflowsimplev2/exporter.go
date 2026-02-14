@@ -4,7 +4,6 @@ package yamlflowsimplev2
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flowgraph"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -468,7 +467,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 	// 4. Export credentials from bundle (metadata only, secrets use env placeholders)
 	for _, cred := range data.Credentials {
-		envVarName := strings.ToUpper(strings.ReplaceAll(cred.Name, "-", "_"))
+		envVarName := credentialNameToEnvVar(cred.Name)
 
 		yamlCred := YamlCredentialV2{Name: cred.Name}
 
