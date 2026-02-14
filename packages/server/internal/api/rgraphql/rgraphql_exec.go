@@ -382,7 +382,7 @@ func (s *GraphQLServiceRPC) GraphQLIntrospect(ctx context.Context, req *connect.
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	for _, h := range headers {
-		if h.Enabled {
+		if h.Enabled && h.Key != "" {
 			httpReq.Header.Set(interpolateString(h.Key, varMap), interpolateString(h.Value, varMap))
 		}
 	}
@@ -460,7 +460,7 @@ func prepareGraphQLRequest(gql *mgraphql.GraphQL, headers []mgraphql.GraphQLHead
 
 	req.Header.Set("Content-Type", "application/json")
 	for _, h := range headers {
-		if h.Enabled {
+		if h.Enabled && h.Key != "" {
 			req.Header.Set(interpolateString(h.Key, varMap), interpolateString(h.Value, varMap))
 		}
 	}

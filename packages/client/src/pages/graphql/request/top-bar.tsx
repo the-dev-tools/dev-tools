@@ -1,5 +1,5 @@
 import { Array, pipe } from 'effect';
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { Button as AriaButton, MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import { GraphQLService } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
@@ -8,6 +8,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { ReferenceField } from '~/features/expression';
 import { request, useApiCollection } from '~/shared/api';
 import { routes } from '~/shared/routes';
 
@@ -33,6 +34,8 @@ export const GraphQLTopBar = ({ graphqlId }: GraphQLTopBarProps) => {
   });
 
   const [isSending, startTransition] = useTransition();
+
+  const [urlState, setUrlState] = useState<string>();
 
   return (
     <>
@@ -75,13 +78,17 @@ export const GraphQLTopBar = ({ graphqlId }: GraphQLTopBarProps) => {
       </div>
 
       <div className={tw`flex gap-3 p-6 pb-0`}>
-        <TextInputField
+        <ReferenceField
           aria-label='URL'
-          className={tw`flex-1`}
-          inputClassName={tw`font-mono text-sm`}
-          onChange={(_) => collection.utils.update({ graphqlId, url: _ })}
-          placeholder='Enter GraphQL endpoint URL'
-          value={item?.url ?? ''}
+          className={tw`flex-1 font-mono text-sm`}
+          kind='StringExpression'
+          onBlur={() => {
+            if (urlState !== undefined) {
+              collection.utils.update({ graphqlId, url: urlState });
+            }
+          }}
+          onChange={(_) => void setUrlState(_)}
+          value={urlState ?? item?.url ?? ''}
         />
 
         <Button

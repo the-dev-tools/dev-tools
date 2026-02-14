@@ -16,13 +16,14 @@ CREATE TABLE files (
   path_hash TEXT,
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   CHECK (length (id) == 16),
-	CHECK (content_kind IN (0, 1, 2, 3, 4)), -- 0 = folder, 1 = http, 2 = flow, 3 = http_delta, 4 = credential
+	CHECK (content_kind IN (0, 1, 2, 3, 4, 5)), -- 0 = folder, 1 = http, 2 = http_delta, 3 = flow, 4 = credential, 5 = graphql
   CHECK (
     (content_kind = 0 AND content_id IS NOT NULL) OR
     (content_kind = 1 AND content_id IS NOT NULL) OR
     (content_kind = 2 AND content_id IS NOT NULL) OR
     (content_kind = 3 AND content_id IS NOT NULL) OR
     (content_kind = 4 AND content_id IS NOT NULL) OR
+    (content_kind = 5 AND content_id IS NOT NULL) OR
     (content_id IS NULL)
   ),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,

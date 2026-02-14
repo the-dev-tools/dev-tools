@@ -131,7 +131,7 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 
 	// Apply headers
 	for _, h := range n.Headers {
-		if h.Enabled {
+		if h.Enabled && h.Key != "" {
 			key, _ := env.Interpolate(h.Key)
 			value, _ := env.Interpolate(h.Value)
 			httpReq.Header.Set(key, value)
@@ -184,7 +184,7 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 
 	requestHeaders := make(map[string]any)
 	for _, h := range n.Headers {
-		if h.Enabled {
+		if h.Enabled && h.Key != "" {
 			requestHeaders[h.Key] = h.Value
 		}
 	}

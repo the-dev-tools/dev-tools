@@ -11,6 +11,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	graphqlv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/graph_q_l/v1"
 )
@@ -50,6 +51,7 @@ func (s *GraphQLServiceRPC) GraphQLInsert(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
+	// FETCH
 	workspaces, err := s.wsReader.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -59,18 +61,14 @@ func (s *GraphQLServiceRPC) GraphQLInsert(ctx context.Context, req *connect.Requ
 	}
 
 	defaultWorkspaceID := workspaces[0].ID
+
+	// CHECK
 	if err := s.checkWorkspaceWriteAccess(ctx, defaultWorkspaceID); err != nil {
 		return nil, err
 	}
 
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	txGraphqlService := s.graphqlService.TX(tx)
-
+	// Parse items before starting transaction
+	items := make([]mutation.GraphQLInsertItem, 0, len(req.Msg.Items))
 	for _, item := range req.Msg.Items {
 		if len(item.GraphqlId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("graphql_id is required"))
@@ -81,28 +79,31 @@ func (s *GraphQLServiceRPC) GraphQLInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		model := &mgraphql.GraphQL{
-			ID:          gqlID,
+		items = append(items, mutation.GraphQLInsertItem{
+			GraphQL: &mgraphql.GraphQL{
+				ID:          gqlID,
+				WorkspaceID: defaultWorkspaceID,
+				Name:        item.Name,
+				Url:         item.Url,
+				Query:       item.Query,
+				Variables:   item.Variables,
+			},
 			WorkspaceID: defaultWorkspaceID,
-			Name:        item.Name,
-			Url:         item.Url,
-			Query:       item.Query,
-			Variables:   item.Variables,
-		}
-
-		if err := txGraphqlService.Create(ctx, model); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if s.streamers.GraphQL != nil {
-			s.streamers.GraphQL.Publish(GraphQLTopic{WorkspaceID: defaultWorkspaceID}, GraphQLEvent{
-				Type:    eventTypeInsert,
-				GraphQL: ToAPIGraphQL(*model),
-			})
-		}
+		})
 	}
 
-	if err := tx.Commit(); err != nil {
+	// ACT
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	if err := mut.InsertGraphQLBatch(ctx, items); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := mut.Commit(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -114,6 +115,8 @@ func (s *GraphQLServiceRPC) GraphQLUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one item must be provided"))
 	}
 
+	// FETCH + CHECK: parse items, read existing records, check permissions
+	updateItems := make([]mutation.GraphQLUpdateItem, 0, len(req.Msg.Items))
 	for _, item := range req.Msg.Items {
 		if len(item.GraphqlId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("graphql_id is required"))
@@ -149,16 +152,25 @@ func (s *GraphQLServiceRPC) GraphQLUpdate(ctx context.Context, req *connect.Requ
 			existing.Variables = *item.Variables
 		}
 
-		if err := s.graphqlService.Update(ctx, existing); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		updateItems = append(updateItems, mutation.GraphQLUpdateItem{
+			GraphQL:     existing,
+			WorkspaceID: existing.WorkspaceID,
+		})
+	}
 
-		if s.streamers.GraphQL != nil {
-			s.streamers.GraphQL.Publish(GraphQLTopic{WorkspaceID: existing.WorkspaceID}, GraphQLEvent{
-				Type:    eventTypeUpdate,
-				GraphQL: ToAPIGraphQL(*existing),
-			})
-		}
+	// ACT
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	if err := mut.UpdateGraphQLBatch(ctx, updateItems); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -169,6 +181,8 @@ func (s *GraphQLServiceRPC) GraphQLDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one item must be provided"))
 	}
 
+	// FETCH + CHECK: parse items, read existing records, check permissions
+	deleteItems := make([]mutation.GraphQLDeleteItem, 0, len(req.Msg.Items))
 	for _, item := range req.Msg.Items {
 		if len(item.GraphqlId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("graphql_id is required"))
@@ -191,16 +205,25 @@ func (s *GraphQLServiceRPC) GraphQLDelete(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		if err := s.graphqlService.Delete(ctx, gqlID); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		deleteItems = append(deleteItems, mutation.GraphQLDeleteItem{
+			ID:          gqlID,
+			WorkspaceID: existing.WorkspaceID,
+		})
+	}
 
-		if s.streamers.GraphQL != nil {
-			s.streamers.GraphQL.Publish(GraphQLTopic{WorkspaceID: existing.WorkspaceID}, GraphQLEvent{
-				Type:    eventTypeDelete,
-				GraphQL: &graphqlv1.GraphQL{GraphqlId: gqlID.Bytes()},
-			})
-		}
+	// ACT
+	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
+	if err := mut.Begin(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer mut.Rollback()
+
+	if err := mut.DeleteGraphQLBatch(ctx, deleteItems); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := mut.Commit(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

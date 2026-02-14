@@ -1,17 +1,16 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
+import { FiPlus } from 'react-icons/fi';
 import { GraphQLHeaderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { Button } from '@the-dev-tools/ui/button';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
-import {
-  columnActionsCommon,
-  columnCheckboxField,
-  columnReferenceField,
-  columnTextField,
-  ReactTableNoMemo,
-  useFormTableAddRow,
-} from '~/features/form-table';
+import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, TableRow } from '@the-dev-tools/ui/table';
+import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextInputField } from '@the-dev-tools/ui/text-field';
+import { ReferenceField } from '~/features/expression';
+import { ColumnActionDelete } from '~/features/form-table';
 import { useApiCollection } from '~/shared/api';
 import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 
@@ -31,84 +30,99 @@ export const GraphQLHeaderTable = ({ graphqlId }: GraphQLHeaderTableProps) => {
     [collection, graphqlId],
   ).data.map((_) => pick(_, 'graphqlHeaderId'));
 
-  const addRow = useFormTableAddRow({
-    createLabel: 'New header',
-    items,
-    onCreate: async () =>
-      void collection.utils.insert({
-        enabled: true,
-        graphqlHeaderId: Ulid.generate().bytes,
-        graphqlId,
-        order: await getNextOrder(collection),
-      }),
-  });
-
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
     onReorder: handleCollectionReorder(collection),
     renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
-  const getItem = (row: (typeof items)[number]) =>
-    collection.get(collection.utils.getKey({ graphqlHeaderId: row.graphqlHeaderId }));
-
   return (
-    <ReactTableNoMemo
-      columns={[
-        columnCheckboxField('enabled', {
-          onChange: (value, context) => {
-            const item = getItem(context.row.original);
-            if (item) collection.utils.update({ enabled: value, graphqlHeaderId: item.graphqlHeaderId });
-          },
-          value: (provide, context) => {
-            const item = getItem(context.row.original);
-            return provide(item?.enabled ?? false);
-          },
-        }),
-        columnReferenceField(
-          'key',
-          {
-            onChange: (value, context) => {
-              const item = getItem(context.row.original);
-              if (item) collection.utils.update({ graphqlHeaderId: item.graphqlHeaderId, key: value });
-            },
-            value: (provide, context) => {
-              const item = getItem(context.row.original);
-              return provide(item?.key ?? '');
-            },
-          },
-          { meta: { isRowHeader: true } },
-        ),
-        columnReferenceField('value', {
-          onChange: (value, context) => {
-            const item = getItem(context.row.original);
-            if (item) collection.utils.update({ graphqlHeaderId: item.graphqlHeaderId, value });
-          },
-          value: (provide, context) => {
-            const item = getItem(context.row.original);
-            return provide(item?.value ?? '');
-          },
-        }),
-        columnTextField('description', {
-          onChange: (value, context) => {
-            const item = getItem(context.row.original);
-            if (item) collection.utils.update({ description: value, graphqlHeaderId: item.graphqlHeaderId });
-          },
-          value: (provide, context) => {
-            const item = getItem(context.row.original);
-            return provide(item?.description ?? '');
-          },
-        }),
-        columnActionsCommon({
-          onDelete: (item) => collection.utils.delete({ graphqlHeaderId: item.graphqlHeaderId! }),
-        }),
-      ]}
-      data={items}
-      getRowId={(_) => collection.utils.getKey({ graphqlHeaderId: _.graphqlHeaderId! })}
-    >
-      {(table) => (
-        <DataTable {...addRow} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />
-      )}
-    </ReactTableNoMemo>
+    <Table aria-label='Headers' dragAndDropHooks={dragAndDropHooks}>
+      <TableHeader>
+        <TableColumn width={32} />
+        <TableColumn isRowHeader>Key</TableColumn>
+        <TableColumn>Value</TableColumn>
+        <TableColumn>Description</TableColumn>
+        <TableColumn width={32} />
+      </TableHeader>
+
+      <TableBody items={items}>
+        {({ graphqlHeaderId }) => {
+          const item = collection.get(collection.utils.getKey({ graphqlHeaderId }));
+
+          return (
+            <TableRow id={collection.utils.getKey({ graphqlHeaderId })}>
+              <TableCell className={tw`border-r-0`}>
+                <div className={tw`flex flex-1 px-1`}>
+                  <Checkbox
+                    isSelected={item?.enabled ?? false}
+                    isTableCell
+                    onChange={(enabled) => void collection.utils.update({ enabled, graphqlHeaderId })}
+                  />
+                </div>
+              </TableCell>
+
+              <TableCell>
+                <ReferenceField
+                  allowFiles
+                  className='flex-1'
+                  kind='StringExpression'
+                  onChange={(key) => void collection.utils.updatePaced({ graphqlHeaderId, key })}
+                  placeholder='Enter key'
+                  value={item?.key ?? ''}
+                  variant='table-cell'
+                />
+              </TableCell>
+
+              <TableCell>
+                <ReferenceField
+                  allowFiles
+                  className='flex-1'
+                  kind='StringExpression'
+                  onChange={(value) => void collection.utils.updatePaced({ graphqlHeaderId, value })}
+                  placeholder='Enter value'
+                  value={item?.value ?? ''}
+                  variant='table-cell'
+                />
+              </TableCell>
+
+              <TableCell>
+                <TextInputField
+                  aria-label='description'
+                  className={tw`flex-1`}
+                  isTableCell
+                  onChange={(description) => void collection.utils.updatePaced({ description, graphqlHeaderId })}
+                  placeholder='Enter description'
+                  value={item?.description ?? ''}
+                />
+              </TableCell>
+
+              <TableCell className={tw`border-r-0 px-1`}>
+                <ColumnActionDelete onDelete={() => void collection.utils.delete({ graphqlHeaderId })} />
+              </TableCell>
+            </TableRow>
+          );
+        }}
+      </TableBody>
+
+      <TableFooter>
+        <Button
+          className={tw`w-full justify-start -outline-offset-4`}
+          onPress={async () => {
+            collection.utils.insert({
+              enabled: true,
+              graphqlHeaderId: Ulid.generate().bytes,
+              graphqlId,
+              order: await getNextOrder(collection),
+            });
+          }}
+          variant='ghost'
+        >
+          <FiPlus className={tw`size-4 text-on-neutral-low`} />
+          New header
+        </Button>
+      </TableFooter>
+    </Table>
   );
 };
+
