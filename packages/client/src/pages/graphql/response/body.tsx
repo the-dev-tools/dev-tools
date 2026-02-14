@@ -5,6 +5,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { GraphQLResponseSchema } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
 import { GraphQLResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { prettierFormatQueryOptions, useCodeMirrorLanguageExtensions } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
@@ -14,6 +15,7 @@ export interface GraphQLResponseBodyProps {
 }
 
 export const GraphQLResponseBody = ({ graphqlResponseId }: GraphQLResponseBodyProps) => {
+  const { theme } = useTheme();
   const collection = useApiCollection(GraphQLResponseCollectionSchema);
 
   const { body } =
@@ -36,7 +38,8 @@ export const GraphQLResponseBody = ({ graphqlResponseId }: GraphQLResponseBodyPr
       height='100%'
       indentWithTab={false}
       readOnly
-      value={prettierBody ?? body}
+      theme={theme}
+      value={prettierBody}
     />
   );
 };
