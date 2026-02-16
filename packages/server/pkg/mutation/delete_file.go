@@ -51,6 +51,14 @@ func (c *Context) DeleteFile(ctx context.Context, file FileDeleteItem) error {
 			if err := c.q.DeleteCredential(ctx, *file.ContentID); err != nil {
 				return err
 			}
+		case mfile.ContentTypeGraphQL:
+			// GraphQL - cascade to headers
+			if err := c.DeleteGraphQL(ctx, GraphQLDeleteItem{
+				ID:          *file.ContentID,
+				WorkspaceID: file.WorkspaceID,
+			}); err != nil {
+				return err
+			}
 		case mfile.ContentTypeFolder:
 			// Content deletion handled by recursion above (folders don't have separate content tables)
 		}
@@ -87,6 +95,7 @@ func (c *Context) DeleteFileBatch(ctx context.Context, items []FileDeleteItem) e
 	// Group by content type for efficient batch deletion of LEAF content
 	var httpItems []HTTPDeleteItem
 	var flowItems []FlowDeleteItem
+	var graphqlItems []GraphQLDeleteItem
 
 	for _, item := range items {
 		if item.ContentID != nil {
@@ -114,6 +123,11 @@ func (c *Context) DeleteFileBatch(ctx context.Context, items []FileDeleteItem) e
 				if err := c.q.DeleteCredential(ctx, *item.ContentID); err != nil {
 					return err
 				}
+			case mfile.ContentTypeGraphQL:
+				graphqlItems = append(graphqlItems, GraphQLDeleteItem{
+					ID:          *item.ContentID,
+					WorkspaceID: item.WorkspaceID,
+				})
 			}
 		}
 	}
@@ -128,6 +142,13 @@ func (c *Context) DeleteFileBatch(ctx context.Context, items []FileDeleteItem) e
 	// Delete Flow content batch (internal method - no File lookup)
 	if len(flowItems) > 0 {
 		if err := c.deleteFlowContentBatch(ctx, flowItems); err != nil {
+			return err
+		}
+	}
+
+	// Delete GraphQL content batch
+	if len(graphqlItems) > 0 {
+		if err := c.DeleteGraphQLBatch(ctx, graphqlItems); err != nil {
 			return err
 		}
 	}

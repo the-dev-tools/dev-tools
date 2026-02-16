@@ -8,6 +8,7 @@ enum FileKind {
   HttpDelta,
   Flow,
   Credential,
+  GraphQL,
 }
 
 @TanStackDB.collection

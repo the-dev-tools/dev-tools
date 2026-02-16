@@ -210,7 +210,7 @@ func TestFilesTableConstraintUpdated(t *testing.T) {
 		t.Fatalf("failed to run migrations: %v", err)
 	}
 
-	// Verify files table supports content_kind=4
+	// Verify files table supports content_kind=5 (graphql)
 	var tableDef string
 	err = db.QueryRowContext(ctx, `
 		SELECT sql FROM sqlite_master
@@ -220,9 +220,9 @@ func TestFilesTableConstraintUpdated(t *testing.T) {
 		t.Fatalf("failed to get files table definition: %v", err)
 	}
 
-	// Check that the constraint includes content_kind=4
-	if !contains(tableDef, "content_kind IN (0, 1, 2, 3, 4)") {
-		t.Errorf("files table CHECK constraint doesn't include content_kind=4: %s", tableDef)
+	// Check that the constraint includes content_kind=5
+	if !contains(tableDef, "content_kind IN (0, 1, 2, 3, 4, 5)") {
+		t.Errorf("files table CHECK constraint doesn't include content_kind=5: %s", tableDef)
 	}
 }
 
@@ -237,4 +237,119 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestGraphQLDeltaColumnsCreated(t *testing.T) {
+	ctx := context.Background()
+
+	db, cleanup, err := sqlitemem.NewSQLiteMem(ctx)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	t.Cleanup(cleanup)
+
+	cfg := Config{
+		DatabasePath: ":memory:",
+		DataDir:      t.TempDir(),
+	}
+	if err := Run(ctx, db, cfg); err != nil {
+		t.Fatalf("failed to run migrations: %v", err)
+	}
+
+	// Verify graphql table delta columns
+	graphqlColumns := []string{
+		"parent_graphql_id",
+		"is_delta",
+		"is_snapshot",
+		"delta_name",
+		"delta_url",
+		"delta_query",
+		"delta_variables",
+		"delta_description",
+	}
+
+	for _, col := range graphqlColumns {
+		var count int
+		err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM pragma_table_info('graphql')
+			WHERE name = ?
+		`, col).Scan(&count)
+		if err != nil {
+			t.Fatalf("failed to check graphql.%s: %v", col, err)
+		}
+		if count == 0 {
+			t.Errorf("graphql table missing column: %s", col)
+		}
+	}
+
+	// Verify graphql_header table delta columns
+	headerColumns := []string{
+		"parent_graphql_header_id",
+		"is_delta",
+		"delta_header_key",
+		"delta_header_value",
+		"delta_description",
+		"delta_enabled",
+		"delta_display_order",
+	}
+
+	for _, col := range headerColumns {
+		var count int
+		err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM pragma_table_info('graphql_header')
+			WHERE name = ?
+		`, col).Scan(&count)
+		if err != nil {
+			t.Fatalf("failed to check graphql_header.%s: %v", col, err)
+		}
+		if count == 0 {
+			t.Errorf("graphql_header table missing column: %s", col)
+		}
+	}
+
+	// Verify graphql_assert table delta columns
+	assertColumns := []string{
+		"parent_graphql_assert_id",
+		"is_delta",
+		"delta_value",
+		"delta_enabled",
+		"delta_description",
+		"delta_display_order",
+	}
+
+	for _, col := range assertColumns {
+		var count int
+		err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM pragma_table_info('graphql_assert')
+			WHERE name = ?
+		`, col).Scan(&count)
+		if err != nil {
+			t.Fatalf("failed to check graphql_assert.%s: %v", col, err)
+		}
+		if count == 0 {
+			t.Errorf("graphql_assert table missing column: %s", col)
+		}
+	}
+
+	// Verify delta indexes were created
+	indexes := []string{
+		"graphql_parent_delta_idx",
+		"graphql_delta_resolution_idx",
+		"graphql_active_streaming_idx",
+		"graphql_header_parent_delta_idx",
+		"graphql_header_delta_streaming_idx",
+		"graphql_assert_parent_delta_idx",
+		"graphql_assert_delta_streaming_idx",
+	}
+
+	for _, idx := range indexes {
+		var name string
+		err := db.QueryRowContext(ctx, `
+			SELECT name FROM sqlite_master
+			WHERE type='index' AND name=?
+		`, idx).Scan(&name)
+		if err != nil {
+			t.Errorf("index %s not found: %v", idx, err)
+		}
+	}
 }

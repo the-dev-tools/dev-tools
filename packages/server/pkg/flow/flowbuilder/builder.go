@@ -13,12 +13,14 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nfor"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nforeach"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/ngraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nif"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/njs"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nmemory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -27,6 +29,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 )
@@ -41,12 +44,16 @@ type Builder struct {
 	NodeAI      *sflow.NodeAIService
 	NodeAiProvider *sflow.NodeAiProviderService
 	NodeMemory  *sflow.NodeMemoryService
+	NodeGraphQL  *sflow.NodeGraphQLService
+	GraphQL      *sgraphql.GraphQLService
+	GraphQLHeader *sgraphql.GraphQLHeaderService
 
 	Workspace    *sworkspace.WorkspaceService
 	Variable     *senv.VariableService
 	FlowVariable *sflow.FlowVariableService
 
 	Resolver           resolver.RequestResolver
+	GraphQLResolver    gqlresolver.GraphQLResolver
 	Logger             *slog.Logger
 	LLMProviderFactory *scredential.LLMProviderFactory
 }
@@ -61,10 +68,14 @@ func New(
 	nais *sflow.NodeAIService,
 	naps *sflow.NodeAiProviderService,
 	nmems *sflow.NodeMemoryService,
+	ngqs *sflow.NodeGraphQLService,
+	gqls *sgraphql.GraphQLService,
+	gqlhs *sgraphql.GraphQLHeaderService,
 	ws *sworkspace.WorkspaceService,
 	vs *senv.VariableService,
 	fvs *sflow.FlowVariableService,
 	resolver resolver.RequestResolver,
+	graphQLResolver gqlresolver.GraphQLResolver,
 	logger *slog.Logger,
 	llmFactory *scredential.LLMProviderFactory,
 ) *Builder {
@@ -78,10 +89,14 @@ func New(
 		NodeAI:             nais,
 		NodeAiProvider:     naps,
 		NodeMemory:         nmems,
+		NodeGraphQL:        ngqs,
+		GraphQL:            gqls,
+		GraphQLHeader:      gqlhs,
 		Workspace:          ws,
 		Variable:           vs,
 		FlowVariable:       fvs,
 		Resolver:           resolver,
+		GraphQLResolver:    graphQLResolver,
 		Logger:             logger,
 		LLMProviderFactory: llmFactory,
 	}
@@ -94,6 +109,7 @@ func (b *Builder) BuildNodes(
 	timeout time.Duration,
 	httpClient httpclient.HttpClient,
 	respChan chan nrequest.NodeRequestSideResp,
+	gqlRespChan chan ngraphql.NodeGraphQLSideResp,
 	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient,
 ) (map[idwrap.IDWrap]node.FlowNode, idwrap.IDWrap, error) {
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(nodes))
@@ -264,6 +280,31 @@ func (b *Builder) BuildNodes(
 					memoryCfg.WindowSize,
 				)
 			}
+		case mflow.NODE_KIND_GRAPHQL:
+			gqlCfg, err := b.NodeGraphQL.GetNodeGraphQL(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, idwrap.IDWrap{}, err
+			}
+			if gqlCfg == nil || gqlCfg.GraphQLID == nil || isZeroID(*gqlCfg.GraphQLID) {
+				return nil, idwrap.IDWrap{}, fmt.Errorf("graphql node %s missing graphql configuration", nodeModel.ID.String())
+			}
+
+			// Resolve GraphQL entity with delta
+			resolved, err := b.GraphQLResolver.Resolve(ctx, *gqlCfg.GraphQLID, gqlCfg.DeltaGraphQLID)
+			if err != nil {
+				return nil, idwrap.IDWrap{}, fmt.Errorf("resolve graphql %s: %w", gqlCfg.GraphQLID.String(), err)
+			}
+
+			flowNodeMap[nodeModel.ID] = ngraphql.New(
+				nodeModel.ID,
+				nodeModel.Name,
+				resolved.Resolved,
+				resolved.ResolvedHeaders,
+				resolved.ResolvedAsserts,
+				httpClient,
+				gqlRespChan,
+				b.Logger,
+			)
 		default:
 			return nil, idwrap.IDWrap{}, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)
 		}

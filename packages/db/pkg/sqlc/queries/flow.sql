@@ -420,6 +420,32 @@ DELETE FROM flow_node_http
 WHERE
   flow_node_id = ?;
 
+-- name: GetFlowNodeGraphQL :one
+SELECT
+  flow_node_id,
+  graphql_id,
+  delta_graphql_id
+FROM
+  flow_node_graphql
+WHERE
+  flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeGraphQL :exec
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id, delta_graphql_id) VALUES (?, ?, ?);
+
+-- name: UpdateFlowNodeGraphQL :exec
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id, delta_graphql_id) VALUES (?, ?, ?)
+ON CONFLICT(flow_node_id) DO UPDATE SET
+  graphql_id = excluded.graphql_id,
+  delta_graphql_id = excluded.delta_graphql_id;
+
+-- name: DeleteFlowNodeGraphQL :exec
+DELETE FROM flow_node_graphql WHERE flow_node_id = ?;
+
+-- name: CleanupOrphanedFlowNodeGraphQL :exec
+DELETE FROM flow_node_graphql WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
 -- name: GetFlowNodeCondition :one
 SELECT
   flow_node_id,
@@ -631,32 +657,33 @@ ORDER BY ne.completed_at DESC, ne.id DESC;
 -- name: CreateNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, http_response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateNodeExecution :one
 UPDATE node_execution
-SET state = ?, error = ?, output_data = ?, 
-    output_data_compress_type = ?, http_response_id = ?, completed_at = ?
+SET state = ?, error = ?, output_data = ?,
+    output_data_compress_type = ?, http_response_id = ?, graphql_response_id = ?, completed_at = ?
 WHERE id = ?
 RETURNING *;
 
 -- name: UpsertNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, http_response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, graphql_response_id, completed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   state = excluded.state,
-  error = excluded.error, 
+  error = excluded.error,
   input_data = excluded.input_data,
   input_data_compress_type = excluded.input_data_compress_type,
   output_data = excluded.output_data,
   output_data_compress_type = excluded.output_data_compress_type,
   http_response_id = excluded.http_response_id,
+  graphql_response_id = excluded.graphql_response_id,
   completed_at = excluded.completed_at
 RETURNING *;
 

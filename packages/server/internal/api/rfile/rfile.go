@@ -140,6 +140,8 @@ func toAPIFileKind(kind mfile.ContentType) apiv1.FileKind {
 		return apiv1.FileKind_FILE_KIND_FLOW
 	case mfile.ContentTypeCredential:
 		return apiv1.FileKind_FILE_KIND_CREDENTIAL
+	case mfile.ContentTypeGraphQL:
+		return apiv1.FileKind_FILE_KIND_GRAPH_Q_L
 	default:
 		return apiv1.FileKind_FILE_KIND_UNSPECIFIED
 	}
@@ -158,6 +160,8 @@ func fromAPIFileKind(kind apiv1.FileKind) mfile.ContentType {
 		return mfile.ContentTypeFlow
 	case apiv1.FileKind_FILE_KIND_CREDENTIAL:
 		return mfile.ContentTypeCredential
+	case apiv1.FileKind_FILE_KIND_GRAPH_Q_L:
+		return mfile.ContentTypeGraphQL
 	default:
 		return mfile.ContentTypeUnknown
 	}

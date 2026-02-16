@@ -16,6 +16,13 @@ export const routes = {
         index: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/'),
         history: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/history'),
       },
+      graphql: {
+        route: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan'),
+        index: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/'),
+        delta: getRouteApi(
+          '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan',
+        ),
+      },
       http: {
         route: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan'),
         index: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/'),

@@ -32,6 +32,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhealth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
@@ -42,6 +43,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -51,6 +53,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
@@ -58,6 +61,7 @@ import (
 	envapiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
 	filesystemv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	graphqlv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/graph_q_l/v1"
 	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1/auth_internalv1connect"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
@@ -177,6 +181,13 @@ func run() error {
 	httpResponseService := shttp.NewHttpResponseService(queries)
 	httpResponseReader := shttp.NewHttpResponseReader(currentDB)
 
+	// GraphQL
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlReader := graphqlService.Reader()
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResponseService := sgraphql.NewGraphQLResponseService(queries)
+
 	// File Service
 	fileService := sfile.New(queries, logger)
 
@@ -209,6 +220,7 @@ func run() error {
 	flowNodeAIService := sflow.NewNodeAIService(queries)
 	flowNodeAiProviderService := sflow.NewNodeAiProviderService(queries)
 	flowNodeMemoryService := sflow.NewNodeMemoryService(queries)
+	flowNodeGraphQLService := sflow.NewNodeGraphQLService(queries)
 
 	nodeExecutionService := sflow.NewNodeExecutionService(queries)
 	nodeExecutionReader := sflow.NewNodeExecutionReader(currentDB)
@@ -361,6 +373,13 @@ func run() error {
 		httpAssertService,
 	)
 
+	// Create GraphQL resolver for GraphQL delta resolution (shared with flow service)
+	graphqlResolver := gqlresolver.NewStandardResolver(
+		graphqlReader,
+		&graphqlHeaderService,
+		&graphqlAssertService,
+	)
+
 	httpSrv := rhttp.New(rhttp.HttpServiceRPCDeps{
 		DB: currentDB,
 		Readers: rhttp.HttpServiceRPCReaders{
@@ -508,15 +527,19 @@ func run() error {
 			NodeJs:        &flowNodeNodeJsService,
 			NodeAI:        &flowNodeAIService,
 			NodeAiProvider: &flowNodeAiProviderService,
-			NodeMemory:    &flowNodeMemoryService,
-			NodeExecution: &nodeExecutionService,
+			NodeMemory:      &flowNodeMemoryService,
+			NodeGraphQL:     &flowNodeGraphQLService,
+			NodeExecution:   &nodeExecutionService,
 			FlowVariable:  &flowVariableService,
 			Env:           &environmentService,
 			Var:           &variableService,
 			Http:          &httpService,
 			HttpBodyRaw:   httpBodyRawService,
-			HttpResponse:  httpResponseService,
-			File:          fileService,
+			HttpResponse:    httpResponseService,
+			GraphQLResponse: graphqlResponseService,
+			GraphQL:         &graphqlService,
+			GraphQLHeader:   &graphqlHeaderService,
+			File:            fileService,
 			Importer:      workspaceImporter,
 			Credential:    credentialService,
 		},
@@ -533,6 +556,7 @@ func run() error {
 			Ai:                 streamers.Ai,
 			AiProvider:         streamers.AiProvider,
 			Memory:             streamers.Memory,
+			NodeGraphQL:        streamers.NodeGraphQL,
 			Execution:          streamers.Execution,
 			HttpResponse:       streamers.HttpResponse,
 			HttpResponseHeader: streamers.HttpResponseHeader,
@@ -540,9 +564,10 @@ func run() error {
 			Log:                streamers.Log,
 			File:               streamers.File,
 		},
-		Resolver: requestResolver,
-		Logger:   logger,
-		JsClient: jsClient,
+		Resolver:        requestResolver,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
+		JsClient:        jsClient,
 	})
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
@@ -594,21 +619,58 @@ func run() error {
 	})
 	newServiceManager.AddService(rcredential.CreateService(credentialSrv, optionsAll))
 
+	// GraphQL Service
+	graphqlStreamers := &rgraphql.GraphQLStreamers{
+		GraphQL:               streamers.GraphQL,
+		GraphQLHeader:         streamers.GraphQLHeader,
+		GraphQLAssert:         streamers.GraphQLAssert,
+		GraphQLResponse:       streamers.GraphQLResponse,
+		GraphQLResponseHeader: streamers.GraphQLResponseHeader,
+		GraphQLResponseAssert: streamers.GraphQLResponseAssert,
+		GraphQLVersion:        streamers.GraphQLVersion,
+		File:                  streamers.File,
+	}
+
+	graphqlSrv := rgraphql.New(rgraphql.GraphQLServiceRPCDeps{
+		DB: currentDB,
+		Services: rgraphql.GraphQLServiceRPCServices{
+			GraphQL:       graphqlService,
+			Header:        graphqlHeaderService,
+			GraphQLAssert: graphqlAssertService,
+			Response:      graphqlResponseService,
+			User:          userService,
+			Workspace:     workspaceService,
+			WorkspaceUser: workspaceUserService,
+			Env:           environmentService,
+			Variable:      variableService,
+			File:          fileService,
+		},
+		Readers: rgraphql.GraphQLServiceRPCReaders{
+			GraphQL:   graphqlReader,
+			User:      userReader,
+			Workspace: workspaceReader,
+		},
+		Resolver:  graphqlResolver,
+		Streamers: graphqlStreamers,
+	})
+	newServiceManager.AddService(rgraphql.CreateService(graphqlSrv, optionsAll))
+
 	// Reference Service
 	refServiceRPC := rreference.NewReferenceServiceRPC(rreference.ReferenceServiceRPCDeps{
 		DB: currentDB,
 		Readers: rreference.ReferenceServiceRPCReaders{
-			User:          userReader,
-			Workspace:     workspaceReader,
-			Env:           envReader,
-			Variable:      varReader,
-			Flow:          flowReader,
-			Node:          nodeReader,
-			NodeRequest:   flowNodeRequestReader,
-			FlowVariable:  flowVariableReader,
-			FlowEdge:      flowEdgeReader,
-			NodeExecution: nodeExecutionReader,
-			HttpResponse:  httpResponseReader,
+			User:            userReader,
+			Workspace:       workspaceReader,
+			Env:             envReader,
+			Variable:        varReader,
+			Flow:            flowReader,
+			Node:            nodeReader,
+			NodeRequest:     flowNodeRequestReader,
+			FlowVariable:    flowVariableReader,
+			FlowEdge:        flowEdgeReader,
+			NodeExecution:   nodeExecutionReader,
+			HttpResponse:    httpResponseReader,
+			GraphQLResponse: &graphqlResponseService,
 		},
 	})
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
@@ -757,12 +819,20 @@ type Streamers struct {
 	Ai                  eventstream.SyncStreamer[rflowv2.AiTopic, rflowv2.AiEvent]
 	AiProvider          eventstream.SyncStreamer[rflowv2.AiProviderTopic, rflowv2.AiProviderEvent]
 	Memory              eventstream.SyncStreamer[rflowv2.MemoryTopic, rflowv2.MemoryEvent]
+	NodeGraphQL         eventstream.SyncStreamer[rflowv2.NodeGraphQLTopic, rflowv2.NodeGraphQLEvent]
 	Execution           eventstream.SyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]
 	File                eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 	Credential          eventstream.SyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent]
 	CredentialOpenAi    eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent]
 	CredentialGemini    eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent]
 	CredentialAnthropic eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent]
+	GraphQL               eventstream.SyncStreamer[rgraphql.GraphQLTopic, rgraphql.GraphQLEvent]
+	GraphQLHeader         eventstream.SyncStreamer[rgraphql.GraphQLHeaderTopic, rgraphql.GraphQLHeaderEvent]
+	GraphQLAssert         eventstream.SyncStreamer[rgraphql.GraphQLAssertTopic, rgraphql.GraphQLAssertEvent]
+	GraphQLResponse       eventstream.SyncStreamer[rgraphql.GraphQLResponseTopic, rgraphql.GraphQLResponseEvent]
+	GraphQLResponseHeader eventstream.SyncStreamer[rgraphql.GraphQLResponseHeaderTopic, rgraphql.GraphQLResponseHeaderEvent]
+	GraphQLResponseAssert eventstream.SyncStreamer[rgraphql.GraphQLResponseAssertTopic, rgraphql.GraphQLResponseAssertEvent]
+	GraphQLVersion        eventstream.SyncStreamer[rgraphql.GraphQLVersionTopic, rgraphql.GraphQLVersionEvent]
 }
 
 func NewStreamers() *Streamers {
@@ -796,12 +866,20 @@ func NewStreamers() *Streamers {
 		Ai:                  memory.NewInMemorySyncStreamer[rflowv2.AiTopic, rflowv2.AiEvent](),
 		AiProvider:          memory.NewInMemorySyncStreamer[rflowv2.AiProviderTopic, rflowv2.AiProviderEvent](),
 		Memory:              memory.NewInMemorySyncStreamer[rflowv2.MemoryTopic, rflowv2.MemoryEvent](),
+		NodeGraphQL:         memory.NewInMemorySyncStreamer[rflowv2.NodeGraphQLTopic, rflowv2.NodeGraphQLEvent](),
 		Execution:           memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent](),
 		File:                memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 		Credential:          memory.NewInMemorySyncStreamer[rcredential.CredentialTopic, rcredential.CredentialEvent](),
 		CredentialOpenAi:    memory.NewInMemorySyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent](),
 		CredentialGemini:    memory.NewInMemorySyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent](),
-		CredentialAnthropic: memory.NewInMemorySyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent](),
+		CredentialAnthropic:   memory.NewInMemorySyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent](),
+		GraphQL:               memory.NewInMemorySyncStreamer[rgraphql.GraphQLTopic, rgraphql.GraphQLEvent](),
+		GraphQLHeader:         memory.NewInMemorySyncStreamer[rgraphql.GraphQLHeaderTopic, rgraphql.GraphQLHeaderEvent](),
+		GraphQLAssert:         memory.NewInMemorySyncStreamer[rgraphql.GraphQLAssertTopic, rgraphql.GraphQLAssertEvent](),
+		GraphQLResponse:       memory.NewInMemorySyncStreamer[rgraphql.GraphQLResponseTopic, rgraphql.GraphQLResponseEvent](),
+		GraphQLResponseHeader: memory.NewInMemorySyncStreamer[rgraphql.GraphQLResponseHeaderTopic, rgraphql.GraphQLResponseHeaderEvent](),
+		GraphQLResponseAssert: memory.NewInMemorySyncStreamer[rgraphql.GraphQLResponseAssertTopic, rgraphql.GraphQLResponseAssertEvent](),
+		GraphQLVersion:        memory.NewInMemorySyncStreamer[rgraphql.GraphQLVersionTopic, rgraphql.GraphQLVersionEvent](),
 	}
 }
 
@@ -835,12 +913,17 @@ func (s *Streamers) Shutdown() {
 	s.Ai.Shutdown()
 	s.AiProvider.Shutdown()
 	s.Memory.Shutdown()
+	s.NodeGraphQL.Shutdown()
 	s.Execution.Shutdown()
 	s.File.Shutdown()
 	s.Credential.Shutdown()
 	s.CredentialOpenAi.Shutdown()
 	s.CredentialGemini.Shutdown()
 	s.CredentialAnthropic.Shutdown()
+	s.GraphQL.Shutdown()
+	s.GraphQLHeader.Shutdown()
+	s.GraphQLResponse.Shutdown()
+	s.GraphQLResponseHeader.Shutdown()
 }
 
 // registerCascadeHandlers registers all handlers needed for cascade deletion events.
@@ -1058,6 +1141,32 @@ func registerCascadeHandlers(registry *streamregistry.Registry, httpStreamers *r
 				Type:     "delete",
 				FlowID:   evt.ParentID,
 				Variable: mflow.FlowVariable{ID: evt.ID},
+			})
+		})
+	}
+
+	// GraphQL entity
+	if streamers.GraphQL != nil {
+		registry.Register(mutation.EntityGraphQL, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.GraphQL.Publish(rgraphql.GraphQLTopic{WorkspaceID: evt.WorkspaceID}, rgraphql.GraphQLEvent{
+				Type:    "delete",
+				GraphQL: &graphqlv1.GraphQL{GraphqlId: evt.ID.Bytes()},
+			})
+		})
+	}
+
+	// GraphQL Header entity
+	if streamers.GraphQLHeader != nil {
+		registry.Register(mutation.EntityGraphQLHeader, func(evt mutation.Event) {
+			if evt.Op != mutation.OpDelete {
+				return
+			}
+			streamers.GraphQLHeader.Publish(rgraphql.GraphQLHeaderTopic{WorkspaceID: evt.WorkspaceID}, rgraphql.GraphQLHeaderEvent{
+				Type:          "delete",
+				GraphQLHeader: &graphqlv1.GraphQLHeader{GraphqlHeaderId: evt.ID.Bytes(), GraphqlId: evt.ParentID.Bytes()},
 			})
 		})
 	}

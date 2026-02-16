@@ -38,6 +38,7 @@ const (
 	EntityFlowNodeAI
 	EntityFlowNodeAiProvider
 	EntityFlowNodeMemory
+	EntityFlowNodeGraphQL
 	EntityFlowEdge
 	EntityFlowVariable
 	EntityFlowTag
@@ -47,6 +48,14 @@ const (
 
 	// Credential entities
 	EntityCredential
+
+	// GraphQL entities
+	EntityGraphQL
+	EntityGraphQLHeader
+	EntityGraphQLAssert
+	EntityGraphQLResponse
+	EntityGraphQLResponseHeader
+	EntityGraphQLResponseAssert
 )
 
 // Operation identifies the type of mutation.

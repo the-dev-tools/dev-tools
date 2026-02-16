@@ -18,6 +18,7 @@ import {
   FlowCollectionSchema,
   FlowVariableCollectionSchema,
   NodeCollectionSchema,
+  NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
@@ -60,6 +61,7 @@ import {
 import { ConditionNode, ConditionSettings } from './nodes/condition';
 import { ForNode, ForSettings } from './nodes/for';
 import { ForEachNode, ForEachSettings } from './nodes/for-each';
+import { GraphQLNode, GraphQLSettings } from './nodes/graphql';
 import { HttpNode, HttpSettings } from './nodes/http';
 import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
@@ -72,6 +74,7 @@ export const nodeTypes: XF.NodeTypes = {
   [NodeKind.CONDITION]: ConditionNode,
   [NodeKind.FOR]: ForNode,
   [NodeKind.FOR_EACH]: ForEachNode,
+  [NodeKind.GRAPH_Q_L]: GraphQLNode,
   [NodeKind.HTTP]: HttpNode,
   [NodeKind.JS]: JavaScriptNode,
   [NodeKind.MANUAL_START]: ManualStartNode,
@@ -108,6 +111,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const flowCollection = useApiCollection(FlowCollectionSchema);
   const edgeCollection = useApiCollection(EdgeCollectionSchema);
   const nodeCollection = useApiCollection(NodeCollectionSchema);
+  const nodeGraphQLCollection = useApiCollection(NodeGraphQLCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
 
   const nodeEditDialog = useNodeEditDialog();
@@ -210,6 +214,23 @@ export const Flow = ({ children }: PropsWithChildren) => {
           flowId,
           kind: NodeKind.HTTP,
           name: `http_${getNodes().length}`,
+          nodeId,
+          position,
+        });
+      }
+
+      if (file?.kind === FileKind.GRAPH_Q_L) {
+        const nodeId = Ulid.generate().bytes;
+
+        nodeGraphQLCollection.utils.insert({
+          graphqlId: file.fileId,
+          nodeId,
+        });
+
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.GRAPH_Q_L,
+          name: `graphql_${getNodes().length}`,
           nodeId,
           position,
         });
@@ -610,6 +631,7 @@ const useNodeEditDialog = () => {
       Match.when({ kind: NodeKind.FOR }, (_) => <ForSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.JS }, (_) => <JavaScriptSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.HTTP }, (_) => <HttpSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.GRAPH_Q_L }, (_) => <GraphQLSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI }, (_) => <AiSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_PROVIDER }, (_) => <AiProviderSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_MEMORY }, (_) => <AiMemorySettings nodeId={nodeId} />),

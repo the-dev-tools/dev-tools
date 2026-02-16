@@ -252,3 +252,11 @@ type NodeMemory struct {
 	MemoryType AiMemoryType
 	WindowSize int32
 }
+
+// --- GraphQL Node ---
+
+type NodeGraphQL struct {
+	FlowNodeID      idwrap.IDWrap
+	GraphQLID       *idwrap.IDWrap
+	DeltaGraphQLID  *idwrap.IDWrap
+}

@@ -18,6 +18,7 @@ const (
 	NODE_KIND_AI           NodeKind = 7
 	NODE_KIND_AI_PROVIDER  NodeKind = 8
 	NODE_KIND_AI_MEMORY    NodeKind = 9
+	NODE_KIND_GRAPHQL      NodeKind = 10
 )
 
 type NodeState = int8

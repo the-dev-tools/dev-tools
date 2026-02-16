@@ -70,6 +70,7 @@ enum NodeKind {
   Ai,
   AiProvider,
   AiMemory,
+  GraphQL,
 }
 
 enum AiMemoryType {
@@ -132,6 +133,13 @@ model NodeHttp {
   @primaryKey nodeId: Id;
   @foreignKey httpId: Id;
   @foreignKey deltaHttpId?: Id;
+}
+
+@TanStackDB.collection
+model NodeGraphQL {
+  @primaryKey nodeId: Id;
+  @foreignKey graphqlId: Id;
+  @foreignKey deltaGraphqlId?: Id;
 }
 
 enum ErrorHandling {
@@ -200,5 +208,6 @@ model NodeExecution {
   input?: Protobuf.WellKnown.Json;
   output?: Protobuf.WellKnown.Json;
   httpResponseId?: Id;
+  graphqlResponseId?: Id;
   completedAt?: Protobuf.WellKnown.Timestamp;
 }

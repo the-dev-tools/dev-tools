@@ -10,11 +10,13 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
@@ -192,6 +194,39 @@ func (s *FlowServiceV2RPC) publishHttpResponseAssertEvent(eventType string, asse
 	})
 }
 
+func (s *FlowServiceV2RPC) publishGraphQLResponseEvent(eventType string, response mgraphql.GraphQLResponse, workspaceID idwrap.IDWrap) {
+	if s.graphqlResponseStream == nil {
+		return
+	}
+	responsePB := rgraphql.ToAPIGraphQLResponse(response)
+	s.graphqlResponseStream.Publish(rgraphql.GraphQLResponseTopic{WorkspaceID: workspaceID}, rgraphql.GraphQLResponseEvent{
+		Type:            eventType,
+		GraphQLResponse: responsePB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishGraphQLResponseHeaderEvent(eventType string, header mgraphql.GraphQLResponseHeader, workspaceID idwrap.IDWrap) {
+	if s.graphqlResponseHeaderStream == nil {
+		return
+	}
+	headerPB := rgraphql.ToAPIGraphQLResponseHeader(header)
+	s.graphqlResponseHeaderStream.Publish(rgraphql.GraphQLResponseHeaderTopic{WorkspaceID: workspaceID}, rgraphql.GraphQLResponseHeaderEvent{
+		Type:                  eventType,
+		GraphQLResponseHeader: headerPB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishGraphQLResponseAssertEvent(eventType string, assert mgraphql.GraphQLResponseAssert, workspaceID idwrap.IDWrap) {
+	if s.graphqlResponseAssertStream == nil {
+		return
+	}
+	assertPB := rgraphql.ToAPIGraphQLResponseAssert(assert)
+	s.graphqlResponseAssertStream.Publish(rgraphql.GraphQLResponseAssertTopic{WorkspaceID: workspaceID}, rgraphql.GraphQLResponseAssertEvent{
+		Type:                    eventType,
+		GraphQLResponseAssert: assertPB,
+	})
+}
+
 func (s *FlowServiceV2RPC) executionEventToSyncResponse(
 	ctx context.Context,
 	evt ExecutionEvent,
@@ -223,6 +258,9 @@ func (s *FlowServiceV2RPC) executionEventToSyncResponse(
 		}
 		if evt.Execution.HttpResponseId != nil {
 			upsert.HttpResponseId = evt.Execution.HttpResponseId
+		}
+		if evt.Execution.GraphqlResponseId != nil {
+			upsert.GraphqlResponseId = evt.Execution.GraphqlResponseId
 		}
 		if evt.Execution.CompletedAt != nil {
 			upsert.CompletedAt = evt.Execution.CompletedAt

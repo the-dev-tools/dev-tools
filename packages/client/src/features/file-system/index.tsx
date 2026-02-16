@@ -29,6 +29,7 @@ import {
   FolderSchema,
 } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import { FlowSchema, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { GraphQLSchema as GraphQLItemSchema } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
 import { HttpDeltaSchema, HttpMethod, HttpSchema, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import {
   CredentialAnthropicCollectionSchema,
@@ -38,6 +39,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/credential';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Button } from '@the-dev-tools/ui/button';
 import { FlowsIcon, FolderOpenedIcon } from '@the-dev-tools/ui/icons';
@@ -84,6 +86,7 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
   const folderCollection = useApiCollection(FolderCollectionSchema);
+  const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
   const httpCollection = useApiCollection(HttpCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
 
@@ -114,6 +117,22 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
         }}
       >
         HTTP request
+      </MenuItem>
+
+      <MenuItem
+        onAction={async () => {
+          const graphqlUlid = Ulid.generate();
+          graphqlCollection.utils.insert({ graphqlId: graphqlUlid.bytes, name: 'New GraphQL request' });
+          await insertFile({ fileId: graphqlUlid.bytes, kind: FileKind.GRAPH_Q_L });
+          if (toNavigate)
+            await navigate({
+              from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+              params: { graphqlIdCan: graphqlUlid.toCanonical() },
+              to: router.routesById[routes.dashboard.workspace.graphql.route.id].fullPath,
+            });
+        }}
+      >
+        GraphQL request
       </MenuItem>
 
       <MenuItem
@@ -332,6 +351,7 @@ const FileItem = ({ id }: FileItemProps) => {
     Match.when(FileKind.HTTP, () => <HttpFile id={id} />),
     Match.when(FileKind.HTTP_DELTA, () => <HttpDeltaFile id={id} />),
     Match.when(FileKind.FLOW, () => <FlowFile id={id} />),
+    Match.when(FileKind.GRAPH_Q_L, () => <GraphQLFile id={id} />),
     Match.when(FileKind.CREDENTIAL, () => <CredentialFile id={id} />),
     Match.orElse(() => null),
   );
@@ -860,6 +880,93 @@ const FlowFile = ({ id }: FileItemProps) => {
             >
               Export YAML (DevTools)
             </MenuItem>
+
+            <MenuItem
+              onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}
+              variant='danger'
+            >
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      )}
+    </>
+  );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
+    id,
+    onContextMenu,
+    textValue: name,
+  } satisfies TreeItemProps<object>;
+
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
+};
+
+const GraphQLFile = ({ id }: FileItemProps) => {
+  const router = useRouter();
+  const matchRoute = useMatchRoute();
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { fileId: graphqlId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
+
+  const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
+
+  const { name } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: graphqlCollection })
+          .where((_) => eq(_.item.graphqlId, graphqlId))
+          .select((_) => pick(_.item, 'name'))
+          .findOne(),
+      [graphqlCollection, graphqlId],
+    ).data ?? create(GraphQLItemSchema);
+
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
+
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => graphqlCollection.utils.update({ graphqlId, name: _ }),
+    value: name,
+  });
+
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const route = {
+    from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+    params: { graphqlIdCan: Ulid.construct(graphqlId).toCanonical() },
+    to: router.routesById[routes.dashboard.workspace.graphql.route.id].fullPath,
+  } satisfies ToOptions;
+
+  const content = (
+    <>
+      <span className={tw`rounded bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
+
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
+        {name}
+      </Text>
+
+      {isEditing &&
+        escapeRender(
+          <TextInputField
+            aria-label='GraphQL request name'
+            className={tw`w-full`}
+            inputClassName={tw`-my-1 py-1`}
+            {...textFieldProps}
+          />,
+        )}
+
+      {showControls && (
+        <MenuTrigger {...menuTriggerProps}>
+          <Button className={tw`p-0.5`} variant='ghost'>
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
+          </Button>
+
+          <Menu {...menuProps}>
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem
               onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}
