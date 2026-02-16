@@ -8,16 +8,18 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 
 	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
 	environmentv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
 	filev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	graphqlv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/graph_q_l/v1"
 	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
@@ -466,5 +468,16 @@ func ToAPIErrorHandling(eh mflow.ErrorHandling) flowv1.ErrorHandling {
 		return flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED
 	default:
 		return flowv1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED
+	}
+}
+
+// ToAPIGraphQLAssert converts model GraphQLAssert to API GraphQLAssert
+func ToAPIGraphQLAssert(assert mgraphql.GraphQLAssert) *graphqlv1.GraphQLAssert {
+	return &graphqlv1.GraphQLAssert{
+		GraphqlAssertId: assert.ID.Bytes(),
+		GraphqlId:       assert.GraphQLID.Bytes(),
+		Value:           assert.Value,
+		Enabled:         assert.Enabled,
+		Order:           assert.DisplayOrder,
 	}
 }

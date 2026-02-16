@@ -228,3 +228,17 @@ func (s *GraphQLServiceRPC) GraphQLDelete(ctx context.Context, req *connect.Requ
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
+
+// getGraphQLsWithDeltasForWorkspace returns both base and delta GraphQL entries for a workspace.
+func (s *GraphQLServiceRPC) getGraphQLsWithDeltasForWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) ([]mgraphql.GraphQL, error) {
+	graphqlList, err := s.graphqlReader.GetByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	deltaList, err := s.graphqlReader.GetDeltasByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	all := make([]mgraphql.GraphQL, 0, len(graphqlList)+len(deltaList))
+	return append(append(all, graphqlList...), deltaList...), nil
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/delta"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
@@ -72,12 +73,43 @@ type GraphQLResponseHeaderEvent struct {
 	GraphQLResponseHeader *graphqlv1.GraphQLResponseHeader
 }
 
+type GraphQLResponseAssertTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type GraphQLResponseAssertEvent struct {
+	Type                  string
+	GraphQLResponseAssert *graphqlv1.GraphQLResponseAssert
+}
+
+type GraphQLVersionTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type GraphQLVersionEvent struct {
+	Type           string
+	GraphQLVersion *graphqlv1.GraphQLVersion
+}
+
+type GraphQLAssertTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type GraphQLAssertEvent struct {
+	Type          string
+	GraphQLAssert *graphqlv1.GraphQLAssert
+	IsDelta       bool
+}
+
 // GraphQLStreamers groups all event streams
 type GraphQLStreamers struct {
 	GraphQL               eventstream.SyncStreamer[GraphQLTopic, GraphQLEvent]
 	GraphQLHeader         eventstream.SyncStreamer[GraphQLHeaderTopic, GraphQLHeaderEvent]
+	GraphQLAssert         eventstream.SyncStreamer[GraphQLAssertTopic, GraphQLAssertEvent]
 	GraphQLResponse       eventstream.SyncStreamer[GraphQLResponseTopic, GraphQLResponseEvent]
 	GraphQLResponseHeader eventstream.SyncStreamer[GraphQLResponseHeaderTopic, GraphQLResponseHeaderEvent]
+	GraphQLResponseAssert eventstream.SyncStreamer[GraphQLResponseAssertTopic, GraphQLResponseAssertEvent]
+	GraphQLVersion        eventstream.SyncStreamer[GraphQLVersionTopic, GraphQLVersionEvent]
 	File                  eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
 
@@ -85,9 +117,12 @@ type GraphQLStreamers struct {
 type GraphQLServiceRPC struct {
 	DB *sql.DB
 
-	graphqlService  sgraphql.GraphQLService
-	headerService   sgraphql.GraphQLHeaderService
-	responseService sgraphql.GraphQLResponseService
+	graphqlReader        *sgraphql.Reader
+	graphqlService       sgraphql.GraphQLService
+	headerService        sgraphql.GraphQLHeaderService
+	graphqlAssertService sgraphql.GraphQLAssertService
+	responseService      sgraphql.GraphQLResponseService
+	resolver             GraphQLResolver
 
 	us         suser.UserService
 	ws         sworkspace.WorkspaceService
@@ -102,16 +137,23 @@ type GraphQLServiceRPC struct {
 	streamers   *GraphQLStreamers
 }
 
+// GraphQLResolver defines the interface for resolving GraphQL delta requests
+type GraphQLResolver interface {
+	Resolve(ctx context.Context, baseID idwrap.IDWrap, deltaID *idwrap.IDWrap) (*delta.ResolveGraphQLOutput, error)
+}
+
 type GraphQLServiceRPCDeps struct {
 	DB        *sql.DB
 	Services  GraphQLServiceRPCServices
 	Readers   GraphQLServiceRPCReaders
+	Resolver  GraphQLResolver
 	Streamers *GraphQLStreamers
 }
 
 type GraphQLServiceRPCServices struct {
 	GraphQL       sgraphql.GraphQLService
 	Header        sgraphql.GraphQLHeaderService
+	GraphQLAssert sgraphql.GraphQLAssertService
 	Response      sgraphql.GraphQLResponseService
 	User          suser.UserService
 	Workspace     sworkspace.WorkspaceService
@@ -122,6 +164,7 @@ type GraphQLServiceRPCServices struct {
 }
 
 type GraphQLServiceRPCReaders struct {
+	GraphQL   *sgraphql.Reader
 	User      *sworkspace.UserReader
 	Workspace *sworkspace.WorkspaceReader
 }
@@ -142,19 +185,22 @@ func New(deps GraphQLServiceRPCDeps) GraphQLServiceRPC {
 	}
 
 	return GraphQLServiceRPC{
-		DB:              deps.DB,
-		graphqlService:  deps.Services.GraphQL,
-		headerService:   deps.Services.Header,
-		responseService: deps.Services.Response,
-		us:              deps.Services.User,
-		ws:              deps.Services.Workspace,
-		wus:             deps.Services.WorkspaceUser,
-		userReader:      deps.Readers.User,
-		wsReader:        deps.Readers.Workspace,
-		es:              deps.Services.Env,
-		vs:              deps.Services.Variable,
-		fileService:     deps.Services.File,
-		streamers:       deps.Streamers,
+		DB:                   deps.DB,
+		graphqlReader:        deps.Readers.GraphQL,
+		graphqlService:       deps.Services.GraphQL,
+		headerService:        deps.Services.Header,
+		graphqlAssertService: deps.Services.GraphQLAssert,
+		responseService:      deps.Services.Response,
+		resolver:             deps.Resolver,
+		us:                   deps.Services.User,
+		ws:                   deps.Services.Workspace,
+		wus:                  deps.Services.WorkspaceUser,
+		userReader:           deps.Readers.User,
+		wsReader:             deps.Readers.Workspace,
+		es:                   deps.Services.Env,
+		vs:                   deps.Services.Variable,
+		fileService:          deps.Services.File,
+		streamers:            deps.Streamers,
 	}
 }
 
@@ -243,6 +289,8 @@ func (p *rgraphqlPublisher) PublishAll(events []mutation.Event) {
 			p.publishGraphQL(evt)
 		case mutation.EntityGraphQLHeader:
 			p.publishGraphQLHeader(evt)
+		case mutation.EntityGraphQLAssert:
+			p.publishGraphQLAssert(evt)
 		}
 	}
 }
@@ -307,6 +355,42 @@ func (p *rgraphqlPublisher) publishGraphQLHeader(evt mutation.Event) {
 		p.streamers.GraphQLHeader.Publish(GraphQLHeaderTopic{WorkspaceID: evt.WorkspaceID}, GraphQLHeaderEvent{
 			Type:          eventType,
 			GraphQLHeader: model,
+		})
+	}
+}
+
+func (p *rgraphqlPublisher) publishGraphQLAssert(evt mutation.Event) {
+	if p.streamers.GraphQLAssert == nil {
+		return
+	}
+	var model *graphqlv1.GraphQLAssert
+	var eventType string
+	isDelta := false
+
+	switch evt.Op {
+	case mutation.OpInsert, mutation.OpUpdate:
+		if evt.Op == mutation.OpInsert {
+			eventType = eventTypeInsert
+		} else {
+			eventType = eventTypeUpdate
+		}
+		if a, ok := evt.Payload.(mgraphql.GraphQLAssert); ok {
+			model = ToAPIGraphQLAssert(a)
+			isDelta = a.IsDelta
+		} else if ap, ok := evt.Payload.(*mgraphql.GraphQLAssert); ok {
+			model = ToAPIGraphQLAssert(*ap)
+			isDelta = ap.IsDelta
+		}
+	case mutation.OpDelete:
+		eventType = eventTypeDelete
+		model = &graphqlv1.GraphQLAssert{GraphqlAssertId: evt.ID.Bytes(), GraphqlId: evt.ParentID.Bytes()}
+	}
+
+	if model != nil {
+		p.streamers.GraphQLAssert.Publish(GraphQLAssertTopic{WorkspaceID: evt.WorkspaceID}, GraphQLAssertEvent{
+			Type:          eventType,
+			GraphQLAssert: model,
+			IsDelta:       isDelta,
 		})
 	}
 }

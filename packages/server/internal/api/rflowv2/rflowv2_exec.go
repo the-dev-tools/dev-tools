@@ -24,6 +24,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 	logv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/log/v1"
@@ -224,15 +225,56 @@ func (s *FlowServiceV2RPC) executeFlow(
 			gqlResponsePublished[responseID] = publishedChan
 			gqlResponsePublishedMu.Unlock()
 
+			// Save all entities first, THEN publish events in batch
+			// This ensures atomicity and ordering - the client can query for
+			// child entities (headers/assertions) immediately after receiving
+			// the response event, preventing race conditions in real-time updates
+
 			// Save GraphQL Response
+			responseSuccess := false
 			if err := s.graphqlResponseService.Create(ctx, resp.Response); err != nil {
 				s.logger.Error("failed to save graphql response", "error", err)
+			} else {
+				responseSuccess = true
 			}
 
 			// Save Response Headers
+			var successHeaders []mgraphql.GraphQLResponseHeader
 			for _, h := range resp.RespHeaders {
 				if err := s.graphqlResponseService.CreateHeader(ctx, h); err != nil {
 					s.logger.Error("failed to save graphql response header", "error", err)
+				} else {
+					successHeaders = append(successHeaders, h)
+				}
+			}
+
+			// Save Asserts
+			var successAsserts []mgraphql.GraphQLResponseAssert
+			for _, a := range resp.RespAsserts {
+				if err := s.graphqlResponseService.CreateAssert(ctx, a); err != nil {
+					s.logger.Error("failed to save graphql response assert", "error", err)
+				} else {
+					successAsserts = append(successAsserts, a)
+				}
+			}
+
+			// Publish all events atomically AFTER all saves complete
+			// This guarantees the client receives events in the correct order:
+			// 1. Response (parent)
+			// 2. Headers (children)
+			// 3. Assertions (children)
+			if responseSuccess {
+				// Publish response first
+				s.publishGraphQLResponseEvent("insert", resp.Response, flow.WorkspaceID)
+
+				// Then headers
+				for _, h := range successHeaders {
+					s.publishGraphQLResponseHeaderEvent("insert", h, flow.WorkspaceID)
+				}
+
+				// Then assertions
+				for _, a := range successAsserts {
+					s.publishGraphQLResponseAssertEvent("insert", a, flow.WorkspaceID)
 				}
 			}
 

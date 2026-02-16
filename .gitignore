@@ -27,6 +27,8 @@ storybook-static
 tsconfig.tsbuildinfo
 tsp-output
 .bench/
+.ralph/
+.ralphrc
 
 # Coverage files
 *.out

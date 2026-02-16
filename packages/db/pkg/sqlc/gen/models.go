@@ -123,8 +123,9 @@ type FlowNodeForEach struct {
 }
 
 type FlowNodeGraphql struct {
-	FlowNodeID idwrap.IDWrap
-	GraphqlID  idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
+	GraphqlID      idwrap.IDWrap
+	DeltaGraphqlID []byte
 }
 
 type FlowNodeHttp struct {
@@ -162,29 +163,61 @@ type FlowVariable struct {
 }
 
 type Graphql struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	FolderID    *idwrap.IDWrap
-	Name        string
-	Url         string
-	Query       string
-	Variables   string
-	Description string
-	LastRunAt   interface{}
-	CreatedAt   int64
-	UpdatedAt   int64
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Query            string
+	Variables        string
+	Description      string
+	LastRunAt        interface{}
+	CreatedAt        int64
+	UpdatedAt        int64
+	ParentGraphqlID  []byte
+	IsDelta          bool
+	IsSnapshot       bool
+	DeltaName        interface{}
+	DeltaUrl         interface{}
+	DeltaQuery       interface{}
+	DeltaVariables   interface{}
+	DeltaDescription interface{}
+}
+
+type GraphqlAssert struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	CreatedAt             int64
+	UpdatedAt             int64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
 }
 
 type GraphqlHeader struct {
-	ID           idwrap.IDWrap
-	GraphqlID    idwrap.IDWrap
-	HeaderKey    string
-	HeaderValue  string
-	Description  string
-	Enabled      bool
-	DisplayOrder float64
-	CreatedAt    int64
-	UpdatedAt    int64
+	ID                    idwrap.IDWrap
+	GraphqlID             idwrap.IDWrap
+	HeaderKey             string
+	HeaderValue           string
+	Description           string
+	Enabled               bool
+	DisplayOrder          float64
+	CreatedAt             int64
+	UpdatedAt             int64
+	ParentGraphqlHeaderID []byte
+	IsDelta               bool
+	DeltaHeaderKey        interface{}
+	DeltaHeaderValue      interface{}
+	DeltaDescription      interface{}
+	DeltaEnabled          interface{}
+	DeltaDisplayOrder     interface{}
 }
 
 type GraphqlResponse struct {
@@ -198,12 +231,30 @@ type GraphqlResponse struct {
 	CreatedAt int64
 }
 
+type GraphqlResponseAssert struct {
+	ID         []byte
+	ResponseID []byte
+	Value      string
+	Success    bool
+	CreatedAt  int64
+}
+
 type GraphqlResponseHeader struct {
 	ID         idwrap.IDWrap
 	ResponseID idwrap.IDWrap
 	Key        string
 	Value      string
 	CreatedAt  int64
+}
+
+type GraphqlVersion struct {
+	ID                 []byte
+	GraphqlID          []byte
+	VersionName        string
+	VersionDescription string
+	IsActive           bool
+	CreatedAt          int64
+	CreatedBy          []byte
 }
 
 type Http struct {

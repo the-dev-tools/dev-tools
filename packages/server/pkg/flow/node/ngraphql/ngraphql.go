@@ -13,6 +13,7 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	graphqlresponse "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/response"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -25,6 +26,7 @@ type NodeGraphQL struct {
 
 	GraphQL    mgraphql.GraphQL
 	Headers    []mgraphql.GraphQLHeader
+	Asserts    []mgraphql.GraphQLAssert
 	HttpClient httpclient.HttpClient
 	SideRespChan chan NodeGraphQLSideResp
 	logger       *slog.Logger
@@ -36,6 +38,7 @@ type NodeGraphQLSideResp struct {
 	Headers     []mgraphql.GraphQLHeader
 	Response    mgraphql.GraphQLResponse
 	RespHeaders []mgraphql.GraphQLResponseHeader
+	RespAsserts []mgraphql.GraphQLResponseAssert
 	Done        chan struct{}
 }
 
@@ -54,6 +57,7 @@ func New(
 	name string,
 	gql mgraphql.GraphQL,
 	headers []mgraphql.GraphQLHeader,
+	asserts []mgraphql.GraphQLAssert,
 	httpClient httpclient.HttpClient,
 	sideRespChan chan NodeGraphQLSideResp,
 	logger *slog.Logger,
@@ -63,6 +67,7 @@ func New(
 		Name:         name,
 		GraphQL:      gql,
 		Headers:      headers,
+		Asserts:      asserts,
 		HttpClient:   httpClient,
 		SideRespChan: sideRespChan,
 		logger:       logger,
@@ -93,10 +98,44 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 	// Build unified environment for interpolation
 	env := expression.NewUnifiedEnv(varMapCopy)
 
+	// Track input variable reads if tracker is available
+	readVars := make(map[string]any)
+
+	// Helper to interpolate and collect reads (same pattern as HTTP REQUEST nodes)
+	interpolate := func(raw string) (string, error) {
+		if !expression.HasVars(raw) {
+			return raw, nil
+		}
+		result, err := env.InterpolateWithResult(raw)
+		if err != nil {
+			return "", err
+		}
+		// Collect tracked reads
+		for k, v := range result.ReadVars {
+			readVars[k] = v
+		}
+		return result.Value, nil
+	}
+
 	// Interpolate URL, query, variables, and headers
-	url, _ := env.Interpolate(n.GraphQL.Url)
-	query, _ := env.Interpolate(n.GraphQL.Query)
-	variables, _ := env.Interpolate(n.GraphQL.Variables)
+	var err error
+	url, err := interpolate(n.GraphQL.Url)
+	if err != nil {
+		result.Err = fmt.Errorf("failed to interpolate url: %w", err)
+		return result
+	}
+
+	query, err := interpolate(n.GraphQL.Query)
+	if err != nil {
+		result.Err = fmt.Errorf("failed to interpolate query: %w", err)
+		return result
+	}
+
+	variables, err := interpolate(n.GraphQL.Variables)
+	if err != nil {
+		result.Err = fmt.Errorf("failed to interpolate variables: %w", err)
+		return result
+	}
 
 	// Build request body
 	var varsJSON json.RawMessage
@@ -129,12 +168,27 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Apply headers
+	// Apply headers with tracking
 	for _, h := range n.Headers {
 		if h.Enabled && h.Key != "" {
-			key, _ := env.Interpolate(h.Key)
-			value, _ := env.Interpolate(h.Value)
+			key, err := interpolate(h.Key)
+			if err != nil {
+				result.Err = fmt.Errorf("failed to interpolate header key: %w", err)
+				return result
+			}
+			value, err := interpolate(h.Value)
+			if err != nil {
+				result.Err = fmt.Errorf("failed to interpolate header value: %w", err)
+				return result
+			}
 			httpReq.Header.Set(key, value)
+		}
+	}
+
+	// Track variable reads if tracker is available (before HTTP execution)
+	if req.VariableTracker != nil {
+		for varKey, varValue := range readVars {
+			req.VariableTracker.TrackRead(varKey, varValue)
 		}
 	}
 
@@ -217,38 +271,69 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 		},
 	}
 
-	if err := node.WriteNodeVarBulk(req, n.Name, outputMap); err != nil {
+	// Use tracking version if tracker is available (same pattern as HTTP REQUEST nodes)
+	if req.VariableTracker != nil {
+		if err := node.WriteNodeVarBulkWithTracking(req, n.Name, outputMap, req.VariableTracker); err != nil {
+			result.Err = err
+			return result
+		}
+	} else {
+		if err := node.WriteNodeVarBulk(req, n.Name, outputMap); err != nil {
+			result.Err = err
+			return result
+		}
+	}
+
+	// Create response with assertions evaluated using UnifiedEnv (same pattern as HTTP)
+	respCreate, err := graphqlresponse.ResponseCreateGraphQL(
+		ctx,
+		respBody,
+		httpResp.StatusCode,
+		duration,
+		respHeaderModels,
+		n.GraphQL.ID,
+		n.Asserts,
+		varMapCopy,
+	)
+	if err != nil {
 		result.Err = err
 		return result
 	}
 
-	// Create GraphQL response model
-	responseID := idwrap.NewNow()
-	gqlResponse := mgraphql.GraphQLResponse{
-		ID:        responseID,
-		GraphQLID: n.GraphQL.ID,
-		Status:    int32(httpResp.StatusCode),
-		Body:      respBody,
-		Time:      time.Now().Unix(),
-		Duration:  int32(duration.Milliseconds()),
-		Size:      int32(len(respBody)),
-	}
+	result.AuxiliaryID = &respCreate.GraphQLResponse.ID
 
-	// Set response IDs
-	for i := range respHeaderModels {
-		respHeaderModels[i].ResponseID = responseID
-	}
+	// Check if any assertions failed (same pattern as HTTP)
+	done := make(chan struct{})
+	for _, assertRes := range respCreate.ResponseAsserts {
+		if !assertRes.Success {
+			result.Err = fmt.Errorf("assertion failed: %s", assertRes.Value)
 
-	result.AuxiliaryID = &responseID
+			// Still send the response data even though we're failing
+			n.SideRespChan <- NodeGraphQLSideResp{
+				ExecutionID: req.ExecutionID,
+				GraphQL:     n.GraphQL,
+				Headers:     n.Headers,
+				Response:    respCreate.GraphQLResponse,
+				RespHeaders: respCreate.ResponseHeaders,
+				RespAsserts: respCreate.ResponseAsserts,
+				Done:        done,
+			}
+			select {
+			case <-done:
+			case <-ctx.Done():
+			}
+			return result
+		}
+	}
 
 	// Send through side channel for persistence
-	done := make(chan struct{})
 	n.SideRespChan <- NodeGraphQLSideResp{
 		ExecutionID: req.ExecutionID,
 		GraphQL:     n.GraphQL,
 		Headers:     n.Headers,
-		Response:    gqlResponse,
-		RespHeaders: respHeaderModels,
+		Response:    respCreate.GraphQLResponse,
+		RespHeaders: respCreate.ResponseHeaders,
+		RespAsserts: respCreate.ResponseAsserts,
 		Done:        done,
 	}
 	select {

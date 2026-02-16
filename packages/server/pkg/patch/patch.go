@@ -110,6 +110,36 @@ func (p HTTPDeltaPatch) HasChanges() bool {
 	return p.Name.IsSet() || p.Method.IsSet() || p.Url.IsSet()
 }
 
+// GraphQLDeltaPatch represents sparse updates to GraphQL delta fields.
+//
+// Semantics:
+//   - Field.IsSet() == false = field not changed (omitted from update)
+//   - Field.IsUnset() == true = field explicitly UNSET/cleared
+//   - Field.HasValue() == true = field set to that value
+type GraphQLDeltaPatch struct {
+	Name      Optional[string]
+	URL       Optional[string]
+	Query     Optional[string]
+	Variables Optional[string]
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p GraphQLDeltaPatch) HasChanges() bool {
+	return p.Name.IsSet() || p.URL.IsSet() || p.Query.IsSet() || p.Variables.IsSet()
+}
+
+// GraphQLAssertPatch represents sparse updates to GraphQL assert delta fields.
+type GraphQLAssertPatch struct {
+	Value   Optional[string]
+	Enabled Optional[bool]
+	Order   Optional[float32]
+}
+
+// HasChanges returns true if any field in the patch has been set
+func (p GraphQLAssertPatch) HasChanges() bool {
+	return p.Value.IsSet() || p.Enabled.IsSet() || p.Order.IsSet()
+}
+
 // EdgePatch represents partial updates to an Edge
 type EdgePatch struct {
 	SourceID      Optional[string] // ID stored as base64 string for JSON compatibility

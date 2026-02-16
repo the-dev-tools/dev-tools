@@ -1,11 +1,12 @@
 import { create } from '@bufbuild/protobuf';
 import { count, eq, useLiveQuery } from '@tanstack/react-db';
 import { Duration, pipe } from 'effect';
-import { Suspense } from 'react';
+import { ReactNode, Suspense } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { GraphQLResponseSchema } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
 import {
+  GraphQLResponseAssertCollectionSchema,
   GraphQLResponseCollectionSchema,
   GraphQLResponseHeaderCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
@@ -15,14 +16,16 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { formatSize } from '@the-dev-tools/ui/utils';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
+import { GraphQLAssertTable } from './assert';
 import { GraphQLResponseBody } from './body';
 import { GraphQLResponseHeaderTable } from './header';
 
-interface GraphQLResponsePanelProps {
+export interface GraphQLResponseInfoProps {
+  className?: string;
   graphqlResponseId: Uint8Array;
 }
 
-export const GraphQLResponsePanel = ({ graphqlResponseId }: GraphQLResponsePanelProps) => {
+export const GraphQLResponseInfo = ({ className, graphqlResponseId }: GraphQLResponseInfoProps) => {
   const responseCollection = useApiCollection(GraphQLResponseCollectionSchema);
 
   const { duration, size, status } =
@@ -35,6 +38,48 @@ export const GraphQLResponsePanel = ({ graphqlResponseId }: GraphQLResponsePanel
       [responseCollection, graphqlResponseId],
     ).data ?? create(GraphQLResponseSchema);
 
+  return (
+    <div
+      className={twMerge(
+        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-on-neutral`,
+        className,
+      )}
+    >
+      <div className={tw`flex gap-1 p-2`}>
+        <span>Status:</span>
+        <span className={tw`text-success`}>{status}</span>
+      </div>
+
+      <Separator className={tw`h-4`} orientation='vertical' />
+
+      <div className={tw`flex gap-1 p-2`}>
+        <span>Time:</span>
+        <span className={tw`text-success`}>{pipe(duration, Duration.millis, Duration.format)}</span>
+      </div>
+
+      <Separator className={tw`h-4`} orientation='vertical' />
+
+      <div className={tw`flex gap-1 p-2`}>
+        <span>Size:</span>
+        <span>{formatSize(size)}</span>
+      </div>
+    </div>
+  );
+};
+
+export interface GraphQLResponsePanelProps {
+  children?: ReactNode;
+  className?: string;
+  fullWidth?: boolean;
+  graphqlResponseId: Uint8Array;
+}
+
+export const GraphQLResponsePanel = ({
+  children,
+  className,
+  fullWidth = false,
+  graphqlResponseId,
+}: GraphQLResponsePanelProps) => {
   const headerCollection = useApiCollection(GraphQLResponseHeaderCollectionSchema);
 
   const { headerCount = 0 } =
@@ -47,9 +92,21 @@ export const GraphQLResponsePanel = ({ graphqlResponseId }: GraphQLResponsePanel
       [headerCollection, graphqlResponseId],
     ).data ?? {};
 
+  const assertCollection = useApiCollection(GraphQLResponseAssertCollectionSchema);
+
+  const { assertCount = 0 } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: assertCollection })
+          .where((_) => eq(_.item.graphqlResponseId, graphqlResponseId))
+          .select((_) => ({ assertCount: count(_.item.graphqlResponseAssertId) }))
+          .findOne(),
+      [assertCollection, graphqlResponseId],
+    ).data ?? {};
+
   return (
-    <Tabs className={tw`flex h-full flex-col pb-4`}>
-      <div className={tw`flex items-center gap-3 border-b border-neutral px-4 text-md`}>
+    <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
+      <div className={twMerge(tw`flex items-center gap-3 border-b border-neutral text-md`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             className={({ isSelected }) =>
@@ -81,33 +138,30 @@ export const GraphQLResponsePanel = ({ graphqlResponseId }: GraphQLResponsePanel
             Headers
             {headerCount > 0 && <span className={tw`text-xs text-success`}> ({headerCount})</span>}
           </Tab>
+
+          <Tab
+            className={({ isSelected }) =>
+              twMerge(
+                tw`
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  text-on-neutral-low transition-colors
+                `,
+                isSelected && tw`border-b-accent text-on-neutral`,
+              )
+            }
+            id='assertions'
+          >
+            Assertion
+            {assertCount > 0 && <span className={tw`text-xs text-success`}> ({assertCount})</span>}
+          </Tab>
         </TabList>
 
         <div className={tw`flex-1`} />
 
-        <div className={tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-on-neutral`}>
-          <div className={tw`flex gap-1 p-2`}>
-            <span>Status:</span>
-            <span className={tw`text-success`}>{status}</span>
-          </div>
-
-          <Separator className={tw`h-4`} orientation='vertical' />
-
-          <div className={tw`flex gap-1 p-2`}>
-            <span>Time:</span>
-            <span className={tw`text-success`}>{pipe(duration, Duration.millis, Duration.format)}</span>
-          </div>
-
-          <Separator className={tw`h-4`} orientation='vertical' />
-
-          <div className={tw`flex gap-1 p-2`}>
-            <span>Size:</span>
-            <span>{formatSize(size)}</span>
-          </div>
-        </div>
+        {children}
       </div>
 
-      <div className={twJoin(tw`flex-1 overflow-auto px-4 pt-4`)}>
+      <div className={twJoin(tw`flex-1 overflow-auto pt-4`, fullWidth && tw`px-4`)}>
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
@@ -121,6 +175,10 @@ export const GraphQLResponsePanel = ({ graphqlResponseId }: GraphQLResponsePanel
 
           <TabPanel id='headers'>
             <GraphQLResponseHeaderTable graphqlResponseId={graphqlResponseId} />
+          </TabPanel>
+
+          <TabPanel id='assertions'>
+            <GraphQLAssertTable graphqlResponseId={graphqlResponseId} />
           </TabPanel>
         </Suspense>
       </div>

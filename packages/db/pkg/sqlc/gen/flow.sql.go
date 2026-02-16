@@ -238,16 +238,17 @@ func (q *Queries) CreateFlowNodeForEach(ctx context.Context, arg CreateFlowNodeF
 }
 
 const createFlowNodeGraphQL = `-- name: CreateFlowNodeGraphQL :exec
-INSERT INTO flow_node_graphql (flow_node_id, graphql_id) VALUES (?, ?)
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id, delta_graphql_id) VALUES (?, ?, ?)
 `
 
 type CreateFlowNodeGraphQLParams struct {
-	FlowNodeID idwrap.IDWrap
-	GraphqlID  idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
+	GraphqlID      idwrap.IDWrap
+	DeltaGraphqlID []byte
 }
 
 func (q *Queries) CreateFlowNodeGraphQL(ctx context.Context, arg CreateFlowNodeGraphQLParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeGraphQLStmt, createFlowNodeGraphQL, arg.FlowNodeID, arg.GraphqlID)
+	_, err := q.exec(ctx, q.createFlowNodeGraphQLStmt, createFlowNodeGraphQL, arg.FlowNodeID, arg.GraphqlID, arg.DeltaGraphqlID)
 	return err
 }
 
@@ -1415,13 +1416,21 @@ func (q *Queries) GetFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWr
 }
 
 const getFlowNodeGraphQL = `-- name: GetFlowNodeGraphQL :one
-SELECT flow_node_id, graphql_id FROM flow_node_graphql WHERE flow_node_id = ? LIMIT 1
+SELECT
+  flow_node_id,
+  graphql_id,
+  delta_graphql_id
+FROM
+  flow_node_graphql
+WHERE
+  flow_node_id = ?
+LIMIT 1
 `
 
 func (q *Queries) GetFlowNodeGraphQL(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeGraphql, error) {
 	row := q.queryRow(ctx, q.getFlowNodeGraphQLStmt, getFlowNodeGraphQL, flowNodeID)
 	var i FlowNodeGraphql
-	err := row.Scan(&i.FlowNodeID, &i.GraphqlID)
+	err := row.Scan(&i.FlowNodeID, &i.GraphqlID, &i.DeltaGraphqlID)
 	return i, err
 }
 
@@ -2478,17 +2487,20 @@ func (q *Queries) UpdateFlowNodeForEach(ctx context.Context, arg UpdateFlowNodeF
 }
 
 const updateFlowNodeGraphQL = `-- name: UpdateFlowNodeGraphQL :exec
-INSERT INTO flow_node_graphql (flow_node_id, graphql_id) VALUES (?, ?)
-ON CONFLICT(flow_node_id) DO UPDATE SET graphql_id = excluded.graphql_id
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id, delta_graphql_id) VALUES (?, ?, ?)
+ON CONFLICT(flow_node_id) DO UPDATE SET
+  graphql_id = excluded.graphql_id,
+  delta_graphql_id = excluded.delta_graphql_id
 `
 
 type UpdateFlowNodeGraphQLParams struct {
-	FlowNodeID idwrap.IDWrap
-	GraphqlID  idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
+	GraphqlID      idwrap.IDWrap
+	DeltaGraphqlID []byte
 }
 
 func (q *Queries) UpdateFlowNodeGraphQL(ctx context.Context, arg UpdateFlowNodeGraphQLParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeGraphQLStmt, updateFlowNodeGraphQL, arg.FlowNodeID, arg.GraphqlID)
+	_, err := q.exec(ctx, q.updateFlowNodeGraphQLStmt, updateFlowNodeGraphQL, arg.FlowNodeID, arg.GraphqlID, arg.DeltaGraphqlID)
 	return err
 }
 

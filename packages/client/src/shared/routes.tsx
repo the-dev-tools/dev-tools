@@ -19,6 +19,9 @@ export const routes = {
       graphql: {
         route: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan'),
         index: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/'),
+        delta: getRouteApi(
+          '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan',
+        ),
       },
       http: {
         route: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan'),

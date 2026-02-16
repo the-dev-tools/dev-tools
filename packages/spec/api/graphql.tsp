@@ -2,6 +2,7 @@ using DevTools;
 
 namespace Api.GraphQL;
 
+@withDelta
 @TanStackDB.collection
 model GraphQL {
   @primaryKey graphqlId: Id;
@@ -12,14 +13,30 @@ model GraphQL {
   lastRunAt?: Protobuf.WellKnown.Timestamp;
 }
 
+@TanStackDB.collection(#{ isReadOnly: true })
+model GraphQLVersion {
+  @primaryKey graphqlVersionId: Id;
+  @foreignKey graphqlId: Id;
+  @foreignKey deltaGraphqlId?: Id;
+  name: string;
+  description: string;
+  createdAt: int64;
+}
+
+@withDelta
 @TanStackDB.collection
 model GraphQLHeader {
   @primaryKey graphqlHeaderId: Id;
+  ...CommonTableFields<GraphQL>;
+}
+
+@withDelta
+@TanStackDB.collection
+model GraphQLAssert {
+  @primaryKey graphqlAssertId: Id;
   @foreignKey graphqlId: Id;
-  key: string;
   value: string;
   enabled: boolean;
-  description: string;
   order: float32;
 }
 
@@ -40,6 +57,14 @@ model GraphQLResponseHeader {
   @foreignKey graphqlResponseId: Id;
   key: string;
   value: string;
+}
+
+@TanStackDB.collection(#{ isReadOnly: true })
+model GraphQLResponseAssert {
+  @primaryKey graphqlResponseAssertId: Id;
+  @foreignKey graphqlResponseId: Id;
+  value: string;
+  success: boolean;
 }
 
 model GraphQLRunRequest {

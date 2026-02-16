@@ -139,6 +139,7 @@ model NodeHttp {
 model NodeGraphQL {
   @primaryKey nodeId: Id;
   @foreignKey graphqlId: Id;
+  @foreignKey deltaGraphqlId?: Id;
 }
 
 enum ErrorHandling {

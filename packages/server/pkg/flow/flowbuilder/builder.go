@@ -20,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -52,6 +53,7 @@ type Builder struct {
 	FlowVariable *sflow.FlowVariableService
 
 	Resolver           resolver.RequestResolver
+	GraphQLResolver    gqlresolver.GraphQLResolver
 	Logger             *slog.Logger
 	LLMProviderFactory *scredential.LLMProviderFactory
 }
@@ -73,6 +75,7 @@ func New(
 	vs *senv.VariableService,
 	fvs *sflow.FlowVariableService,
 	resolver resolver.RequestResolver,
+	graphQLResolver gqlresolver.GraphQLResolver,
 	logger *slog.Logger,
 	llmFactory *scredential.LLMProviderFactory,
 ) *Builder {
@@ -93,6 +96,7 @@ func New(
 		Variable:           vs,
 		FlowVariable:       fvs,
 		Resolver:           resolver,
+		GraphQLResolver:    graphQLResolver,
 		Logger:             logger,
 		LLMProviderFactory: llmFactory,
 	}
@@ -284,21 +288,19 @@ func (b *Builder) BuildNodes(
 			if gqlCfg == nil || gqlCfg.GraphQLID == nil || isZeroID(*gqlCfg.GraphQLID) {
 				return nil, idwrap.IDWrap{}, fmt.Errorf("graphql node %s missing graphql configuration", nodeModel.ID.String())
 			}
-			// Fetch GraphQL entity + headers
-			gql, err := b.GraphQL.Get(ctx, *gqlCfg.GraphQLID)
+
+			// Resolve GraphQL entity with delta
+			resolved, err := b.GraphQLResolver.Resolve(ctx, *gqlCfg.GraphQLID, gqlCfg.DeltaGraphQLID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, fmt.Errorf("get graphql %s: %w", gqlCfg.GraphQLID.String(), err)
-			}
-			headers, err := b.GraphQLHeader.GetByGraphQLID(ctx, *gqlCfg.GraphQLID)
-			if err != nil {
-				return nil, idwrap.IDWrap{}, fmt.Errorf("get graphql headers %s: %w", gqlCfg.GraphQLID.String(), err)
+				return nil, idwrap.IDWrap{}, fmt.Errorf("resolve graphql %s: %w", gqlCfg.GraphQLID.String(), err)
 			}
 
 			flowNodeMap[nodeModel.ID] = ngraphql.New(
 				nodeModel.ID,
 				nodeModel.Name,
-				*gql,
-				headers,
+				resolved.Resolved,
+				resolved.ResolvedHeaders,
+				resolved.ResolvedAsserts,
 				httpClient,
 				gqlRespChan,
 				b.Logger,

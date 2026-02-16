@@ -52,8 +52,10 @@ const (
 	// GraphQL entities
 	EntityGraphQL
 	EntityGraphQLHeader
+	EntityGraphQLAssert
 	EntityGraphQLResponse
 	EntityGraphQLResponseHeader
+	EntityGraphQLResponseAssert
 )
 
 // Operation identifies the type of mutation.

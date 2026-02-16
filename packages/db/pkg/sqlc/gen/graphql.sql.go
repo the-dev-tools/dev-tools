@@ -16,23 +16,33 @@ import (
 const createGraphQL = `-- name: CreateGraphQL :exec
 INSERT INTO graphql (
   id, workspace_id, folder_id, name, url, query, variables,
-  description, last_run_at, created_at, updated_at
+  description, last_run_at, created_at, updated_at,
+  parent_graphql_id, is_delta, is_snapshot,
+  delta_name, delta_url, delta_query, delta_variables, delta_description
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateGraphQLParams struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	FolderID    *idwrap.IDWrap
-	Name        string
-	Url         string
-	Query       string
-	Variables   string
-	Description string
-	LastRunAt   interface{}
-	CreatedAt   int64
-	UpdatedAt   int64
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Query            string
+	Variables        string
+	Description      string
+	LastRunAt        interface{}
+	CreatedAt        int64
+	UpdatedAt        int64
+	ParentGraphqlID  []byte
+	IsDelta          bool
+	IsSnapshot       bool
+	DeltaName        interface{}
+	DeltaUrl         interface{}
+	DeltaQuery       interface{}
+	DeltaVariables   interface{}
+	DeltaDescription interface{}
 }
 
 func (q *Queries) CreateGraphQL(ctx context.Context, arg CreateGraphQLParams) error {
@@ -48,6 +58,71 @@ func (q *Queries) CreateGraphQL(ctx context.Context, arg CreateGraphQLParams) er
 		arg.LastRunAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.ParentGraphqlID,
+		arg.IsDelta,
+		arg.IsSnapshot,
+		arg.DeltaName,
+		arg.DeltaUrl,
+		arg.DeltaQuery,
+		arg.DeltaVariables,
+		arg.DeltaDescription,
+	)
+	return err
+}
+
+const createGraphQLAssert = `-- name: CreateGraphQLAssert :exec
+INSERT INTO graphql_assert (
+  id,
+  graphql_id,
+  value,
+  enabled,
+  description,
+  display_order,
+  parent_graphql_assert_id,
+  is_delta,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_display_order,
+  created_at,
+  updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateGraphQLAssertParams struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+func (q *Queries) CreateGraphQLAssert(ctx context.Context, arg CreateGraphQLAssertParams) error {
+	_, err := q.exec(ctx, q.createGraphQLAssertStmt, createGraphQLAssert,
+		arg.ID,
+		arg.GraphqlID,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
+		arg.DisplayOrder,
+		arg.ParentGraphqlAssertID,
+		arg.IsDelta,
+		arg.DeltaValue,
+		arg.DeltaEnabled,
+		arg.DeltaDescription,
+		arg.DeltaDisplayOrder,
+		arg.CreatedAt,
+		arg.UpdatedAt,
 	)
 	return err
 }
@@ -55,21 +130,30 @@ func (q *Queries) CreateGraphQL(ctx context.Context, arg CreateGraphQLParams) er
 const createGraphQLHeader = `-- name: CreateGraphQLHeader :exec
 INSERT INTO graphql_header (
   id, graphql_id, header_key, header_value, description,
-  enabled, display_order, created_at, updated_at
+  enabled, display_order, created_at, updated_at,
+  parent_graphql_header_id, is_delta,
+  delta_header_key, delta_header_value, delta_description, delta_enabled, delta_display_order
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateGraphQLHeaderParams struct {
-	ID           idwrap.IDWrap
-	GraphqlID    idwrap.IDWrap
-	HeaderKey    string
-	HeaderValue  string
-	Description  string
-	Enabled      bool
-	DisplayOrder float64
-	CreatedAt    int64
-	UpdatedAt    int64
+	ID                    idwrap.IDWrap
+	GraphqlID             idwrap.IDWrap
+	HeaderKey             string
+	HeaderValue           string
+	Description           string
+	Enabled               bool
+	DisplayOrder          float64
+	CreatedAt             int64
+	UpdatedAt             int64
+	ParentGraphqlHeaderID []byte
+	IsDelta               bool
+	DeltaHeaderKey        interface{}
+	DeltaHeaderValue      interface{}
+	DeltaDescription      interface{}
+	DeltaEnabled          interface{}
+	DeltaDisplayOrder     interface{}
 }
 
 func (q *Queries) CreateGraphQLHeader(ctx context.Context, arg CreateGraphQLHeaderParams) error {
@@ -83,6 +167,13 @@ func (q *Queries) CreateGraphQLHeader(ctx context.Context, arg CreateGraphQLHead
 		arg.DisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.ParentGraphqlHeaderID,
+		arg.IsDelta,
+		arg.DeltaHeaderKey,
+		arg.DeltaHeaderValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
 	)
 	return err
 }
@@ -114,6 +205,34 @@ func (q *Queries) CreateGraphQLResponse(ctx context.Context, arg CreateGraphQLRe
 		arg.Time,
 		arg.Duration,
 		arg.Size,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const createGraphQLResponseAssert = `-- name: CreateGraphQLResponseAssert :exec
+
+INSERT INTO graphql_response_assert (
+  id, response_id, value, success, created_at
+)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type CreateGraphQLResponseAssertParams struct {
+	ID         []byte
+	ResponseID []byte
+	Value      string
+	Success    bool
+	CreatedAt  int64
+}
+
+// GraphQL Response Assert Queries
+func (q *Queries) CreateGraphQLResponseAssert(ctx context.Context, arg CreateGraphQLResponseAssertParams) error {
+	_, err := q.exec(ctx, q.createGraphQLResponseAssertStmt, createGraphQLResponseAssert,
+		arg.ID,
+		arg.ResponseID,
+		arg.Value,
+		arg.Success,
 		arg.CreatedAt,
 	)
 	return err
@@ -271,6 +390,38 @@ func (q *Queries) CreateGraphQLResponseHeaderBulk(ctx context.Context, arg Creat
 	return err
 }
 
+const createGraphQLVersion = `-- name: CreateGraphQLVersion :exec
+
+INSERT INTO graphql_version (
+  id, graphql_id, version_name, version_description, is_active, created_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateGraphQLVersionParams struct {
+	ID                 []byte
+	GraphqlID          []byte
+	VersionName        string
+	VersionDescription string
+	IsActive           bool
+	CreatedAt          int64
+	CreatedBy          []byte
+}
+
+// GraphQL Version Queries
+func (q *Queries) CreateGraphQLVersion(ctx context.Context, arg CreateGraphQLVersionParams) error {
+	_, err := q.exec(ctx, q.createGraphQLVersionStmt, createGraphQLVersion,
+		arg.ID,
+		arg.GraphqlID,
+		arg.VersionName,
+		arg.VersionDescription,
+		arg.IsActive,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
+	return err
+}
+
 const deleteGraphQL = `-- name: DeleteGraphQL :exec
 DELETE FROM graphql
 WHERE id = ?
@@ -278,6 +429,16 @@ WHERE id = ?
 
 func (q *Queries) DeleteGraphQL(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteGraphQLStmt, deleteGraphQL, id)
+	return err
+}
+
+const deleteGraphQLAssert = `-- name: DeleteGraphQLAssert :exec
+DELETE FROM graphql_assert
+WHERE id = ?
+`
+
+func (q *Queries) DeleteGraphQLAssert(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteGraphQLAssertStmt, deleteGraphQLAssert, id)
 	return err
 }
 
@@ -313,7 +474,9 @@ const getGraphQL = `-- name: GetGraphQL :one
 
 SELECT
   id, workspace_id, folder_id, name, url, query, variables,
-  description, last_run_at, created_at, updated_at
+  description, last_run_at, created_at, updated_at,
+  parent_graphql_id, is_delta, is_snapshot,
+  delta_name, delta_url, delta_query, delta_variables, delta_description
 FROM graphql
 WHERE id = ? LIMIT 1
 `
@@ -334,15 +497,616 @@ func (q *Queries) GetGraphQL(ctx context.Context, id idwrap.IDWrap) (Graphql, er
 		&i.LastRunAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentGraphqlID,
+		&i.IsDelta,
+		&i.IsSnapshot,
+		&i.DeltaName,
+		&i.DeltaUrl,
+		&i.DeltaQuery,
+		&i.DeltaVariables,
+		&i.DeltaDescription,
 	)
 	return i, err
+}
+
+const getGraphQLAssert = `-- name: GetGraphQLAssert :one
+
+SELECT
+  id,
+  graphql_id,
+  value,
+  enabled,
+  description,
+  display_order,
+  parent_graphql_assert_id,
+  is_delta,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_display_order,
+  created_at,
+  updated_at
+FROM graphql_assert
+WHERE id = ?
+LIMIT 1
+`
+
+type GetGraphQLAssertRow struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+// GraphQL Assert Queries
+func (q *Queries) GetGraphQLAssert(ctx context.Context, id []byte) (GetGraphQLAssertRow, error) {
+	row := q.queryRow(ctx, q.getGraphQLAssertStmt, getGraphQLAssert, id)
+	var i GetGraphQLAssertRow
+	err := row.Scan(
+		&i.ID,
+		&i.GraphqlID,
+		&i.Value,
+		&i.Enabled,
+		&i.Description,
+		&i.DisplayOrder,
+		&i.ParentGraphqlAssertID,
+		&i.IsDelta,
+		&i.DeltaValue,
+		&i.DeltaEnabled,
+		&i.DeltaDescription,
+		&i.DeltaDisplayOrder,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getGraphQLAssertDeltasByParentID = `-- name: GetGraphQLAssertDeltasByParentID :many
+SELECT
+  id,
+  graphql_id,
+  value,
+  enabled,
+  description,
+  display_order,
+  parent_graphql_assert_id,
+  is_delta,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_display_order,
+  created_at,
+  updated_at
+FROM graphql_assert
+WHERE parent_graphql_assert_id = ? AND is_delta = TRUE
+ORDER BY display_order
+`
+
+type GetGraphQLAssertDeltasByParentIDRow struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+func (q *Queries) GetGraphQLAssertDeltasByParentID(ctx context.Context, parentGraphqlAssertID []byte) ([]GetGraphQLAssertDeltasByParentIDRow, error) {
+	rows, err := q.query(ctx, q.getGraphQLAssertDeltasByParentIDStmt, getGraphQLAssertDeltasByParentID, parentGraphqlAssertID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGraphQLAssertDeltasByParentIDRow{}
+	for rows.Next() {
+		var i GetGraphQLAssertDeltasByParentIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.Value,
+			&i.Enabled,
+			&i.Description,
+			&i.DisplayOrder,
+			&i.ParentGraphqlAssertID,
+			&i.IsDelta,
+			&i.DeltaValue,
+			&i.DeltaEnabled,
+			&i.DeltaDescription,
+			&i.DeltaDisplayOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLAssertDeltasByWorkspaceID = `-- name: GetGraphQLAssertDeltasByWorkspaceID :many
+SELECT
+  ga.id,
+  ga.graphql_id,
+  ga.value,
+  ga.enabled,
+  ga.description,
+  ga.display_order,
+  ga.parent_graphql_assert_id,
+  ga.is_delta,
+  ga.delta_value,
+  ga.delta_enabled,
+  ga.delta_description,
+  ga.delta_display_order,
+  ga.created_at,
+  ga.updated_at
+FROM graphql_assert ga
+INNER JOIN graphql g ON ga.graphql_id = g.id
+WHERE g.workspace_id = ? AND ga.is_delta = TRUE
+ORDER BY ga.display_order
+`
+
+type GetGraphQLAssertDeltasByWorkspaceIDRow struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+func (q *Queries) GetGraphQLAssertDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]GetGraphQLAssertDeltasByWorkspaceIDRow, error) {
+	rows, err := q.query(ctx, q.getGraphQLAssertDeltasByWorkspaceIDStmt, getGraphQLAssertDeltasByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGraphQLAssertDeltasByWorkspaceIDRow{}
+	for rows.Next() {
+		var i GetGraphQLAssertDeltasByWorkspaceIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.Value,
+			&i.Enabled,
+			&i.Description,
+			&i.DisplayOrder,
+			&i.ParentGraphqlAssertID,
+			&i.IsDelta,
+			&i.DeltaValue,
+			&i.DeltaEnabled,
+			&i.DeltaDescription,
+			&i.DeltaDisplayOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLAssertsByGraphQLID = `-- name: GetGraphQLAssertsByGraphQLID :many
+SELECT
+  id,
+  graphql_id,
+  value,
+  enabled,
+  description,
+  display_order,
+  parent_graphql_assert_id,
+  is_delta,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_display_order,
+  created_at,
+  updated_at
+FROM graphql_assert
+WHERE graphql_id = ?
+ORDER BY display_order
+`
+
+type GetGraphQLAssertsByGraphQLIDRow struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+func (q *Queries) GetGraphQLAssertsByGraphQLID(ctx context.Context, graphqlID []byte) ([]GetGraphQLAssertsByGraphQLIDRow, error) {
+	rows, err := q.query(ctx, q.getGraphQLAssertsByGraphQLIDStmt, getGraphQLAssertsByGraphQLID, graphqlID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGraphQLAssertsByGraphQLIDRow{}
+	for rows.Next() {
+		var i GetGraphQLAssertsByGraphQLIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.Value,
+			&i.Enabled,
+			&i.Description,
+			&i.DisplayOrder,
+			&i.ParentGraphqlAssertID,
+			&i.IsDelta,
+			&i.DeltaValue,
+			&i.DeltaEnabled,
+			&i.DeltaDescription,
+			&i.DeltaDisplayOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLAssertsByIDs = `-- name: GetGraphQLAssertsByIDs :many
+SELECT
+  id,
+  graphql_id,
+  value,
+  enabled,
+  description,
+  display_order,
+  parent_graphql_assert_id,
+  is_delta,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_display_order,
+  created_at,
+  updated_at
+FROM graphql_assert
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+type GetGraphQLAssertsByIDsRow struct {
+	ID                    []byte
+	GraphqlID             []byte
+	Value                 string
+	Enabled               bool
+	Description           string
+	DisplayOrder          float64
+	ParentGraphqlAssertID []byte
+	IsDelta               bool
+	DeltaValue            interface{}
+	DeltaEnabled          interface{}
+	DeltaDescription      interface{}
+	DeltaDisplayOrder     interface{}
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+func (q *Queries) GetGraphQLAssertsByIDs(ctx context.Context, ids [][]byte) ([]GetGraphQLAssertsByIDsRow, error) {
+	query := getGraphQLAssertsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetGraphQLAssertsByIDsRow{}
+	for rows.Next() {
+		var i GetGraphQLAssertsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.Value,
+			&i.Enabled,
+			&i.Description,
+			&i.DisplayOrder,
+			&i.ParentGraphqlAssertID,
+			&i.IsDelta,
+			&i.DeltaValue,
+			&i.DeltaEnabled,
+			&i.DeltaDescription,
+			&i.DeltaDisplayOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLDeltasByParentID = `-- name: GetGraphQLDeltasByParentID :many
+SELECT
+  id, workspace_id, folder_id, name, url, query, variables,
+  description, last_run_at, created_at, updated_at,
+  parent_graphql_id, is_delta, is_snapshot,
+  delta_name, delta_url, delta_query, delta_variables, delta_description
+FROM graphql
+WHERE parent_graphql_id = ? AND is_delta = TRUE
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) GetGraphQLDeltasByParentID(ctx context.Context, parentGraphqlID []byte) ([]Graphql, error) {
+	rows, err := q.query(ctx, q.getGraphQLDeltasByParentIDStmt, getGraphQLDeltasByParentID, parentGraphqlID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Graphql{}
+	for rows.Next() {
+		var i Graphql
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Query,
+			&i.Variables,
+			&i.Description,
+			&i.LastRunAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentGraphqlID,
+			&i.IsDelta,
+			&i.IsSnapshot,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaQuery,
+			&i.DeltaVariables,
+			&i.DeltaDescription,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLDeltasByWorkspaceID = `-- name: GetGraphQLDeltasByWorkspaceID :many
+
+SELECT
+  id, workspace_id, folder_id, name, url, query, variables,
+  description, last_run_at, created_at, updated_at,
+  parent_graphql_id, is_delta, is_snapshot,
+  delta_name, delta_url, delta_query, delta_variables, delta_description
+FROM graphql
+WHERE workspace_id = ? AND is_delta = TRUE
+ORDER BY updated_at DESC
+`
+
+// GraphQL Delta Queries
+func (q *Queries) GetGraphQLDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Graphql, error) {
+	rows, err := q.query(ctx, q.getGraphQLDeltasByWorkspaceIDStmt, getGraphQLDeltasByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Graphql{}
+	for rows.Next() {
+		var i Graphql
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Query,
+			&i.Variables,
+			&i.Description,
+			&i.LastRunAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentGraphqlID,
+			&i.IsDelta,
+			&i.IsSnapshot,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaQuery,
+			&i.DeltaVariables,
+			&i.DeltaDescription,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLHeaderDeltasByParentID = `-- name: GetGraphQLHeaderDeltasByParentID :many
+SELECT
+  id, graphql_id, header_key, header_value, description,
+  enabled, display_order, created_at, updated_at,
+  parent_graphql_header_id, is_delta,
+  delta_header_key, delta_header_value, delta_description, delta_enabled, delta_display_order
+FROM graphql_header
+WHERE parent_graphql_header_id = ? AND is_delta = TRUE
+ORDER BY display_order
+`
+
+func (q *Queries) GetGraphQLHeaderDeltasByParentID(ctx context.Context, parentGraphqlHeaderID []byte) ([]GraphqlHeader, error) {
+	rows, err := q.query(ctx, q.getGraphQLHeaderDeltasByParentIDStmt, getGraphQLHeaderDeltasByParentID, parentGraphqlHeaderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GraphqlHeader{}
+	for rows.Next() {
+		var i GraphqlHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+			&i.Description,
+			&i.Enabled,
+			&i.DisplayOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentGraphqlHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.DeltaDisplayOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLHeaderDeltasByWorkspaceID = `-- name: GetGraphQLHeaderDeltasByWorkspaceID :many
+
+SELECT
+  h.id, h.graphql_id, h.header_key, h.header_value, h.description,
+  h.enabled, h.display_order, h.created_at, h.updated_at,
+  h.parent_graphql_header_id, h.is_delta,
+  h.delta_header_key, h.delta_header_value, h.delta_description, h.delta_enabled, h.delta_display_order
+FROM graphql_header h
+JOIN graphql g ON h.graphql_id = g.id
+WHERE g.workspace_id = ? AND h.is_delta = TRUE
+ORDER BY h.updated_at DESC
+`
+
+// GraphQL Header Delta Queries
+func (q *Queries) GetGraphQLHeaderDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]GraphqlHeader, error) {
+	rows, err := q.query(ctx, q.getGraphQLHeaderDeltasByWorkspaceIDStmt, getGraphQLHeaderDeltasByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GraphqlHeader{}
+	for rows.Next() {
+		var i GraphqlHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+			&i.Description,
+			&i.Enabled,
+			&i.DisplayOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentGraphqlHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.DeltaDisplayOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getGraphQLHeaders = `-- name: GetGraphQLHeaders :many
 
 SELECT
   id, graphql_id, header_key, header_value, description,
-  enabled, display_order, created_at, updated_at
+  enabled, display_order, created_at, updated_at,
+  parent_graphql_header_id, is_delta,
+  delta_header_key, delta_header_value, delta_description, delta_enabled, delta_display_order
 FROM graphql_header
 WHERE graphql_id = ?
 ORDER BY display_order
@@ -368,6 +1132,13 @@ func (q *Queries) GetGraphQLHeaders(ctx context.Context, graphqlID idwrap.IDWrap
 			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentGraphqlHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.DeltaDisplayOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -385,7 +1156,9 @@ func (q *Queries) GetGraphQLHeaders(ctx context.Context, graphqlID idwrap.IDWrap
 const getGraphQLHeadersByIDs = `-- name: GetGraphQLHeadersByIDs :many
 SELECT
   id, graphql_id, header_key, header_value, description,
-  enabled, display_order, created_at, updated_at
+  enabled, display_order, created_at, updated_at,
+  parent_graphql_header_id, is_delta,
+  delta_header_key, delta_header_value, delta_description, delta_enabled, delta_display_order
 FROM graphql_header
 WHERE id IN (/*SLICE:ids*/?)
 `
@@ -419,6 +1192,13 @@ func (q *Queries) GetGraphQLHeadersByIDs(ctx context.Context, ids []idwrap.IDWra
 			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentGraphqlHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.DeltaDisplayOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -456,6 +1236,84 @@ func (q *Queries) GetGraphQLResponse(ctx context.Context, id idwrap.IDWrap) (Gra
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getGraphQLResponseAssertsByResponseID = `-- name: GetGraphQLResponseAssertsByResponseID :many
+SELECT id, response_id, value, success, created_at
+FROM graphql_response_assert
+WHERE response_id = ?
+ORDER BY created_at
+`
+
+func (q *Queries) GetGraphQLResponseAssertsByResponseID(ctx context.Context, responseID []byte) ([]GraphqlResponseAssert, error) {
+	rows, err := q.query(ctx, q.getGraphQLResponseAssertsByResponseIDStmt, getGraphQLResponseAssertsByResponseID, responseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GraphqlResponseAssert{}
+	for rows.Next() {
+		var i GraphqlResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGraphQLResponseAssertsByWorkspaceID = `-- name: GetGraphQLResponseAssertsByWorkspaceID :many
+SELECT
+  gra.id,
+  gra.response_id,
+  gra.value,
+  gra.success,
+  gra.created_at
+FROM graphql_response_assert gra
+INNER JOIN graphql_response gr ON gra.response_id = gr.id
+INNER JOIN graphql g ON gr.graphql_id = g.id
+WHERE g.workspace_id = ?
+`
+
+func (q *Queries) GetGraphQLResponseAssertsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]GraphqlResponseAssert, error) {
+	rows, err := q.query(ctx, q.getGraphQLResponseAssertsByWorkspaceIDStmt, getGraphQLResponseAssertsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GraphqlResponseAssert{}
+	for rows.Next() {
+		var i GraphqlResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getGraphQLResponseHeadersByResponseID = `-- name: GetGraphQLResponseHeadersByResponseID :many
@@ -618,6 +1476,44 @@ func (q *Queries) GetGraphQLResponsesByWorkspaceID(ctx context.Context, workspac
 	return items, nil
 }
 
+const getGraphQLVersionsByGraphQLID = `-- name: GetGraphQLVersionsByGraphQLID :many
+SELECT id, graphql_id, version_name, version_description, is_active, created_at, created_by
+FROM graphql_version
+WHERE graphql_id = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetGraphQLVersionsByGraphQLID(ctx context.Context, graphqlID []byte) ([]GraphqlVersion, error) {
+	rows, err := q.query(ctx, q.getGraphQLVersionsByGraphQLIDStmt, getGraphQLVersionsByGraphQLID, graphqlID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GraphqlVersion{}
+	for rows.Next() {
+		var i GraphqlVersion
+		if err := rows.Scan(
+			&i.ID,
+			&i.GraphqlID,
+			&i.VersionName,
+			&i.VersionDescription,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGraphQLWorkspaceID = `-- name: GetGraphQLWorkspaceID :one
 SELECT workspace_id
 FROM graphql
@@ -635,7 +1531,9 @@ func (q *Queries) GetGraphQLWorkspaceID(ctx context.Context, id idwrap.IDWrap) (
 const getGraphQLsByWorkspaceID = `-- name: GetGraphQLsByWorkspaceID :many
 SELECT
   id, workspace_id, folder_id, name, url, query, variables,
-  description, last_run_at, created_at, updated_at
+  description, last_run_at, created_at, updated_at,
+  parent_graphql_id, is_delta, is_snapshot,
+  delta_name, delta_url, delta_query, delta_variables, delta_description
 FROM graphql
 WHERE workspace_id = ?
 ORDER BY updated_at DESC
@@ -662,6 +1560,14 @@ func (q *Queries) GetGraphQLsByWorkspaceID(ctx context.Context, workspaceID idwr
 			&i.LastRunAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentGraphqlID,
+			&i.IsDelta,
+			&i.IsSnapshot,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaQuery,
+			&i.DeltaVariables,
+			&i.DeltaDescription,
 		); err != nil {
 			return nil, err
 		}
@@ -707,6 +1613,103 @@ func (q *Queries) UpdateGraphQL(ctx context.Context, arg UpdateGraphQLParams) er
 		arg.Variables,
 		arg.Description,
 		arg.LastRunAt,
+		arg.ID,
+	)
+	return err
+}
+
+const updateGraphQLAssert = `-- name: UpdateGraphQLAssert :exec
+UPDATE graphql_assert
+SET
+  value = ?,
+  enabled = ?,
+  description = ?,
+  display_order = ?,
+  updated_at = ?
+WHERE id = ?
+`
+
+type UpdateGraphQLAssertParams struct {
+	Value        string
+	Enabled      bool
+	Description  string
+	DisplayOrder float64
+	UpdatedAt    int64
+	ID           []byte
+}
+
+func (q *Queries) UpdateGraphQLAssert(ctx context.Context, arg UpdateGraphQLAssertParams) error {
+	_, err := q.exec(ctx, q.updateGraphQLAssertStmt, updateGraphQLAssert,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
+		arg.DisplayOrder,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const updateGraphQLAssertDelta = `-- name: UpdateGraphQLAssertDelta :exec
+UPDATE graphql_assert
+SET
+  delta_value = ?,
+  delta_enabled = ?,
+  delta_description = ?,
+  delta_display_order = ?,
+  updated_at = ?
+WHERE id = ?
+`
+
+type UpdateGraphQLAssertDeltaParams struct {
+	DeltaValue        interface{}
+	DeltaEnabled      interface{}
+	DeltaDescription  interface{}
+	DeltaDisplayOrder interface{}
+	UpdatedAt         int64
+	ID                []byte
+}
+
+func (q *Queries) UpdateGraphQLAssertDelta(ctx context.Context, arg UpdateGraphQLAssertDeltaParams) error {
+	_, err := q.exec(ctx, q.updateGraphQLAssertDeltaStmt, updateGraphQLAssertDelta,
+		arg.DeltaValue,
+		arg.DeltaEnabled,
+		arg.DeltaDescription,
+		arg.DeltaDisplayOrder,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const updateGraphQLDelta = `-- name: UpdateGraphQLDelta :exec
+UPDATE graphql
+SET
+  delta_name = ?,
+  delta_url = ?,
+  delta_query = ?,
+  delta_variables = ?,
+  delta_description = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateGraphQLDeltaParams struct {
+	DeltaName        interface{}
+	DeltaUrl         interface{}
+	DeltaQuery       interface{}
+	DeltaVariables   interface{}
+	DeltaDescription interface{}
+	ID               idwrap.IDWrap
+}
+
+func (q *Queries) UpdateGraphQLDelta(ctx context.Context, arg UpdateGraphQLDeltaParams) error {
+	_, err := q.exec(ctx, q.updateGraphQLDeltaStmt, updateGraphQLDelta,
+		arg.DeltaName,
+		arg.DeltaUrl,
+		arg.DeltaQuery,
+		arg.DeltaVariables,
+		arg.DeltaDescription,
 		arg.ID,
 	)
 	return err

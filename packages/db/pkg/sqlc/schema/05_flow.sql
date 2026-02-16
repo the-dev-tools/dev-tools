@@ -86,7 +86,9 @@ CREATE TABLE flow_node_http (
 CREATE TABLE flow_node_graphql (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   graphql_id BLOB NOT NULL,
-  FOREIGN KEY (graphql_id) REFERENCES graphql (id) ON DELETE CASCADE
+  delta_graphql_id BLOB,
+  FOREIGN KEY (graphql_id) REFERENCES graphql (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_graphql_id) REFERENCES graphql (id) ON DELETE SET NULL
 );
 
 CREATE TABLE flow_node_condition (

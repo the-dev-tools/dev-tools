@@ -1,22 +1,39 @@
 import { json } from '@codemirror/lang-json';
 import CodeMirror from '@uiw/react-codemirror';
-import { useMemo, useState } from 'react';
-import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
+import { useMemo } from 'react';
+import {
+  GraphQLCollectionSchema,
+  GraphQLDeltaCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
-import { useApiCollection } from '~/shared/api';
+import { useDeltaState } from '~/features/delta';
 
 export interface GraphQLVariablesEditorProps {
+  deltaGraphqlId?: Uint8Array | undefined;
   graphqlId: Uint8Array;
+  isReadOnly?: boolean;
 }
 
-export const GraphQLVariablesEditor = ({ graphqlId }: GraphQLVariablesEditorProps) => {
+export const GraphQLVariablesEditor = ({
+  deltaGraphqlId,
+  graphqlId,
+  isReadOnly = false,
+}: GraphQLVariablesEditorProps) => {
   const { theme } = useTheme();
-  const collection = useApiCollection(GraphQLCollectionSchema);
-  const item = collection.get(collection.utils.getKey({ graphqlId }));
+
+  const deltaOptions = {
+    deltaId: deltaGraphqlId,
+    deltaSchema: GraphQLDeltaCollectionSchema,
+    isDelta: deltaGraphqlId !== undefined,
+    originId: graphqlId,
+    originSchema: GraphQLCollectionSchema,
+    valueKey: 'variables',
+  } as const;
+
+  const [value, setValue] = useDeltaState(deltaOptions);
 
   const extensions = useMemo(() => [json()], []);
-  const [localVariables, setLocalVariables] = useState<string>();
 
   return (
     <CodeMirror
@@ -24,13 +41,11 @@ export const GraphQLVariablesEditor = ({ graphqlId }: GraphQLVariablesEditorProp
       extensions={extensions}
       height='100%'
       indentWithTab={false}
-      onChange={(value) => {
-        setLocalVariables(value);
-        collection.utils.updatePaced({ graphqlId, variables: value });
-      }}
+      onChange={(_) => void setValue(_)}
       placeholder='{"key": "value"}'
+      readOnly={isReadOnly}
       theme={theme}
-      value={localVariables ?? item?.variables ?? ''}
+      value={value ?? ''}
     />
   );
 };

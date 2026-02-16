@@ -421,14 +421,24 @@ WHERE
   flow_node_id = ?;
 
 -- name: GetFlowNodeGraphQL :one
-SELECT flow_node_id, graphql_id FROM flow_node_graphql WHERE flow_node_id = ? LIMIT 1;
+SELECT
+  flow_node_id,
+  graphql_id,
+  delta_graphql_id
+FROM
+  flow_node_graphql
+WHERE
+  flow_node_id = ?
+LIMIT 1;
 
 -- name: CreateFlowNodeGraphQL :exec
-INSERT INTO flow_node_graphql (flow_node_id, graphql_id) VALUES (?, ?);
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id, delta_graphql_id) VALUES (?, ?, ?);
 
 -- name: UpdateFlowNodeGraphQL :exec
-INSERT INTO flow_node_graphql (flow_node_id, graphql_id) VALUES (?, ?)
-ON CONFLICT(flow_node_id) DO UPDATE SET graphql_id = excluded.graphql_id;
+INSERT INTO flow_node_graphql (flow_node_id, graphql_id, delta_graphql_id) VALUES (?, ?, ?)
+ON CONFLICT(flow_node_id) DO UPDATE SET
+  graphql_id = excluded.graphql_id,
+  delta_graphql_id = excluded.delta_graphql_id;
 
 -- name: DeleteFlowNodeGraphQL :exec
 DELETE FROM flow_node_graphql WHERE flow_node_id = ?;

@@ -256,6 +256,7 @@ type NodeMemory struct {
 // --- GraphQL Node ---
 
 type NodeGraphQL struct {
-	FlowNodeID idwrap.IDWrap
-	GraphQLID  *idwrap.IDWrap
+	FlowNodeID      idwrap.IDWrap
+	GraphQLID       *idwrap.IDWrap
+	DeltaGraphQLID  *idwrap.IDWrap
 }
