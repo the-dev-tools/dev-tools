@@ -25,23 +25,30 @@ func NewReaderFromQueries(queries *gen.Queries) *Reader {
 	}
 }
 
+func nullStringToPtr(ns sql.NullString) *string {
+	if ns.Valid {
+		return &ns.String
+	}
+	return nil
+}
+
 // WARNING: this is also get user password hash do not use for public api
 func (r *Reader) GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.User, error) {
 	user, err := r.queries.GetUser(ctx, id)
+	err = tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrUserNotFound, err)
 	if err != nil {
 		return nil, err
-	}
-	var provider *string = nil
-	if user.ProviderID.Valid {
-		provider = &user.ProviderID.String
 	}
 
 	return &muser.User{
 		ID:           user.ID,
 		Email:        user.Email,
+		Name:         user.Name,
+		Image:        nullStringToPtr(user.Image),
 		Password:     user.PasswordHash,
 		ProviderType: muser.ProviderType(user.ProviderType),
-		ProviderID:   provider,
+		ProviderID:   nullStringToPtr(user.ProviderID),
+		ExternalID:   nullStringToPtr(user.ExternalID),
 	}, nil
 }
 
@@ -51,16 +58,15 @@ func (r *Reader) GetUserByEmail(ctx context.Context, email string) (*muser.User,
 	if err != nil {
 		return nil, err
 	}
-	var provider *string = nil
-	if user.ProviderID.Valid {
-		provider = &user.ProviderID.String
-	}
 	return &muser.User{
 		ID:           user.ID,
 		Email:        user.Email,
+		Name:         user.Name,
+		Image:        nullStringToPtr(user.Image),
 		Password:     user.PasswordHash,
 		ProviderType: muser.ProviderType(user.ProviderType),
-		ProviderID:   provider,
+		ProviderID:   nullStringToPtr(user.ProviderID),
+		ExternalID:   nullStringToPtr(user.ExternalID),
 	}, nil
 }
 
@@ -80,9 +86,33 @@ func (r *Reader) GetUserWithOAuthIDAndType(ctx context.Context, oauthID string, 
 	return &muser.User{
 		ID:           user.ID,
 		Email:        user.Email,
+		Name:         user.Name,
+		Image:        nullStringToPtr(user.Image),
 		Password:     user.PasswordHash,
 		ProviderType: oauthType,
 		ProviderID:   &oauthID,
+		ExternalID:   nullStringToPtr(user.ExternalID),
+	}, nil
+}
+
+func (r *Reader) GetUserByExternalID(ctx context.Context, externalID string) (*muser.User, error) {
+	user, err := r.queries.GetUserByExternalID(ctx, sql.NullString{
+		String: externalID,
+		Valid:  true,
+	})
+	err = tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrUserNotFound, err)
+	if err != nil {
+		return nil, err
+	}
+	return &muser.User{
+		ID:           user.ID,
+		Email:        user.Email,
+		Name:         user.Name,
+		Image:        nullStringToPtr(user.Image),
+		Password:     user.PasswordHash,
+		ProviderType: muser.ProviderType(user.ProviderType),
+		ProviderID:   nullStringToPtr(user.ProviderID),
+		ExternalID:   nullStringToPtr(user.ExternalID),
 	}, nil
 }
 

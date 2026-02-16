@@ -1,0 +1,41 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+
+  "name": "auth-service",
+  "projectType": "library",
+
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go build ./...",
+        "cwd": "packages/auth/auth-service"
+      },
+      "dependsOn": ["spec:build"]
+    },
+    "lint": {
+      "dependsOn": ["spec:build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "golangci-lint run --allow-parallel-runners"
+      }
+    },
+    "dev": {
+      "dependsOn": ["spec:build", "betterauth:dev"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run cmd/auth-service/main.go",
+        "cwd": "packages/auth/auth-service"
+      }
+    },
+    "test": {
+      "dependsOn": ["spec:build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go test ./... -timeout 30s"
+      }
+    }
+  }
+}

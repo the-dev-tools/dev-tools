@@ -2,6 +2,8 @@ go 1.25
 
 use (
 	./apps/cli
+	./packages/auth/auth-service
+	./packages/auth/authlib
 	./packages/db
 	./packages/server
 	./packages/spec

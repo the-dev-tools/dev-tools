@@ -2,6 +2,7 @@ packages:
   - apps/*
   - tools/*
   - packages/*
+  - packages/auth/*
 
 catalog:
   '@aikidosec/safe-chain': 1.4.0
@@ -79,7 +80,9 @@ catalog:
   '@vitejs/plugin-react': 5.1.2
   '@xyflow/react': 12.10.0
   babel-plugin-react-compiler: 19.1.0-rc.3
+  better-auth: 1.2.9
   builder-util-runtime: 9.5.1
+  drizzle-orm: 0.44.2
   effect: 3.19.14
   electron: 39.2.7
   electron-builder: 26.3.1
@@ -126,6 +129,7 @@ catalog:
   use-debounce: 10.0.6
   vite: 7.3.1
   vite-tsconfig-paths: 6.0.3
+  vitest: 3.1.4
   yaml: 2.8.2
 
 catalogMode: strict
@@ -159,5 +163,10 @@ patchedDependencies:
   '@effect/platform-node-shared': patches/@effect__platform-node-shared.patch
   '@nx/eslint': patches/@nx__eslint.patch
   '@react-stately/table': patches/@react-stately__table.patch
+
+packageExtensions:
+  better-auth:
+    dependencies:
+      drizzle-orm: '*'
 
 savePrefix: ''

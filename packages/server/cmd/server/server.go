@@ -14,9 +14,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"connectrpc.com/connect"
 
+	"github.com/the-dev-tools/dev-tools/packages/auth/authlib/jwks"
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/tursolocal"
@@ -35,7 +37,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
-
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/ruser"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
@@ -57,6 +59,7 @@ import (
 	filesystemv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1/auth_internalv1connect"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/workspace/v1"
 )
@@ -119,9 +122,20 @@ func run() error {
 		port = "8080"
 	}
 
-	hmacSecret := os.Getenv("HMAC_SECRET")
-	if hmacSecret == "" {
-		return errors.New("HMAC_SECRET env var is required")
+	// Auth configuration
+	// AUTH_MODE: "local" (default, single-user desktop/CLI) or "betterauth" (multi-user, self-hosted or hosted)
+	authMode := os.Getenv("AUTH_MODE")
+	if authMode == "" {
+		authMode = "local"
+	}
+
+	// JWKS_URL: URL to fetch JWKS public keys for JWT validation (required if AUTH_MODE=betterauth)
+	// Defaults to BETTERAUTH_URL + "/api/auth/jwks" if BETTERAUTH_URL is set.
+	jwksURL := os.Getenv("JWKS_URL")
+	if jwksURL == "" {
+		if betterAuthURL := os.Getenv("BETTERAUTH_URL"); betterAuthURL != "" {
+			jwksURL = betterAuthURL + "/api/auth/jwks"
+		}
 	}
 
 	currentDB, dbCloseFunc, err := setupDB(ctx)
@@ -224,7 +238,38 @@ func run() error {
 
 	optionsAuth = make([]connect.HandlerOption, len(optionsCompress), len(optionsCompress)+1)
 	copy(optionsAuth, optionsCompress)
-	optionsAuth = append(optionsAuth, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
+
+	// Choose auth interceptor based on AUTH_MODE
+	// - "local": Single-user mode for desktop/CLI (no auth, dummy user)
+	// - "betterauth": Multi-user mode with BetterAuth (self-hosted or hosted, JWKS JWT validation)
+	var authInterceptor connect.Interceptor
+	var authInternalClient auth_internalv1connect.AuthInternalServiceClient
+	switch authMode {
+	case "betterauth":
+		if jwksURL == "" {
+			return errors.New("JWKS_URL (or BETTERAUTH_URL) env var is required when AUTH_MODE=betterauth")
+		}
+		slog.Info("Using BetterAuth authentication mode (JWKS validation)", "jwks_url", jwksURL)
+		provider, err := jwks.NewProvider(jwksURL)
+		if err != nil {
+			return fmt.Errorf("failed to create JWKS provider: %w", err)
+		}
+		provider.Start(ctx)
+		authInterceptor = mwauth.NewBetterAuthInterceptor(provider.Keyfunc(), userService)
+
+		betterAuthURL := os.Getenv("BETTERAUTH_URL")
+		if betterAuthURL != "" {
+			authInternalClient = auth_internalv1connect.NewAuthInternalServiceClient(
+				&http.Client{Timeout: 30 * time.Second},
+				betterAuthURL,
+			)
+		}
+	default:
+		slog.Info("Using local authentication mode")
+		authInterceptor = mwauth.NewAuthInterceptor()
+	}
+
+	optionsAuth = append(optionsAuth, connect.WithInterceptors(authInterceptor))
 	optionsAll = make([]connect.HandlerOption, len(optionsAuth), len(optionsAuth)+len(optionsCompress))
 	copy(optionsAll, optionsAuth)
 	optionsAll = append(optionsAll, optionsCompress...)
@@ -274,6 +319,15 @@ func run() error {
 		Publisher: registry,
 	})
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
+
+	userSrv := ruser.New(ruser.UserServiceRPCDeps{
+		DB:                    currentDB,
+		User:                  userService,
+		Streamer:              streamers.User,
+		LinkedAccountStreamer: streamers.LinkedAccount,
+		AuthClient:            authInternalClient,
+	})
+	newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
 
 	envSrv := renv.New(renv.EnvRPCDeps{
 		DB: currentDB,
@@ -625,7 +679,7 @@ func setupDB(ctx context.Context) (*sql.DB, func(), error) {
 	if dbMode == "" {
 		return nil, nil, errors.New("DB_MODE env var is required")
 	}
-	fmt.Println("DB_MODE: ", dbMode)
+	slog.Info("DB mode", "mode", dbMode)
 
 	switch dbMode {
 	case devtoolsdb.LOCAL:
@@ -674,6 +728,8 @@ func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 }
 
 type Streamers struct {
+	User                eventstream.SyncStreamer[ruser.UserTopic, ruser.UserEvent]
+	LinkedAccount       eventstream.SyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent]
 	Workspace           eventstream.SyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]
 	Environment         eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 	EnvironmentVariable eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
@@ -711,6 +767,8 @@ type Streamers struct {
 
 func NewStreamers() *Streamers {
 	return &Streamers{
+		User:                memory.NewInMemorySyncStreamer[ruser.UserTopic, ruser.UserEvent](),
+		LinkedAccount:       memory.NewInMemorySyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent](),
 		Workspace:           memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent](),
 		Environment:         memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent](),
 		EnvironmentVariable: memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent](),
@@ -748,6 +806,8 @@ func NewStreamers() *Streamers {
 }
 
 func (s *Streamers) Shutdown() {
+	s.User.Shutdown()
+	s.LinkedAccount.Shutdown()
 	s.Workspace.Shutdown()
 	s.Environment.Shutdown()
 	s.EnvironmentVariable.Shutdown()

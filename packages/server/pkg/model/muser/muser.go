@@ -23,7 +23,10 @@ var (
 
 type User struct {
 	Email        string
+	Name         string
+	Image        *string
 	ProviderID   *string
+	ExternalID   *string
 	Password     []byte
 	ProviderType ProviderType
 	Status       UserStatus

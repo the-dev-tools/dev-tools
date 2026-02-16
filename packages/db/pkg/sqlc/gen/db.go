@@ -639,6 +639,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserByEmailAndProviderTypeStmt, err = db.PrepareContext(ctx, getUserByEmailAndProviderType); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByEmailAndProviderType: %w", err)
 	}
+	if q.getUserByExternalIDStmt, err = db.PrepareContext(ctx, getUserByExternalID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserByExternalID: %w", err)
+	}
 	if q.getUserByProviderIDandTypeStmt, err = db.PrepareContext(ctx, getUserByProviderIDandType); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserByProviderIDandType: %w", err)
 	}
@@ -1879,6 +1882,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserByEmailAndProviderTypeStmt: %w", cerr)
 		}
 	}
+	if q.getUserByExternalIDStmt != nil {
+		if cerr := q.getUserByExternalIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserByExternalIDStmt: %w", cerr)
+		}
+	}
 	if q.getUserByProviderIDandTypeStmt != nil {
 		if cerr := q.getUserByProviderIDandTypeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getUserByProviderIDandTypeStmt: %w", cerr)
@@ -2473,6 +2481,7 @@ type Queries struct {
 	getUserStmt                                *sql.Stmt
 	getUserByEmailStmt                         *sql.Stmt
 	getUserByEmailAndProviderTypeStmt          *sql.Stmt
+	getUserByExternalIDStmt                    *sql.Stmt
 	getUserByProviderIDandTypeStmt             *sql.Stmt
 	getVariableStmt                            *sql.Stmt
 	getVariablesByEnvironmentIDStmt            *sql.Stmt
@@ -2754,6 +2763,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserStmt:                                q.getUserStmt,
 		getUserByEmailStmt:                         q.getUserByEmailStmt,
 		getUserByEmailAndProviderTypeStmt:          q.getUserByEmailAndProviderTypeStmt,
+		getUserByExternalIDStmt:                    q.getUserByExternalIDStmt,
 		getUserByProviderIDandTypeStmt:             q.getUserByProviderIDandTypeStmt,
 		getVariableStmt:                            q.getVariableStmt,
 		getVariablesByEnvironmentIDStmt:            q.getVariablesByEnvironmentIDStmt,

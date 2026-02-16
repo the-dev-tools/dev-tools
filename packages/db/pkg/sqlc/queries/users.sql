@@ -7,7 +7,10 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id,
+  name,
+  image
 FROM
   users
 WHERE
@@ -21,7 +24,10 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id,
+  name,
+  image
 FROM
   users
 WHERE
@@ -35,7 +41,10 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id,
+  name,
+  image
 FROM
   users
 WHERE
@@ -50,12 +59,32 @@ SELECT
   email,
   password_hash,
   provider_type,
-  provider_id
+  provider_id,
+  external_id,
+  name,
+  image
 FROM
   users
 WHERE
   provider_id = ?
   AND provider_type = ?
+LIMIT
+  1;
+
+-- name: GetUserByExternalID :one
+SELECT
+  id,
+  email,
+  password_hash,
+  provider_type,
+  provider_id,
+  external_id,
+  name,
+  image
+FROM
+  users
+WHERE
+  external_id = ?
 LIMIT
   1;
 
@@ -66,16 +95,21 @@ INSERT INTO
     email,
     password_hash,
     provider_type,
-    provider_id
+    provider_id,
+    external_id,
+    name,
+    image
   )
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateUser :exec
 UPDATE users
 SET
   email = ?,
-  password_hash = ?
+  password_hash = ?,
+  name = ?,
+  image = ?
 WHERE
   id = ?;
 

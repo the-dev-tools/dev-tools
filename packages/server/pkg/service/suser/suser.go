@@ -57,6 +57,10 @@ func (us UserService) GetUserWithOAuthIDAndType(ctx context.Context, oauthID str
 	return us.reader.GetUserWithOAuthIDAndType(ctx, oauthID, oauthType)
 }
 
+func (us UserService) GetUserByExternalID(ctx context.Context, externalID string) (*muser.User, error) {
+	return us.reader.GetUserByExternalID(ctx, externalID)
+}
+
 func (us UserService) CheckUserBelongsToWorkspace(ctx context.Context, userID idwrap.IDWrap, workspaceID idwrap.IDWrap) (bool, error) {
 	return us.reader.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 }
