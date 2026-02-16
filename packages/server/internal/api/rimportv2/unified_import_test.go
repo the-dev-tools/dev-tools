@@ -125,7 +125,7 @@ func TestTranslatorRegistry(t *testing.T) {
 
 	// Test supported formats
 	formats := registry.GetSupportedFormats()
-	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman}
+	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman, FormatOpenAPI}
 
 	if len(formats) != len(expectedFormats) {
 		t.Errorf("Expected %d formats, got %d", len(expectedFormats), len(formats))
@@ -330,7 +330,7 @@ func TestConstraints(t *testing.T) {
 		t.Errorf("Expected max data size 50MB, got %d bytes", constraints.MaxDataSizeBytes)
 	}
 
-	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman}
+	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman, FormatOpenAPI}
 	if len(constraints.SupportedFormats) != len(expectedFormats) {
 		t.Errorf("Expected %d supported formats, got %d", len(expectedFormats), len(constraints.SupportedFormats))
 	}

@@ -707,15 +707,6 @@ func (s *Service) ImportUnifiedWithTextData(ctx context.Context, req *ImportRequ
 		"has_text_data", len(req.TextData) > 0,
 		"has_binary_data", len(req.Data) > 0)
 
-	// Convert text data to bytes if provided
-	if len(req.Data) == 0 && req.TextData != "" {
-		req.Data = []byte(req.TextData)
-		s.logger.Debug("Converted text data to binary",
-			"workspace_id", req.WorkspaceID,
-			"original_length", len(req.TextData),
-			"converted_length", len(req.Data))
-	}
-
 	return s.ImportUnified(ctx, req)
 }
 

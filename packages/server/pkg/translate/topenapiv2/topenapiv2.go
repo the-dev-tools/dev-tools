@@ -277,6 +277,9 @@ func parseSwagger2Operation(opMap map[string]interface{}, pathParams []parameter
 	for i, p := range op.Parameters {
 		if p.In == "body" {
 			op.RequestBody = &requestBody{
+				// TODO: Should read the operation-level or spec-level "consumes" field
+				// instead of hardcoding application/json. Works for most APIs but technically
+				// incorrect for XML/form-data specs.
 				ContentType: "application/json",
 				Example:     p.Example,
 				Schema:      p.Schema,
@@ -397,8 +400,10 @@ func parseRequestBody(rbMap map[string]interface{}) *requestBody {
 		return rb
 	}
 
-	// Prefer application/json, fall back to first content type
-	for ct, ctData := range content {
+	// Prefer application/json, fall back to first content type (sorted for deterministic selection)
+	contentTypes := sortedKeys(content)
+	for _, ct := range contentTypes {
+		ctData := content[ct]
 		rb.ContentType = ct
 		if ctMap, ok := ctData.(map[string]interface{}); ok {
 			if schemaRaw, ok := ctMap["schema"].(map[string]interface{}); ok {
@@ -419,6 +424,10 @@ func parseRequestBody(rbMap map[string]interface{}) *requestBody {
 }
 
 // parseSchema parses a minimal schema object.
+// TODO: Does not resolve $ref references. Real-world specs use $ref extensively
+// (e.g. "$ref": "#/definitions/Pet"), so imported schemas with $ref will have
+// missing data. This is a known V1 limitation — a follow-up should resolve
+// references from the spec's definitions/components.
 func parseSchema(raw map[string]interface{}) *schemaObj {
 	s := &schemaObj{}
 	s.Type, _ = raw["type"].(string)
@@ -666,8 +675,10 @@ func convertOperation(
 	}
 
 	// Create status code assertion from first success response
+	// Sort response codes for deterministic selection
 	var assert *mhttp.HTTPAssert
-	for code := range op.Responses {
+	responseCodes := sortedKeys(op.Responses)
+	for _, code := range responseCodes {
 		if strings.HasPrefix(code, "2") {
 			statusCode := 200
 			if _, err := fmt.Sscanf(code, "%d", &statusCode); err == nil {

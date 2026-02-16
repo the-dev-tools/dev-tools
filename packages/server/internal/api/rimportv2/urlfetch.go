@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // maxFetchSize is the maximum size of data fetched from a URL (50MB).
@@ -25,7 +26,7 @@ type DefaultURLFetcher struct {
 // NewURLFetcher creates a new DefaultURLFetcher.
 func NewURLFetcher() *DefaultURLFetcher {
 	return &DefaultURLFetcher{
-		client: &http.Client{},
+		client: &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
