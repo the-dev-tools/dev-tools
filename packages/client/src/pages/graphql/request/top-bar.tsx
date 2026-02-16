@@ -1,7 +1,7 @@
 import { Array, pipe } from 'effect';
 import { useState, useTransition } from 'react';
-import { Button as AriaButton, MenuTrigger } from 'react-aria-components';
-import { FiMoreHorizontal } from 'react-icons/fi';
+import { Button as AriaButton, DialogTrigger, MenuTrigger } from 'react-aria-components';
+import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
 import { GraphQLService } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
 import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { Button } from '@the-dev-tools/ui/button';
@@ -11,12 +11,14 @@ import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-fie
 import { ReferenceField } from '~/features/expression';
 import { request, useApiCollection } from '~/shared/api';
 import { routes } from '~/shared/routes';
+import { HistoryModal } from '../history';
 
 export interface GraphQLTopBarProps {
+  deltaGraphqlId?: Uint8Array | undefined;
   graphqlId: Uint8Array;
 }
 
-export const GraphQLTopBar = ({ graphqlId }: GraphQLTopBarProps) => {
+export const GraphQLTopBar = ({ deltaGraphqlId, graphqlId }: GraphQLTopBarProps) => {
   const { transport } = routes.root.useRouteContext();
 
   const collection = useApiCollection(GraphQLCollectionSchema);
@@ -61,6 +63,14 @@ export const GraphQLTopBar = ({ graphqlId }: GraphQLTopBarProps) => {
             </AriaButton>
           )}
         </div>
+
+        <DialogTrigger>
+          <Button className={tw`px-2 py-1 text-on-neutral`} variant='ghost'>
+            <FiClock className={tw`size-4 text-on-neutral-low`} /> Response History
+          </Button>
+
+          <HistoryModal deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} />
+        </DialogTrigger>
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-1`} variant='ghost'>

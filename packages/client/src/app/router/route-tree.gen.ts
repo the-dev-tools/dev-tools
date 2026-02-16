@@ -23,6 +23,7 @@ import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDot
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRouteImport } from './../../pages/credential/routes/credential/$credentialIdCan/index'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRouteImport } from './../../pages/flow/routes/flow/$flowIdCan/history'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRouteImport } from './../../pages/http/routes/http/$httpIdCan/delta.$deltaHttpIdCan'
+import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRouteImport } from './../../pages/graphql/routes/graphql/$graphqlIdCan/delta.$deltaGraphqlIdCan'
 
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute =
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRouteImport.update({
@@ -144,6 +145,15 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoute
         dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRoute,
     } as any,
   )
+const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute =
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRouteImport.update(
+    {
+      id: '/delta/$deltaGraphqlIdCan',
+      path: '/delta/$deltaGraphqlIdCan',
+      getParentRoute: () =>
+        dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanRouteRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute
@@ -159,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRoute
   '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRoute
+  '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRoute
 }
 export interface FileRoutesByTo {
@@ -171,6 +182,7 @@ export interface FileRoutesByTo {
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRoute
   '/workspace/$workspaceIdCan/graphql/$graphqlIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRoute
+  '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRoute
 }
 export interface FileRoutesById {
@@ -188,6 +200,7 @@ export interface FileRoutesById {
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanIndexRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanIndexRoute
+  '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/delta/$deltaHttpIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRoute
 }
 export interface FileRouteTypes {
@@ -206,6 +219,7 @@ export interface FileRouteTypes {
     | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
     | '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/'
     | '/workspace/$workspaceIdCan/http/$httpIdCan/'
+    | '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -218,6 +232,7 @@ export interface FileRouteTypes {
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/workspace/$workspaceIdCan/graphql/$graphqlIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan'
+    | '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan/delta/$deltaHttpIdCan'
   id:
     | '__root__'
@@ -234,6 +249,7 @@ export interface FileRouteTypes {
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan/'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/'
+    | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/delta/$deltaHttpIdCan'
   fileRoutesById: FileRoutesById
 }
@@ -344,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanDeltaDotdeltaHttpIdCanRouteImport
       parentRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRoute
     }
+    '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan': {
+      id: '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(graphql)/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan'
+      path: '/delta/$deltaGraphqlIdCan'
+      fullPath: '/workspace/$workspaceIdCan/graphql/$graphqlIdCan/delta/$deltaGraphqlIdCan'
+      preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRouteImport
+      parentRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanRouteRoute
+    }
   }
 }
 
@@ -367,12 +390,15 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoute
 
 interface dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanRouteRouteChildren {
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute
 }
 
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanRouteRouteChildren: dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanRouteRouteChildren =
   {
     dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute:
       dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanIndexRoute,
+    dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute:
+      dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanDeltaDotdeltaGraphqlIdCanRoute,
   }
 
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotGraphqlRoutesGraphqlGraphqlIdCanRouteRouteWithChildren =

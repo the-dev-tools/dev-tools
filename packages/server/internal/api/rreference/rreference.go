@@ -23,6 +23,7 @@ import (
 	referencev1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/reference/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/reference/v1/referencev1connect"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 
 	"connectrpc.com/connect"
@@ -48,6 +49,9 @@ type ReferenceServiceRPC struct {
 
 	// http
 	httpResponseReader *shttp.HttpResponseReader
+
+	// graphql
+	graphqlResponseReader *sgraphql.GraphQLResponseService
 }
 
 type ReferenceServiceRPCReaders struct {
@@ -60,8 +64,9 @@ type ReferenceServiceRPCReaders struct {
 	NodeRequest   *sflow.NodeRequestReader
 	FlowVariable  *sflow.FlowVariableReader
 	FlowEdge      *sflow.EdgeReader
-	NodeExecution *sflow.NodeExecutionReader
-	HttpResponse  *shttp.HttpResponseReader
+	NodeExecution     *sflow.NodeExecutionReader
+	HttpResponse      *shttp.HttpResponseReader
+	GraphQLResponse   *sgraphql.GraphQLResponseService
 }
 
 func (r *ReferenceServiceRPCReaders) Validate() error {
@@ -97,6 +102,9 @@ func (r *ReferenceServiceRPCReaders) Validate() error {
 	}
 	if r.HttpResponse == nil {
 		return fmt.Errorf("http response reader is required")
+	}
+	if r.GraphQLResponse == nil {
+		return fmt.Errorf("graphql response reader is required")
 	}
 	return nil
 }
@@ -137,6 +145,7 @@ func NewReferenceServiceRPC(deps ReferenceServiceRPCDeps) *ReferenceServiceRPC {
 		flowEdgeReader:      deps.Readers.FlowEdge,
 		nodeExecutionReader: deps.Readers.NodeExecution,
 		httpResponseReader:  deps.Readers.HttpResponse,
+		graphqlResponseReader: deps.Readers.GraphQLResponse,
 	}
 }
 
@@ -227,6 +236,59 @@ func (c *ReferenceServiceRPC) getLatestResponse(ctx context.Context, httpID idwr
 	return map[string]interface{}{
 		"status":   latest.Status,
 		"body":     body,
+		"headers":  map[string]string{}, // Headers not currently linkable to specific response
+		"duration": latest.Duration,
+		"size":     latest.Size,
+	}, nil
+}
+
+func (c *ReferenceServiceRPC) getLatestGraphQLResponse(ctx context.Context, graphqlID idwrap.IDWrap) (map[string]interface{}, error) {
+	responses, err := c.graphqlResponseReader.GetByGraphQLID(ctx, graphqlID)
+	if err != nil {
+		return nil, err
+	}
+	if len(responses) == 0 {
+		return nil, nil
+	}
+
+	// Find latest response
+	latest := responses[0]
+	for _, r := range responses {
+		if r.Time > latest.Time {
+			latest = r
+		}
+	}
+
+	// Parse body
+	var body interface{} = string(latest.Body)
+	var bodyMap map[string]interface{}
+	if len(latest.Body) > 0 {
+		var jsonBody interface{}
+		if err := json.Unmarshal(latest.Body, &jsonBody); err == nil {
+			body = jsonBody
+			if m, ok := jsonBody.(map[string]interface{}); ok {
+				bodyMap = m
+			}
+		}
+	}
+
+	// Extract GraphQL-specific fields (data and errors)
+	var data interface{}
+	var errors interface{}
+	if bodyMap != nil {
+		if d, ok := bodyMap["data"]; ok {
+			data = d
+		}
+		if e, ok := bodyMap["errors"]; ok {
+			errors = e
+		}
+	}
+
+	return map[string]interface{}{
+		"status":   latest.Status,
+		"body":     body,
+		"data":     data,
+		"errors":   errors,
 		"headers":  map[string]string{}, // Headers not currently linkable to specific response
 		"duration": latest.Duration,
 		"size":     latest.Size,
@@ -510,7 +572,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 // ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
 func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
-	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
+	var workspaceID, httpID, graphqlID, flowNodeID *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
@@ -525,6 +587,13 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 		httpID = &tempID
+	}
+	if msg.GraphqlId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.GraphqlId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		graphqlID = &tempID
 	}
 	if msg.FlowNodeId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.FlowNodeId)
@@ -590,6 +659,51 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			"queries": map[string]string{},
 			"body":    "string",
 		})
+	}
+
+	if graphqlID != nil {
+		resp, err := c.getLatestGraphQLResponse(ctx, *graphqlID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if resp != nil {
+			// Add full response object
+			creator.AddWithKey("response", resp)
+
+			// Add GraphQL-specific top-level fields for convenience
+			if data, ok := resp["data"]; ok && data != nil {
+				creator.AddWithKey("data", data)
+			}
+			if errors, ok := resp["errors"]; ok && errors != nil {
+				creator.AddWithKey("errors", errors)
+			}
+
+			// Add convenience variables
+			status := int(0)
+			if s, ok := resp["status"].(int32); ok {
+				status = int(s)
+			}
+			creator.AddWithKey("status", status)
+			creator.AddWithKey("success", status >= 200 && status < 300)
+			creator.AddWithKey("has_data", resp["data"] != nil)
+			creator.AddWithKey("has_errors", resp["errors"] != nil)
+		} else {
+			// Fallback schema for GraphQL
+			creator.AddWithKey("response", map[string]interface{}{
+				"status":   200,
+				"body":     map[string]interface{}{},
+				"data":     map[string]interface{}{},
+				"errors":   nil,
+				"headers":  map[string]string{},
+				"duration": 0,
+			})
+			creator.AddWithKey("data", map[string]interface{}{})
+			creator.AddWithKey("status", 200)
+			creator.AddWithKey("success", true)
+			creator.AddWithKey("has_data", false)
+			creator.AddWithKey("has_errors", false)
+		}
 	}
 
 	if flowNodeID != nil {
@@ -927,7 +1041,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 // ReferenceValue calls reference.v1.ReferenceService.ReferenceValue.
 func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.Request[referencev1.ReferenceValueRequest]) (*connect.Response[referencev1.ReferenceValueResponse], error) {
-	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
+	var workspaceID, httpID, graphqlID, flowNodeID *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
@@ -942,6 +1056,13 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 		httpID = &tempID
+	}
+	if msg.GraphqlId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.GraphqlId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		graphqlID = &tempID
 	}
 	if msg.FlowNodeId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.FlowNodeId)
@@ -1007,6 +1128,51 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			"queries": map[string]string{},
 			"body":    "string",
 		})
+	}
+
+	if graphqlID != nil {
+		resp, err := c.getLatestGraphQLResponse(ctx, *graphqlID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if resp != nil {
+			// Add full response object
+			lookup.AddWithKey("response", resp)
+
+			// Add GraphQL-specific top-level fields for convenience
+			if data, ok := resp["data"]; ok && data != nil {
+				lookup.AddWithKey("data", data)
+			}
+			if errors, ok := resp["errors"]; ok && errors != nil {
+				lookup.AddWithKey("errors", errors)
+			}
+
+			// Add convenience variables
+			status := int(0)
+			if s, ok := resp["status"].(int32); ok {
+				status = int(s)
+			}
+			lookup.AddWithKey("status", status)
+			lookup.AddWithKey("success", status >= 200 && status < 300)
+			lookup.AddWithKey("has_data", resp["data"] != nil)
+			lookup.AddWithKey("has_errors", resp["errors"] != nil)
+		} else {
+			// Fallback schema for GraphQL
+			lookup.AddWithKey("response", map[string]interface{}{
+				"status":   200,
+				"body":     map[string]interface{}{},
+				"data":     map[string]interface{}{},
+				"errors":   nil,
+				"headers":  map[string]string{},
+				"duration": 0,
+			})
+			lookup.AddWithKey("data", map[string]interface{}{})
+			lookup.AddWithKey("status", 200)
+			lookup.AddWithKey("success", true)
+			lookup.AddWithKey("has_data", false)
+			lookup.AddWithKey("has_errors", false)
+		}
 	}
 
 	if flowNodeID != nil {

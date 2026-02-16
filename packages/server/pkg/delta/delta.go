@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
@@ -421,6 +422,209 @@ func orderAsserts(asserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 
 	// Create a copy and sort by DisplayOrder field
 	ordered := make([]mhttp.HTTPAssert, len(asserts))
+	copy(ordered, asserts)
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].DisplayOrder < ordered[j].DisplayOrder
+	})
+
+	return ordered
+}
+
+// GraphQL Delta Resolution
+
+// ResolveGraphQLInput holds the base and delta information required for GraphQL resolution.
+type ResolveGraphQLInput struct {
+	Base, Delta                 mgraphql.GraphQL
+	BaseHeaders, DeltaHeaders   []mgraphql.GraphQLHeader
+	BaseAsserts, DeltaAsserts   []mgraphql.GraphQLAssert
+}
+
+// ResolveGraphQLOutput holds the fully resolved GraphQL request.
+type ResolveGraphQLOutput struct {
+	Resolved         mgraphql.GraphQL
+	ResolvedHeaders  []mgraphql.GraphQLHeader
+	ResolvedAsserts  []mgraphql.GraphQLAssert
+}
+
+// ResolveGraphQL merges a base GraphQL request with a delta, applying overrides
+// based on the Delta System architecture (Overlay Pattern).
+func ResolveGraphQL(input ResolveGraphQLInput) ResolveGraphQLOutput {
+	output := ResolveGraphQLOutput{}
+
+	// 1. Resolve Root GraphQL Entity
+	output.Resolved = resolveGraphQLScalar(input.Base, input.Delta)
+
+	// 2. Resolve Collections
+	output.ResolvedHeaders = resolveGraphQLHeaders(input.BaseHeaders, input.DeltaHeaders)
+	output.ResolvedAsserts = resolveGraphQLAsserts(input.BaseAsserts, input.DeltaAsserts)
+
+	return output
+}
+
+// resolveGraphQLScalar applies delta scalar overrides to the base entity.
+func resolveGraphQLScalar(base, delta mgraphql.GraphQL) mgraphql.GraphQL {
+	resolved := base
+
+	// Explicitly set ID to Base ID (The "Identity" remains the Base)
+	resolved.ID = base.ID
+	resolved.IsDelta = false // The resolved object is a "Live" representation
+
+	// Apply Overrides if Delta* fields are present (non-nil)
+	if delta.DeltaName != nil {
+		resolved.Name = *delta.DeltaName
+	}
+	if delta.DeltaUrl != nil {
+		resolved.Url = *delta.DeltaUrl
+	}
+	if delta.DeltaQuery != nil {
+		resolved.Query = *delta.DeltaQuery
+	}
+	if delta.DeltaVariables != nil {
+		resolved.Variables = *delta.DeltaVariables
+	}
+	if delta.DeltaDescription != nil {
+		resolved.Description = *delta.DeltaDescription
+	}
+
+	// Clear delta fields in the resolved object to avoid ambiguity
+	resolved.DeltaName = nil
+	resolved.DeltaUrl = nil
+	resolved.DeltaQuery = nil
+	resolved.DeltaVariables = nil
+	resolved.DeltaDescription = nil
+
+	return resolved
+}
+
+// resolveGraphQLHeaders resolves GraphQL Headers.
+func resolveGraphQLHeaders(base []mgraphql.GraphQLHeader, delta []mgraphql.GraphQLHeader) []mgraphql.GraphQLHeader {
+	overrideMap := make(map[idwrap.IDWrap]mgraphql.GraphQLHeader)
+	additions := make([]mgraphql.GraphQLHeader, 0)
+
+	for _, d := range delta {
+		if d.ParentGraphQLHeaderID != nil {
+			overrideMap[*d.ParentGraphQLHeaderID] = d
+		} else {
+			additions = append(additions, d)
+		}
+	}
+
+	resolved := make([]mgraphql.GraphQLHeader, 0, len(base)+len(additions))
+
+	for _, b := range base {
+		if override, ok := overrideMap[b.ID]; ok {
+			merged := b
+			if override.DeltaKey != nil {
+				merged.Key = *override.DeltaKey
+			}
+			if override.DeltaValue != nil {
+				merged.Value = *override.DeltaValue
+			}
+			if override.DeltaDescription != nil {
+				merged.Description = *override.DeltaDescription
+			}
+			if override.DeltaEnabled != nil {
+				merged.Enabled = *override.DeltaEnabled
+			}
+
+			merged.IsDelta = false
+			merged.ParentGraphQLHeaderID = nil
+			merged.DeltaKey = nil
+			merged.DeltaValue = nil
+			merged.DeltaDescription = nil
+			merged.DeltaEnabled = nil
+
+			resolved = append(resolved, merged)
+		} else {
+			resolved = append(resolved, b)
+		}
+	}
+
+	for _, a := range additions {
+		item := a
+		item.IsDelta = false
+		resolved = append(resolved, item)
+	}
+
+	return resolved
+}
+
+// resolveGraphQLAsserts resolves GraphQL Asserts using specific ordering logic.
+func resolveGraphQLAsserts(base, delta []mgraphql.GraphQLAssert) []mgraphql.GraphQLAssert {
+	// 1. Order the inputs first to ensure we process them in the correct logical order
+	orderedBase := orderGraphQLAsserts(base)
+	if len(delta) == 0 {
+		return orderedBase
+	}
+	orderedDelta := orderGraphQLAsserts(delta)
+
+	// 2. Map Base items
+	baseMap := make(map[idwrap.IDWrap]mgraphql.GraphQLAssert, len(orderedBase))
+	baseOrder := make([]idwrap.IDWrap, 0, len(orderedBase))
+	for _, assert := range orderedBase {
+		baseMap[assert.ID] = assert
+		baseOrder = append(baseOrder, assert.ID)
+	}
+
+	// 3. Process Deltas (Overrides and Additions)
+	additions := make([]mgraphql.GraphQLAssert, 0)
+	for _, d := range orderedDelta {
+		if d.ParentGraphQLAssertID != nil {
+			if b, exists := baseMap[*d.ParentGraphQLAssertID]; exists {
+				// Apply Overrides
+				merged := b
+				if d.DeltaValue != nil {
+					merged.Value = *d.DeltaValue
+				}
+				if d.DeltaDescription != nil {
+					merged.Description = *d.DeltaDescription
+				}
+				if d.DeltaEnabled != nil {
+					merged.Enabled = *d.DeltaEnabled
+				}
+
+				merged.IsDelta = false
+				merged.ParentGraphQLAssertID = nil
+				merged.DeltaValue = nil
+				merged.DeltaDescription = nil
+				merged.DeltaEnabled = nil
+
+				baseMap[*d.ParentGraphQLAssertID] = merged
+			}
+		} else {
+			// New Addition
+			item := d
+			item.IsDelta = false
+			additions = append(additions, item)
+		}
+	}
+
+	// 4. Reconstruct the list
+	merged := make([]mgraphql.GraphQLAssert, 0, len(baseMap)+len(additions))
+
+	// Add base items (which may be merged/updated) in original order
+	for _, id := range baseOrder {
+		if assert, exists := baseMap[id]; exists {
+			merged = append(merged, assert)
+		}
+	}
+
+	// Append additions (ensure they are also ordered relative to each other if possible)
+	if len(additions) > 0 {
+		merged = append(merged, orderGraphQLAsserts(additions)...)
+	}
+
+	return merged
+}
+
+// orderGraphQLAsserts orders asserts by DisplayOrder field.
+func orderGraphQLAsserts(asserts []mgraphql.GraphQLAssert) []mgraphql.GraphQLAssert {
+	if len(asserts) <= 1 {
+		return append([]mgraphql.GraphQLAssert(nil), asserts...)
+	}
+
+	// Create a copy and sort by DisplayOrder field
+	ordered := make([]mgraphql.GraphQLAssert, len(asserts))
 	copy(ordered, asserts)
 	sort.Slice(ordered, func(i, j int) bool {
 		return ordered[i].DisplayOrder < ordered[j].DisplayOrder

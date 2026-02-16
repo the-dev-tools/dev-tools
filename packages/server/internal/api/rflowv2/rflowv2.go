@@ -12,10 +12,12 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -368,22 +370,26 @@ type FlowServiceV2Streamers struct {
 	Memory             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	NodeGraphQL        eventstream.SyncStreamer[NodeGraphQLTopic, NodeGraphQLEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
-	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
-	HttpResponse       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
-	HttpResponseHeader eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
-	HttpResponseAssert eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
-	Log                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
-	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+	Http                      eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	HttpResponse              eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
+	HttpResponseHeader        eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
+	HttpResponseAssert        eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+	GraphQLResponse           eventstream.SyncStreamer[rgraphql.GraphQLResponseTopic, rgraphql.GraphQLResponseEvent]
+	GraphQLResponseHeader     eventstream.SyncStreamer[rgraphql.GraphQLResponseHeaderTopic, rgraphql.GraphQLResponseHeaderEvent]
+	GraphQLResponseAssert     eventstream.SyncStreamer[rgraphql.GraphQLResponseAssertTopic, rgraphql.GraphQLResponseAssertEvent]
+	Log                       eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	File                      eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
 
 type FlowServiceV2Deps struct {
-	DB        *sql.DB
-	Readers   FlowServiceV2Readers
-	Services  FlowServiceV2Services
-	Streamers FlowServiceV2Streamers
-	Resolver  resolver.RequestResolver
-	Logger    *slog.Logger
-	JsClient  node_js_executorv1connect.NodeJsExecutorServiceClient
+	DB              *sql.DB
+	Readers         FlowServiceV2Readers
+	Services        FlowServiceV2Services
+	Streamers       FlowServiceV2Streamers
+	Resolver        resolver.RequestResolver
+	GraphQLResolver gqlresolver.GraphQLResolver
+	Logger          *slog.Logger
+	JsClient        node_js_executorv1connect.NodeJsExecutorServiceClient
 }
 
 func (d *FlowServiceV2Deps) Validate() error {
@@ -398,6 +404,9 @@ func (d *FlowServiceV2Deps) Validate() error {
 	}
 	if d.Resolver == nil {
 		return fmt.Errorf("resolver is required")
+	}
+	if d.GraphQLResolver == nil {
+		return fmt.Errorf("graphql resolver is required")
 	}
 	if d.Logger == nil {
 		return fmt.Errorf("logger is required")
@@ -454,11 +463,14 @@ type FlowServiceV2RPC struct {
 	memoryStream             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	nodeGraphQLStream        eventstream.SyncStreamer[NodeGraphQLTopic, NodeGraphQLEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
-	httpStream               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
-	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
-	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
-	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
-	logStream                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
+	httpStream                  eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	httpResponseStream          eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
+	httpResponseHeaderStream    eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
+	httpResponseAssertStream    eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+	graphqlResponseStream       eventstream.SyncStreamer[rgraphql.GraphQLResponseTopic, rgraphql.GraphQLResponseEvent]
+	graphqlResponseHeaderStream eventstream.SyncStreamer[rgraphql.GraphQLResponseHeaderTopic, rgraphql.GraphQLResponseHeaderEvent]
+	graphqlResponseAssertStream eventstream.SyncStreamer[rgraphql.GraphQLResponseAssertTopic, rgraphql.GraphQLResponseAssertEvent]
+	logStream                   eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
 	fileService              *sfile.FileService
 	fileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
@@ -487,7 +499,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		deps.Services.NodeAiProvider, deps.Services.NodeMemory, deps.Services.NodeGraphQL,
 		deps.Services.GraphQL, deps.Services.GraphQLHeader,
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
-		deps.Resolver, deps.Logger, llmFactory,
+		deps.Resolver, deps.GraphQLResolver, deps.Logger, llmFactory,
 	)
 
 	return &FlowServiceV2RPC{
@@ -536,11 +548,14 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		memoryStream:             deps.Streamers.Memory,
 		nodeGraphQLStream:        deps.Streamers.NodeGraphQL,
 		executionStream:          deps.Streamers.Execution,
-		httpStream:               deps.Streamers.Http,
-		httpResponseStream:       deps.Streamers.HttpResponse,
-		httpResponseHeaderStream: deps.Streamers.HttpResponseHeader,
-		httpResponseAssertStream: deps.Streamers.HttpResponseAssert,
-		logStream:                deps.Streamers.Log,
+		httpStream:                  deps.Streamers.Http,
+		httpResponseStream:          deps.Streamers.HttpResponse,
+		httpResponseHeaderStream:    deps.Streamers.HttpResponseHeader,
+		httpResponseAssertStream:    deps.Streamers.HttpResponseAssert,
+		graphqlResponseStream:       deps.Streamers.GraphQLResponse,
+		graphqlResponseHeaderStream: deps.Streamers.GraphQLResponseHeader,
+		graphqlResponseAssertStream: deps.Streamers.GraphQLResponseAssert,
+		logStream:                   deps.Streamers.Log,
 		fileService:              deps.Services.File,
 		fileStream:               deps.Streamers.File,
 		jsClient:                 deps.JsClient,

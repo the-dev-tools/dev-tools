@@ -59,4 +59,19 @@ func (c *Context) collectGraphQLChildren(ctx context.Context, graphqlID, workspa
 			})
 		}
 	}
+
+	// Asserts - cascaded by DB FK
+	if asserts, err := c.q.GetGraphQLAssertsByGraphQLID(ctx, graphqlID.Bytes()); err == nil {
+		for i := range asserts {
+			id, _ := idwrap.NewFromBytes(asserts[i].ID)
+			c.track(Event{
+				Entity:      EntityGraphQLAssert,
+				Op:          OpDelete,
+				ID:          id,
+				ParentID:    graphqlID,
+				WorkspaceID: workspaceID,
+				IsDelta:     asserts[i].IsDelta,
+			})
+		}
+	}
 }

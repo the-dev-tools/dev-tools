@@ -38,6 +38,16 @@ func ToAPIGraphQLHeader(h mgraphql.GraphQLHeader) *graphqlv1.GraphQLHeader {
 	}
 }
 
+func ToAPIGraphQLAssert(a mgraphql.GraphQLAssert) *graphqlv1.GraphQLAssert {
+	return &graphqlv1.GraphQLAssert{
+		GraphqlAssertId: a.ID.Bytes(),
+		GraphqlId:       a.GraphQLID.Bytes(),
+		Value:           a.Value,
+		Enabled:         a.Enabled,
+		Order:           a.DisplayOrder,
+	}
+}
+
 func ToAPIGraphQLResponse(r mgraphql.GraphQLResponse) *graphqlv1.GraphQLResponse {
 	return &graphqlv1.GraphQLResponse{
 		GraphqlResponseId: r.ID.Bytes(),
@@ -56,6 +66,15 @@ func ToAPIGraphQLResponseHeader(h mgraphql.GraphQLResponseHeader) *graphqlv1.Gra
 		GraphqlResponseId:       h.ResponseID.Bytes(),
 		Key:                     h.HeaderKey,
 		Value:                   h.HeaderValue,
+	}
+}
+
+func ToAPIGraphQLResponseAssert(a mgraphql.GraphQLResponseAssert) *graphqlv1.GraphQLResponseAssert {
+	return &graphqlv1.GraphQLResponseAssert{
+		GraphqlResponseAssertId: a.ID.Bytes(),
+		GraphqlResponseId:       a.ResponseID.Bytes(),
+		Value:                   a.Value,
+		Success:                 a.Success,
 	}
 }
 
@@ -258,5 +277,106 @@ func graphqlResponseHeaderSyncResponseFrom(event GraphQLResponseHeaderEvent) *gr
 
 	return &graphqlv1.GraphQLResponseHeaderSyncResponse{
 		Items: []*graphqlv1.GraphQLResponseHeaderSync{{Value: value}},
+	}
+}
+
+// graphqlDeltaSyncResponseFrom converts GraphQLEvent to GraphQLDeltaSync response
+// TODO: Implement delta sync converter once delta event publishing is implemented
+func graphqlDeltaSyncResponseFrom(event GraphQLEvent) *graphqlv1.GraphQLDeltaSyncResponse {
+	// For now, return nil as delta sync is not fully implemented
+	// Delta CRUD operations work, but real-time sync needs separate event streams
+	return nil
+}
+
+// graphqlAssertSyncResponseFrom converts GraphQLAssertEvent to GraphQLAssertSync response
+func graphqlAssertSyncResponseFrom(event GraphQLAssertEvent) *graphqlv1.GraphQLAssertSyncResponse {
+	var value *graphqlv1.GraphQLAssertSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeInsert:
+		value = &graphqlv1.GraphQLAssertSync_ValueUnion{
+			Kind: graphqlv1.GraphQLAssertSync_ValueUnion_KIND_INSERT,
+			Insert: &graphqlv1.GraphQLAssertSyncInsert{
+				GraphqlAssertId: event.GraphQLAssert.GetGraphqlAssertId(),
+				GraphqlId:       event.GraphQLAssert.GetGraphqlId(),
+				Value:           event.GraphQLAssert.GetValue(),
+				Enabled:         event.GraphQLAssert.GetEnabled(),
+				Order:           event.GraphQLAssert.GetOrder(),
+			},
+		}
+	case eventTypeUpdate:
+		value_ := event.GraphQLAssert.GetValue()
+		enabled := event.GraphQLAssert.GetEnabled()
+		order := event.GraphQLAssert.GetOrder()
+		value = &graphqlv1.GraphQLAssertSync_ValueUnion{
+			Kind: graphqlv1.GraphQLAssertSync_ValueUnion_KIND_UPDATE,
+			Update: &graphqlv1.GraphQLAssertSyncUpdate{
+				GraphqlAssertId: event.GraphQLAssert.GetGraphqlAssertId(),
+				Value:           &value_,
+				Enabled:         &enabled,
+				Order:           &order,
+			},
+		}
+	case eventTypeDelete:
+		value = &graphqlv1.GraphQLAssertSync_ValueUnion{
+			Kind: graphqlv1.GraphQLAssertSync_ValueUnion_KIND_DELETE,
+			Delete: &graphqlv1.GraphQLAssertSyncDelete{
+				GraphqlAssertId: event.GraphQLAssert.GetGraphqlAssertId(),
+			},
+		}
+	}
+
+	return &graphqlv1.GraphQLAssertSyncResponse{
+		Items: []*graphqlv1.GraphQLAssertSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// graphqlResponseAssertSyncResponseFrom converts GraphQLResponseAssertEvent to GraphQLResponseAssertSync response
+func graphqlResponseAssertSyncResponseFrom(event GraphQLResponseAssertEvent) *graphqlv1.GraphQLResponseAssertSyncResponse {
+	var value *graphqlv1.GraphQLResponseAssertSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeInsert:
+		value_ := event.GraphQLResponseAssert.GetValue()
+		success := event.GraphQLResponseAssert.GetSuccess()
+		value = &graphqlv1.GraphQLResponseAssertSync_ValueUnion{
+			Kind: graphqlv1.GraphQLResponseAssertSync_ValueUnion_KIND_INSERT,
+			Insert: &graphqlv1.GraphQLResponseAssertSyncInsert{
+				GraphqlResponseAssertId: event.GraphQLResponseAssert.GetGraphqlResponseAssertId(),
+				GraphqlResponseId:       event.GraphQLResponseAssert.GetGraphqlResponseId(),
+				Value:                   value_,
+				Success:                 success,
+			},
+		}
+	case eventTypeUpdate:
+		value_ := event.GraphQLResponseAssert.GetValue()
+		success := event.GraphQLResponseAssert.GetSuccess()
+		value = &graphqlv1.GraphQLResponseAssertSync_ValueUnion{
+			Kind: graphqlv1.GraphQLResponseAssertSync_ValueUnion_KIND_UPDATE,
+			Update: &graphqlv1.GraphQLResponseAssertSyncUpdate{
+				GraphqlResponseAssertId: event.GraphQLResponseAssert.GetGraphqlResponseAssertId(),
+				Value:                   &value_,
+				Success:                 &success,
+			},
+		}
+	case eventTypeDelete:
+		value = &graphqlv1.GraphQLResponseAssertSync_ValueUnion{
+			Kind: graphqlv1.GraphQLResponseAssertSync_ValueUnion_KIND_DELETE,
+			Delete: &graphqlv1.GraphQLResponseAssertSyncDelete{
+				GraphqlResponseAssertId: event.GraphQLResponseAssert.GetGraphqlResponseAssertId(),
+			},
+		}
+	}
+
+	return &graphqlv1.GraphQLResponseAssertSyncResponse{
+		Items: []*graphqlv1.GraphQLResponseAssertSync{
+			{
+				Value: value,
+			},
+		},
 	}
 }

@@ -86,3 +86,36 @@ func (s GraphQLHeaderService) Update(ctx context.Context, header *mgraphql.Graph
 func (s GraphQLHeaderService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	return s.queries.DeleteGraphQLHeader(ctx, id)
 }
+
+// Delta methods
+func (s GraphQLHeaderService) GetDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mgraphql.GraphQLHeader, error) {
+	headers, err := s.queries.GetGraphQLHeaderDeltasByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQLHeader{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQLHeader, len(headers))
+	for i, h := range headers {
+		result[i] = ConvertToModelGraphQLHeader(h)
+	}
+	return result, nil
+}
+
+func (s GraphQLHeaderService) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mgraphql.GraphQLHeader, error) {
+	headers, err := s.queries.GetGraphQLHeaderDeltasByParentID(ctx, parentID.Bytes())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQLHeader{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQLHeader, len(headers))
+	for i, h := range headers {
+		result[i] = ConvertToModelGraphQLHeader(h)
+	}
+	return result, nil
+}

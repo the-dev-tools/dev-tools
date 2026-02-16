@@ -120,3 +120,65 @@ func (s GraphQLResponseService) GetHeadersByResponseID(ctx context.Context, resp
 	}
 	return result, nil
 }
+
+
+func (s GraphQLResponseService) CreateAssert(ctx context.Context, assert mgraphql.GraphQLResponseAssert) error {
+	return s.queries.CreateGraphQLResponseAssert(ctx, gen.CreateGraphQLResponseAssertParams{
+		ID:         assert.ID.Bytes(),
+		ResponseID: assert.ResponseID.Bytes(),
+		Value:      assert.Value,
+		Success:    assert.Success,
+		CreatedAt:  assert.CreatedAt,
+	})
+}
+
+func (s GraphQLResponseService) GetAssertsByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]mgraphql.GraphQLResponseAssert, error) {
+	asserts, err := s.queries.GetGraphQLResponseAssertsByResponseID(ctx, responseID.Bytes())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQLResponseAssert{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQLResponseAssert, len(asserts))
+	for i, a := range asserts {
+		id, _ := idwrap.NewFromBytes(a.ID)
+		respID, _ := idwrap.NewFromBytes(a.ResponseID)
+
+		result[i] = mgraphql.GraphQLResponseAssert{
+			ID:         id,
+			ResponseID: respID,
+			Value:      a.Value,
+			Success:    a.Success,
+			CreatedAt:  a.CreatedAt,
+		}
+	}
+	return result, nil
+}
+
+func (s GraphQLResponseService) GetAssertsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mgraphql.GraphQLResponseAssert, error) {
+	asserts, err := s.queries.GetGraphQLResponseAssertsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQLResponseAssert{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQLResponseAssert, len(asserts))
+	for i, a := range asserts {
+		id, _ := idwrap.NewFromBytes(a.ID)
+		respID, _ := idwrap.NewFromBytes(a.ResponseID)
+
+		result[i] = mgraphql.GraphQLResponseAssert{
+			ID:         id,
+			ResponseID: respID,
+			Value:      a.Value,
+			Success:    a.Success,
+			CreatedAt:  a.CreatedAt,
+		}
+	}
+	return result, nil
+}
+

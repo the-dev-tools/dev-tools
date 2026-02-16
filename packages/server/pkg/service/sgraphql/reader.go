@@ -71,3 +71,70 @@ func (r *Reader) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.I
 	}
 	return workspaceID, nil
 }
+
+func (r *Reader) GetDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mgraphql.GraphQL, error) {
+	gqls, err := r.queries.GetGraphQLDeltasByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQL{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQL, len(gqls))
+	for i, gql := range gqls {
+		result[i] = *ConvertToModelGraphQL(gql)
+	}
+	return result, nil
+}
+
+func (r *Reader) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mgraphql.GraphQL, error) {
+	gqls, err := r.queries.GetGraphQLDeltasByParentID(ctx, parentID.Bytes())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQL{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQL, len(gqls))
+	for i, gql := range gqls {
+		result[i] = *ConvertToModelGraphQL(gql)
+	}
+	return result, nil
+}
+
+func (r *Reader) GetGraphQLVersionsByGraphQLID(ctx context.Context, graphqlID idwrap.IDWrap) ([]mgraphql.GraphQLVersion, error) {
+	versions, err := r.queries.GetGraphQLVersionsByGraphQLID(ctx, graphqlID.Bytes())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []mgraphql.GraphQLVersion{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mgraphql.GraphQLVersion, len(versions))
+	for i, v := range versions {
+		var createdBy *idwrap.IDWrap
+		if len(v.CreatedBy) > 0 {
+			id, err := idwrap.NewFromBytes(v.CreatedBy)
+			if err == nil {
+				createdBy = &id
+			}
+		}
+
+		id, _ := idwrap.NewFromBytes(v.ID)
+		gqlID, _ := idwrap.NewFromBytes(v.GraphqlID)
+
+		result[i] = mgraphql.GraphQLVersion{
+			ID:                 id,
+			GraphQLID:          gqlID,
+			VersionName:        v.VersionName,
+			VersionDescription: v.VersionDescription,
+			IsActive:           v.IsActive,
+			CreatedAt:          v.CreatedAt,
+			CreatedBy:          createdBy,
+		}
+	}
+	return result, nil
+}
