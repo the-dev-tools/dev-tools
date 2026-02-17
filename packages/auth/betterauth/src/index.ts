@@ -4,9 +4,7 @@ import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { createClient } from '@libsql/client';
 import { Config, Effect, Option, pipe } from 'effect';
 import { createServer } from 'node:http';
-
-import { AuthInternalService } from '@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb';
-
+import { AuthService } from '@the-dev-tools/spec/buf/api/internal/auth/v1/auth_pb';
 import { createAuth } from './auth.js';
 import { initDatabase } from './db.js';
 import { createInternalAuthService } from './service.js';
@@ -44,8 +42,8 @@ const program = Effect.gen(function* () {
   });
 
   yield* Effect.tryPromise({
-    try: () => initDatabase(rawDb),
     catch: (e) => new Error(`Database initialization failed: ${String(e)}`),
+    try: () => initDatabase(rawDb),
   });
 
   const auth = createAuth(rawDb, {
@@ -58,7 +56,7 @@ const program = Effect.gen(function* () {
 
   const rpcHandler = connectNodeAdapter({
     routes: (router) => {
-      router.service(AuthInternalService, service);
+      router.service(AuthService, service);
     },
   });
 

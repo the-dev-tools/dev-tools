@@ -1,5 +1,4 @@
 using DevTools;
-using Api.AuthCommon;
 
 namespace Api.User;
 
@@ -15,5 +14,5 @@ model User {
 model LinkedAccount {
   @primaryKey accountId: Id;
   @foreignKey userId: Id;
-  provider: AuthProvider;
+  provider: Auth.AuthProvider;
 }

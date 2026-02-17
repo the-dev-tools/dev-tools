@@ -5,9 +5,7 @@ import { bearer, jwt } from 'better-auth/plugins';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/libsql';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import id128 from 'id128';
-
-const { Ulid } = id128;
+import { Ulid } from 'id128';
 
 // =============================================================================
 // Drizzle Schema (required by BetterAuth's Drizzle adapter)
@@ -119,8 +117,9 @@ export function createAuth(client: Client, config: AuthConfig) {
           keyPairConfig: { alg: 'RS256' },
         },
         jwt: {
-          definePayload: ({ user }) => ({
+          definePayload: ({ session, user }) => ({
             email: user.email,
+            expiresAt: session.expiresAt,
             name: user.name,
             sub: user.id,
           }),

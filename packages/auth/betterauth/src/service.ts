@@ -4,18 +4,14 @@ import type { Client } from '@libsql/client';
 import { create } from '@bufbuild/protobuf';
 import { TimestampSchema } from '@bufbuild/protobuf/wkt';
 import { Code, ConnectError } from '@connectrpc/connect';
-import id128 from 'id128';
-
-const { Ulid } = id128;
-
-import { AuthProvider } from '@the-dev-tools/spec/buf/api/auth_common/v1/auth_common_pb';
-import { AuthInternalService } from '@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb';
+import { Ulid } from 'id128';
+import { AuthProvider, AuthService } from '@the-dev-tools/spec/buf/api/internal/auth/v1/auth_pb';
 import {
   type Account,
   AccountSchema,
   type User,
   UserSchema,
-} from '@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb';
+} from '@the-dev-tools/spec/buf/api/internal/auth/v1/auth_pb';
 
 import type { Auth } from './auth.js';
 import { accountQueries } from './queries.js';
@@ -137,7 +133,7 @@ function betterAuthUserToProto(user: {
 // Factory
 // =============================================================================
 
-export function createInternalAuthService(deps: ServiceDeps): ServiceImpl<typeof AuthInternalService> {
+export function createInternalAuthService(deps: ServiceDeps): ServiceImpl<typeof AuthService> {
   const { auth, rawDb } = deps;
 
   return {
@@ -154,7 +150,7 @@ export function createInternalAuthService(deps: ServiceDeps): ServiceImpl<typeof
         const user = result.user;
 
         // Extract session token from BetterAuth's signUp response
-        const sessionToken = result.token;
+        const sessionToken = result.token ?? undefined;
 
         // Fetch the credential account that BetterAuth created
         const accountResult = await rawDb.execute({
@@ -429,6 +425,7 @@ export function createInternalAuthService(deps: ServiceDeps): ServiceImpl<typeof
 
     async listAllAccounts() {
       const result = await rawDb.execute({
+        args: {},
         sql: accountQueries.getAll,
       });
 

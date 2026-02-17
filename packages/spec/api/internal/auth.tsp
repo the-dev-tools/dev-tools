@@ -1,7 +1,11 @@
 using DevTools;
-using Api.AuthCommon;
 
-namespace Api.AuthInternal;
+namespace Api.Internal.Auth;
+
+enum AuthProvider {
+  Email,
+  Google,
+}
 
 model User {
   id: Id;

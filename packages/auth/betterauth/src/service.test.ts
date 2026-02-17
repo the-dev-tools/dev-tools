@@ -1,16 +1,11 @@
 import type { ServiceImpl } from '@connectrpc/connect';
 import { Code, ConnectError } from '@connectrpc/connect';
-import id128 from 'id128';
-
-const { Ulid } = id128;
+import { Ulid } from 'id128';
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import { AuthProvider } from '@the-dev-tools/spec/buf/api/auth_common/v1/auth_common_pb';
-import { AuthInternalService } from '@the-dev-tools/spec/buf/api/auth_internal/v1/auth_internal_pb';
-
+import { AuthProvider, AuthService } from '@the-dev-tools/spec/buf/api/internal/auth/v1/auth_pb';
 import { createTestService } from './test-utils.js';
 
-type Service = ServiceImpl<typeof AuthInternalService>;
+type Service = ServiceImpl<typeof AuthService>;
 
 let service: Service;
 
@@ -35,7 +30,7 @@ describe('createUserWithPassword', () => {
     expect(res.user!.email).toBe('alice@test.com');
     expect(res.account!.provider).toBe(AuthProvider.EMAIL);
     // providerAccountId is the string ULID, user.id is binary — compare via round-trip
-    expect(res.account!.providerAccountId).toBe(Ulid.construct(res.user!.id).toCanonical());
+    expect(res.account!.providerAccountId).toBe(Ulid.construct(res.user!.id!).toCanonical());
   });
 
   it('returns a session token', async () => {
@@ -384,7 +379,7 @@ describe('integration: full auth flow', () => {
     // Decode payload and verify claims
     const payload = JSON.parse(atob(parts[1])) as { email: string; name: string; sub: string };
     // JWT sub is the string ULID, user.id is binary
-    expect(payload.sub).toBe(Ulid.construct(signup.user!.id).toCanonical());
+    expect(payload.sub).toBe(Ulid.construct(signup.user!.id!).toCanonical());
     expect(payload.email).toBe('alice@test.com');
     expect(payload.name).toBe('Alice');
   });
@@ -406,7 +401,7 @@ describe('ULID ID generation', () => {
     expect(res.user!.id).toHaveLength(16);
     expect(res.user!.id).toBeInstanceOf(Uint8Array);
     // Round-trip: binary → canonical string → binary
-    const canonical = Ulid.construct(res.user!.id).toCanonical();
+    const canonical = Ulid.construct(res.user!.id!).toCanonical();
     expect(canonical).toHaveLength(26);
     expect(() => Ulid.fromCanonical(canonical)).not.toThrow();
   });
@@ -420,7 +415,7 @@ describe('ULID ID generation', () => {
     expect(res.account).toBeDefined();
     expect(res.account!.id).toHaveLength(16);
     expect(res.account!.id).toBeInstanceOf(Uint8Array);
-    const canonical = Ulid.construct(res.account!.id).toCanonical();
+    const canonical = Ulid.construct(res.account!.id!).toCanonical();
     expect(canonical).toHaveLength(26);
   });
 
@@ -442,7 +437,7 @@ describe('ULID ID generation', () => {
     expect(res.account).toBeDefined();
     expect(res.account!.id).toHaveLength(16);
     expect(res.account!.id).toBeInstanceOf(Uint8Array);
-    const canonical = Ulid.construct(res.account!.id).toCanonical();
+    const canonical = Ulid.construct(res.account!.id!).toCanonical();
     expect(canonical).toHaveLength(26);
   });
 
@@ -453,8 +448,8 @@ describe('ULID ID generation', () => {
     );
 
     // Compare canonical strings since Uint8Array equality uses reference
-    const userId = Ulid.construct(res.user!.id).toCanonical();
-    const accountId = Ulid.construct(res.account!.id).toCanonical();
+    const userId = Ulid.construct(res.user!.id!).toCanonical();
+    const accountId = Ulid.construct(res.account!.id!).toCanonical();
     expect(userId).not.toBe(accountId);
   });
 });

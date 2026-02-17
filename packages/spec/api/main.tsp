@@ -2,7 +2,6 @@ import "@the-dev-tools/spec-lib/core";
 import "@the-dev-tools/spec-lib/protobuf";
 import "@the-dev-tools/spec-lib/tanstack-db";
 
-import "./auth-common.tsp";
 import "./auth.tsp";
 import "./internal/auth.tsp";
 import "./credential.tsp";

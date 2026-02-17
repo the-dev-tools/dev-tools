@@ -1,7 +1,8 @@
-using DevTools;
-using Api.AuthCommon;
-
 namespace Api.Auth;
+
+enum AuthProvider {
+  ...Internal.Auth.AuthProvider,
+}
 
 model AuthResponseFields {
   userId: Id;

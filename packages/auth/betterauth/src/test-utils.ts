@@ -1,5 +1,4 @@
 import { createClient } from '@libsql/client';
-
 import { type AuthConfig, createAuth } from './auth.js';
 import { initDatabase } from './db.js';
 import { createInternalAuthService } from './service.js';
