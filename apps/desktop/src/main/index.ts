@@ -5,6 +5,7 @@ import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, nativeTheme, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import fs from 'node:fs';
 import os from 'node:os';
 import nodePath from 'node:path';
 import { Agent } from 'undici';
@@ -250,6 +251,30 @@ const onReady = Effect.gen(function* () {
     }
     app.relaunch();
     app.exit(0);
+  });
+
+  // Agent logging
+  const logDir = path.join(app.getPath('userData'), 'logs', 'agent');
+  fs.mkdirSync(logDir, { recursive: true });
+
+  ipcMain.on('agent-log:write', (_event, fileName: string, jsonLine: string) => {
+    const filePath = path.join(logDir, path.basename(fileName));
+    void fs.promises.appendFile(filePath, jsonLine);
+  });
+
+  ipcMain.on('agent-log:cleanup', () => {
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    fs.readdir(logDir, (err, files) => {
+      if (err) return;
+      const now = Date.now();
+      for (const file of files) {
+        const filePath = path.join(logDir, file);
+        fs.stat(filePath, (err, stats) => {
+          if (err) return;
+          if (now - stats.mtimeMs > maxAge) void fs.promises.unlink(filePath).catch(() => undefined);
+        });
+      }
+    });
   });
 });
 

@@ -17,14 +17,18 @@ model FlowDuplicateRequest {
 
 op FlowDuplicate(...FlowDuplicateRequest): {};
 
+@AITools.aiTool(#{ category: AITools.ToolCategory.Execution, title: "Run Flow" })
+@doc("Execute a workflow from the start node.")
 model FlowRunRequest {
-  flowId: Id;
+  @doc("The ULID of the workflow to run") flowId: Id;
 }
 
 op FlowRun(...FlowRunRequest): {};
 
+@AITools.aiTool(#{ category: AITools.ToolCategory.Execution, title: "Stop Flow" })
+@doc("Stop a running workflow execution.")
 model FlowStopRequest {
-  flowId: Id;
+  @doc("The ULID of the workflow to stop") flowId: Id;
 }
 
 op FlowStop(...FlowStopRequest): {};
@@ -35,6 +39,20 @@ model FlowVersion {
   @foreignKey flowId: Id;
 }
 
+@AITools.mutationTool(
+  #{
+    operation: AITools.CrudOperation.Insert,
+    title: "Create Variable",
+    name: "CreateVariable",
+    description: "Create a new workflow variable that can be referenced in node expressions.",
+  },
+  #{
+    operation: AITools.CrudOperation.Update,
+    title: "Update Variable",
+    name: "UpdateVariable",
+    description: "Update an existing workflow variable.",
+  }
+)
 @TanStackDB.collection
 model FlowVariable {
   @primaryKey flowVariableId: Id;
@@ -50,6 +68,12 @@ enum HandleKind {
   AiTools,
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Delete,
+  title: "Disconnect Nodes",
+  name: "DisconnectNodes",
+  description: "Remove an edge connection between nodes.",
+})
 @TanStackDB.collection
 model Edge {
   @primaryKey edgeId: Id;
@@ -116,6 +140,10 @@ model Position {
   y: float32;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Delete,
+  description: "Delete a node from the workflow. Also removes all connected edges.",
+})
 @TanStackDB.collection
 model Node {
   @primaryKey nodeId: Id;
@@ -127,10 +155,19 @@ model Node {
   @visibility(Lifecycle.Read) info?: string;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create HTTP Node",
+  name: "CreateHttpNode",
+  parent: "Node",
+  exclude: #["kind", "httpId", "deltaHttpId"],
+  include: #[#{ fromModel: "Http", fields: #["url", "method"] }],
+  description: "Create a new HTTP request node that makes an API call.",
+})
 @TanStackDB.collection
 model NodeHttp {
   @primaryKey nodeId: Id;
-  @foreignKey httpId: Id;
+  @doc("The ULID of the HTTP request definition to use") @foreignKey httpId: Id;
   @foreignKey deltaHttpId?: Id;
 }
 
@@ -139,39 +176,87 @@ enum ErrorHandling {
   Break,
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create For Loop Node",
+  name: "CreateForNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a for-loop node. REQUIRED: iterations (positive integer) AND condition (break condition that exits the loop early when true). The loop runs up to 'iterations' times but stops early when the break condition evaluates to true.",
+})
 @TanStackDB.collection
 model NodeFor {
   @primaryKey nodeId: Id;
-  iterations: int32;
+  @doc("Number of iterations to perform (must be > 0)") iterations: int32;
+
+  @doc("REQUIRED break condition - loop exits early when this expression is true. Use expr-lang syntax.")
   condition: string;
+
   errorHandling: ErrorHandling;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create ForEach Loop Node",
+  name: "CreateForEachNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a forEach node that iterates over an array or object. REQUIRED: path (expression for the collection) AND condition (break condition that exits the loop early when true).",
+})
 @TanStackDB.collection
 model NodeForEach {
   @primaryKey nodeId: Id;
+
+  @doc("Expression for the array/object to iterate. Use expr-lang syntax: [\"JS Node\"].items or [\"HTTP\"].response.body")
   path: string;
+
+  @doc("REQUIRED break condition - loop exits early when this expression is true. Use expr-lang syntax.")
   condition: string;
+
   errorHandling: ErrorHandling;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create Condition Node",
+  name: "CreateConditionNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a condition node that routes flow based on a boolean expression. Has THEN and ELSE output handles.",
+})
 @TanStackDB.collection
 model NodeCondition {
   @primaryKey nodeId: Id;
   condition: string;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create JavaScript Node",
+  name: "CreateJsNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a new JavaScript node in the workflow. JS nodes can transform data, make calculations, or perform custom logic.",
+})
 @TanStackDB.collection
 model NodeJs {
   @primaryKey nodeId: Id;
   code: string;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create AI Node",
+  name: "CreateAiNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a new AI agent node that uses an LLM to process a prompt. The AI node orchestrates tool calling and can iterate multiple times.",
+})
 @TanStackDB.collection
 model NodeAi {
   @primaryKey nodeId: Id;
-  prompt: string;
-  maxIterations: int32;
+  @doc("The prompt or system instructions for the AI agent") prompt: string;
+  @doc("Maximum number of agentic iterations (LLM calls) before stopping, must be > 0") maxIterations: int32;
 }
 
 @TanStackDB.collection
