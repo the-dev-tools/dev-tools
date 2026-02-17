@@ -18,7 +18,7 @@ import (
 // ImportYAMLFlow imports a YAML flow definition into the workspace
 func (s *FlowServiceV2RPC) ImportYAMLFlow(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*ImportResults, error) {
 	// Validate workspace access
-	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+	if err := s.checkWorkspaceWriteAccess(ctx, workspaceID); err != nil {
 		return nil, err
 	}
 
@@ -44,7 +44,7 @@ func (s *FlowServiceV2RPC) ImportYAMLFlowSimple(
 // ParseYAMLFlow parses YAML flow data without importing it
 func (s *FlowServiceV2RPC) ParseYAMLFlow(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*ioworkspace.WorkspaceBundle, error) {
 	// Validate workspace access
-	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+	if err := s.checkWorkspaceReadAccess(ctx, workspaceID); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +113,7 @@ func (s *FlowServiceV2RPC) ValidateYAMLFlow(ctx context.Context, data []byte) er
 // ImportCurlCommand imports a curl command into the workspace
 func (s *FlowServiceV2RPC) ImportCurlCommand(ctx context.Context, curlData []byte, workspaceID idwrap.IDWrap) (*ImportResults, error) {
 	// Validate workspace access
-	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+	if err := s.checkWorkspaceWriteAccess(ctx, workspaceID); err != nil {
 		return nil, err
 	}
 
@@ -166,7 +166,7 @@ func (s *FlowServiceV2RPC) ImportCurlCommand(ctx context.Context, curlData []byt
 // ParseCurlCommand parses a curl command without importing it
 func (s *FlowServiceV2RPC) ParseCurlCommand(ctx context.Context, curlData []byte, workspaceID idwrap.IDWrap) (*tcurlv2.CurlResolvedV2, error) {
 	// Validate workspace access
-	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+	if err := s.checkWorkspaceReadAccess(ctx, workspaceID); err != nil {
 		return nil, err
 	}
 
@@ -193,7 +193,7 @@ func (s *FlowServiceV2RPC) ParseFlowData(ctx context.Context, data []byte, works
 	}
 
 	// Validate workspace access
-	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+	if err := s.checkWorkspaceReadAccess(ctx, workspaceID); err != nil {
 		return nil, err
 	}
 

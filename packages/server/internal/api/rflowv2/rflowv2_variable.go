@@ -64,7 +64,7 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 		}
 
-		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		if err := s.ensureFlowWriteAccess(ctx, flowID); err != nil {
 			return nil, err
 		}
 
@@ -169,7 +169,7 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := s.ensureFlowAccess(ctx, variable.FlowID); err != nil {
+		if err := s.ensureFlowWriteAccess(ctx, variable.FlowID); err != nil {
 			return nil, err
 		}
 
@@ -285,7 +285,7 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := s.ensureFlowAccess(ctx, variable.FlowID); err != nil {
+		if err := s.ensureFlowDeleteAccess(ctx, variable.FlowID); err != nil {
 			return nil, err
 		}
 
@@ -354,7 +354,7 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
 		}
-		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+		if err := s.ensureFlowReadAccess(ctx, topic.FlowID); err != nil {
 			return false
 		}
 		flowSet.Store(topic.FlowID.String(), struct{}{})

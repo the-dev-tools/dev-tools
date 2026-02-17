@@ -141,6 +141,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		DB: db,
 		Readers: FlowServiceV2Readers{
 			Workspace: wsService.Reader(),
+			User:      sworkspace.NewUserReaderFromQueries(queries),
 			Flow:      flowService.Reader(),
 			Node:      nodeService.Reader(),
 			Env:       envService.Reader(),
@@ -199,7 +200,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

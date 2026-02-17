@@ -104,6 +104,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 		DB: db,
 		Readers: FlowServiceV2Readers{
 			Workspace: wsService.Reader(),
+			User:      sworkspace.NewUserReaderFromQueries(queries),
 			Flow:      flowService.Reader(),
 			Node:      nodeService.Reader(),
 			Env:       envService.Reader(),
@@ -150,7 +151,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	err = wsService.Create(ctx, &mworkspace.Workspace{ID: workspaceID, Name: "Test Workspace", Updated: dbtime.DBNow()})
 	require.NoError(t, err)
 
-	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{ID: idwrap.NewNow(), WorkspaceID: workspaceID, UserID: userID, Role: 1})
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{ID: idwrap.NewNow(), WorkspaceID: workspaceID, UserID: userID, Role: 3})
 	require.NoError(t, err)
 
 	flowID := idwrap.NewNow()

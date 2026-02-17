@@ -91,6 +91,7 @@ func TestFlowRun_Logging(t *testing.T) {
 	svc := &FlowServiceV2RPC{
 		DB:           db,
 		wsReader:     wsReader,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
 		fsReader:     fsReader,
 		nsReader:     nsReader,
 		ws:           &wsService,
@@ -135,7 +136,7 @@ func TestFlowRun_Logging(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

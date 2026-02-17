@@ -49,7 +49,8 @@ func TestNodeConditionInsert_TransactionAtomicity(t *testing.T) {
 
 	svc := &FlowServiceV2RPC{
 		DB:       db,
-		wsReader: wsReader,
+		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader: fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
@@ -83,7 +84,7 @@ func TestNodeConditionInsert_TransactionAtomicity(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -195,7 +196,8 @@ func TestNodeConditionUpdate_TransactionAtomicity(t *testing.T) {
 
 	svc := &FlowServiceV2RPC{
 		DB:       db,
-		wsReader: wsReader,
+		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader: fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
@@ -229,7 +231,7 @@ func TestNodeConditionUpdate_TransactionAtomicity(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -357,7 +359,8 @@ func TestNodeConditionDelete_TransactionAtomicity(t *testing.T) {
 
 	svc := &FlowServiceV2RPC{
 		DB:       db,
-		wsReader: wsReader,
+		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader: fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
@@ -391,7 +394,7 @@ func TestNodeConditionDelete_TransactionAtomicity(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -509,7 +512,8 @@ func TestNodeConditionInsert_Concurrency(t *testing.T) {
 
 	svc := &FlowServiceV2RPC{
 		DB:       db,
-		wsReader: wsReader,
+		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader: fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
@@ -543,7 +547,7 @@ func TestNodeConditionInsert_Concurrency(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -649,7 +653,8 @@ func TestNodeConditionUpdate_Concurrency(t *testing.T) {
 
 	svc := &FlowServiceV2RPC{
 		DB:       db,
-		wsReader: wsReader,
+		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader: fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
@@ -683,7 +688,7 @@ func TestNodeConditionUpdate_Concurrency(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -796,7 +801,8 @@ func TestNodeConditionDelete_Concurrency(t *testing.T) {
 
 	svc := &FlowServiceV2RPC{
 		DB:       db,
-		wsReader: wsReader,
+		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader: fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
@@ -830,7 +836,7 @@ func TestNodeConditionDelete_Concurrency(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
-	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
@@ -263,7 +262,7 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 	// Workspace
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(true, mwauth.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
+		rpcErr := permcheck.CheckPerm(true, permcheck.CheckWorkspaceReadAccess(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -542,7 +541,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 	// Workspace environment variables
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(true, mwauth.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
+		rpcErr := permcheck.CheckPerm(true, permcheck.CheckWorkspaceReadAccess(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -959,7 +958,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 	// Workspace environment variables
 	if workspaceID != nil {
 		wsID := *workspaceID
-		rpcErr := permcheck.CheckPerm(true, mwauth.CheckOwnerWorkspaceWithReader(ctx, c.userReader, wsID))
+		rpcErr := permcheck.CheckPerm(true, permcheck.CheckWorkspaceReadAccess(ctx, c.userReader, wsID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}

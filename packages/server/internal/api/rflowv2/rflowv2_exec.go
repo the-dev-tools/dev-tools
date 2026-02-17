@@ -38,7 +38,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 	}
 
-	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+	if err := s.ensureFlowWriteAccess(ctx, flowID); err != nil {
 		return nil, err
 	}
 
@@ -603,7 +603,7 @@ func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[fl
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 	}
 
-	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+	if err := s.ensureFlowWriteAccess(ctx, flowID); err != nil {
 		return nil, err
 	}
 

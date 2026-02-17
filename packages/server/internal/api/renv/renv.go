@@ -35,6 +35,8 @@ type EnvRPC struct {
 	us suser.UserService
 	ws sworkspace.WorkspaceService
 
+	userReader *sworkspace.UserReader
+
 	envReader *senv.EnvReader
 	varReader *senv.VariableReader
 
@@ -82,6 +84,7 @@ func (s *EnvRPCServices) Validate() error {
 type EnvRPCReaders struct {
 	Env      *senv.EnvReader
 	Variable *senv.VariableReader
+	User     *sworkspace.UserReader
 }
 
 func (r *EnvRPCReaders) Validate() error {
@@ -90,6 +93,9 @@ func (r *EnvRPCReaders) Validate() error {
 	}
 	if r.Variable == nil {
 		return fmt.Errorf("variable reader is required")
+	}
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
 	}
 	return nil
 }
@@ -139,16 +145,17 @@ func New(deps EnvRPCDeps) EnvRPC {
 	}
 
 	return EnvRPC{
-		DB:        deps.DB,
-		es:        deps.Services.Env,
-		vs:        deps.Services.Variable,
-		us:        deps.Services.User,
-		ws:        deps.Services.Workspace,
-		envReader: deps.Readers.Env,
-		varReader: deps.Readers.Variable,
-		envStream: deps.Streamers.Env,
-		varStream: deps.Streamers.Variable,
-		publisher: deps.Publisher,
+		DB:         deps.DB,
+		es:         deps.Services.Env,
+		vs:         deps.Services.Variable,
+		us:         deps.Services.User,
+		ws:         deps.Services.Workspace,
+		userReader: deps.Readers.User,
+		envReader:  deps.Readers.Env,
+		varReader:  deps.Readers.Variable,
+		envStream:  deps.Streamers.Env,
+		varStream:  deps.Streamers.Variable,
+		publisher:  deps.Publisher,
 	}
 }
 
@@ -325,9 +332,8 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 		}
 
 		// Check workspace permissions OUTSIDE transaction
-		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, e.us, workspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, e.userReader, workspaceID); err != nil {
+			return nil, err
 		}
 
 		var envID idwrap.IDWrap
@@ -399,12 +405,6 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Use global service (Reader) for checks
-		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
 		// Use global service (Reader) for Fetch
 		env, err := e.envReader.GetEnvironment(ctx, envID)
 		if err != nil {
@@ -412,6 +412,11 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check workspace write permissions
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, e.userReader, env.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		if len(envUpdate.WorkspaceId) > 0 {
@@ -492,17 +497,17 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
 		env, err := e.envReader.GetEnvironment(ctx, envID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check workspace delete permissions
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, e.userReader, env.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		validatedDeletes = append(validatedDeletes, *env)
@@ -632,13 +637,7 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Check permissions OUTSIDE transaction
-		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
-		// Build cache OUTSIDE transaction
+		// Build cache and check permissions OUTSIDE transaction
 		workspaceID := workspaceCache[envID.String()]
 		if workspaceID == (idwrap.IDWrap{}) {
 			env, err := e.envReader.GetEnvironment(ctx, envID)
@@ -647,6 +646,11 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 			}
 			workspaceID = env.WorkspaceID
 			workspaceCache[envID.String()] = workspaceID
+		}
+
+		// Check workspace write permissions
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, e.userReader, workspaceID); err != nil {
+			return nil, err
 		}
 		varID := idwrap.NewNow()
 		if len(item.EnvironmentVariableId) > 0 {
@@ -737,11 +741,6 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, e.us, e.vs, e.es, varID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
 		variable, err := e.varReader.Get(ctx, varID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoVarFound) {
@@ -750,15 +749,40 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// Look up workspace from current env and check write access
+		currentEnvWorkspaceID := workspaceCache[variable.EnvID.String()]
+		if currentEnvWorkspaceID == (idwrap.IDWrap{}) {
+			env, err := e.envReader.GetEnvironment(ctx, variable.EnvID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			currentEnvWorkspaceID = env.WorkspaceID
+			workspaceCache[variable.EnvID.String()] = currentEnvWorkspaceID
+		}
+
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, e.userReader, currentEnvWorkspaceID); err != nil {
+			return nil, err
+		}
+
 		if len(item.EnvironmentId) > 0 {
 			newEnvID, err := idwrap.NewFromBytes(item.EnvironmentId)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
 
-			rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, newEnvID))
-			if rpcErr != nil {
-				return nil, rpcErr
+			// Check write access for the target environment's workspace
+			newEnvWorkspaceID := workspaceCache[newEnvID.String()]
+			if newEnvWorkspaceID == (idwrap.IDWrap{}) {
+				env, err := e.envReader.GetEnvironment(ctx, newEnvID)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				newEnvWorkspaceID = env.WorkspaceID
+				workspaceCache[newEnvID.String()] = newEnvWorkspaceID
+			}
+
+			if err := permcheck.CheckWorkspaceWriteAccess(ctx, e.userReader, newEnvWorkspaceID); err != nil {
+				return nil, err
 			}
 
 			variable.EnvID = newEnvID
@@ -848,11 +872,6 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, e.us, e.vs, e.es, varID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
 		variable, err := e.varReader.Get(ctx, varID)
 		if err != nil {
 			if errors.Is(err, senv.ErrNoVarFound) {
@@ -869,6 +888,11 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			}
 			workspaceID = env.WorkspaceID
 			workspaceCache[variable.EnvID.String()] = workspaceID
+		}
+
+		// Check workspace delete permissions
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, e.userReader, workspaceID); err != nil {
+			return nil, err
 		}
 
 		varModels = append(varModels, varDeleteData{

@@ -195,7 +195,7 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		nodeModel, err := s.ensureNodeWriteAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +300,7 @@ func (s *FlowServiceV2RPC) NodeHttpDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		nodeModel, err := s.ensureNodeAccess(ctx, nodeID)
+		nodeModel, err := s.ensureNodeDeleteAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +370,7 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
 		}
-		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+		if err := s.ensureFlowReadAccess(ctx, topic.FlowID); err != nil {
 			return false
 		}
 		flowSet.Store(topic.FlowID.String(), struct{}{})

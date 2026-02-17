@@ -18,6 +18,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/permcheck"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
@@ -256,41 +257,54 @@ func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mflo
 	}, nil
 }
 
-func (s *FlowServiceV2RPC) ensureWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
-	workspaces, err := s.listUserWorkspaces(ctx)
-	if err != nil {
-		return err
-	}
-	for _, ws := range workspaces {
-		if ws.ID == workspaceID {
-			return nil
-		}
-	}
-	return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("workspace %s not accessible to current user", workspaceID.String()))
+func (s *FlowServiceV2RPC) checkWorkspaceReadAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	return permcheck.CheckWorkspaceReadAccess(ctx, s.wsUserReader, workspaceID)
 }
 
-func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.IDWrap) error {
+func (s *FlowServiceV2RPC) checkWorkspaceWriteAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	return permcheck.CheckWorkspaceWriteAccess(ctx, s.wsUserReader, workspaceID)
+}
+
+func (s *FlowServiceV2RPC) checkWorkspaceDeleteAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	return permcheck.CheckWorkspaceDeleteAccess(ctx, s.wsUserReader, workspaceID)
+}
+
+func (s *FlowServiceV2RPC) resolveFlowWorkspaceID(ctx context.Context, flowID idwrap.IDWrap) (idwrap.IDWrap, error) {
 	flow, err := s.fsReader.GetFlow(ctx, flowID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
+			return idwrap.IDWrap{}, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
 		}
-		return connect.NewError(connect.CodeInternal, err)
+		return idwrap.IDWrap{}, connect.NewError(connect.CodeInternal, err)
 	}
+	return flow.WorkspaceID, nil
+}
 
-	workspaces, err := s.listUserWorkspaces(ctx)
+func (s *FlowServiceV2RPC) ensureFlowReadAccess(ctx context.Context, flowID idwrap.IDWrap) error {
+	wsID, err := s.resolveFlowWorkspaceID(ctx, flowID)
 	if err != nil {
 		return err
 	}
-	for _, ws := range workspaces {
-		if ws.ID == flow.WorkspaceID {
-			return nil
-		}
-	}
-	return connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
+	return s.checkWorkspaceReadAccess(ctx, wsID)
 }
 
-func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mflow.Node, error) {
+func (s *FlowServiceV2RPC) ensureFlowWriteAccess(ctx context.Context, flowID idwrap.IDWrap) error {
+	wsID, err := s.resolveFlowWorkspaceID(ctx, flowID)
+	if err != nil {
+		return err
+	}
+	return s.checkWorkspaceWriteAccess(ctx, wsID)
+}
+
+func (s *FlowServiceV2RPC) ensureFlowDeleteAccess(ctx context.Context, flowID idwrap.IDWrap) error {
+	wsID, err := s.resolveFlowWorkspaceID(ctx, flowID)
+	if err != nil {
+		return err
+	}
+	return s.checkWorkspaceDeleteAccess(ctx, wsID)
+}
+
+func (s *FlowServiceV2RPC) ensureNodeReadAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mflow.Node, error) {
 	node, err := s.nsReader.GetNode(ctx, nodeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -298,14 +312,41 @@ func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.I
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	if err := s.ensureFlowAccess(ctx, node.FlowID); err != nil {
+	if err := s.ensureFlowReadAccess(ctx, node.FlowID); err != nil {
 		return nil, err
 	}
 	return node, nil
 }
 
-func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.IDWrap) (*mflow.Edge, error) {
+func (s *FlowServiceV2RPC) ensureNodeWriteAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mflow.Node, error) {
+	node, err := s.nsReader.GetNode(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s not found", nodeID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.ensureFlowWriteAccess(ctx, node.FlowID); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func (s *FlowServiceV2RPC) ensureNodeDeleteAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mflow.Node, error) {
+	node, err := s.nsReader.GetNode(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s not found", nodeID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.ensureFlowDeleteAccess(ctx, node.FlowID); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func (s *FlowServiceV2RPC) ensureEdgeWriteAccess(ctx context.Context, edgeID idwrap.IDWrap) (*mflow.Edge, error) {
 	edgeModel, err := s.flowEdgeReader.GetEdge(ctx, edgeID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -313,8 +354,21 @@ func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.I
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if err := s.ensureFlowWriteAccess(ctx, edgeModel.FlowID); err != nil {
+		return nil, err
+	}
+	return edgeModel, nil
+}
 
-	if err := s.ensureFlowAccess(ctx, edgeModel.FlowID); err != nil {
+func (s *FlowServiceV2RPC) ensureEdgeDeleteAccess(ctx context.Context, edgeID idwrap.IDWrap) (*mflow.Edge, error) {
+	edgeModel, err := s.flowEdgeReader.GetEdge(ctx, edgeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("edge %s not found", edgeID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := s.ensureFlowDeleteAccess(ctx, edgeModel.FlowID); err != nil {
 		return nil, err
 	}
 	return edgeModel, nil

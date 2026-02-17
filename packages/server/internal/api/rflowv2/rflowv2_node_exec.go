@@ -111,7 +111,7 @@ func (s *FlowServiceV2RPC) streamNodeExecutionSync(
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
 		}
-		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+		if err := s.ensureFlowReadAccess(ctx, topic.FlowID); err != nil {
 			return false
 		}
 		flowSet.Store(topic.FlowID.String(), struct{}{})

@@ -74,7 +74,7 @@ func (s *FlowServiceV2RPC) streamFlowSync(
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
 		}
-		if err := s.ensureWorkspaceAccess(ctx, topic.WorkspaceID); err != nil {
+		if err := s.checkWorkspaceReadAccess(ctx, topic.WorkspaceID); err != nil {
 			return false
 		}
 		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
@@ -212,7 +212,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid workspace id: %w", err))
 		}
 
-		if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+		if err := s.checkWorkspaceWriteAccess(ctx, workspaceID); err != nil {
 			return nil, err
 		}
 
@@ -329,7 +329,7 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 		}
 
-		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		if err := s.ensureFlowWriteAccess(ctx, flowID); err != nil {
 			return nil, err
 		}
 
@@ -424,7 +424,7 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 		}
 
 		// CHECK: Validate permissions
-		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		if err := s.ensureFlowDeleteAccess(ctx, flowID); err != nil {
 			return nil, err
 		}
 
@@ -492,7 +492,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	}
 
 	// Step 1: FETCH/CHECK (Outside transaction)
-	if err := s.ensureFlowAccess(ctx, sourceFlowID); err != nil {
+	if err := s.ensureFlowWriteAccess(ctx, sourceFlowID); err != nil {
 		return nil, err
 	}
 
@@ -504,7 +504,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if err := s.ensureWorkspaceAccess(ctx, sourceFlow.WorkspaceID); err != nil {
+	if err := s.checkWorkspaceWriteAccess(ctx, sourceFlow.WorkspaceID); err != nil {
 		return nil, err
 	}
 

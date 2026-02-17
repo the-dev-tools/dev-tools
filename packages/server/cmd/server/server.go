@@ -340,6 +340,7 @@ func run() error {
 		Readers: renv.EnvRPCReaders{
 			Env:      envReader,
 			Variable: varReader,
+			User:     userReader,
 		},
 		Streamers: renv.EnvRPCStreamers{
 			Env:      streamers.Environment,
@@ -486,6 +487,7 @@ func run() error {
 		DB: currentDB,
 		Readers: rflowv2.FlowServiceV2Readers{
 			Workspace:     workspaceReader,
+			User:          userReader,
 			Flow:          flowReader,
 			Node:          nodeReader,
 			Env:           envReader,
@@ -565,9 +567,10 @@ func run() error {
 	fileSrv := rfile.New(rfile.FileServiceRPCDeps{
 		DB: currentDB,
 		Services: rfile.FileServiceRPCServices{
-			File:      fileService,
-			User:      userService,
-			Workspace: workspaceService,
+			File:       fileService,
+			User:       userService,
+			Workspace:  workspaceService,
+			UserReader: userReader,
 		},
 		Stream:    streamers.File,
 		Publisher: registry,
@@ -583,6 +586,7 @@ func run() error {
 		},
 		Readers: rcredential.CredentialRPCReaders{
 			Credential: credentialReader,
+			User:       userReader,
 		},
 		Streamers: rcredential.CredentialRPCStreamers{
 			Credential: streamers.Credential,

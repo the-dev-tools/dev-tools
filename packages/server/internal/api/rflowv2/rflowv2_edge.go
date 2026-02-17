@@ -68,7 +68,7 @@ func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
 		}
-		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		if err := s.ensureFlowWriteAccess(ctx, flowID); err != nil {
 			return nil, err
 		}
 
@@ -163,7 +163,7 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge id: %w", err))
 		}
 
-		existing, err := s.ensureEdgeAccess(ctx, edgeID)
+		existing, err := s.ensureEdgeWriteAccess(ctx, edgeID)
 		if err != nil {
 			return nil, err
 		}
@@ -186,7 +186,7 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid source id: %w", err))
 			}
-			if _, err := s.ensureNodeAccess(ctx, sourceID); err != nil {
+			if _, err := s.ensureNodeReadAccess(ctx, sourceID); err != nil {
 				return nil, err
 			}
 			existing.SourceID = sourceID
@@ -197,7 +197,7 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target id: %w", err))
 			}
-			if _, err := s.ensureNodeAccess(ctx, targetID); err != nil {
+			if _, err := s.ensureNodeReadAccess(ctx, targetID); err != nil {
 				return nil, err
 			}
 			existing.TargetID = targetID
@@ -265,7 +265,7 @@ func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge id: %w", err))
 		}
 
-		existing, err := s.ensureEdgeAccess(ctx, edgeID)
+		existing, err := s.ensureEdgeDeleteAccess(ctx, edgeID)
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +335,7 @@ func (s *FlowServiceV2RPC) streamEdgeSync(
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
 		}
-		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+		if err := s.ensureFlowReadAccess(ctx, topic.FlowID); err != nil {
 			return false
 		}
 		flowSet.Store(topic.FlowID.String(), struct{}{})

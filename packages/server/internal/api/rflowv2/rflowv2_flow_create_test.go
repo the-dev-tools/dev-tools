@@ -42,7 +42,8 @@ func TestFlowInsert_PublishesStartNodeEvent(t *testing.T) {
 	// Minimal svc setup for FlowInsert
 	svc := &FlowServiceV2RPC{
 		DB:         db,
-		wsReader:   sworkspace.NewWorkspaceReaderFromQueries(queries),
+		wsReader:     sworkspace.NewWorkspaceReaderFromQueries(queries),
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
 		fsReader:   sflow.NewFlowReaderFromQueries(queries),
 		ws:         &wsService,
 		fs:         &flowService,
@@ -76,7 +77,7 @@ func TestFlowInsert_PublishesStartNodeEvent(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

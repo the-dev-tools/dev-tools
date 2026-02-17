@@ -74,6 +74,7 @@ func setupZeroValueTestServices(t *testing.T) *testServices {
 	svc := &FlowServiceV2RPC{
 		DB:              db,
 		wsReader:        wsReader,
+		wsUserReader:    sworkspace.NewUserReaderFromQueries(queries),
 		fsReader:        fsReader,
 		nsReader:        nsReader,
 		ws:              &wsService,
@@ -117,7 +118,7 @@ func setupZeroValueTestServices(t *testing.T) *testServices {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

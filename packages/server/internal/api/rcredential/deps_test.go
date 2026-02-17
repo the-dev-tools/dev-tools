@@ -6,11 +6,13 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
 
 func TestCredentialRPCDeps_Validate(t *testing.T) {
 	// Create minimal valid dependencies for testing
 	mockCredReader := &scredential.CredentialReader{}
+	mockUserReader := &sworkspace.UserReader{}
 	mockCredStream := memory.NewInMemorySyncStreamer[CredentialTopic, CredentialEvent]()
 	mockOpenAiStream := memory.NewInMemorySyncStreamer[CredentialOpenAiTopic, CredentialOpenAiEvent]()
 	mockGeminiStream := memory.NewInMemorySyncStreamer[CredentialGeminiTopic, CredentialGeminiEvent]()
@@ -30,6 +32,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: mockCredStream,
@@ -47,6 +50,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: mockCredStream,
@@ -65,6 +69,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: nil,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: mockCredStream,
@@ -77,12 +82,32 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 			errMsg:  "credential reader is required",
 		},
 		{
+			name: "missing user reader",
+			deps: CredentialRPCDeps{
+				DB:       mockDB,
+				Services: CredentialRPCServices{},
+				Readers: CredentialRPCReaders{
+					Credential: mockCredReader,
+					User:       nil,
+				},
+				Streamers: CredentialRPCStreamers{
+					Credential: mockCredStream,
+					OpenAi:     mockOpenAiStream,
+					Gemini:     mockGeminiStream,
+					Anthropic:  mockAnthropicStream,
+				},
+			},
+			wantErr: true,
+			errMsg:  "user reader is required",
+		},
+		{
 			name: "missing credential stream",
 			deps: CredentialRPCDeps{
 				DB:       mockDB,
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: nil,
@@ -101,6 +126,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: mockCredStream,
@@ -119,6 +145,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: mockCredStream,
@@ -137,6 +164,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 				Services: CredentialRPCServices{},
 				Readers: CredentialRPCReaders{
 					Credential: mockCredReader,
+					User:       mockUserReader,
 				},
 				Streamers: CredentialRPCStreamers{
 					Credential: mockCredStream,
@@ -172,6 +200,7 @@ func TestCredentialRPCDeps_Validate(t *testing.T) {
 
 func TestCredentialRPCReaders_Validate(t *testing.T) {
 	mockCredReader := &scredential.CredentialReader{}
+	mockUserReader := &sworkspace.UserReader{}
 
 	tests := []struct {
 		name    string
@@ -179,13 +208,18 @@ func TestCredentialRPCReaders_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "valid - credential reader present",
-			readers: CredentialRPCReaders{Credential: mockCredReader},
+			name:    "valid - all readers present",
+			readers: CredentialRPCReaders{Credential: mockCredReader, User: mockUserReader},
 			wantErr: false,
 		},
 		{
 			name:    "missing credential reader",
-			readers: CredentialRPCReaders{Credential: nil},
+			readers: CredentialRPCReaders{Credential: nil, User: mockUserReader},
+			wantErr: true,
+		},
+		{
+			name:    "missing user reader",
+			readers: CredentialRPCReaders{Credential: mockCredReader, User: nil},
 			wantErr: true,
 		},
 	}

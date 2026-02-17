@@ -57,9 +57,10 @@ func setupTestServiceWithForStream(t *testing.T) (*FlowServiceV2RPC, context.Con
 	forStream := memory.NewInMemorySyncStreamer[ForTopic, ForEvent]()
 
 	svc := &FlowServiceV2RPC{
-		DB:       db,
-		wsReader: wsReader,
-		fsReader: fsReader,
+		DB:           db,
+		wsReader:     wsReader,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		fsReader:     fsReader,
 		nsReader: nsReader,
 		ws:       &wsService,
 		fs:       &flowService,
@@ -99,7 +100,7 @@ func setupTestServiceWithForStream(t *testing.T) (*FlowServiceV2RPC, context.Con
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

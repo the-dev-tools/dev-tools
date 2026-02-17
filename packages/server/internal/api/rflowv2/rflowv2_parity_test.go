@@ -68,6 +68,7 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 				DB: db,
 				Readers: FlowServiceV2Readers{
 					Workspace: sworkspace.NewWorkspaceReaderFromQueries(queries),
+					User:      sworkspace.NewUserReaderFromQueries(queries),
 					Flow:      sflow.NewFlowReaderFromQueries(queries),
 					Node:      sflow.NewNodeReaderFromQueries(queries),
 					Env:       senv.NewEnvReaderFromQueries(queries, logger),
@@ -126,7 +127,7 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 				ID:          idwrap.NewNow(),
 				WorkspaceID: workspaceID,
 				UserID:      userID,
-				Role:        1,
+				Role:        3,
 			})
 			require.NoError(t, err)
 
@@ -217,6 +218,7 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 				DB: db,
 				Readers: FlowServiceV2Readers{
 					Workspace: sworkspace.NewWorkspaceReaderFromQueries(queries),
+					User:      sworkspace.NewUserReaderFromQueries(queries),
 					Flow:      sflow.NewFlowReaderFromQueries(queries),
 					Node:      sflow.NewNodeReaderFromQueries(queries),
 					Env:       senv.NewEnvReaderFromQueries(queries, logger),
@@ -275,7 +277,7 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 				ID:          idwrap.NewNow(),
 				WorkspaceID: workspaceID,
 				UserID:      userID,
-				Role:        1,
+				Role:        3,
 			})
 			require.NoError(t, err)
 

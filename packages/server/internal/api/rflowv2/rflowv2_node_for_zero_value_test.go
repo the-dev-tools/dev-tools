@@ -159,9 +159,10 @@ func setupForZeroValueTest(t *testing.T) (context.Context, func()) {
 	forStream := memory.NewInMemorySyncStreamer[ForTopic, ForEvent]()
 
 	svc := &FlowServiceV2RPC{
-		DB:        db,
-		wsReader:  wsReader,
-		fsReader:  fsReader,
+		DB:           db,
+		wsReader:     wsReader,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		fsReader:     fsReader,
 		nsReader:  nsReader,
 		ws:        &wsService,
 		fs:        &flowService,
@@ -200,7 +201,7 @@ func setupForZeroValueTest(t *testing.T) (context.Context, func()) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

@@ -81,7 +81,8 @@ func setupFlowDuplicateTestService(t *testing.T) (*FlowServiceV2RPC, context.Con
 
 	svc := &FlowServiceV2RPC{
 		DB:          db,
-		wsReader:    wsReader,
+		wsReader:     wsReader,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
 		fsReader:    fsReader,
 		nsReader:    nsReader,
 		hsReader:    httpReader,
@@ -128,7 +129,7 @@ func setupFlowDuplicateTestService(t *testing.T) (*FlowServiceV2RPC, context.Con
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

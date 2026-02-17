@@ -37,6 +37,7 @@ func (w *UserWriter) UpdateWorkspaceUser(ctx context.Context, wsuser *mworkspace
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
+		Role:        int8(wsuser.Role), // nolint:gosec // G115
 	})
 }
 

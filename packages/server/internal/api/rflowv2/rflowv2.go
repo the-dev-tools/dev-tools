@@ -223,6 +223,7 @@ const (
 
 type FlowServiceV2Readers struct {
 	Workspace     *sworkspace.WorkspaceReader
+	User          *sworkspace.UserReader
 	Flow          *sflow.FlowReader
 	Node          *sflow.NodeReader
 	Env           *senv.EnvReader
@@ -237,6 +238,9 @@ type FlowServiceV2Readers struct {
 func (r *FlowServiceV2Readers) Validate() error {
 	if r.Workspace == nil {
 		return fmt.Errorf("workspace reader is required")
+	}
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
 	}
 	if r.Flow == nil {
 		return fmt.Errorf("flow reader is required")
@@ -393,6 +397,7 @@ type FlowServiceV2RPC struct {
 	DB *sql.DB
 
 	wsReader       *sworkspace.WorkspaceReader
+	wsUserReader   *sworkspace.UserReader
 	fsReader       *sflow.FlowReader
 	nsReader       *sflow.NodeReader
 	vsReader       *senv.EnvReader
@@ -472,6 +477,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		DB:                       deps.DB,
 		wsReader:                 deps.Readers.Workspace,
+		wsUserReader:             deps.Readers.User,
 		fsReader:                 deps.Readers.Flow,
 		nsReader:                 deps.Readers.Node,
 		vsReader:                 deps.Readers.Env,

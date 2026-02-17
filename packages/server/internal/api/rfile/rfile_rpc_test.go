@@ -42,9 +42,10 @@ func setupTestService(t *testing.T) (*FileServiceRPC, *gen.Queries, context.Cont
 	handler := New(FileServiceRPCDeps{
 		DB: db,
 		Services: FileServiceRPCServices{
-			File:      fileService,
-			User:      userService,
-			Workspace: wsService,
+			File:       fileService,
+			User:       userService,
+			Workspace:  wsService,
+			UserReader: sworkspace.NewUserReader(db),
 		},
 		Stream: stream,
 	})
@@ -77,7 +78,7 @@ func setupTestService(t *testing.T) (*FileServiceRPC, *gen.Queries, context.Cont
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

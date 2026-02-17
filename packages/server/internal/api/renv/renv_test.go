@@ -20,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
 )
@@ -88,6 +89,7 @@ func newEnvFixture(t *testing.T) *envFixture {
 		Readers: EnvRPCReaders{
 			Env:      envService.Reader(),
 			Variable: varService.Reader(),
+			User:     sworkspace.NewUserReader(base.DB),
 		},
 		Streamers: EnvRPCStreamers{
 			Env:      envStream,

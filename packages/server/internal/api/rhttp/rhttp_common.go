@@ -10,14 +10,11 @@ import (
 	"net/url"
 	"strings"
 
-	"connectrpc.com/connect"
-
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/permcheck"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
 )
 
@@ -80,71 +77,17 @@ func CheckOwnerHttp(ctx context.Context, hs shttp.HTTPService, us suser.UserServ
 
 // checkWorkspaceReadAccess verifies if user has read access to workspace (any role)
 func (h *HttpServiceRPC) checkWorkspaceReadAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	wsUser, err := h.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
-	if err != nil {
-		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
-			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
-		}
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Any role provides read access
-	if wsUser.Role < mworkspace.RoleUser {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
-	}
-
-	return nil
+	return permcheck.CheckWorkspaceReadAccess(ctx, h.userReader, workspaceID)
 }
 
 // checkWorkspaceWriteAccess verifies if user has write access to workspace (Admin or Owner)
 func (h *HttpServiceRPC) checkWorkspaceWriteAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	wsUser, err := h.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
-	if err != nil {
-		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
-			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
-		}
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Write access requires Admin or Owner role
-	if wsUser.Role < mworkspace.RoleAdmin {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
-	}
-
-	return nil
+	return permcheck.CheckWorkspaceWriteAccess(ctx, h.userReader, workspaceID)
 }
 
-// checkWorkspaceDeleteAccess verifies if user has delete access to workspace (Owner only)
+// checkWorkspaceDeleteAccess verifies if user has delete access to workspace (Admin or Owner)
 func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	wsUser, err := h.userReader.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
-	if err != nil {
-		if errors.Is(err, sworkspace.ErrWorkspaceUserNotFound) {
-			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
-		}
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Delete access requires Owner role only
-	if wsUser.Role != mworkspace.RoleOwner {
-		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
-	}
-
-	return nil
+	return permcheck.CheckWorkspaceDeleteAccess(ctx, h.userReader, workspaceID)
 }
 
 // executeHTTPRequest performs the actual HTTP request execution

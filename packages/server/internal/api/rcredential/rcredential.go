@@ -19,6 +19,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/permcheck"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
@@ -41,6 +42,7 @@ type CredentialRPC struct {
 	ws sworkspace.WorkspaceService
 
 	credReader *scredential.CredentialReader
+	userReader *sworkspace.UserReader
 
 	credStream      eventstream.SyncStreamer[CredentialTopic, CredentialEvent]
 	openAiStream    eventstream.SyncStreamer[CredentialOpenAiTopic, CredentialOpenAiEvent]
@@ -102,11 +104,15 @@ func (s *CredentialRPCServices) Validate() error {
 
 type CredentialRPCReaders struct {
 	Credential *scredential.CredentialReader
+	User       *sworkspace.UserReader
 }
 
 func (r *CredentialRPCReaders) Validate() error {
 	if r.Credential == nil {
 		return fmt.Errorf("credential reader is required")
+	}
+	if r.User == nil {
+		return fmt.Errorf("user reader is required")
 	}
 	return nil
 }
@@ -169,6 +175,7 @@ func New(deps CredentialRPCDeps) CredentialRPC {
 		us:              deps.Services.User,
 		ws:              deps.Services.Workspace,
 		credReader:      deps.Readers.Credential,
+		userReader:      deps.Readers.User,
 		credStream:      deps.Streamers.Credential,
 		openAiStream:    deps.Streamers.OpenAi,
 		geminiStream:    deps.Streamers.Gemini,
@@ -199,7 +206,7 @@ func (s *CredentialRPC) getAccessibleWorkspaces(ctx context.Context) ([]mworkspa
 	return workspaces, nil
 }
 
-// getCredentialWorkspaceID retrieves the workspace ID for a credential and verifies access
+// getCredentialWorkspaceID retrieves the workspace ID for a credential (no permission check)
 func (s *CredentialRPC) getCredentialWorkspaceID(ctx context.Context, credID idwrap.IDWrap) (idwrap.IDWrap, error) {
 	cred, err := s.credReader.GetCredential(ctx, credID)
 	if err != nil {
@@ -207,16 +214,6 @@ func (s *CredentialRPC) getCredentialWorkspaceID(ctx context.Context, credID idw
 			return idwrap.IDWrap{}, connect.NewError(connect.CodeNotFound, err)
 		}
 		return idwrap.IDWrap{}, connect.NewError(connect.CodeInternal, err)
-	}
-
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return idwrap.IDWrap{}, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, cred.WorkspaceID)
-	if err != nil || !belongs {
-		return idwrap.IDWrap{}, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
 	}
 
 	return cred.WorkspaceID, nil
@@ -251,11 +248,6 @@ func (s *CredentialRPC) CredentialInsert(
 	ctx context.Context,
 	req *connect.Request[credentialv1.CredentialInsertRequest],
 ) (*connect.Response[emptypb.Empty], error) {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
 	// FETCH phase: Validate all items before transaction
 	type credItem struct {
 		credID      idwrap.IDWrap
@@ -275,10 +267,9 @@ func (s *CredentialRPC) CredentialInsert(
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// CHECK phase: Verify workspace access
-		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
-		if err != nil || !belongs {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("access denied"))
+		// CHECK phase: Verify workspace write access
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
+			return nil, err
 		}
 
 		// Build credential model
@@ -401,11 +392,6 @@ func (s *CredentialRPC) CredentialUpdate(
 	ctx context.Context,
 	req *connect.Request[credentialv1.CredentialUpdateRequest],
 ) (*connect.Response[emptypb.Empty], error) {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
 	// FETCH phase: Gather and validate all items before transaction
 	type updateItem struct {
 		credID   idwrap.IDWrap
@@ -428,10 +414,9 @@ func (s *CredentialRPC) CredentialUpdate(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// CHECK phase: Verify ownership
-		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, existing.WorkspaceID)
-		if err != nil || !belongs {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
+		// CHECK phase: Verify workspace write access
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, existing.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		// Apply updates
@@ -482,11 +467,6 @@ func (s *CredentialRPC) CredentialDelete(
 	ctx context.Context,
 	req *connect.Request[credentialv1.CredentialDeleteRequest],
 ) (*connect.Response[emptypb.Empty], error) {
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
 	// FETCH phase: Gather and validate all items before transaction
 	type deleteItem struct {
 		credID      idwrap.IDWrap
@@ -509,10 +489,9 @@ func (s *CredentialRPC) CredentialDelete(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// CHECK phase: Verify ownership
-		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, existing.WorkspaceID)
-		if err != nil || !belongs {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("credential not found"))
+		// CHECK phase: Verify workspace delete access
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, s.userReader, existing.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		items = append(items, deleteItem{
@@ -700,6 +679,10 @@ func (s *CredentialRPC) CredentialOpenAiInsert(
 			return nil, err
 		}
 
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
+			return nil, err
+		}
+
 		// Check if record already exists (auto-created by CredentialInsert) - BEFORE transaction
 		_, existErr := s.credReader.GetCredentialOpenAI(ctx, credID)
 		var exists bool
@@ -791,6 +774,10 @@ func (s *CredentialRPC) CredentialOpenAiUpdate(
 
 		workspaceID, err := s.getCredentialWorkspaceID(ctx, credID)
 		if err != nil {
+			return nil, err
+		}
+
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
 			return nil, err
 		}
 
@@ -886,6 +873,10 @@ func (s *CredentialRPC) CredentialOpenAiDelete(
 			if connect.CodeOf(err) == connect.CodeNotFound {
 				continue
 			}
+			return nil, err
+		}
+
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, s.userReader, workspaceID); err != nil {
 			return nil, err
 		}
 
@@ -1082,6 +1073,10 @@ func (s *CredentialRPC) CredentialGeminiInsert(
 			return nil, err
 		}
 
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
+			return nil, err
+		}
+
 		// Check if record already exists (auto-created by CredentialInsert) - BEFORE transaction
 		_, existErr := s.credReader.GetCredentialGemini(ctx, credID)
 		var exists bool
@@ -1175,6 +1170,10 @@ func (s *CredentialRPC) CredentialGeminiUpdate(
 			return nil, err
 		}
 
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
+			return nil, err
+		}
+
 		existing, err := s.credReader.GetCredentialGemini(ctx, credID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -1265,6 +1264,10 @@ func (s *CredentialRPC) CredentialGeminiDelete(
 			if connect.CodeOf(err) == connect.CodeNotFound {
 				continue
 			}
+			return nil, err
+		}
+
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, s.userReader, workspaceID); err != nil {
 			return nil, err
 		}
 
@@ -1457,6 +1460,10 @@ func (s *CredentialRPC) CredentialAnthropicInsert(
 			return nil, err
 		}
 
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
+			return nil, err
+		}
+
 		// Check if record already exists (auto-created by CredentialInsert) - BEFORE transaction
 		_, existErr := s.credReader.GetCredentialAnthropic(ctx, credID)
 		var exists bool
@@ -1550,6 +1557,10 @@ func (s *CredentialRPC) CredentialAnthropicUpdate(
 			return nil, err
 		}
 
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, s.userReader, workspaceID); err != nil {
+			return nil, err
+		}
+
 		existing, err := s.credReader.GetCredentialAnthropic(ctx, credID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -1640,6 +1651,10 @@ func (s *CredentialRPC) CredentialAnthropicDelete(
 			if connect.CodeOf(err) == connect.CodeNotFound {
 				continue
 			}
+			return nil, err
+		}
+
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, s.userReader, workspaceID); err != nil {
 			return nil, err
 		}
 

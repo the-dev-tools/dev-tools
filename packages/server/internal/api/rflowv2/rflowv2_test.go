@@ -187,6 +187,7 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		DB: db,
 		Readers: FlowServiceV2Readers{
 			Workspace: wsReader,
+			User:      sworkspace.NewUserReaderFromQueries(queries),
 			Flow:      fsReader,
 			Node:      nsReader,
 			Env:       senv.NewEnvReaderFromQueries(queries, logger),
@@ -242,7 +243,7 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -334,6 +335,7 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 		DB: db,
 		Readers: FlowServiceV2Readers{
 			Workspace: wsReader,
+			User:      sworkspace.NewUserReaderFromQueries(queries),
 			Flow:      fsReader,
 			Node:      nsReader,
 			Env:       senv.NewEnvReaderFromQueries(queries, logger),
@@ -389,7 +391,7 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -487,6 +489,7 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 		DB: db,
 		Readers: FlowServiceV2Readers{
 			Workspace: wsReader,
+			User:      sworkspace.NewUserReaderFromQueries(queries),
 			Flow:      fsReader,
 			Node:      nsReader,
 			Env:       senv.NewEnvReaderFromQueries(queries, logger),
@@ -542,7 +545,7 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

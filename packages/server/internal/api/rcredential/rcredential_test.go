@@ -22,6 +22,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 	credentialv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/credential/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -70,6 +71,8 @@ func newCredentialFixture(t *testing.T) *credentialFixture {
 	})
 	require.NoError(t, err, "create user")
 
+	userReader := sworkspace.NewUserReader(base.DB)
+
 	handler := New(CredentialRPCDeps{
 		DB: base.DB,
 		Services: CredentialRPCServices{
@@ -79,6 +82,7 @@ func newCredentialFixture(t *testing.T) *credentialFixture {
 		},
 		Readers: CredentialRPCReaders{
 			Credential: credReader,
+			User:       userReader,
 		},
 		Streamers: CredentialRPCStreamers{
 			Credential: credStream,
@@ -204,7 +208,7 @@ func TestCredentialInsert_InvalidWorkspace(t *testing.T) {
 
 	_, err := f.handler.CredentialInsert(f.ctx, req)
 	require.Error(t, err)
-	require.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+	require.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
 func TestCredentialUpdate_Success(t *testing.T) {

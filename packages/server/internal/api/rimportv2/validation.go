@@ -72,7 +72,7 @@ func (v *DefaultValidator) ValidateWorkspaceAccess(ctx context.Context, workspac
 		return err
 	}
 
-	if wsUser.Role < mworkspace.RoleUser {
+	if wsUser.Role < mworkspace.RoleAdmin {
 		return ErrPermissionDenied
 	}
 

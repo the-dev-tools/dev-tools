@@ -103,6 +103,7 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 	svc := &FlowServiceV2RPC{
 		DB:             db,
 		wsReader:       wsReader,
+		wsUserReader:   sworkspace.NewUserReaderFromQueries(queries),
 		fsReader:       fsReader,
 		nsReader:       nsReader,
 		flowEdgeReader: edgeService.Reader(),
@@ -143,7 +144,7 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

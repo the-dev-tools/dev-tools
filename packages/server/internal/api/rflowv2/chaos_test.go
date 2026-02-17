@@ -104,6 +104,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 		DB: db,
 		Readers: FlowServiceV2Readers{
 			Workspace: wsService.Reader(),
+			User:      sworkspace.NewUserReaderFromQueries(queries),
 			Flow:      flowService.Reader(),
 			Node:      nodeService.Reader(),
 			Env:       envService.Reader(),
@@ -146,7 +147,7 @@ func TestChaos_EventOrdering(t *testing.T) {
 
 	workspaceID := idwrap.NewNow()
 	require.NoError(t, wsService.Create(ctx, &mworkspace.Workspace{ID: workspaceID, Name: "Chaos WS", Updated: dbtime.DBNow()}))
-	require.NoError(t, queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{ID: idwrap.NewNow(), WorkspaceID: workspaceID, UserID: userID, Role: 1}))
+	require.NoError(t, queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{ID: idwrap.NewNow(), WorkspaceID: workspaceID, UserID: userID, Role: 3}))
 
 	flowID := idwrap.NewNow()
 	require.NoError(t, flowService.CreateFlow(ctx, mflow.Flow{ID: flowID, WorkspaceID: workspaceID, Name: "Chaos Flow"}))

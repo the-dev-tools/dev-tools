@@ -6,12 +6,14 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
 
 func TestEnvRPCDeps_Validate(t *testing.T) {
 	// Create minimal valid dependencies for testing
 	mockEnvReader := &senv.EnvReader{}
 	mockVarReader := &senv.VariableReader{}
+	mockUserReader := &sworkspace.UserReader{}
 	mockEnvStream := memory.NewInMemorySyncStreamer[EnvironmentTopic, EnvironmentEvent]()
 	mockVarStream := memory.NewInMemorySyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]()
 	mockDB := &sql.DB{} // Note: This is just for validation testing, not actual DB operations
@@ -29,6 +31,7 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 				Readers: EnvRPCReaders{
 					Env:      mockEnvReader,
 					Variable: mockVarReader,
+					User:     mockUserReader,
 				},
 				Streamers: EnvRPCStreamers{
 					Env:      mockEnvStream,
@@ -44,6 +47,7 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 				Readers: EnvRPCReaders{
 					Env:      mockEnvReader,
 					Variable: mockVarReader,
+					User:     mockUserReader,
 				},
 				Streamers: EnvRPCStreamers{
 					Env:      mockEnvStream,
@@ -60,6 +64,7 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 				Readers: EnvRPCReaders{
 					Env:      nil,
 					Variable: mockVarReader,
+					User:     mockUserReader,
 				},
 				Streamers: EnvRPCStreamers{
 					Env:      mockEnvStream,
@@ -76,6 +81,7 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 				Readers: EnvRPCReaders{
 					Env:      mockEnvReader,
 					Variable: nil,
+					User:     mockUserReader,
 				},
 				Streamers: EnvRPCStreamers{
 					Env:      mockEnvStream,
@@ -86,12 +92,30 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 			errMsg:  "variable reader is required",
 		},
 		{
+			name: "missing user reader",
+			deps: EnvRPCDeps{
+				DB: mockDB,
+				Readers: EnvRPCReaders{
+					Env:      mockEnvReader,
+					Variable: mockVarReader,
+					User:     nil,
+				},
+				Streamers: EnvRPCStreamers{
+					Env:      mockEnvStream,
+					Variable: mockVarStream,
+				},
+			},
+			wantErr: true,
+			errMsg:  "user reader is required",
+		},
+		{
 			name: "missing env stream",
 			deps: EnvRPCDeps{
 				DB: mockDB,
 				Readers: EnvRPCReaders{
 					Env:      mockEnvReader,
 					Variable: mockVarReader,
+					User:     mockUserReader,
 				},
 				Streamers: EnvRPCStreamers{
 					Env:      nil,
@@ -108,6 +132,7 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 				Readers: EnvRPCReaders{
 					Env:      mockEnvReader,
 					Variable: mockVarReader,
+					User:     mockUserReader,
 				},
 				Streamers: EnvRPCStreamers{
 					Env:      mockEnvStream,
@@ -142,6 +167,7 @@ func TestEnvRPCDeps_Validate(t *testing.T) {
 func TestEnvRPCReaders_Validate(t *testing.T) {
 	mockEnvReader := &senv.EnvReader{}
 	mockVarReader := &senv.VariableReader{}
+	mockUserReader := &sworkspace.UserReader{}
 
 	tests := []struct {
 		name    string
@@ -150,17 +176,22 @@ func TestEnvRPCReaders_Validate(t *testing.T) {
 	}{
 		{
 			name:    "valid - all readers present",
-			readers: EnvRPCReaders{Env: mockEnvReader, Variable: mockVarReader},
+			readers: EnvRPCReaders{Env: mockEnvReader, Variable: mockVarReader, User: mockUserReader},
 			wantErr: false,
 		},
 		{
 			name:    "missing env reader",
-			readers: EnvRPCReaders{Env: nil, Variable: mockVarReader},
+			readers: EnvRPCReaders{Env: nil, Variable: mockVarReader, User: mockUserReader},
 			wantErr: true,
 		},
 		{
 			name:    "missing variable reader",
-			readers: EnvRPCReaders{Env: mockEnvReader, Variable: nil},
+			readers: EnvRPCReaders{Env: mockEnvReader, Variable: nil, User: mockUserReader},
+			wantErr: true,
+		},
+		{
+			name:    "missing user reader",
+			readers: EnvRPCReaders{Env: mockEnvReader, Variable: mockVarReader, User: nil},
 			wantErr: true,
 		},
 	}

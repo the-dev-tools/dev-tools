@@ -47,9 +47,10 @@ type FileEvent struct {
 type FileServiceRPC struct {
 	DB *sql.DB
 
-	fs *sfile.FileService
-	us suser.UserService
-	ws sworkspace.WorkspaceService
+	fs         *sfile.FileService
+	us         suser.UserService
+	ws         sworkspace.WorkspaceService
+	userReader *sworkspace.UserReader
 
 	stream    eventstream.SyncStreamer[FileTopic, FileEvent]
 	publisher mutation.Publisher
@@ -59,11 +60,15 @@ type FileServiceRPCServices struct {
 	File      *sfile.FileService
 	User      suser.UserService
 	Workspace sworkspace.WorkspaceService
+	UserReader *sworkspace.UserReader
 }
 
 func (s *FileServiceRPCServices) Validate() error {
 	if s.File == nil {
 		return fmt.Errorf("file service is required")
+	}
+	if s.UserReader == nil {
+		return fmt.Errorf("user reader is required")
 	}
 	return nil
 }
@@ -94,12 +99,13 @@ func New(deps FileServiceRPCDeps) FileServiceRPC {
 	}
 
 	return FileServiceRPC{
-		DB:        deps.DB,
-		fs:        deps.Services.File,
-		us:        deps.Services.User,
-		ws:        deps.Services.Workspace,
-		stream:    deps.Stream,
-		publisher: deps.Publisher,
+		DB:         deps.DB,
+		fs:         deps.Services.File,
+		us:         deps.Services.User,
+		ws:         deps.Services.Workspace,
+		userReader: deps.Services.UserReader,
+		stream:     deps.Stream,
+		publisher:  deps.Publisher,
 	}
 }
 
@@ -504,9 +510,8 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 	// Step 2: Check permissions for all files OUTSIDE transaction
 	for _, file := range fileModels {
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, file.WorkspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, f.userReader, file.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		// Validate file
@@ -576,9 +581,8 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 		}
 
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, f.userReader, existingFile.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		// Convert API to model
@@ -653,9 +657,8 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 		}
 
 		// CHECK: Validate permissions
-		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFile.WorkspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, f.userReader, existingFile.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		deleteItems = append(deleteItems, mutation.FileDeleteItem{
@@ -774,9 +777,8 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 	defaultWorkspace := workspaces[0] // Use first workspace as default
 
 	// Step 2: Check workspace permissions OUTSIDE transaction
-	rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, defaultWorkspace.ID))
-	if rpcErr != nil {
-		return nil, rpcErr
+	if err := permcheck.CheckWorkspaceWriteAccess(ctx, f.userReader, defaultWorkspace.ID); err != nil {
+		return nil, err
 	}
 
 	// Step 3: Process request data and create folder models OUTSIDE transaction
@@ -862,9 +864,8 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 		}
 
 		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
+		if err := permcheck.CheckWorkspaceWriteAccess(ctx, f.userReader, existingFolder.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		// Convert API to model
@@ -945,9 +946,8 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 		}
 
 		// CHECK: Validate permissions
-		rpcErr := permcheck.CheckPerm(mwauth.CheckOwnerWorkspace(ctx, f.us, existingFolder.WorkspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
+		if err := permcheck.CheckWorkspaceDeleteAccess(ctx, f.userReader, existingFolder.WorkspaceID); err != nil {
+			return nil, err
 		}
 
 		deleteItems = append(deleteItems, mutation.FileDeleteItem{

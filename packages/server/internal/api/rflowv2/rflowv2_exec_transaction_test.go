@@ -53,8 +53,9 @@ func TestFlowVersionSnapshot_TransactionAtomicity(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
+		DB:           db,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		ws:           &wsService,
 		fs:     &flowService,
 		ns:     &nodeService,
 		es:     &edgeService,
@@ -92,7 +93,7 @@ func TestFlowVersionSnapshot_TransactionAtomicity(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -329,8 +330,9 @@ func TestFlowVersionSnapshot_EmptyFlow(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
+		DB:           db,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		ws:           &wsService,
 		fs:     &flowService,
 		ns:     &nodeService,
 		es:     &edgeService,
@@ -367,7 +369,7 @@ func TestFlowVersionSnapshot_EmptyFlow(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -439,8 +441,9 @@ func TestFlowVersionSnapshot_Concurrency_Simple(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
+		DB:           db,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		ws:           &wsService,
 		fs:     &flowService,
 		ns:     &nodeService,
 		es:     &edgeService,
@@ -477,7 +480,7 @@ func TestFlowVersionSnapshot_Concurrency_Simple(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -548,8 +551,9 @@ func TestFlowVersionSnapshot_Concurrency_WithNodes(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
+		DB:           db,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		ws:           &wsService,
 		fs:     &flowService,
 		ns:     &nodeService,
 		es:     &edgeService,
@@ -586,7 +590,7 @@ func TestFlowVersionSnapshot_Concurrency_WithNodes(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 
@@ -676,8 +680,9 @@ func TestFlowVersionSnapshot_Concurrency_Complex(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
+		DB:           db,
+		wsUserReader: sworkspace.NewUserReaderFromQueries(queries),
+		ws:           &wsService,
 		fs:     &flowService,
 		ns:     &nodeService,
 		es:     &edgeService,
@@ -714,7 +719,7 @@ func TestFlowVersionSnapshot_Concurrency_Complex(t *testing.T) {
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
-		Role:        1,
+		Role:        3,
 	})
 	require.NoError(t, err)
 

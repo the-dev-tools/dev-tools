@@ -75,7 +75,7 @@ func (s *FlowServiceV2RPC) NodeInsert(
 			return nil, err
 		}
 
-		if err := s.ensureFlowAccess(ctx, nodeModel.FlowID); err != nil {
+		if err := s.ensureFlowWriteAccess(ctx, nodeModel.FlowID); err != nil {
 			return nil, err
 		}
 
@@ -151,7 +151,7 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		existing, err := s.ensureNodeAccess(ctx, nodeID)
+		existing, err := s.ensureNodeWriteAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -247,7 +247,7 @@ func (s *FlowServiceV2RPC) NodeDelete(
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		existing, err := s.ensureNodeAccess(ctx, nodeID)
+		existing, err := s.ensureNodeDeleteAccess(ctx, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -317,7 +317,7 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
 			return true
 		}
-		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+		if err := s.ensureFlowReadAccess(ctx, topic.FlowID); err != nil {
 			return false
 		}
 		flowSet.Store(topic.FlowID.String(), struct{}{})
