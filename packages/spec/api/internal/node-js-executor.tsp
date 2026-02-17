@@ -1,6 +1,6 @@
 using DevTools;
 
-namespace Api.NodeJsExecutor;
+namespace Api.Internal.NodeJsExecutor;
 
 model NodeJsExecutorRunRequest {
   context: Protobuf.WellKnown.Json;
