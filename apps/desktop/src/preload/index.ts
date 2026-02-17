@@ -17,4 +17,9 @@ contextBridge.exposeInMainWorld('electron', {
     onProgress: (callback: (info: ProgressInfo) => void) =>
       ipcRenderer.on('update:progress', (_, info) => void callback(info as ProgressInfo)),
   },
+
+  agentLog: {
+    cleanup: () => void ipcRenderer.send('agent-log:cleanup'),
+    write: (fileName: string, jsonLine: string) => void ipcRenderer.send('agent-log:write', fileName, jsonLine),
+  },
 });

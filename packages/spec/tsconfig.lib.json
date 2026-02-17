@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.json",
-  "include": ["dist", "lib"],
+  "include": ["dist", "lib", "src/tools"],
   "exclude": ["node_modules", "*.ts"],
   "references": [
     {

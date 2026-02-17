@@ -15,6 +15,11 @@ declare global {
 
         onProgress: (callback: (info: ProgressInfo) => void) => void;
       };
+
+      agentLog: {
+        cleanup: () => void;
+        write: (fileName: string, jsonLine: string) => void;
+      };
     };
   }
 }
