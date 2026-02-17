@@ -95,11 +95,14 @@ const sortObject = (keys: string[], callingFunctionNamePattern?: string) => ({
 
 const rules = defineConfig({
   rules: {
+    'prefer-const': ['error', { destructuring: 'all' }],
+
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
     '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
     '@typescript-eslint/no-meaningless-void-operator': 'off',
     '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     '@typescript-eslint/no-non-null-assertion': 'off', // in protobuf everything is optional, requiring assertions
+    '@typescript-eslint/no-unnecessary-condition': ['error', { allowConstantLoopConditions: 'only-allowed-literals' }],
     '@typescript-eslint/no-unused-vars': [
       'error',
       { argsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_', varsIgnorePattern: '^_' },

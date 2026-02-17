@@ -120,30 +120,32 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
     const syncController = new AbortController();
 
     const sync = async () => {
-      const syncStream = stream({
-        method: schema.sync.method,
-        signal: syncController.signal,
-        timeoutMs: 0,
-        transport,
-      });
-
       try {
-        for await (const response of syncStream) {
-          const valid = validate(schema.sync.method.output, response);
+        while (true) {
+          const syncStream = stream({
+            method: schema.sync.method,
+            signal: syncController.signal,
+            timeoutMs: 0,
+            transport,
+          });
 
-          if (valid.kind !== 'valid') {
-            console.error('Invalid sync data', valid);
-            continue;
+          for await (const response of syncStream) {
+            const valid = validate(schema.sync.method.output, response);
+
+            if (valid.kind !== 'valid') {
+              console.error('Invalid sync data', valid);
+              continue;
+            }
+
+            const { items } = valid.message as Message & { items: Message[] };
+
+            if (!initialSyncState.isComplete) {
+              initialSyncState.buffer = initialSyncState.buffer.concat(items);
+              continue;
+            }
+
+            processSync(items);
           }
-
-          const { items } = valid.message as Message & { items: Message[] };
-
-          if (!initialSyncState.isComplete) {
-            initialSyncState.buffer = initialSyncState.buffer.concat(items);
-            continue;
-          }
-
-          processSync(items);
         }
       } catch (error) {
         if (error instanceof ConnectError && error.code === Code.Canceled) return;
