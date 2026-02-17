@@ -227,6 +227,8 @@ func CreateExportV2Service(srv ExportV2RPC, options []connect.HandlerOption) (*a
 }
 
 // Export implements the Export RPC method
+//
+//nolint:nopermskip // permission check delegated to service.Export → validator.ValidateWorkspaceAccess
 func (h *ExportV2RPC) Export(ctx context.Context, req *connect.Request[exportv1.ExportRequest]) (*connect.Response[exportv1.ExportResponse], error) {
 	h.logger.Info("Received Export request",
 		"workspace_id", req.Msg.WorkspaceId,
@@ -262,6 +264,8 @@ func (h *ExportV2RPC) Export(ctx context.Context, req *connect.Request[exportv1.
 }
 
 // ExportCurl implements the ExportCurl RPC method
+//
+//nolint:nopermskip // permission check delegated to service.ExportCurl → validator.ValidateWorkspaceAccess
 func (h *ExportV2RPC) ExportCurl(ctx context.Context, req *connect.Request[exportv1.ExportCurlRequest]) (*connect.Response[exportv1.ExportCurlResponse], error) {
 	h.logger.Info("Received ExportCurl request",
 		"workspace_id", req.Msg.WorkspaceId,

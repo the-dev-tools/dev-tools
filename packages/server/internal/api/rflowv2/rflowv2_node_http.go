@@ -62,6 +62,7 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 	return connect.NewResponse(&flowv1.NodeHttpCollectionResponse{Items: items}), nil
 }
 
+//nolint:nopermskip // TODO: add permission check
 func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Request[flowv1.NodeHttpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type insertData struct {

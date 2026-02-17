@@ -69,7 +69,8 @@
         "commands": [
           "golangci-lint run --allow-parallel-runners",
           "go tool norawsql github.com/the-dev-tools/dev-tools/packages/server/...",
-          "go tool notxread github.com/the-dev-tools/dev-tools/packages/server/..."
+          "go tool notxread github.com/the-dev-tools/dev-tools/packages/server/...",
+          "go tool nopermskip github.com/the-dev-tools/dev-tools/packages/server/..."
         ]
       }
     },

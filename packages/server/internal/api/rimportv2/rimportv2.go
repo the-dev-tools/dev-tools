@@ -279,6 +279,8 @@ func (h *ImportV2RPC) ImportUnifiedInternal(ctx context.Context, req *ImportRequ
 
 // Import implements the Import RPC method from the TypeSpec interface
 // This method delegates to the internal service after proper validation and setup
+//
+//nolint:nopermskip // permission check delegated to service.ImportUnified → validator.ValidateWorkspaceAccess
 func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.ImportRequest]) (*connect.Response[apiv1.ImportResponse], error) {
 	h.importMu.Lock()
 	defer h.importMu.Unlock()

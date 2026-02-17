@@ -54,6 +54,7 @@ func (s *FlowServiceV2RPC) NodeForEachCollection(
 	return connect.NewResponse(&flowv1.NodeForEachCollectionResponse{Items: items}), nil
 }
 
+//nolint:nopermskip // TODO: add permission check
 func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.Request[flowv1.NodeForEachInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type insertData struct {

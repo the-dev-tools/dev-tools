@@ -6,6 +6,7 @@ tool (
 	connectrpc.com/connect/cmd/protoc-gen-connect-go
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/sqlc-dev/sqlc/cmd/sqlc
+	github.com/the-dev-tools/dev-tools/tools/nopermskip/cmd/nopermskip
 	github.com/the-dev-tools/dev-tools/tools/norawsql/cmd/norawsql
 	github.com/the-dev-tools/dev-tools/tools/notxread/cmd/notxread
 	google.golang.org/protobuf/cmd/protoc-gen-go
@@ -204,6 +205,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tetafro/godot v1.5.4 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
+	github.com/the-dev-tools/dev-tools/tools/nopermskip v0.0.0-00010101000000-000000000000 // indirect
 	github.com/the-dev-tools/dev-tools/tools/norawsql v0.0.0-00010101000000-000000000000 // indirect
 	github.com/the-dev-tools/dev-tools/tools/notxread v0.0.0-00010101000000-000000000000 // indirect
 	github.com/timakin/bodyclose v0.0.0-20241222091800-1db5c5ca4d67 // indirect
@@ -257,6 +259,7 @@ require (
 )
 
 replace (
+	github.com/the-dev-tools/dev-tools/tools/nopermskip => ../nopermskip
 	github.com/the-dev-tools/dev-tools/tools/norawsql => ../norawsql
 	github.com/the-dev-tools/dev-tools/tools/notxread => ../notxread
 )

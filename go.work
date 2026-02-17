@@ -12,4 +12,5 @@ use (
 	./tools/modmigrate
 	./tools/norawsql
 	./tools/notxread
+	./tools/nopermskip
 )

@@ -53,6 +53,7 @@ func (s *FlowServiceV2RPC) NodeConditionCollection(
 	return connect.NewResponse(&flowv1.NodeConditionCollectionResponse{Items: items}), nil
 }
 
+//nolint:nopermskip // TODO: add permission check
 func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect.Request[flowv1.NodeConditionInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	// 1. Move validation OUTSIDE transaction (before BeginTx)
 	type insertData struct {

@@ -51,6 +51,7 @@ func (s *FlowServiceV2RPC) NodeAiCollection(
 	return connect.NewResponse(&flowv1.NodeAiCollectionResponse{Items: items}), nil
 }
 
+//nolint:nopermskip // TODO: add permission check
 func (s *FlowServiceV2RPC) NodeAiInsert(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeAiInsertRequest],
@@ -133,6 +134,7 @@ func (s *FlowServiceV2RPC) NodeAiInsert(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+//nolint:nopermskip // TODO: add permission check
 func (s *FlowServiceV2RPC) NodeAiUpdate(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeAiUpdateRequest],
@@ -211,6 +213,7 @@ func (s *FlowServiceV2RPC) NodeAiUpdate(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+//nolint:nopermskip // TODO: add permission check
 func (s *FlowServiceV2RPC) NodeAiDelete(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeAiDeleteRequest],

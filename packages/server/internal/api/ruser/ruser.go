@@ -126,6 +126,7 @@ func (c *UserServiceRPC) UserCollection(ctx context.Context, _ *connect.Request[
 	}), nil
 }
 
+//nolint:nopermskip // intentionally unimplemented
 func (c *UserServiceRPC) UserInsert(_ context.Context, _ *connect.Request[apiv1.UserInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("user insert is not supported"))
 }
