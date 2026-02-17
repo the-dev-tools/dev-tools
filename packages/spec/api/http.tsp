@@ -25,8 +25,8 @@ enum HttpBodyKind {
 model Http {
   @primaryKey httpId: Id;
   name: string;
-  method: HttpMethod;
-  url: string;
+  @doc("HTTP method for the request (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS)") method: HttpMethod;
+  @doc("The URL to send the HTTP request to") url: string;
   bodyKind: HttpBodyKind;
   lastRunAt?: Protobuf.WellKnown.Timestamp;
 }

@@ -3,6 +3,7 @@ output-dir: '{project-root}/dist'
 emit:
   - '@the-dev-tools/spec-lib/protobuf'
   - '@the-dev-tools/spec-lib/tanstack-db'
+  - '@the-dev-tools/spec-lib/ai-tools'
 
 options:
   '@the-dev-tools/spec-lib':

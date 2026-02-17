@@ -1,6 +1,7 @@
 import "@the-dev-tools/spec-lib/core";
 import "@the-dev-tools/spec-lib/protobuf";
 import "@the-dev-tools/spec-lib/tanstack-db";
+import "@the-dev-tools/spec-lib/ai-tools";
 
 import "./auth-common.tsp";
 import "./auth.tsp";
@@ -25,11 +26,11 @@ alias Id = bytes;
 
 model CommonTableFields<TParent extends Reflection.Model> {
   ...Keys<TParent, #{ primary: KeyAs.Foreign, foreign: KeyAs.Omit }>;
-  key: string;
-  enabled: boolean;
-  value: string;
-  description: string;
-  order: float32;
+  @doc("Variable name (used to reference it in expressions)") key: string;
+  @doc("Whether the variable is active") enabled: boolean;
+  @doc("Variable value") value: string;
+  @doc("Description of what the variable is for") description: string;
+  @doc("Display order") order: float32;
 }
 
 @DevTools.project
