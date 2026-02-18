@@ -329,6 +329,68 @@ sql:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ## auth_user
+          - column: 'auth_user.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_user.created_at'
+            go_type: 'int64'
+          - column: 'auth_user.updated_at'
+            go_type: 'int64'
+          ## auth_session
+          - column: 'auth_session.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_session.user_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_session.expires_at'
+            go_type: 'int64'
+          - column: 'auth_session.created_at'
+            go_type: 'int64'
+          - column: 'auth_session.updated_at'
+            go_type: 'int64'
+          ## auth_account
+          - column: 'auth_account.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_account.user_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_account.access_token_expires_at'
+            go_type:
+              type: 'int64'
+              pointer: true
+          - column: 'auth_account.refresh_token_expires_at'
+            go_type:
+              type: 'int64'
+              pointer: true
+          - column: 'auth_account.created_at'
+            go_type: 'int64'
+          - column: 'auth_account.updated_at'
+            go_type: 'int64'
+          ## auth_verification
+          - column: 'auth_verification.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_verification.expires_at'
+            go_type: 'int64'
+          - column: 'auth_verification.created_at'
+            go_type: 'int64'
+          - column: 'auth_verification.updated_at'
+            go_type: 'int64'
           ## flow_variable
           ### id
           - column: 'flow_variable.id'

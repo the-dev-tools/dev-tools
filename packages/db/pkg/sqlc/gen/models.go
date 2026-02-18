@@ -11,6 +11,52 @@ import (
 	idwrap "github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
+type AuthAccount struct {
+	ID                    idwrap.IDWrap
+	UserID                idwrap.IDWrap
+	AccountID             string
+	ProviderID            string
+	AccessToken           sql.NullString
+	RefreshToken          sql.NullString
+	AccessTokenExpiresAt  *int64
+	RefreshTokenExpiresAt *int64
+	Scope                 sql.NullString
+	IDToken               sql.NullString
+	Password              sql.NullString
+	CreatedAt             int64
+	UpdatedAt             int64
+}
+
+type AuthSession struct {
+	ID        idwrap.IDWrap
+	UserID    idwrap.IDWrap
+	Token     string
+	ExpiresAt int64
+	IpAddress sql.NullString
+	UserAgent sql.NullString
+	CreatedAt int64
+	UpdatedAt int64
+}
+
+type AuthUser struct {
+	ID            idwrap.IDWrap
+	Name          string
+	Email         string
+	EmailVerified int64
+	Image         sql.NullString
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
+type AuthVerification struct {
+	ID         idwrap.IDWrap
+	Identifier string
+	Value      string
+	ExpiresAt  int64
+	CreatedAt  int64
+	UpdatedAt  int64
+}
+
 type Credential struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap

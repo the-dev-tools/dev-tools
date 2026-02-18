@@ -24,6 +24,84 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.authCountUsersStmt, err = db.PrepareContext(ctx, authCountUsers); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCountUsers: %w", err)
+	}
+	if q.authCreateAccountStmt, err = db.PrepareContext(ctx, authCreateAccount); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateAccount: %w", err)
+	}
+	if q.authCreateSessionStmt, err = db.PrepareContext(ctx, authCreateSession); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateSession: %w", err)
+	}
+	if q.authCreateUserStmt, err = db.PrepareContext(ctx, authCreateUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateUser: %w", err)
+	}
+	if q.authCreateVerificationStmt, err = db.PrepareContext(ctx, authCreateVerification); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateVerification: %w", err)
+	}
+	if q.authDeleteAccountStmt, err = db.PrepareContext(ctx, authDeleteAccount); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteAccount: %w", err)
+	}
+	if q.authDeleteAccountsByUserStmt, err = db.PrepareContext(ctx, authDeleteAccountsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteAccountsByUser: %w", err)
+	}
+	if q.authDeleteExpiredSessionsStmt, err = db.PrepareContext(ctx, authDeleteExpiredSessions); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteExpiredSessions: %w", err)
+	}
+	if q.authDeleteExpiredVerificationsStmt, err = db.PrepareContext(ctx, authDeleteExpiredVerifications); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteExpiredVerifications: %w", err)
+	}
+	if q.authDeleteSessionStmt, err = db.PrepareContext(ctx, authDeleteSession); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteSession: %w", err)
+	}
+	if q.authDeleteSessionByTokenStmt, err = db.PrepareContext(ctx, authDeleteSessionByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteSessionByToken: %w", err)
+	}
+	if q.authDeleteUserStmt, err = db.PrepareContext(ctx, authDeleteUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteUser: %w", err)
+	}
+	if q.authDeleteVerificationStmt, err = db.PrepareContext(ctx, authDeleteVerification); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteVerification: %w", err)
+	}
+	if q.authGetAccountStmt, err = db.PrepareContext(ctx, authGetAccount); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetAccount: %w", err)
+	}
+	if q.authGetAccountByProviderStmt, err = db.PrepareContext(ctx, authGetAccountByProvider); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetAccountByProvider: %w", err)
+	}
+	if q.authGetSessionStmt, err = db.PrepareContext(ctx, authGetSession); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetSession: %w", err)
+	}
+	if q.authGetSessionByTokenStmt, err = db.PrepareContext(ctx, authGetSessionByToken); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetSessionByToken: %w", err)
+	}
+	if q.authGetUserStmt, err = db.PrepareContext(ctx, authGetUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetUser: %w", err)
+	}
+	if q.authGetUserByEmailStmt, err = db.PrepareContext(ctx, authGetUserByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetUserByEmail: %w", err)
+	}
+	if q.authGetVerificationStmt, err = db.PrepareContext(ctx, authGetVerification); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetVerification: %w", err)
+	}
+	if q.authGetVerificationByIdentifierStmt, err = db.PrepareContext(ctx, authGetVerificationByIdentifier); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetVerificationByIdentifier: %w", err)
+	}
+	if q.authListAccountsByUserStmt, err = db.PrepareContext(ctx, authListAccountsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListAccountsByUser: %w", err)
+	}
+	if q.authListSessionsByUserStmt, err = db.PrepareContext(ctx, authListSessionsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListSessionsByUser: %w", err)
+	}
+	if q.authUpdateAccountStmt, err = db.PrepareContext(ctx, authUpdateAccount); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthUpdateAccount: %w", err)
+	}
+	if q.authUpdateSessionStmt, err = db.PrepareContext(ctx, authUpdateSession); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthUpdateSession: %w", err)
+	}
+	if q.authUpdateUserStmt, err = db.PrepareContext(ctx, authUpdateUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthUpdateUser: %w", err)
+	}
 	if q.checkIFWorkspaceUserExistsStmt, err = db.PrepareContext(ctx, checkIFWorkspaceUserExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckIFWorkspaceUserExists: %w", err)
 	}
@@ -857,6 +935,136 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.authCountUsersStmt != nil {
+		if cerr := q.authCountUsersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCountUsersStmt: %w", cerr)
+		}
+	}
+	if q.authCreateAccountStmt != nil {
+		if cerr := q.authCreateAccountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateAccountStmt: %w", cerr)
+		}
+	}
+	if q.authCreateSessionStmt != nil {
+		if cerr := q.authCreateSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateSessionStmt: %w", cerr)
+		}
+	}
+	if q.authCreateUserStmt != nil {
+		if cerr := q.authCreateUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateUserStmt: %w", cerr)
+		}
+	}
+	if q.authCreateVerificationStmt != nil {
+		if cerr := q.authCreateVerificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateVerificationStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteAccountStmt != nil {
+		if cerr := q.authDeleteAccountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteAccountStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteAccountsByUserStmt != nil {
+		if cerr := q.authDeleteAccountsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteAccountsByUserStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteExpiredSessionsStmt != nil {
+		if cerr := q.authDeleteExpiredSessionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteExpiredSessionsStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteExpiredVerificationsStmt != nil {
+		if cerr := q.authDeleteExpiredVerificationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteExpiredVerificationsStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteSessionStmt != nil {
+		if cerr := q.authDeleteSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteSessionStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteSessionByTokenStmt != nil {
+		if cerr := q.authDeleteSessionByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteSessionByTokenStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteUserStmt != nil {
+		if cerr := q.authDeleteUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteUserStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteVerificationStmt != nil {
+		if cerr := q.authDeleteVerificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteVerificationStmt: %w", cerr)
+		}
+	}
+	if q.authGetAccountStmt != nil {
+		if cerr := q.authGetAccountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetAccountStmt: %w", cerr)
+		}
+	}
+	if q.authGetAccountByProviderStmt != nil {
+		if cerr := q.authGetAccountByProviderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetAccountByProviderStmt: %w", cerr)
+		}
+	}
+	if q.authGetSessionStmt != nil {
+		if cerr := q.authGetSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetSessionStmt: %w", cerr)
+		}
+	}
+	if q.authGetSessionByTokenStmt != nil {
+		if cerr := q.authGetSessionByTokenStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetSessionByTokenStmt: %w", cerr)
+		}
+	}
+	if q.authGetUserStmt != nil {
+		if cerr := q.authGetUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetUserStmt: %w", cerr)
+		}
+	}
+	if q.authGetUserByEmailStmt != nil {
+		if cerr := q.authGetUserByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetUserByEmailStmt: %w", cerr)
+		}
+	}
+	if q.authGetVerificationStmt != nil {
+		if cerr := q.authGetVerificationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetVerificationStmt: %w", cerr)
+		}
+	}
+	if q.authGetVerificationByIdentifierStmt != nil {
+		if cerr := q.authGetVerificationByIdentifierStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetVerificationByIdentifierStmt: %w", cerr)
+		}
+	}
+	if q.authListAccountsByUserStmt != nil {
+		if cerr := q.authListAccountsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListAccountsByUserStmt: %w", cerr)
+		}
+	}
+	if q.authListSessionsByUserStmt != nil {
+		if cerr := q.authListSessionsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListSessionsByUserStmt: %w", cerr)
+		}
+	}
+	if q.authUpdateAccountStmt != nil {
+		if cerr := q.authUpdateAccountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authUpdateAccountStmt: %w", cerr)
+		}
+	}
+	if q.authUpdateSessionStmt != nil {
+		if cerr := q.authUpdateSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authUpdateSessionStmt: %w", cerr)
+		}
+	}
+	if q.authUpdateUserStmt != nil {
+		if cerr := q.authUpdateUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authUpdateUserStmt: %w", cerr)
+		}
+	}
 	if q.checkIFWorkspaceUserExistsStmt != nil {
 		if cerr := q.checkIFWorkspaceUserExistsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing checkIFWorkspaceUserExistsStmt: %w", cerr)
@@ -2276,6 +2484,32 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
+	authCountUsersStmt                         *sql.Stmt
+	authCreateAccountStmt                      *sql.Stmt
+	authCreateSessionStmt                      *sql.Stmt
+	authCreateUserStmt                         *sql.Stmt
+	authCreateVerificationStmt                 *sql.Stmt
+	authDeleteAccountStmt                      *sql.Stmt
+	authDeleteAccountsByUserStmt               *sql.Stmt
+	authDeleteExpiredSessionsStmt              *sql.Stmt
+	authDeleteExpiredVerificationsStmt         *sql.Stmt
+	authDeleteSessionStmt                      *sql.Stmt
+	authDeleteSessionByTokenStmt               *sql.Stmt
+	authDeleteUserStmt                         *sql.Stmt
+	authDeleteVerificationStmt                 *sql.Stmt
+	authGetAccountStmt                         *sql.Stmt
+	authGetAccountByProviderStmt               *sql.Stmt
+	authGetSessionStmt                         *sql.Stmt
+	authGetSessionByTokenStmt                  *sql.Stmt
+	authGetUserStmt                            *sql.Stmt
+	authGetUserByEmailStmt                     *sql.Stmt
+	authGetVerificationStmt                    *sql.Stmt
+	authGetVerificationByIdentifierStmt        *sql.Stmt
+	authListAccountsByUserStmt                 *sql.Stmt
+	authListSessionsByUserStmt                 *sql.Stmt
+	authUpdateAccountStmt                      *sql.Stmt
+	authUpdateSessionStmt                      *sql.Stmt
+	authUpdateUserStmt                         *sql.Stmt
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
 	cleanupOrphanedFlowEdgesStmt               *sql.Stmt
 	cleanupOrphanedFlowNodeConditionStmt       *sql.Stmt
@@ -2558,6 +2792,32 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                                         tx,
 		tx:                                         tx,
+		authCountUsersStmt:                         q.authCountUsersStmt,
+		authCreateAccountStmt:                      q.authCreateAccountStmt,
+		authCreateSessionStmt:                      q.authCreateSessionStmt,
+		authCreateUserStmt:                         q.authCreateUserStmt,
+		authCreateVerificationStmt:                 q.authCreateVerificationStmt,
+		authDeleteAccountStmt:                      q.authDeleteAccountStmt,
+		authDeleteAccountsByUserStmt:               q.authDeleteAccountsByUserStmt,
+		authDeleteExpiredSessionsStmt:              q.authDeleteExpiredSessionsStmt,
+		authDeleteExpiredVerificationsStmt:         q.authDeleteExpiredVerificationsStmt,
+		authDeleteSessionStmt:                      q.authDeleteSessionStmt,
+		authDeleteSessionByTokenStmt:               q.authDeleteSessionByTokenStmt,
+		authDeleteUserStmt:                         q.authDeleteUserStmt,
+		authDeleteVerificationStmt:                 q.authDeleteVerificationStmt,
+		authGetAccountStmt:                         q.authGetAccountStmt,
+		authGetAccountByProviderStmt:               q.authGetAccountByProviderStmt,
+		authGetSessionStmt:                         q.authGetSessionStmt,
+		authGetSessionByTokenStmt:                  q.authGetSessionByTokenStmt,
+		authGetUserStmt:                            q.authGetUserStmt,
+		authGetUserByEmailStmt:                     q.authGetUserByEmailStmt,
+		authGetVerificationStmt:                    q.authGetVerificationStmt,
+		authGetVerificationByIdentifierStmt:        q.authGetVerificationByIdentifierStmt,
+		authListAccountsByUserStmt:                 q.authListAccountsByUserStmt,
+		authListSessionsByUserStmt:                 q.authListSessionsByUserStmt,
+		authUpdateAccountStmt:                      q.authUpdateAccountStmt,
+		authUpdateSessionStmt:                      q.authUpdateSessionStmt,
+		authUpdateUserStmt:                         q.authUpdateUserStmt,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
 		cleanupOrphanedFlowEdgesStmt:               q.cleanupOrphanedFlowEdgesStmt,
 		cleanupOrphanedFlowNodeConditionStmt:       q.cleanupOrphanedFlowNodeConditionStmt,
