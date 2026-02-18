@@ -24,7 +24,7 @@ tasks:
       AUTH_MODE: betterauth
       AUTH_SECRET: dev-secret-do-not-use-in-production
       BETTERAUTH_URL: http://localhost:50051
-    cmd: nx run-many --targets=dev --projects=betterauth,auth-service,server,desktop {{.CLI_ARGS}}
+    cmd: nx run-many --targets=dev --projects=betterauth,server,desktop {{.CLI_ARGS}}
 
   lint:
     desc: Check code for common problems
