@@ -11,14 +11,14 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
-	authinternalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1"
-	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1/auth_internalv1connect"
+	authv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth/v1"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1/userv1connect"
 )
@@ -48,19 +48,19 @@ type LinkedAccountEvent struct {
 }
 
 type UserServiceRPC struct {
-	DB         *sql.DB
-	us         suser.UserService
-	stream     eventstream.SyncStreamer[UserTopic, UserEvent]
-	authClient auth_internalv1connect.AuthInternalServiceClient // nil in local mode
+	DB  *sql.DB
+	q   *gen.Queries
+	us  suser.UserService
+	stream eventstream.SyncStreamer[UserTopic, UserEvent]
 
 	linkedAccountStream eventstream.SyncStreamer[LinkedAccountTopic, LinkedAccountEvent]
 }
 
 type UserServiceRPCDeps struct {
-	DB         *sql.DB
-	User       suser.UserService
-	Streamer   eventstream.SyncStreamer[UserTopic, UserEvent]
-	AuthClient auth_internalv1connect.AuthInternalServiceClient // nil in local mode
+	DB      *sql.DB
+	Queries *gen.Queries
+	User    suser.UserService
+	Streamer eventstream.SyncStreamer[UserTopic, UserEvent]
 
 	LinkedAccountStreamer eventstream.SyncStreamer[LinkedAccountTopic, LinkedAccountEvent]
 }
@@ -84,11 +84,10 @@ func New(deps UserServiceRPCDeps) UserServiceRPC {
 	}
 
 	return UserServiceRPC{
-		DB:         deps.DB,
-		us:         deps.User,
-		stream:     deps.Streamer,
-		authClient: deps.AuthClient,
-
+		DB:                  deps.DB,
+		q:                   deps.Queries,
+		us:                  deps.User,
+		stream:              deps.Streamer,
 		linkedAccountStream: deps.LinkedAccountStreamer,
 	}
 }
@@ -243,11 +242,7 @@ func (c *UserServiceRPC) LinkedAccountCollection(ctx context.Context, _ *connect
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	if c.authClient == nil {
-		return connect.NewResponse(&apiv1.LinkedAccountCollectionResponse{}), nil
-	}
-
-	// Look up the user to get their ExternalID (BetterAuth user ID)
+	// Look up the user to get their ExternalID (BetterAuth auth_user ULID)
 	user, err := c.us.GetUser(ctx, userID)
 	if err != nil {
 		if errors.Is(err, suser.ErrUserNotFound) {
@@ -266,28 +261,34 @@ func (c *UserServiceRPC) LinkedAccountCollection(ctx context.Context, _ *connect
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid external ID: %w", err))
 	}
 
-	resp, err := c.authClient.AccountsByUserId(ctx, connect.NewRequest(&authinternalv1.AccountsByUserIdRequest{
-		UserId: externalULID.Bytes(),
-	}))
+	accounts, err := c.q.AuthListAccountsByUser(ctx, externalULID)
 	if err != nil {
-		if connectErr := new(connect.Error); errors.As(err, &connectErr) {
-			return nil, connectErr
-		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	items := make([]*apiv1.LinkedAccount, 0, len(resp.Msg.Accounts))
-	for _, acc := range resp.Msg.Accounts {
+	items := make([]*apiv1.LinkedAccount, 0, len(accounts))
+	for _, acc := range accounts {
 		items = append(items, &apiv1.LinkedAccount{
-			AccountId: acc.Id,
-			UserId:    acc.UserId,
-			Provider:  acc.Provider,
+			AccountId: acc.ID.Bytes(),
+			UserId:    acc.UserID.Bytes(),
+			Provider:  providerIDToEnum(acc.ProviderID),
 		})
 	}
 
 	return connect.NewResponse(&apiv1.LinkedAccountCollectionResponse{
 		Items: items,
 	}), nil
+}
+
+func providerIDToEnum(providerID string) authv1.AuthProvider {
+	switch providerID {
+	case "credential":
+		return authv1.AuthProvider_AUTH_PROVIDER_EMAIL
+	case "google":
+		return authv1.AuthProvider_AUTH_PROVIDER_GOOGLE
+	default:
+		return authv1.AuthProvider_AUTH_PROVIDER_UNSPECIFIED
+	}
 }
 
 func (c *UserServiceRPC) LinkedAccountSync(ctx context.Context, _ *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.LinkedAccountSyncResponse]) error {

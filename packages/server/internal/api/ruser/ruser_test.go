@@ -11,33 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
-	authcommonv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_common/v1"
-	authinternalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1"
-	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1/auth_internalv1connect"
+	authv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth/v1"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
 )
-
-// --- mock auth client ---
-
-type mockAuthInternalClient struct {
-	auth_internalv1connect.UnimplementedAuthInternalServiceHandler
-
-	accountsByUserIdResp *authinternalv1.AccountsByUserIdResponse
-	accountsByUserIdErr  error
-}
-
-func (m *mockAuthInternalClient) AccountsByUserId(_ context.Context, req *connect.Request[authinternalv1.AccountsByUserIdRequest]) (*connect.Response[authinternalv1.AccountsByUserIdResponse], error) {
-	if m.accountsByUserIdErr != nil {
-		return nil, m.accountsByUserIdErr
-	}
-	return connect.NewResponse(m.accountsByUserIdResp), nil
-}
 
 // --- test fixture ---
 
@@ -48,6 +32,7 @@ type userFixture struct {
 	userStream          eventstream.SyncStreamer[UserTopic, UserEvent]
 	linkedAccountStream eventstream.SyncStreamer[LinkedAccountTopic, LinkedAccountEvent]
 	userID              idwrap.IDWrap
+	externalULID        idwrap.IDWrap
 }
 
 func newUserFixture(t *testing.T) *userFixture {
@@ -62,12 +47,13 @@ func newUserFixture(t *testing.T) *userFixture {
 	t.Cleanup(linkedAccountStream.Shutdown)
 
 	userID := idwrap.NewNow()
-	externalID := idwrap.NewNow().String()
+	externalULID := idwrap.NewNow()
+	externalIDStr := externalULID.String()
 	err := services.UserService.CreateUser(context.Background(), &muser.User{
 		ID:         userID,
 		Email:      "test@example.com",
 		Name:       "Test User",
-		ExternalID: &externalID,
+		ExternalID: &externalIDStr,
 	})
 	require.NoError(t, err, "create user")
 
@@ -75,10 +61,10 @@ func newUserFixture(t *testing.T) *userFixture {
 
 	handler := New(UserServiceRPCDeps{
 		DB:                    base.DB,
+		Queries:               base.Queries,
 		User:                  services.UserService,
 		Streamer:              userStream,
 		LinkedAccountStreamer: linkedAccountStream,
-		AuthClient:            &mockAuthInternalClient{},
 	})
 
 	t.Cleanup(base.Close)
@@ -90,6 +76,7 @@ func newUserFixture(t *testing.T) *userFixture {
 		userStream:          userStream,
 		linkedAccountStream: linkedAccountStream,
 		userID:              userID,
+		externalULID:        externalULID,
 	}
 }
 
@@ -388,39 +375,61 @@ func TestUserSync_unauthenticated(t *testing.T) {
 
 func TestLinkedAccountCollection(t *testing.T) {
 	t.Run("returns only current user accounts", func(t *testing.T) {
-		testAccID1 := idwrap.NewNow()
-		testAccID2 := idwrap.NewNow()
-
 		f := newUserFixture(t)
-		f.handler.authClient = &mockAuthInternalClient{
-			accountsByUserIdResp: &authinternalv1.AccountsByUserIdResponse{
-				Accounts: []*authinternalv1.Account{
-					{
-						Id:                testAccID1.Bytes(),
-						UserId:            f.userID.Bytes(),
-						Provider:          authcommonv1.AuthProvider_AUTH_PROVIDER_EMAIL,
-						ProviderAccountId: "email-id",
-					},
-					{
-						Id:                testAccID2.Bytes(),
-						UserId:            f.userID.Bytes(),
-						Provider:          authcommonv1.AuthProvider_AUTH_PROVIDER_GOOGLE,
-						ProviderAccountId: "google-id",
-					},
-				},
-			},
-		}
+		now := time.Now().Unix()
+
+		// Seed auth_user (FK constraint) with the user's ExternalID as its ID
+		err := f.base.Queries.AuthCreateUser(f.ctx, gen.AuthCreateUserParams{
+			ID:            f.externalULID,
+			Name:          "Test User",
+			Email:         "test@example.com",
+			EmailVerified: 0,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		})
+		require.NoError(t, err)
+
+		// Seed two auth_accounts
+		accID1 := idwrap.NewNow()
+		err = f.base.Queries.AuthCreateAccount(f.ctx, gen.AuthCreateAccountParams{
+			ID:         accID1,
+			UserID:     f.externalULID,
+			AccountID:  "test@example.com",
+			ProviderID: "credential",
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+		require.NoError(t, err)
+
+		accID2 := idwrap.NewNow()
+		err = f.base.Queries.AuthCreateAccount(f.ctx, gen.AuthCreateAccountParams{
+			ID:         accID2,
+			UserID:     f.externalULID,
+			AccountID:  "google-sub-123",
+			ProviderID: "google",
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+		require.NoError(t, err)
 
 		resp, err := f.handler.LinkedAccountCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
 		require.Len(t, resp.Msg.Items, 2)
 
-		require.True(t, bytes.Equal(resp.Msg.Items[0].AccountId, testAccID1.Bytes()))
-		require.True(t, bytes.Equal(resp.Msg.Items[0].UserId, f.userID.Bytes()))
-		require.Equal(t, authcommonv1.AuthProvider_AUTH_PROVIDER_EMAIL, resp.Msg.Items[0].Provider)
+		// Index into results by account ID (order not guaranteed)
+		byID := make(map[string]*apiv1.LinkedAccount, len(resp.Msg.Items))
+		for _, item := range resp.Msg.Items {
+			byID[string(item.AccountId)] = item
+		}
 
-		require.True(t, bytes.Equal(resp.Msg.Items[1].AccountId, testAccID2.Bytes()))
-		require.Equal(t, authcommonv1.AuthProvider_AUTH_PROVIDER_GOOGLE, resp.Msg.Items[1].Provider)
+		acc1 := byID[string(accID1.Bytes())]
+		require.NotNil(t, acc1)
+		require.True(t, bytes.Equal(acc1.UserId, f.externalULID.Bytes()))
+		require.Equal(t, authv1.AuthProvider_AUTH_PROVIDER_EMAIL, acc1.Provider)
+
+		acc2 := byID[string(accID2.Bytes())]
+		require.NotNil(t, acc2)
+		require.Equal(t, authv1.AuthProvider_AUTH_PROVIDER_GOOGLE, acc2.Provider)
 	})
 
 	t.Run("user with no external ID returns empty", func(t *testing.T) {
@@ -444,10 +453,10 @@ func TestLinkedAccountCollection(t *testing.T) {
 		authCtx := mwauth.CreateAuthedContext(context.Background(), localUserID)
 		handler := New(UserServiceRPCDeps{
 			DB:                    base.DB,
+			Queries:               base.Queries,
 			User:                  services.UserService,
 			Streamer:              userStream,
 			LinkedAccountStreamer: linkedAccountStream,
-			AuthClient:            &mockAuthInternalClient{},
 		})
 		t.Cleanup(base.Close)
 
@@ -456,10 +465,10 @@ func TestLinkedAccountCollection(t *testing.T) {
 		require.Empty(t, resp.Msg.Items)
 	})
 
-	t.Run("local mode returns empty items", func(t *testing.T) {
+	t.Run("empty accounts", func(t *testing.T) {
 		f := newUserFixture(t)
-		f.handler.authClient = nil
 
+		// User has ExternalID but no auth_account rows — expect empty response
 		resp, err := f.handler.LinkedAccountCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
 		require.Empty(t, resp.Msg.Items)
@@ -474,33 +483,6 @@ func TestLinkedAccountCollection(t *testing.T) {
 		connectErr := new(connect.Error)
 		require.True(t, errors.As(err, &connectErr))
 		require.Equal(t, connect.CodeUnauthenticated, connectErr.Code())
-	})
-
-	t.Run("backend error", func(t *testing.T) {
-		f := newUserFixture(t)
-		f.handler.authClient = &mockAuthInternalClient{
-			accountsByUserIdErr: connect.NewError(connect.CodeUnavailable, errors.New("auth service down")),
-		}
-
-		_, err := f.handler.LinkedAccountCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-		require.Error(t, err)
-
-		connectErr := new(connect.Error)
-		require.True(t, errors.As(err, &connectErr))
-		require.Equal(t, connect.CodeUnavailable, connectErr.Code())
-	})
-
-	t.Run("empty accounts", func(t *testing.T) {
-		f := newUserFixture(t)
-		f.handler.authClient = &mockAuthInternalClient{
-			accountsByUserIdResp: &authinternalv1.AccountsByUserIdResponse{
-				Accounts: []*authinternalv1.Account{},
-			},
-		}
-
-		resp, err := f.handler.LinkedAccountCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-		require.NoError(t, err)
-		require.Empty(t, resp.Msg.Items)
 	})
 }
 
@@ -533,7 +515,7 @@ func TestLinkedAccountSync_streamsInsert(t *testing.T) {
 		LinkedAccount: &apiv1.LinkedAccount{
 			AccountId: accID.Bytes(),
 			UserId:    f.userID.Bytes(),
-			Provider:  authcommonv1.AuthProvider_AUTH_PROVIDER_GOOGLE,
+			Provider:  authv1.AuthProvider_AUTH_PROVIDER_GOOGLE,
 		},
 	})
 
@@ -543,7 +525,7 @@ func TestLinkedAccountSync_streamsInsert(t *testing.T) {
 	require.Equal(t, apiv1.LinkedAccountSync_ValueUnion_KIND_INSERT, val.GetKind())
 	require.True(t, bytes.Equal(accID.Bytes(), val.GetInsert().GetAccountId()))
 	require.True(t, bytes.Equal(f.userID.Bytes(), val.GetInsert().GetUserId()))
-	require.Equal(t, authcommonv1.AuthProvider_AUTH_PROVIDER_GOOGLE, val.GetInsert().GetProvider())
+	require.Equal(t, authv1.AuthProvider_AUTH_PROVIDER_GOOGLE, val.GetInsert().GetProvider())
 
 	cancel()
 	err := <-errCh
@@ -654,7 +636,7 @@ func TestLinkedAccountSync_filtersOtherUsers(t *testing.T) {
 		LinkedAccount: &apiv1.LinkedAccount{
 			AccountId: idwrap.NewNow().Bytes(),
 			UserId:    otherID.Bytes(),
-			Provider:  authcommonv1.AuthProvider_AUTH_PROVIDER_EMAIL,
+			Provider:  authv1.AuthProvider_AUTH_PROVIDER_EMAIL,
 		},
 	})
 
@@ -716,3 +698,4 @@ func TestLinkedAccountSync_blocksUntilEvent(t *testing.T) {
 		require.FailNow(t, "stream did not return after context cancellation")
 	}
 }
+

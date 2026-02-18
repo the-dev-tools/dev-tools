@@ -14,7 +14,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"connectrpc.com/connect"
 
@@ -59,7 +58,6 @@ import (
 	filesystemv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/file_system/v1"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 	httpv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/http/v1"
-	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_internal/v1/auth_internalv1connect"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/workspace/v1"
 )
@@ -243,7 +241,6 @@ func run() error {
 	// - "local": Single-user mode for desktop/CLI (no auth, dummy user)
 	// - "betterauth": Multi-user mode with BetterAuth (self-hosted or hosted, JWKS JWT validation)
 	var authInterceptor connect.Interceptor
-	var authInternalClient auth_internalv1connect.AuthInternalServiceClient
 	switch authMode {
 	case "betterauth":
 		if jwksURL == "" {
@@ -256,14 +253,6 @@ func run() error {
 		}
 		provider.Start(ctx)
 		authInterceptor = mwauth.NewBetterAuthInterceptor(provider.Keyfunc(), userService)
-
-		betterAuthURL := os.Getenv("BETTERAUTH_URL")
-		if betterAuthURL != "" {
-			authInternalClient = auth_internalv1connect.NewAuthInternalServiceClient(
-				&http.Client{Timeout: 30 * time.Second},
-				betterAuthURL,
-			)
-		}
 	default:
 		slog.Info("Using local authentication mode")
 		authInterceptor = mwauth.NewAuthInterceptor()
@@ -322,10 +311,10 @@ func run() error {
 
 	userSrv := ruser.New(ruser.UserServiceRPCDeps{
 		DB:                    currentDB,
+		Queries:               queries,
 		User:                  userService,
 		Streamer:              streamers.User,
 		LinkedAccountStreamer: streamers.LinkedAccount,
-		AuthClient:            authInternalClient,
 	})
 	newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
 
