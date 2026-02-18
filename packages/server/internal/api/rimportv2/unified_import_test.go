@@ -119,13 +119,41 @@ func TestFormatDetector(t *testing.T) {
 	}
 }
 
+func TestDetectOpenAPI_ConfidenceCapped(t *testing.T) {
+	// A standard Swagger 2.0 JSON spec should have high confidence but never exceed 1.0
+	swaggerJSON := `{
+		"swagger": "2.0",
+		"info": {"title": "Test API", "version": "1.0"},
+		"host": "api.example.com",
+		"basePath": "/v1",
+		"schemes": ["https"],
+		"paths": {
+			"/pets": {
+				"get": {
+					"summary": "List pets",
+					"responses": {"200": {"description": "OK"}}
+				}
+			}
+		}
+	}`
+
+	detector := NewFormatDetector()
+	result := detector.detectOpenAPI(swaggerJSON)
+	if result.Confidence > 1.0 {
+		t.Errorf("confidence %f exceeds maximum 1.0", result.Confidence)
+	}
+	if result.Format != FormatOpenAPI {
+		t.Errorf("expected FormatOpenAPI, got %v", result.Format)
+	}
+}
+
 // TestTranslatorRegistry tests the translator registry functionality
 func TestTranslatorRegistry(t *testing.T) {
 	registry := NewTranslatorRegistry(nil)
 
 	// Test supported formats
 	formats := registry.GetSupportedFormats()
-	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman}
+	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman, FormatOpenAPI}
 
 	if len(formats) != len(expectedFormats) {
 		t.Errorf("Expected %d formats, got %d", len(expectedFormats), len(formats))
@@ -330,7 +358,7 @@ func TestConstraints(t *testing.T) {
 		t.Errorf("Expected max data size 50MB, got %d bytes", constraints.MaxDataSizeBytes)
 	}
 
-	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman}
+	expectedFormats := []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman, FormatOpenAPI}
 	if len(constraints.SupportedFormats) != len(expectedFormats) {
 		t.Errorf("Expected %d supported formats, got %d", len(expectedFormats), len(constraints.SupportedFormats))
 	}

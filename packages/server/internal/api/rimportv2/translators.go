@@ -18,6 +18,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/harv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tcurlv2"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/topenapiv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tpostmanv2"
 	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 )
@@ -90,6 +91,7 @@ func NewTranslatorRegistry(httpService *shttp.HTTPService) *TranslatorRegistry {
 	registry.RegisterTranslator(NewYAMLTranslator())
 	registry.RegisterTranslator(NewCURLTranslator())
 	registry.RegisterTranslator(NewPostmanTranslator())
+	registry.RegisterTranslator(NewOpenAPITranslator())
 	registry.RegisterTranslator(NewJSONTranslator())
 
 	return registry
@@ -399,6 +401,56 @@ func (t *PostmanTranslator) Translate(ctx context.Context, data []byte, workspac
 				Order:   float64(i + 1),
 			})
 		}
+	}
+
+	// Extract domains from HTTP requests
+	result.Domains = extractDomainsFromHTTP(result.HTTPRequests)
+
+	return result, nil
+}
+
+// OpenAPITranslator implements Translator for OpenAPI/Swagger spec format
+type OpenAPITranslator struct {
+	detector *FormatDetector
+}
+
+// NewOpenAPITranslator creates a new OpenAPI translator
+func NewOpenAPITranslator() *OpenAPITranslator {
+	return &OpenAPITranslator{
+		detector: NewFormatDetector(),
+	}
+}
+
+func (t *OpenAPITranslator) GetFormat() Format {
+	return FormatOpenAPI
+}
+
+func (t *OpenAPITranslator) Validate(data []byte) error {
+	return t.detector.ValidateFormat(data, FormatOpenAPI)
+}
+
+func (t *OpenAPITranslator) Translate(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error) {
+	opts := topenapiv2.ConvertOptions{
+		WorkspaceID: workspaceID,
+	}
+
+	resolved, err := topenapiv2.ConvertOpenAPI(data, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert OpenAPI spec: %w", err)
+	}
+
+	result := &TranslationResult{
+		HTTPRequests: resolved.HTTPRequests,
+		Files:        resolved.Files,
+		Headers:      resolved.Headers,
+		SearchParams: resolved.SearchParams,
+		BodyRaw:      resolved.BodyRaw,
+		Asserts:      resolved.Asserts,
+		Flows:        []mflow.Flow{resolved.Flow},
+		Nodes:        resolved.Nodes,
+		RequestNodes: resolved.RequestNodes,
+		Edges:        resolved.Edges,
+		ProcessedAt:  time.Now().UnixMilli(),
 	}
 
 	// Extract domains from HTTP requests

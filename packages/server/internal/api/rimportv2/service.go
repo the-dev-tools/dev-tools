@@ -125,7 +125,7 @@ type ImportConstraints struct {
 func DefaultConstraints() *ImportConstraints {
 	return &ImportConstraints{
 		MaxDataSizeBytes: 50 * 1024 * 1024, // 50MB
-		SupportedFormats: []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman},
+		SupportedFormats: []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman, FormatOpenAPI},
 		AllowedMimeTypes: []string{
 			"application/json",
 			"application/har",
@@ -218,6 +218,13 @@ func WithLogger(logger *slog.Logger) ServiceOption {
 	}
 }
 
+// WithURLFetcher sets a custom URL fetcher (useful for testing)
+func WithURLFetcher(fetcher URLFetcher) ServiceOption {
+	return func(s *Service) {
+		s.urlFetcher = fetcher
+	}
+}
+
 // WithHTTPService sets the HTTP service for the service (required for HAR import overwrite detection)
 func WithHTTPService(httpService *shttp.HTTPService) ServiceOption {
 	return func(s *Service) {
@@ -231,6 +238,7 @@ type Service struct {
 	importer           Importer
 	validator          Validator
 	translatorRegistry *TranslatorRegistry
+	urlFetcher         URLFetcher
 	logger             *slog.Logger
 	timeout            time.Duration
 }
@@ -244,6 +252,7 @@ func NewService(importer Importer, validator Validator, opts ...ServiceOption) *
 		importer:           importer,
 		validator:          validator,
 		translatorRegistry: NewTranslatorRegistry(nil), // Auto-initialize translator registry without HTTP service (will be overridden if provided)
+		urlFetcher:         NewURLFetcher(),
 		timeout:            30 * time.Minute,           // Default timeout for import processing
 		logger:             slog.Default(),             // Default logger
 	}
@@ -461,7 +470,11 @@ func (s *Service) ImportWithTextData(ctx context.Context, req *ImportRequest) (*
 	return s.Import(ctx, req)
 }
 
-// ImportUnified processes any supported format with automatic detection
+// ImportUnified processes any supported format with automatic detection.
+// It handles three input modes:
+//  1. Binary data (req.Data) - file uploads (Postman JSON, HAR, etc.)
+//  2. Text data (req.TextData) - pasted curl commands, raw JSON/YAML
+//  3. URL text (req.TextData is a URL) - fetches content from URL (e.g., swagger.json URL)
 func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
 	s.logger.Debug("ImportUnified: Starting", "workspace_id", req.WorkspaceID)
 	// Check if context is already cancelled
@@ -488,6 +501,11 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 	// Validate workspace access
 	if err := s.validator.ValidateWorkspaceAccess(ctx, req.WorkspaceID); err != nil {
 		return nil, err // Return the original error for workspace access issues
+	}
+
+	// Resolve input data: handle TextData and URL fetching
+	if err := s.resolveInputData(ctx, req); err != nil {
+		return nil, err
 	}
 
 	s.logger.Debug("ImportUnified: Translating data")
@@ -689,16 +707,51 @@ func (s *Service) ImportUnifiedWithTextData(ctx context.Context, req *ImportRequ
 		"has_text_data", len(req.TextData) > 0,
 		"has_binary_data", len(req.Data) > 0)
 
-	// Convert text data to bytes if provided
-	if len(req.Data) == 0 && req.TextData != "" {
-		req.Data = []byte(req.TextData)
-		s.logger.Debug("Converted text data to binary",
-			"workspace_id", req.WorkspaceID,
-			"original_length", len(req.TextData),
-			"converted_length", len(req.Data))
+	return s.ImportUnified(ctx, req)
+}
+
+// resolveInputData ensures req.Data is populated for format detection.
+// It handles three cases:
+//  1. Data already present (file upload) - no action needed
+//  2. TextData is a URL - fetch content from the URL
+//  3. TextData is raw text (curl, JSON, YAML) - convert to bytes
+func (s *Service) resolveInputData(ctx context.Context, req *ImportRequest) error {
+	if len(req.Data) > 0 {
+		return nil // Already have binary data from file upload
 	}
 
-	return s.ImportUnified(ctx, req)
+	if req.TextData == "" {
+		return nil // No text data either (validation should have caught this)
+	}
+
+	// Check if TextData is a URL that we should fetch content from
+	if IsURL(req.TextData) {
+		s.logger.Debug("TextData is a URL, fetching content",
+			"url", req.TextData,
+			"workspace_id", req.WorkspaceID)
+
+		data, err := s.urlFetcher.Fetch(ctx, req.TextData)
+		if err != nil {
+			return fmt.Errorf("failed to fetch URL %q: %w", req.TextData, err)
+		}
+
+		req.Data = data
+		if req.Name == "" {
+			req.Name = req.TextData
+		}
+		s.logger.Debug("URL content fetched successfully",
+			"url", req.TextData,
+			"data_size", len(data))
+		return nil
+	}
+
+	// TextData is raw text (curl command, JSON, YAML, etc.)
+	req.Data = []byte(req.TextData)
+	s.logger.Debug("Converted text data to binary",
+		"workspace_id", req.WorkspaceID,
+		"data_size", len(req.Data))
+
+	return nil
 }
 
 // DetectFormat performs format detection on the provided data

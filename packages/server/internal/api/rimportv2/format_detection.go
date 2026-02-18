@@ -25,6 +25,7 @@ const (
 	FormatJSON
 	FormatCURL
 	FormatPostman
+	FormatOpenAPI
 )
 
 const ReasonValidJSON = "Valid JSON; "
@@ -42,6 +43,8 @@ func (f Format) String() string {
 		return "CURL"
 	case FormatPostman:
 		return "Postman"
+	case FormatOpenAPI:
+		return "OpenAPI"
 	default:
 		return "Unknown"
 	}
@@ -57,19 +60,27 @@ type DetectionResult struct {
 // FormatDetector implements automatic format detection with confidence scoring
 type FormatDetector struct {
 	// Pre-compiled regular expressions for performance
-	harPattern     *regexp.Regexp
-	curlPattern    *regexp.Regexp
-	postmanPattern *regexp.Regexp
-	yamlPattern    *regexp.Regexp
+	harPattern       *regexp.Regexp
+	curlPattern      *regexp.Regexp
+	postmanPattern   *regexp.Regexp
+	yamlPattern      *regexp.Regexp
+	swaggerPattern   *regexp.Regexp
+	openapi3Pattern  *regexp.Regexp
+	yamlSwaggerPat   *regexp.Regexp
+	yamlOpenapi3Pat  *regexp.Regexp
 }
 
 // NewFormatDetector creates a new format detector with compiled patterns
 func NewFormatDetector() *FormatDetector {
 	return &FormatDetector{
-		harPattern:     regexp.MustCompile(`^\s*\{?\s*"?log"?[\s\S]*"?entries"?[\s\S]*\}?\s*$`),
-		curlPattern:    regexp.MustCompile(`(?i)^\s*curl\s+`),
-		postmanPattern: regexp.MustCompile(`(?i)"?info"?\s*:\s*\{[\s\S]*"?name"?[\s\S]*"?schema"?\s*:\s*"https://schema\.getpostman\.com/json/collection/v2\.1\.0/collection\.json"`),
-		yamlPattern:    regexp.MustCompile(`(?i)^\s*flows?\s*:`),
+		harPattern:      regexp.MustCompile(`^\s*\{?\s*"?log"?[\s\S]*"?entries"?[\s\S]*\}?\s*$`),
+		curlPattern:     regexp.MustCompile(`(?i)^\s*curl\s+`),
+		postmanPattern:  regexp.MustCompile(`(?i)"?info"?\s*:\s*\{[\s\S]*"?name"?[\s\S]*"?schema"?\s*:\s*"https://schema\.getpostman\.com/json/collection/v2\.1\.0/collection\.json"`),
+		yamlPattern:     regexp.MustCompile(`(?i)^\s*flows?\s*:`),
+		swaggerPattern:  regexp.MustCompile(`(?i)"swagger"\s*:\s*"2\.\d+"`),
+		openapi3Pattern: regexp.MustCompile(`(?i)"openapi"\s*:\s*"3\.\d+\.\d+"`),
+		yamlSwaggerPat:  regexp.MustCompile(`(?im)^swagger\s*:\s*["']?2\.\d+`),
+		yamlOpenapi3Pat: regexp.MustCompile(`(?im)^openapi\s*:\s*["']?3\.\d+`),
 	}
 }
 
@@ -91,6 +102,7 @@ func (fd *FormatDetector) DetectFormat(data []byte) *DetectionResult {
 	results := []*DetectionResult{
 		fd.detectHAR(trimmed),
 		fd.detectPostman(trimmed),
+		fd.detectOpenAPI(trimmed),
 		fd.detectCURL(trimmed),
 		fd.detectYAML(trimmed),
 		fd.detectJSON(trimmed),
@@ -403,6 +415,91 @@ func (fd *FormatDetector) detectYAML(content string) *DetectionResult {
 	}
 }
 
+// detectOpenAPI detects OpenAPI/Swagger spec format with confidence scoring.
+// Supports both Swagger 2.0 ("swagger": "2.0") and OpenAPI 3.x ("openapi": "3.x.x").
+func (fd *FormatDetector) detectOpenAPI(content string) *DetectionResult {
+	confidence := 0.0
+	reason := ""
+
+	// Check for Swagger 2.0 pattern (JSON)
+	if fd.swaggerPattern.MatchString(content) {
+		confidence += 0.9
+		reason += "Swagger 2.0 spec detected; "
+	}
+
+	// Check for OpenAPI 3.x pattern (JSON)
+	if fd.openapi3Pattern.MatchString(content) {
+		confidence += 0.9
+		reason += "OpenAPI 3.x spec detected; "
+	}
+
+	// Check for YAML-format Swagger 2.0
+	if fd.yamlSwaggerPat.MatchString(content) {
+		confidence += 0.9
+		reason += "Swagger 2.0 YAML spec detected; "
+	}
+
+	// Check for YAML-format OpenAPI 3.x
+	if fd.yamlOpenapi3Pat.MatchString(content) {
+		confidence += 0.9
+		reason += "OpenAPI 3.x YAML spec detected; "
+	}
+
+	// Look for paths field (key indicator of OpenAPI/Swagger)
+	if strings.Contains(content, `"paths"`) || strings.Contains(content, "paths:") {
+		confidence += 0.2
+		reason += "paths field found; "
+	}
+
+	// Look for info field
+	if strings.Contains(content, `"info"`) || strings.Contains(content, "info:") {
+		confidence += 0.1
+		reason += "info field found; "
+	}
+
+	// Validate it's valid JSON or YAML
+	var jsonData map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &jsonData); err == nil {
+		confidence += 0.1
+		reason += ReasonValidJSON
+	} else {
+		// Try YAML
+		var yamlData map[string]interface{}
+		if err := yaml.Unmarshal([]byte(content), &yamlData); err == nil {
+			confidence += 0.1
+			reason += "Valid YAML; "
+		}
+	}
+
+	confidence = max(min(confidence, 1.0), 0)
+
+	return &DetectionResult{
+		Format:     FormatOpenAPI,
+		Confidence: confidence,
+		Reason:     strings.TrimSpace(reason),
+	}
+}
+
+// validateOpenAPI validates OpenAPI/Swagger format specifically
+func (fd *FormatDetector) validateOpenAPI(data []byte) error {
+	// Try JSON first, then YAML
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		if err := yaml.Unmarshal(data, &raw); err != nil {
+			return fmt.Errorf("invalid OpenAPI spec: not valid JSON or YAML: %w", err)
+		}
+	}
+
+	// Must have either "swagger" or "openapi" field
+	_, hasSwagger := raw["swagger"]
+	_, hasOpenAPI := raw["openapi"]
+	if !hasSwagger && !hasOpenAPI {
+		return fmt.Errorf("missing 'swagger' or 'openapi' version field")
+	}
+
+	return nil
+}
+
 // detectJSON detects generic JSON format with confidence scoring
 func (fd *FormatDetector) detectJSON(content string) *DetectionResult {
 	confidence := 0.0
@@ -486,6 +583,8 @@ func (fd *FormatDetector) ValidateFormat(data []byte, format Format) error {
 		return fd.validateYAML(data)
 	case FormatJSON:
 		return fd.validateJSON(data)
+	case FormatOpenAPI:
+		return fd.validateOpenAPI(data)
 	default:
 		return fmt.Errorf("unknown format: %v", format)
 	}
