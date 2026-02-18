@@ -91,10 +91,9 @@ func TestParseRequestBody_DeterministicContentType(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		rb := parseRequestBody(rbMap)
 		// Sorted order: application/x-www-form-urlencoded, multipart/form-data, text/xml
-		// Since none is application/json, it iterates all and the last one wins.
-		// With sorted keys, the last is always "text/xml".
-		if rb.ContentType != "text/xml" {
-			t.Errorf("iteration %d: expected content type 'text/xml' (last in sorted order), got %q", i, rb.ContentType)
+		// Since none is application/json, the first in sorted order is used.
+		if rb.ContentType != "application/x-www-form-urlencoded" {
+			t.Errorf("iteration %d: expected content type 'application/x-www-form-urlencoded' (first in sorted order), got %q", i, rb.ContentType)
 		}
 	}
 }
@@ -164,5 +163,35 @@ func TestParseRequestBody_JSONSchemaPreserved(t *testing.T) {
 	}
 	if example["name"] != "John" {
 		t.Errorf("expected example name 'John', got %v", example["name"])
+	}
+}
+
+func TestMergeParameters_Deterministic(t *testing.T) {
+	pathParams := []parameter{
+		{Name: "id", In: "path"},
+		{Name: "version", In: "path"},
+	}
+	opParams := []parameter{
+		{Name: "limit", In: "query"},
+		{Name: "offset", In: "query"},
+		{Name: "id", In: "path"}, // overrides path-level
+	}
+
+	var first []parameter
+	for i := 0; i < 50; i++ {
+		result := mergeParameters(pathParams, opParams)
+		if first == nil {
+			first = result
+			continue
+		}
+		if len(result) != len(first) {
+			t.Fatalf("iteration %d: length mismatch %d vs %d", i, len(result), len(first))
+		}
+		for j := range result {
+			if result[j].Name != first[j].Name || result[j].In != first[j].In {
+				t.Errorf("iteration %d: param[%d] mismatch: got %s:%s, want %s:%s",
+					i, j, result[j].In, result[j].Name, first[j].In, first[j].Name)
+			}
+		}
 	}
 }

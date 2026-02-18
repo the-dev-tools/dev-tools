@@ -726,7 +726,7 @@ func (s *Service) resolveInputData(ctx context.Context, req *ImportRequest) erro
 
 	// Check if TextData is a URL that we should fetch content from
 	if IsURL(req.TextData) {
-		s.logger.Info("TextData is a URL, fetching content",
+		s.logger.Debug("TextData is a URL, fetching content",
 			"url", req.TextData,
 			"workspace_id", req.WorkspaceID)
 
@@ -739,7 +739,7 @@ func (s *Service) resolveInputData(ctx context.Context, req *ImportRequest) erro
 		if req.Name == "" {
 			req.Name = req.TextData
 		}
-		s.logger.Info("URL content fetched successfully",
+		s.logger.Debug("URL content fetched successfully",
 			"url", req.TextData,
 			"data_size", len(data))
 		return nil

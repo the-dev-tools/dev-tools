@@ -471,9 +471,7 @@ func (fd *FormatDetector) detectOpenAPI(content string) *DetectionResult {
 		}
 	}
 
-	if confidence < 0 {
-		confidence = 0
-	}
+	confidence = max(min(confidence, 1.0), 0)
 
 	return &DetectionResult{
 		Format:     FormatOpenAPI,

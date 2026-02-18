@@ -385,8 +385,8 @@ func mergeParameters(pathParams, opParams []parameter) []parameter {
 		merged[p.In+":"+p.Name] = p
 	}
 	result := make([]parameter, 0, len(merged))
-	for _, p := range merged {
-		result = append(result, p)
+	for _, k := range sortedKeys(merged) {
+		result = append(result, merged[k])
 	}
 	return result
 }
@@ -402,25 +402,34 @@ func parseRequestBody(rbMap map[string]interface{}) *requestBody {
 
 	// Prefer application/json, fall back to first content type (sorted for deterministic selection)
 	contentTypes := sortedKeys(content)
-	for _, ct := range contentTypes {
-		ctData := content[ct]
-		rb.ContentType = ct
-		if ctMap, ok := ctData.(map[string]interface{}); ok {
-			if schemaRaw, ok := ctMap["schema"].(map[string]interface{}); ok {
-				rb.Schema = parseSchema(schemaRaw)
-			}
-			if example, ok := ctMap["example"]; ok {
-				if exBytes, err := json.Marshal(example); err == nil {
-					rb.Example = string(exBytes)
-				}
-			}
-		}
-		if ct == "application/json" {
-			break
-		}
+	if len(contentTypes) == 0 {
+		return rb
 	}
 
+	// First pass: look for application/json
+	if ctData, ok := content["application/json"]; ok {
+		applyContentType(rb, "application/json", ctData)
+		return rb
+	}
+
+	// Fallback: use first in sorted order
+	applyContentType(rb, contentTypes[0], content[contentTypes[0]])
 	return rb
+}
+
+// applyContentType sets the content type, schema, and example on the request body.
+func applyContentType(rb *requestBody, ct string, ctData interface{}) {
+	rb.ContentType = ct
+	if ctMap, ok := ctData.(map[string]interface{}); ok {
+		if schemaRaw, ok := ctMap["schema"].(map[string]interface{}); ok {
+			rb.Schema = parseSchema(schemaRaw)
+		}
+		if example, ok := ctMap["example"]; ok {
+			if exBytes, err := json.Marshal(example); err == nil {
+				rb.Example = string(exBytes)
+			}
+		}
+	}
 }
 
 // parseSchema parses a minimal schema object.
@@ -794,8 +803,8 @@ func buildFolderStructure(httpReqs []mhttp.HTTP, existingFiles []mfile.File, opt
 	}
 
 	result := make([]mfile.File, 0, len(folderFiles))
-	for _, f := range folderFiles {
-		result = append(result, f)
+	for _, k := range sortedKeys(folderFiles) {
+		result = append(result, folderFiles[k])
 	}
 	return result
 }

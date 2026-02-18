@@ -119,6 +119,34 @@ func TestFormatDetector(t *testing.T) {
 	}
 }
 
+func TestDetectOpenAPI_ConfidenceCapped(t *testing.T) {
+	// A standard Swagger 2.0 JSON spec should have high confidence but never exceed 1.0
+	swaggerJSON := `{
+		"swagger": "2.0",
+		"info": {"title": "Test API", "version": "1.0"},
+		"host": "api.example.com",
+		"basePath": "/v1",
+		"schemes": ["https"],
+		"paths": {
+			"/pets": {
+				"get": {
+					"summary": "List pets",
+					"responses": {"200": {"description": "OK"}}
+				}
+			}
+		}
+	}`
+
+	detector := NewFormatDetector()
+	result := detector.detectOpenAPI(swaggerJSON)
+	if result.Confidence > 1.0 {
+		t.Errorf("confidence %f exceeds maximum 1.0", result.Confidence)
+	}
+	if result.Format != FormatOpenAPI {
+		t.Errorf("expected FormatOpenAPI, got %v", result.Format)
+	}
+}
+
 // TestTranslatorRegistry tests the translator registry functionality
 func TestTranslatorRegistry(t *testing.T) {
 	registry := NewTranslatorRegistry(nil)
