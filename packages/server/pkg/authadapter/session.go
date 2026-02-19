@@ -199,35 +199,33 @@ func (a *Adapter) deleteSession(ctx context.Context, where []WhereClause) error 
 }
 
 func (a *Adapter) deleteManySession(ctx context.Context, where []WhereClause) error {
-	field, val, ok := singleEqWhere(where)
-	if !ok {
-		return ErrUnsupportedWhere
-	}
-	if field == "userId" {
-		userID, err := parseID(val)
-		if err != nil {
-			return err
-		}
-		sessions, err := a.q.AuthListSessionsByUser(ctx, userID)
-		if err != nil {
-			return err
-		}
-		for _, s := range sessions {
-			if err = a.q.AuthDeleteSession(ctx, s.ID); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	// expiresAt lt <timestamp> — delete expired sessions
 	if len(where) == 1 && where[0].Field == "expiresAt" && where[0].Operator == "lt" {
-		ts, err := parseInt64(val)
+		ts, err := parseInt64(where[0].Value)
 		if err != nil {
 			return err
 		}
 		return a.q.AuthDeleteExpiredSessions(ctx, ts)
 	}
-	return ErrUnsupportedWhere
+
+	field, val, ok := singleEqWhere(where)
+	if !ok || field != "userId" {
+		return ErrUnsupportedWhere
+	}
+	userID, err := parseID(val)
+	if err != nil {
+		return err
+	}
+	sessions, err := a.q.AuthListSessionsByUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+	for _, s := range sessions {
+		if err = a.q.AuthDeleteSession(ctx, s.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sessionToMap(s gen.AuthSession) map[string]any {
