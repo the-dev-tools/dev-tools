@@ -2,12 +2,14 @@ import { Atom, Registry } from '@effect-atom/atom-react';
 import { FetchHttpClient } from '@effect/platform';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { Layer, Logger, LogLevel, pipe } from 'effect';
+import { AuthService } from '../api/auth';
 import { ApiCollections } from '../api/collection.internal';
 import { ApiTransport } from '../api/transport';
 
 export const runtimeLayer = pipe(
   ApiCollections.Default,
   Layer.provideMerge(ApiTransport.Default),
+  Layer.provideMerge(AuthService.Default),
   Layer.provideMerge(FetchHttpClient.layer),
   Layer.provideMerge(Registry.layer),
   Layer.provideMerge(Logger.pretty),

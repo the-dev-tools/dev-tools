@@ -1,14 +1,14 @@
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { Config, Effect, pipe, Schedule } from 'effect';
 import { HealthService } from '@the-dev-tools/spec/buf/api/health/v1/health_pb';
-import { authInterceptor, AuthService } from './auth';
+import { authInterceptor } from './auth';
 import { effectInterceptor, request } from './connect-rpc';
 import { defaultInterceptors } from './interceptors';
 import { ApiTransportMock } from './mock';
 import { registry } from './protobuf';
 
 export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport', {
-  dependencies: [ApiTransportMock.Default, AuthService.Default],
+  dependencies: [ApiTransportMock.Default],
   effect: Effect.gen(function* () {
     const mock = yield* pipe(Config.boolean('PUBLIC_MOCK'), Config.withDefault(false));
     if (mock) return yield* ApiTransportMock;

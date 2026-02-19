@@ -77,8 +77,6 @@ function RouteComponent() {
             </Avatar>
             <span className={tw`text-xs leading-5 font-semibold tracking-tight`}>{workspace.name}</span>
           </ButtonAsRouteLink>
-
-          <div className='flex-1' />
         </>
       }
     >

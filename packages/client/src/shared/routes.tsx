@@ -8,6 +8,10 @@ export const routes = {
     workspace: {
       route: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan'),
       index: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/'),
+      user: {
+        signIn: getRouteApi('/(dashboard)/(user)/signIn'),
+        signUp: getRouteApi('/(dashboard)/(user)/signUp'),
+      },
       credential: getRouteApi(
         '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(credential)/credential/$credentialIdCan/',
       ),
