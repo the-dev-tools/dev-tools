@@ -78,7 +78,6 @@
       "executor": "nx:run-commands",
       "cache": true,
       "inputs": [
-        { "dependencySets": ["default"] },
         "{projectRoot}/cmd/authadapter-testserver/**",
         "{projectRoot}/pkg/authadapter/**",
         "{projectRoot}/internal/api/rauthadapter/**"
