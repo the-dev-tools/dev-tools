@@ -34,5 +34,6 @@ coverage.out
 **/.gocache/
 .code/
 packages/server/server
+packages/server/authadapter-testserver
 tools/collect_go_failures.py
 /server
