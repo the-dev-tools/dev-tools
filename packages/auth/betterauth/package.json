@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "better-auth": "better-auth",
     "build": "tsc --noEmit",
-    "dev": "node watch src/index.ts",
-    "start": "node src/index.ts",
+    "dev": "node --experimental-transform-types --watch src/index.ts",
+    "start": "node --experimental-transform-types src/index.ts",
     "test": "vitest run"
   },
   "dependencies": {

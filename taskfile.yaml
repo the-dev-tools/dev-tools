@@ -16,16 +16,6 @@ tasks:
       LOG_LEVEL: INFO
     cmd: nx run desktop:dev {{.CLI_ARGS}}
 
-  dev:desktop:auth:
-    desc: Start desktop app with BetterAuth authentication
-    interactive: true
-    env:
-      LOG_LEVEL: INFO
-      AUTH_MODE: betterauth
-      AUTH_SECRET: dev-secret-do-not-use-in-production
-      BETTERAUTH_URL: http://localhost:50051
-    cmd: nx run-many --targets=dev --projects=betterauth,server,desktop {{.CLI_ARGS}}
-
   lint:
     desc: Check code for common problems
     interactive: true

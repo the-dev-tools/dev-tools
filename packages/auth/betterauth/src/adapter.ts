@@ -1,9 +1,10 @@
-import { create, fromJson, JsonValue } from '@bufbuild/protobuf';
+import { create, fromJson, type JsonValue } from '@bufbuild/protobuf';
 import { ValueSchema } from '@bufbuild/protobuf/wkt';
 import { createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
 import * as BA from 'better-auth/adapters';
 import { Match, pipe, Record } from 'effect';
+import id128 from 'id128';
 import {
   AuthAdapterService,
   Connector,
@@ -11,6 +12,9 @@ import {
   Operator,
   WhereSchema,
 } from '@the-dev-tools/spec/buf/api/private/auth_adapter/v1/auth_adapter_pb';
+
+// eslint-disable-next-line import-x/no-named-as-default-member
+const { Ulid } = id128;
 
 export const makeTransport = (socketPath: string) =>
   createConnectTransport({
@@ -118,6 +122,8 @@ export const adapter = (config: CustomAdapterConfig) => {
     config: {
       adapterId: '@the-dev-tools/auth-adapter',
       adapterName: 'DevTools Auth Adapter',
+
+      customIdGenerator: () => Ulid.generate().toCanonical(),
 
       debugLogs: config.debugLogs,
       supportsArrays: true,

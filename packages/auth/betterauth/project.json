@@ -5,24 +5,13 @@
   "projectType": "library",
 
   "targets": {
-    "build": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "pnpm tsc",
-        "cwd": "packages/auth/betterauth"
-      },
-      "dependsOn": ["spec:build"]
-    },
-    "dev": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "pnpm dev",
-        "cwd": "packages/auth/betterauth"
-      },
-      "dependsOn": ["spec:build"]
-    },
     "test": {
       "dependsOn": ["server:build", "spec:build"]
+    },
+
+    "better-auth": {
+      "configurations": { "development": {} },
+      "defaultConfiguration": "development"
     }
   }
 }

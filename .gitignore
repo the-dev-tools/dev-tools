@@ -1,6 +1,6 @@
-.claude
 .ai
-conductor
+.bench/
+.claude
 .direnv
 .env.*.local
 .env.keys
@@ -17,16 +17,17 @@ conductor
 *.db-wal
 *.embed
 apps/cli/devtoolscli
+conductor
 data
 dist
-tmp/
 next-env.d.ts
 node_modules
 out
+packages/auth/betterauth/schema.json
 storybook-static
+tmp/
 tsconfig.tsbuildinfo
 tsp-output
-.bench/
 
 # Coverage files
 *.out
