@@ -169,6 +169,14 @@ func parseNullString(v json.RawMessage) (sql.NullString, error) {
 }
 
 func parseInt64(v json.RawMessage) (int64, error) {
+	// BetterAuth sends boolean fields (e.g. emailVerified) as JSON booleans.
+	var b bool
+	if json.Unmarshal(v, &b) == nil {
+		if b {
+			return 1, nil
+		}
+		return 0, nil
+	}
 	var n int64
 	return n, json.Unmarshal(v, &n)
 }

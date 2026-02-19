@@ -1,6 +1,6 @@
 using DevTools;
 
-namespace Api.Internal.AuthAdapter;
+namespace Api.AuthAdapter;
 
 enum Operator {
   Equal,
@@ -47,8 +47,6 @@ model CreateResponse {
   data: Protobuf.WellKnown.Json;
 }
 
-op Create(...CreateRequest): CreateResponse;
-
 model UpdateRequest {
   `model`: string;
   where: Where[];
@@ -58,8 +56,6 @@ model UpdateRequest {
 model UpdateResponse {
   data?: Protobuf.WellKnown.Json;
 }
-
-op Update(...UpdateRequest): UpdateResponse;
 
 model UpdateManyRequest {
   `model`: string;
@@ -71,8 +67,6 @@ model UpdateManyResponse {
   count: int32;
 }
 
-op UpdateMany(...UpdateManyRequest): UpdateManyResponse;
-
 model FindRequest {
   `model`: string;
   where: Where[];
@@ -82,8 +76,6 @@ model FindRequest {
 model FindResponse {
   data?: Protobuf.WellKnown.Json;
 }
-
-op Find(...FindRequest): FindResponse;
 
 model FindManyRequest {
   `model`: string;
@@ -97,14 +89,10 @@ model FindManyResponse {
   items: Protobuf.WellKnown.Json[];
 }
 
-op FindMany(...FindManyRequest): FindManyResponse;
-
 model DeleteRequest {
   `model`: string;
   where: Where[];
 }
-
-op Delete(...DeleteRequest): {};
 
 model DeleteManyRequest {
   `model`: string;
@@ -115,8 +103,6 @@ model DeleteManyResponse {
   count: int32;
 }
 
-op DeleteMany(...DeleteManyRequest): DeleteManyResponse;
-
 model CountRequest {
   `model`: string;
   where?: Where[];
@@ -126,4 +112,13 @@ model CountResponse {
   count: int32;
 }
 
-op Count(...CountRequest): CountResponse;
+interface AuthAdapterService {
+  op Create(...CreateRequest): CreateResponse;
+  op Update(...UpdateRequest): UpdateResponse;
+  op UpdateMany(...UpdateManyRequest): UpdateManyResponse;
+  op Find(...FindRequest): FindResponse;
+  op FindMany(...FindManyRequest): FindManyResponse;
+  op Delete(...DeleteRequest): {};
+  op DeleteMany(...DeleteManyRequest): DeleteManyResponse;
+  op Count(...CountRequest): CountResponse;
+}

@@ -1,0 +1,275 @@
+// Package rauthadapter implements the AuthAdapterService ConnectRPC handler,
+// bridging BetterAuth JSON adapter calls to the authadapter package.
+package rauthadapter
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/authadapter"
+	auth_adapterv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_adapter/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_adapter/v1/auth_adapterv1connect"
+)
+
+// AuthAdapterRPC implements AuthAdapterServiceHandler.
+type AuthAdapterRPC struct {
+	auth_adapterv1connect.UnimplementedAuthAdapterServiceHandler
+
+	adapter *authadapter.Adapter
+}
+
+// AuthAdapterRPCDeps holds dependencies for the handler.
+type AuthAdapterRPCDeps struct {
+	Adapter *authadapter.Adapter
+}
+
+// New creates an AuthAdapterRPC handler.
+func New(deps AuthAdapterRPCDeps) AuthAdapterRPC {
+	return AuthAdapterRPC{adapter: deps.Adapter}
+}
+
+// CreateService registers the handler and returns the path and http.Handler.
+func CreateService(h AuthAdapterRPC, opts ...connect.HandlerOption) (string, http.Handler) {
+	return auth_adapterv1connect.NewAuthAdapterServiceHandler(h, opts...)
+}
+
+// --- proto → adapter conversion helpers ---
+
+func operatorToString(op auth_adapterv1.Operator) string {
+	switch op {
+	case auth_adapterv1.Operator_OPERATOR_EQUAL:
+		return "eq"
+	case auth_adapterv1.Operator_OPERATOR_NOT_EQUAL:
+		return "ne"
+	case auth_adapterv1.Operator_OPERATOR_LESS_THAN:
+		return "lt"
+	case auth_adapterv1.Operator_OPERATOR_LESS_OR_EQUAL:
+		return "lte"
+	case auth_adapterv1.Operator_OPERATOR_GREATER_THAN:
+		return "gt"
+	case auth_adapterv1.Operator_OPERATOR_GREATER_OR_EQUAL:
+		return "gte"
+	case auth_adapterv1.Operator_OPERATOR_IN:
+		return "in"
+	case auth_adapterv1.Operator_OPERATOR_CONTAINS:
+		return "contains"
+	case auth_adapterv1.Operator_OPERATOR_STARTS_WITH:
+		return "starts_with"
+	case auth_adapterv1.Operator_OPERATOR_ENDS_WITH:
+		return "ends_with"
+	default:
+		return "eq"
+	}
+}
+
+func connectorToString(c auth_adapterv1.Connector) string {
+	if c == auth_adapterv1.Connector_CONNECTOR_OR {
+		return "OR"
+	}
+	return "AND"
+}
+
+// protoValueToRaw marshals a *structpb.Value to json.RawMessage.
+func protoValueToRaw(v *structpb.Value) (json.RawMessage, error) {
+	if v == nil {
+		return json.RawMessage("null"), nil
+	}
+	b, err := v.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(b), nil
+}
+
+// protoStructToMap converts a *structpb.Value (struct/object kind) to map[string]json.RawMessage.
+func protoStructToMap(v *structpb.Value) (map[string]json.RawMessage, error) {
+	if v == nil {
+		return map[string]json.RawMessage{}, nil
+	}
+	b, err := v.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// protoMapToData converts map[string]*structpb.Value to map[string]json.RawMessage.
+func protoMapToData(m map[string]*structpb.Value) (map[string]json.RawMessage, error) {
+	result := make(map[string]json.RawMessage, len(m))
+	for k, v := range m {
+		raw, err := protoValueToRaw(v)
+		if err != nil {
+			return nil, err
+		}
+		result[k] = raw
+	}
+	return result, nil
+}
+
+// mapToProtoValue converts map[string]any to *structpb.Value.
+func mapToProtoValue(m map[string]any) (*structpb.Value, error) {
+	if m == nil {
+		return structpb.NewNullValue(), nil
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	var v structpb.Value
+	if err := v.UnmarshalJSON(b); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// convertWhere converts proto Where slice to []authadapter.WhereClause.
+func convertWhere(where []*auth_adapterv1.Where) ([]authadapter.WhereClause, error) {
+	result := make([]authadapter.WhereClause, 0, len(where))
+	for _, w := range where {
+		raw, err := protoValueToRaw(w.GetValue())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, authadapter.WhereClause{
+			Field:     w.GetField(),
+			Operator:  operatorToString(w.GetOperator()),
+			Value:     raw,
+			Connector: connectorToString(w.GetConnector()),
+		})
+	}
+	return result, nil
+}
+
+// adapterErr maps authadapter sentinel errors to Connect codes.
+func adapterErr(err error) error {
+	if errors.Is(err, authadapter.ErrUnsupportedModel) || errors.Is(err, authadapter.ErrUnsupportedWhere) {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	return connect.NewError(connect.CodeInternal, err)
+}
+
+// --- RPC handlers ---
+
+func (h AuthAdapterRPC) Create(ctx context.Context, req *connect.Request[auth_adapterv1.CreateRequest]) (*connect.Response[auth_adapterv1.CreateResponse], error) {
+	data, err := protoStructToMap(req.Msg.GetData())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	result, err := h.adapter.Create(ctx, req.Msg.GetModel(), data)
+	if err != nil {
+		return nil, adapterErr(err)
+	}
+	v, err := mapToProtoValue(result)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&auth_adapterv1.CreateResponse{Data: v}), nil
+}
+
+func (h AuthAdapterRPC) Find(ctx context.Context, req *connect.Request[auth_adapterv1.FindRequest]) (*connect.Response[auth_adapterv1.FindResponse], error) {
+	where, err := convertWhere(req.Msg.GetWhere())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	result, err := h.adapter.FindOne(ctx, req.Msg.GetModel(), where)
+	if err != nil {
+		return nil, adapterErr(err)
+	}
+	if result == nil {
+		return connect.NewResponse(&auth_adapterv1.FindResponse{}), nil
+	}
+	v, err := mapToProtoValue(result)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&auth_adapterv1.FindResponse{Data: v}), nil
+}
+
+func (h AuthAdapterRPC) FindMany(ctx context.Context, req *connect.Request[auth_adapterv1.FindManyRequest]) (*connect.Response[auth_adapterv1.FindManyResponse], error) {
+	where, err := convertWhere(req.Msg.GetWhere())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	results, err := h.adapter.FindMany(ctx, req.Msg.GetModel(), where)
+	if err != nil {
+		return nil, adapterErr(err)
+	}
+	items := make([]*structpb.Value, 0, len(results))
+	for _, r := range results {
+		v, err := mapToProtoValue(r)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		items = append(items, v)
+	}
+	return connect.NewResponse(&auth_adapterv1.FindManyResponse{Items: items}), nil
+}
+
+func (h AuthAdapterRPC) Update(ctx context.Context, req *connect.Request[auth_adapterv1.UpdateRequest]) (*connect.Response[auth_adapterv1.UpdateResponse], error) {
+	where, err := convertWhere(req.Msg.GetWhere())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	data, err := protoStructToMap(req.Msg.GetUpdate())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	result, err := h.adapter.Update(ctx, req.Msg.GetModel(), where, data)
+	if err != nil {
+		return nil, adapterErr(err)
+	}
+	if result == nil {
+		return connect.NewResponse(&auth_adapterv1.UpdateResponse{}), nil
+	}
+	v, err := mapToProtoValue(result)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&auth_adapterv1.UpdateResponse{Data: v}), nil
+}
+
+func (h AuthAdapterRPC) UpdateMany(ctx context.Context, req *connect.Request[auth_adapterv1.UpdateManyRequest]) (*connect.Response[auth_adapterv1.UpdateManyResponse], error) {
+	// UpdateMany is not yet implemented in the adapter.
+	_ = req
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("UpdateMany is not implemented"))
+}
+
+func (h AuthAdapterRPC) Delete(ctx context.Context, req *connect.Request[auth_adapterv1.DeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	where, err := convertWhere(req.Msg.GetWhere())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if err := h.adapter.Delete(ctx, req.Msg.GetModel(), where); err != nil {
+		return nil, adapterErr(err)
+	}
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h AuthAdapterRPC) DeleteMany(ctx context.Context, req *connect.Request[auth_adapterv1.DeleteManyRequest]) (*connect.Response[auth_adapterv1.DeleteManyResponse], error) {
+	where, err := convertWhere(req.Msg.GetWhere())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if err := h.adapter.DeleteMany(ctx, req.Msg.GetModel(), where); err != nil {
+		return nil, adapterErr(err)
+	}
+	return connect.NewResponse(&auth_adapterv1.DeleteManyResponse{}), nil
+}
+
+func (h AuthAdapterRPC) Count(ctx context.Context, req *connect.Request[auth_adapterv1.CountRequest]) (*connect.Response[auth_adapterv1.CountResponse], error) {
+	n, err := h.adapter.Count(ctx, req.Msg.GetModel())
+	if err != nil {
+		return nil, adapterErr(err)
+	}
+	return connect.NewResponse(&auth_adapterv1.CountResponse{Count: int32(n)}), nil //nolint:gosec
+}
