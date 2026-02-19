@@ -37,7 +37,7 @@
       "path": "./tools/spec-lib"
     },
     {
-      "path": "./packages/auth/betterauth"
+      "path": "./packages/auth"
     }
   ]
 }

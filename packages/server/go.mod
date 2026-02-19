@@ -15,7 +15,7 @@ require (
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.11.1
-	github.com/the-dev-tools/dev-tools/packages/auth/authlib v0.0.0-00010101000000-000000000000
+	github.com/the-dev-tools/dev-tools/packages/auth-lib v0.0.0-00010101000000-000000000000
 	github.com/the-dev-tools/dev-tools/packages/db v0.0.0-20260109155745-2a4ef8569d93
 	github.com/the-dev-tools/dev-tools/packages/spec v0.0.0-20260109155745-2a4ef8569d93
 	github.com/tmc/langchaingo v0.1.14
@@ -81,7 +81,7 @@ require (
 )
 
 replace (
-	github.com/the-dev-tools/dev-tools/packages/auth/authlib => ../auth/authlib
+	github.com/the-dev-tools/dev-tools/packages/auth-lib => ../auth-lib
 	github.com/the-dev-tools/dev-tools/packages/db => ../db
 	github.com/the-dev-tools/dev-tools/packages/spec => ../spec
 )

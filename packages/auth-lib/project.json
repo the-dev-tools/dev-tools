@@ -1,7 +1,7 @@
 {
-  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
-  "name": "authlib",
+  "name": "auth-lib",
   "projectType": "library",
 
   "targets": {

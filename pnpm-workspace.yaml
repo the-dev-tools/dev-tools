@@ -2,7 +2,6 @@ packages:
   - apps/*
   - tools/*
   - packages/*
-  - packages/auth/*
 
 catalog:
   '@aikidosec/safe-chain': 1.4.0

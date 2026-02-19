@@ -2,7 +2,7 @@ go 1.25
 
 use (
 	./apps/cli
-	./packages/auth/authlib
+	./packages/auth-lib
 	./packages/db
 	./packages/server
 	./packages/spec

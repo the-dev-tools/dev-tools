@@ -23,7 +23,7 @@ dist
 next-env.d.ts
 node_modules
 out
-packages/auth/betterauth/schema.json
+packages/auth/schema.json
 storybook-static
 tmp/
 tsconfig.tsbuildinfo

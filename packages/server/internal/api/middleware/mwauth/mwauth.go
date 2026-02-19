@@ -13,7 +13,7 @@ import (
 	sqlite "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 
-	"github.com/the-dev-tools/dev-tools/packages/auth/authlib/jwks"
+	"github.com/the-dev-tools/dev-tools/packages/auth-lib/jwks"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"

@@ -1,5 +1,5 @@
 {
-  "name": "@the-dev-tools/betterauth",
+  "name": "@the-dev-tools/auth",
   "private": true,
   "type": "module",
   "scripts": {

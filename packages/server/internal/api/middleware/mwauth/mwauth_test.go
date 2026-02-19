@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/the-dev-tools/dev-tools/packages/auth/authlib/jwks"
+	"github.com/the-dev-tools/dev-tools/packages/auth-lib/jwks"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
