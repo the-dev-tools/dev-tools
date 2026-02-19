@@ -6,11 +6,12 @@
   "targets": {
     "test": {
       "executor": "nx:run-commands",
+      "cache": false,
       "options": {
         "command": "pnpm vitest run",
         "cwd": "packages/auth/auth-e2e"
       },
-      "dependsOn": ["spec:build"]
+      "dependsOn": ["spec:build", "server:build-testserver"]
     }
   }
 }

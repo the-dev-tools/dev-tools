@@ -1,9 +1,16 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 
-// Resolve the packages/server directory relative to this source file.
-// __dirname in ESM is available via import.meta.dirname (Node ≥20).
 const SERVER_DIR = path.resolve(import.meta.dirname, '../../../server');
+
+// Prefer the pre-built binary produced by `nx run server:build-testserver`.
+// Fall back to `go run` for developers who haven't run the build target.
+const PREBUILT = path.join(SERVER_DIR, 'authadapter-testserver');
+const usePrebuilt = fs.existsSync(PREBUILT);
+
+const cmd = usePrebuilt ? PREBUILT : 'go';
+const args = usePrebuilt ? [] : ['run', './cmd/authadapter-testserver'];
 
 export interface GoServer {
   socketPath: string;
@@ -14,12 +21,14 @@ export interface GoServer {
  * Spawns the authadapter-testserver Go binary and waits until it prints
  * "READY" to stdout before resolving.
  *
- * The server listens on a unique Unix socket path and exits on SIGTERM.
+ * Prefers a pre-built binary at packages/server/authadapter-testserver
+ * (produced by `nx run server:build-testserver`). Falls back to `go run`
+ * when the binary is absent (local dev without the build step).
  */
 export async function startGoServer(): Promise<GoServer> {
   const socketPath = `/tmp/authadapter-e2e-${process.pid.toString()}-${Date.now().toString()}.socket`;
 
-  const proc = spawn('go', ['run', './cmd/authadapter-testserver'], {
+  const proc = spawn(cmd, args, {
     cwd: SERVER_DIR,
     env: { ...process.env, SOCKET_PATH: socketPath },
     stdio: ['ignore', 'pipe', 'inherit'],
