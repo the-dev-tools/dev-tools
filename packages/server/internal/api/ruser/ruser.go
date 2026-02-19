@@ -18,8 +18,8 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
-	authv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth/v1"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
+	userv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1/userv1connect"
 )
 
@@ -48,18 +48,18 @@ type LinkedAccountEvent struct {
 }
 
 type UserServiceRPC struct {
-	DB  *sql.DB
-	q   *gen.Queries
-	us  suser.UserService
+	DB     *sql.DB
+	q      *gen.Queries
+	us     suser.UserService
 	stream eventstream.SyncStreamer[UserTopic, UserEvent]
 
 	linkedAccountStream eventstream.SyncStreamer[LinkedAccountTopic, LinkedAccountEvent]
 }
 
 type UserServiceRPCDeps struct {
-	DB      *sql.DB
-	Queries *gen.Queries
-	User    suser.UserService
+	DB       *sql.DB
+	Queries  *gen.Queries
+	User     suser.UserService
 	Streamer eventstream.SyncStreamer[UserTopic, UserEvent]
 
 	LinkedAccountStreamer eventstream.SyncStreamer[LinkedAccountTopic, LinkedAccountEvent]
@@ -280,14 +280,14 @@ func (c *UserServiceRPC) LinkedAccountCollection(ctx context.Context, _ *connect
 	}), nil
 }
 
-func providerIDToEnum(providerID string) authv1.AuthProvider {
+func providerIDToEnum(providerID string) userv1.AuthProvider {
 	switch providerID {
 	case "credential":
-		return authv1.AuthProvider_AUTH_PROVIDER_EMAIL
+		return userv1.AuthProvider_AUTH_PROVIDER_EMAIL
 	case "google":
-		return authv1.AuthProvider_AUTH_PROVIDER_GOOGLE
+		return userv1.AuthProvider_AUTH_PROVIDER_GOOGLE
 	default:
-		return authv1.AuthProvider_AUTH_PROVIDER_UNSPECIFIED
+		return userv1.AuthProvider_AUTH_PROVIDER_UNSPECIFIED
 	}
 }
 

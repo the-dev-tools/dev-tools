@@ -2,6 +2,11 @@ using DevTools;
 
 namespace Api.User;
 
+enum AuthProvider {
+  Email,
+  Google,
+}
+
 @TanStackDB.collection(#{ canCreate: false, canDelete: false })
 model User {
   @primaryKey userId: Id;
@@ -14,5 +19,5 @@ model User {
 model LinkedAccount {
   @primaryKey accountId: Id;
   @foreignKey userId: Id;
-  provider: Auth.AuthProvider;
+  provider: AuthProvider;
 }

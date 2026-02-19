@@ -11,7 +11,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	node_js_executorv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/node_js_executor/v1"
+	node_js_executorv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1"
 )
 
 // mockNodeJsClient is a mock implementation of NodeJsExecutorServiceClient for testing

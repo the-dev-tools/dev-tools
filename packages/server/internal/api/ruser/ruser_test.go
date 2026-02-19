@@ -19,7 +19,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
-	authv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth/v1"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
 )
 
@@ -425,11 +424,11 @@ func TestLinkedAccountCollection(t *testing.T) {
 		acc1 := byID[string(accID1.Bytes())]
 		require.NotNil(t, acc1)
 		require.True(t, bytes.Equal(acc1.UserId, f.externalULID.Bytes()))
-		require.Equal(t, authv1.AuthProvider_AUTH_PROVIDER_EMAIL, acc1.Provider)
+		require.Equal(t, apiv1.AuthProvider_AUTH_PROVIDER_EMAIL, acc1.Provider)
 
 		acc2 := byID[string(accID2.Bytes())]
 		require.NotNil(t, acc2)
-		require.Equal(t, authv1.AuthProvider_AUTH_PROVIDER_GOOGLE, acc2.Provider)
+		require.Equal(t, apiv1.AuthProvider_AUTH_PROVIDER_GOOGLE, acc2.Provider)
 	})
 
 	t.Run("user with no external ID returns empty", func(t *testing.T) {
@@ -515,7 +514,7 @@ func TestLinkedAccountSync_streamsInsert(t *testing.T) {
 		LinkedAccount: &apiv1.LinkedAccount{
 			AccountId: accID.Bytes(),
 			UserId:    f.userID.Bytes(),
-			Provider:  authv1.AuthProvider_AUTH_PROVIDER_GOOGLE,
+			Provider:  apiv1.AuthProvider_AUTH_PROVIDER_GOOGLE,
 		},
 	})
 
@@ -525,7 +524,7 @@ func TestLinkedAccountSync_streamsInsert(t *testing.T) {
 	require.Equal(t, apiv1.LinkedAccountSync_ValueUnion_KIND_INSERT, val.GetKind())
 	require.True(t, bytes.Equal(accID.Bytes(), val.GetInsert().GetAccountId()))
 	require.True(t, bytes.Equal(f.userID.Bytes(), val.GetInsert().GetUserId()))
-	require.Equal(t, authv1.AuthProvider_AUTH_PROVIDER_GOOGLE, val.GetInsert().GetProvider())
+	require.Equal(t, apiv1.AuthProvider_AUTH_PROVIDER_GOOGLE, val.GetInsert().GetProvider())
 
 	cancel()
 	err := <-errCh
@@ -636,7 +635,7 @@ func TestLinkedAccountSync_filtersOtherUsers(t *testing.T) {
 		LinkedAccount: &apiv1.LinkedAccount{
 			AccountId: idwrap.NewNow().Bytes(),
 			UserId:    otherID.Bytes(),
-			Provider:  authv1.AuthProvider_AUTH_PROVIDER_EMAIL,
+			Provider:  apiv1.AuthProvider_AUTH_PROVIDER_EMAIL,
 		},
 	})
 
@@ -698,4 +697,3 @@ func TestLinkedAccountSync_blocksUntilEvent(t *testing.T) {
 		require.FailNow(t, "stream did not return after context cancellation")
 	}
 }
-
