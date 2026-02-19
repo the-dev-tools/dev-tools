@@ -4,28 +4,27 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit",
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "node watch src/index.ts",
+    "start": "node src/index.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@bufbuild/protobuf": "catalog:",
     "@connectrpc/connect": "catalog:",
     "@connectrpc/connect-node": "catalog:",
+    "@effect/platform": "catalog:",
     "@effect/platform-node": "catalog:",
-    "@libsql/client": "^0.14.0",
     "@the-dev-tools/spec": "workspace:^",
     "better-auth": "catalog:",
-    "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "id128": "catalog:"
   },
   "devDependencies": {
+    "@better-auth/cli": "catalog:",
     "@the-dev-tools/eslint-config": "workspace:^",
+    "@the-dev-tools/server": "workspace:^",
     "@types/node": "catalog:",
     "eslint": "catalog:",
-    "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

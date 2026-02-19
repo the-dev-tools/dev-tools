@@ -10,6 +10,7 @@ enum Operator {
   GreaterThan,
   GreaterOrEqual,
   In,
+  NotIn,
   Contains,
   StartsWith,
   EndsWith,
@@ -39,12 +40,12 @@ model SortBy {
 
 model CreateRequest {
   `model`: string;
-  data: Protobuf.WellKnown.Json;
+  data: Protobuf.Map<string, Protobuf.WellKnown.Json>;
   select?: string[];
 }
 
 model CreateResponse {
-  data: Protobuf.WellKnown.Json;
+  data: Protobuf.Map<string, Protobuf.WellKnown.Json>;
 }
 
 op Create(...CreateRequest): CreateResponse;
