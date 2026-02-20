@@ -7,79 +7,43 @@ import (
 	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func (a *Adapter) createUser(ctx context.Context, data map[string]json.RawMessage) (map[string]any, error) {
-	// Normalize BetterAuth's possibly-modified field names to standard names.
-	normalized, mapping := normalizeData(userFieldToColumn, data)
-
-	id, err := parseOrGenerateID(normalized)
-	if err != nil {
-		return nil, err
-	}
-	name, err := parseString(getField(normalized, "name"))
-	if err != nil {
-		return nil, err
-	}
-	email, err := parseString(getField(normalized, "email"))
-	if err != nil {
-		return nil, err
-	}
-	emailVerified, err := parseInt64(getField(normalized, "emailVerified"))
-	if err != nil {
-		return nil, err
-	}
-	image, err := parseNullString(getField(normalized, "image"))
-	if err != nil {
-		return nil, err
-	}
-	createdAt, err := parseInt64(getField(normalized, "createdAt"))
-	if err != nil {
-		return nil, err
-	}
-	updatedAt, err := parseInt64(getField(normalized, "updatedAt"))
+	normalized, mapping := normalizeData(userModelDef.fieldMap(), data)
+	row, err := parseData(userModelDef.Fields, normalized)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = a.q.AuthCreateUser(ctx, gen.AuthCreateUserParams{
-		ID:            id,
-		Name:          name,
-		Email:         email,
-		EmailVerified: emailVerified,
-		Image:         image,
-		CreatedAt:     createdAt,
-		UpdatedAt:     updatedAt,
+		ID:            row["id"].(idwrap.IDWrap),
+		Name:          row["name"].(string),
+		Email:         row["email"].(string),
+		EmailVerified: row["emailVerified"].(int64),
+		Image:         row["image"].(sql.NullString),
+		CreatedAt:     row["createdAt"].(int64),
+		UpdatedAt:     row["updatedAt"].(int64),
 	}); err != nil {
 		return nil, err
 	}
 
-	result := map[string]any{
-		"id":            id.String(),
-		"name":          name,
-		"email":         email,
-		"emailVerified": emailVerified,
-		"image":         nullStrToAny(image),
-		"createdAt":     createdAt,
-		"updatedAt":     updatedAt,
-	}
-	return applyFieldMapping(result, mapping), nil
+	return applyFieldMapping(row.toMap(userModelDef.Fields), mapping), nil
 }
 
 func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[string]any, error) {
-	// Normalize where clause field names (handle BetterAuth modified field names).
-	normalizedWhere, mapping := normalizeWhereFields(userFieldToColumn, where)
+	normalizedWhere, mapping := normalizeWhereFields(userModelDef.fieldMap(), where)
 
-	// Fast path: use sqlc queries for common single-field eq lookups.
 	if field, val, ok := singleEqWhere(normalizedWhere); ok {
 		switch field {
 		case "id":
-			id, err := parseID(val)
+			id, found, err := resolveWhereID(val)
 			if err != nil {
-				if errors.Is(err, ErrInvalidID) {
-					return nil, nil // non-ULID ID → not found
-				}
 				return nil, err
+			}
+			if !found {
+				return nil, nil
 			}
 			u, err := a.q.AuthGetUser(ctx, id)
 			if err != nil {
@@ -88,7 +52,7 @@ func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[str
 				}
 				return nil, err
 			}
-			return applyFieldMapping(userToMap(u), mapping), nil
+			return applyFieldMapping(userFromSqlc(u).toMap(userModelDef.Fields), mapping), nil
 
 		case "email":
 			email, err := parseString(val)
@@ -102,11 +66,11 @@ func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[str
 				}
 				return nil, err
 			}
-			return applyFieldMapping(userToMap(u), mapping), nil
+			return applyFieldMapping(userFromSqlc(u).toMap(userModelDef.Fields), mapping), nil
 		}
 	}
 
-	// Fallback: use dynamic SQL for arbitrary where clauses.
+	// Fallback: dynamic SQL for arbitrary where clauses.
 	results, err := dynamicQueryUsers(ctx, a.db, normalizedWhere, FindManyOpts{Limit: 1})
 	if err != nil {
 		return nil, err
@@ -118,16 +82,12 @@ func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[str
 }
 
 func (a *Adapter) updateUser(ctx context.Context, where []WhereClause, data map[string]json.RawMessage) (map[string]any, error) {
-	field, val, ok := singleEqWhere(where)
-	if !ok || field != "id" {
-		return nil, ErrUnsupportedWhere
-	}
-	id, err := parseID(val)
+	id, found, err := parseWhereID(where)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil, nil // non-ULID ID → not found
-		}
 		return nil, err
+	}
+	if !found {
+		return nil, nil
 	}
 
 	cur, err := a.q.AuthGetUser(ctx, id)
@@ -172,7 +132,7 @@ func (a *Adapter) updateUser(ctx context.Context, where []WhereClause, data map[
 		return nil, err
 	}
 
-	return userToMap(cur), nil
+	return userFromSqlc(cur).toMap(userModelDef.Fields), nil
 }
 
 func (a *Adapter) findManyUsers(ctx context.Context, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) {
@@ -188,28 +148,12 @@ func (a *Adapter) deleteManyUsers(ctx context.Context, where []WhereClause) erro
 }
 
 func (a *Adapter) deleteUser(ctx context.Context, where []WhereClause) error {
-	field, val, ok := singleEqWhere(where)
-	if !ok || field != "id" {
-		return ErrUnsupportedWhere
-	}
-	id, err := parseID(val)
+	id, found, err := parseWhereID(where)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil // non-ULID ID → nothing to delete
-		}
 		return err
 	}
-	return a.q.AuthDeleteUser(ctx, id)
-}
-
-func userToMap(u gen.AuthUser) map[string]any {
-	return map[string]any{
-		"id":            u.ID.String(),
-		"name":          u.Name,
-		"email":         u.Email,
-		"emailVerified": u.EmailVerified,
-		"image":         nullStrToAny(u.Image),
-		"createdAt":     u.CreatedAt,
-		"updatedAt":     u.UpdatedAt,
+	if !found {
+		return nil
 	}
+	return a.q.AuthDeleteUser(ctx, id)
 }

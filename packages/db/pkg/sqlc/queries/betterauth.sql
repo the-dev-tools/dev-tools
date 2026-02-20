@@ -150,6 +150,11 @@ DELETE FROM auth_session
 WHERE
   token = ?;
 
+-- name: AuthDeleteSessionsByUser :exec
+DELETE FROM auth_session
+WHERE
+  user_id = ?;
+
 -- name: AuthDeleteExpiredSessions :exec
 DELETE FROM auth_session
 WHERE

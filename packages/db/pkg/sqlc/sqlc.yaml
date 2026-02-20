@@ -391,6 +391,18 @@ sql:
             go_type: 'int64'
           - column: 'auth_verification.updated_at'
             go_type: 'int64'
+          ## auth_jwks
+          - column: 'auth_jwks.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_jwks.created_at'
+            go_type: 'int64'
+          - column: 'auth_jwks.expires_at'
+            go_type:
+              type: 'int64'
+              pointer: true
           ## flow_variable
           ### id
           - column: 'flow_variable.id'

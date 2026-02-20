@@ -63,6 +63,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authDeleteSessionByTokenStmt, err = db.PrepareContext(ctx, authDeleteSessionByToken); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteSessionByToken: %w", err)
 	}
+	if q.authDeleteSessionsByUserStmt, err = db.PrepareContext(ctx, authDeleteSessionsByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteSessionsByUser: %w", err)
+	}
 	if q.authDeleteUserStmt, err = db.PrepareContext(ctx, authDeleteUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteUser: %w", err)
 	}
@@ -1007,6 +1010,11 @@ func (q *Queries) Close() error {
 	if q.authDeleteSessionByTokenStmt != nil {
 		if cerr := q.authDeleteSessionByTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authDeleteSessionByTokenStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteSessionsByUserStmt != nil {
+		if cerr := q.authDeleteSessionsByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteSessionsByUserStmt: %w", cerr)
 		}
 	}
 	if q.authDeleteUserStmt != nil {
@@ -2521,6 +2529,7 @@ type Queries struct {
 	authDeleteJwksStmt                         *sql.Stmt
 	authDeleteSessionStmt                      *sql.Stmt
 	authDeleteSessionByTokenStmt               *sql.Stmt
+	authDeleteSessionsByUserStmt               *sql.Stmt
 	authDeleteUserStmt                         *sql.Stmt
 	authDeleteVerificationStmt                 *sql.Stmt
 	authGetAccountStmt                         *sql.Stmt
@@ -2832,6 +2841,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authDeleteJwksStmt:                         q.authDeleteJwksStmt,
 		authDeleteSessionStmt:                      q.authDeleteSessionStmt,
 		authDeleteSessionByTokenStmt:               q.authDeleteSessionByTokenStmt,
+		authDeleteSessionsByUserStmt:               q.authDeleteSessionsByUserStmt,
 		authDeleteUserStmt:                         q.authDeleteUserStmt,
 		authDeleteVerificationStmt:                 q.authDeleteVerificationStmt,
 		authGetAccountStmt:                         q.authGetAccountStmt,

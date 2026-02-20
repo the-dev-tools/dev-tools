@@ -91,11 +91,11 @@ VALUES
 `
 
 type AuthCreateJwksParams struct {
-	ID         []byte
+	ID         idwrap.IDWrap
 	PublicKey  string
 	PrivateKey string
 	CreatedAt  int64
-	ExpiresAt  sql.NullInt64
+	ExpiresAt  *int64
 }
 
 // JWKS
@@ -259,7 +259,7 @@ WHERE
   id = ?
 `
 
-func (q *Queries) AuthDeleteJwks(ctx context.Context, id []byte) error {
+func (q *Queries) AuthDeleteJwks(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.authDeleteJwksStmt, authDeleteJwks, id)
 	return err
 }
@@ -283,6 +283,17 @@ WHERE
 
 func (q *Queries) AuthDeleteSessionByToken(ctx context.Context, token string) error {
 	_, err := q.exec(ctx, q.authDeleteSessionByTokenStmt, authDeleteSessionByToken, token)
+	return err
+}
+
+const authDeleteSessionsByUser = `-- name: AuthDeleteSessionsByUser :exec
+DELETE FROM auth_session
+WHERE
+  user_id = ?
+`
+
+func (q *Queries) AuthDeleteSessionsByUser(ctx context.Context, userID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.authDeleteSessionsByUserStmt, authDeleteSessionsByUser, userID)
 	return err
 }
 

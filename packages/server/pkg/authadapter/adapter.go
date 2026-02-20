@@ -173,23 +173,15 @@ func parseID(v json.RawMessage) (idwrap.IDWrap, error) {
 	return id, nil
 }
 
-// parseOrGenerateID returns the id from data["id"] or generates a fresh ULID.
-// BetterAuth omits id by default — the adapter is responsible for generating it.
-// If BetterAuth provides a custom ID (e.g. via generateId) that is not a valid
-// ULID, we generate a fresh one instead of erroring since the DB requires 16-byte BLOBs.
-func parseOrGenerateID(data map[string]json.RawMessage) (idwrap.IDWrap, error) {
-	raw, ok := data["id"]
-	if !ok || string(raw) == "null" {
+// parseOrGenerateID returns the id from raw JSON or generates a fresh ULID.
+// BetterAuth omits id by default — the adapter generates it.
+// If BetterAuth provides an ID, it must be a valid ULID (the TS adapter
+// is configured with customIdGenerator that always produces ULIDs).
+func parseOrGenerateID(raw json.RawMessage) (idwrap.IDWrap, error) {
+	if raw == nil || string(raw) == "null" {
 		return idwrap.NewNow(), nil
 	}
-	id, err := parseID(raw)
-	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return idwrap.NewNow(), nil
-		}
-		return idwrap.IDWrap{}, err
-	}
-	return id, nil
+	return parseID(raw)
 }
 
 func parseString(v json.RawMessage) (string, error) {
@@ -398,10 +390,6 @@ func optInt64ToAny(p *int64) any {
 
 // normalizeWhereFields remaps modified BetterAuth field names in where clauses
 // back to standard camelCase names, and returns the detected field mapping.
-// For each where clause whose field is not a recognized standard name or DB column
-// name, we look for a standard name that the modified name could be derived from.
-// BetterAuth's field renaming typically produces names that contain the original
-// standard name (e.g. email -> email_address).
 func normalizeWhereFields(fieldMap map[string]columnDef, where []WhereClause) ([]WhereClause, fieldMapping) {
 	mapping := make(fieldMapping)
 	allKnown := true
@@ -422,7 +410,6 @@ func normalizeWhereFields(fieldMap map[string]columnDef, where []WhereClause) ([
 			continue
 		}
 		// Unknown field name — try to find a standard name that it derives from.
-		// Check if the unknown name contains a standard field name as substring.
 		lowField := strings.ToLower(w.Field)
 		bestMatch := ""
 		bestLen := 0
@@ -462,4 +449,47 @@ func eqWhereMap(where []WhereClause) (map[string]json.RawMessage, bool) {
 		fields[w.Field] = w.Value
 	}
 	return fields, true
+}
+
+// --- sqlc struct → parsedRow converters ---
+
+func userFromSqlc(u gen.AuthUser) parsedRow {
+	return parsedRow{
+		"id": u.ID, "name": u.Name, "email": u.Email,
+		"emailVerified": u.EmailVerified, "image": u.Image,
+		"createdAt": u.CreatedAt, "updatedAt": u.UpdatedAt,
+	}
+}
+
+func sessionFromSqlc(s gen.AuthSession) parsedRow {
+	return parsedRow{
+		"id": s.ID, "userId": s.UserID, "token": s.Token,
+		"expiresAt": s.ExpiresAt, "ipAddress": s.IpAddress, "userAgent": s.UserAgent,
+		"createdAt": s.CreatedAt, "updatedAt": s.UpdatedAt,
+	}
+}
+
+func accountFromSqlc(a gen.AuthAccount) parsedRow {
+	return parsedRow{
+		"id": a.ID, "userId": a.UserID, "accountId": a.AccountID,
+		"providerId": a.ProviderID, "accessToken": a.AccessToken,
+		"refreshToken": a.RefreshToken, "accessTokenExpiresAt": a.AccessTokenExpiresAt,
+		"refreshTokenExpiresAt": a.RefreshTokenExpiresAt, "scope": a.Scope,
+		"idToken": a.IDToken, "password": a.Password,
+		"createdAt": a.CreatedAt, "updatedAt": a.UpdatedAt,
+	}
+}
+
+func verificationFromSqlc(v gen.AuthVerification) parsedRow {
+	return parsedRow{
+		"id": v.ID, "identifier": v.Identifier, "value": v.Value,
+		"expiresAt": v.ExpiresAt, "createdAt": v.CreatedAt, "updatedAt": v.UpdatedAt,
+	}
+}
+
+func jwksFromSqlc(j gen.AuthJwk) parsedRow {
+	return parsedRow{
+		"id": j.ID, "publicKey": j.PublicKey, "privateKey": j.PrivateKey,
+		"createdAt": j.CreatedAt, "expiresAt": j.ExpiresAt,
+	}
 }

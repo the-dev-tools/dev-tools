@@ -7,106 +7,45 @@ import (
 	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func (a *Adapter) createAccount(ctx context.Context, data map[string]json.RawMessage) (map[string]any, error) {
-	id, err := parseOrGenerateID(data)
-	if err != nil {
-		return nil, err
-	}
-	userID, err := parseID(getField(data, "userId"))
-	if err != nil {
-		return nil, err
-	}
-	accountID, err := parseString(getField(data, "accountId"))
-	if err != nil {
-		return nil, err
-	}
-	providerID, err := parseString(getField(data, "providerId"))
-	if err != nil {
-		return nil, err
-	}
-	accessToken, err := parseNullString(getField(data, "accessToken"))
-	if err != nil {
-		return nil, err
-	}
-	refreshToken, err := parseNullString(getField(data, "refreshToken"))
-	if err != nil {
-		return nil, err
-	}
-	accessTokenExpiresAt, err := parseOptInt64(getField(data, "accessTokenExpiresAt"))
-	if err != nil {
-		return nil, err
-	}
-	refreshTokenExpiresAt, err := parseOptInt64(getField(data, "refreshTokenExpiresAt"))
-	if err != nil {
-		return nil, err
-	}
-	scope, err := parseNullString(getField(data, "scope"))
-	if err != nil {
-		return nil, err
-	}
-	idToken, err := parseNullString(getField(data, "idToken"))
-	if err != nil {
-		return nil, err
-	}
-	password, err := parseNullString(getField(data, "password"))
-	if err != nil {
-		return nil, err
-	}
-	createdAt, err := parseInt64(getField(data, "createdAt"))
-	if err != nil {
-		return nil, err
-	}
-	updatedAt, err := parseInt64(getField(data, "updatedAt"))
+	row, err := parseData(accountModelDef.Fields, data)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = a.q.AuthCreateAccount(ctx, gen.AuthCreateAccountParams{
-		ID:                    id,
-		UserID:                userID,
-		AccountID:             accountID,
-		ProviderID:            providerID,
-		AccessToken:           accessToken,
-		RefreshToken:          refreshToken,
-		AccessTokenExpiresAt:  accessTokenExpiresAt,
-		RefreshTokenExpiresAt: refreshTokenExpiresAt,
-		Scope:                 scope,
-		IDToken:               idToken,
-		Password:              password,
-		CreatedAt:             createdAt,
-		UpdatedAt:             updatedAt,
+		ID:                    row["id"].(idwrap.IDWrap),
+		UserID:                row["userId"].(idwrap.IDWrap),
+		AccountID:             row["accountId"].(string),
+		ProviderID:            row["providerId"].(string),
+		AccessToken:           row["accessToken"].(sql.NullString),
+		RefreshToken:          row["refreshToken"].(sql.NullString),
+		AccessTokenExpiresAt:  row["accessTokenExpiresAt"].(*int64),
+		RefreshTokenExpiresAt: row["refreshTokenExpiresAt"].(*int64),
+		Scope:                 row["scope"].(sql.NullString),
+		IDToken:               row["idToken"].(sql.NullString),
+		Password:              row["password"].(sql.NullString),
+		CreatedAt:             row["createdAt"].(int64),
+		UpdatedAt:             row["updatedAt"].(int64),
 	}); err != nil {
 		return nil, err
 	}
 
-	return accountToMap(gen.AuthAccount{
-		ID:                    id,
-		UserID:                userID,
-		AccountID:             accountID,
-		ProviderID:            providerID,
-		AccessToken:           accessToken,
-		RefreshToken:          refreshToken,
-		AccessTokenExpiresAt:  accessTokenExpiresAt,
-		RefreshTokenExpiresAt: refreshTokenExpiresAt,
-		Scope:                 scope,
-		IDToken:               idToken,
-		Password:              password,
-		CreatedAt:             createdAt,
-		UpdatedAt:             updatedAt,
-	}), nil
+	return row.toMap(accountModelDef.Fields), nil
 }
 
 func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[string]any, error) {
 	// Single field: id
 	if field, val, ok := singleEqWhere(where); ok && field == "id" {
-		id, err := parseID(val)
+		id, found, err := resolveWhereID(val)
 		if err != nil {
-			if errors.Is(err, ErrInvalidID) {
-				return nil, nil // non-ULID ID → not found
-			}
 			return nil, err
+		}
+		if !found {
+			return nil, nil
 		}
 		acc, err := a.q.AuthGetAccount(ctx, id)
 		if err != nil {
@@ -115,7 +54,7 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 			}
 			return nil, err
 		}
-		return accountToMap(acc), nil
+		return accountFromSqlc(acc).toMap(accountModelDef.Fields), nil
 	}
 
 	// Two fields: providerId + accountId (fast path with sqlc)
@@ -142,7 +81,7 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 				}
 				return nil, err
 			}
-			return accountToMap(acc), nil
+			return accountFromSqlc(acc).toMap(accountModelDef.Fields), nil
 		}
 	}
 
@@ -162,12 +101,12 @@ func (a *Adapter) findManyAccounts(ctx context.Context, where []WhereClause) ([]
 	if !ok || field != "userId" {
 		return nil, ErrUnsupportedWhere
 	}
-	userID, err := parseID(val)
+	userID, found, err := resolveWhereID(val)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return []map[string]any{}, nil // non-ULID ID → empty result
-		}
 		return nil, err
+	}
+	if !found {
+		return []map[string]any{}, nil
 	}
 	rows, err := a.q.AuthListAccountsByUser(ctx, userID)
 	if err != nil {
@@ -175,22 +114,18 @@ func (a *Adapter) findManyAccounts(ctx context.Context, where []WhereClause) ([]
 	}
 	out := make([]map[string]any, len(rows))
 	for i, acc := range rows {
-		out[i] = accountToMap(acc)
+		out[i] = accountFromSqlc(acc).toMap(accountModelDef.Fields)
 	}
 	return out, nil
 }
 
 func (a *Adapter) updateAccount(ctx context.Context, where []WhereClause, data map[string]json.RawMessage) (map[string]any, error) {
-	field, val, ok := singleEqWhere(where)
-	if !ok || field != "id" {
-		return nil, ErrUnsupportedWhere
-	}
-	id, err := parseID(val)
+	id, found, err := parseWhereID(where)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil, nil // non-ULID ID → not found
-		}
 		return nil, err
+	}
+	if !found {
+		return nil, nil
 	}
 
 	cur, err := a.q.AuthGetAccount(ctx, id)
@@ -253,20 +188,16 @@ func (a *Adapter) updateAccount(ctx context.Context, where []WhereClause, data m
 		return nil, err
 	}
 
-	return accountToMap(cur), nil
+	return accountFromSqlc(cur).toMap(accountModelDef.Fields), nil
 }
 
 func (a *Adapter) deleteAccount(ctx context.Context, where []WhereClause) error {
-	field, val, ok := singleEqWhere(where)
-	if !ok || field != "id" {
-		return ErrUnsupportedWhere
-	}
-	id, err := parseID(val)
+	id, found, err := parseWhereID(where)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil // non-ULID ID → nothing to delete
-		}
 		return err
+	}
+	if !found {
+		return nil
 	}
 	return a.q.AuthDeleteAccount(ctx, id)
 }
@@ -276,30 +207,12 @@ func (a *Adapter) deleteManyAccount(ctx context.Context, where []WhereClause) er
 	if !ok || field != "userId" {
 		return ErrUnsupportedWhere
 	}
-	userID, err := parseID(val)
+	userID, found, err := resolveWhereID(val)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil // non-ULID ID → nothing to delete
-		}
 		return err
 	}
-	return a.q.AuthDeleteAccountsByUser(ctx, userID)
-}
-
-func accountToMap(a gen.AuthAccount) map[string]any {
-	return map[string]any{
-		"id":                    a.ID.String(),
-		"userId":                a.UserID.String(),
-		"accountId":             a.AccountID,
-		"providerId":            a.ProviderID,
-		"accessToken":           nullStrToAny(a.AccessToken),
-		"refreshToken":          nullStrToAny(a.RefreshToken),
-		"accessTokenExpiresAt":  optInt64ToAny(a.AccessTokenExpiresAt),
-		"refreshTokenExpiresAt": optInt64ToAny(a.RefreshTokenExpiresAt),
-		"scope":                 nullStrToAny(a.Scope),
-		"idToken":               nullStrToAny(a.IDToken),
-		"password":              nullStrToAny(a.Password),
-		"createdAt":             a.CreatedAt,
-		"updatedAt":             a.UpdatedAt,
+	if !found {
+		return nil
 	}
+	return a.q.AuthDeleteAccountsByUser(ctx, userID)
 }

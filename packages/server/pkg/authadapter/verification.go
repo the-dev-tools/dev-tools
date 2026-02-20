@@ -7,53 +7,27 @@ import (
 	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func (a *Adapter) createVerification(ctx context.Context, data map[string]json.RawMessage) (map[string]any, error) {
-	id, err := parseOrGenerateID(data)
-	if err != nil {
-		return nil, err
-	}
-	identifier, err := parseString(getField(data, "identifier"))
-	if err != nil {
-		return nil, err
-	}
-	value, err := parseString(getField(data, "value"))
-	if err != nil {
-		return nil, err
-	}
-	expiresAt, err := parseInt64(getField(data, "expiresAt"))
-	if err != nil {
-		return nil, err
-	}
-	createdAt, err := parseInt64(getField(data, "createdAt"))
-	if err != nil {
-		return nil, err
-	}
-	updatedAt, err := parseInt64(getField(data, "updatedAt"))
+	row, err := parseData(verificationModelDef.Fields, data)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = a.q.AuthCreateVerification(ctx, gen.AuthCreateVerificationParams{
-		ID:         id,
-		Identifier: identifier,
-		Value:      value,
-		ExpiresAt:  expiresAt,
-		CreatedAt:  createdAt,
-		UpdatedAt:  updatedAt,
+		ID:         row["id"].(idwrap.IDWrap),
+		Identifier: row["identifier"].(string),
+		Value:      row["value"].(string),
+		ExpiresAt:  row["expiresAt"].(int64),
+		CreatedAt:  row["createdAt"].(int64),
+		UpdatedAt:  row["updatedAt"].(int64),
 	}); err != nil {
 		return nil, err
 	}
 
-	return map[string]any{
-		"id":         id.String(),
-		"identifier": identifier,
-		"value":      value,
-		"expiresAt":  expiresAt,
-		"createdAt":  createdAt,
-		"updatedAt":  updatedAt,
-	}, nil
+	return row.toMap(verificationModelDef.Fields), nil
 }
 
 func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) (map[string]any, error) {
@@ -63,12 +37,12 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 	}
 	switch field {
 	case "id":
-		id, err := parseID(val)
+		id, found, err := resolveWhereID(val)
 		if err != nil {
-			if errors.Is(err, ErrInvalidID) {
-				return nil, nil // non-ULID ID → not found
-			}
 			return nil, err
+		}
+		if !found {
+			return nil, nil
 		}
 		v, err := a.q.AuthGetVerification(ctx, id)
 		if err != nil {
@@ -77,7 +51,7 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 			}
 			return nil, err
 		}
-		return verificationToMap(v), nil
+		return verificationFromSqlc(v).toMap(verificationModelDef.Fields), nil
 
 	case "identifier":
 		identifier, err := parseString(val)
@@ -91,7 +65,7 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 			}
 			return nil, err
 		}
-		return verificationToMap(v), nil
+		return verificationFromSqlc(v).toMap(verificationModelDef.Fields), nil
 
 	default:
 		return nil, ErrUnsupportedWhere
@@ -99,16 +73,12 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 }
 
 func (a *Adapter) deleteVerification(ctx context.Context, where []WhereClause) error {
-	field, val, ok := singleEqWhere(where)
-	if !ok || field != "id" {
-		return ErrUnsupportedWhere
-	}
-	id, err := parseID(val)
+	id, found, err := parseWhereID(where)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil // non-ULID ID → nothing to delete
-		}
 		return err
+	}
+	if !found {
+		return nil
 	}
 	return a.q.AuthDeleteVerification(ctx, id)
 }
@@ -122,15 +92,4 @@ func (a *Adapter) deleteManyVerification(ctx context.Context, where []WhereClaus
 		return a.q.AuthDeleteExpiredVerifications(ctx, ts)
 	}
 	return ErrUnsupportedWhere
-}
-
-func verificationToMap(v gen.AuthVerification) map[string]any {
-	return map[string]any{
-		"id":         v.ID.String(),
-		"identifier": v.Identifier,
-		"value":      v.Value,
-		"expiresAt":  v.ExpiresAt,
-		"createdAt":  v.CreatedAt,
-		"updatedAt":  v.UpdatedAt,
-	}
 }

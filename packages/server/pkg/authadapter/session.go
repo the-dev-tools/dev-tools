@@ -7,65 +7,29 @@ import (
 	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 func (a *Adapter) createSession(ctx context.Context, data map[string]json.RawMessage) (map[string]any, error) {
-	id, err := parseOrGenerateID(data)
-	if err != nil {
-		return nil, err
-	}
-	userID, err := parseID(getField(data, "userId"))
-	if err != nil {
-		return nil, err
-	}
-	token, err := parseString(getField(data, "token"))
-	if err != nil {
-		return nil, err
-	}
-	expiresAt, err := parseInt64(getField(data, "expiresAt"))
-	if err != nil {
-		return nil, err
-	}
-	ipAddress, err := parseNullString(getField(data, "ipAddress"))
-	if err != nil {
-		return nil, err
-	}
-	userAgent, err := parseNullString(getField(data, "userAgent"))
-	if err != nil {
-		return nil, err
-	}
-	createdAt, err := parseInt64(getField(data, "createdAt"))
-	if err != nil {
-		return nil, err
-	}
-	updatedAt, err := parseInt64(getField(data, "updatedAt"))
+	row, err := parseData(sessionModelDef.Fields, data)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = a.q.AuthCreateSession(ctx, gen.AuthCreateSessionParams{
-		ID:        id,
-		UserID:    userID,
-		Token:     token,
-		ExpiresAt: expiresAt,
-		IpAddress: ipAddress,
-		UserAgent: userAgent,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		ID:        row["id"].(idwrap.IDWrap),
+		UserID:    row["userId"].(idwrap.IDWrap),
+		Token:     row["token"].(string),
+		ExpiresAt: row["expiresAt"].(int64),
+		IpAddress: row["ipAddress"].(sql.NullString),
+		UserAgent: row["userAgent"].(sql.NullString),
+		CreatedAt: row["createdAt"].(int64),
+		UpdatedAt: row["updatedAt"].(int64),
 	}); err != nil {
 		return nil, err
 	}
 
-	return sessionToMap(gen.AuthSession{
-		ID:        id,
-		UserID:    userID,
-		Token:     token,
-		ExpiresAt: expiresAt,
-		IpAddress: ipAddress,
-		UserAgent: userAgent,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-	}), nil
+	return row.toMap(sessionModelDef.Fields), nil
 }
 
 func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[string]any, error) {
@@ -75,12 +39,12 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 	}
 	switch field {
 	case "id":
-		id, err := parseID(val)
+		id, found, err := resolveWhereID(val)
 		if err != nil {
-			if errors.Is(err, ErrInvalidID) {
-				return nil, nil // non-ULID ID → not found
-			}
 			return nil, err
+		}
+		if !found {
+			return nil, nil
 		}
 		s, err := a.q.AuthGetSession(ctx, id)
 		if err != nil {
@@ -89,7 +53,7 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 			}
 			return nil, err
 		}
-		return sessionToMap(s), nil
+		return sessionFromSqlc(s).toMap(sessionModelDef.Fields), nil
 
 	case "token":
 		token, err := parseString(val)
@@ -103,15 +67,15 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 			}
 			return nil, err
 		}
-		return sessionToMap(s), nil
+		return sessionFromSqlc(s).toMap(sessionModelDef.Fields), nil
 
 	case "userId":
-		userID, err := parseID(val)
+		userID, found, err := resolveWhereID(val)
 		if err != nil {
-			if errors.Is(err, ErrInvalidID) {
-				return nil, nil // non-ULID ID → not found
-			}
 			return nil, err
+		}
+		if !found {
+			return nil, nil
 		}
 		rows, err := a.q.AuthListSessionsByUser(ctx, userID)
 		if err != nil {
@@ -120,7 +84,7 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 		if len(rows) == 0 {
 			return nil, nil
 		}
-		return sessionToMap(rows[0]), nil
+		return sessionFromSqlc(rows[0]).toMap(sessionModelDef.Fields), nil
 
 	default:
 		return nil, ErrUnsupportedWhere
@@ -132,12 +96,12 @@ func (a *Adapter) findManySessions(ctx context.Context, where []WhereClause) ([]
 	if !ok || field != "userId" {
 		return nil, ErrUnsupportedWhere
 	}
-	userID, err := parseID(val)
+	userID, found, err := resolveWhereID(val)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return []map[string]any{}, nil // non-ULID ID → empty result
-		}
 		return nil, err
+	}
+	if !found {
+		return []map[string]any{}, nil
 	}
 	rows, err := a.q.AuthListSessionsByUser(ctx, userID)
 	if err != nil {
@@ -145,22 +109,18 @@ func (a *Adapter) findManySessions(ctx context.Context, where []WhereClause) ([]
 	}
 	out := make([]map[string]any, len(rows))
 	for i, s := range rows {
-		out[i] = sessionToMap(s)
+		out[i] = sessionFromSqlc(s).toMap(sessionModelDef.Fields)
 	}
 	return out, nil
 }
 
 func (a *Adapter) updateSession(ctx context.Context, where []WhereClause, data map[string]json.RawMessage) (map[string]any, error) {
-	field, val, ok := singleEqWhere(where)
-	if !ok || field != "id" {
-		return nil, ErrUnsupportedWhere
-	}
-	id, err := parseID(val)
+	id, found, err := parseWhereID(where)
 	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil, nil // non-ULID ID → not found
-		}
 		return nil, err
+	}
+	if !found {
+		return nil, nil
 	}
 
 	cur, err := a.q.AuthGetSession(ctx, id)
@@ -199,7 +159,7 @@ func (a *Adapter) updateSession(ctx context.Context, where []WhereClause, data m
 		return nil, err
 	}
 
-	return sessionToMap(cur), nil
+	return sessionFromSqlc(cur).toMap(sessionModelDef.Fields), nil
 }
 
 func (a *Adapter) deleteSession(ctx context.Context, where []WhereClause) error {
@@ -209,12 +169,12 @@ func (a *Adapter) deleteSession(ctx context.Context, where []WhereClause) error 
 	}
 	switch field {
 	case "id":
-		id, err := parseID(val)
+		id, found, err := resolveWhereID(val)
 		if err != nil {
-			if errors.Is(err, ErrInvalidID) {
-				return nil // non-ULID ID → nothing to delete
-			}
 			return err
+		}
+		if !found {
+			return nil
 		}
 		return a.q.AuthDeleteSession(ctx, id)
 	case "token":
@@ -242,34 +202,12 @@ func (a *Adapter) deleteManySession(ctx context.Context, where []WhereClause) er
 	if !ok || field != "userId" {
 		return ErrUnsupportedWhere
 	}
-	userID, err := parseID(val)
-	if err != nil {
-		if errors.Is(err, ErrInvalidID) {
-			return nil // non-ULID ID → nothing to delete
-		}
-		return err
-	}
-	sessions, err := a.q.AuthListSessionsByUser(ctx, userID)
+	userID, found, err := resolveWhereID(val)
 	if err != nil {
 		return err
 	}
-	for _, s := range sessions {
-		if err = a.q.AuthDeleteSession(ctx, s.ID); err != nil {
-			return err
-		}
+	if !found {
+		return nil
 	}
-	return nil
-}
-
-func sessionToMap(s gen.AuthSession) map[string]any {
-	return map[string]any{
-		"id":        s.ID.String(),
-		"userId":    s.UserID.String(),
-		"token":     s.Token,
-		"expiresAt": s.ExpiresAt,
-		"ipAddress": nullStrToAny(s.IpAddress),
-		"userAgent": nullStrToAny(s.UserAgent),
-		"createdAt": s.CreatedAt,
-		"updatedAt": s.UpdatedAt,
-	}
+	return a.q.AuthDeleteSessionsByUser(ctx, userID)
 }

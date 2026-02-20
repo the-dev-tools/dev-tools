@@ -2,14 +2,11 @@ package authadapter
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
 // SortBy describes a sort order for FindMany queries.
@@ -38,17 +35,6 @@ const (
 type columnDef struct {
 	Name string
 	Type columnType
-}
-
-// userFieldToColumn maps BetterAuth camelCase field names to auth_user column definitions.
-var userFieldToColumn = map[string]columnDef{
-	"id":            {Name: "id", Type: colBlobID},
-	"name":          {Name: "name", Type: colText},
-	"email":         {Name: "email", Type: colText},
-	"emailVerified": {Name: "email_verified", Type: colInteger},
-	"image":         {Name: "image", Type: colText},
-	"createdAt":     {Name: "created_at", Type: colInteger},
-	"updatedAt":     {Name: "updated_at", Type: colInteger},
 }
 
 // resolveColumn returns the DB column definition for a BetterAuth field name.
@@ -179,21 +165,21 @@ func buildOperatorExpr(def columnDef, operator string, value json.RawMessage) (s
 		if err != nil {
 			return "", nil, err
 		}
-		return col + " LIKE ?", []any{"%" + escapeLike(s) + "%"}, nil
+		return col + " LIKE ? ESCAPE '\\'", []any{"%" + escapeLike(s) + "%"}, nil
 
 	case "starts_with":
 		s, err := parseString(value)
 		if err != nil {
 			return "", nil, err
 		}
-		return col + " LIKE ?", []any{escapeLike(s) + "%"}, nil
+		return col + " LIKE ? ESCAPE '\\'", []any{escapeLike(s) + "%"}, nil
 
 	case "ends_with":
 		s, err := parseString(value)
 		if err != nil {
 			return "", nil, err
 		}
-		return col + " LIKE ?", []any{"%" + escapeLike(s)}, nil
+		return col + " LIKE ? ESCAPE '\\'", []any{"%" + escapeLike(s)}, nil
 
 	default:
 		return "", nil, fmt.Errorf("%w: unsupported operator %q", ErrUnsupportedWhere, operator)
@@ -213,7 +199,7 @@ func parseTypedValue(ct columnType, v json.RawMessage) (any, error) {
 	case colBlobID:
 		id, err := parseID(v)
 		if err != nil {
-			if errors.Is(err, ErrInvalidID) {
+			if isInvalidID(err) {
 				// Return a sentinel byte slice that won't match any valid ULID.
 				// This ensures the SQL query runs but matches nothing.
 				return []byte{}, nil
@@ -278,18 +264,20 @@ func parseAnyValue(v json.RawMessage) (any, error) {
 	return nil, fmt.Errorf("parseAnyValue: unsupported JSON value: %s", string(v))
 }
 
-
-
 // escapeLike escapes SQL LIKE special characters.
 func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "%", "\\%")
 	s = strings.ReplaceAll(s, "_", "\\_")
 	return s
 }
 
+// --- user dynamic queries ---
+
 // dynamicQueryUsers runs a SELECT on auth_user with dynamic where, sort, limit, offset.
 func dynamicQueryUsers(ctx context.Context, db gen.DBTX, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) { //nolint:norawsql
-	whereSQL, args, err := buildWhereClause(userFieldToColumn, where)
+	fm := userModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +285,7 @@ func dynamicQueryUsers(ctx context.Context, db gen.DBTX, where []WhereClause, op
 	query := "SELECT id, name, email, email_verified, image, created_at, updated_at FROM auth_user WHERE " + whereSQL
 
 	if opts.SortBy != nil {
-		sortDef, ok := resolveColumn(userFieldToColumn, opts.SortBy.Field)
+		sortDef, ok := resolveColumn(fm, opts.SortBy.Field)
 		if !ok {
 			return nil, fmt.Errorf("%w: unknown sort field %q", ErrUnsupportedWhere, opts.SortBy.Field)
 		}
@@ -324,31 +312,11 @@ func dynamicQueryUsers(ctx context.Context, db gen.DBTX, where []WhereClause, op
 
 	var results []map[string]any
 	for rows.Next() {
-		var (
-			idBytes   []byte
-			name      string
-			email     string
-			emailVer  int64
-			image     sql.NullString
-			createdAt int64
-			updatedAt int64
-		)
-		if err := rows.Scan(&idBytes, &name, &email, &emailVer, &image, &createdAt, &updatedAt); err != nil {
+		var u gen.AuthUser
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.EmailVerified, &u.Image, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
-		id, err := idwrap.NewFromBytes(idBytes)
-		if err != nil {
-			return nil, fmt.Errorf("dynamicQueryUsers: invalid ULID in id column: %w", err)
-		}
-		results = append(results, map[string]any{
-			"id":            id.String(),
-			"name":          name,
-			"email":         email,
-			"emailVerified": emailVer,
-			"image":         nullStrToAny(image),
-			"createdAt":     createdAt,
-			"updatedAt":     updatedAt,
-		})
+		results = append(results, userFromSqlc(u).toMap(userModelDef.Fields))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -368,11 +336,13 @@ func dynamicUpdateUsers(ctx context.Context, db gen.DBTX, where []WhereClause, d
 		return 0, nil
 	}
 
+	fm := userModelDef.fieldMap()
+
 	var setClauses []string
 	var setArgs []any
 
 	for field, raw := range data {
-		def, ok := resolveColumn(userFieldToColumn, field)
+		def, ok := resolveColumn(fm, field)
 		if !ok {
 			return 0, fmt.Errorf("%w: unknown update field %q", ErrUnsupportedWhere, field)
 		}
@@ -384,7 +354,7 @@ func dynamicUpdateUsers(ctx context.Context, db gen.DBTX, where []WhereClause, d
 		setArgs = append(setArgs, val)
 	}
 
-	whereSQL, whereArgs, err := buildWhereClause(userFieldToColumn, where)
+	whereSQL, whereArgs, err := buildWhereClause(fm, where)
 	if err != nil {
 		return 0, err
 	}
@@ -404,7 +374,8 @@ func dynamicUpdateUsers(ctx context.Context, db gen.DBTX, where []WhereClause, d
 
 // dynamicDeleteUsers runs a DELETE on auth_user with dynamic where clauses.
 func dynamicDeleteUsers(ctx context.Context, db gen.DBTX, where []WhereClause) error { //nolint:norawsql
-	whereSQL, args, err := buildWhereClause(userFieldToColumn, where)
+	fm := userModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
 	if err != nil {
 		return err
 	}
@@ -416,26 +387,10 @@ func dynamicDeleteUsers(ctx context.Context, db gen.DBTX, where []WhereClause) e
 
 // --- account dynamic queries ---
 
-// accountFieldToColumn maps BetterAuth camelCase field names to auth_account column definitions.
-var accountFieldToColumn = map[string]columnDef{
-	"id":                    {Name: "id", Type: colBlobID},
-	"userId":                {Name: "user_id", Type: colBlobID},
-	"accountId":             {Name: "account_id", Type: colText},
-	"providerId":            {Name: "provider_id", Type: colText},
-	"accessToken":           {Name: "access_token", Type: colText},
-	"refreshToken":          {Name: "refresh_token", Type: colText},
-	"accessTokenExpiresAt":  {Name: "access_token_expires_at", Type: colInteger},
-	"refreshTokenExpiresAt": {Name: "refresh_token_expires_at", Type: colInteger},
-	"scope":                 {Name: "scope", Type: colText},
-	"idToken":               {Name: "id_token", Type: colText},
-	"password":              {Name: "password", Type: colText},
-	"createdAt":             {Name: "created_at", Type: colInteger},
-	"updatedAt":             {Name: "updated_at", Type: colInteger},
-}
-
 // dynamicQueryAccounts runs a SELECT on auth_account with dynamic where, sort, limit, offset.
 func dynamicQueryAccounts(ctx context.Context, db gen.DBTX, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) { //nolint:norawsql
-	whereSQL, args, err := buildWhereClause(accountFieldToColumn, where)
+	fm := accountModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
 	if err != nil {
 		return nil, err
 	}
@@ -460,49 +415,13 @@ func dynamicQueryAccounts(ctx context.Context, db gen.DBTX, where []WhereClause,
 
 	var results []map[string]any
 	for rows.Next() {
-		var (
-			idBytes               []byte
-			userIDBytes           []byte
-			accountID             string
-			providerID            string
-			accessToken           sql.NullString
-			refreshToken          sql.NullString
-			accessTokenExpiresAt  *int64
-			refreshTokenExpiresAt *int64
-			scope                 sql.NullString
-			idToken               sql.NullString
-			password              sql.NullString
-			createdAt             int64
-			updatedAt             int64
-		)
-		if err := rows.Scan(&idBytes, &userIDBytes, &accountID, &providerID,
-			&accessToken, &refreshToken, &accessTokenExpiresAt, &refreshTokenExpiresAt,
-			&scope, &idToken, &password, &createdAt, &updatedAt); err != nil {
+		var a gen.AuthAccount
+		if err := rows.Scan(&a.ID, &a.UserID, &a.AccountID, &a.ProviderID,
+			&a.AccessToken, &a.RefreshToken, &a.AccessTokenExpiresAt, &a.RefreshTokenExpiresAt,
+			&a.Scope, &a.IDToken, &a.Password, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
-		id, err := idwrap.NewFromBytes(idBytes)
-		if err != nil {
-			return nil, fmt.Errorf("dynamicQueryAccounts: invalid ULID in id column: %w", err)
-		}
-		userID, err := idwrap.NewFromBytes(userIDBytes)
-		if err != nil {
-			return nil, fmt.Errorf("dynamicQueryAccounts: invalid ULID in user_id column: %w", err)
-		}
-		results = append(results, map[string]any{
-			"id":                    id.String(),
-			"userId":                userID.String(),
-			"accountId":             accountID,
-			"providerId":            providerID,
-			"accessToken":           nullStrToAny(accessToken),
-			"refreshToken":          nullStrToAny(refreshToken),
-			"accessTokenExpiresAt":  optInt64ToAny(accessTokenExpiresAt),
-			"refreshTokenExpiresAt": optInt64ToAny(refreshTokenExpiresAt),
-			"scope":                 nullStrToAny(scope),
-			"idToken":               nullStrToAny(idToken),
-			"password":              nullStrToAny(password),
-			"createdAt":             createdAt,
-			"updatedAt":             updatedAt,
-		})
+		results = append(results, accountFromSqlc(a).toMap(accountModelDef.Fields))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

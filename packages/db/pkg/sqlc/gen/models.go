@@ -28,11 +28,11 @@ type AuthAccount struct {
 }
 
 type AuthJwk struct {
-	ID         []byte
+	ID         idwrap.IDWrap
 	PublicKey  string
 	PrivateKey string
 	CreatedAt  int64
-	ExpiresAt  sql.NullInt64
+	ExpiresAt  *int64
 }
 
 type AuthSession struct {
