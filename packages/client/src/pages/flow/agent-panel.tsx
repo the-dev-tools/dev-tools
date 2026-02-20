@@ -2,14 +2,14 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useRef, useState } from 'react';
-import { FiArrowUp, FiChevronUp, FiEdit, FiX } from 'react-icons/fi';
+import { FiArrowUp, FiChevronUp, FiEdit, FiSettings, FiX } from 'react-icons/fi';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { NodeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { type Message, type ToolCall, useAgentChat } from '~/features/agent';
-import { useOpenRouterKey } from '~/features/agent/use-openrouter-key';
+import { type AgentProvider, useAgentProviderKey } from '~/features/agent/use-openrouter-key';
 import { useApiCollection } from '~/shared/api';
 import { FlowContext } from './context';
 import { nodeClientCollection } from './node';
@@ -60,9 +60,33 @@ const getToolBrief = (args: Record<string, unknown>): null | string => {
   return null;
 };
 
+const PROVIDER_OPTIONS: Record<
+  AgentProvider,
+  { keyLabel: string; keysUrl: string; label: string; placeholder: string }
+> = {
+  anthropic: {
+    keyLabel: 'Anthropic API key',
+    keysUrl: 'https://console.anthropic.com/settings/keys',
+    label: 'Anthropic',
+    placeholder: 'Paste your Anthropic key',
+  },
+  openai: {
+    keyLabel: 'OpenAI API key',
+    keysUrl: 'https://platform.openai.com/api-keys',
+    label: 'OpenAI',
+    placeholder: 'Paste your OpenAI key',
+  },
+  openrouter: {
+    keyLabel: 'OpenRouter API key',
+    keysUrl: 'https://openrouter.ai/keys',
+    label: 'OpenRouter',
+    placeholder: 'Paste your OpenRouter key',
+  },
+};
+
 export const AgentPanel = () => {
   const { flowId, setAgentPanelOpen } = use(FlowContext);
-  const { apiKey, setApiKey } = useOpenRouterKey();
+  const { apiKey, provider, setApiKey, setProvider } = useAgentProviderKey();
   const selectedNodeIds = XF.useStore(
     (s) => s.nodes.filter((n) => n.selected).map((n) => n.id),
     (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
@@ -70,6 +94,7 @@ export const AgentPanel = () => {
   const { cancel, clearMessages, error, isLoading, messages, sendMessage, streamingContent } = useAgentChat({
     apiKey,
     flowId,
+    provider,
     selectedNodeIds,
   });
 
@@ -130,6 +155,12 @@ export const AgentPanel = () => {
       e.preventDefault();
       handleSubmit();
     }
+  };
+
+  const handleProviderChange = (nextProvider: AgentProvider) => {
+    if (nextProvider === provider) return;
+    clearMessages();
+    setProvider(nextProvider);
   };
 
   return (
@@ -196,7 +227,10 @@ export const AgentPanel = () => {
           </div>
 
           {/* Input */}
-          <div className={tw`m-2 mt-0 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2.5 py-1.5`}>
+          <div
+            className={tw`m-2 mt-0 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2.5 py-1.5`}
+            data-agent-composer
+          >
             {selectedNodeIds.length > 0 && <SelectedNodesBar selectedNodeIds={selectedNodeIds} />}
             <div className={tw`flex items-end gap-2`}>
               <textarea
@@ -222,7 +256,14 @@ export const AgentPanel = () => {
                 value={input}
               />
             </div>
-            <div className={tw`flex justify-end pt-1.5`}>
+            <div className={tw`flex items-center justify-between pt-1.5`}>
+              <AgentSettingsPopover
+                apiKey={apiKey}
+                isLoading={isLoading}
+                onProviderChange={handleProviderChange}
+                onSubmit={setApiKey}
+                provider={provider}
+              />
               {isLoading ? (
                 <AbortButton onClick={cancel} />
               ) : (
@@ -232,7 +273,7 @@ export const AgentPanel = () => {
           </div>
         </>
       ) : (
-        <ApiKeyPrompt onSubmit={setApiKey} />
+        <ApiKeyPrompt onProviderChange={handleProviderChange} onSubmit={setApiKey} provider={provider} />
       )}
     </div>
   );
@@ -314,8 +355,21 @@ const SelectedNodesBar = ({ selectedNodeIds }: { selectedNodeIds: string[] }) =>
   );
 };
 
-const ApiKeyPrompt = ({ onSubmit }: { onSubmit: (key: string) => void }) => {
+const ApiKeyPrompt = ({
+  onProviderChange,
+  onSubmit,
+  provider,
+}: {
+  onProviderChange: (provider: AgentProvider) => void;
+  onSubmit: (key: string) => void;
+  provider: AgentProvider;
+}) => {
   const [value, setValue] = useState('');
+  const providerOption = PROVIDER_OPTIONS[provider];
+
+  useEffect(() => {
+    setValue('');
+  }, [provider]);
 
   const handleSubmit = (e?: FormEvent) => {
     e?.preventDefault();
@@ -332,24 +386,38 @@ const ApiKeyPrompt = ({ onSubmit }: { onSubmit: (key: string) => void }) => {
 
   return (
     <div className={tw`flex flex-1 flex-col items-center justify-center gap-3 px-4`}>
+      <div className={tw`flex w-full flex-col gap-1 rounded-[6px] border border-(--border-1) bg-(--surface-4) p-1`}>
+        {(Object.keys(PROVIDER_OPTIONS) as AgentProvider[]).map((id) => (
+          <button
+            className={tw`
+              w-full rounded-[4px] px-2 py-1 text-left text-xs font-medium transition-colors
+              ${provider === id ? 'bg-(--surface-1) text-(--text-primary)' : 'text-(--text-muted) hover:text-(--text-primary)'}
+            `}
+            key={id}
+            onClick={() => void onProviderChange(id)}
+            type='button'
+          >
+            {PROVIDER_OPTIONS[id].label}
+          </button>
+        ))}
+      </div>
       <div className={tw`text-center text-sm text-(--text-muted)`}>
-        <p className={tw`font-medium text-(--text-primary)`}>OpenRouter API Key Required</p>
+        <p className={tw`font-medium text-(--text-primary)`}>{providerOption.label} API Key Required</p>
         <p className={tw`mt-1`}>
           Enter your{' '}
           <a
             className={tw`text-(--brand-secondary) underline`}
-            href='https://openrouter.ai/keys'
+            href={providerOption.keysUrl}
             rel='noreferrer'
             target='_blank'
           >
-            OpenRouter API key
+            {providerOption.keyLabel}
           </a>{' '}
           to use the agent.
         </p>
       </div>
       <div className={tw`flex w-full gap-2`}>
         <input
-          autoFocus
           className={tw`
             flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2.5 py-1.5 text-sm text-(--text-primary)
 
@@ -359,7 +427,7 @@ const ApiKeyPrompt = ({ onSubmit }: { onSubmit: (key: string) => void }) => {
           `}
           onChange={(e) => void setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder='sk-or-v1-...'
+          placeholder={providerOption.placeholder}
           type='password'
           value={value}
         />
@@ -378,6 +446,240 @@ const ApiKeyPrompt = ({ onSubmit }: { onSubmit: (key: string) => void }) => {
           Save
         </button>
       </div>
+    </div>
+  );
+};
+
+const AgentSettingsPopover = ({
+  apiKey,
+  isLoading,
+  onProviderChange,
+  onSubmit,
+  provider,
+}: {
+  apiKey: string;
+  isLoading: boolean;
+  onProviderChange: (provider: AgentProvider) => void;
+  onSubmit: (key: string) => void;
+  provider: AgentProvider;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [popoverLeft, setPopoverLeft] = useState(0);
+  const [popoverWidth, setPopoverWidth] = useState(320);
+  const [value, setValue] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+  const providerOption = PROVIDER_OPTIONS[provider];
+
+  useEffect(() => {
+    setEditing(false);
+    setValue('');
+  }, [provider]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePopoverLayout = () => {
+      const trigger = rootRef.current;
+      const composer = trigger?.closest('[data-agent-composer]');
+      if (!(trigger instanceof HTMLElement) || !(composer instanceof HTMLElement)) return;
+
+      const triggerRect = trigger.getBoundingClientRect();
+      const composerRect = composer.getBoundingClientRect();
+      const availableWidth = Math.max(220, composerRect.width - 16);
+      const nextWidth = Math.min(320, availableWidth);
+      const triggerLeftWithinComposer = triggerRect.left - composerRect.left;
+
+      const minLeft = 8 - triggerLeftWithinComposer;
+      const maxLeft = composerRect.width - 8 - triggerLeftWithinComposer - nextWidth;
+      const nextLeft = Math.min(Math.max(0, minLeft), maxLeft);
+
+      setPopoverWidth(nextWidth);
+      setPopoverLeft(nextLeft);
+    };
+
+    updatePopoverLayout();
+
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setEditing(false);
+        setValue('');
+      }
+    };
+
+    const onDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      setEditing(false);
+      setValue('');
+    };
+
+    const onResize = () => {
+      updatePopoverLayout();
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    window.addEventListener('resize', onResize);
+
+    const composer = rootRef.current?.closest('[data-agent-composer]');
+    const resizeObserver =
+      composer instanceof HTMLElement
+        ? new ResizeObserver(() => {
+            updatePopoverLayout();
+          })
+        : null;
+    if (resizeObserver && composer instanceof HTMLElement) {
+      resizeObserver.observe(composer);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+      window.removeEventListener('resize', onResize);
+      resizeObserver?.disconnect();
+    };
+  }, [open]);
+
+  const handleSubmit = () => {
+    if (!value.trim()) return;
+    onSubmit(value);
+    setEditing(false);
+    setValue('');
+  };
+
+  const handleProviderClick = (nextProvider: AgentProvider) => {
+    onProviderChange(nextProvider);
+    setEditing(false);
+    setValue('');
+  };
+
+  return (
+    <div className={tw`relative`} ref={rootRef}>
+      <button
+        aria-expanded={open}
+        aria-label='Agent settings'
+        aria-haspopup='dialog'
+        className={tw`
+          relative rounded-[4px] border border-(--border-1) bg-(--surface-5) p-1.5 text-(--text-secondary) transition-colors
+
+          hover:text-(--text-primary)
+
+          disabled:text-(--text-subtle)
+        `}
+        disabled={isLoading}
+        onClick={() => void setOpen((v) => !v)}
+        type='button'
+      >
+        <FiSettings className={tw`size-3.5`} />
+        {!apiKey && <span className={tw`absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-(--status-error)`} />}
+      </button>
+
+      {open && (
+        <div
+          className={tw`
+            absolute bottom-full z-20 mb-1.5 rounded-[6px] border border-(--border-1) bg-(--surface-4) p-2
+            shadow-lg
+          `}
+          role='dialog'
+          style={{ left: `${popoverLeft}px`, width: `${popoverWidth}px` }}
+        >
+          <div className={tw`mb-1 flex items-center justify-between`}>
+            <span className={tw`text-xs font-medium text-(--text-primary)`}>Agent Settings</span>
+            {!apiKey ? (
+              <span className={tw`text-[11px] text-(--text-error)`}>Missing API key</span>
+            ) : (
+              <span className={tw`text-[11px] text-(--text-muted)`}>Key saved</span>
+            )}
+          </div>
+
+          <div className={tw`flex w-full flex-col gap-1 rounded-[6px] border border-(--border-1) bg-(--surface-5) p-1`}>
+            {(Object.keys(PROVIDER_OPTIONS) as AgentProvider[]).map((id) => (
+              <button
+                className={tw`
+                  w-full rounded-[4px] px-2 py-1 text-left text-xs font-medium transition-colors
+                  ${provider === id ? 'bg-(--surface-1) text-(--text-primary)' : 'text-(--text-muted) hover:text-(--text-primary)'}
+                `}
+                disabled={isLoading}
+                key={id}
+                onClick={() => void handleProviderClick(id)}
+                type='button'
+              >
+                {PROVIDER_OPTIONS[id].label}
+              </button>
+            ))}
+          </div>
+
+          <div className={tw`mt-1.5 flex items-center gap-2`}>
+            {editing || !apiKey ? (
+              <>
+                <input
+                  className={tw`
+                    flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-xs text-(--text-primary)
+
+                    placeholder:text-(--text-muted)
+
+                    focus:border-(--brand-secondary) focus:outline-none
+
+                    disabled:text-(--text-subtle)
+                  `}
+                  disabled={isLoading}
+                  onChange={(e) => void setValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setOpen(false);
+                      setEditing(false);
+                      setValue('');
+                    }
+                  }}
+                  placeholder={providerOption.placeholder}
+                  type='password'
+                  value={value}
+                />
+                <button
+                  className={tw`
+                    rounded-[4px] bg-(--text-primary) px-2 py-1 text-xs font-medium text-(--text-inverse) transition-colors
+
+                    hover:bg-(--text-secondary)
+
+                    disabled:bg-(--text-muted)
+                  `}
+                  disabled={isLoading || !value.trim()}
+                  onClick={handleSubmit}
+                  type='button'
+                >
+                  Save
+                </button>
+              </>
+            ) : (
+              <>
+                <a
+                  className={tw`text-xs text-(--brand-secondary) underline`}
+                  href={providerOption.keysUrl}
+                  rel='noreferrer'
+                  target='_blank'
+                >
+                  {providerOption.keyLabel}
+                </a>
+                <button
+                  className={tw`text-xs text-(--brand-secondary) hover:underline`}
+                  disabled={isLoading}
+                  onClick={() => void setEditing(true)}
+                  type='button'
+                >
+                  Edit key
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
