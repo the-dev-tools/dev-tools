@@ -41,7 +41,7 @@ import {
 import { defaultHorizontalConfig, layoutNodes } from './layout';
 import { type Collections, executeToolCall, type ToolExecutorContext } from './tool-executor';
 import { allToolSchemas } from './tool-schemas';
-import type { AgentProvider } from './use-openrouter-key';
+import type { AgentProvider } from './use-agent-provider-key';
 import {
   type AgentChatState,
   formatToolAsOpenAI,
