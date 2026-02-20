@@ -1,6 +1,6 @@
 import * as Protobuf from '@bufbuild/protobuf';
-import { CallOptions, Interceptor, Transport } from '@connectrpc/connect';
-import { Effect, identity, pipe, Runtime } from 'effect';
+import { CallOptions, ConnectError, Interceptor, Transport } from '@connectrpc/connect';
+import { Cause, Effect, identity, pipe, Runtime } from 'effect';
 
 interface SimpleCallOptions<I extends Protobuf.DescMessage> extends Omit<CallOptions, 'onHeader' | 'onTrailer'> {
   input?: Protobuf.MessageInitShape<I>;
@@ -23,6 +23,17 @@ export const request = <I extends Protobuf.DescMessage, O extends Protobuf.DescM
     _.input ?? ({} as Protobuf.MessageInitShape<I>),
     _.contextValues,
   );
+
+export const requestEffect = <I extends Protobuf.DescMessage, O extends Protobuf.DescMessage>(
+  _: RequestOptions<I, O>,
+) =>
+  Effect.tryPromise({
+    catch: (error) => {
+      if (error instanceof ConnectError) return error;
+      return new Cause.UnknownException(error);
+    },
+    try: (signal) => request({ signal, ..._ }),
+  });
 
 export interface StreamOptions<
   I extends Protobuf.DescMessage,

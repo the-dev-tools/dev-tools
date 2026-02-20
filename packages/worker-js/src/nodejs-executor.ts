@@ -3,7 +3,7 @@ import { ValueSchema } from '@bufbuild/protobuf/wkt';
 import { Code, ConnectError, type ConnectRouter } from '@connectrpc/connect';
 import { Array, Match, pipe, Predicate, Record } from 'effect';
 import { SourceTextModule } from 'node:vm';
-import { NodeJsExecutorService as NodeJsExecutorServiceSchema } from '@the-dev-tools/spec/buf/api/node_js_executor/v1/node_js_executor_pb';
+import { NodeJsExecutorService as NodeJsExecutorServiceSchema } from '@the-dev-tools/spec/buf/api/private/node_js_executor/v1/node_js_executor_pb';
 
 export const NodeJsExecutorService = (router: ConnectRouter) =>
   router.service(NodeJsExecutorServiceSchema, {

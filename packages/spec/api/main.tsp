@@ -2,9 +2,6 @@ import "@the-dev-tools/spec-lib/core";
 import "@the-dev-tools/spec-lib/protobuf";
 import "@the-dev-tools/spec-lib/tanstack-db";
 
-import "./auth-common.tsp";
-import "./auth.tsp";
-import "./internal/auth.tsp";
 import "./credential.tsp";
 import "./environment.tsp";
 import "./export.tsp";
@@ -13,10 +10,11 @@ import "./flow.tsp";
 import "./health.tsp";
 import "./http.tsp";
 import "./import.tsp";
-import "./user.tsp";
+import "./private/auth-adapter.tsp";
+import "./private/node-js-executor.tsp";
 import "./log.tsp";
-import "./internal/node-js-executor.tsp";
 import "./reference.tsp";
+import "./user.tsp";
 import "./workspace.tsp";
 
 using DevTools;

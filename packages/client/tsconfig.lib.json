@@ -10,6 +10,9 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
+      "path": "../auth/tsconfig.lib.json"
+    },
+    {
       "path": "../../tools/spec-lib/tsconfig.lib.json"
     },
     {

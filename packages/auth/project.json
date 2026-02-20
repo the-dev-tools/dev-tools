@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+
+  "name": "auth",
+  "projectType": "library",
+
+  "targets": {
+    "test": {
+      "dependsOn": ["server:build", "spec:build"]
+    },
+
+    "better-auth": {
+      "configurations": { "development": {} },
+      "defaultConfiguration": "development"
+    }
+  }
+}

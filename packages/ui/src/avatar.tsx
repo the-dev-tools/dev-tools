@@ -58,7 +58,7 @@ export const Avatar = ({ children, ...props }: AvatarProps) => (
 
 export const avatarButtonStyles = tv({
   extend: avatarStyles,
-  base: focusVisibleRingStyles(),
+  base: focusVisibleRingStyles({ className: tw`cursor-pointer` }),
 });
 
 export interface AvatarButtonProps

@@ -73,6 +73,22 @@
         ]
       }
     },
+    "build-testserver": {
+      "dependsOn": ["db:generate", "spec:build"],
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/cmd/authadapter-testserver/**",
+        "{projectRoot}/pkg/authadapter/**",
+        "{projectRoot}/internal/api/rauthadapter/**"
+      ],
+      "outputs": ["{projectRoot}/authadapter-testserver"],
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go build -o authadapter-testserver ./cmd/authadapter-testserver"
+      }
+    },
+
     "tidy": {
       "executor": "nx:run-commands",
       "options": {

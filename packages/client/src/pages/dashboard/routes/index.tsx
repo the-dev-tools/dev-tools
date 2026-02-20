@@ -33,14 +33,7 @@ export const Route = createFileRoute('/(dashboard)/')({
 
 function RouteComponent() {
   return (
-    <DashboardLayout
-      navbar={
-        <>
-          <span>Home</span>
-          <div className='flex-1' />
-        </>
-      }
-    >
+    <DashboardLayout navbar={<span>Home</span>}>
       <WorkspaceListPage />
     </DashboardLayout>
   );

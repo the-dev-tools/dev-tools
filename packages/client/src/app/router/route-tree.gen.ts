@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRouteImport } from './../../pages/dashboard/routes/index'
+import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRouteImport } from './../../pages/user/routes/signUp'
+import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRouteImport } from './../../pages/user/routes/signIn'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteImport } from './../../pages/workspace/routes/workspace/$workspaceIdCan/route'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRouteImport } from './../../pages/workspace/routes/workspace/$workspaceIdCan/index'
 import { Route as dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoutesHttpHttpIdCanRouteRouteImport } from './../../pages/http/routes/http/$httpIdCan/route'
@@ -26,6 +28,22 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute =
     path: '/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute =
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRouteImport.update(
+    {
+      id: '/(dashboard)/(user)/signUp',
+      path: '/signUp',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
+const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute =
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRouteImport.update(
+    {
+      id: '/(dashboard)/(user)/signIn',
+      path: '/signIn',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
 const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRoute =
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteImport.update(
     {
@@ -109,6 +127,8 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotHttpRoute
 
 export interface FileRoutesByFullPath {
   '/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute
+  '/signIn': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute
+  '/signUp': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute
   '/workspace/$workspaceIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteWithChildren
   '/workspace/$workspaceIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRoute
   '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteWithChildren
@@ -121,6 +141,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute
+  '/signIn': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute
+  '/signUp': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute
   '/workspace/$workspaceIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRoute
   '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanHistoryRoute
   '/workspace/$workspaceIdCan/credential/$credentialIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotCredentialRoutesCredentialCredentialIdCanIndexRoute
@@ -131,6 +153,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/(dashboard)/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute
+  '/(dashboard)/(user)/signIn': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute
+  '/(dashboard)/(user)/signUp': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteWithChildren
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanIndexRoute
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan': typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotFlowRoutesFlowFlowIdCanRouteRouteWithChildren
@@ -145,6 +169,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/signIn'
+    | '/signUp'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan'
@@ -157,6 +183,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/signIn'
+    | '/signUp'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
     | '/workspace/$workspaceIdCan/credential/$credentialIdCan'
@@ -166,6 +194,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/(dashboard)/'
+    | '/(dashboard)/(user)/signIn'
+    | '/(dashboard)/(user)/signUp'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/'
     | '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(flow)/flow/$flowIdCan'
@@ -179,6 +209,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteWithChildren
 }
 
@@ -189,6 +221,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(dashboard)/(user)/signUp': {
+      id: '/(dashboard)/(user)/signUp'
+      path: '/signUp'
+      fullPath: '/signUp'
+      preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(dashboard)/(user)/signIn': {
+      id: '/(dashboard)/(user)/signIn'
+      path: '/signIn'
+      fullPath: '/signIn'
+      preLoaderRoute: typeof dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(dashboard)/(workspace)/workspace/$workspaceIdCan': {
@@ -320,6 +366,10 @@ const dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspace
 const rootRouteChildren: RootRouteChildren = {
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute:
     dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesIndexRoute,
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute:
+    dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignInRoute,
+  dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute:
+    dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotUserRoutesSignUpRoute,
   dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRoute:
     dashboardDotDotDotDotDotDotDotDotPagesDashboardRoutesDotDotDotDotWorkspaceRoutesWorkspaceWorkspaceIdCanRouteRouteWithChildren,
 }

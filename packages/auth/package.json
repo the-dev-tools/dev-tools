@@ -1,0 +1,35 @@
+{
+  "name": "@the-dev-tools/auth",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "better-auth": "better-auth",
+    "build": "tsc --noEmit",
+    "dev": "node --experimental-transform-types --watch src/index.ts",
+    "start": "node --experimental-transform-types src/index.ts",
+    "test": "vitest run"
+  },
+  "exports": {
+    ".": "./src/client.ts"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "catalog:",
+    "@connectrpc/connect": "catalog:",
+    "@connectrpc/connect-node": "catalog:",
+    "@effect/platform": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@the-dev-tools/spec": "workspace:^",
+    "better-auth": "catalog:",
+    "effect": "catalog:",
+    "id128": "catalog:"
+  },
+  "devDependencies": {
+    "@better-auth/cli": "catalog:",
+    "@the-dev-tools/eslint-config": "workspace:^",
+    "@the-dev-tools/server": "workspace:^",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,7 +1,11 @@
 using DevTools;
-using Api.AuthCommon;
 
 namespace Api.User;
+
+enum AuthProvider {
+  Email,
+  Google,
+}
 
 @TanStackDB.collection(#{ canCreate: false, canDelete: false })
 model User {

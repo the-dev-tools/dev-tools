@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["."],
+  "exclude": ["node_modules"],
+  "references": [
+    {
+      "path": "../spec/tsconfig.lib.json"
+    },
+    {
+      "path": "../../tools/eslint/tsconfig.lib.json"
+    }
+  ]
+}
