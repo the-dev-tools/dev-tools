@@ -520,6 +520,51 @@ func (q *Queries) AuthListMembersByUser(ctx context.Context, userID idwrap.IDWra
 	return items, nil
 }
 
+const authListOrganizationsForUser = `-- name: AuthListOrganizationsForUser :many
+SELECT
+  o.id,
+  o.name,
+  o.slug,
+  o.logo,
+  o.metadata,
+  o.created_at
+FROM
+  auth_organization o
+INNER JOIN auth_member m ON o.id = m.organization_id
+WHERE
+  m.user_id = ?
+`
+
+func (q *Queries) AuthListOrganizationsForUser(ctx context.Context, userID idwrap.IDWrap) ([]AuthOrganization, error) {
+	rows, err := q.query(ctx, q.authListOrganizationsForUserStmt, authListOrganizationsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuthOrganization{}
+	for rows.Next() {
+		var i AuthOrganization
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Logo,
+			&i.Metadata,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const authUpdateInvitation = `-- name: AuthUpdateInvitation :exec
 UPDATE auth_invitation
 SET

@@ -10,7 +10,7 @@ import (
 
 const MigrationAddAuthOrgTablesID = "01KHXPXDFMZ29DZ5S2SEP7ZQ1Y"
 
-const MigrationAddAuthOrgTablesChecksum = "sha256:add-auth-org-tables-v1"
+const MigrationAddAuthOrgTablesChecksum = "sha256:add-auth-org-tables-v2"
 
 func init() {
 	if err := migrate.Register(migrate.Migration{
@@ -50,6 +50,7 @@ func applyAddAuthOrgTables(ctx context.Context, tx *sql.Tx) error {
 				role TEXT NOT NULL,
 				created_at INTEGER NOT NULL,
 				CHECK (length(id) = 16),
+				UNIQUE (user_id, organization_id),
 				FOREIGN KEY (user_id) REFERENCES auth_user (id) ON DELETE CASCADE,
 				FOREIGN KEY (organization_id) REFERENCES auth_organization (id) ON DELETE CASCADE
 			)`,
@@ -85,6 +86,18 @@ func applyAddAuthOrgTables(ctx context.Context, tx *sql.Tx) error {
 		}
 		if _, err := tx.ExecContext(ctx, tbl.ddl); err != nil {
 			return fmt.Errorf("create %s table: %w", tbl.name, err)
+		}
+	}
+
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS auth_member_user_idx ON auth_member (user_id)`,
+		`CREATE INDEX IF NOT EXISTS auth_member_org_idx ON auth_member (organization_id)`,
+		`CREATE INDEX IF NOT EXISTS auth_invitation_org_idx ON auth_invitation (organization_id)`,
+		`CREATE INDEX IF NOT EXISTS auth_invitation_email_idx ON auth_invitation (email)`,
+	}
+	for _, idx := range indexes {
+		if _, err := tx.ExecContext(ctx, idx); err != nil {
+			return fmt.Errorf("create index: %w", err)
 		}
 	}
 

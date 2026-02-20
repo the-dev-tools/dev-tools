@@ -20,6 +20,7 @@ CREATE TABLE auth_member (
   role TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   CHECK (length(id) = 16),
+  UNIQUE (user_id, organization_id),
   FOREIGN KEY (user_id) REFERENCES auth_user (id) ON DELETE CASCADE,
   FOREIGN KEY (organization_id) REFERENCES auth_organization (id) ON DELETE CASCADE
 );
@@ -37,3 +38,8 @@ CREATE TABLE auth_invitation (
   FOREIGN KEY (inviter_id) REFERENCES auth_user (id) ON DELETE CASCADE,
   FOREIGN KEY (organization_id) REFERENCES auth_organization (id) ON DELETE CASCADE
 );
+
+CREATE INDEX auth_member_user_idx ON auth_member (user_id);
+CREATE INDEX auth_member_org_idx ON auth_member (organization_id);
+CREATE INDEX auth_invitation_org_idx ON auth_invitation (organization_id);
+CREATE INDEX auth_invitation_email_idx ON auth_invitation (email);

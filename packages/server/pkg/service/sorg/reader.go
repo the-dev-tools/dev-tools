@@ -3,7 +3,6 @@ package sorg
 import (
 	"context"
 	"database/sql"
-	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -38,22 +37,11 @@ func (r *Reader) GetOrganizationBySlug(ctx context.Context, slug string) (*morg.
 }
 
 func (r *Reader) ListOrganizationsForUser(ctx context.Context, userID idwrap.IDWrap) ([]*morg.Organization, error) {
-	members, err := r.queries.AuthListMembersByUser(ctx, userID)
+	rows, err := r.queries.AuthListOrganizationsForUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	orgs := make([]*morg.Organization, 0, len(members))
-	for _, m := range members {
-		o, err := r.queries.AuthGetOrganization(ctx, m.OrganizationID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return nil, err
-		}
-		orgs = append(orgs, convertToModelOrganization(o))
-	}
-	return orgs, nil
+	return tgeneric.MassConvert(rows, convertToModelOrganization), nil
 }
 
 func (r *Reader) ListMembers(ctx context.Context, orgID idwrap.IDWrap) ([]*morg.Member, error) {

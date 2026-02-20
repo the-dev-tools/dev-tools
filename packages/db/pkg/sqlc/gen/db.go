@@ -162,6 +162,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authListMembersByUserStmt, err = db.PrepareContext(ctx, authListMembersByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListMembersByUser: %w", err)
 	}
+	if q.authListOrganizationsForUserStmt, err = db.PrepareContext(ctx, authListOrganizationsForUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListOrganizationsForUser: %w", err)
+	}
 	if q.authListSessionsByUserStmt, err = db.PrepareContext(ctx, authListSessionsByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListSessionsByUser: %w", err)
 	}
@@ -1244,6 +1247,11 @@ func (q *Queries) Close() error {
 	if q.authListMembersByUserStmt != nil {
 		if cerr := q.authListMembersByUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authListMembersByUserStmt: %w", cerr)
+		}
+	}
+	if q.authListOrganizationsForUserStmt != nil {
+		if cerr := q.authListOrganizationsForUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListOrganizationsForUserStmt: %w", cerr)
 		}
 	}
 	if q.authListSessionsByUserStmt != nil {
@@ -2746,6 +2754,7 @@ type Queries struct {
 	authListJwksStmt                           *sql.Stmt
 	authListMembersByOrganizationStmt          *sql.Stmt
 	authListMembersByUserStmt                  *sql.Stmt
+	authListOrganizationsForUserStmt           *sql.Stmt
 	authListSessionsByUserStmt                 *sql.Stmt
 	authUpdateAccountStmt                      *sql.Stmt
 	authUpdateInvitationStmt                   *sql.Stmt
@@ -3081,6 +3090,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authListJwksStmt:                           q.authListJwksStmt,
 		authListMembersByOrganizationStmt:          q.authListMembersByOrganizationStmt,
 		authListMembersByUserStmt:                  q.authListMembersByUserStmt,
+		authListOrganizationsForUserStmt:           q.authListOrganizationsForUserStmt,
 		authListSessionsByUserStmt:                 q.authListSessionsByUserStmt,
 		authUpdateAccountStmt:                      q.authUpdateAccountStmt,
 		authUpdateInvitationStmt:                   q.authUpdateInvitationStmt,

@@ -53,6 +53,20 @@ DELETE FROM auth_organization
 WHERE
   id = ?;
 
+-- name: AuthListOrganizationsForUser :many
+SELECT
+  o.id,
+  o.name,
+  o.slug,
+  o.logo,
+  o.metadata,
+  o.created_at
+FROM
+  auth_organization o
+INNER JOIN auth_member m ON o.id = m.organization_id
+WHERE
+  m.user_id = ?;
+
 -- name: AuthCountOrganizations :one
 SELECT
   COUNT(*)

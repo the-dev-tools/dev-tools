@@ -142,7 +142,7 @@ var organizationModelDef = modelDef{
 		{Name: "slug", Column: "slug", Type: ftOptText},
 		{Name: "logo", Column: "logo", Type: ftOptText},
 		{Name: "metadata", Column: "metadata", Type: ftOptText},
-		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "createdAt", Column: "created_at", Type: ftDate},
 	},
 }
 
@@ -154,7 +154,7 @@ var memberModelDef = modelDef{
 		{Name: "userId", Column: "user_id", Type: ftBlobID},
 		{Name: "organizationId", Column: "organization_id", Type: ftBlobID},
 		{Name: "role", Column: "role", Type: ftText},
-		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "createdAt", Column: "created_at", Type: ftDate},
 	},
 }
 
@@ -168,8 +168,8 @@ var invitationModelDef = modelDef{
 		{Name: "organizationId", Column: "organization_id", Type: ftBlobID},
 		{Name: "role", Column: "role", Type: ftText},
 		{Name: "status", Column: "status", Type: ftText},
-		{Name: "createdAt", Column: "created_at", Type: ftInt64},
-		{Name: "expiresAt", Column: "expires_at", Type: ftInt64},
+		{Name: "createdAt", Column: "created_at", Type: ftDate},
+		{Name: "expiresAt", Column: "expires_at", Type: ftDate},
 	},
 }
 

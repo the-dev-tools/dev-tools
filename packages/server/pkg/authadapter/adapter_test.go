@@ -313,6 +313,8 @@ func TestAdapter_Organization(t *testing.T) {
 	testutil.Assert(t, id.String(), str(rec, "id"))
 	testutil.Assert(t, "Acme Corp", str(rec, "name"))
 	testutil.Assert(t, "acme-corp", str(rec, "slug"))
+	// ftDate regression: createdAt must be ISO 8601 string, not raw integer
+	testutil.Assert(t, time.Unix(now, 0).UTC().Format(time.RFC3339), rec["createdAt"].(string))
 
 	// FindOne by id
 	found, err := a.FindOne(ctx, authadapter.ModelOrganization, []authadapter.WhereClause{
@@ -403,6 +405,8 @@ func TestAdapter_Member(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 	testutil.Assert(t, memberID.String(), str(rec, "id"))
 	testutil.Assert(t, "owner", str(rec, "role"))
+	// ftDate regression: createdAt must be ISO 8601 string, not raw integer
+	testutil.Assert(t, time.Unix(now, 0).UTC().Format(time.RFC3339), rec["createdAt"].(string))
 
 	// FindOne by id
 	found, err := a.FindOne(ctx, authadapter.ModelMember, []authadapter.WhereClause{
@@ -501,6 +505,9 @@ func TestAdapter_Invitation(t *testing.T) {
 	testutil.Assert(t, invID.String(), str(rec, "id"))
 	testutil.Assert(t, "pending", str(rec, "status"))
 	testutil.Assert(t, "carol@example.com", str(rec, "email"))
+	// ftDate regression: createdAt and expiresAt must be ISO 8601 strings, not raw integers
+	testutil.Assert(t, time.Unix(now, 0).UTC().Format(time.RFC3339), rec["createdAt"].(string))
+	testutil.Assert(t, time.Unix(now+86400, 0).UTC().Format(time.RFC3339), rec["expiresAt"].(string))
 
 	// FindOne by id
 	found, err := a.FindOne(ctx, authadapter.ModelInvitation, []authadapter.WhereClause{
