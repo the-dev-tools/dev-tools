@@ -7,8 +7,15 @@ import { authEffect } from './auth-effect.ts';
 const app = Effect.gen(function* () {
   const auth = yield* authEffect;
   const authHttpApp = HttpApp.fromWebHandler(auth.handler);
-  const router = pipe(HttpRouter.empty, HttpRouter.mountApp('/api/auth', authHttpApp, { includePrefix: true }));
-  return pipe(router, HttpServer.serve(HttpMiddleware.logger), HttpServer.withLogAddress);
+
+  return pipe(
+    HttpRouter.empty,
+    HttpRouter.mountApp('/api/auth', authHttpApp, { includePrefix: true }),
+    HttpMiddleware.logger,
+    HttpMiddleware.cors({ allowedOrigins: () => true, credentials: true }),
+    HttpServer.serve(),
+    HttpServer.withLogAddress,
+  );
 });
 
 const HttpServerLive = NodeHttpServer.layer(() => createServer(), { port: 5000 });

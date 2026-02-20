@@ -824,6 +824,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: 'catalog:'
         version: 1.145.10(@tanstack/react-router@1.145.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(vite@7.3.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
+      '@the-dev-tools/auth':
+        specifier: workspace:^
+        version: link:../auth
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint

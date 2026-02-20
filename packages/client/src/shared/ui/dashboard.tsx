@@ -1,6 +1,4 @@
-import { Result, useAtomValue } from '@effect-atom/atom-react';
 import { Outlet, useRouter } from '@tanstack/react-router';
-import { Option, pipe, Runtime } from 'effect';
 import { Suspense } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiMoon, FiSun } from 'react-icons/fi';
@@ -11,8 +9,7 @@ import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
-import { runtimeAtom } from '~/shared/lib';
-import { AuthData, AuthService } from '../api';
+import { useAuth } from '../api';
 import { routes } from '../routes';
 
 interface DashboardLayoutProps {
@@ -20,39 +17,11 @@ interface DashboardLayoutProps {
   navbar?: React.ReactNode;
 }
 
-const authAtom = runtimeAtom.atom(AuthService.getAuthData);
-
 export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
   const router = useRouter();
-
-  const { runtime } = routes.root.useRouteContext();
-
   const { theme, toggleTheme } = useTheme();
-
-  const user = pipe(
-    useAtomValue(authAtom),
-    Result.getOrElse(() => Option.none<AuthData>()),
-    Option.match({
-      onNone: () => (
-        <ButtonAsRouteLink
-          className={tw`px-2.5 py-1`}
-          to={router.routesById[routes.dashboard.workspace.user.signIn.id].fullPath}
-          variant='secondary'
-        >
-          Sign In
-        </ButtonAsRouteLink>
-      ),
-      onSome: (_) => (
-        <MenuTrigger>
-          <AvatarButton>{_.name}</AvatarButton>
-
-          <Menu>
-            <MenuItem onAction={() => void Runtime.runPromise(runtime, AuthService.signOut)}>Sign Out</MenuItem>
-          </Menu>
-        </MenuTrigger>
-      ),
-    }),
-  );
+  const auth = useAuth();
+  const { data: session } = auth.useSession();
 
   return (
     <div className={tw`flex h-full flex-col`}>
@@ -83,7 +52,30 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
 
         <div className={tw`h-5 w-px bg-on-inverse-lower`} />
 
-        {user}
+        {session ? (
+          <MenuTrigger>
+            <AvatarButton>{session.user.name}</AvatarButton>
+
+            <Menu>
+              <MenuItem
+                onAction={async () => {
+                  const { data } = await auth.signOut();
+                  if (data) location.reload();
+                }}
+              >
+                Sign Out
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+        ) : (
+          <ButtonAsRouteLink
+            className={tw`px-2.5 py-1`}
+            to={router.routesById[routes.dashboard.workspace.user.signIn.id].fullPath}
+            variant='secondary'
+          >
+            Sign In
+          </ButtonAsRouteLink>
+        )}
 
         <div className={tw`h-5 w-px bg-on-inverse-lower`} />
 

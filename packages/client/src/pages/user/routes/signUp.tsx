@@ -1,14 +1,13 @@
-import { useAtom } from '@effect-atom/atom-react';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
-import { pipe, Record } from 'effect';
+import { pipe, Record, Schema } from 'effect';
+import { useTransition } from 'react';
 import { Form } from 'react-aria-components';
 import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { RouteLink } from '@the-dev-tools/ui/link';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
-import { runtimeAtom } from '~/app';
-import { AuthService } from '~/shared/api';
+import { useAuth } from '~/shared/api';
 import { routes } from '~/shared/routes';
 import { DashboardLayout } from '~/shared/ui';
 
@@ -16,22 +15,28 @@ export const Route = createFileRoute('/(dashboard)/(user)/signUp')({
   component: RouteComponent,
 });
 
-const signUpAtom = runtimeAtom.fn(AuthService.signUp);
-
 function RouteComponent() {
   const router = useRouter();
+  const auth = useAuth();
 
-  const [{ waiting }, submit] = useAtom(signUpAtom, { mode: 'promise' });
+  const [loading, submit] = useTransition();
 
   return (
     <DashboardLayout>
       <Form
         className={tw`container mx-auto flex max-w-sm flex-col items-center gap-x-10 px-8 py-20`}
-        onSubmit={async (_) => {
-          _.preventDefault();
-          const data = pipe(new FormData(_.currentTarget), Record.fromEntries);
-          await submit(data);
-        }}
+        onSubmit={(_) =>
+          void submit(async () => {
+            _.preventDefault();
+            const validate = pipe(
+              Schema.Struct({ email: Schema.String, name: Schema.String, password: Schema.String }),
+              Schema.validatePromise,
+            );
+            const input = await pipe(new FormData(_.currentTarget), Record.fromEntries, validate);
+            const { data } = await auth.signUp.email(input);
+            if (data) location.reload();
+          })
+        }
       >
         <Logo className={tw`size-20`} />
 
@@ -56,7 +61,7 @@ function RouteComponent() {
           type='password'
         />
 
-        <Button className={tw`mt-11 w-full py-2`} isPending={waiting} type='submit' variant='primary'>
+        <Button className={tw`mt-11 w-full py-2`} isPending={loading} type='submit' variant='primary'>
           Create Account
         </Button>
 

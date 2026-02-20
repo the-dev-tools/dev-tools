@@ -9,6 +9,9 @@
     "start": "node --experimental-transform-types src/index.ts",
     "test": "vitest run"
   },
+  "exports": {
+    ".": "./src/client.ts"
+  },
   "dependencies": {
     "@bufbuild/protobuf": "catalog:",
     "@connectrpc/connect": "catalog:",

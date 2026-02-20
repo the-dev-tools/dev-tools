@@ -4,13 +4,14 @@ import { bearer, jwt } from 'better-auth/plugins';
 import { Config, Effect, pipe, Redacted } from 'effect';
 import os from 'node:os';
 import { adapter } from './adapter.ts';
+import { defaultUrl } from './config.ts';
 
 export const authEffect = Effect.gen(function* () {
   const path = yield* Path.Path;
 
   const configNamespace = Config.nested('AUTH');
 
-  const url = yield* pipe(Config.url('URL'), configNamespace, Config.withDefault(new URL('http://localhost:5000')));
+  const url = yield* pipe(Config.url('URL'), configNamespace, Config.withDefault(defaultUrl));
 
   const secret = yield* pipe(Config.redacted('SECRET'), configNamespace);
 
@@ -34,7 +35,7 @@ export const authEffect = Effect.gen(function* () {
             email: user.email,
             expiresAt: session.expiresAt,
             name: user.name,
-            sub: user.id,
+            userId: user.id,
           }),
         },
       }),
@@ -44,5 +45,6 @@ export const authEffect = Effect.gen(function* () {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
       updateAge: 60 * 60 * 24, // update session every day
     },
+    trustedOrigins: ['*'],
   });
 });
