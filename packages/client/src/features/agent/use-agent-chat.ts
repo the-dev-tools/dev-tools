@@ -3,7 +3,7 @@ import { eq } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import OpenAI from 'openai';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
-import { FlowItemState, NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import {
   EdgeCollectionSchema,
   FlowCollectionSchema,
@@ -41,10 +41,10 @@ import {
 import { defaultHorizontalConfig, layoutNodes } from './layout';
 import { type Collections, executeToolCall, type ToolExecutorContext } from './tool-executor';
 import { allToolSchemas } from './tool-schemas';
+import type { AgentProvider } from './use-openrouter-key';
 import {
   type AgentChatState,
   formatToolAsOpenAI,
-  type FlowContextData,
   type Message,
   type OpenAIMessage,
   type ToolCall,
@@ -52,14 +52,53 @@ import {
   type ToolSchema,
 } from './types';
 
-const MODEL = 'minimax/minimax-m2.5';
+const DEFAULT_MODELS: Record<AgentProvider, string> = {
+  anthropic: 'claude-sonnet-4-6',
+  openai: 'gpt-5',
+  openrouter: 'minimax/minimax-m2.5',
+};
 
-const createOpenRouterClient = (apiKey: string) =>
-  new OpenAI({
-    apiKey,
-    baseURL: 'https://openrouter.ai/api/v1',
-    dangerouslyAllowBrowser: true,
-  });
+const createProviderClient = (
+  provider: AgentProvider,
+  apiKey: string,
+): { client: OpenAI; model: string; providerName: AgentProvider } => {
+  if (provider === 'openrouter') {
+    return {
+      client: new OpenAI({
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+      }),
+      model: DEFAULT_MODELS.openrouter,
+      providerName: provider,
+    };
+  }
+
+  if (provider === 'anthropic') {
+    return {
+      client: new OpenAI({
+        apiKey,
+        baseURL: 'https://api.anthropic.com/v1',
+        defaultHeaders: {
+          'anthropic-dangerous-direct-browser-access': 'true',
+          'anthropic-version': '2023-06-01',
+        },
+        dangerouslyAllowBrowser: true,
+      }),
+      model: DEFAULT_MODELS.anthropic,
+      providerName: provider,
+    };
+  }
+
+  return {
+    client: new OpenAI({
+      apiKey,
+      dangerouslyAllowBrowser: true,
+    }),
+    model: DEFAULT_MODELS.openai,
+    providerName: provider,
+  };
+};
 
 const generateId = () => crypto.randomUUID();
 
@@ -469,6 +508,7 @@ const clientToolSchemas: ToolSchema[] = [
 interface UseAgentChatOptions {
   apiKey: string;
   flowId: Uint8Array;
+  provider: AgentProvider;
   selectedNodeIds?: string[];
 }
 
@@ -506,7 +546,9 @@ const chatStore = {
   },
 
   notify(key: string) {
-    chatStoreListeners.get(key)?.forEach((cb) => cb());
+    chatStoreListeners.get(key)?.forEach((cb) => {
+      cb();
+    });
   },
 
   setAbortController(key: string, ac: AbortController | null) {
@@ -542,7 +584,7 @@ const chatStore = {
   },
 };
 
-export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOptions) => {
+export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseAgentChatOptions) => {
   const flowIdKey = Ulid.construct(flowId).toCanonical();
 
   const state = useSyncExternalStore(
@@ -589,7 +631,7 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
       const abortController = new AbortController();
       chatStore.setAbortController(flowIdKey, abortController);
 
-      const openai = createOpenRouterClient(apiKey);
+      const { client: openai, model, providerName } = createProviderClient(provider, apiKey);
 
       // Use ref to get latest flowContext at execution time
       const currentFlowContext = {
@@ -682,7 +724,7 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
           { content, role: 'user' },
         ];
 
-        logger.logApiRequest(MODEL, openAIMessages.length, true);
+        logger.logApiRequest(`${providerName}:${model}`, openAIMessages.length, true);
         let apiStart = performance.now();
 
         const updateStreamingContent = (content: string) => {
@@ -692,7 +734,7 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
         let stream = await openai.chat.completions.create(
           {
             messages: openAIMessages,
-            model: MODEL,
+            model,
             stream: true,
             tool_choice: 'auto',
             tools,
@@ -824,13 +866,13 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
               });
             }
 
-            logger.logApiRequest(MODEL, openAIMessages.length, true);
+            logger.logApiRequest(`${providerName}:${model}`, openAIMessages.length, true);
             apiStart = performance.now();
 
             stream = await openai.chat.completions.create(
               {
                 messages: openAIMessages,
-                model: MODEL,
+                model,
                 stream: true,
                 tool_choice: 'auto',
                 tools,
@@ -894,11 +936,11 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
             role: 'user',
           });
 
-          logger.logApiRequest(MODEL, openAIMessages.length, true);
+          logger.logApiRequest(`${providerName}:${model}`, openAIMessages.length, true);
           apiStart = performance.now();
 
           stream = await openai.chat.completions.create(
-            { messages: openAIMessages, model: MODEL, stream: true, tool_choice: 'auto', tools },
+            { messages: openAIMessages, model, stream: true, tool_choice: 'auto', tools },
             { signal: abortController.signal },
           );
 
@@ -931,6 +973,23 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
           chatStore.setState(flowIdKey, (prev) => ({ ...prev, isLoading: false, streamingContent: '' }));
           return;
         }
+
+        // Anthropic browser calls can be blocked by org CORS settings.
+        const isNetworkFailure = error instanceof Error && /failed to fetch|networkerror/i.test(error.message);
+        if (provider === 'anthropic' && isNetworkFailure) {
+          const corsHelp =
+            'Anthropic blocked the browser request (CORS). Make sure your Anthropic org allows browser CORS requests, or use OpenRouter for browser-based chat.';
+          logger.logError(error, 'sendMessage');
+          logger.logSessionEnd(false, false);
+          chatStore.setState(flowIdKey, (prev) => ({
+            ...prev,
+            error: corsHelp,
+            isLoading: false,
+            streamingContent: '',
+          }));
+          return;
+        }
+
         logger.logError(error, 'sendMessage');
         logger.logSessionEnd(false, false);
         const errorMessage = error instanceof Error ? error.message : 'An error occurred';
@@ -948,6 +1007,7 @@ export const useAgentChat = ({ apiKey, flowId, selectedNodeIds }: UseAgentChatOp
     },
     [
       apiKey,
+      provider,
       flowId,
       transport,
       nodeCollection,
