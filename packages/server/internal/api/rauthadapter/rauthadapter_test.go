@@ -981,7 +981,7 @@ func TestUpdate_session(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	require.NotNil(t, resp.Msg.Data)
-	require.Equal(t, newExpiry, resp.Msg.Data.GetStructValue().GetFields()["expiresAt"].GetNumberValue())
+	require.Equal(t, time.Unix(int64(newExpiry), 0).UTC().Format(time.RFC3339), resp.Msg.Data.GetStructValue().GetFields()["expiresAt"].GetStringValue())
 }
 
 // TestDelete_sessionByToken covers the logout path — BetterAuth deletes by token.
