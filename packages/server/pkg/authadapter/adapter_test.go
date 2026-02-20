@@ -312,7 +312,7 @@ func TestAdapter_Jwks(t *testing.T) {
 	testutil.Assert(t, true, id != "")
 	testutil.Assert(t, `{"kty":"RSA","n":"abc","e":"AQAB"}`, str(rec, "publicKey"))
 	testutil.Assert(t, `{"kty":"RSA","n":"abc","d":"xyz"}`, str(rec, "privateKey"))
-	testutil.Assert(t, time.Unix(now, 0).UTC().Format(time.RFC3339), rec["createdAt"].(string))
+	testutil.Assert(t, now, rec["createdAt"].(int64))
 	testutil.Assert(t, true, rec["expiresAt"] == nil)
 
 	// Create second key with expiresAt
@@ -325,7 +325,7 @@ func TestAdapter_Jwks(t *testing.T) {
 	rec2, err := a.Create(ctx, authadapter.ModelJwks, data2)
 	testutil.AssertFatal(t, nil, err)
 	id2 := str(rec2, "id")
-	testutil.Assert(t, time.Unix(now+86400, 0).UTC().Format(time.RFC3339), rec2["expiresAt"].(string))
+	testutil.Assert(t, now+86400, rec2["expiresAt"].(int64))
 
 	// FindMany returns all keys (newest first)
 	many, err := a.FindMany(ctx, authadapter.ModelJwks, nil, authadapter.FindManyOpts{})

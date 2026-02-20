@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
@@ -19,8 +18,6 @@ const (
 	ftBlobID                   // idwrap.IDWrap, stored as BLOB (16-byte ULID)
 	ftInt64                    // int64, stored as INTEGER
 	ftOptInt64                 // *int64, stored as INTEGER (nullable)
-	ftDate                     // int64 (Unix seconds), returned as ISO 8601 string
-	ftOptDate                  // *int64 (Unix seconds, nullable), returned as ISO 8601 string or nil
 )
 
 // fieldDef defines a single field in a BetterAuth model.
@@ -51,7 +48,7 @@ func fieldTypeToColType(ft fieldType) columnType {
 	switch ft {
 	case ftBlobID:
 		return colBlobID
-	case ftInt64, ftOptInt64, ftDate, ftOptDate:
+	case ftInt64, ftOptInt64:
 		return colInteger
 	default:
 		return colText
@@ -69,8 +66,8 @@ var userModelDef = modelDef{
 		{Name: "email", Column: "email", Type: ftText},
 		{Name: "emailVerified", Column: "email_verified", Type: ftInt64},
 		{Name: "image", Column: "image", Type: ftOptText},
-		{Name: "createdAt", Column: "created_at", Type: ftDate},
-		{Name: "updatedAt", Column: "updated_at", Type: ftDate},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "updatedAt", Column: "updated_at", Type: ftInt64},
 	},
 }
 
@@ -81,11 +78,11 @@ var sessionModelDef = modelDef{
 		{Name: "id", Column: "id", Type: ftBlobID},
 		{Name: "userId", Column: "user_id", Type: ftBlobID},
 		{Name: "token", Column: "token", Type: ftText},
-		{Name: "expiresAt", Column: "expires_at", Type: ftDate},
+		{Name: "expiresAt", Column: "expires_at", Type: ftInt64},
 		{Name: "ipAddress", Column: "ip_address", Type: ftOptText},
 		{Name: "userAgent", Column: "user_agent", Type: ftOptText},
-		{Name: "createdAt", Column: "created_at", Type: ftDate},
-		{Name: "updatedAt", Column: "updated_at", Type: ftDate},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "updatedAt", Column: "updated_at", Type: ftInt64},
 	},
 }
 
@@ -99,13 +96,13 @@ var accountModelDef = modelDef{
 		{Name: "providerId", Column: "provider_id", Type: ftText},
 		{Name: "accessToken", Column: "access_token", Type: ftOptText},
 		{Name: "refreshToken", Column: "refresh_token", Type: ftOptText},
-		{Name: "accessTokenExpiresAt", Column: "access_token_expires_at", Type: ftOptDate},
-		{Name: "refreshTokenExpiresAt", Column: "refresh_token_expires_at", Type: ftOptDate},
+		{Name: "accessTokenExpiresAt", Column: "access_token_expires_at", Type: ftOptInt64},
+		{Name: "refreshTokenExpiresAt", Column: "refresh_token_expires_at", Type: ftOptInt64},
 		{Name: "scope", Column: "scope", Type: ftOptText},
 		{Name: "idToken", Column: "id_token", Type: ftOptText},
 		{Name: "password", Column: "password", Type: ftOptText},
-		{Name: "createdAt", Column: "created_at", Type: ftDate},
-		{Name: "updatedAt", Column: "updated_at", Type: ftDate},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "updatedAt", Column: "updated_at", Type: ftInt64},
 	},
 }
 
@@ -116,9 +113,9 @@ var verificationModelDef = modelDef{
 		{Name: "id", Column: "id", Type: ftBlobID},
 		{Name: "identifier", Column: "identifier", Type: ftText},
 		{Name: "value", Column: "value", Type: ftText},
-		{Name: "expiresAt", Column: "expires_at", Type: ftDate},
-		{Name: "createdAt", Column: "created_at", Type: ftDate},
-		{Name: "updatedAt", Column: "updated_at", Type: ftDate},
+		{Name: "expiresAt", Column: "expires_at", Type: ftInt64},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "updatedAt", Column: "updated_at", Type: ftInt64},
 	},
 }
 
@@ -129,8 +126,8 @@ var jwksModelDef = modelDef{
 		{Name: "id", Column: "id", Type: ftBlobID},
 		{Name: "publicKey", Column: "public_key", Type: ftText},
 		{Name: "privateKey", Column: "private_key", Type: ftText},
-		{Name: "createdAt", Column: "created_at", Type: ftDate},
-		{Name: "expiresAt", Column: "expires_at", Type: ftOptDate},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "expiresAt", Column: "expires_at", Type: ftOptInt64},
 	},
 }
 
@@ -177,13 +174,13 @@ func parseFieldValue(f fieldDef, raw json.RawMessage) (any, error) {
 	case ftOptText:
 		return parseNullString(raw)
 
-	case ftInt64, ftDate:
+	case ftInt64:
 		if isNull {
 			return int64(0), nil
 		}
 		return parseInt64(raw)
 
-	case ftOptInt64, ftOptDate:
+	case ftOptInt64:
 		return parseOptInt64(raw)
 
 	default:
@@ -193,8 +190,6 @@ func parseFieldValue(f fieldDef, raw json.RawMessage) (any, error) {
 
 // toMap converts a parsedRow to a BetterAuth response map, formatting values
 // appropriately (IDWrap → string, NullString → string|nil, etc.).
-// Date fields (ftDate/ftOptDate) are returned as ISO 8601 strings because
-// BetterAuth's transformOutput expects strings when supportsDates is false.
 func (r parsedRow) toMap(fields []fieldDef) map[string]any {
 	m := make(map[string]any, len(fields))
 	for _, f := range fields {
@@ -206,10 +201,6 @@ func (r parsedRow) toMap(fields []fieldDef) map[string]any {
 			m[f.Name] = nullStrToAny(v.(sql.NullString))
 		case ftOptInt64:
 			m[f.Name] = optInt64ToAny(v.(*int64))
-		case ftDate:
-			m[f.Name] = unixToISO(v.(int64))
-		case ftOptDate:
-			m[f.Name] = optUnixToISO(v.(*int64))
 		default:
 			m[f.Name] = v
 		}
@@ -246,18 +237,4 @@ func resolveWhereID(val json.RawMessage) (idwrap.IDWrap, bool, error) {
 // isInvalidID returns true if the error indicates an invalid ID format.
 func isInvalidID(err error) bool {
 	return errors.Is(err, ErrInvalidID)
-}
-
-// unixToISO converts a Unix timestamp (seconds) to an ISO 8601 string.
-// BetterAuth expects date strings back when supportsDates is false.
-func unixToISO(secs int64) string {
-	return time.Unix(secs, 0).UTC().Format(time.RFC3339)
-}
-
-// optUnixToISO converts an optional Unix timestamp to an ISO 8601 string or nil.
-func optUnixToISO(p *int64) any {
-	if p == nil {
-		return nil
-	}
-	return unixToISO(*p)
 }
