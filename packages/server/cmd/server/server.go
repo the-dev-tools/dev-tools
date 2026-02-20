@@ -102,6 +102,61 @@ func (w *workspaceImporterAdapter) ImportWorkspaceFromCurl(ctx context.Context, 
 	return w.ImportWorkspaceFromYAML(ctx, curlData, workspaceID)
 }
 
+type AuthMode string
+
+const (
+	AuthModeLocal      AuthMode = "local"
+	AuthModeBetterAuth AuthMode = "betterauth"
+)
+
+type AuthConfig struct {
+	Mode    AuthMode
+	JWKSURL string
+}
+
+func (c AuthConfig) IsBetterAuth() bool { return c.Mode == AuthModeBetterAuth }
+func (c AuthConfig) IsLocal() bool      { return c.Mode == AuthModeLocal }
+
+func parseAuthConfig() (AuthConfig, error) {
+	mode := AuthMode(os.Getenv("AUTH_MODE"))
+	if mode == "" {
+		mode = AuthModeLocal
+	}
+
+	if mode != AuthModeLocal && mode != AuthModeBetterAuth {
+		return AuthConfig{}, fmt.Errorf("invalid AUTH_MODE %q: must be %q or %q", mode, AuthModeLocal, AuthModeBetterAuth)
+	}
+
+	jwksURL := os.Getenv("JWKS_URL")
+	if jwksURL == "" {
+		if betterAuthURL := os.Getenv("BETTERAUTH_URL"); betterAuthURL != "" {
+			jwksURL = betterAuthURL + "/api/auth/jwks"
+		}
+	}
+
+	if mode == AuthModeBetterAuth && jwksURL == "" {
+		return AuthConfig{}, errors.New("JWKS_URL (or BETTERAUTH_URL) env var is required when AUTH_MODE=betterauth")
+	}
+
+	return AuthConfig{Mode: mode, JWKSURL: jwksURL}, nil
+}
+
+func (c AuthConfig) NewInterceptor(ctx context.Context, userService suser.UserService) (connect.Interceptor, error) {
+	switch c.Mode {
+	case AuthModeBetterAuth:
+		provider, err := jwks.NewProvider(c.JWKSURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWKS provider: %w", err)
+		}
+		provider.Start(ctx)
+		slog.Info("Using BetterAuth authentication mode (JWKS validation)", "jwks_url", c.JWKSURL)
+		return mwauth.NewBetterAuthInterceptor(provider.Keyfunc(), userService), nil
+	default:
+		slog.Info("Using local authentication mode")
+		return mwauth.NewAuthInterceptor(), nil
+	}
+}
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -124,20 +179,9 @@ func run() error {
 		port = "8080"
 	}
 
-	// Auth configuration
-	// AUTH_MODE: "local" (default, single-user desktop/CLI) or "betterauth" (multi-user, self-hosted or hosted)
-	authMode := os.Getenv("AUTH_MODE")
-	if authMode == "" {
-		authMode = "local"
-	}
-
-	// JWKS_URL: URL to fetch JWKS public keys for JWT validation (required if AUTH_MODE=betterauth)
-	// Defaults to BETTERAUTH_URL + "/api/auth/jwks" if BETTERAUTH_URL is set.
-	jwksURL := os.Getenv("JWKS_URL")
-	if jwksURL == "" {
-		if betterAuthURL := os.Getenv("BETTERAUTH_URL"); betterAuthURL != "" {
-			jwksURL = betterAuthURL + "/api/auth/jwks"
-		}
+	authCfg, err := parseAuthConfig()
+	if err != nil {
+		return err
 	}
 
 	currentDB, dbCloseFunc, err := setupDB(ctx)
@@ -223,43 +267,30 @@ func run() error {
 	optionsCompress = append(optionsCompress, mwcodec.WithJSONCodec()) // Custom JSON codec that emits zero values
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
-	_, err = userService.GetUser(ctx, mwauth.LocalDummyID)
-	if err != nil {
-		if errors.Is(err, suser.ErrUserNotFound) {
-			defaultUser := &muser.User{
-				ID: mwauth.LocalDummyID,
-			}
-			err = userService.CreateUser(ctx, defaultUser)
-			if err != nil {
+	if authCfg.IsLocal() {
+		// Seed default single-user for desktop/CLI mode
+		_, err = userService.GetUser(ctx, mwauth.LocalDummyID)
+		if err != nil {
+			if errors.Is(err, suser.ErrUserNotFound) {
+				defaultUser := &muser.User{
+					ID: mwauth.LocalDummyID,
+				}
+				err = userService.CreateUser(ctx, defaultUser)
+				if err != nil {
+					return err
+				}
+			} else {
 				return err
 			}
-		} else {
-			return err
 		}
 	}
 
 	optionsAuth = make([]connect.HandlerOption, len(optionsCompress), len(optionsCompress)+1)
 	copy(optionsAuth, optionsCompress)
 
-	// Choose auth interceptor based on AUTH_MODE
-	// - "local": Single-user mode for desktop/CLI (no auth, dummy user)
-	// - "betterauth": Multi-user mode with BetterAuth (self-hosted or hosted, JWKS JWT validation)
-	var authInterceptor connect.Interceptor
-	switch authMode {
-	case "betterauth":
-		if jwksURL == "" {
-			return errors.New("JWKS_URL (or BETTERAUTH_URL) env var is required when AUTH_MODE=betterauth")
-		}
-		slog.Info("Using BetterAuth authentication mode (JWKS validation)", "jwks_url", jwksURL)
-		provider, err := jwks.NewProvider(jwksURL)
-		if err != nil {
-			return fmt.Errorf("failed to create JWKS provider: %w", err)
-		}
-		provider.Start(ctx)
-		authInterceptor = mwauth.NewBetterAuthInterceptor(provider.Keyfunc(), userService)
-	default:
-		slog.Info("Using local authentication mode")
-		authInterceptor = mwauth.NewAuthInterceptor()
+	authInterceptor, err := authCfg.NewInterceptor(ctx, userService)
+	if err != nil {
+		return err
 	}
 
 	optionsAuth = append(optionsAuth, connect.WithInterceptors(authInterceptor))
@@ -273,10 +304,12 @@ func run() error {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	// Auth Adapter (private, no auth middleware — used by BetterAuth itself)
-	authAdapter := authadapter.New(queries, currentDB)
-	authAdapterSrv := rauthadapter.New(rauthadapter.AuthAdapterRPCDeps{Adapter: authAdapter})
-	newServiceManager.AddService(rauthadapter.CreateService(authAdapterSrv, optionsCompress))
+	if authCfg.IsBetterAuth() {
+		// Auth Adapter (private, no auth middleware — used by BetterAuth itself)
+		authAdapter := authadapter.New(queries, currentDB)
+		authAdapterSrv := rauthadapter.New(rauthadapter.AuthAdapterRPCDeps{Adapter: authAdapter})
+		newServiceManager.AddService(rauthadapter.CreateService(authAdapterSrv, optionsCompress))
+	}
 
 	httpStreamers := &rhttp.HttpStreamers{
 		Http:               streamers.Http,
@@ -327,11 +360,13 @@ func run() error {
 	})
 	newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
 
-	orgService := sorg.New(currentDB)
-	orgSrv := rorg.New(rorg.OrgServiceRPCDeps{
-		Reader: orgService.Reader(),
-	})
-	newServiceManager.AddService(rorg.CreateService(orgSrv, optionsAll))
+	if authCfg.IsBetterAuth() {
+		orgService := sorg.New(currentDB)
+		orgSrv := rorg.New(rorg.OrgServiceRPCDeps{
+			Reader: orgService.Reader(),
+		})
+		newServiceManager.AddService(rorg.CreateService(orgSrv, optionsAll))
+	}
 
 	envSrv := renv.New(renv.EnvRPCDeps{
 		DB: currentDB,
