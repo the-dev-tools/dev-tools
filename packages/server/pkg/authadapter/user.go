@@ -4,36 +4,40 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
 
 func (a *Adapter) createUser(ctx context.Context, data map[string]json.RawMessage) (map[string]any, error) {
-	id, err := parseOrGenerateID(data)
+	// Normalize BetterAuth's possibly-modified field names to standard names.
+	normalized, mapping := normalizeData(userFieldToColumn, data)
+
+	id, err := parseOrGenerateID(normalized)
 	if err != nil {
 		return nil, err
 	}
-	name, err := parseString(getField(data, "name"))
+	name, err := parseString(getField(normalized, "name"))
 	if err != nil {
 		return nil, err
 	}
-	email, err := parseString(getField(data, "email"))
+	email, err := parseString(getField(normalized, "email"))
 	if err != nil {
 		return nil, err
 	}
-	emailVerified, err := parseInt64(getField(data, "emailVerified"))
+	emailVerified, err := parseInt64(getField(normalized, "emailVerified"))
 	if err != nil {
 		return nil, err
 	}
-	image, err := parseNullString(getField(data, "image"))
+	image, err := parseNullString(getField(normalized, "image"))
 	if err != nil {
 		return nil, err
 	}
-	createdAt, err := parseInt64(getField(data, "createdAt"))
+	createdAt, err := parseInt64(getField(normalized, "createdAt"))
 	if err != nil {
 		return nil, err
 	}
-	updatedAt, err := parseInt64(getField(data, "updatedAt"))
+	updatedAt, err := parseInt64(getField(normalized, "updatedAt"))
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +54,7 @@ func (a *Adapter) createUser(ctx context.Context, data map[string]json.RawMessag
 		return nil, err
 	}
 
-	return map[string]any{
+	result := map[string]any{
 		"id":            id.String(),
 		"name":          name,
 		"email":         email,
@@ -58,46 +62,59 @@ func (a *Adapter) createUser(ctx context.Context, data map[string]json.RawMessag
 		"image":         nullStrToAny(image),
 		"createdAt":     createdAt,
 		"updatedAt":     updatedAt,
-	}, nil
+	}
+	return applyFieldMapping(result, mapping), nil
 }
 
 func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[string]any, error) {
-	field, val, ok := singleEqWhere(where)
-	if !ok {
-		return nil, ErrUnsupportedWhere
-	}
-	switch field {
-	case "id":
-		id, err := parseID(val)
-		if err != nil {
-			return nil, err
-		}
-		u, err := a.q.AuthGetUser(ctx, id)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return userToMap(u), nil
+	// Normalize where clause field names (handle BetterAuth modified field names).
+	normalizedWhere, mapping := normalizeWhereFields(userFieldToColumn, where)
 
-	case "email":
-		email, err := parseString(val)
-		if err != nil {
-			return nil, err
-		}
-		u, err := a.q.AuthGetUserByEmail(ctx, email)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, nil
+	// Fast path: use sqlc queries for common single-field eq lookups.
+	if field, val, ok := singleEqWhere(normalizedWhere); ok {
+		switch field {
+		case "id":
+			id, err := parseID(val)
+			if err != nil {
+				if errors.Is(err, ErrInvalidID) {
+					return nil, nil // non-ULID ID → not found
+				}
+				return nil, err
 			}
-			return nil, err
-		}
-		return userToMap(u), nil
+			u, err := a.q.AuthGetUser(ctx, id)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, nil
+				}
+				return nil, err
+			}
+			return applyFieldMapping(userToMap(u), mapping), nil
 
-	default:
-		return nil, ErrUnsupportedWhere
+		case "email":
+			email, err := parseString(val)
+			if err != nil {
+				return nil, err
+			}
+			u, err := a.q.AuthGetUserByEmail(ctx, email)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, nil
+				}
+				return nil, err
+			}
+			return applyFieldMapping(userToMap(u), mapping), nil
+		}
 	}
+
+	// Fallback: use dynamic SQL for arbitrary where clauses.
+	results, err := dynamicQueryUsers(ctx, a.db, normalizedWhere, FindManyOpts{Limit: 1})
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, nil
+	}
+	return applyFieldMapping(results[0], mapping), nil
 }
 
 func (a *Adapter) updateUser(ctx context.Context, where []WhereClause, data map[string]json.RawMessage) (map[string]any, error) {
@@ -107,6 +124,9 @@ func (a *Adapter) updateUser(ctx context.Context, where []WhereClause, data map[
 	}
 	id, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil, nil // non-ULID ID → not found
+		}
 		return nil, err
 	}
 
@@ -155,6 +175,18 @@ func (a *Adapter) updateUser(ctx context.Context, where []WhereClause, data map[
 	return userToMap(cur), nil
 }
 
+func (a *Adapter) findManyUsers(ctx context.Context, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) {
+	return dynamicQueryUsers(ctx, a.db, where, opts)
+}
+
+func (a *Adapter) updateManyUsers(ctx context.Context, where []WhereClause, data map[string]json.RawMessage) (int64, error) {
+	return dynamicUpdateUsers(ctx, a.db, where, data)
+}
+
+func (a *Adapter) deleteManyUsers(ctx context.Context, where []WhereClause) error {
+	return dynamicDeleteUsers(ctx, a.db, where)
+}
+
 func (a *Adapter) deleteUser(ctx context.Context, where []WhereClause) error {
 	field, val, ok := singleEqWhere(where)
 	if !ok || field != "id" {
@@ -162,6 +194,9 @@ func (a *Adapter) deleteUser(ctx context.Context, where []WhereClause) error {
 	}
 	id, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil // non-ULID ID → nothing to delete
+		}
 		return err
 	}
 	return a.q.AuthDeleteUser(ctx, id)

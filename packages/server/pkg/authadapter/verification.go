@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
@@ -64,6 +65,9 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 	case "id":
 		id, err := parseID(val)
 		if err != nil {
+			if errors.Is(err, ErrInvalidID) {
+				return nil, nil // non-ULID ID → not found
+			}
 			return nil, err
 		}
 		v, err := a.q.AuthGetVerification(ctx, id)
@@ -101,6 +105,9 @@ func (a *Adapter) deleteVerification(ctx context.Context, where []WhereClause) e
 	}
 	id, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil // non-ULID ID → nothing to delete
+		}
 		return err
 	}
 	return a.q.AuthDeleteVerification(ctx, id)

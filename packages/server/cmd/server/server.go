@@ -26,6 +26,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcodec"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcompress"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rauthadapter"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
@@ -38,6 +39,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/ruser"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/authadapter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
@@ -268,6 +270,11 @@ func run() error {
 
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
+
+	// Auth Adapter (private, no auth middleware — used by BetterAuth itself)
+	authAdapter := authadapter.New(queries, currentDB)
+	authAdapterSrv := rauthadapter.New(rauthadapter.AuthAdapterRPCDeps{Adapter: authAdapter})
+	newServiceManager.AddService(rauthadapter.CreateService(authAdapterSrv, optionsCompress))
 
 	httpStreamers := &rhttp.HttpStreamers{
 		Http:               streamers.Http,

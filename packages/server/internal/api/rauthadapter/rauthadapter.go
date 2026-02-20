@@ -98,15 +98,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/authadapter"
-	auth_adapterv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_adapter/v1"
-	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_adapter/v1/auth_adapterv1connect"
+	auth_adapterv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/auth_adapter/v1"
+	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/auth_adapter/v1/auth_adapterv1connect"
 )
 
 // AuthAdapterRPC implements AuthAdapterServiceHandler.
@@ -126,9 +126,10 @@ func New(deps AuthAdapterRPCDeps) AuthAdapterRPC {
 	return AuthAdapterRPC{adapter: deps.Adapter}
 }
 
-// CreateService registers the handler and returns the path and http.Handler.
-func CreateService(h AuthAdapterRPC, opts ...connect.HandlerOption) (string, http.Handler) {
-	return auth_adapterv1connect.NewAuthAdapterServiceHandler(h, opts...)
+// CreateService registers the handler and returns an api.Service.
+func CreateService(h AuthAdapterRPC, opts []connect.HandlerOption) (*api.Service, error) {
+	path, handler := auth_adapterv1connect.NewAuthAdapterServiceHandler(h, opts...)
+	return &api.Service{Path: path, Handler: handler}, nil
 }
 
 // --- proto → adapter conversion helpers ---
@@ -149,6 +150,8 @@ func operatorToString(op auth_adapterv1.Operator) string {
 		return "gte"
 	case auth_adapterv1.Operator_OPERATOR_IN:
 		return "in"
+	case auth_adapterv1.Operator_OPERATOR_NOT_IN:
+		return "not_in"
 	case auth_adapterv1.Operator_OPERATOR_CONTAINS:
 		return "contains"
 	case auth_adapterv1.Operator_OPERATOR_STARTS_WITH:
@@ -165,6 +168,13 @@ func connectorToString(c auth_adapterv1.Connector) string {
 		return "OR"
 	}
 	return "AND"
+}
+
+func directionToString(d auth_adapterv1.Direction) string {
+	if d == auth_adapterv1.Direction_DIRECTION_DESCENDING {
+		return "desc"
+	}
+	return "asc"
 }
 
 // protoValueToRaw marshals a *structpb.Value to json.RawMessage.
@@ -224,6 +234,26 @@ func mapToProtoValue(m map[string]any) (*structpb.Value, error) {
 	return &v, nil
 }
 
+// mapAnyToProtoMap converts map[string]any to map[string]*structpb.Value.
+func mapAnyToProtoMap(m map[string]any) (map[string]*structpb.Value, error) {
+	if m == nil {
+		return nil, nil
+	}
+	result := make(map[string]*structpb.Value, len(m))
+	for k, v := range m {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		var sv structpb.Value
+		if err := sv.UnmarshalJSON(b); err != nil {
+			return nil, err
+		}
+		result[k] = &sv
+	}
+	return result, nil
+}
+
 // convertWhere converts proto Where slice to []authadapter.WhereClause.
 func convertWhere(where []*auth_adapterv1.Where) ([]authadapter.WhereClause, error) {
 	result := make([]authadapter.WhereClause, 0, len(where))
@@ -253,7 +283,7 @@ func adapterErr(err error) error {
 // --- RPC handlers ---
 
 func (h AuthAdapterRPC) Create(ctx context.Context, req *connect.Request[auth_adapterv1.CreateRequest]) (*connect.Response[auth_adapterv1.CreateResponse], error) {
-	data, err := protoStructToMap(req.Msg.GetData())
+	data, err := protoMapToData(req.Msg.GetData())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -261,7 +291,7 @@ func (h AuthAdapterRPC) Create(ctx context.Context, req *connect.Request[auth_ad
 	if err != nil {
 		return nil, adapterErr(err)
 	}
-	v, err := mapToProtoValue(result)
+	v, err := mapAnyToProtoMap(result)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -292,7 +322,17 @@ func (h AuthAdapterRPC) FindMany(ctx context.Context, req *connect.Request[auth_
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	results, err := h.adapter.FindMany(ctx, req.Msg.GetModel(), where)
+	opts := authadapter.FindManyOpts{
+		Limit:  req.Msg.GetLimit(),
+		Offset: req.Msg.GetOffset(),
+	}
+	if sb := req.Msg.GetSortBy(); sb != nil {
+		opts.SortBy = &authadapter.SortBy{
+			Field:     sb.GetField(),
+			Direction: directionToString(sb.GetDirection()),
+		}
+	}
+	results, err := h.adapter.FindMany(ctx, req.Msg.GetModel(), where, opts)
 	if err != nil {
 		return nil, adapterErr(err)
 	}
@@ -331,9 +371,19 @@ func (h AuthAdapterRPC) Update(ctx context.Context, req *connect.Request[auth_ad
 }
 
 func (h AuthAdapterRPC) UpdateMany(ctx context.Context, req *connect.Request[auth_adapterv1.UpdateManyRequest]) (*connect.Response[auth_adapterv1.UpdateManyResponse], error) {
-	// UpdateMany is not yet implemented in the adapter.
-	_ = req
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("UpdateMany is not implemented"))
+	where, err := convertWhere(req.Msg.GetWhere())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	data, err := protoMapToData(req.Msg.GetUpdate())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	count, err := h.adapter.UpdateMany(ctx, req.Msg.GetModel(), where, data)
+	if err != nil {
+		return nil, adapterErr(err)
+	}
+	return connect.NewResponse(&auth_adapterv1.UpdateManyResponse{Count: int32(count)}), nil //nolint:gosec
 }
 
 func (h AuthAdapterRPC) Delete(ctx context.Context, req *connect.Request[auth_adapterv1.DeleteRequest]) (*connect.Response[emptypb.Empty], error) {

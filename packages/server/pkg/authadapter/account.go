@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
@@ -104,6 +105,9 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 		case "id":
 			id, err := parseID(val)
 			if err != nil {
+				if errors.Is(err, ErrInvalidID) {
+					return nil, nil // non-ULID ID → not found
+				}
 				return nil, err
 			}
 			acc, err := a.q.AuthGetAccount(ctx, id)
@@ -117,35 +121,43 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 		}
 	}
 
-	// Two fields: providerId + accountId
+	// Two fields: providerId + accountId (fast path with sqlc)
 	fields, ok := eqWhereMap(where)
-	if !ok {
-		return nil, ErrUnsupportedWhere
-	}
-	provRaw, hasProvider := fields["providerId"]
-	accRaw, hasAccount := fields["accountId"]
-	if !hasProvider || !hasAccount {
-		return nil, ErrUnsupportedWhere
-	}
-	providerID, err := parseString(provRaw)
-	if err != nil {
-		return nil, err
-	}
-	accountID, err := parseString(accRaw)
-	if err != nil {
-		return nil, err
-	}
-	acc, err := a.q.AuthGetAccountByProvider(ctx, gen.AuthGetAccountByProviderParams{
-		ProviderID: providerID,
-		AccountID:  accountID,
-	})
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+	if ok {
+		provRaw, hasProvider := fields["providerId"]
+		accRaw, hasAccount := fields["accountId"]
+		if hasProvider && hasAccount && len(fields) == 2 {
+			providerID, err := parseString(provRaw)
+			if err != nil {
+				return nil, err
+			}
+			accountID, err := parseString(accRaw)
+			if err != nil {
+				return nil, err
+			}
+			acc, err := a.q.AuthGetAccountByProvider(ctx, gen.AuthGetAccountByProviderParams{
+				ProviderID: providerID,
+				AccountID:  accountID,
+			})
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, nil
+				}
+				return nil, err
+			}
+			return accountToMap(acc), nil
 		}
+	}
+
+	// Fallback: dynamic SQL for arbitrary where clauses (e.g. userId + providerId)
+	results, err := dynamicQueryAccounts(ctx, a.db, where, FindManyOpts{Limit: 1})
+	if err != nil {
 		return nil, err
 	}
-	return accountToMap(acc), nil
+	if len(results) == 0 {
+		return nil, nil
+	}
+	return results[0], nil
 }
 
 func (a *Adapter) findManyAccounts(ctx context.Context, where []WhereClause) ([]map[string]any, error) {
@@ -155,6 +167,9 @@ func (a *Adapter) findManyAccounts(ctx context.Context, where []WhereClause) ([]
 	}
 	userID, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return []map[string]any{}, nil // non-ULID ID → empty result
+		}
 		return nil, err
 	}
 	rows, err := a.q.AuthListAccountsByUser(ctx, userID)
@@ -175,6 +190,9 @@ func (a *Adapter) updateAccount(ctx context.Context, where []WhereClause, data m
 	}
 	id, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil, nil // non-ULID ID → not found
+		}
 		return nil, err
 	}
 
@@ -248,6 +266,9 @@ func (a *Adapter) deleteAccount(ctx context.Context, where []WhereClause) error 
 	}
 	id, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil // non-ULID ID → nothing to delete
+		}
 		return err
 	}
 	return a.q.AuthDeleteAccount(ctx, id)
@@ -260,6 +281,9 @@ func (a *Adapter) deleteManyAccount(ctx context.Context, where []WhereClause) er
 	}
 	userID, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil // non-ULID ID → nothing to delete
+		}
 		return err
 	}
 	return a.q.AuthDeleteAccountsByUser(ctx, userID)

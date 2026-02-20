@@ -66,5 +66,7 @@ describe('Adapter Tests', async () => {
 
   runAdapterTest({
     getAdapter: (_ = {}) => adapter({ debugLogs: { isRunningAdapterTests: true }, socketPath })(_),
+    // IDs are stored as 16-byte ULID BLOBs — arbitrary string IDs like "mocked-id" cannot be stored.
+    disableTests: { SHOULD_PREFER_GENERATE_ID_IF_PROVIDED: true },
   });
 });

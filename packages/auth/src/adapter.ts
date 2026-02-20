@@ -1,5 +1,5 @@
-import { create, fromJson, type JsonValue } from '@bufbuild/protobuf';
-import { ValueSchema } from '@bufbuild/protobuf/wkt';
+import { create, fromJson, type JsonValue, toJson } from '@bufbuild/protobuf';
+import { type Value, ValueSchema } from '@bufbuild/protobuf/wkt';
 import { createClient } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-node';
 import * as BA from 'better-auth/adapters';
@@ -15,6 +15,16 @@ import {
 
 // eslint-disable-next-line import-x/no-named-as-default-member
 const { Ulid } = id128;
+
+/** Unwrap a protobuf Value to a plain JSON value. */
+const unwrapValue = (v: Value): JsonValue => toJson(ValueSchema, v);
+
+/** Unwrap a protobuf Value (struct) to a plain JS object. */
+const unwrapObject = (v: Value): Record<string, unknown> => unwrapValue(v) as Record<string, unknown>;
+
+/** Unwrap a map<string, Value> to a plain JS object. */
+const unwrapMap = (m: Record<string, Value>): Record<string, unknown> =>
+  Record.map(m, (_) => unwrapValue(_));
 
 export const makeTransport = (socketPath: string) =>
   createConnectTransport({
@@ -42,7 +52,7 @@ export const adapter = (config: CustomAdapterConfig) => {
             model: _.model,
             ...(_.select && { select: _.select }),
           })
-          .then((_) => _.data as T),
+          .then((_) => unwrapMap(_.data) as T),
 
       update: <T>(_: Parameters<BA.CustomAdapter['update']>[0]) =>
         client
@@ -51,7 +61,7 @@ export const adapter = (config: CustomAdapterConfig) => {
             update: fromJson(ValueSchema, _.update as JsonValue),
             where: mapWhere(_.where),
           })
-          .then((_) => (_.data ?? null) as null | T),
+          .then((_) => (_.data ? unwrapObject(_.data) : null) as null | T),
 
       updateMany: (_) =>
         client
@@ -69,7 +79,7 @@ export const adapter = (config: CustomAdapterConfig) => {
             where: mapWhere(_.where),
             ...(_.select && { select: _.select }),
           })
-          .then((_) => (_.data ?? null) as null | T),
+          .then((_) => (_.data ? unwrapObject(_.data) : null) as null | T),
 
       findMany: <T>(_: Parameters<BA.CustomAdapter['findMany']>[0]) =>
         client
@@ -90,7 +100,7 @@ export const adapter = (config: CustomAdapterConfig) => {
               },
             }),
           })
-          .then((_) => _.items as T[]),
+          .then((_) => _.items.map(unwrapObject) as T[]),
 
       delete: (_) =>
         client

@@ -29,7 +29,7 @@ func newAdapter(t *testing.T) (*authadapter.Adapter, func()) {
 	t.Helper()
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
-	return authadapter.New(base.Queries), base.Close
+	return authadapter.New(base.Queries, base.DB), base.Close
 }
 
 func TestAdapter_User(t *testing.T) {
@@ -156,7 +156,7 @@ func TestAdapter_Session(t *testing.T) {
 	// FindMany by userId
 	many, err := a.FindMany(ctx, authadapter.ModelSession, []authadapter.WhereClause{
 		{Field: "userId", Operator: "eq", Value: jsonStr(userID.String()), Connector: "AND"},
-	})
+	}, authadapter.FindManyOpts{})
 	testutil.AssertFatal(t, nil, err)
 	testutil.Assert(t, 1, len(many))
 
@@ -226,7 +226,7 @@ func TestAdapter_Account(t *testing.T) {
 	// FindMany by userId
 	many, err := a.FindMany(ctx, authadapter.ModelAccount, []authadapter.WhereClause{
 		{Field: "userId", Operator: "eq", Value: jsonStr(userID.String()), Connector: "AND"},
-	})
+	}, authadapter.FindManyOpts{})
 	testutil.AssertFatal(t, nil, err)
 	testutil.Assert(t, 1, len(many))
 
@@ -238,7 +238,7 @@ func TestAdapter_Account(t *testing.T) {
 
 	empty, err := a.FindMany(ctx, authadapter.ModelAccount, []authadapter.WhereClause{
 		{Field: "userId", Operator: "eq", Value: jsonStr(userID.String()), Connector: "AND"},
-	})
+	}, authadapter.FindManyOpts{})
 	testutil.AssertFatal(t, nil, err)
 	testutil.Assert(t, 0, len(empty))
 }

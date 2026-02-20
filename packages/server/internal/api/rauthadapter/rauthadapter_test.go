@@ -11,14 +11,14 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/authadapter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
-	auth_adapterv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/auth_adapter/v1"
+	auth_adapterv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/auth_adapter/v1"
 )
 
 // newHandler returns a ready-to-use AuthAdapterRPC backed by an in-memory SQLite DB.
 func newHandler(t *testing.T) (AuthAdapterRPC, func()) {
 	t.Helper()
 	base := testutil.CreateBaseDB(context.Background(), t)
-	adapter := authadapter.New(base.Queries)
+	adapter := authadapter.New(base.Queries, base.DB)
 	h := New(AuthAdapterRPCDeps{Adapter: adapter})
 	return h, base.Close
 }
@@ -35,7 +35,7 @@ func newHandlerWithFK(t *testing.T) (AuthAdapterRPC, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := authadapter.New(base.Queries)
+	adapter := authadapter.New(base.Queries, base.DB)
 	h := New(AuthAdapterRPCDeps{Adapter: adapter})
 	return h, base.Close
 }
@@ -47,6 +47,30 @@ func jsonValue(m map[string]any) *structpb.Value {
 		panic(err)
 	}
 	return v
+}
+
+// jsonMap converts a map[string]any to map[string]*structpb.Value for use in
+// CreateRequest.Data (which expects a proto map, not a single Value).
+func jsonMap(m map[string]any) map[string]*structpb.Value {
+	out := make(map[string]*structpb.Value, len(m))
+	for k, v := range m {
+		pv, err := structpb.NewValue(v)
+		if err != nil {
+			panic(err)
+		}
+		out[k] = pv
+	}
+	return out
+}
+
+// protoMapToAny converts map[string]*structpb.Value to map[string]any for
+// test assertions on CreateResponse.Data.
+func protoMapToAny(m map[string]*structpb.Value) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v.AsInterface()
+	}
+	return out
 }
 
 // eqWhere builds a single OPERATOR_EQUAL Where clause.
@@ -68,7 +92,7 @@ func TestCreate_user(t *testing.T) {
 	now := float64(time.Now().Unix())
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          "Alice",
 			"email":         "alice@example.com",
 			"emailVerified": false,
@@ -79,7 +103,7 @@ func TestCreate_user(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp.Msg.Data)
 
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 	require.Equal(t, "Alice", fields["name"].GetStringValue())
 	require.Equal(t, "alice@example.com", fields["email"].GetStringValue())
 	require.NotEmpty(t, fields["id"].GetStringValue())
@@ -93,7 +117,7 @@ func TestCreate_session(t *testing.T) {
 	// Create a user first (session FK)
 	userResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          "Bob",
 			"email":         "bob@example.com",
 			"emailVerified": false,
@@ -102,11 +126,11 @@ func TestCreate_session(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	userID := userResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	userID := userResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "tok-abc",
 			"expiresAt": now + 3600,
@@ -115,7 +139,7 @@ func TestCreate_session(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 	require.Equal(t, "tok-abc", fields["token"].GetStringValue())
 }
 
@@ -125,7 +149,7 @@ func TestCreate_unsupportedModel(t *testing.T) {
 
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "unknown",
-		Data:  jsonValue(map[string]any{}),
+		Data:  jsonMap(map[string]any{}),
 	}))
 	require.Error(t, err)
 	connectErr := new(connect.Error)
@@ -142,7 +166,7 @@ func TestFind_byID(t *testing.T) {
 	now := float64(time.Now().Unix())
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          "Carol",
 			"email":         "carol@example.com",
 			"emailVerified": false,
@@ -151,7 +175,7 @@ func TestFind_byID(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Find(context.Background(), connect.NewRequest(&auth_adapterv1.FindRequest{
 		Model: "user",
@@ -171,7 +195,7 @@ func TestFind_byEmail(t *testing.T) {
 	now := float64(time.Now().Unix())
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          "Dave",
 			"email":         "dave@example.com",
 			"emailVerified": false,
@@ -215,18 +239,18 @@ func TestFindMany_sessions(t *testing.T) {
 	now := float64(time.Now().Unix())
 	userResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name": "Eve", "email": "eve@example.com",
 			"emailVerified": false, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	userID := userResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	userID := userResp.Msg.Data["id"].GetStringValue()
 
 	for _, tok := range []string{"tok-1", "tok-2"} {
 		_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 			Model: "session",
-			Data: jsonValue(map[string]any{
+			Data: jsonMap(map[string]any{
 				"userId":    userID,
 				"token":     tok,
 				"expiresAt": now + 3600,
@@ -257,13 +281,13 @@ func TestUpdate_user(t *testing.T) {
 	now := float64(time.Now().Unix())
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name": "Frank", "email": "frank@example.com",
 			"emailVerified": false, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Update(context.Background(), connect.NewRequest(&auth_adapterv1.UpdateRequest{
 		Model: "user",
@@ -286,13 +310,13 @@ func TestDelete_user(t *testing.T) {
 	now := float64(time.Now().Unix())
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name": "Grace", "email": "grace@example.com",
 			"emailVerified": false, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	_, err = h.Delete(context.Background(), connect.NewRequest(&auth_adapterv1.DeleteRequest{
 		Model: "user",
@@ -322,18 +346,18 @@ func TestDeleteMany_expiredSessions(t *testing.T) {
 	now := float64(time.Now().Unix())
 	userResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name": "Hank", "email": "hank@example.com",
 			"emailVerified": false, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	userID := userResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	userID := userResp.Msg.Data["id"].GetStringValue()
 
 	// Create 2 sessions: one expired, one not
 	_, err = h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "expired-tok",
 			"expiresAt": now - 1000, // expired
@@ -345,7 +369,7 @@ func TestDeleteMany_expiredSessions(t *testing.T) {
 
 	_, err = h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "valid-tok",
 			"expiresAt": now + 3600,
@@ -386,7 +410,7 @@ func TestCount_users(t *testing.T) {
 	for _, email := range []string{"u1@x.com", "u2@x.com", "u3@x.com"} {
 		_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 			Model: "user",
-			Data: jsonValue(map[string]any{
+			Data: jsonMap(map[string]any{
 				"name": email, "email": email,
 				"emailVerified": false, "createdAt": now, "updatedAt": now,
 			}),
@@ -403,17 +427,49 @@ func TestCount_users(t *testing.T) {
 
 // --- UpdateMany ---
 
-func TestUpdateMany_returnsUnimplemented(t *testing.T) {
+func TestUpdateMany_user(t *testing.T) {
+	h, cleanup := newHandler(t)
+	defer cleanup()
+
+	now := float64(time.Now().Unix())
+	// Create two users
+	for _, email := range []string{"um1@x.com", "um2@x.com"} {
+		_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
+			Model: "user",
+			Data: jsonMap(map[string]any{
+				"name": email, "email": email,
+				"emailVerified": false, "createdAt": now, "updatedAt": now,
+			}),
+		}))
+		require.NoError(t, err)
+	}
+
+	// UpdateMany: set name to "Updated" for all users with email containing "um"
+	resp, err := h.UpdateMany(context.Background(), connect.NewRequest(&auth_adapterv1.UpdateManyRequest{
+		Model: "user",
+		Where: []*auth_adapterv1.Where{{
+			Field:     "email",
+			Operator:  auth_adapterv1.Operator_OPERATOR_CONTAINS,
+			Value:     structpb.NewStringValue("um"),
+			Connector: auth_adapterv1.Connector_CONNECTOR_AND,
+		}},
+		Update: jsonMap(map[string]any{"name": "Updated"}),
+	}))
+	require.NoError(t, err)
+	require.Equal(t, int32(2), resp.Msg.Count)
+}
+
+func TestUpdateMany_unsupportedModel(t *testing.T) {
 	h, cleanup := newHandler(t)
 	defer cleanup()
 
 	_, err := h.UpdateMany(context.Background(), connect.NewRequest(&auth_adapterv1.UpdateManyRequest{
-		Model: "user",
+		Model: "unknown",
 	}))
 	require.Error(t, err)
 	connectErr := new(connect.Error)
 	require.ErrorAs(t, err, &connectErr)
-	require.Equal(t, connect.CodeUnimplemented, connectErr.Code())
+	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
 // --- account ---
@@ -424,7 +480,7 @@ func createUserFixture(t *testing.T, h AuthAdapterRPC, name, email string) strin
 	now := float64(time.Now().Unix())
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          name,
 			"email":         email,
 			"emailVerified": false,
@@ -433,7 +489,7 @@ func createUserFixture(t *testing.T, h AuthAdapterRPC, name, email string) strin
 		}),
 	}))
 	require.NoError(t, err)
-	return resp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	return resp.Msg.Data["id"].GetStringValue()
 }
 
 func TestCreate_account(t *testing.T) {
@@ -445,7 +501,7 @@ func TestCreate_account(t *testing.T) {
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":     userID,
 			"accountId":  "gh-123",
 			"providerId": "github",
@@ -454,7 +510,7 @@ func TestCreate_account(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 	require.Equal(t, "gh-123", fields["accountId"].GetStringValue())
 	require.Equal(t, "github", fields["providerId"].GetStringValue())
 	require.NotEmpty(t, fields["id"].GetStringValue())
@@ -469,7 +525,7 @@ func TestCreate_accountWithTokens(t *testing.T) {
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":               userID,
 			"accountId":            "google-456",
 			"providerId":           "google",
@@ -482,7 +538,7 @@ func TestCreate_accountWithTokens(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 	require.Equal(t, "at-xyz", fields["accessToken"].GetStringValue())
 	require.Equal(t, "rt-xyz", fields["refreshToken"].GetStringValue())
 	require.Equal(t, "openid email", fields["scope"].GetStringValue())
@@ -497,13 +553,13 @@ func TestFind_accountByID(t *testing.T) {
 
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "gh-k", "providerId": "github",
 			"createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Find(context.Background(), connect.NewRequest(&auth_adapterv1.FindRequest{
 		Model: "account",
@@ -525,7 +581,7 @@ func TestFind_accountByProviderAndAccountId(t *testing.T) {
 
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "lena-gh", "providerId": "github",
 			"createdAt": now, "updatedAt": now,
 		}),
@@ -569,7 +625,7 @@ func TestFindMany_accountsByUserId(t *testing.T) {
 	for _, p := range []string{"github", "google"} {
 		_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 			Model: "account",
-			Data: jsonValue(map[string]any{
+			Data: jsonMap(map[string]any{
 				"userId": userID, "accountId": "mia-" + p, "providerId": p,
 				"createdAt": now, "updatedAt": now,
 			}),
@@ -595,14 +651,14 @@ func TestUpdate_account(t *testing.T) {
 
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "ned-gh", "providerId": "github",
 			"accessToken": "old-token",
 			"createdAt":   now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Update(context.Background(), connect.NewRequest(&auth_adapterv1.UpdateRequest{
 		Model:  "account",
@@ -623,13 +679,13 @@ func TestDelete_account(t *testing.T) {
 
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "ol-gh", "providerId": "github",
 			"createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	_, err = h.Delete(context.Background(), connect.NewRequest(&auth_adapterv1.DeleteRequest{
 		Model: "account",
@@ -655,7 +711,7 @@ func TestDeleteMany_accountsByUserId(t *testing.T) {
 	for _, p := range []string{"github", "google"} {
 		_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 			Model: "account",
-			Data: jsonValue(map[string]any{
+			Data: jsonMap(map[string]any{
 				"userId": userID, "accountId": "pete-" + p, "providerId": p,
 				"createdAt": now, "updatedAt": now,
 			}),
@@ -687,7 +743,7 @@ func TestCreate_verification(t *testing.T) {
 	now := float64(time.Now().Unix())
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "verification",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"identifier": "quinn@example.com",
 			"value":      "token-abc123",
 			"expiresAt":  now + 86400,
@@ -696,7 +752,7 @@ func TestCreate_verification(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 	require.Equal(t, "quinn@example.com", fields["identifier"].GetStringValue())
 	require.Equal(t, "token-abc123", fields["value"].GetStringValue())
 	require.NotEmpty(t, fields["id"].GetStringValue())
@@ -709,7 +765,7 @@ func TestFind_verificationByID(t *testing.T) {
 	now := float64(time.Now().Unix())
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "verification",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"identifier": "rosa@example.com",
 			"value":      "vtoken-rosa",
 			"expiresAt":  now + 3600,
@@ -717,7 +773,7 @@ func TestFind_verificationByID(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Find(context.Background(), connect.NewRequest(&auth_adapterv1.FindRequest{
 		Model: "verification",
@@ -736,7 +792,7 @@ func TestFind_verificationByIdentifier(t *testing.T) {
 	now := float64(time.Now().Unix())
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "verification",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"identifier": "sam@example.com",
 			"value":      "vtoken-sam",
 			"expiresAt":  now + 3600,
@@ -761,7 +817,7 @@ func TestDelete_verification(t *testing.T) {
 	now := float64(time.Now().Unix())
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "verification",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"identifier": "tara@example.com",
 			"value":      "vtoken-tara",
 			"expiresAt":  now + 3600,
@@ -769,7 +825,7 @@ func TestDelete_verification(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	_, err = h.Delete(context.Background(), connect.NewRequest(&auth_adapterv1.DeleteRequest{
 		Model: "verification",
@@ -796,7 +852,7 @@ func TestDeleteMany_expiredVerifications(t *testing.T) {
 	// expired
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "verification",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"identifier": "expired@example.com",
 			"value":      "old-token",
 			"expiresAt":  now - 1000,
@@ -808,7 +864,7 @@ func TestDeleteMany_expiredVerifications(t *testing.T) {
 	// still valid
 	_, err = h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "verification",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"identifier": "valid@example.com",
 			"value":      "live-token",
 			"expiresAt":  now + 3600,
@@ -856,7 +912,7 @@ func TestFind_sessionByToken(t *testing.T) {
 
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "session-tok-uma",
 			"expiresAt": now + 3600,
@@ -883,7 +939,7 @@ func TestCreate_sessionWithOptionalFields(t *testing.T) {
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "tok-victor",
 			"expiresAt": now + 3600,
@@ -893,7 +949,7 @@ func TestCreate_sessionWithOptionalFields(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 	require.Equal(t, "192.168.1.1", fields["ipAddress"].GetStringValue())
 	require.Equal(t, "Mozilla/5.0", fields["userAgent"].GetStringValue())
 }
@@ -907,7 +963,7 @@ func TestUpdate_session(t *testing.T) {
 
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "tok-wendy",
 			"expiresAt": now + 3600,
@@ -915,7 +971,7 @@ func TestUpdate_session(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 	newExpiry := now + 7200
 
 	resp, err := h.Update(context.Background(), connect.NewRequest(&auth_adapterv1.UpdateRequest{
@@ -938,7 +994,7 @@ func TestDelete_sessionByToken(t *testing.T) {
 
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "tok-xena",
 			"expiresAt": now + 3600,
@@ -973,7 +1029,7 @@ func TestDeleteMany_sessionsByExpiresAtLt(t *testing.T) {
 	for _, tok := range []string{"expired-1", "expired-2"} {
 		_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 			Model: "session",
-			Data: jsonValue(map[string]any{
+			Data: jsonMap(map[string]any{
 				"userId":    userID,
 				"token":     tok,
 				"expiresAt": now - 1000,
@@ -984,7 +1040,7 @@ func TestDeleteMany_sessionsByExpiresAtLt(t *testing.T) {
 	}
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId":    userID,
 			"token":     "live-tok",
 			"expiresAt": now + 3600,
@@ -1023,7 +1079,7 @@ func TestCreate_userWithImage(t *testing.T) {
 	now := float64(time.Now().Unix())
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          "Zara",
 			"email":         "zara@example.com",
 			"emailVerified": false,
@@ -1033,7 +1089,7 @@ func TestCreate_userWithImage(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	require.Equal(t, "https://example.com/avatar.png", resp.Msg.Data.GetStructValue().GetFields()["image"].GetStringValue())
+	require.Equal(t, "https://example.com/avatar.png", resp.Msg.Data["image"].GetStringValue())
 }
 
 func TestUpdate_userEmailVerified(t *testing.T) {
@@ -1043,7 +1099,7 @@ func TestUpdate_userEmailVerified(t *testing.T) {
 	now := float64(time.Now().Unix())
 	createResp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name":          "Alex",
 			"email":         "alex@example.com",
 			"emailVerified": false,
@@ -1052,7 +1108,7 @@ func TestUpdate_userEmailVerified(t *testing.T) {
 		}),
 	}))
 	require.NoError(t, err)
-	id := createResp.Msg.Data.GetStructValue().GetFields()["id"].GetStringValue()
+	id := createResp.Msg.Data["id"].GetStringValue()
 
 	resp, err := h.Update(context.Background(), connect.NewRequest(&auth_adapterv1.UpdateRequest{
 		Model:  "user",
@@ -1125,15 +1181,39 @@ func TestFind_unsupportedWhereField(t *testing.T) {
 	h, cleanup := newHandler(t)
 	defer cleanup()
 
-	// user only supports id and email — any other field is ErrUnsupportedWhere
+	// Truly unknown field name that does not match any auth_user column
 	_, err := h.Find(context.Background(), connect.NewRequest(&auth_adapterv1.FindRequest{
 		Model: "user",
-		Where: []*auth_adapterv1.Where{eqWhere("name", structpb.NewStringValue("Alice"))},
+		Where: []*auth_adapterv1.Where{eqWhere("nonExistentField", structpb.NewStringValue("Alice"))},
 	}))
 	require.Error(t, err)
 	connectErr := new(connect.Error)
 	require.ErrorAs(t, err, &connectErr)
 	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+}
+
+func TestFind_userByName(t *testing.T) {
+	h, cleanup := newHandler(t)
+	defer cleanup()
+
+	now := float64(time.Now().Unix())
+	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
+		Model: "user",
+		Data: jsonMap(map[string]any{
+			"name": "NameLookup", "email": "namelookup@example.com",
+			"emailVerified": false, "createdAt": now, "updatedAt": now,
+		}),
+	}))
+	require.NoError(t, err)
+
+	// Find by name — now supported via dynamic SQL fallback
+	resp, err := h.Find(context.Background(), connect.NewRequest(&auth_adapterv1.FindRequest{
+		Model: "user",
+		Where: []*auth_adapterv1.Where{eqWhere("name", structpb.NewStringValue("NameLookup"))},
+	}))
+	require.NoError(t, err)
+	require.NotNil(t, resp.Msg.Data)
+	require.Equal(t, "namelookup@example.com", resp.Msg.Data.GetStructValue().GetFields()["email"].GetStringValue())
 }
 
 // --- connector conversion ---
@@ -1158,6 +1238,7 @@ func TestOperatorToString(t *testing.T) {
 		{auth_adapterv1.Operator_OPERATOR_GREATER_THAN, "gt"},
 		{auth_adapterv1.Operator_OPERATOR_GREATER_OR_EQUAL, "gte"},
 		{auth_adapterv1.Operator_OPERATOR_IN, "in"},
+		{auth_adapterv1.Operator_OPERATOR_NOT_IN, "not_in"},
 		{auth_adapterv1.Operator_OPERATOR_CONTAINS, "contains"},
 		{auth_adapterv1.Operator_OPERATOR_STARTS_WITH, "starts_with"},
 		{auth_adapterv1.Operator_OPERATOR_ENDS_WITH, "ends_with"},
@@ -1204,12 +1285,12 @@ func TestCreate_userDuplicateEmail(t *testing.T) {
 		"emailVerified": false, "createdAt": now, "updatedAt": now,
 	}
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
-		Model: "user", Data: jsonValue(data),
+		Model: "user", Data: jsonMap(data),
 	}))
 	require.NoError(t, err)
 
 	_, err = h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
-		Model: "user", Data: jsonValue(data),
+		Model: "user", Data: jsonMap(data),
 	}))
 	require.Error(t, err, "second create with same email must fail")
 }
@@ -1223,13 +1304,13 @@ func TestCreate_userEmailVerifiedDefaultFalse(t *testing.T) {
 	now := float64(time.Now().Unix())
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name": "DefaultVerify", "email": "dv@example.com",
 			"emailVerified": false, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	require.Equal(t, float64(0), resp.Msg.Data.GetStructValue().GetFields()["emailVerified"].GetNumberValue())
+	require.Equal(t, float64(0), resp.Msg.Data["emailVerified"].GetNumberValue())
 }
 
 // TestCreate_userImageOptional verifies that omitting the optional image field
@@ -1241,14 +1322,14 @@ func TestCreate_userImageOptional(t *testing.T) {
 	now := float64(time.Now().Unix())
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "user",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"name": "NoImage", "email": "noimg@example.com",
 			"emailVerified": false, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
 	// image key is present with a null value
-	imageVal := resp.Msg.Data.GetStructValue().GetFields()["image"]
+	imageVal := resp.Msg.Data["image"]
 	require.NotNil(t, imageVal)
 	_, isNull := imageVal.Kind.(*structpb.Value_NullValue)
 	require.True(t, isNull)
@@ -1269,12 +1350,12 @@ func TestCreate_sessionDuplicateToken(t *testing.T) {
 		"expiresAt": now + 3600, "createdAt": now, "updatedAt": now,
 	}
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
-		Model: "session", Data: jsonValue(data),
+		Model: "session", Data: jsonMap(data),
 	}))
 	require.NoError(t, err)
 
 	_, err = h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
-		Model: "session", Data: jsonValue(data),
+		Model: "session", Data: jsonMap(data),
 	}))
 	require.Error(t, err, "second create with same token must fail")
 }
@@ -1290,7 +1371,7 @@ func TestDelete_userCascadesSessions(t *testing.T) {
 
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "token": "cascade-tok",
 			"expiresAt": now + 3600, "createdAt": now, "updatedAt": now,
 		}),
@@ -1323,13 +1404,13 @@ func TestSession_optionalFieldsNullWhenAbsent(t *testing.T) {
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "session",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "token": "no-meta-tok",
 			"expiresAt": now + 3600, "createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 
 	for _, f := range []string{"ipAddress", "userAgent"} {
 		v, ok := fields[f]
@@ -1351,7 +1432,7 @@ func TestDelete_userCascadesAccounts(t *testing.T) {
 
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "gh-cascade", "providerId": "github",
 			"createdAt": now, "updatedAt": now,
 		}),
@@ -1384,7 +1465,7 @@ func TestCreate_accountCredentialProvider(t *testing.T) {
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "cred@example.com",
 			"providerId": "credential",
 			"password":   "hashed-pw",
@@ -1394,7 +1475,7 @@ func TestCreate_accountCredentialProvider(t *testing.T) {
 	require.NoError(t, err)
 	// password is present in the map (returned: false only means BetterAuth strips
 	// it in the HTTP layer — the adapter itself still stores and returns it)
-	require.Equal(t, "hashed-pw", resp.Msg.Data.GetStructValue().GetFields()["password"].GetStringValue())
+	require.Equal(t, "hashed-pw", resp.Msg.Data["password"].GetStringValue())
 }
 
 // TestAccount_sensitiveFieldsNullWhenAbsent verifies that all optional
@@ -1408,13 +1489,13 @@ func TestAccount_sensitiveFieldsNullWhenAbsent(t *testing.T) {
 
 	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "account",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"userId": userID, "accountId": "sens-gh", "providerId": "github",
 			"createdAt": now, "updatedAt": now,
 		}),
 	}))
 	require.NoError(t, err)
-	fields := resp.Msg.Data.GetStructValue().GetFields()
+	fields := resp.Msg.Data
 
 	for _, f := range []string{"accessToken", "refreshToken", "idToken", "accessTokenExpiresAt", "refreshTokenExpiresAt", "scope", "password"} {
 		v, ok := fields[f]
@@ -1433,7 +1514,7 @@ func TestCreate_jwks_unimplemented(t *testing.T) {
 	now := float64(time.Now().Unix())
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "jwks",
-		Data: jsonValue(map[string]any{
+		Data: jsonMap(map[string]any{
 			"publicKey": "pub", "privateKey": "priv", "createdAt": now,
 		}),
 	}))

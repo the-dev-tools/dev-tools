@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 )
@@ -76,6 +77,9 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 	case "id":
 		id, err := parseID(val)
 		if err != nil {
+			if errors.Is(err, ErrInvalidID) {
+				return nil, nil // non-ULID ID → not found
+			}
 			return nil, err
 		}
 		s, err := a.q.AuthGetSession(ctx, id)
@@ -101,6 +105,23 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 		}
 		return sessionToMap(s), nil
 
+	case "userId":
+		userID, err := parseID(val)
+		if err != nil {
+			if errors.Is(err, ErrInvalidID) {
+				return nil, nil // non-ULID ID → not found
+			}
+			return nil, err
+		}
+		rows, err := a.q.AuthListSessionsByUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if len(rows) == 0 {
+			return nil, nil
+		}
+		return sessionToMap(rows[0]), nil
+
 	default:
 		return nil, ErrUnsupportedWhere
 	}
@@ -113,6 +134,9 @@ func (a *Adapter) findManySessions(ctx context.Context, where []WhereClause) ([]
 	}
 	userID, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return []map[string]any{}, nil // non-ULID ID → empty result
+		}
 		return nil, err
 	}
 	rows, err := a.q.AuthListSessionsByUser(ctx, userID)
@@ -133,6 +157,9 @@ func (a *Adapter) updateSession(ctx context.Context, where []WhereClause, data m
 	}
 	id, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil, nil // non-ULID ID → not found
+		}
 		return nil, err
 	}
 
@@ -184,6 +211,9 @@ func (a *Adapter) deleteSession(ctx context.Context, where []WhereClause) error 
 	case "id":
 		id, err := parseID(val)
 		if err != nil {
+			if errors.Is(err, ErrInvalidID) {
+				return nil // non-ULID ID → nothing to delete
+			}
 			return err
 		}
 		return a.q.AuthDeleteSession(ctx, id)
@@ -214,6 +244,9 @@ func (a *Adapter) deleteManySession(ctx context.Context, where []WhereClause) er
 	}
 	userID, err := parseID(val)
 	if err != nil {
+		if errors.Is(err, ErrInvalidID) {
+			return nil // non-ULID ID → nothing to delete
+		}
 		return err
 	}
 	sessions, err := a.q.AuthListSessionsByUser(ctx, userID)

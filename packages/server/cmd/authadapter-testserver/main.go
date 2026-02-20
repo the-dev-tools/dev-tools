@@ -54,12 +54,15 @@ func run() error {
 		return fmt.Errorf("prepare queries: %w", err)
 	}
 
-	adapter := authadapter.New(queries)
+	adapter := authadapter.New(queries, db)
 	handler := rauthadapter.New(rauthadapter.AuthAdapterRPCDeps{Adapter: adapter})
-	path, httpHandler := rauthadapter.CreateService(handler)
+	svc, err := rauthadapter.CreateService(handler, nil)
+	if err != nil {
+		return fmt.Errorf("create auth adapter service: %w", err)
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle(path, httpHandler)
+	mux.Handle(svc.Path, svc.Handler)
 
 	srv := &http.Server{
 		Handler: h2c.NewHandler(mux, &http2.Server{}),
