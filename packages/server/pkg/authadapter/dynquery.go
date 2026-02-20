@@ -385,6 +385,163 @@ func dynamicDeleteUsers(ctx context.Context, db gen.DBTX, where []WhereClause) e
 	return err
 }
 
+// --- organization dynamic queries ---
+
+func dynamicQueryOrganizations(ctx context.Context, db gen.DBTX, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) { //nolint:norawsql
+	fm := organizationModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
+	if err != nil {
+		return nil, err
+	}
+
+	query := "SELECT id, name, slug, logo, metadata, created_at FROM auth_organization WHERE " + whereSQL
+
+	if opts.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
+	}
+	if opts.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET %d", opts.Offset)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck // Best-effort close on read-only query
+
+	var results []map[string]any
+	for rows.Next() {
+		var o gen.AuthOrganization
+		if err := rows.Scan(&o.ID, &o.Name, &o.Slug, &o.Logo, &o.Metadata, &o.CreatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, organizationFromSqlc(o).toMap(organizationModelDef.Fields))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if results == nil {
+		results = []map[string]any{}
+	}
+	return results, nil
+}
+
+func dynamicDeleteOrganizations(ctx context.Context, db gen.DBTX, where []WhereClause) error { //nolint:norawsql
+	fm := organizationModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
+	if err != nil {
+		return err
+	}
+	query := "DELETE FROM auth_organization WHERE " + whereSQL
+	_, err = db.ExecContext(ctx, query, args...)
+	return err
+}
+
+// --- member dynamic queries ---
+
+func dynamicQueryMembers(ctx context.Context, db gen.DBTX, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) { //nolint:norawsql
+	fm := memberModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
+	if err != nil {
+		return nil, err
+	}
+
+	query := "SELECT id, user_id, organization_id, role, created_at FROM auth_member WHERE " + whereSQL
+
+	if opts.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
+	}
+	if opts.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET %d", opts.Offset)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck // Best-effort close on read-only query
+
+	var results []map[string]any
+	for rows.Next() {
+		var m gen.AuthMember
+		if err := rows.Scan(&m.ID, &m.UserID, &m.OrganizationID, &m.Role, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, memberFromSqlc(m).toMap(memberModelDef.Fields))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if results == nil {
+		results = []map[string]any{}
+	}
+	return results, nil
+}
+
+func dynamicDeleteMembers(ctx context.Context, db gen.DBTX, where []WhereClause) error { //nolint:norawsql
+	fm := memberModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
+	if err != nil {
+		return err
+	}
+	query := "DELETE FROM auth_member WHERE " + whereSQL
+	_, err = db.ExecContext(ctx, query, args...)
+	return err
+}
+
+// --- invitation dynamic queries ---
+
+func dynamicQueryInvitations(ctx context.Context, db gen.DBTX, where []WhereClause, opts FindManyOpts) ([]map[string]any, error) { //nolint:norawsql
+	fm := invitationModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
+	if err != nil {
+		return nil, err
+	}
+
+	query := "SELECT id, email, inviter_id, organization_id, role, status, created_at, expires_at FROM auth_invitation WHERE " + whereSQL
+
+	if opts.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
+	}
+	if opts.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET %d", opts.Offset)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck // Best-effort close on read-only query
+
+	var results []map[string]any
+	for rows.Next() {
+		var inv gen.AuthInvitation
+		if err := rows.Scan(&inv.ID, &inv.Email, &inv.InviterID, &inv.OrganizationID,
+			&inv.Role, &inv.Status, &inv.CreatedAt, &inv.ExpiresAt); err != nil {
+			return nil, err
+		}
+		results = append(results, invitationFromSqlc(inv).toMap(invitationModelDef.Fields))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if results == nil {
+		results = []map[string]any{}
+	}
+	return results, nil
+}
+
+func dynamicDeleteInvitations(ctx context.Context, db gen.DBTX, where []WhereClause) error { //nolint:norawsql
+	fm := invitationModelDef.fieldMap()
+	whereSQL, args, err := buildWhereClause(fm, where)
+	if err != nil {
+		return err
+	}
+	query := "DELETE FROM auth_invitation WHERE " + whereSQL
+	_, err = db.ExecContext(ctx, query, args...)
+	return err
+}
+
 // --- account dynamic queries ---
 
 // dynamicQueryAccounts runs a SELECT on auth_account with dynamic where, sort, limit, offset.

@@ -403,6 +403,52 @@ sql:
             go_type:
               type: 'int64'
               pointer: true
+          ## auth_organization
+          - column: 'auth_organization.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_organization.created_at'
+            go_type: 'int64'
+          ## auth_member
+          - column: 'auth_member.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_member.user_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_member.organization_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_member.created_at'
+            go_type: 'int64'
+          ## auth_invitation
+          - column: 'auth_invitation.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_invitation.inviter_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_invitation.organization_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'auth_invitation.created_at'
+            go_type: 'int64'
+          - column: 'auth_invitation.expires_at'
+            go_type: 'int64'
           ## flow_variable
           ### id
           - column: 'flow_variable.id'

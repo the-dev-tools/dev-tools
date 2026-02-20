@@ -20,6 +20,9 @@ const (
 	ModelAccount      = "account"
 	ModelVerification = "verification"
 	ModelJwks         = "jwks"
+	ModelOrganization = "organization"
+	ModelMember       = "member"
+	ModelInvitation   = "invitation"
 )
 
 var (
@@ -61,6 +64,12 @@ func (a *Adapter) Create(ctx context.Context, model string, data map[string]json
 		return a.createVerification(ctx, data)
 	case ModelJwks:
 		return a.createJwks(ctx, data)
+	case ModelOrganization:
+		return a.createOrganization(ctx, data)
+	case ModelMember:
+		return a.createMember(ctx, data)
+	case ModelInvitation:
+		return a.createInvitation(ctx, data)
 	default:
 		return nil, ErrUnsupportedModel
 	}
@@ -78,6 +87,12 @@ func (a *Adapter) FindOne(ctx context.Context, model string, where []WhereClause
 		return a.findOneVerification(ctx, where)
 	case ModelJwks:
 		return a.findOneJwks(ctx, where)
+	case ModelOrganization:
+		return a.findOneOrganization(ctx, where)
+	case ModelMember:
+		return a.findOneMember(ctx, where)
+	case ModelInvitation:
+		return a.findOneInvitation(ctx, where)
 	default:
 		return nil, ErrUnsupportedModel
 	}
@@ -93,6 +108,12 @@ func (a *Adapter) FindMany(ctx context.Context, model string, where []WhereClaus
 		return a.findManyAccounts(ctx, where)
 	case ModelJwks:
 		return a.findManyJwks(ctx)
+	case ModelOrganization:
+		return a.findManyOrganizations(ctx, where, opts)
+	case ModelMember:
+		return a.findManyMembers(ctx, where)
+	case ModelInvitation:
+		return a.findManyInvitations(ctx, where)
 	default:
 		return nil, ErrUnsupportedModel
 	}
@@ -106,6 +127,12 @@ func (a *Adapter) Update(ctx context.Context, model string, where []WhereClause,
 		return a.updateSession(ctx, where, data)
 	case ModelAccount:
 		return a.updateAccount(ctx, where, data)
+	case ModelOrganization:
+		return a.updateOrganization(ctx, where, data)
+	case ModelMember:
+		return a.updateMember(ctx, where, data)
+	case ModelInvitation:
+		return a.updateInvitation(ctx, where, data)
 	default:
 		return nil, ErrUnsupportedModel
 	}
@@ -132,6 +159,12 @@ func (a *Adapter) Delete(ctx context.Context, model string, where []WhereClause)
 		return a.deleteVerification(ctx, where)
 	case ModelJwks:
 		return a.deleteJwks(ctx, where)
+	case ModelOrganization:
+		return a.deleteOrganization(ctx, where)
+	case ModelMember:
+		return a.deleteMember(ctx, where)
+	case ModelInvitation:
+		return a.deleteInvitation(ctx, where)
 	default:
 		return ErrUnsupportedModel
 	}
@@ -147,6 +180,12 @@ func (a *Adapter) DeleteMany(ctx context.Context, model string, where []WhereCla
 		return a.deleteManyAccount(ctx, where)
 	case ModelVerification:
 		return a.deleteManyVerification(ctx, where)
+	case ModelOrganization:
+		return a.deleteManyOrganizations(ctx, where)
+	case ModelMember:
+		return a.deleteManyMembers(ctx, where)
+	case ModelInvitation:
+		return a.deleteManyInvitations(ctx, where)
 	default:
 		return ErrUnsupportedModel
 	}
@@ -156,6 +195,8 @@ func (a *Adapter) Count(ctx context.Context, model string) (int64, error) {
 	switch model {
 	case ModelUser:
 		return a.q.AuthCountUsers(ctx)
+	case ModelOrganization:
+		return a.q.AuthCountOrganizations(ctx)
 	default:
 		return 0, ErrUnsupportedModel
 	}
@@ -493,5 +534,28 @@ func jwksFromSqlc(j gen.AuthJwk) parsedRow {
 	return parsedRow{
 		"id": j.ID, "publicKey": j.PublicKey, "privateKey": j.PrivateKey,
 		"createdAt": j.CreatedAt, "expiresAt": j.ExpiresAt,
+	}
+}
+
+func organizationFromSqlc(o gen.AuthOrganization) parsedRow {
+	return parsedRow{
+		"id": o.ID, "name": o.Name, "slug": o.Slug,
+		"logo": o.Logo, "metadata": o.Metadata,
+		"createdAt": o.CreatedAt,
+	}
+}
+
+func memberFromSqlc(m gen.AuthMember) parsedRow {
+	return parsedRow{
+		"id": m.ID, "userId": m.UserID, "organizationId": m.OrganizationID,
+		"role": m.Role, "createdAt": m.CreatedAt,
+	}
+}
+
+func invitationFromSqlc(inv gen.AuthInvitation) parsedRow {
+	return parsedRow{
+		"id": inv.ID, "email": inv.Email, "inviterId": inv.InviterID,
+		"organizationId": inv.OrganizationID, "role": inv.Role,
+		"status": inv.Status, "createdAt": inv.CreatedAt, "expiresAt": inv.ExpiresAt,
 	}
 }

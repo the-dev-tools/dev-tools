@@ -27,12 +27,40 @@ type AuthAccount struct {
 	UpdatedAt             int64
 }
 
+type AuthInvitation struct {
+	ID             idwrap.IDWrap
+	Email          string
+	InviterID      idwrap.IDWrap
+	OrganizationID idwrap.IDWrap
+	Role           string
+	Status         string
+	CreatedAt      int64
+	ExpiresAt      int64
+}
+
 type AuthJwk struct {
 	ID         idwrap.IDWrap
 	PublicKey  string
 	PrivateKey string
 	CreatedAt  int64
 	ExpiresAt  *int64
+}
+
+type AuthMember struct {
+	ID             idwrap.IDWrap
+	UserID         idwrap.IDWrap
+	OrganizationID idwrap.IDWrap
+	Role           string
+	CreatedAt      int64
+}
+
+type AuthOrganization struct {
+	ID        idwrap.IDWrap
+	Name      string
+	Slug      sql.NullString
+	Logo      sql.NullString
+	Metadata  sql.NullString
+	CreatedAt int64
 }
 
 type AuthSession struct {

@@ -133,6 +133,46 @@ var jwksModelDef = modelDef{
 	},
 }
 
+var organizationModelDef = modelDef{
+	Name:  ModelOrganization,
+	Table: "auth_organization",
+	Fields: []fieldDef{
+		{Name: "id", Column: "id", Type: ftBlobID},
+		{Name: "name", Column: "name", Type: ftText},
+		{Name: "slug", Column: "slug", Type: ftOptText},
+		{Name: "logo", Column: "logo", Type: ftOptText},
+		{Name: "metadata", Column: "metadata", Type: ftOptText},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+	},
+}
+
+var memberModelDef = modelDef{
+	Name:  ModelMember,
+	Table: "auth_member",
+	Fields: []fieldDef{
+		{Name: "id", Column: "id", Type: ftBlobID},
+		{Name: "userId", Column: "user_id", Type: ftBlobID},
+		{Name: "organizationId", Column: "organization_id", Type: ftBlobID},
+		{Name: "role", Column: "role", Type: ftText},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+	},
+}
+
+var invitationModelDef = modelDef{
+	Name:  ModelInvitation,
+	Table: "auth_invitation",
+	Fields: []fieldDef{
+		{Name: "id", Column: "id", Type: ftBlobID},
+		{Name: "email", Column: "email", Type: ftText},
+		{Name: "inviterId", Column: "inviter_id", Type: ftBlobID},
+		{Name: "organizationId", Column: "organization_id", Type: ftBlobID},
+		{Name: "role", Column: "role", Type: ftText},
+		{Name: "status", Column: "status", Type: ftText},
+		{Name: "createdAt", Column: "created_at", Type: ftInt64},
+		{Name: "expiresAt", Column: "expires_at", Type: ftInt64},
+	},
+}
+
 // --- Generic parse/map functions ---
 
 // parsedRow holds parsed field values keyed by BetterAuth field name.

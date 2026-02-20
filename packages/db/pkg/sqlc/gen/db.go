@@ -24,14 +24,26 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.authCountOrganizationsStmt, err = db.PrepareContext(ctx, authCountOrganizations); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCountOrganizations: %w", err)
+	}
 	if q.authCountUsersStmt, err = db.PrepareContext(ctx, authCountUsers); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthCountUsers: %w", err)
 	}
 	if q.authCreateAccountStmt, err = db.PrepareContext(ctx, authCreateAccount); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthCreateAccount: %w", err)
 	}
+	if q.authCreateInvitationStmt, err = db.PrepareContext(ctx, authCreateInvitation); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateInvitation: %w", err)
+	}
 	if q.authCreateJwksStmt, err = db.PrepareContext(ctx, authCreateJwks); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthCreateJwks: %w", err)
+	}
+	if q.authCreateMemberStmt, err = db.PrepareContext(ctx, authCreateMember); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateMember: %w", err)
+	}
+	if q.authCreateOrganizationStmt, err = db.PrepareContext(ctx, authCreateOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateOrganization: %w", err)
 	}
 	if q.authCreateSessionStmt, err = db.PrepareContext(ctx, authCreateSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthCreateSession: %w", err)
@@ -54,8 +66,26 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authDeleteExpiredVerificationsStmt, err = db.PrepareContext(ctx, authDeleteExpiredVerifications); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteExpiredVerifications: %w", err)
 	}
+	if q.authDeleteInvitationStmt, err = db.PrepareContext(ctx, authDeleteInvitation); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteInvitation: %w", err)
+	}
+	if q.authDeleteInvitationsByOrganizationStmt, err = db.PrepareContext(ctx, authDeleteInvitationsByOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteInvitationsByOrganization: %w", err)
+	}
 	if q.authDeleteJwksStmt, err = db.PrepareContext(ctx, authDeleteJwks); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteJwks: %w", err)
+	}
+	if q.authDeleteMemberStmt, err = db.PrepareContext(ctx, authDeleteMember); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteMember: %w", err)
+	}
+	if q.authDeleteMembersByOrganizationStmt, err = db.PrepareContext(ctx, authDeleteMembersByOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteMembersByOrganization: %w", err)
+	}
+	if q.authDeleteMembersByUserStmt, err = db.PrepareContext(ctx, authDeleteMembersByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteMembersByUser: %w", err)
+	}
+	if q.authDeleteOrganizationStmt, err = db.PrepareContext(ctx, authDeleteOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteOrganization: %w", err)
 	}
 	if q.authDeleteSessionStmt, err = db.PrepareContext(ctx, authDeleteSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteSession: %w", err)
@@ -78,8 +108,23 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authGetAccountByProviderStmt, err = db.PrepareContext(ctx, authGetAccountByProvider); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthGetAccountByProvider: %w", err)
 	}
+	if q.authGetInvitationStmt, err = db.PrepareContext(ctx, authGetInvitation); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetInvitation: %w", err)
+	}
 	if q.authGetJwksStmt, err = db.PrepareContext(ctx, authGetJwks); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthGetJwks: %w", err)
+	}
+	if q.authGetMemberStmt, err = db.PrepareContext(ctx, authGetMember); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetMember: %w", err)
+	}
+	if q.authGetMemberByUserAndOrgStmt, err = db.PrepareContext(ctx, authGetMemberByUserAndOrg); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetMemberByUserAndOrg: %w", err)
+	}
+	if q.authGetOrganizationStmt, err = db.PrepareContext(ctx, authGetOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetOrganization: %w", err)
+	}
+	if q.authGetOrganizationBySlugStmt, err = db.PrepareContext(ctx, authGetOrganizationBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetOrganizationBySlug: %w", err)
 	}
 	if q.authGetSessionStmt, err = db.PrepareContext(ctx, authGetSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthGetSession: %w", err)
@@ -102,14 +147,35 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authListAccountsByUserStmt, err = db.PrepareContext(ctx, authListAccountsByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListAccountsByUser: %w", err)
 	}
+	if q.authListInvitationsByEmailStmt, err = db.PrepareContext(ctx, authListInvitationsByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListInvitationsByEmail: %w", err)
+	}
+	if q.authListInvitationsByOrganizationStmt, err = db.PrepareContext(ctx, authListInvitationsByOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListInvitationsByOrganization: %w", err)
+	}
 	if q.authListJwksStmt, err = db.PrepareContext(ctx, authListJwks); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListJwks: %w", err)
+	}
+	if q.authListMembersByOrganizationStmt, err = db.PrepareContext(ctx, authListMembersByOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListMembersByOrganization: %w", err)
+	}
+	if q.authListMembersByUserStmt, err = db.PrepareContext(ctx, authListMembersByUser); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListMembersByUser: %w", err)
 	}
 	if q.authListSessionsByUserStmt, err = db.PrepareContext(ctx, authListSessionsByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListSessionsByUser: %w", err)
 	}
 	if q.authUpdateAccountStmt, err = db.PrepareContext(ctx, authUpdateAccount); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthUpdateAccount: %w", err)
+	}
+	if q.authUpdateInvitationStmt, err = db.PrepareContext(ctx, authUpdateInvitation); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthUpdateInvitation: %w", err)
+	}
+	if q.authUpdateMemberStmt, err = db.PrepareContext(ctx, authUpdateMember); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthUpdateMember: %w", err)
+	}
+	if q.authUpdateOrganizationStmt, err = db.PrepareContext(ctx, authUpdateOrganization); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthUpdateOrganization: %w", err)
 	}
 	if q.authUpdateSessionStmt, err = db.PrepareContext(ctx, authUpdateSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthUpdateSession: %w", err)
@@ -950,6 +1016,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.authCountOrganizationsStmt != nil {
+		if cerr := q.authCountOrganizationsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCountOrganizationsStmt: %w", cerr)
+		}
+	}
 	if q.authCountUsersStmt != nil {
 		if cerr := q.authCountUsersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authCountUsersStmt: %w", cerr)
@@ -960,9 +1031,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing authCreateAccountStmt: %w", cerr)
 		}
 	}
+	if q.authCreateInvitationStmt != nil {
+		if cerr := q.authCreateInvitationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateInvitationStmt: %w", cerr)
+		}
+	}
 	if q.authCreateJwksStmt != nil {
 		if cerr := q.authCreateJwksStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authCreateJwksStmt: %w", cerr)
+		}
+	}
+	if q.authCreateMemberStmt != nil {
+		if cerr := q.authCreateMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateMemberStmt: %w", cerr)
+		}
+	}
+	if q.authCreateOrganizationStmt != nil {
+		if cerr := q.authCreateOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateOrganizationStmt: %w", cerr)
 		}
 	}
 	if q.authCreateSessionStmt != nil {
@@ -1000,9 +1086,39 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing authDeleteExpiredVerificationsStmt: %w", cerr)
 		}
 	}
+	if q.authDeleteInvitationStmt != nil {
+		if cerr := q.authDeleteInvitationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteInvitationStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteInvitationsByOrganizationStmt != nil {
+		if cerr := q.authDeleteInvitationsByOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteInvitationsByOrganizationStmt: %w", cerr)
+		}
+	}
 	if q.authDeleteJwksStmt != nil {
 		if cerr := q.authDeleteJwksStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authDeleteJwksStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteMemberStmt != nil {
+		if cerr := q.authDeleteMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteMemberStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteMembersByOrganizationStmt != nil {
+		if cerr := q.authDeleteMembersByOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteMembersByOrganizationStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteMembersByUserStmt != nil {
+		if cerr := q.authDeleteMembersByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteMembersByUserStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteOrganizationStmt != nil {
+		if cerr := q.authDeleteOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteOrganizationStmt: %w", cerr)
 		}
 	}
 	if q.authDeleteSessionStmt != nil {
@@ -1040,9 +1156,34 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing authGetAccountByProviderStmt: %w", cerr)
 		}
 	}
+	if q.authGetInvitationStmt != nil {
+		if cerr := q.authGetInvitationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetInvitationStmt: %w", cerr)
+		}
+	}
 	if q.authGetJwksStmt != nil {
 		if cerr := q.authGetJwksStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authGetJwksStmt: %w", cerr)
+		}
+	}
+	if q.authGetMemberStmt != nil {
+		if cerr := q.authGetMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetMemberStmt: %w", cerr)
+		}
+	}
+	if q.authGetMemberByUserAndOrgStmt != nil {
+		if cerr := q.authGetMemberByUserAndOrgStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetMemberByUserAndOrgStmt: %w", cerr)
+		}
+	}
+	if q.authGetOrganizationStmt != nil {
+		if cerr := q.authGetOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetOrganizationStmt: %w", cerr)
+		}
+	}
+	if q.authGetOrganizationBySlugStmt != nil {
+		if cerr := q.authGetOrganizationBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetOrganizationBySlugStmt: %w", cerr)
 		}
 	}
 	if q.authGetSessionStmt != nil {
@@ -1080,9 +1221,29 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing authListAccountsByUserStmt: %w", cerr)
 		}
 	}
+	if q.authListInvitationsByEmailStmt != nil {
+		if cerr := q.authListInvitationsByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListInvitationsByEmailStmt: %w", cerr)
+		}
+	}
+	if q.authListInvitationsByOrganizationStmt != nil {
+		if cerr := q.authListInvitationsByOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListInvitationsByOrganizationStmt: %w", cerr)
+		}
+	}
 	if q.authListJwksStmt != nil {
 		if cerr := q.authListJwksStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authListJwksStmt: %w", cerr)
+		}
+	}
+	if q.authListMembersByOrganizationStmt != nil {
+		if cerr := q.authListMembersByOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListMembersByOrganizationStmt: %w", cerr)
+		}
+	}
+	if q.authListMembersByUserStmt != nil {
+		if cerr := q.authListMembersByUserStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListMembersByUserStmt: %w", cerr)
 		}
 	}
 	if q.authListSessionsByUserStmt != nil {
@@ -1093,6 +1254,21 @@ func (q *Queries) Close() error {
 	if q.authUpdateAccountStmt != nil {
 		if cerr := q.authUpdateAccountStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authUpdateAccountStmt: %w", cerr)
+		}
+	}
+	if q.authUpdateInvitationStmt != nil {
+		if cerr := q.authUpdateInvitationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authUpdateInvitationStmt: %w", cerr)
+		}
+	}
+	if q.authUpdateMemberStmt != nil {
+		if cerr := q.authUpdateMemberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authUpdateMemberStmt: %w", cerr)
+		}
+	}
+	if q.authUpdateOrganizationStmt != nil {
+		if cerr := q.authUpdateOrganizationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authUpdateOrganizationStmt: %w", cerr)
 		}
 	}
 	if q.authUpdateSessionStmt != nil {
@@ -2524,9 +2700,13 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
+	authCountOrganizationsStmt                 *sql.Stmt
 	authCountUsersStmt                         *sql.Stmt
 	authCreateAccountStmt                      *sql.Stmt
+	authCreateInvitationStmt                   *sql.Stmt
 	authCreateJwksStmt                         *sql.Stmt
+	authCreateMemberStmt                       *sql.Stmt
+	authCreateOrganizationStmt                 *sql.Stmt
 	authCreateSessionStmt                      *sql.Stmt
 	authCreateUserStmt                         *sql.Stmt
 	authCreateVerificationStmt                 *sql.Stmt
@@ -2534,7 +2714,13 @@ type Queries struct {
 	authDeleteAccountsByUserStmt               *sql.Stmt
 	authDeleteExpiredSessionsStmt              *sql.Stmt
 	authDeleteExpiredVerificationsStmt         *sql.Stmt
+	authDeleteInvitationStmt                   *sql.Stmt
+	authDeleteInvitationsByOrganizationStmt    *sql.Stmt
 	authDeleteJwksStmt                         *sql.Stmt
+	authDeleteMemberStmt                       *sql.Stmt
+	authDeleteMembersByOrganizationStmt        *sql.Stmt
+	authDeleteMembersByUserStmt                *sql.Stmt
+	authDeleteOrganizationStmt                 *sql.Stmt
 	authDeleteSessionStmt                      *sql.Stmt
 	authDeleteSessionByTokenStmt               *sql.Stmt
 	authDeleteSessionsByUserStmt               *sql.Stmt
@@ -2542,7 +2728,12 @@ type Queries struct {
 	authDeleteVerificationStmt                 *sql.Stmt
 	authGetAccountStmt                         *sql.Stmt
 	authGetAccountByProviderStmt               *sql.Stmt
+	authGetInvitationStmt                      *sql.Stmt
 	authGetJwksStmt                            *sql.Stmt
+	authGetMemberStmt                          *sql.Stmt
+	authGetMemberByUserAndOrgStmt              *sql.Stmt
+	authGetOrganizationStmt                    *sql.Stmt
+	authGetOrganizationBySlugStmt              *sql.Stmt
 	authGetSessionStmt                         *sql.Stmt
 	authGetSessionByTokenStmt                  *sql.Stmt
 	authGetUserStmt                            *sql.Stmt
@@ -2550,9 +2741,16 @@ type Queries struct {
 	authGetVerificationStmt                    *sql.Stmt
 	authGetVerificationByIdentifierStmt        *sql.Stmt
 	authListAccountsByUserStmt                 *sql.Stmt
+	authListInvitationsByEmailStmt             *sql.Stmt
+	authListInvitationsByOrganizationStmt      *sql.Stmt
 	authListJwksStmt                           *sql.Stmt
+	authListMembersByOrganizationStmt          *sql.Stmt
+	authListMembersByUserStmt                  *sql.Stmt
 	authListSessionsByUserStmt                 *sql.Stmt
 	authUpdateAccountStmt                      *sql.Stmt
+	authUpdateInvitationStmt                   *sql.Stmt
+	authUpdateMemberStmt                       *sql.Stmt
+	authUpdateOrganizationStmt                 *sql.Stmt
 	authUpdateSessionStmt                      *sql.Stmt
 	authUpdateUserStmt                         *sql.Stmt
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
@@ -2837,9 +3035,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                                         tx,
 		tx:                                         tx,
+		authCountOrganizationsStmt:                 q.authCountOrganizationsStmt,
 		authCountUsersStmt:                         q.authCountUsersStmt,
 		authCreateAccountStmt:                      q.authCreateAccountStmt,
+		authCreateInvitationStmt:                   q.authCreateInvitationStmt,
 		authCreateJwksStmt:                         q.authCreateJwksStmt,
+		authCreateMemberStmt:                       q.authCreateMemberStmt,
+		authCreateOrganizationStmt:                 q.authCreateOrganizationStmt,
 		authCreateSessionStmt:                      q.authCreateSessionStmt,
 		authCreateUserStmt:                         q.authCreateUserStmt,
 		authCreateVerificationStmt:                 q.authCreateVerificationStmt,
@@ -2847,7 +3049,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authDeleteAccountsByUserStmt:               q.authDeleteAccountsByUserStmt,
 		authDeleteExpiredSessionsStmt:              q.authDeleteExpiredSessionsStmt,
 		authDeleteExpiredVerificationsStmt:         q.authDeleteExpiredVerificationsStmt,
+		authDeleteInvitationStmt:                   q.authDeleteInvitationStmt,
+		authDeleteInvitationsByOrganizationStmt:    q.authDeleteInvitationsByOrganizationStmt,
 		authDeleteJwksStmt:                         q.authDeleteJwksStmt,
+		authDeleteMemberStmt:                       q.authDeleteMemberStmt,
+		authDeleteMembersByOrganizationStmt:        q.authDeleteMembersByOrganizationStmt,
+		authDeleteMembersByUserStmt:                q.authDeleteMembersByUserStmt,
+		authDeleteOrganizationStmt:                 q.authDeleteOrganizationStmt,
 		authDeleteSessionStmt:                      q.authDeleteSessionStmt,
 		authDeleteSessionByTokenStmt:               q.authDeleteSessionByTokenStmt,
 		authDeleteSessionsByUserStmt:               q.authDeleteSessionsByUserStmt,
@@ -2855,7 +3063,12 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authDeleteVerificationStmt:                 q.authDeleteVerificationStmt,
 		authGetAccountStmt:                         q.authGetAccountStmt,
 		authGetAccountByProviderStmt:               q.authGetAccountByProviderStmt,
+		authGetInvitationStmt:                      q.authGetInvitationStmt,
 		authGetJwksStmt:                            q.authGetJwksStmt,
+		authGetMemberStmt:                          q.authGetMemberStmt,
+		authGetMemberByUserAndOrgStmt:              q.authGetMemberByUserAndOrgStmt,
+		authGetOrganizationStmt:                    q.authGetOrganizationStmt,
+		authGetOrganizationBySlugStmt:              q.authGetOrganizationBySlugStmt,
 		authGetSessionStmt:                         q.authGetSessionStmt,
 		authGetSessionByTokenStmt:                  q.authGetSessionByTokenStmt,
 		authGetUserStmt:                            q.authGetUserStmt,
@@ -2863,9 +3076,16 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authGetVerificationStmt:                    q.authGetVerificationStmt,
 		authGetVerificationByIdentifierStmt:        q.authGetVerificationByIdentifierStmt,
 		authListAccountsByUserStmt:                 q.authListAccountsByUserStmt,
+		authListInvitationsByEmailStmt:             q.authListInvitationsByEmailStmt,
+		authListInvitationsByOrganizationStmt:      q.authListInvitationsByOrganizationStmt,
 		authListJwksStmt:                           q.authListJwksStmt,
+		authListMembersByOrganizationStmt:          q.authListMembersByOrganizationStmt,
+		authListMembersByUserStmt:                  q.authListMembersByUserStmt,
 		authListSessionsByUserStmt:                 q.authListSessionsByUserStmt,
 		authUpdateAccountStmt:                      q.authUpdateAccountStmt,
+		authUpdateInvitationStmt:                   q.authUpdateInvitationStmt,
+		authUpdateMemberStmt:                       q.authUpdateMemberStmt,
+		authUpdateOrganizationStmt:                 q.authUpdateOrganizationStmt,
 		authUpdateSessionStmt:                      q.authUpdateSessionStmt,
 		authUpdateUserStmt:                         q.authUpdateUserStmt,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,

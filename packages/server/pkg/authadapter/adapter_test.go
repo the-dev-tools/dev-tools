@@ -292,6 +292,258 @@ func TestAdapter_Verification(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 }
 
+func TestAdapter_Organization(t *testing.T) {
+	a, cleanup := newAdapter(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().Unix()
+	id := idwrap.NewNow()
+
+	data := map[string]json.RawMessage{
+		"id":        jsonStr(id.String()),
+		"name":      jsonStr("Acme Corp"),
+		"slug":      jsonStr("acme-corp"),
+		"createdAt": jsonInt(now),
+	}
+
+	// Create
+	rec, err := a.Create(ctx, authadapter.ModelOrganization, data)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, id.String(), str(rec, "id"))
+	testutil.Assert(t, "Acme Corp", str(rec, "name"))
+	testutil.Assert(t, "acme-corp", str(rec, "slug"))
+
+	// FindOne by id
+	found, err := a.FindOne(ctx, authadapter.ModelOrganization, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(id.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, "Acme Corp", str(found, "name"))
+
+	// FindOne by slug
+	found2, err := a.FindOne(ctx, authadapter.ModelOrganization, []authadapter.WhereClause{
+		{Field: "slug", Operator: "eq", Value: jsonStr("acme-corp"), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, id.String(), str(found2, "id"))
+
+	// FindMany
+	many, err := a.FindMany(ctx, authadapter.ModelOrganization, nil, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 1, len(many))
+
+	// Update
+	updated, err := a.Update(ctx, authadapter.ModelOrganization,
+		[]authadapter.WhereClause{{Field: "id", Operator: "eq", Value: jsonStr(id.String()), Connector: "AND"}},
+		map[string]json.RawMessage{"name": jsonStr("Acme Inc")},
+	)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, "Acme Inc", str(updated, "name"))
+
+	// Count
+	count, err := a.Count(ctx, authadapter.ModelOrganization)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, int64(1), count)
+
+	// Delete
+	err = a.Delete(ctx, authadapter.ModelOrganization, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(id.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	// Verify gone
+	gone, err := a.FindOne(ctx, authadapter.ModelOrganization, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(id.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, true, gone == nil)
+}
+
+func TestAdapter_Member(t *testing.T) {
+	a, cleanup := newAdapter(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().Unix()
+
+	// Create user first (FK)
+	userID := idwrap.NewNow()
+	_, err := a.Create(ctx, authadapter.ModelUser, map[string]json.RawMessage{
+		"id":            jsonStr(userID.String()),
+		"name":          jsonStr("Alice"),
+		"email":         jsonStr("alice@example.com"),
+		"emailVerified": jsonInt(0),
+		"createdAt":     jsonInt(now),
+		"updatedAt":     jsonInt(now),
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	// Create org (FK)
+	orgID := idwrap.NewNow()
+	_, err = a.Create(ctx, authadapter.ModelOrganization, map[string]json.RawMessage{
+		"id":        jsonStr(orgID.String()),
+		"name":      jsonStr("Test Org"),
+		"slug":      jsonStr("test-org"),
+		"createdAt": jsonInt(now),
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	memberID := idwrap.NewNow()
+	data := map[string]json.RawMessage{
+		"id":             jsonStr(memberID.String()),
+		"userId":         jsonStr(userID.String()),
+		"organizationId": jsonStr(orgID.String()),
+		"role":           jsonStr("owner"),
+		"createdAt":      jsonInt(now),
+	}
+
+	// Create
+	rec, err := a.Create(ctx, authadapter.ModelMember, data)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, memberID.String(), str(rec, "id"))
+	testutil.Assert(t, "owner", str(rec, "role"))
+
+	// FindOne by id
+	found, err := a.FindOne(ctx, authadapter.ModelMember, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(memberID.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, "owner", str(found, "role"))
+
+	// FindOne by userId + organizationId
+	found2, err := a.FindOne(ctx, authadapter.ModelMember, []authadapter.WhereClause{
+		{Field: "userId", Operator: "eq", Value: jsonStr(userID.String()), Connector: "AND"},
+		{Field: "organizationId", Operator: "eq", Value: jsonStr(orgID.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, memberID.String(), str(found2, "id"))
+
+	// FindMany by organizationId
+	many, err := a.FindMany(ctx, authadapter.ModelMember, []authadapter.WhereClause{
+		{Field: "organizationId", Operator: "eq", Value: jsonStr(orgID.String()), Connector: "AND"},
+	}, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 1, len(many))
+
+	// FindMany by userId
+	manyByUser, err := a.FindMany(ctx, authadapter.ModelMember, []authadapter.WhereClause{
+		{Field: "userId", Operator: "eq", Value: jsonStr(userID.String()), Connector: "AND"},
+	}, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 1, len(manyByUser))
+
+	// Update role
+	updated, err := a.Update(ctx, authadapter.ModelMember,
+		[]authadapter.WhereClause{{Field: "id", Operator: "eq", Value: jsonStr(memberID.String()), Connector: "AND"}},
+		map[string]json.RawMessage{"role": jsonStr("admin")},
+	)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, "admin", str(updated, "role"))
+
+	// DeleteMany by organizationId
+	err = a.DeleteMany(ctx, authadapter.ModelMember, []authadapter.WhereClause{
+		{Field: "organizationId", Operator: "eq", Value: jsonStr(orgID.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	empty, err := a.FindMany(ctx, authadapter.ModelMember, []authadapter.WhereClause{
+		{Field: "organizationId", Operator: "eq", Value: jsonStr(orgID.String()), Connector: "AND"},
+	}, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 0, len(empty))
+}
+
+func TestAdapter_Invitation(t *testing.T) {
+	a, cleanup := newAdapter(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().Unix()
+
+	// Create user (FK for inviter)
+	userID := idwrap.NewNow()
+	_, err := a.Create(ctx, authadapter.ModelUser, map[string]json.RawMessage{
+		"id":            jsonStr(userID.String()),
+		"name":          jsonStr("Bob"),
+		"email":         jsonStr("bob@example.com"),
+		"emailVerified": jsonInt(1),
+		"createdAt":     jsonInt(now),
+		"updatedAt":     jsonInt(now),
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	// Create org (FK)
+	orgID := idwrap.NewNow()
+	_, err = a.Create(ctx, authadapter.ModelOrganization, map[string]json.RawMessage{
+		"id":        jsonStr(orgID.String()),
+		"name":      jsonStr("Invite Org"),
+		"slug":      jsonStr("invite-org"),
+		"createdAt": jsonInt(now),
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	invID := idwrap.NewNow()
+	data := map[string]json.RawMessage{
+		"id":             jsonStr(invID.String()),
+		"email":          jsonStr("carol@example.com"),
+		"inviterId":      jsonStr(userID.String()),
+		"organizationId": jsonStr(orgID.String()),
+		"role":           jsonStr("member"),
+		"status":         jsonStr("pending"),
+		"createdAt":      jsonInt(now),
+		"expiresAt":      jsonInt(now + 86400),
+	}
+
+	// Create
+	rec, err := a.Create(ctx, authadapter.ModelInvitation, data)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, invID.String(), str(rec, "id"))
+	testutil.Assert(t, "pending", str(rec, "status"))
+	testutil.Assert(t, "carol@example.com", str(rec, "email"))
+
+	// FindOne by id
+	found, err := a.FindOne(ctx, authadapter.ModelInvitation, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(invID.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, "pending", str(found, "status"))
+
+	// FindMany by organizationId
+	many, err := a.FindMany(ctx, authadapter.ModelInvitation, []authadapter.WhereClause{
+		{Field: "organizationId", Operator: "eq", Value: jsonStr(orgID.String()), Connector: "AND"},
+	}, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 1, len(many))
+
+	// FindMany by email
+	manyByEmail, err := a.FindMany(ctx, authadapter.ModelInvitation, []authadapter.WhereClause{
+		{Field: "email", Operator: "eq", Value: jsonStr("carol@example.com"), Connector: "AND"},
+	}, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 1, len(manyByEmail))
+
+	// Update status
+	updated, err := a.Update(ctx, authadapter.ModelInvitation,
+		[]authadapter.WhereClause{{Field: "id", Operator: "eq", Value: jsonStr(invID.String()), Connector: "AND"}},
+		map[string]json.RawMessage{"status": jsonStr("accepted")},
+	)
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, "accepted", str(updated, "status"))
+
+	// Delete
+	err = a.Delete(ctx, authadapter.ModelInvitation, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(invID.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	gone, err := a.FindOne(ctx, authadapter.ModelInvitation, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(invID.String()), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, true, gone == nil)
+}
+
 func TestAdapter_Jwks(t *testing.T) {
 	a, cleanup := newAdapter(t)
 	defer cleanup()

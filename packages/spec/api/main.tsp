@@ -13,6 +13,7 @@ import "./import.tsp";
 import "./private/auth-adapter.tsp";
 import "./private/node-js-executor.tsp";
 import "./log.tsp";
+import "./organization.tsp";
 import "./reference.tsp";
 import "./user.tsp";
 import "./workspace.tsp";

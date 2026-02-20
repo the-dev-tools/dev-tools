@@ -36,6 +36,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rorg"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/ruser"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
@@ -53,6 +54,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sorg"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/streamregistry"
@@ -324,6 +326,12 @@ func run() error {
 		LinkedAccountStreamer: streamers.LinkedAccount,
 	})
 	newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
+
+	orgService := sorg.New(currentDB)
+	orgSrv := rorg.New(rorg.OrgServiceRPCDeps{
+		Reader: orgService.Reader(),
+	})
+	newServiceManager.AddService(rorg.CreateService(orgSrv, optionsAll))
 
 	envSrv := renv.New(renv.EnvRPCDeps{
 		DB: currentDB,

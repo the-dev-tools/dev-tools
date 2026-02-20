@@ -1,4 +1,4 @@
-import { jwtClient } from 'better-auth/client/plugins';
+import { jwtClient, organizationClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 import { Config, Effect, pipe } from 'effect';
 import { defaultUrl } from './config';
@@ -8,6 +8,6 @@ export const authClient = Effect.gen(function* () {
 
   return createAuthClient({
     baseURL: url.href,
-    plugins: [jwtClient()],
+    plugins: [jwtClient(), organizationClient()],
   });
 });

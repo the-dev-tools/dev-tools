@@ -1,6 +1,6 @@
 import { Path } from '@effect/platform';
 import { betterAuth, type BetterAuthPlugin } from 'better-auth';
-import { jwt } from 'better-auth/plugins';
+import { jwt, organization } from 'better-auth/plugins';
 import { Config, Effect, pipe, Redacted } from 'effect';
 import os from 'node:os';
 import { createAdapter } from './adapter.ts';
@@ -40,7 +40,10 @@ export const authEffect = Effect.gen(function* () {
     baseURL: url.href,
     database: createAdapter({ socketPath: adapterSocketPath }),
     emailAndPassword: { enabled: true, requireEmailVerification: false },
-    plugins,
+    plugins: [
+      ...plugins,
+      organization({ creatorRole: 'owner' }),
+    ],
     secret: Redacted.value(secret),
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
