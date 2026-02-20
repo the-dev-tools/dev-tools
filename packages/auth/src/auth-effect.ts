@@ -1,6 +1,6 @@
 import { Path } from '@effect/platform';
 import { betterAuth } from 'better-auth';
-import { bearer, jwt } from 'better-auth/plugins';
+import { jwt } from 'better-auth/plugins';
 import { Config, Effect, pipe, Redacted } from 'effect';
 import os from 'node:os';
 import { adapter } from './adapter.ts';
@@ -25,7 +25,6 @@ export const authEffect = Effect.gen(function* () {
     database: adapter({ socketPath: adapterSocketPath }),
     emailAndPassword: { enabled: true, requireEmailVerification: false },
     plugins: [
-      bearer(),
       jwt({
         jwks: {
           keyPairConfig: { alg: 'RS256' },
