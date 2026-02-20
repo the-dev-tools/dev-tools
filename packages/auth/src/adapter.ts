@@ -16,16 +16,6 @@ import {
 // eslint-disable-next-line import-x/no-named-as-default-member
 const { Ulid } = id128;
 
-/** Unwrap a protobuf Value to a plain JSON value. */
-const unwrapValue = (v: Value): JsonValue => toJson(ValueSchema, v);
-
-/** Unwrap a protobuf Value (struct) to a plain JS object. */
-const unwrapObject = (v: Value): Record<string, unknown> => unwrapValue(v) as Record<string, unknown>;
-
-/** Unwrap a map<string, Value> to a plain JS object. */
-const unwrapMap = (m: Record<string, Value>): Record<string, unknown> =>
-  Record.map(m, (_) => unwrapValue(_));
-
 export const makeTransport = (socketPath: string) =>
   createConnectTransport({
     baseUrl: 'http://the-dev-tools:0',
@@ -39,7 +29,7 @@ export interface CustomAdapterConfig {
   socketPath: string;
 }
 
-export const adapter = (config: CustomAdapterConfig) => {
+export const createAdapter = (config: CustomAdapterConfig) => {
   const transport = makeTransport(config.socketPath);
   const client = createClient(AuthAdapterService, transport);
 
@@ -47,46 +37,30 @@ export const adapter = (config: CustomAdapterConfig) => {
     adapter: (_) => ({
       create: <T>(_: Parameters<BA.CustomAdapter['create']>[0]) =>
         client
-          .create({
-            data: Record.map(_.data, (_) => fromJson(ValueSchema, _ as JsonValue)),
-            model: _.model,
-            ...(_.select && { select: _.select }),
-          })
+          .create({ data: wrapMap(_.data), model: _.model, ...(_.select && { select: _.select }) })
           .then((_) => unwrapMap(_.data) as T),
 
       update: <T>(_: Parameters<BA.CustomAdapter['update']>[0]) =>
         client
-          .update({
-            model: _.model,
-            update: fromJson(ValueSchema, _.update as JsonValue),
-            where: mapWhere(_.where),
-          })
-          .then((_) => (_.data ? unwrapObject(_.data) : null) as null | T),
+          .update({ model: _.model, update: wrap(_.update), where: wrapWhere(_.where) })
+          .then((_) => (_.data ? unwrap(_.data) : null) as null | T),
 
       updateMany: (_) =>
         client
-          .updateMany({
-            model: _.model,
-            update: Record.map(_.update, (_) => fromJson(ValueSchema, _ as JsonValue)),
-            where: mapWhere(_.where),
-          })
+          .updateMany({ model: _.model, update: wrapMap(_.update), where: wrapWhere(_.where) })
           .then((_) => _.count),
 
       findOne: <T>(_: Parameters<BA.CustomAdapter['findOne']>[0]) =>
         client
-          .find({
-            model: _.model,
-            where: mapWhere(_.where),
-            ...(_.select && { select: _.select }),
-          })
-          .then((_) => (_.data ? unwrapObject(_.data) : null) as null | T),
+          .find({ model: _.model, where: wrapWhere(_.where), ...(_.select && { select: _.select }) })
+          .then((_) => (_.data ? unwrap(_.data) : null) as null | T),
 
       findMany: <T>(_: Parameters<BA.CustomAdapter['findMany']>[0]) =>
         client
           .findMany({
             limit: _.limit,
             model: _.model,
-            ...(_.where && { where: mapWhere(_.where) }),
+            ...(_.where && { where: wrapWhere(_.where) }),
             ...(_.offset && { offset: _.offset }),
             ...(_.sortBy && {
               sortBy: {
@@ -100,31 +74,14 @@ export const adapter = (config: CustomAdapterConfig) => {
               },
             }),
           })
-          .then((_) => _.items.map(unwrapObject) as T[]),
+          .then((_) => _.items.map(unwrap) as T[]),
 
-      delete: (_) =>
-        client
-          .delete({
-            model: _.model,
-            where: mapWhere(_.where),
-          })
-          .then(() => undefined),
+      delete: (_) => client.delete({ model: _.model, where: wrapWhere(_.where) }).then(() => undefined),
 
-      deleteMany: (_) =>
-        client
-          .deleteMany({
-            model: _.model,
-            where: mapWhere(_.where),
-          })
-          .then((_) => _.count),
+      deleteMany: (_) => client.deleteMany({ model: _.model, where: wrapWhere(_.where) }).then((_) => _.count),
 
       count: (_) =>
-        client
-          .count({
-            model: _.model,
-            ...(_.where && { where: mapWhere(_.where) }),
-          })
-          .then((_) => _.count),
+        client.count({ model: _.model, ...(_.where && { where: wrapWhere(_.where) }) }).then((_) => _.count),
 
       createSchema: ({ file = 'schema.json', tables }) =>
         Promise.resolve({ code: JSON.stringify(tables, undefined, 2), path: file }),
@@ -133,12 +90,21 @@ export const adapter = (config: CustomAdapterConfig) => {
       adapterId: '@the-dev-tools/auth-adapter',
       adapterName: 'DevTools Auth Adapter',
 
+      customTransformInput: (_) => {
+        if (_.fieldAttributes.type === 'date' && _.data instanceof Date) return Math.floor(_.data.getTime() / 1000);
+        else return _.data as unknown;
+      },
+      customTransformOutput: (_) => {
+        if (_.fieldAttributes.type === 'date' && typeof _.data === 'number') return new Date(_.data * 1000);
+        else return _.data as unknown;
+      },
+
       customIdGenerator: () => Ulid.generate().toCanonical(),
 
       debugLogs: config.debugLogs,
       supportsArrays: true,
       supportsBooleans: true,
-      supportsDates: false,
+      supportsDates: true,
       supportsJSON: true,
       supportsNumericIds: false,
       supportsUUIDs: false,
@@ -148,7 +114,7 @@ export const adapter = (config: CustomAdapterConfig) => {
   });
 };
 
-const mapWhere = (_: Required<BA.Where>[]) =>
+const wrapWhere = (_: Required<BA.Where>[]) =>
   _.map((_) =>
     create(WhereSchema, {
       field: _.field,
@@ -180,3 +146,9 @@ const mapWhere = (_: Required<BA.Where>[]) =>
       }),
     }),
   );
+
+const wrap = (_: unknown) => fromJson(ValueSchema, _ as JsonValue);
+const wrapMap = (_: Record<string, unknown>) => Record.map(_, wrap);
+
+const unwrap = (_: Value) => toJson(ValueSchema, _);
+const unwrapMap = (_: Record<string, Value>) => Record.map(_, unwrap);

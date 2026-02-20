@@ -1,10 +1,26 @@
 import { Path } from '@effect/platform';
-import { betterAuth } from 'better-auth';
+import { betterAuth, type BetterAuthPlugin } from 'better-auth';
 import { jwt } from 'better-auth/plugins';
 import { Config, Effect, pipe, Redacted } from 'effect';
 import os from 'node:os';
-import { adapter } from './adapter.ts';
+import { createAdapter } from './adapter.ts';
 import { defaultUrl } from './config.ts';
+
+export const plugins = [
+  jwt({
+    jwks: {
+      keyPairConfig: { alg: 'RS256' },
+    },
+    jwt: {
+      definePayload: ({ session, user }) => ({
+        email: user.email,
+        expiresAt: session.expiresAt,
+        name: user.name,
+        userId: user.id,
+      }),
+    },
+  }),
+] satisfies BetterAuthPlugin[];
 
 export const authEffect = Effect.gen(function* () {
   const path = yield* Path.Path;
@@ -22,23 +38,9 @@ export const authEffect = Effect.gen(function* () {
 
   return betterAuth({
     baseURL: url.href,
-    database: adapter({ socketPath: adapterSocketPath }),
+    database: createAdapter({ socketPath: adapterSocketPath }),
     emailAndPassword: { enabled: true, requireEmailVerification: false },
-    plugins: [
-      jwt({
-        jwks: {
-          keyPairConfig: { alg: 'RS256' },
-        },
-        jwt: {
-          definePayload: ({ session, user }) => ({
-            email: user.email,
-            expiresAt: session.expiresAt,
-            name: user.name,
-            userId: user.id,
-          }),
-        },
-      }),
-    ],
+    plugins,
     secret: Redacted.value(secret),
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
