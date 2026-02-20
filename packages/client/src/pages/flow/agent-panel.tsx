@@ -9,7 +9,7 @@ import { NodeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flo
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { type Message, type ToolCall, useAgentChat } from '~/features/agent';
-import { type AgentProvider, useAgentProviderKey } from '~/features/agent/use-openrouter-key';
+import { type AgentProvider, useAgentProviderKey } from '~/features/agent/use-agent-provider-key';
 import { useApiCollection } from '~/shared/api';
 import { FlowContext } from './context';
 import { nodeClientCollection } from './node';

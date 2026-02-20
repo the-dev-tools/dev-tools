@@ -13,5 +13,5 @@ export type {
   VariableInfo,
 } from './types';
 export { useAgentChat } from './use-agent-chat';
-export { useAgentProviderKey, useOpenRouterKey } from './use-openrouter-key';
-export type { AgentProvider } from './use-openrouter-key';
+export { useAgentProviderKey, useOpenRouterKey } from './use-agent-provider-key';
+export type { AgentProvider } from './use-agent-provider-key';
