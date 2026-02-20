@@ -7,13 +7,16 @@ CREATE TABLE workspaces (
   flow_count INT NOT NULL DEFAULT 0,
   active_env BLOB,
   global_env BLOB,
-  display_order REAL NOT NULL DEFAULT 0
+  display_order REAL NOT NULL DEFAULT 0,
+  organization_id BLOB
 );
 
 CREATE INDEX workspaces_idx1 ON workspaces (
   name,
   active_env
 );
+
+CREATE INDEX workspaces_org_idx ON workspaces (organization_id);
 
 -- WORKSPACE USERS
 CREATE TABLE workspaces_users (

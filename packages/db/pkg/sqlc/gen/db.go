@@ -783,6 +783,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getNodeExecutionsByNodeIDStmt, err = db.PrepareContext(ctx, getNodeExecutionsByNodeID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetNodeExecutionsByNodeID: %w", err)
 	}
+	if q.getOrgMemberRoleForWorkspaceStmt, err = db.PrepareContext(ctx, getOrgMemberRoleForWorkspace); err != nil {
+		return nil, fmt.Errorf("error preparing query GetOrgMemberRoleForWorkspace: %w", err)
+	}
 	if q.getRootFilesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getRootFilesByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetRootFilesByWorkspaceID: %w", err)
 	}
@@ -2284,6 +2287,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getNodeExecutionsByNodeIDStmt: %w", cerr)
 		}
 	}
+	if q.getOrgMemberRoleForWorkspaceStmt != nil {
+		if cerr := q.getOrgMemberRoleForWorkspaceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getOrgMemberRoleForWorkspaceStmt: %w", cerr)
+		}
+	}
 	if q.getRootFilesByWorkspaceIDStmt != nil {
 		if cerr := q.getRootFilesByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getRootFilesByWorkspaceIDStmt: %w", cerr)
@@ -2961,6 +2969,7 @@ type Queries struct {
 	getMigrationsStmt                          *sql.Stmt
 	getNodeExecutionStmt                       *sql.Stmt
 	getNodeExecutionsByNodeIDStmt              *sql.Stmt
+	getOrgMemberRoleForWorkspaceStmt           *sql.Stmt
 	getRootFilesByWorkspaceIDStmt              *sql.Stmt
 	getTagStmt                                 *sql.Stmt
 	getTagsByWorkspaceIDStmt                   *sql.Stmt
@@ -3297,6 +3306,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getMigrationsStmt:                          q.getMigrationsStmt,
 		getNodeExecutionStmt:                       q.getNodeExecutionStmt,
 		getNodeExecutionsByNodeIDStmt:              q.getNodeExecutionsByNodeIDStmt,
+		getOrgMemberRoleForWorkspaceStmt:           q.getOrgMemberRoleForWorkspaceStmt,
 		getRootFilesByWorkspaceIDStmt:              q.getRootFilesByWorkspaceIDStmt,
 		getTagStmt:                                 q.getTagStmt,
 		getTagsByWorkspaceIDStmt:                   q.getTagsByWorkspaceIDStmt,

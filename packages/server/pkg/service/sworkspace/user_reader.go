@@ -64,12 +64,39 @@ func (r *UserReader) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context
 		WorkspaceID: wsID,
 		UserID:      userID,
 	})
+	if err == nil {
+		workspace := ConvertToModelWorkspaceUser(wsu)
+		return &workspace, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	// Org membership fallback: check if user is an org member for this workspace's org
+	orgRole, err := r.queries.GetOrgMemberRoleForWorkspace(ctx, gen.GetOrgMemberRoleForWorkspaceParams{
+		ID:     wsID,
+		UserID: userID,
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrWorkspaceUserNotFound
 		}
 		return nil, err
 	}
-	workspace := ConvertToModelWorkspaceUser(wsu)
-	return &workspace, nil
+	return &mworkspace.WorkspaceUser{
+		WorkspaceID: wsID,
+		UserID:      userID,
+		Role:        mapOrgRoleToWorkspaceRole(orgRole),
+	}, nil
+}
+
+// mapOrgRoleToWorkspaceRole maps a BetterAuth org role string to a workspace role.
+func mapOrgRoleToWorkspaceRole(orgRole string) mworkspace.Role {
+	switch orgRole {
+	case "owner":
+		return mworkspace.RoleOwner
+	case "admin":
+		return mworkspace.RoleAdmin
+	default:
+		return mworkspace.RoleUser
+	}
 }

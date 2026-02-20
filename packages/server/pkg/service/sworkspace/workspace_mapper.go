@@ -17,6 +17,7 @@ func ConvertToDBWorkspace(workspace mworkspace.Workspace) gen.Workspace {
 		ActiveEnv:       workspace.ActiveEnv,
 		GlobalEnv:       workspace.GlobalEnv,
 		DisplayOrder:    workspace.Order,
+		OrganizationID:  workspace.OrganizationID,
 	}
 }
 
@@ -30,5 +31,6 @@ func ConvertToModelWorkspace(workspace gen.Workspace) mworkspace.Workspace {
 		ActiveEnv:       workspace.ActiveEnv,
 		GlobalEnv:       workspace.GlobalEnv,
 		Order:           workspace.DisplayOrder,
+		OrganizationID:  workspace.OrganizationID,
 	}
 }

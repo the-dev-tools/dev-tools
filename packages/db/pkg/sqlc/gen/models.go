@@ -463,6 +463,7 @@ type Workspace struct {
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
 	DisplayOrder    float64
+	OrganizationID  *idwrap.IDWrap
 }
 
 type WorkspacesUser struct {

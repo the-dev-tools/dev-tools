@@ -43,9 +43,9 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order, organization_id)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
@@ -57,6 +57,7 @@ type CreateWorkspaceParams struct {
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
 	DisplayOrder    float64
+	OrganizationID  *idwrap.IDWrap
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
@@ -69,6 +70,7 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 		arg.ActiveEnv,
 		arg.GlobalEnv,
 		arg.DisplayOrder,
+		arg.OrganizationID,
 	)
 	return err
 }
@@ -128,17 +130,34 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.organization_id
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
 WHERE
-  wu.user_id = ?
+  wu.user_id = ?1
+UNION
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
+FROM
+  workspaces w
+INNER JOIN auth_member am ON w.organization_id = am.organization_id
+WHERE
+  am.user_id = ?1
 ORDER BY
-  w.updated DESC
+  updated DESC
 `
 
-// Returns ALL workspaces for a user
+// Returns ALL workspaces for a user (direct + org membership)
 func (q *Queries) GetAllWorkspacesByUserID(ctx context.Context, userID idwrap.IDWrap) ([]Workspace, error) {
 	rows, err := q.query(ctx, q.getAllWorkspacesByUserIDStmt, getAllWorkspacesByUserID, userID)
 	if err != nil {
@@ -157,6 +176,7 @@ func (q *Queries) GetAllWorkspacesByUserID(ctx context.Context, userID idwrap.ID
 			&i.ActiveEnv,
 			&i.GlobalEnv,
 			&i.DisplayOrder,
+			&i.OrganizationID,
 		); err != nil {
 			return nil, err
 		}
@@ -171,6 +191,32 @@ func (q *Queries) GetAllWorkspacesByUserID(ctx context.Context, userID idwrap.ID
 	return items, nil
 }
 
+const getOrgMemberRoleForWorkspace = `-- name: GetOrgMemberRoleForWorkspace :one
+SELECT
+  am.role
+FROM
+  auth_member am
+INNER JOIN workspaces w ON w.organization_id = am.organization_id
+WHERE
+  w.id = ?
+  AND am.user_id = ?
+LIMIT
+  1
+`
+
+type GetOrgMemberRoleForWorkspaceParams struct {
+	ID     idwrap.IDWrap
+	UserID idwrap.IDWrap
+}
+
+// Returns the org member role for a user in the organization that owns the workspace.
+func (q *Queries) GetOrgMemberRoleForWorkspace(ctx context.Context, arg GetOrgMemberRoleForWorkspaceParams) (string, error) {
+	row := q.queryRow(ctx, q.getOrgMemberRoleForWorkspaceStmt, getOrgMemberRoleForWorkspace, arg.ID, arg.UserID)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
 const getWorkspace = `-- name: GetWorkspace :one
 SELECT
   id,
@@ -180,7 +226,8 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  organization_id
 FROM
   workspaces
 WHERE
@@ -202,6 +249,7 @@ func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (Workspace
 		&i.ActiveEnv,
 		&i.GlobalEnv,
 		&i.DisplayOrder,
+		&i.OrganizationID,
 	)
 	return i, err
 }
@@ -215,7 +263,8 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  organization_id
 FROM
   workspaces
 WHERE
@@ -245,6 +294,7 @@ func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap
 		&i.ActiveEnv,
 		&i.GlobalEnv,
 		&i.DisplayOrder,
+		&i.OrganizationID,
 	)
 	return i, err
 }
@@ -258,7 +308,8 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  organization_id
 FROM
   workspaces
 WHERE
@@ -294,6 +345,7 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 		&i.ActiveEnv,
 		&i.GlobalEnv,
 		&i.DisplayOrder,
+		&i.OrganizationID,
 	)
 	return i, err
 }
@@ -438,25 +490,36 @@ func (q *Queries) GetWorkspaceUserByWorkspaceIDAndUserID(ctx context.Context, ar
 
 const getWorkspacesByUserID = `-- name: GetWorkspacesByUserID :many
 SELECT
-  id,
-  name,
-  updated,
-  collection_count,
-  flow_count,
-  active_env,
-  global_env,
-  display_order
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
 FROM
-  workspaces
+  workspaces w
+INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
 WHERE
-  id IN (
-    SELECT
-      workspace_id
-    FROM
-      workspaces_users
-    WHERE
-      user_id = ?
-  )
+  wu.user_id = ?1
+UNION
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
+FROM
+  workspaces w
+INNER JOIN auth_member am ON w.organization_id = am.organization_id
+WHERE
+  am.user_id = ?1
 `
 
 func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWrap) ([]Workspace, error) {
@@ -477,6 +540,7 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 			&i.ActiveEnv,
 			&i.GlobalEnv,
 			&i.DisplayOrder,
+			&i.OrganizationID,
 		); err != nil {
 			return nil, err
 		}
@@ -500,14 +564,31 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.organization_id
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
 WHERE
-  wu.user_id = ?
+  wu.user_id = ?1
+UNION
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
+FROM
+  workspaces w
+INNER JOIN auth_member am ON w.organization_id = am.organization_id
+WHERE
+  am.user_id = ?1
 ORDER BY
-  w.display_order ASC
+  display_order ASC
 `
 
 func (q *Queries) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwrap.IDWrap) ([]Workspace, error) {
@@ -528,6 +609,7 @@ func (q *Queries) GetWorkspacesByUserIDOrdered(ctx context.Context, userID idwra
 			&i.ActiveEnv,
 			&i.GlobalEnv,
 			&i.DisplayOrder,
+			&i.OrganizationID,
 		); err != nil {
 			return nil, err
 		}

@@ -3,6 +3,8 @@ package suser
 import (
 	"context"
 	"database/sql"
+	"errors"
+
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
@@ -125,5 +127,19 @@ func (r *Reader) CheckUserBelongsToWorkspace(ctx context.Context, userID idwrap.
 	if err != nil {
 		return false, err
 	}
-	return b, nil
+	if b {
+		return true, nil
+	}
+	// Org membership fallback: check if user is an org member for this workspace's org
+	_, err = r.queries.GetOrgMemberRoleForWorkspace(ctx, gen.GetOrgMemberRoleForWorkspaceParams{
+		ID:     workspaceID,
+		UserID: userID,
+	})
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return false, err
 }

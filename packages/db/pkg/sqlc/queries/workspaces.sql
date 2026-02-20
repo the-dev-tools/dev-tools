@@ -10,7 +10,8 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  organization_id
 FROM
   workspaces
 WHERE
@@ -27,7 +28,8 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  organization_id
 FROM
   workspaces
 WHERE
@@ -46,25 +48,36 @@ LIMIT
 
 -- name: GetWorkspacesByUserID :many
 SELECT
-  id,
-  name,
-  updated,
-  collection_count,
-  flow_count,
-  active_env,
-  global_env,
-  display_order
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
 FROM
-  workspaces
+  workspaces w
+INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
 WHERE
-  id IN (
-    SELECT
-      workspace_id
-    FROM
-      workspaces_users
-    WHERE
-      user_id = ?
-  );
+  wu.user_id = sqlc.arg('user_id')
+UNION
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
+FROM
+  workspaces w
+INNER JOIN auth_member am ON w.organization_id = am.organization_id
+WHERE
+  am.user_id = sqlc.arg('user_id');
 
 -- name: GetWorkspaceByUserIDandWorkspaceID :one
 SELECT
@@ -75,7 +88,8 @@ SELECT
   flow_count,
   active_env,
   global_env,
-  display_order
+  display_order,
+  organization_id
 FROM
   workspaces
 WHERE
@@ -95,9 +109,9 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, display_order, organization_id)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
@@ -132,17 +146,14 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.organization_id
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
 WHERE
-  wu.user_id = ?
-ORDER BY
-  w.display_order ASC;
-
--- name: GetAllWorkspacesByUserID :many
--- Returns ALL workspaces for a user
+  wu.user_id = sqlc.arg('user_id')
+UNION
 SELECT
   w.id,
   w.name,
@@ -151,14 +162,51 @@ SELECT
   w.flow_count,
   w.active_env,
   w.global_env,
-  w.display_order
+  w.display_order,
+  w.organization_id
+FROM
+  workspaces w
+INNER JOIN auth_member am ON w.organization_id = am.organization_id
+WHERE
+  am.user_id = sqlc.arg('user_id')
+ORDER BY
+  display_order ASC;
+
+-- name: GetAllWorkspacesByUserID :many
+-- Returns ALL workspaces for a user (direct + org membership)
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
 FROM
   workspaces w
 INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
 WHERE
-  wu.user_id = ?
+  wu.user_id = sqlc.arg('user_id')
+UNION
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.display_order,
+  w.organization_id
+FROM
+  workspaces w
+INNER JOIN auth_member am ON w.organization_id = am.organization_id
+WHERE
+  am.user_id = sqlc.arg('user_id')
 ORDER BY
-  w.updated DESC;
+  updated DESC;
 
 --
 -- WorkspaceUsers
@@ -247,3 +295,16 @@ WHERE
 DELETE FROM workspaces_users
 WHERE
   id = ?;
+
+-- name: GetOrgMemberRoleForWorkspace :one
+-- Returns the org member role for a user in the organization that owns the workspace.
+SELECT
+  am.role
+FROM
+  auth_member am
+INNER JOIN workspaces w ON w.organization_id = am.organization_id
+WHERE
+  w.id = ?
+  AND am.user_id = ?
+LIMIT
+  1;
