@@ -100,25 +100,22 @@ func (a *Adapter) createAccount(ctx context.Context, data map[string]json.RawMes
 
 func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[string]any, error) {
 	// Single field: id
-	if field, val, ok := singleEqWhere(where); ok {
-		switch field {
-		case "id":
-			id, err := parseID(val)
-			if err != nil {
-				if errors.Is(err, ErrInvalidID) {
-					return nil, nil // non-ULID ID → not found
-				}
-				return nil, err
+	if field, val, ok := singleEqWhere(where); ok && field == "id" {
+		id, err := parseID(val)
+		if err != nil {
+			if errors.Is(err, ErrInvalidID) {
+				return nil, nil // non-ULID ID → not found
 			}
-			acc, err := a.q.AuthGetAccount(ctx, id)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, nil
-				}
-				return nil, err
-			}
-			return accountToMap(acc), nil
+			return nil, err
 		}
+		acc, err := a.q.AuthGetAccount(ctx, id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return accountToMap(acc), nil
 	}
 
 	// Two fields: providerId + accountId (fast path with sqlc)
@@ -140,7 +137,7 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 				AccountID:  accountID,
 			})
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
 				return nil, err

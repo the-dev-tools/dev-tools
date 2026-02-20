@@ -278,22 +278,7 @@ func parseAnyValue(v json.RawMessage) (any, error) {
 	return nil, fmt.Errorf("parseAnyValue: unsupported JSON value: %s", string(v))
 }
 
-// parseArrayValue unmarshals a JSON array to a slice of Go native types.
-func parseArrayValue(v json.RawMessage) ([]any, error) {
-	var raw []json.RawMessage
-	if err := json.Unmarshal(v, &raw); err != nil {
-		return nil, fmt.Errorf("parseArrayValue: expected JSON array: %w", err)
-	}
-	result := make([]any, 0, len(raw))
-	for _, r := range raw {
-		val, err := parseAnyValue(r)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, val)
-	}
-	return result, nil
-}
+
 
 // escapeLike escapes SQL LIKE special characters.
 func escapeLike(s string) string {
@@ -335,7 +320,7 @@ func dynamicQueryUsers(ctx context.Context, db gen.DBTX, where []WhereClause, op
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // Best-effort close on read-only query
 
 	var results []map[string]any
 	for rows.Next() {
@@ -405,7 +390,9 @@ func dynamicUpdateUsers(ctx context.Context, db gen.DBTX, where []WhereClause, d
 	}
 
 	query := "UPDATE auth_user SET " + strings.Join(setClauses, ", ") + " WHERE " + whereSQL
-	args := append(setArgs, whereArgs...)
+	args := make([]any, 0, len(setArgs)+len(whereArgs))
+	args = append(args, setArgs...)
+	args = append(args, whereArgs...)
 
 	result, err := db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -469,7 +456,7 @@ func dynamicQueryAccounts(ctx context.Context, db gen.DBTX, where []WhereClause,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // Best-effort close on read-only query
 
 	var results []map[string]any
 	for rows.Next() {

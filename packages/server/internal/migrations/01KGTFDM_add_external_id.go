@@ -12,13 +12,13 @@ import (
 const MigrationAddUserAuthColumnsID = "01KGTFDMC0A8NKA2ER2K6YFQCY"
 
 // MigrationAddUserAuthColumnsChecksum is a stable hash of this migration.
-const MigrationAddUserAuthColumnsChecksum = "sha256:add-user-auth-columns-v1"
+const MigrationAddUserAuthColumnsChecksum = "sha256:add-user-auth-columns-v2"
 
 func init() {
 	if err := migrate.Register(migrate.Migration{
 		ID:          MigrationAddUserAuthColumnsID,
 		Checksum:    MigrationAddUserAuthColumnsChecksum,
-		Description: "Add external_id, name, and image columns to users table for BetterAuth",
+		Description: "Add BetterAuth columns (external_id, name, image) and auth_jwks table",
 		Apply:       applyAddUserAuthColumns,
 		Validate:    validateAddUserAuthColumns,
 	}); err != nil {
@@ -58,6 +58,29 @@ func applyAddUserAuthColumns(ctx context.Context, tx *sql.Tx) error {
 		return fmt.Errorf("create external_id index: %w", err)
 	}
 
+	// Create auth_jwks table for BetterAuth JWT plugin key storage
+	var jwksCount int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM sqlite_master
+		WHERE type = 'table' AND name = 'auth_jwks'
+	`).Scan(&jwksCount); err != nil {
+		return fmt.Errorf("check auth_jwks table: %w", err)
+	}
+	if jwksCount == 0 {
+		if _, err := tx.ExecContext(ctx, `
+			CREATE TABLE auth_jwks (
+				id BLOB NOT NULL PRIMARY KEY,
+				public_key TEXT NOT NULL,
+				private_key TEXT NOT NULL,
+				created_at INTEGER NOT NULL,
+				expires_at INTEGER,
+				CHECK (length(id) = 16)
+			)
+		`); err != nil {
+			return fmt.Errorf("create auth_jwks table: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -76,5 +99,17 @@ func validateAddUserAuthColumns(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("%s column not found on users table", col)
 		}
 	}
+
+	var jwksCount int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM sqlite_master
+		WHERE type = 'table' AND name = 'auth_jwks'
+	`).Scan(&jwksCount); err != nil {
+		return fmt.Errorf("check auth_jwks table: %w", err)
+	}
+	if jwksCount == 0 {
+		return fmt.Errorf("auth_jwks table not found")
+	}
+
 	return nil
 }

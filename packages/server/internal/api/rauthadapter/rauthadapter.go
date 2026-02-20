@@ -91,7 +91,7 @@
 //	createdAt  date    yes
 //	expiresAt  date    no
 //
-// Not yet implemented — all operations return CodeUnimplemented.
+// Supported operations: Create, FindMany, Delete (by id).
 package rauthadapter
 
 import (

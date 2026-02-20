@@ -1505,49 +1505,84 @@ func TestAccount_sensitiveFieldsNullWhenAbsent(t *testing.T) {
 	}
 }
 
-// --- jwks: not yet implemented ---
+// --- jwks ---
 
-func TestCreate_jwks_unimplemented(t *testing.T) {
+func TestCreate_jwks(t *testing.T) {
 	h, cleanup := newHandler(t)
 	defer cleanup()
 
 	now := float64(time.Now().Unix())
+	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
+		Model: "jwks",
+		Data: jsonMap(map[string]any{
+			"publicKey": `{"kty":"RSA","n":"abc","e":"AQAB"}`, "privateKey": `{"kty":"RSA","d":"xyz"}`, "createdAt": now,
+		}),
+	}))
+	require.NoError(t, err)
+	data := protoMapToAny(resp.Msg.Data)
+	require.NotEmpty(t, data["id"])
+	require.Equal(t, `{"kty":"RSA","n":"abc","e":"AQAB"}`, data["publicKey"])
+	require.Equal(t, `{"kty":"RSA","d":"xyz"}`, data["privateKey"])
+}
+
+func TestFindMany_jwks(t *testing.T) {
+	h, cleanup := newHandler(t)
+	defer cleanup()
+
+	now := float64(time.Now().Unix())
+
+	// Create two keys
 	_, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
+		Model: "jwks",
+		Data: jsonMap(map[string]any{
+			"publicKey": "pub1", "privateKey": "priv1", "createdAt": now,
+		}),
+	}))
+	require.NoError(t, err)
+
+	_, err = h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
+		Model: "jwks",
+		Data: jsonMap(map[string]any{
+			"publicKey": "pub2", "privateKey": "priv2", "createdAt": now + 1,
+		}),
+	}))
+	require.NoError(t, err)
+
+	// FindMany returns all
+	resp, err := h.FindMany(context.Background(), connect.NewRequest(&auth_adapterv1.FindManyRequest{
+		Model: "jwks",
+	}))
+	require.NoError(t, err)
+	require.Len(t, resp.Msg.Items, 2)
+}
+
+func TestDelete_jwks(t *testing.T) {
+	h, cleanup := newHandler(t)
+	defer cleanup()
+
+	now := float64(time.Now().Unix())
+
+	// Create
+	resp, err := h.Create(context.Background(), connect.NewRequest(&auth_adapterv1.CreateRequest{
 		Model: "jwks",
 		Data: jsonMap(map[string]any{
 			"publicKey": "pub", "privateKey": "priv", "createdAt": now,
 		}),
 	}))
-	require.Error(t, err)
-	connectErr := new(connect.Error)
-	require.ErrorAs(t, err, &connectErr)
-	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
-}
+	require.NoError(t, err)
+	id := protoMapToAny(resp.Msg.Data)["id"].(string)
 
-func TestFind_jwks_unimplemented(t *testing.T) {
-	h, cleanup := newHandler(t)
-	defer cleanup()
-
-	_, err := h.Find(context.Background(), connect.NewRequest(&auth_adapterv1.FindRequest{
+	// Delete
+	_, err = h.Delete(context.Background(), connect.NewRequest(&auth_adapterv1.DeleteRequest{
 		Model: "jwks",
-		Where: []*auth_adapterv1.Where{eqWhere("id", structpb.NewStringValue("x"))},
+		Where: []*auth_adapterv1.Where{eqWhere("id", structpb.NewStringValue(id))},
 	}))
-	require.Error(t, err)
-	connectErr := new(connect.Error)
-	require.ErrorAs(t, err, &connectErr)
-	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
-}
+	require.NoError(t, err)
 
-func TestDelete_jwks_unimplemented(t *testing.T) {
-	h, cleanup := newHandler(t)
-	defer cleanup()
-
-	_, err := h.Delete(context.Background(), connect.NewRequest(&auth_adapterv1.DeleteRequest{
+	// FindMany returns empty
+	findResp, err := h.FindMany(context.Background(), connect.NewRequest(&auth_adapterv1.FindManyRequest{
 		Model: "jwks",
-		Where: []*auth_adapterv1.Where{eqWhere("id", structpb.NewStringValue("x"))},
 	}))
-	require.Error(t, err)
-	connectErr := new(connect.Error)
-	require.ErrorAs(t, err, &connectErr)
-	require.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+	require.NoError(t, err)
+	require.Len(t, findResp.Msg.Items, 0)
 }

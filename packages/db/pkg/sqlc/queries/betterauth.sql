@@ -317,3 +317,30 @@ WHERE
 DELETE FROM auth_verification
 WHERE
   expires_at < ?;
+
+--
+-- JWKS
+--
+
+-- name: AuthCreateJwks :exec
+INSERT INTO
+  auth_jwks (id, public_key, private_key, created_at, expires_at)
+VALUES
+  (?, ?, ?, ?, ?);
+
+-- name: AuthListJwks :many
+SELECT
+  id,
+  public_key,
+  private_key,
+  created_at,
+  expires_at
+FROM
+  auth_jwks
+ORDER BY
+  created_at DESC;
+
+-- name: AuthDeleteJwks :exec
+DELETE FROM auth_jwks
+WHERE
+  id = ?;

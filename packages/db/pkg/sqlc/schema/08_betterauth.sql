@@ -54,3 +54,12 @@ CREATE TABLE auth_verification (
   updated_at INTEGER NOT NULL,
   CHECK (length(id) = 16)
 );
+
+CREATE TABLE auth_jwks (
+  id BLOB NOT NULL PRIMARY KEY,
+  public_key TEXT NOT NULL,
+  private_key TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER,
+  CHECK (length(id) = 16)
+);

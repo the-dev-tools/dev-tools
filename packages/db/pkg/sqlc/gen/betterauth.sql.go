@@ -82,6 +82,34 @@ func (q *Queries) AuthCreateAccount(ctx context.Context, arg AuthCreateAccountPa
 	return err
 }
 
+const authCreateJwks = `-- name: AuthCreateJwks :exec
+
+INSERT INTO
+  auth_jwks (id, public_key, private_key, created_at, expires_at)
+VALUES
+  (?, ?, ?, ?, ?)
+`
+
+type AuthCreateJwksParams struct {
+	ID         []byte
+	PublicKey  string
+	PrivateKey string
+	CreatedAt  int64
+	ExpiresAt  sql.NullInt64
+}
+
+// JWKS
+func (q *Queries) AuthCreateJwks(ctx context.Context, arg AuthCreateJwksParams) error {
+	_, err := q.exec(ctx, q.authCreateJwksStmt, authCreateJwks,
+		arg.ID,
+		arg.PublicKey,
+		arg.PrivateKey,
+		arg.CreatedAt,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
 const authCreateSession = `-- name: AuthCreateSession :exec
 INSERT INTO
   auth_session (
@@ -222,6 +250,17 @@ WHERE
 
 func (q *Queries) AuthDeleteExpiredVerifications(ctx context.Context, expiresAt int64) error {
 	_, err := q.exec(ctx, q.authDeleteExpiredVerificationsStmt, authDeleteExpiredVerifications, expiresAt)
+	return err
+}
+
+const authDeleteJwks = `-- name: AuthDeleteJwks :exec
+DELETE FROM auth_jwks
+WHERE
+  id = ?
+`
+
+func (q *Queries) AuthDeleteJwks(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.authDeleteJwksStmt, authDeleteJwks, id)
 	return err
 }
 
@@ -607,6 +646,48 @@ func (q *Queries) AuthListAccountsByUser(ctx context.Context, userID idwrap.IDWr
 			&i.Password,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const authListJwks = `-- name: AuthListJwks :many
+SELECT
+  id,
+  public_key,
+  private_key,
+  created_at,
+  expires_at
+FROM
+  auth_jwks
+ORDER BY
+  created_at DESC
+`
+
+func (q *Queries) AuthListJwks(ctx context.Context) ([]AuthJwk, error) {
+	rows, err := q.query(ctx, q.authListJwksStmt, authListJwks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuthJwk{}
+	for rows.Next() {
+		var i AuthJwk
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicKey,
+			&i.PrivateKey,
+			&i.CreatedAt,
+			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
 		}

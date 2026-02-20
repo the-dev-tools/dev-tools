@@ -83,7 +83,7 @@ func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[str
 			}
 			u, err := a.q.AuthGetUser(ctx, id)
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
 				return nil, err
@@ -97,7 +97,7 @@ func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[str
 			}
 			u, err := a.q.AuthGetUserByEmail(ctx, email)
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if errors.Is(err, sql.ErrNoRows) {
 					return nil, nil
 				}
 				return nil, err

@@ -291,3 +291,57 @@ func TestAdapter_Verification(t *testing.T) {
 	})
 	testutil.AssertFatal(t, nil, err)
 }
+
+func TestAdapter_Jwks(t *testing.T) {
+	a, cleanup := newAdapter(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	now := time.Now().Unix()
+
+	data := map[string]json.RawMessage{
+		"publicKey":  jsonStr(`{"kty":"RSA","n":"abc","e":"AQAB"}`),
+		"privateKey": jsonStr(`{"kty":"RSA","n":"abc","d":"xyz"}`),
+		"createdAt":  jsonInt(now),
+	}
+
+	// Create (auto-generated id)
+	rec, err := a.Create(ctx, authadapter.ModelJwks, data)
+	testutil.AssertFatal(t, nil, err)
+	id := str(rec, "id")
+	testutil.Assert(t, true, id != "")
+	testutil.Assert(t, `{"kty":"RSA","n":"abc","e":"AQAB"}`, str(rec, "publicKey"))
+	testutil.Assert(t, `{"kty":"RSA","n":"abc","d":"xyz"}`, str(rec, "privateKey"))
+	testutil.Assert(t, now, rec["createdAt"].(int64))
+	testutil.Assert(t, true, rec["expiresAt"] == nil)
+
+	// Create second key with expiresAt
+	data2 := map[string]json.RawMessage{
+		"publicKey":  jsonStr(`{"kty":"RSA","n":"def","e":"AQAB"}`),
+		"privateKey": jsonStr(`{"kty":"RSA","n":"def","d":"uvw"}`),
+		"createdAt":  jsonInt(now + 1),
+		"expiresAt":  jsonInt(now + 86400),
+	}
+	rec2, err := a.Create(ctx, authadapter.ModelJwks, data2)
+	testutil.AssertFatal(t, nil, err)
+	id2 := str(rec2, "id")
+	testutil.Assert(t, now+86400, rec2["expiresAt"].(int64))
+
+	// FindMany returns all keys (newest first)
+	many, err := a.FindMany(ctx, authadapter.ModelJwks, nil, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 2, len(many))
+	testutil.Assert(t, id2, str(many[0], "id")) // newest first
+
+	// Delete first key
+	err = a.Delete(ctx, authadapter.ModelJwks, []authadapter.WhereClause{
+		{Field: "id", Operator: "eq", Value: jsonStr(id), Connector: "AND"},
+	})
+	testutil.AssertFatal(t, nil, err)
+
+	// FindMany returns only second key
+	remaining, err := a.FindMany(ctx, authadapter.ModelJwks, nil, authadapter.FindManyOpts{})
+	testutil.AssertFatal(t, nil, err)
+	testutil.Assert(t, 1, len(remaining))
+	testutil.Assert(t, id2, str(remaining[0], "id"))
+}

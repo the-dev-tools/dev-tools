@@ -84,7 +84,7 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 		}
 		s, err := a.q.AuthGetSession(ctx, id)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, err
@@ -98,7 +98,7 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 		}
 		s, err := a.q.AuthGetSessionByToken(ctx, token)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, err

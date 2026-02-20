@@ -30,6 +30,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authCreateAccountStmt, err = db.PrepareContext(ctx, authCreateAccount); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthCreateAccount: %w", err)
 	}
+	if q.authCreateJwksStmt, err = db.PrepareContext(ctx, authCreateJwks); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthCreateJwks: %w", err)
+	}
 	if q.authCreateSessionStmt, err = db.PrepareContext(ctx, authCreateSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthCreateSession: %w", err)
 	}
@@ -50,6 +53,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.authDeleteExpiredVerificationsStmt, err = db.PrepareContext(ctx, authDeleteExpiredVerifications); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteExpiredVerifications: %w", err)
+	}
+	if q.authDeleteJwksStmt, err = db.PrepareContext(ctx, authDeleteJwks); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthDeleteJwks: %w", err)
 	}
 	if q.authDeleteSessionStmt, err = db.PrepareContext(ctx, authDeleteSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthDeleteSession: %w", err)
@@ -89,6 +95,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.authListAccountsByUserStmt, err = db.PrepareContext(ctx, authListAccountsByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListAccountsByUser: %w", err)
+	}
+	if q.authListJwksStmt, err = db.PrepareContext(ctx, authListJwks); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthListJwks: %w", err)
 	}
 	if q.authListSessionsByUserStmt, err = db.PrepareContext(ctx, authListSessionsByUser); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthListSessionsByUser: %w", err)
@@ -945,6 +954,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing authCreateAccountStmt: %w", cerr)
 		}
 	}
+	if q.authCreateJwksStmt != nil {
+		if cerr := q.authCreateJwksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authCreateJwksStmt: %w", cerr)
+		}
+	}
 	if q.authCreateSessionStmt != nil {
 		if cerr := q.authCreateSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authCreateSessionStmt: %w", cerr)
@@ -978,6 +992,11 @@ func (q *Queries) Close() error {
 	if q.authDeleteExpiredVerificationsStmt != nil {
 		if cerr := q.authDeleteExpiredVerificationsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authDeleteExpiredVerificationsStmt: %w", cerr)
+		}
+	}
+	if q.authDeleteJwksStmt != nil {
+		if cerr := q.authDeleteJwksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authDeleteJwksStmt: %w", cerr)
 		}
 	}
 	if q.authDeleteSessionStmt != nil {
@@ -1043,6 +1062,11 @@ func (q *Queries) Close() error {
 	if q.authListAccountsByUserStmt != nil {
 		if cerr := q.authListAccountsByUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authListAccountsByUserStmt: %w", cerr)
+		}
+	}
+	if q.authListJwksStmt != nil {
+		if cerr := q.authListJwksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authListJwksStmt: %w", cerr)
 		}
 	}
 	if q.authListSessionsByUserStmt != nil {
@@ -2486,6 +2510,7 @@ type Queries struct {
 	tx                                         *sql.Tx
 	authCountUsersStmt                         *sql.Stmt
 	authCreateAccountStmt                      *sql.Stmt
+	authCreateJwksStmt                         *sql.Stmt
 	authCreateSessionStmt                      *sql.Stmt
 	authCreateUserStmt                         *sql.Stmt
 	authCreateVerificationStmt                 *sql.Stmt
@@ -2493,6 +2518,7 @@ type Queries struct {
 	authDeleteAccountsByUserStmt               *sql.Stmt
 	authDeleteExpiredSessionsStmt              *sql.Stmt
 	authDeleteExpiredVerificationsStmt         *sql.Stmt
+	authDeleteJwksStmt                         *sql.Stmt
 	authDeleteSessionStmt                      *sql.Stmt
 	authDeleteSessionByTokenStmt               *sql.Stmt
 	authDeleteUserStmt                         *sql.Stmt
@@ -2506,6 +2532,7 @@ type Queries struct {
 	authGetVerificationStmt                    *sql.Stmt
 	authGetVerificationByIdentifierStmt        *sql.Stmt
 	authListAccountsByUserStmt                 *sql.Stmt
+	authListJwksStmt                           *sql.Stmt
 	authListSessionsByUserStmt                 *sql.Stmt
 	authUpdateAccountStmt                      *sql.Stmt
 	authUpdateSessionStmt                      *sql.Stmt
@@ -2794,6 +2821,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		tx:                                         tx,
 		authCountUsersStmt:                         q.authCountUsersStmt,
 		authCreateAccountStmt:                      q.authCreateAccountStmt,
+		authCreateJwksStmt:                         q.authCreateJwksStmt,
 		authCreateSessionStmt:                      q.authCreateSessionStmt,
 		authCreateUserStmt:                         q.authCreateUserStmt,
 		authCreateVerificationStmt:                 q.authCreateVerificationStmt,
@@ -2801,6 +2829,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authDeleteAccountsByUserStmt:               q.authDeleteAccountsByUserStmt,
 		authDeleteExpiredSessionsStmt:              q.authDeleteExpiredSessionsStmt,
 		authDeleteExpiredVerificationsStmt:         q.authDeleteExpiredVerificationsStmt,
+		authDeleteJwksStmt:                         q.authDeleteJwksStmt,
 		authDeleteSessionStmt:                      q.authDeleteSessionStmt,
 		authDeleteSessionByTokenStmt:               q.authDeleteSessionByTokenStmt,
 		authDeleteUserStmt:                         q.authDeleteUserStmt,
@@ -2814,6 +2843,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authGetVerificationStmt:                    q.authGetVerificationStmt,
 		authGetVerificationByIdentifierStmt:        q.authGetVerificationByIdentifierStmt,
 		authListAccountsByUserStmt:                 q.authListAccountsByUserStmt,
+		authListJwksStmt:                           q.authListJwksStmt,
 		authListSessionsByUserStmt:                 q.authListSessionsByUserStmt,
 		authUpdateAccountStmt:                      q.authUpdateAccountStmt,
 		authUpdateSessionStmt:                      q.authUpdateSessionStmt,

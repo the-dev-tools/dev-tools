@@ -72,7 +72,7 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 		}
 		v, err := a.q.AuthGetVerification(ctx, id)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, err
@@ -86,7 +86,7 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 		}
 		v, err := a.q.AuthGetVerificationByIdentifier(ctx, identifier)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
 			}
 			return nil, err

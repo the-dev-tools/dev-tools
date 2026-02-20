@@ -19,6 +19,7 @@ const (
 	ModelSession      = "session"
 	ModelAccount      = "account"
 	ModelVerification = "verification"
+	ModelJwks         = "jwks"
 )
 
 var (
@@ -58,6 +59,8 @@ func (a *Adapter) Create(ctx context.Context, model string, data map[string]json
 		return a.createAccount(ctx, data)
 	case ModelVerification:
 		return a.createVerification(ctx, data)
+	case ModelJwks:
+		return a.createJwks(ctx, data)
 	default:
 		return nil, ErrUnsupportedModel
 	}
@@ -86,6 +89,8 @@ func (a *Adapter) FindMany(ctx context.Context, model string, where []WhereClaus
 		return a.findManySessions(ctx, where)
 	case ModelAccount:
 		return a.findManyAccounts(ctx, where)
+	case ModelJwks:
+		return a.findManyJwks(ctx)
 	default:
 		return nil, ErrUnsupportedModel
 	}
@@ -123,6 +128,8 @@ func (a *Adapter) Delete(ctx context.Context, model string, where []WhereClause)
 		return a.deleteAccount(ctx, where)
 	case ModelVerification:
 		return a.deleteVerification(ctx, where)
+	case ModelJwks:
+		return a.deleteJwks(ctx, where)
 	default:
 		return ErrUnsupportedModel
 	}
