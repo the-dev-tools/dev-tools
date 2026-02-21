@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -47,14 +46,7 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 		if !found {
 			return nil, nil
 		}
-		acc, err := a.q.AuthGetAccount(ctx, id)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return accountFromSqlc(acc).toMap(accountModelDef.Fields), nil
+		return queryOne(ctx, id, a.q.AuthGetAccount, accountFromSqlc, accountModelDef.Fields)
 	}
 
 	// Two fields: providerId + accountId (fast path with sqlc)
@@ -71,17 +63,10 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 			if err != nil {
 				return nil, err
 			}
-			acc, err := a.q.AuthGetAccountByProvider(ctx, gen.AuthGetAccountByProviderParams{
+			return queryOne(ctx, gen.AuthGetAccountByProviderParams{
 				ProviderID: providerID,
 				AccountID:  accountID,
-			})
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return nil, nil
-				}
-				return nil, err
-			}
-			return accountFromSqlc(acc).toMap(accountModelDef.Fields), nil
+			}, a.q.AuthGetAccountByProvider, accountFromSqlc, accountModelDef.Fields)
 		}
 	}
 

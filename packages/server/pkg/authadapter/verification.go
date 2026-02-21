@@ -2,9 +2,7 @@ package authadapter
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -44,28 +42,14 @@ func (a *Adapter) findOneVerification(ctx context.Context, where []WhereClause) 
 		if !found {
 			return nil, nil
 		}
-		v, err := a.q.AuthGetVerification(ctx, id)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return verificationFromSqlc(v).toMap(verificationModelDef.Fields), nil
+		return queryOne(ctx, id, a.q.AuthGetVerification, verificationFromSqlc, verificationModelDef.Fields)
 
 	case "identifier":
 		identifier, err := parseString(val)
 		if err != nil {
 			return nil, err
 		}
-		v, err := a.q.AuthGetVerificationByIdentifier(ctx, identifier)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return verificationFromSqlc(v).toMap(verificationModelDef.Fields), nil
+		return queryOne(ctx, identifier, a.q.AuthGetVerificationByIdentifier, verificationFromSqlc, verificationModelDef.Fields)
 
 	default:
 		return nil, ErrUnsupportedWhere

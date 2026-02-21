@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -45,28 +44,22 @@ func (a *Adapter) findOneUser(ctx context.Context, where []WhereClause) (map[str
 			if !found {
 				return nil, nil
 			}
-			u, err := a.q.AuthGetUser(ctx, id)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return nil, nil
-				}
-				return nil, err
+			result, err := queryOne(ctx, id, a.q.AuthGetUser, userFromSqlc, userModelDef.Fields)
+			if err != nil || result == nil {
+				return result, err
 			}
-			return applyFieldMapping(userFromSqlc(u).toMap(userModelDef.Fields), mapping), nil
+			return applyFieldMapping(result, mapping), nil
 
 		case "email":
 			email, err := parseString(val)
 			if err != nil {
 				return nil, err
 			}
-			u, err := a.q.AuthGetUserByEmail(ctx, email)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return nil, nil
-				}
-				return nil, err
+			result, err := queryOne(ctx, email, a.q.AuthGetUserByEmail, userFromSqlc, userModelDef.Fields)
+			if err != nil || result == nil {
+				return result, err
 			}
-			return applyFieldMapping(userFromSqlc(u).toMap(userModelDef.Fields), mapping), nil
+			return applyFieldMapping(result, mapping), nil
 		}
 	}
 

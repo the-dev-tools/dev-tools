@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -46,28 +45,14 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 		if !found {
 			return nil, nil
 		}
-		s, err := a.q.AuthGetSession(ctx, id)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return sessionFromSqlc(s).toMap(sessionModelDef.Fields), nil
+		return queryOne(ctx, id, a.q.AuthGetSession, sessionFromSqlc, sessionModelDef.Fields)
 
 	case "token":
 		token, err := parseString(val)
 		if err != nil {
 			return nil, err
 		}
-		s, err := a.q.AuthGetSessionByToken(ctx, token)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, err
-		}
-		return sessionFromSqlc(s).toMap(sessionModelDef.Fields), nil
+		return queryOne(ctx, token, a.q.AuthGetSessionByToken, sessionFromSqlc, sessionModelDef.Fields)
 
 	case "userId":
 		userID, found, err := resolveWhereID(val)

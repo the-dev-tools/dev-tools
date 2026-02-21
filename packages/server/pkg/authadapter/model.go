@@ -1,6 +1,7 @@
 package authadapter
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -215,6 +216,19 @@ func (r parsedRow) toMap(fields []fieldDef) map[string]any {
 		}
 	}
 	return m
+}
+
+// queryOne executes a query, returns nil for sql.ErrNoRows (BetterAuth expects
+// nil for not-found), and converts the result via fromSqlc → toMap.
+func queryOne[K any, T any](ctx context.Context, key K, query func(context.Context, K) (T, error), convert func(T) parsedRow, fields []fieldDef) (map[string]any, error) {
+	row, err := query(ctx, key)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return convert(row).toMap(fields), nil
 }
 
 // --- ID helpers ---
