@@ -76,6 +76,8 @@ func (a *Adapter) FindOne(ctx context.Context, model string, where []WhereClause
 		return a.findOneAccount(ctx, where)
 	case ModelVerification:
 		return a.findOneVerification(ctx, where)
+	case ModelJwks:
+		return a.findOneJwks(ctx, where)
 	default:
 		return nil, ErrUnsupportedModel
 	}

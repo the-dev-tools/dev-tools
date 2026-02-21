@@ -78,6 +78,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.authGetAccountByProviderStmt, err = db.PrepareContext(ctx, authGetAccountByProvider); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthGetAccountByProvider: %w", err)
 	}
+	if q.authGetJwksStmt, err = db.PrepareContext(ctx, authGetJwks); err != nil {
+		return nil, fmt.Errorf("error preparing query AuthGetJwks: %w", err)
+	}
 	if q.authGetSessionStmt, err = db.PrepareContext(ctx, authGetSession); err != nil {
 		return nil, fmt.Errorf("error preparing query AuthGetSession: %w", err)
 	}
@@ -1035,6 +1038,11 @@ func (q *Queries) Close() error {
 	if q.authGetAccountByProviderStmt != nil {
 		if cerr := q.authGetAccountByProviderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing authGetAccountByProviderStmt: %w", cerr)
+		}
+	}
+	if q.authGetJwksStmt != nil {
+		if cerr := q.authGetJwksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing authGetJwksStmt: %w", cerr)
 		}
 	}
 	if q.authGetSessionStmt != nil {
@@ -2534,6 +2542,7 @@ type Queries struct {
 	authDeleteVerificationStmt                 *sql.Stmt
 	authGetAccountStmt                         *sql.Stmt
 	authGetAccountByProviderStmt               *sql.Stmt
+	authGetJwksStmt                            *sql.Stmt
 	authGetSessionStmt                         *sql.Stmt
 	authGetSessionByTokenStmt                  *sql.Stmt
 	authGetUserStmt                            *sql.Stmt
@@ -2846,6 +2855,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		authDeleteVerificationStmt:                 q.authDeleteVerificationStmt,
 		authGetAccountStmt:                         q.authGetAccountStmt,
 		authGetAccountByProviderStmt:               q.authGetAccountByProviderStmt,
+		authGetJwksStmt:                            q.authGetJwksStmt,
 		authGetSessionStmt:                         q.authGetSessionStmt,
 		authGetSessionByTokenStmt:                  q.authGetSessionByTokenStmt,
 		authGetUserStmt:                            q.authGetUserStmt,

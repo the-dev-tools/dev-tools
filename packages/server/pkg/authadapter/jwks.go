@@ -2,7 +2,9 @@ package authadapter
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -25,6 +27,24 @@ func (a *Adapter) createJwks(ctx context.Context, data map[string]json.RawMessag
 	}
 
 	return row.toMap(jwksModelDef.Fields), nil
+}
+
+func (a *Adapter) findOneJwks(ctx context.Context, where []WhereClause) (map[string]any, error) {
+	id, found, err := parseWhereID(where)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, nil
+	}
+	j, err := a.q.AuthGetJwks(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return jwksFromSqlc(j).toMap(jwksModelDef.Fields), nil
 }
 
 func (a *Adapter) findManyJwks(ctx context.Context) ([]map[string]any, error) {

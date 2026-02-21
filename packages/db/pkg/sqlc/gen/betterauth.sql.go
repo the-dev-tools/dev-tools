@@ -415,6 +415,34 @@ func (q *Queries) AuthGetAccountByProvider(ctx context.Context, arg AuthGetAccou
 	return i, err
 }
 
+const authGetJwks = `-- name: AuthGetJwks :one
+SELECT
+  id,
+  public_key,
+  private_key,
+  created_at,
+  expires_at
+FROM
+  auth_jwks
+WHERE
+  id = ?
+LIMIT
+  1
+`
+
+func (q *Queries) AuthGetJwks(ctx context.Context, id idwrap.IDWrap) (AuthJwk, error) {
+	row := q.queryRow(ctx, q.authGetJwksStmt, authGetJwks, id)
+	var i AuthJwk
+	err := row.Scan(
+		&i.ID,
+		&i.PublicKey,
+		&i.PrivateKey,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const authGetSession = `-- name: AuthGetSession :one
 
 SELECT

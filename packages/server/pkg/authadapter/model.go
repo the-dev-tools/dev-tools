@@ -18,6 +18,7 @@ const (
 	ftBlobID                   // idwrap.IDWrap, stored as BLOB (16-byte ULID)
 	ftInt64                    // int64, stored as INTEGER
 	ftOptInt64                 // *int64, stored as INTEGER (nullable)
+	ftBool                     // bool in BetterAuth, stored as INTEGER 0/1 in SQLite
 )
 
 // fieldDef defines a single field in a BetterAuth model.
@@ -48,7 +49,7 @@ func fieldTypeToColType(ft fieldType) columnType {
 	switch ft {
 	case ftBlobID:
 		return colBlobID
-	case ftInt64, ftOptInt64:
+	case ftInt64, ftOptInt64, ftBool:
 		return colInteger
 	default:
 		return colText
@@ -64,7 +65,7 @@ var userModelDef = modelDef{
 		{Name: "id", Column: "id", Type: ftBlobID},
 		{Name: "name", Column: "name", Type: ftText},
 		{Name: "email", Column: "email", Type: ftText},
-		{Name: "emailVerified", Column: "email_verified", Type: ftInt64},
+		{Name: "emailVerified", Column: "email_verified", Type: ftBool},
 		{Name: "image", Column: "image", Type: ftOptText},
 		{Name: "createdAt", Column: "created_at", Type: ftInt64},
 		{Name: "updatedAt", Column: "updated_at", Type: ftInt64},
@@ -183,6 +184,12 @@ func parseFieldValue(f fieldDef, raw json.RawMessage) (any, error) {
 	case ftOptInt64:
 		return parseOptInt64(raw)
 
+	case ftBool:
+		if isNull {
+			return int64(0), nil
+		}
+		return parseInt64(raw)
+
 	default:
 		return nil, fmt.Errorf("unknown field type %d", f.Type)
 	}
@@ -201,6 +208,8 @@ func (r parsedRow) toMap(fields []fieldDef) map[string]any {
 			m[f.Name] = nullStrToAny(v.(sql.NullString))
 		case ftOptInt64:
 			m[f.Name] = optInt64ToAny(v.(*int64))
+		case ftBool:
+			m[f.Name] = v.(int64) != 0
 		default:
 			m[f.Name] = v
 		}

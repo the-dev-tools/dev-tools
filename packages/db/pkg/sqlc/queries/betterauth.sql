@@ -333,6 +333,20 @@ INSERT INTO
 VALUES
   (?, ?, ?, ?, ?);
 
+-- name: AuthGetJwks :one
+SELECT
+  id,
+  public_key,
+  private_key,
+  created_at,
+  expires_at
+FROM
+  auth_jwks
+WHERE
+  id = ?
+LIMIT
+  1;
+
 -- name: AuthListJwks :many
 SELECT
   id,
