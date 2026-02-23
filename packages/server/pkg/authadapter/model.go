@@ -78,7 +78,7 @@ var sessionModelDef = modelDef{
 	Table: "auth_session",
 	Fields: []fieldDef{
 		{Name: "id", Column: "id", Type: ftBlobID},
-		{Name: "userId", Column: "user_id", Type: ftBlobID},
+		{Name: fieldUserID, Column: "user_id", Type: ftBlobID},
 		{Name: "token", Column: "token", Type: ftText},
 		{Name: "expiresAt", Column: "expires_at", Type: ftInt64},
 		{Name: "ipAddress", Column: "ip_address", Type: ftOptText},
@@ -93,7 +93,7 @@ var accountModelDef = modelDef{
 	Table: "auth_account",
 	Fields: []fieldDef{
 		{Name: "id", Column: "id", Type: ftBlobID},
-		{Name: "userId", Column: "user_id", Type: ftBlobID},
+		{Name: fieldUserID, Column: "user_id", Type: ftBlobID},
 		{Name: "accountId", Column: "account_id", Type: ftText},
 		{Name: "providerId", Column: "provider_id", Type: ftText},
 		{Name: "accessToken", Column: "access_token", Type: ftOptText},
@@ -155,7 +155,7 @@ func parseData(fields []fieldDef, data map[string]json.RawMessage) (parsedRow, e
 
 // parseFieldValue parses a single JSON value according to the field definition.
 func parseFieldValue(f fieldDef, raw json.RawMessage) (any, error) {
-	isNull := raw == nil || string(raw) == "null"
+	isNull := raw == nil || string(raw) == jsonNull
 
 	switch f.Type {
 	case ftBlobID:

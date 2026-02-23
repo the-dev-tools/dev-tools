@@ -19,7 +19,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	apiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
-	userv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/user/v1/userv1connect"
 )
 
@@ -280,14 +279,14 @@ func (c *UserServiceRPC) LinkedAccountCollection(ctx context.Context, _ *connect
 	}), nil
 }
 
-func providerIDToEnum(providerID string) userv1.AuthProvider {
+func providerIDToEnum(providerID string) apiv1.AuthProvider {
 	switch providerID {
 	case "credential":
-		return userv1.AuthProvider_AUTH_PROVIDER_EMAIL
+		return apiv1.AuthProvider_AUTH_PROVIDER_EMAIL
 	case "google":
-		return userv1.AuthProvider_AUTH_PROVIDER_GOOGLE
+		return apiv1.AuthProvider_AUTH_PROVIDER_GOOGLE
 	default:
-		return userv1.AuthProvider_AUTH_PROVIDER_UNSPECIFIED
+		return apiv1.AuthProvider_AUTH_PROVIDER_UNSPECIFIED
 	}
 }
 

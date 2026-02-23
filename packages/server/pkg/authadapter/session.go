@@ -17,7 +17,7 @@ func (a *Adapter) createSession(ctx context.Context, data map[string]json.RawMes
 
 	if err = a.q.AuthCreateSession(ctx, gen.AuthCreateSessionParams{
 		ID:        row["id"].(idwrap.IDWrap),
-		UserID:    row["userId"].(idwrap.IDWrap),
+		UserID:    row[fieldUserID].(idwrap.IDWrap),
 		Token:     row["token"].(string),
 		ExpiresAt: row["expiresAt"].(int64),
 		IpAddress: row["ipAddress"].(sql.NullString),
@@ -54,7 +54,7 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 		}
 		return queryOne(ctx, token, a.q.AuthGetSessionByToken, sessionFromSqlc, sessionModelDef.Fields)
 
-	case "userId":
+	case fieldUserID:
 		userID, found, err := resolveWhereID(val)
 		if err != nil {
 			return nil, err
@@ -78,7 +78,7 @@ func (a *Adapter) findOneSession(ctx context.Context, where []WhereClause) (map[
 
 func (a *Adapter) findManySessions(ctx context.Context, where []WhereClause) ([]map[string]any, error) {
 	field, val, ok := singleEqWhere(where)
-	if !ok || field != "userId" {
+	if !ok || field != fieldUserID {
 		return nil, ErrUnsupportedWhere
 	}
 	userID, found, err := resolveWhereID(val)
@@ -184,7 +184,7 @@ func (a *Adapter) deleteManySession(ctx context.Context, where []WhereClause) er
 	}
 
 	field, val, ok := singleEqWhere(where)
-	if !ok || field != "userId" {
+	if !ok || field != fieldUserID {
 		return ErrUnsupportedWhere
 	}
 	userID, found, err := resolveWhereID(val)

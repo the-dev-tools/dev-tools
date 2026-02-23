@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -47,7 +48,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open test DB: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	queries, err := gen.Prepare(ctx, db)
 	if err != nil {
@@ -65,13 +66,14 @@ func run() error {
 	mux.Handle(svc.Path, svc.Handler)
 
 	srv := &http.Server{
-		Handler: h2c.NewHandler(mux, &http2.Server{}),
+		Handler:           h2c.NewHandler(mux, &http2.Server{}),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Remove stale socket file if present.
 	_ = os.Remove(socketPath)
 
-	ln, err := net.Listen("unix", socketPath)
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "unix", socketPath)
 	if err != nil {
 		return fmt.Errorf("listen unix %s: %w", socketPath, err)
 	}

@@ -22,6 +22,11 @@ const (
 	ModelJwks         = "jwks"
 )
 
+const (
+	fieldUserID = "userId"
+	jsonNull    = "null"
+)
+
 var (
 	ErrUnsupportedModel = errors.New("authadapter: unsupported model")
 	ErrUnsupportedWhere = errors.New("authadapter: unsupported where clause")
@@ -180,7 +185,7 @@ func parseID(v json.RawMessage) (idwrap.IDWrap, error) {
 // If BetterAuth provides an ID, it must be a valid ULID (the TS adapter
 // is configured with customIdGenerator that always produces ULIDs).
 func parseOrGenerateID(raw json.RawMessage) (idwrap.IDWrap, error) {
-	if raw == nil || string(raw) == "null" {
+	if raw == nil || string(raw) == jsonNull {
 		return idwrap.NewNow(), nil
 	}
 	return parseID(raw)
@@ -192,7 +197,7 @@ func parseString(v json.RawMessage) (string, error) {
 }
 
 func parseNullString(v json.RawMessage) (sql.NullString, error) {
-	if v == nil || string(v) == "null" {
+	if v == nil || string(v) == jsonNull {
 		return sql.NullString{}, nil
 	}
 	var s string
@@ -232,7 +237,7 @@ func parseInt64(v json.RawMessage) (int64, error) {
 }
 
 func parseOptInt64(v json.RawMessage) (*int64, error) {
-	if v == nil || string(v) == "null" {
+	if v == nil || string(v) == jsonNull {
 		return nil, nil
 	}
 	n, err := parseInt64(v)
@@ -247,7 +252,7 @@ func getField(data map[string]json.RawMessage, key string) json.RawMessage {
 	if v, ok := data[key]; ok {
 		return v
 	}
-	return json.RawMessage("null")
+	return json.RawMessage(jsonNull)
 }
 
 // fieldMapping tracks how BetterAuth's modified field names map to standard names.
@@ -465,7 +470,7 @@ func userFromSqlc(u gen.AuthUser) parsedRow {
 
 func sessionFromSqlc(s gen.AuthSession) parsedRow {
 	return parsedRow{
-		"id": s.ID, "userId": s.UserID, "token": s.Token,
+		"id": s.ID, fieldUserID: s.UserID, "token": s.Token,
 		"expiresAt": s.ExpiresAt, "ipAddress": s.IpAddress, "userAgent": s.UserAgent,
 		"createdAt": s.CreatedAt, "updatedAt": s.UpdatedAt,
 	}
@@ -473,7 +478,7 @@ func sessionFromSqlc(s gen.AuthSession) parsedRow {
 
 func accountFromSqlc(a gen.AuthAccount) parsedRow {
 	return parsedRow{
-		"id": a.ID, "userId": a.UserID, "accountId": a.AccountID,
+		"id": a.ID, fieldUserID: a.UserID, "accountId": a.AccountID,
 		"providerId": a.ProviderID, "accessToken": a.AccessToken,
 		"refreshToken": a.RefreshToken, "accessTokenExpiresAt": a.AccessTokenExpiresAt,
 		"refreshTokenExpiresAt": a.RefreshTokenExpiresAt, "scope": a.Scope,

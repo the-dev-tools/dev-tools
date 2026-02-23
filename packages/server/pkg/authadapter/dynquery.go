@@ -191,7 +191,7 @@ func buildOperatorExpr(def columnDef, operator string, value json.RawMessage) (s
 // For colInteger columns, ISO date strings and booleans are converted to int64.
 // For colText columns (or unknown), the raw JSON value is used.
 func parseTypedValue(ct columnType, v json.RawMessage) (any, error) {
-	if v == nil || string(v) == "null" {
+	if v == nil || string(v) == jsonNull {
 		return nil, nil
 	}
 
@@ -236,7 +236,7 @@ func parseTypedArrayValue(ct columnType, v json.RawMessage) ([]any, error) {
 // parseAnyValue unmarshals a JSON value to a Go native type suitable for SQL args.
 // It handles strings, numbers, booleans, and null.
 func parseAnyValue(v json.RawMessage) (any, error) {
-	if v == nil || string(v) == "null" {
+	if v == nil || string(v) == jsonNull {
 		return nil, nil
 	}
 

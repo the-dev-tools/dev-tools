@@ -17,7 +17,7 @@ func (a *Adapter) createAccount(ctx context.Context, data map[string]json.RawMes
 
 	if err = a.q.AuthCreateAccount(ctx, gen.AuthCreateAccountParams{
 		ID:                    row["id"].(idwrap.IDWrap),
-		UserID:                row["userId"].(idwrap.IDWrap),
+		UserID:                row[fieldUserID].(idwrap.IDWrap),
 		AccountID:             row["accountId"].(string),
 		ProviderID:            row["providerId"].(string),
 		AccessToken:           row["accessToken"].(sql.NullString),
@@ -83,7 +83,7 @@ func (a *Adapter) findOneAccount(ctx context.Context, where []WhereClause) (map[
 
 func (a *Adapter) findManyAccounts(ctx context.Context, where []WhereClause) ([]map[string]any, error) {
 	field, val, ok := singleEqWhere(where)
-	if !ok || field != "userId" {
+	if !ok || field != fieldUserID {
 		return nil, ErrUnsupportedWhere
 	}
 	userID, found, err := resolveWhereID(val)
@@ -189,7 +189,7 @@ func (a *Adapter) deleteAccount(ctx context.Context, where []WhereClause) error 
 
 func (a *Adapter) deleteManyAccount(ctx context.Context, where []WhereClause) error {
 	field, val, ok := singleEqWhere(where)
-	if !ok || field != "userId" {
+	if !ok || field != fieldUserID {
 		return ErrUnsupportedWhere
 	}
 	userID, found, err := resolveWhereID(val)
