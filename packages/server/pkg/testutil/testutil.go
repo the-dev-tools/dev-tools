@@ -48,6 +48,20 @@ func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
 	return &BaseDBQueries{Queries: queries, t: t, ctx: ctx, DB: db}
 }
 
+// CreateBaseDBWithFK is like CreateBaseDB but enables SQLite foreign-key
+// enforcement (PRAGMA foreign_keys = ON) so that ON DELETE CASCADE constraints
+// fire. The connection pool is limited to one connection so the PRAGMA applies
+// to every query executed on the returned DB.
+func CreateBaseDBWithFK(ctx context.Context, t *testing.T) *BaseDBQueries {
+	t.Helper()
+	base := CreateBaseDB(ctx, t)
+	base.DB.SetMaxOpenConns(1)
+	if err := dbtest.EnableForeignKeys(ctx, base.DB); err != nil {
+		t.Fatal(err)
+	}
+	return base
+}
+
 func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	queries := c.Queries
 

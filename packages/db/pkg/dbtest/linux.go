@@ -32,6 +32,14 @@ func GetTestDB(ctx context.Context) (*sql.DB, error) {
 	return db, nil
 }
 
+// EnableForeignKeys enables SQLite foreign key enforcement on db. It must be
+// called after SetMaxOpenConns(1) so the PRAGMA applies to every connection.
+// PRAGMA is a SQLite connection directive — there is no sqlc-generated equivalent.
+func EnableForeignKeys(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, "PRAGMA foreign_keys = ON")
+	return err
+}
+
 func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
 	// Generate unique database name for this test to ensure isolation
 	uniqueName := ulid.Make().String()

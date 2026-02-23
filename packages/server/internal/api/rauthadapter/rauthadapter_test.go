@@ -25,16 +25,10 @@ func newHandler(t *testing.T) (AuthAdapterRPC, func()) {
 
 // newHandlerWithFK is like newHandler but enables SQLite FK enforcement so that
 // ON DELETE CASCADE constraints fire. Tests that rely on DB-level cascade must
-// use this variant. PRAGMA foreign_keys is per-connection; SetMaxOpenConns(1)
-// ensures it applies to every query on the returned DB.
+// use this variant.
 func newHandlerWithFK(t *testing.T) (AuthAdapterRPC, func()) {
 	t.Helper()
-	base := testutil.CreateBaseDB(context.Background(), t)
-	base.DB.SetMaxOpenConns(1)
-	_, err := base.DB.ExecContext(context.Background(), "PRAGMA foreign_keys = ON")
-	if err != nil {
-		t.Fatal(err)
-	}
+	base := testutil.CreateBaseDBWithFK(context.Background(), t)
 	adapter := authadapter.New(base.Queries, base.DB)
 	h := New(AuthAdapterRPCDeps{Adapter: adapter})
 	return h, base.Close
