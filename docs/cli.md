@@ -102,10 +102,10 @@ The binary is primarily a **server**. It can optionally act as a CLI when the `c
 
 ### Build Variants
 
-| Variant | Build Command | Includes CLI | Typical Use |
-|---------|---------------|--------------|-------------|
-| Server-only | `go build -o devtools .` | No | Desktop app backend, production deployment |
-| Unified | `go build -tags cli -o devtools .` | Yes | All-in-one distribution, CI pipelines |
+| Variant     | Build Command                      | Includes CLI | Typical Use                                |
+| ----------- | ---------------------------------- | ------------ | ------------------------------------------ |
+| Server-only | `go build -o devtools .`           | No           | Desktop app backend, production deployment |
+| Unified     | `go build -tags cli -o devtools .` | Yes          | All-in-one distribution, CI pipelines      |
 
 The server-only build excludes CLI dependencies (Cobra, Viper, config management) and produces a smaller binary. The unified build links the CLI in via the `cli` build tag.
 
@@ -113,11 +113,11 @@ The server-only build excludes CLI dependencies (Cobra, Viper, config management
 
 Set the `DEVTOOLS_MODE` environment variable to switch modes:
 
-| Value | Behaviour |
-|-------|-----------|
-| `server` | Starts the HTTP server (Connect RPC) |
-| `cli` | Runs the CLI (Cobra commands: flow run, import, etc.) |
-| *(unset)* | Defaults to `server` |
+| Value     | Behaviour                                             |
+| --------- | ----------------------------------------------------- |
+| `server`  | Starts the HTTP server (Connect RPC)                  |
+| `cli`     | Runs the CLI (Cobra commands: flow run, import, etc.) |
+| _(unset)_ | Defaults to `server`                                  |
 
 Any other value is rejected with an error.
 
@@ -145,7 +145,7 @@ Command.env({
   DB_PATH: app.getPath('userData'),
   DB_ENCRYPTION_KEY: 'secret',
   HMAC_SECRET: 'secret',
-})
+});
 ```
 
 The server requires the same environment variables as before (`DB_MODE`, `DB_NAME`, `DB_PATH`, `DB_ENCRYPTION_KEY`, `HMAC_SECRET`).

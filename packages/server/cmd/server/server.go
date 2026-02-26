@@ -37,7 +37,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
-	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/ruser"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/migrations"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/authadapter"
@@ -317,14 +316,14 @@ func run() error {
 	})
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
-	userSrv := ruser.New(ruser.UserServiceRPCDeps{
-		DB:                    currentDB,
-		Queries:               queries,
-		User:                  userService,
-		Streamer:              streamers.User,
-		LinkedAccountStreamer: streamers.LinkedAccount,
-	})
-	newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
+	// userSrv := ruser.New(ruser.UserServiceRPCDeps{
+	// 	DB:                    currentDB,
+	// 	Queries:               queries,
+	// 	User:                  userService,
+	// 	Streamer:              streamers.User,
+	// 	LinkedAccountStreamer: streamers.LinkedAccount,
+	// })
+	// newServiceManager.AddService(ruser.CreateService(userSrv, optionsAll))
 
 	envSrv := renv.New(renv.EnvRPCDeps{
 		DB: currentDB,
@@ -725,8 +724,8 @@ func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 }
 
 type Streamers struct {
-	User                eventstream.SyncStreamer[ruser.UserTopic, ruser.UserEvent]
-	LinkedAccount       eventstream.SyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent]
+	// User                eventstream.SyncStreamer[ruser.UserTopic, ruser.UserEvent]
+	// LinkedAccount       eventstream.SyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent]
 	Workspace           eventstream.SyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]
 	Environment         eventstream.SyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]
 	EnvironmentVariable eventstream.SyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]
@@ -764,8 +763,8 @@ type Streamers struct {
 
 func NewStreamers() *Streamers {
 	return &Streamers{
-		User:                memory.NewInMemorySyncStreamer[ruser.UserTopic, ruser.UserEvent](),
-		LinkedAccount:       memory.NewInMemorySyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent](),
+		// User:                memory.NewInMemorySyncStreamer[ruser.UserTopic, ruser.UserEvent](),
+		// LinkedAccount:       memory.NewInMemorySyncStreamer[ruser.LinkedAccountTopic, ruser.LinkedAccountEvent](),
 		Workspace:           memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent](),
 		Environment:         memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent](),
 		EnvironmentVariable: memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent](),
@@ -803,8 +802,8 @@ func NewStreamers() *Streamers {
 }
 
 func (s *Streamers) Shutdown() {
-	s.User.Shutdown()
-	s.LinkedAccount.Shutdown()
+	// s.User.Shutdown()
+	// s.LinkedAccount.Shutdown()
 	s.Workspace.Shutdown()
 	s.Environment.Shutdown()
 	s.EnvironmentVariable.Shutdown()
