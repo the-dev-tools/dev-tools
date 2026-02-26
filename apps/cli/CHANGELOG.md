@@ -1,3 +1,13 @@
+## 0.2.2 (2026-02-26)
+
+### 🩹 Fixes
+
+- Fix AI node export and credential env var name sanitization ([36fd3671](https://github.com/the-dev-tools/dev-tools/commit/36fd3671))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.2.1 (2026-02-09)
 
 ### 🩹 Fixes

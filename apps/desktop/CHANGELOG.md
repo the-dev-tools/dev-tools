@@ -1,3 +1,19 @@
+## 0.3.0 (2026-02-26)
+
+### 🚀 Features
+
+- Add dark mode ([73c1cb75](https://github.com/the-dev-tools/dev-tools/commit/73c1cb75))
+
+### 🩹 Fixes
+
+- Fix AI node export and credential env var name sanitization ([36fd3671](https://github.com/the-dev-tools/dev-tools/commit/36fd3671))
+- Optimise package size ([0da13cbe](https://github.com/the-dev-tools/dev-tools/commit/0da13cbe))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+- Tomas Zaluckij @Tomaszal
+
 ## 0.2.3 (2026-02-10)
 
 ### 🩹 Fixes
