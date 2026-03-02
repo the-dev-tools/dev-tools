@@ -157,6 +157,11 @@ onlyBuiltDependencies:
 
 overrides:
   '@types/eslint': '-'
+  '@codemirror/autocomplete': 6.20.0
+  '@codemirror/commands': 6.10.1
+  '@codemirror/language': 6.12.1
+  '@codemirror/state': 6.5.3
+  '@codemirror/view': 6.39.9
 
 patchedDependencies:
   '@effect/platform-node-shared': patches/@effect__platform-node-shared.patch
