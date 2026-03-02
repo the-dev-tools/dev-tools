@@ -47,10 +47,30 @@ task benchmark:baseline             # Save baseline
 task benchmark:compare              # Compare against baseline
 ```
 
-### Version Plans
+### Releasing
+**Never** manually edit version numbers in `package.json`. Use Nx version plans:
+
 ```bash
-task version-plan project=desktop   # Create version plan (projects: desktop, cli, api-recorder-extension)
+# 1. Create a version plan (commits a .nx/version-plans/<name>.md file)
+#    Bump types: patch, minor, major
+#    Projects: desktop, cli, api-recorder-extension
+task version-plan project=desktop   # Interactive — prompts for bump type + message
+
+# Or create the file directly (non-interactive):
+# .nx/version-plans/<descriptive-name>.md
+# ---
+# desktop: patch
+# ---
+# Changelog message here.
+
+# 2. Commit & push the version plan file
+
+# 3. Trigger the release workflow (via GitHub Actions):
+gh workflow run release.yaml -f desktop=true   # -f cli=true, -f web=true, etc.
 ```
+
+The release workflow reads version plans, bumps versions, creates git tags + GitHub releases,
+and dispatches platform-specific build workflows (Electron Builder, Go binaries, etc.).
 
 ## Project Overview
 
