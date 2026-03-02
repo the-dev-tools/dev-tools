@@ -1,3 +1,14 @@
+## 0.3.1 (2026-03-02)
+
+### 🩹 Fixes
+
+- Fix CodeMirror crash caused by duplicate @codemirror/state instances. Fix server lint by broadening dbtest build tag and removing dead code. ([05ca2a7a](https://github.com/the-dev-tools/dev-tools/commit/05ca2a7a))
+
+### ❤️ Thank You
+
+- Claude Opus 4.6
+- moosebay
+
 ## 0.3.0 (2026-02-26)
 
 ### 🚀 Features
