@@ -1,3 +1,13 @@
+## 0.3.2 (2026-03-03)
+
+### 🩹 Fixes
+
+- Fix startup reliability and data migration for upgrading users. Migrate database from old data directories (DevTools, DevTools Studio). Catch protocol handler errors during server startup. Cap health check retry backoff. Add branded loading screen and error recovery UI. Fix migration FK reference to prevent folder hierarchy flattening. Make telemetry non-blocking. ([a7de9ad6](https://github.com/the-dev-tools/dev-tools/commit/a7de9ad6))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 0.3.1 (2026-03-02)
 
 ### 🩹 Fixes
