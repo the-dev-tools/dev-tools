@@ -5,7 +5,7 @@ import { Atom, Result, useAtomValue } from '@effect-atom/atom-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { ConfigProvider, Effect, pipe, Record, Runtime } from 'effect';
-import { StrictMode } from 'react';
+import { type ReactNode, StrictMode } from 'react';
 import { UiProvider } from '@the-dev-tools/ui/provider';
 import { makeToastQueue } from '@the-dev-tools/ui/toast';
 import { ApiCollections, ApiTransport } from '~/shared/api';
@@ -19,11 +19,13 @@ scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 
 const appAtom = runtimeAtom.atom(
   Effect.gen(function* () {
-    yield* initUmami;
-    yield* startOpenReplay;
-    yield* ApiCollections;
-
     const runtime = yield* Effect.runtime<RouterContext['runtime'] extends Runtime.Runtime<infer R> ? R : never>();
+
+    // Telemetry startup should never block app rendering.
+    void Runtime.runPromise(runtime)(initUmami).catch(() => undefined);
+    void Runtime.runPromise(runtime)(startOpenReplay).catch(() => undefined);
+
+    yield* ApiCollections;
     const transport = yield* ApiTransport;
     const queryClient = new QueryClient();
     const toastQueue = makeToastQueue();
@@ -32,11 +34,15 @@ const appAtom = runtimeAtom.atom(
   }),
 );
 
-export const App = () => {
+interface AppProps {
+  renderError?: () => ReactNode;
+}
+
+export const App = ({ renderError }: AppProps = {}) => {
   const context = useAtomValue(appAtom);
 
   return Result.match(context, {
-    onFailure: () => <div>App startup error</div>,
+    onFailure: renderError ?? (() => <div>App startup error</div>),
     onInitial: () => <div>Loading...</div>,
     onSuccess: ({ value }) => {
       let _ = <RouterProvider context={value} router={router} />;

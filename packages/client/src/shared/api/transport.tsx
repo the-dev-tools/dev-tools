@@ -30,8 +30,8 @@ export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport',
         }),
       ),
       Effect.retry({
-        schedule: Schedule.exponential('10 millis'),
-        times: 100,
+        schedule: Schedule.union(Schedule.exponential('100 millis'), Schedule.spaced('2 seconds')),
+        times: 60,
       }),
     );
 

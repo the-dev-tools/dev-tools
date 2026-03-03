@@ -73,6 +73,28 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
       return value;
     }) as ItemKeyObject;
 
+  const waitForRetry = (signal: AbortSignal, delayMs = 250) =>
+    new Promise<void>((resolve) => {
+      if (signal.aborted) {
+        resolve();
+        return;
+      }
+
+      const timeout = setTimeout(done, delayMs);
+
+      const onAbort = () => {
+        done();
+      };
+
+      function done() {
+        clearTimeout(timeout);
+        signal.removeEventListener('abort', onAbort);
+        resolve();
+      }
+
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+
   const sync: SpecCollectionOptions['sync']['sync'] = (_) => {
     params = _;
     const { begin, collection, commit, markReady, write } = params;
@@ -120,8 +142,8 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
     const syncController = new AbortController();
 
     const sync = async () => {
-      try {
-        while (true) {
+      while (!syncController.signal.aborted) {
+        try {
           const syncStream = stream({
             method: schema.sync.method,
             signal: syncController.signal,
@@ -146,10 +168,11 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
 
             processSync(items);
           }
+        } catch (error) {
+          if (error instanceof ConnectError && error.code === Code.Canceled) return;
+          console.error('Collection sync stream failed, retrying...', schema.item.typeName, error);
+          await waitForRetry(syncController.signal);
         }
-      } catch (error) {
-        if (error instanceof ConnectError && error.code === Code.Canceled) return;
-        throw error;
       }
     };
 
@@ -159,23 +182,33 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
     };
 
     const initialSync = async () => {
-      const { message } = await request({ method: schema.collection, transport });
-      const valid = validate(schema.collection.output, message);
+      while (!syncController.signal.aborted) {
+        try {
+          const { message } = await request({ method: schema.collection, transport });
+          const valid = validate(schema.collection.output, message);
 
-      if (valid.kind !== 'valid') {
-        console.error('Invalid initial collection data', valid);
-        return;
+          if (valid.kind !== 'valid') {
+            console.error('Invalid initial collection data', valid);
+            await waitForRetry(syncController.signal);
+            continue;
+          }
+
+          begin();
+          (valid.message as Message & { items: Item[] }).items.forEach((_) => void write({ type: 'insert', value: _ }));
+          commit();
+
+          initialSyncState.isComplete = true;
+
+          if (initialSyncState.buffer.length > 0) processSync(initialSyncState.buffer);
+
+          markReady();
+          return;
+        } catch (error) {
+          if (error instanceof ConnectError && error.code === Code.Canceled) return;
+          console.error('Initial collection sync failed, retrying...', schema.item.typeName, error);
+          await waitForRetry(syncController.signal);
+        }
       }
-
-      begin();
-      (valid.message as Message & { items: Item[] }).items.forEach((_) => void write({ type: 'insert', value: _ }));
-      commit();
-
-      initialSyncState.isComplete = true;
-
-      if (initialSyncState.buffer.length > 0) processSync(initialSyncState.buffer);
-
-      markReady();
     };
 
     void sync();
@@ -339,11 +372,14 @@ export class ApiCollections extends Effect.Service<ApiCollections>()('ApiCollect
       HashMap.fromIterable,
     );
 
-    yield* pipe(
+    void pipe(
       HashMap.toValues(collections),
       Array.map((_) => Effect.tryPromise(() => _.waitFor('status:ready'))),
       (_) => Effect.all(_, { concurrency: 'unbounded' }),
-    );
+      Effect.runPromise,
+    ).catch((error: unknown) => {
+      console.error('ApiCollections readiness probe failed', error);
+    });
 
     return collections;
   }),

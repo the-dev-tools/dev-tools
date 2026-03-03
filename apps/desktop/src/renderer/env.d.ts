@@ -8,6 +8,10 @@ declare global {
       onClose: (callback: () => void) => void;
       onCloseDone: () => void;
 
+      server: {
+        wipeAndRestart: () => Promise<void>;
+      };
+
       update: {
         check: () => Promise<string | undefined>;
         finish: () => void;

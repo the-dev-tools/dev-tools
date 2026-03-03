@@ -52,7 +52,7 @@ interface UpdateAvailableProps {
 const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
   const [state, setState] = useState<'init' | 'skip' | 'update'>('init');
 
-  if (state === 'skip') return <Client />;
+  if (state === 'skip') return <Client renderError={renderError} />;
 
   return (
     <div className={tw`flex h-full flex-col items-center gap-8 p-16`}>
@@ -103,6 +103,45 @@ const UpdateProgress = () => {
   return <ProgressBar label='Updating...' value={percent} />;
 };
 
+const LoadingScreen = () => (
+  <div className={tw`flex h-full flex-col items-center justify-center gap-4`}>
+    <Logo className={tw`size-10 animate-pulse`} />
+    <div className={tw`text-on-neutral-low`}>Starting DevTools Studio...</div>
+  </div>
+);
+
+const StartupError = () => {
+  const [isWiping, setIsWiping] = useState(false);
+
+  return (
+    <div className={tw`flex h-full flex-col items-center justify-center gap-6 p-16`}>
+      <Logo className={tw`size-10`} />
+
+      <div className={tw`text-center`}>
+        <div className={tw`text-xl font-medium text-on-neutral`}>Failed to connect to the server</div>
+        <div className={tw`mt-2 max-w-md text-on-neutral-low`}>
+          The server took too long to start. This can happen on first launch or if the database is corrupted.
+        </div>
+      </div>
+
+      <Button
+        isDisabled={isWiping}
+        onPress={() => {
+          setIsWiping(true);
+          void window.electron.server.wipeAndRestart();
+        }}
+        variant='primary'
+      >
+        {isWiping ? 'Restarting...' : 'Reset database & restart'}
+      </Button>
+
+      <div className={tw`text-sm text-on-neutral-lower`}>This will delete all local data and start fresh.</div>
+    </div>
+  );
+};
+
+const renderError = () => <StartupError />;
+
 const finalizerAtom = Atom.make((_) => void _.addFinalizer(() => void window.electron.onCloseDone()));
 
 const App = () => {
@@ -111,8 +150,8 @@ const App = () => {
   const updateCheck = useAtomValue(updateCheckAtom);
 
   return Result.match(updateCheck, {
-    onFailure: () => <Client />,
-    onInitial: () => 'Loading...',
+    onFailure: () => <Client renderError={renderError} />,
+    onInitial: () => <LoadingScreen />,
     onSuccess: (_) => <UpdateAvailable>{_.value}</UpdateAvailable>,
   });
 };

@@ -4,7 +4,9 @@ import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, nativeTheme, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import os from 'node:os';
+import nodePath from 'node:path';
 import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
 import { CustomUpdateProvider, UpdateOptions } from './update';
@@ -98,9 +100,43 @@ const createWindow = Effect.gen(function* () {
   return mainWindow;
 });
 
+/** Migrate database from old data directories if needed. */
+const migrateDataDir = () => {
+  const newDir = app.getPath('userData');
+  const newDb = nodePath.join(newDir, 'state.db');
+
+  // If the current data directory already has a database, nothing to do.
+  if (existsSync(newDb)) return;
+
+  const appData = app.getPath('appData');
+  // Check old directories in reverse-chronological order (prefer most recent data).
+  // 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
+  const oldDirs = [nodePath.join(appData, 'DevTools Studio'), nodePath.join(appData, 'DevTools')];
+
+  const sourceDir = oldDirs.find((dir) => existsSync(nodePath.join(dir, 'state.db')));
+  if (!sourceDir) return;
+
+  console.log(`Migrating database from ${sourceDir} to ${newDir}`);
+  mkdirSync(newDir, { recursive: true });
+
+  for (const suffix of ['', '-wal', '-shm']) {
+    const src = nodePath.join(sourceDir, `state.db${suffix}`);
+    const dst = nodePath.join(newDir, `state.db${suffix}`);
+    try {
+      copyFileSync(src, dst);
+      console.log(`Copied state.db${suffix}`);
+    } catch {
+      // WAL/SHM may not exist, safe to ignore
+    }
+  }
+  console.log('Data directory migration complete');
+};
+
 const server = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;
+
+    yield* Effect.sync(migrateDataDir);
 
     const dist = yield* pipe(
       import.meta.resolve('@the-dev-tools/server'),
@@ -185,7 +221,7 @@ const onReady = Effect.gen(function* () {
     const url = rawRequest.url.replace('server://', 'http://the-dev-tools:0/');
     let request = new Request(url, rawRequest);
     request = new Request(request, { dispatcher } as never);
-    return fetch(request);
+    return fetch(request).catch(() => new Response(null, { status: 503 }));
   });
 
   const mainWindow = yield* createWindow;
@@ -201,6 +237,20 @@ const onReady = Effect.gen(function* () {
   ipcMain.on('update:start', () => void autoUpdater.downloadUpdate());
   autoUpdater.on('download-progress', (_) => void mainWindow.webContents.send('update:progress', _));
   autoUpdater.on('update-downloaded', () => void autoUpdater.quitAndInstall());
+
+  ipcMain.handle('server:wipe-and-restart', () => {
+    const dbDir = app.getPath('userData');
+    for (const suffix of ['', '-wal', '-shm']) {
+      const file = nodePath.join(dbDir, `state.db${suffix}`);
+      try {
+        if (existsSync(file)) unlinkSync(file);
+      } catch (e) {
+        console.error(`Failed to delete ${file}:`, e);
+      }
+    }
+    app.relaunch();
+    app.exit(0);
+  });
 });
 
 const onActivate = Effect.gen(function* () {

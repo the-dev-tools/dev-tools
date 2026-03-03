@@ -22,18 +22,34 @@ export const initUmami = Effect.gen(function* () {
   const host = yield* pipe(Config.string('HOST'), configNamespace);
   const websiteId = yield* pipe(Config.string('ID'), configNamespace);
 
-  const umami = yield* Effect.async<Umami>((resume) => {
-    const script = document.createElement('script');
-    script.src = `${host}/script.js`;
-    script.setAttribute('data-website-id', websiteId);
-    script.setAttribute('data-auto-track', 'false');
-    document.head.appendChild(script);
+  const umami = yield* Effect.tryPromise(
+    () =>
+      new Promise<Umami>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `${host}/script.js`;
+        script.setAttribute('data-website-id', websiteId);
+        script.setAttribute('data-auto-track', 'false');
 
-    script.addEventListener('load', () => {
-      const { umami } = window as unknown as { umami: Umami };
-      resume(Effect.succeed(umami));
-    });
-  });
+        script.addEventListener(
+          'load',
+          () => {
+            const { umami } = window as unknown as { umami?: Umami };
+            if (umami) resolve(umami);
+            else reject(new Error('Umami script loaded but window.umami is missing'));
+          },
+          { once: true },
+        );
+        script.addEventListener(
+          'error',
+          () => {
+            reject(new Error(`Failed to load Umami script from ${script.src}`));
+          },
+          { once: true },
+        );
+
+        document.head.appendChild(script);
+      }),
+  );
 
   const sessionIdKey = 'UMAMI_SESSION_ID';
   let sessionId = localStorage.getItem(sessionIdKey);

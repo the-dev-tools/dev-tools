@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electron', {
   onClose: (callback: () => void) => ipcRenderer.on('on-close', callback),
   onCloseDone: () => void ipcRenderer.send('on-close-done'),
 
+  server: {
+    wipeAndRestart: () => ipcRenderer.invoke('server:wipe-and-restart') as Promise<void>,
+  },
+
   update: {
     check: () => ipcRenderer.invoke('update:check'),
     finish: () => void ipcRenderer.send('update:finish'),

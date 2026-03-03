@@ -195,7 +195,7 @@ func updateFilesTableConstraint(ctx context.Context, tx *sql.Tx) error {
 				(content_id IS NULL)
 			),
 			FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
-			FOREIGN KEY (parent_id) REFERENCES files (id) ON DELETE SET NULL
+			FOREIGN KEY (parent_id) REFERENCES files_new (id) ON DELETE SET NULL
 		)
 	`); err != nil {
 		return err
