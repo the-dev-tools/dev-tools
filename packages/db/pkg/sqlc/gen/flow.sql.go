@@ -81,9 +81,9 @@ func (q *Queries) CleanupOrphanedNodeExecutions(ctx context.Context) error {
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
+  flow (id, workspace_id, version_parent_id, name, duration, running, error, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowParams struct {
@@ -93,6 +93,7 @@ type CreateFlowParams struct {
 	Name            string
 	Duration        int32
 	Running         bool
+	Error           sql.NullString
 	NodeIDMapping   []byte
 }
 
@@ -104,6 +105,7 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 		arg.Name,
 		arg.Duration,
 		arg.Running,
+		arg.Error,
 		arg.NodeIDMapping,
 	)
 	return err
@@ -658,18 +660,18 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 
 const createFlowsBulk = `-- name: CreateFlowsBulk :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
+  flow (id, workspace_id, version_parent_id, name, duration, running, error, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowsBulkParams struct {
@@ -679,6 +681,7 @@ type CreateFlowsBulkParams struct {
 	Name               string
 	Duration           int32
 	Running            bool
+	Error              sql.NullString
 	NodeIDMapping      []byte
 	ID_2               idwrap.IDWrap
 	WorkspaceID_2      idwrap.IDWrap
@@ -686,6 +689,7 @@ type CreateFlowsBulkParams struct {
 	Name_2             string
 	Duration_2         int32
 	Running_2          bool
+	Error_2            sql.NullString
 	NodeIDMapping_2    []byte
 	ID_3               idwrap.IDWrap
 	WorkspaceID_3      idwrap.IDWrap
@@ -693,6 +697,7 @@ type CreateFlowsBulkParams struct {
 	Name_3             string
 	Duration_3         int32
 	Running_3          bool
+	Error_3            sql.NullString
 	NodeIDMapping_3    []byte
 	ID_4               idwrap.IDWrap
 	WorkspaceID_4      idwrap.IDWrap
@@ -700,6 +705,7 @@ type CreateFlowsBulkParams struct {
 	Name_4             string
 	Duration_4         int32
 	Running_4          bool
+	Error_4            sql.NullString
 	NodeIDMapping_4    []byte
 	ID_5               idwrap.IDWrap
 	WorkspaceID_5      idwrap.IDWrap
@@ -707,6 +713,7 @@ type CreateFlowsBulkParams struct {
 	Name_5             string
 	Duration_5         int32
 	Running_5          bool
+	Error_5            sql.NullString
 	NodeIDMapping_5    []byte
 	ID_6               idwrap.IDWrap
 	WorkspaceID_6      idwrap.IDWrap
@@ -714,6 +721,7 @@ type CreateFlowsBulkParams struct {
 	Name_6             string
 	Duration_6         int32
 	Running_6          bool
+	Error_6            sql.NullString
 	NodeIDMapping_6    []byte
 	ID_7               idwrap.IDWrap
 	WorkspaceID_7      idwrap.IDWrap
@@ -721,6 +729,7 @@ type CreateFlowsBulkParams struct {
 	Name_7             string
 	Duration_7         int32
 	Running_7          bool
+	Error_7            sql.NullString
 	NodeIDMapping_7    []byte
 	ID_8               idwrap.IDWrap
 	WorkspaceID_8      idwrap.IDWrap
@@ -728,6 +737,7 @@ type CreateFlowsBulkParams struct {
 	Name_8             string
 	Duration_8         int32
 	Running_8          bool
+	Error_8            sql.NullString
 	NodeIDMapping_8    []byte
 	ID_9               idwrap.IDWrap
 	WorkspaceID_9      idwrap.IDWrap
@@ -735,6 +745,7 @@ type CreateFlowsBulkParams struct {
 	Name_9             string
 	Duration_9         int32
 	Running_9          bool
+	Error_9            sql.NullString
 	NodeIDMapping_9    []byte
 	ID_10              idwrap.IDWrap
 	WorkspaceID_10     idwrap.IDWrap
@@ -742,6 +753,7 @@ type CreateFlowsBulkParams struct {
 	Name_10            string
 	Duration_10        int32
 	Running_10         bool
+	Error_10           sql.NullString
 	NodeIDMapping_10   []byte
 }
 
@@ -753,6 +765,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name,
 		arg.Duration,
 		arg.Running,
+		arg.Error,
 		arg.NodeIDMapping,
 		arg.ID_2,
 		arg.WorkspaceID_2,
@@ -760,6 +773,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_2,
 		arg.Duration_2,
 		arg.Running_2,
+		arg.Error_2,
 		arg.NodeIDMapping_2,
 		arg.ID_3,
 		arg.WorkspaceID_3,
@@ -767,6 +781,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_3,
 		arg.Duration_3,
 		arg.Running_3,
+		arg.Error_3,
 		arg.NodeIDMapping_3,
 		arg.ID_4,
 		arg.WorkspaceID_4,
@@ -774,6 +789,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_4,
 		arg.Duration_4,
 		arg.Running_4,
+		arg.Error_4,
 		arg.NodeIDMapping_4,
 		arg.ID_5,
 		arg.WorkspaceID_5,
@@ -781,6 +797,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_5,
 		arg.Duration_5,
 		arg.Running_5,
+		arg.Error_5,
 		arg.NodeIDMapping_5,
 		arg.ID_6,
 		arg.WorkspaceID_6,
@@ -788,6 +805,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_6,
 		arg.Duration_6,
 		arg.Running_6,
+		arg.Error_6,
 		arg.NodeIDMapping_6,
 		arg.ID_7,
 		arg.WorkspaceID_7,
@@ -795,6 +813,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_7,
 		arg.Duration_7,
 		arg.Running_7,
+		arg.Error_7,
 		arg.NodeIDMapping_7,
 		arg.ID_8,
 		arg.WorkspaceID_8,
@@ -802,6 +821,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_8,
 		arg.Duration_8,
 		arg.Running_8,
+		arg.Error_8,
 		arg.NodeIDMapping_8,
 		arg.ID_9,
 		arg.WorkspaceID_9,
@@ -809,6 +829,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_9,
 		arg.Duration_9,
 		arg.Running_9,
+		arg.Error_9,
 		arg.NodeIDMapping_9,
 		arg.ID_10,
 		arg.WorkspaceID_10,
@@ -816,6 +837,7 @@ func (q *Queries) CreateFlowsBulk(ctx context.Context, arg CreateFlowsBulkParams
 		arg.Name_10,
 		arg.Duration_10,
 		arg.Running_10,
+		arg.Error_10,
 		arg.NodeIDMapping_10,
 	)
 	return err
@@ -1092,6 +1114,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -1116,6 +1139,7 @@ func (q *Queries) GetAllFlowsByWorkspaceID(ctx context.Context, workspaceID idwr
 			&i.Name,
 			&i.Duration,
 			&i.Running,
+			&i.Error,
 			&i.NodeIDMapping,
 		); err != nil {
 			return nil, err
@@ -1139,6 +1163,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -1157,6 +1182,7 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 		&i.Name,
 		&i.Duration,
 		&i.Running,
+		&i.Error,
 		&i.NodeIDMapping,
 	)
 	return i, err
@@ -1771,6 +1797,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -1794,6 +1821,7 @@ func (q *Queries) GetFlowsByVersionParentID(ctx context.Context, versionParentID
 			&i.Name,
 			&i.Duration,
 			&i.Running,
+			&i.Error,
 			&i.NodeIDMapping,
 		); err != nil {
 			return nil, err
@@ -1817,6 +1845,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -1841,6 +1870,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.Name,
 			&i.Duration,
 			&i.Running,
+			&i.Error,
 			&i.NodeIDMapping,
 		); err != nil {
 			return nil, err
@@ -1891,6 +1921,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -1910,6 +1941,7 @@ func (q *Queries) GetLatestVersionByParentID(ctx context.Context, versionParentI
 		&i.Name,
 		&i.Duration,
 		&i.Running,
+		&i.Error,
 		&i.NodeIDMapping,
 	)
 	return i, err
@@ -2259,7 +2291,8 @@ UPDATE flow
 SET
   name = ?,
   duration = ?,
-  running = ?
+  running = ?,
+  error = ?
 WHERE
   id = ?
 `
@@ -2268,6 +2301,7 @@ type UpdateFlowParams struct {
 	Name     string
 	Duration int32
 	Running  bool
+	Error    sql.NullString
 	ID       idwrap.IDWrap
 }
 
@@ -2276,6 +2310,7 @@ func (q *Queries) UpdateFlow(ctx context.Context, arg UpdateFlowParams) error {
 		arg.Name,
 		arg.Duration,
 		arg.Running,
+		arg.Error,
 		arg.ID,
 	)
 	return err

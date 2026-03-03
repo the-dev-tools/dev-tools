@@ -33,6 +33,7 @@ func serializeFlow(flow mflow.Flow) *flowv1.Flow {
 		WorkspaceId: flow.WorkspaceID.Bytes(),
 		Name:        flow.Name,
 		Running:     flow.Running,
+		Error:       flow.Error,
 	}
 	if flow.Duration != 0 {
 		duration := flow.Duration

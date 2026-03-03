@@ -9,6 +9,7 @@ model Flow {
   name: string;
   @visibility(Lifecycle.Read) duration?: int32;
   @visibility(Lifecycle.Read) running: boolean;
+  @visibility(Lifecycle.Read) error?: string;
 }
 
 model FlowDuplicateRequest {

@@ -121,6 +121,7 @@ type Flow struct {
 	Name            string
 	Duration        int32
 	Running         bool
+	Error           sql.NullString
 	NodeIDMapping   []byte
 }
 

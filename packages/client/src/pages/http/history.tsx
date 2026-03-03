@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { Collection, Dialog, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
@@ -25,12 +25,22 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
 
   const collection = useApiCollection(HttpVersionCollectionSchema);
 
-  const { data: versions } = useLiveQuery(
+  const { data: unsortedVersions } = useLiveQuery(
     (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
-        .orderBy((_) => _.item.httpVersionId, 'desc'),
+      _.from({ item: collection }).where((_) => eq(_.item.httpId, deltaHttpId ?? httpId)),
     [collection, deltaHttpId, httpId],
+  );
+
+  // Sort by ULID canonical string instead of raw Uint8Array to avoid
+  // incorrect JS string coercion comparison on typed arrays.
+  const versions = useMemo(
+    () =>
+      [...unsortedVersions].sort((a, b) => {
+        const aKey = Ulid.construct(a.httpVersionId).toCanonical();
+        const bKey = Ulid.construct(b.httpVersionId).toCanonical();
+        return bKey.localeCompare(aKey); // DESC
+      }),
+    [unsortedVersions],
   );
 
   return (
@@ -116,17 +126,24 @@ interface VersionProps {
 const Version = ({ httpId }: VersionProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { httpResponseId } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: responseCollection })
-          .where((_) => eq(_.item.httpId, httpId))
-          .select((_) => pick(_.item, 'httpResponseId'))
-          .orderBy((_) => _.item.httpResponseId, 'desc')
-          .limit(1)
-          .findOne(),
-      [responseCollection, httpId],
-    ).data ?? {};
+  const { data: responses } = useLiveQuery(
+    (_) =>
+      _.from({ item: responseCollection })
+        .where((_) => eq(_.item.httpId, httpId))
+        .select((_) => pick(_.item, 'httpResponseId')),
+    [responseCollection, httpId],
+  );
+
+  // Find the latest response by ULID canonical string comparison instead of
+  // raw Uint8Array to avoid incorrect JS string coercion ordering.
+  const httpResponseId = useMemo(() => {
+    if (responses.length === 0) return undefined;
+    return responses.reduce((latest, curr) => {
+      const latestKey = Ulid.construct(latest.httpResponseId).toCanonical();
+      const currKey = Ulid.construct(curr.httpResponseId).toCanonical();
+      return currKey > latestKey ? curr : latest;
+    }).httpResponseId;
+  }, [responses]);
 
   const endpointVersionsLayout = useDefaultLayout({ id: 'endpoint-versions' });
 

@@ -4,6 +4,7 @@ import { Ulid } from 'id128';
 import OpenAI from 'openai';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   EdgeCollectionSchema,
   FlowCollectionSchema,
@@ -17,7 +18,6 @@ import {
   NodeHttpCollectionSchema,
   NodeJsCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   HttpAssertCollectionSchema,
   HttpBodyRawCollectionSchema,
@@ -28,6 +28,7 @@ import {
 import { useApiCollection } from '~/shared/api';
 import { queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
+import type { AgentProvider } from './use-agent-provider-key';
 import { AgentLogger } from './agent-logger';
 import {
   buildCompactStateSummary,
@@ -41,7 +42,6 @@ import {
 import { defaultHorizontalConfig, layoutNodes } from './layout';
 import { type Collections, executeToolCall, type ToolExecutorContext } from './tool-executor';
 import { allToolSchemas } from './tool-schemas';
-import type { AgentProvider } from './use-agent-provider-key';
 import {
   type AgentChatState,
   formatToolAsOpenAI,
@@ -79,11 +79,11 @@ const createProviderClient = (
       client: new OpenAI({
         apiKey,
         baseURL: 'https://api.anthropic.com/v1',
+        dangerouslyAllowBrowser: true,
         defaultHeaders: {
           'anthropic-dangerous-direct-browser-access': 'true',
           'anthropic-version': '2023-06-01',
         },
-        dangerouslyAllowBrowser: true,
       }),
       model: DEFAULT_MODELS.anthropic,
       providerName: provider,
@@ -309,7 +309,11 @@ const clientToolSchemas: ToolSchema[] = [
           items: {
             properties: {
               enabled: { type: 'boolean' },
-              value: { type: 'string' },
+              value: {
+                description:
+                  'Expr-lang boolean expression evaluated against the HTTP response. Must be a complete expression, not a bare identifier. Available: response.status (int), response.body (parsed JSON), response.headers (map), response.duration. Examples: response.status == 200, response.body != nil, response.body.id != nil, len(response.body) > 0, response.headers["Content-Type"] contains "json"',
+                type: 'string',
+              },
             },
             required: ['value'],
             type: 'object',
@@ -408,7 +412,22 @@ const clientToolSchemas: ToolSchema[] = [
     parameters: {
       additionalProperties: false,
       properties: {
-        nodeId: { description: 'The HTTP node ID to patch', type: 'string' },
+        addAssertions: {
+          description: 'Assertions to append',
+          items: {
+            properties: {
+              enabled: { type: 'boolean' },
+              value: {
+                description:
+                  'Expr-lang boolean expression evaluated against the HTTP response. Must be a complete expression, not a bare identifier. Available: response.status (int), response.body (parsed JSON), response.headers (map), response.duration. Examples: response.status == 200, response.body != nil, response.body.id != nil, len(response.body) > 0, response.headers["Content-Type"] contains "json"',
+                type: 'string',
+              },
+            },
+            required: ['value'],
+            type: 'object',
+          },
+          type: 'array',
+        },
         addHeaders: {
           description: 'Headers to append. Supports {{variable}} interpolation in values.',
           items: {
@@ -421,11 +440,6 @@ const clientToolSchemas: ToolSchema[] = [
             required: ['key'],
             type: 'object',
           },
-          type: 'array',
-        },
-        removeHeaderIds: {
-          description: 'IDs of headers to remove (get IDs from inspectNode)',
-          items: { type: 'string' },
           type: 'array',
         },
         addSearchParams: {
@@ -442,25 +456,19 @@ const clientToolSchemas: ToolSchema[] = [
           },
           type: 'array',
         },
-        removeSearchParamIds: {
-          description: 'IDs of query params to remove (get IDs from inspectNode)',
+        nodeId: { description: 'The HTTP node ID to patch', type: 'string' },
+        removeAssertionIds: {
+          description: 'IDs of assertions to remove (get IDs from inspectNode)',
           items: { type: 'string' },
           type: 'array',
         },
-        addAssertions: {
-          description: 'Assertions to append',
-          items: {
-            properties: {
-              enabled: { type: 'boolean' },
-              value: { type: 'string' },
-            },
-            required: ['value'],
-            type: 'object',
-          },
+        removeHeaderIds: {
+          description: 'IDs of headers to remove (get IDs from inspectNode)',
+          items: { type: 'string' },
           type: 'array',
         },
-        removeAssertionIds: {
-          description: 'IDs of assertions to remove (get IDs from inspectNode)',
+        removeSearchParamIds: {
+          description: 'IDs of query params to remove (get IDs from inspectNode)',
           items: { type: 'string' },
           type: 'array',
         },
@@ -1035,9 +1043,9 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
     chatStore.getAbortController(flowIdKey)?.abort();
     chatStore.setAbortController(flowIdKey, null);
     chatStore.setState(flowIdKey, {
-      messages: [],
-      isLoading: false,
       error: null,
+      isLoading: false,
+      messages: [],
       streamingContent: '',
     });
   }, [flowIdKey]);

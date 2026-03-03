@@ -1110,8 +1110,8 @@ func TestUpdate_userEmailVerified(t *testing.T) {
 		Update: jsonValue(map[string]any{"emailVerified": true, "updatedAt": now + 1}),
 	}))
 	require.NoError(t, err)
-	// emailVerified=true is stored as int64(1)
-	require.Equal(t, float64(1), resp.Msg.Data.GetStructValue().GetFields()["emailVerified"].GetNumberValue())
+	// emailVerified=true is returned as a bool in the proto response
+	require.Equal(t, true, resp.Msg.Data.GetStructValue().GetFields()["emailVerified"].GetBoolValue())
 }
 
 // --- error paths ---

@@ -1,4 +1,4 @@
-@top FullExpression { expression* }
+@top FullExpression { fullExpr* }
 
 @top StringExpression { stringContentNested* }
 
@@ -8,9 +8,12 @@
   @else stringContent
 }
 
-expression { spaces | Word | String }
+fullExpr {
+  spaces | LineComment | Number | String | SingleString | RawString |
+  BooleanLiteral | NilLiteral | Keyword | Operator | Punctuation | Identifier
+}
 
-Interpolation { InterpolationStart expression* InterpolationEnd }
+Interpolation { InterpolationStart fullExpr* InterpolationEnd }
 
 @skip {} {
   InterpolationEnd[openedBy=InterpolationStart] { '}}' }
@@ -21,13 +24,46 @@ Interpolation { InterpolationStart expression* InterpolationEnd }
 }
 
 @tokens {
-  spaces { $[ ]+ }
+  spaces { $[ \t\n\r]+ }
 
-  Word { ![ {}"]+ }
+  Number {
+    "0x" $[0-9a-fA-F]+ |
+    "0o" $[0-7]+ |
+    "0b" $[01]+ |
+    $[0-9]+ ("." $[0-9]+)? ($[eE] $[+-]? $[0-9]+)?
+  }
+
+  Identifier { ($[a-zA-Z_] | "#") $[a-zA-Z0-9_]* }
+
+  Operator {
+    "==" | "!=" | "<=" | ">=" | "&&" | "||" | "??" | "?." | ".." | "**" |
+    "<" | ">" | "!" | "+" | "-" | "*" | "/" | "%" | "^" | "|" | "="
+  }
+
+  Punctuation { "." | "," | ":" | "?" | "(" | ")" | "[" | "]" | "{" | "}" | ";" }
 
   stringStart { '"' }
 
-  @precedence { stringStart, '}}', Word }
+  SingleString { "'" (!['\\] | "\\" _)* "'" }
+
+  RawString { "`" ![`]* "`" }
+
+  LineComment { "//" ![\n]* }
+
+  @precedence {
+    Number, LineComment, stringStart, SingleString, RawString, '}}',
+    Operator, Punctuation, Identifier, spaces
+  }
+}
+
+BooleanLiteral { @specialize<Identifier, "true" | "false"> }
+
+NilLiteral { @specialize<Identifier, "nil"> }
+
+Keyword {
+  @specialize<Identifier,
+    "in" | "not" | "and" | "or" | "let" | "if" | "else" |
+    "matches" | "contains" | "startsWith" | "endsWith">
 }
 
 @detectDelim

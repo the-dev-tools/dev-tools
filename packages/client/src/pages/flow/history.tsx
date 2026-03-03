@@ -1,17 +1,19 @@
+import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { ReactFlowProvider } from '@xyflow/react';
 import { Ulid } from 'id128';
-import { Suspense, useRef } from 'react';
+import { Suspense, useMemo, useRef } from 'react';
 import { useTab, useTabList, useTabPanel } from 'react-aria';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
-import { FlowVersion } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
-import { FlowVersionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import { FlowSchema, FlowVersion } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { FlowCollectionSchema, FlowVersionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/shared/api';
+import { pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { FlowContext } from './context';
 import { Flow, TopBar, TopBarWithControls } from './edit';
@@ -21,12 +23,22 @@ export const FlowHistoryPage = () => {
 
   const collection = useApiCollection(FlowVersionCollectionSchema);
 
-  const { data: versions } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.flowId, flowId))
-        .orderBy((_) => _.item.flowVersionId, 'desc'),
+  const { data: unsortedVersions } = useLiveQuery(
+    (_) => _.from({ item: collection }).where((_) => eq(_.item.flowId, flowId)),
     [collection, flowId],
+  );
+
+  // Sort by ULID canonical string (Crockford Base32) instead of raw Uint8Array.
+  // JS comparison operators on Uint8Array use string coercion which gives wrong
+  // ordering when byte values cross digit boundaries (e.g. 99 vs 156).
+  const versions = useMemo(
+    () =>
+      [...unsortedVersions].sort((a, b) => {
+        const aKey = Ulid.construct(a.flowVersionId).toCanonical();
+        const bKey = Ulid.construct(b.flowVersionId).toCanonical();
+        return bKey.localeCompare(aKey); // DESC
+      }),
+    [unsortedVersions],
   );
 
   const state = useTabListState({
@@ -121,6 +133,19 @@ const Tab = ({ item, state }: TabProps) => {
   const { key, value } = item;
   const ref = useRef(null);
   const { isSelected, tabProps } = useTab({ key }, state, ref);
+
+  const flowCollection = useApiCollection(FlowCollectionSchema);
+
+  const { error } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: flowCollection })
+          .where((_) => eq(_.item.flowId, value?.flowVersionId ?? new Uint8Array()))
+          .select((_) => pick(_.item, 'error'))
+          .findOne(),
+      [flowCollection, value?.flowVersionId],
+    ).data ?? create(FlowSchema);
+
   if (!value) return null;
   return (
     <div
@@ -132,10 +157,12 @@ const Tab = ({ item, state }: TabProps) => {
           text-on-neutral
         `,
         isSelected && tw`bg-neutral`,
+        error && tw`text-danger`,
       )}
       ref={ref}
     >
       {Ulid.construct(value.flowVersionId).time.toLocaleString()}
+      {error && <span className={tw`text-xs font-normal text-danger`}>Failed</span>}
     </div>
   );
 };

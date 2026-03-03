@@ -6,9 +6,9 @@ import { Duration, Match, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { PropsWithChildren, ReactNode, use, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
-import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { Button as AriaButton, Dialog, MenuTrigger, Tooltip, TooltipTrigger, useDragAndDrop } from 'react-aria-components';
 import { createPortal } from 'react-dom';
-import { FiClock, FiCpu, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
+import { FiAlertTriangle, FiClock, FiCpu, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Group as PanelGroup, Panel as ResizablePanel } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
@@ -24,7 +24,6 @@ import {
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
-import { useTheme } from '@the-dev-tools/ui/theme';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
@@ -33,6 +32,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, TableRow } from '@the-dev-tools/ui/table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { useTheme } from '@the-dev-tools/ui/theme';
 import { ReferenceContext, ReferenceField } from '~/features/expression';
 import { ColumnActionDelete } from '~/features/form-table';
 import { request, useApiCollection } from '~/shared/api';
@@ -112,7 +112,7 @@ export const FlowEditPage = () => {
             {agentPanelOpen && (
               <>
                 <PanelResizeHandle direction='horizontal' />
-                <ResizablePanel defaultSize='30%' minSize='15%' maxSize='60%'>
+                <ResizablePanel defaultSize='30%' maxSize='60%' minSize='15%'>
                   <AgentPanel />
                 </ResizablePanel>
               </>
@@ -318,12 +318,12 @@ export const TopBar = ({ children }: TopBarProps) => {
 
   const collection = useApiCollection(FlowCollectionSchema);
 
-  const { name } =
+  const { error, name, running } =
     useLiveQuery(
       (_) =>
         _.from({ item: collection })
           .where((_) => eq(_.item.flowId, flowId))
-          .select((_) => pick(_.item, 'name'))
+          .select((_) => pick(_.item, 'error', 'name', 'running'))
           .findOne(),
       [collection, flowId],
     ).data ?? create(FlowSchema);
@@ -353,6 +353,15 @@ export const TopBar = ({ children }: TopBarProps) => {
         >
           {name}
         </AriaButton>
+      )}
+
+      {error && !running && (
+        <TooltipTrigger delay={300}>
+          <AriaButton className={tw`cursor-help`}>
+            <FiAlertTriangle className={tw`size-4 text-danger`} />
+          </AriaButton>
+          <Tooltip className={tw`max-w-80 rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>{error}</Tooltip>
+        </TooltipTrigger>
       )}
 
       <div className={tw`flex-1`} />

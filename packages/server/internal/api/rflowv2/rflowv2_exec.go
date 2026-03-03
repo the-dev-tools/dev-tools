@@ -109,22 +109,55 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		s.runningFlows[flowID.String()] = cancel
 		s.runningFlowsMu.Unlock()
 
+		// Mark flow as running before execution starts
+		flow.Running = true
+		flow.Error = nil
+		if err := s.fs.UpdateFlow(bgCtx, flow); err != nil {
+			s.logger.Error("failed to mark flow as running", "flow_id", flowID.String(), "error", err)
+		}
+		s.publishFlowEvent(flowEventUpdate, flow)
+
 		defer func() {
-			// Cleanup
+			// Always mark flow as not running, regardless of how executeFlow returned
+			flow.Running = false
+			if err := s.fs.UpdateFlow(context.Background(), flow); err != nil {
+				s.logger.Error("failed to mark flow as not running", "flow_id", flowID.String(), "error", err)
+			}
+			s.publishFlowEvent(flowEventUpdate, flow)
+
+			// Cleanup running flows map
 			s.runningFlowsMu.Lock()
 			delete(s.runningFlows, flowID.String())
 			s.runningFlowsMu.Unlock()
 			cancel()
 		}()
 
-		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping); err != nil {
-			// Check if error is due to cancellation
-			if errors.Is(err, context.Canceled) {
+		duration, execErr := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping)
+
+		// Copy final node/edge states from parent to version (best-effort).
+		// Use Background() because bgCtx may be cancelled on FlowStop.
+		s.copyStatesToVersion(context.Background(), flow.ID, version.ID, nodeIDMapping)
+
+		if execErr != nil {
+			errMsg := execErr.Error()
+			flow.Error = &errMsg
+			if errors.Is(execErr, context.Canceled) {
 				s.logger.Info("flow execution canceled", "flow_id", flowID.String())
 			} else {
-				s.logger.Error("async flow execution failed", "flow_id", flowID.String(), "error", err)
+				s.logger.Error("async flow execution failed", "flow_id", flowID.String(), "error", execErr)
 			}
 		}
+
+		// Update duration for the cleanup defer's UpdateFlow call
+		flow.Duration = duration
+
+		// Also update the version with duration and error
+		version.Duration = duration
+		version.Error = flow.Error
+		if err := s.fs.UpdateFlow(context.Background(), version); err != nil {
+			s.logger.Error("failed to update version with results", "version_id", version.ID.String(), "error", err)
+		}
+		s.publishFlowEvent(flowEventUpdate, version)
 	}()
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -138,18 +171,12 @@ func (s *FlowServiceV2RPC) executeFlow(
 	flowVars []mflow.FlowVariable,
 	versionFlowID idwrap.IDWrap,
 	nodeIDMapping map[string]idwrap.IDWrap,
-) error {
-	flow.Running = true
-	if err := s.fs.UpdateFlow(ctx, flow); err != nil {
-		return fmt.Errorf("failed to mark flow as running: %w", err)
-	}
-	s.publishFlowEvent(flowEventUpdate, flow)
-
+) (int32, error) {
 	// Build base variables by merging: GlobalEnv -> ActiveEnv -> FlowVars
 	// Later values override earlier ones
 	baseVars, err := s.builder.BuildVariables(ctx, flow.WorkspaceID, flowVars)
 	if err != nil {
-		return fmt.Errorf("failed to build execution variables: %w", err)
+		return 0, fmt.Errorf("failed to build execution variables: %w", err)
 	}
 
 	requestRespChan := make(chan nrequest.NodeRequestSideResp, len(nodes)*2+1)
@@ -229,7 +256,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 		s.jsClient,
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewMonotonic(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
@@ -581,16 +608,10 @@ func (s *FlowServiceV2RPC) executeFlow(
 		duration = math.MaxInt32
 	}
 	//nolint:gosec // duration clamped to MaxInt32
-	flow.Duration = int32(duration)
-
-	flow.Running = false
-	if err := s.fs.UpdateFlow(context.Background(), flow); err != nil {
-		s.logger.Error("failed to mark flow as not running", "error", err)
-	}
-	s.publishFlowEvent(flowEventUpdate, flow)
+	durationInt := int32(duration)
 
 	stateDrain.Wait()
-	return runErr
+	return durationInt, runErr
 }
 
 func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[flowv1.FlowStopRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -611,13 +632,25 @@ func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[fl
 	cancel, ok := s.runningFlows[flowID.String()]
 	s.runningFlowsMu.Unlock()
 
-	if !ok {
-		// Flow is not running, which is fine for a stop request (idempotent)
+	if ok {
+		// Cancel the actively running flow
+		cancel()
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 
-	// Cancel the flow
-	cancel()
+	// No active goroutine — check if the DB has stale running state
+	// (e.g., from a previous server crash or a goroutine that already exited).
+	flow, err := s.fs.GetFlow(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if flow.Running {
+		flow.Running = false
+		if err := s.fs.UpdateFlow(ctx, flow); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to reset stale running state: %w", err))
+		}
+		s.publishFlowEvent(flowEventUpdate, flow)
+	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
@@ -779,7 +812,9 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		newNodeID := idwrap.NewMonotonic()
 		nodeIDMapping[sourceNode.ID.String()] = newNodeID
 
-		// Create the base node (including State to preserve execution status in snapshot)
+		// Create the base node with UNSPECIFIED state. The parent node's state is from
+		// the previous run and would be misleading — this version's execution hasn't
+		// happened yet, so its nodes should start clean.
 		newNode := mflow.Node{
 			ID:        newNodeID,
 			FlowID:    versionFlowID,
@@ -787,10 +822,10 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			NodeKind:  sourceNode.NodeKind,
 			PositionX: sourceNode.PositionX,
 			PositionY: sourceNode.PositionY,
-			State:     sourceNode.State,
+			State:     mflow.NODE_STATE_UNSPECIFIED,
 		}
 
-		// Use CreateNodeWithState to preserve the execution state in the snapshot
+		// Use CreateNodeWithState to set the initial state in the snapshot
 		if err := nodeWriter.CreateNodeWithState(ctx, newNode); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
 		}
@@ -1079,7 +1114,9 @@ func (s *FlowServiceV2RPC) moveParentExecutionsToPreviousVersion(
 		return fmt.Errorf("unmarshal nodeIDMapping: %w", err)
 	}
 
-	// Move each parent node's executions to the previous version's corresponding node
+	// Move each parent node's executions to the previous version's corresponding node.
+	// Note: node/edge state copying is handled by copyStatesToVersion (called after execution).
+	// This function only moves execution records as housekeeping.
 	for parentNodeIDStr, versionNodeIDStr := range nodeIDMapping {
 		parentNodeID, err := idwrap.NewText(parentNodeIDStr)
 		if err != nil {
@@ -1121,4 +1158,97 @@ func (s *FlowServiceV2RPC) moveParentExecutionsToPreviousVersion(
 	}
 
 	return nil
+}
+
+// copyStatesToVersion copies the final execution states from parent nodes/edges
+// to the corresponding version nodes/edges. This is called immediately after execution
+// completes so that every version is viewable with correct results right away,
+// without waiting for the next execution to trigger lazy migration.
+func (s *FlowServiceV2RPC) copyStatesToVersion(
+	ctx context.Context,
+	parentFlowID idwrap.IDWrap,
+	versionFlowID idwrap.IDWrap,
+	nodeIDMapping map[string]idwrap.IDWrap,
+) {
+	// --- Copy node states ---
+	nodeEvents := make([]NodeEvent, 0, len(nodeIDMapping))
+	for parentNodeIDStr, versionNodeID := range nodeIDMapping {
+		parentNodeID, err := idwrap.NewText(parentNodeIDStr)
+		if err != nil {
+			continue
+		}
+
+		parentNode, err := s.nsReader.GetNode(ctx, parentNodeID)
+		if err != nil || parentNode == nil {
+			s.logger.Warn("copyStatesToVersion: failed to read parent node", "node_id", parentNodeIDStr, "error", err)
+			continue
+		}
+
+		if err := s.ns.UpdateNodeState(ctx, versionNodeID, parentNode.State); err != nil {
+			s.logger.Warn("copyStatesToVersion: failed to update version node state", "node_id", versionNodeID.String(), "error", err)
+			continue
+		}
+
+		versionNode := *parentNode
+		versionNode.ID = versionNodeID
+		versionNode.FlowID = versionFlowID
+		nodeEvents = append(nodeEvents, NodeEvent{
+			Type:   nodeEventUpdate,
+			FlowID: versionFlowID,
+			Node:   serializeNode(versionNode),
+		})
+	}
+	if len(nodeEvents) > 0 && s.nodeStream != nil {
+		s.nodeStream.Publish(NodeTopic{FlowID: versionFlowID}, nodeEvents...)
+	}
+
+	// --- Copy edge states ---
+	parentEdges, err := s.es.GetEdgesByFlowID(ctx, parentFlowID)
+	if err != nil {
+		s.logger.Warn("copyStatesToVersion: failed to read parent edges", "error", err)
+		return
+	}
+	versionEdges, err := s.es.GetEdgesByFlowID(ctx, versionFlowID)
+	if err != nil {
+		s.logger.Warn("copyStatesToVersion: failed to read version edges", "error", err)
+		return
+	}
+
+	// Build lookup of version edges by (source, target) pair
+	type edgeKey struct{ Source, Target string }
+	versionEdgeMap := make(map[edgeKey]*mflow.Edge, len(versionEdges))
+	for i := range versionEdges {
+		ve := &versionEdges[i]
+		versionEdgeMap[edgeKey{ve.SourceID.String(), ve.TargetID.String()}] = ve
+	}
+
+	edgeEvents := make([]EdgeEvent, 0, len(parentEdges))
+	for _, pe := range parentEdges {
+		vSourceID, ok1 := nodeIDMapping[pe.SourceID.String()]
+		vTargetID, ok2 := nodeIDMapping[pe.TargetID.String()]
+		if !ok1 || !ok2 {
+			continue
+		}
+
+		ve, ok := versionEdgeMap[edgeKey{vSourceID.String(), vTargetID.String()}]
+		if !ok {
+			continue
+		}
+
+		if err := s.es.UpdateEdgeState(ctx, ve.ID, pe.State); err != nil {
+			s.logger.Warn("copyStatesToVersion: failed to update version edge state", "edge_id", ve.ID.String(), "error", err)
+			continue
+		}
+
+		updatedEdge := *ve
+		updatedEdge.State = pe.State
+		edgeEvents = append(edgeEvents, EdgeEvent{
+			Type:   edgeEventUpdate,
+			FlowID: versionFlowID,
+			Edge:   serializeEdge(updatedEdge),
+		})
+	}
+	if len(edgeEvents) > 0 && s.edgeStream != nil {
+		s.edgeStream.Publish(EdgeTopic{FlowID: versionFlowID}, edgeEvents...)
+	}
 }

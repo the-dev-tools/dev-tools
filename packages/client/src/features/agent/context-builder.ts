@@ -540,5 +540,36 @@ Examples:
 The <variables> block in the flow XML shows available flow variables — reference them via {{key}}.
 When a value (base URL, API key) appears in multiple nodes, create a variable with createVariable and reference it.
 Node names use underscores for spaces: "Get User" → Get_User in references.
-</variable-syntax>`;
+</variable-syntax>
+
+<assertion-syntax>
+Assertions use expr-lang syntax (NOT JavaScript). They are evaluated server-side against the HTTP response.
+
+Available variables (ONLY these exist — do NOT invent others):
+- response.status (int), response.body (parsed JSON object/array/string), response.headers (map), response.duration (int ms)
+- status, body, headers, duration (shorthand aliases for the above)
+- Flow variables and node outputs from flowVars are also available
+
+Built-in functions: len(), type(), all(), any(), one(), none(), map(), filter(), find(), count(), sum(), keys(), values(), has(), get()
+
+Syntax rules (NOT JavaScript):
+- Equality: == and != (NOT === or !==)
+- Null check: nil (NOT null or undefined)
+- Boolean operators: and, or, not (also &&, ||, !)
+- String operators: contains, startsWith, endsWith, matches (regex)
+- No semicolons, no var/let/const declarations
+
+Examples:
+- response.status == 200
+- response.status >= 200 and response.status < 300
+- response.body != nil
+- len(response.body) > 0
+- response.headers["Content-Type"] contains "application/json"
+- response.body.id != nil
+- response.body.name == "expected"
+- len(response.body.items) > 0
+- type(response.body.count) == "int"
+
+IMPORTANT: Every assertion must be a complete boolean expression. Do NOT use bare identifiers like "is_json" or "has_body" — those variables do not exist. Instead write: response.headers["Content-Type"] contains "json", response.body != nil, etc.
+</assertion-syntax>`;
 };

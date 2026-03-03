@@ -28,6 +28,7 @@ function normalizeJsCodeReferences(code: string): string {
  * - Removing bracket/quote syntax: ["NodeName"].field → NodeName.field
  * - Replacing whitespace with underscores in node names
  * - Converting JS strict equality/inequality to expr-lang operators
+ * - Converting JS null/undefined to expr-lang nil
  */
 function normalizeConditionSyntax(expr: string): string {
   if (!expr) return expr;
@@ -38,6 +39,10 @@ function normalizeConditionSyntax(expr: string): string {
   // Convert JS strict equality/inequality to expr-lang operators
   normalized = normalized.replace(/===/g, '==');
   normalized = normalized.replace(/!==/g, '!=');
+
+  // Convert JS null/undefined to expr-lang nil (word boundaries to avoid partial matches)
+  normalized = normalized.replace(/\bnull\b/g, 'nil');
+  normalized = normalized.replace(/\bundefined\b/g, 'nil');
 
   return normalized;
 }
@@ -793,6 +798,16 @@ const executeToolInternal = async (
 
       // Type-specific config
       switch (node.kind) {
+        case 'Ai': {
+          const [aiData] = await queryCollection((_) =>
+            _.from({ ai: aiCollection })
+              .where((_) => eq(_.ai.nodeId, nodeIdBytes))
+              .findOne(),
+          );
+          result.prompt = aiData?.prompt ?? '';
+          result.maxIterations = aiData?.maxIterations ?? 5;
+          break;
+        }
         case 'Condition': {
           const [condData] = await queryCollection((_) =>
             _.from({ cond: conditionCollection })
@@ -885,16 +900,6 @@ const executeToolInternal = async (
           }));
           break;
         }
-        case 'Ai': {
-          const [aiData] = await queryCollection((_) =>
-            _.from({ ai: aiCollection })
-              .where((_) => eq(_.ai.nodeId, nodeIdBytes))
-              .findOne(),
-          );
-          result.prompt = aiData?.prompt ?? '';
-          result.maxIterations = aiData?.maxIterations ?? 5;
-          break;
-        }
         case 'JavaScript': {
           const [jsData] = await queryCollection((_) =>
             _.from({ js: jsCollection })
@@ -948,6 +953,173 @@ const executeToolInternal = async (
       }
 
       return result;
+    }
+
+    case 'patchHttpNode': {
+      const nodeIdStr = args.nodeId as string;
+      const node = flowContext.nodes.find((n) => n.id === nodeIdStr);
+      if (!node) throw new Error(`Node not found: ${nodeIdStr}`);
+      if (node.kind !== 'HTTP') throw new Error(`patchHttpNode only works on HTTP nodes, got: ${node.kind}`);
+      if (!node.httpId) throw new Error(`HTTP node "${node.name}" has no associated HTTP request`);
+
+      const httpIdBytes = parseUlid(node.httpId);
+      const patchedFields: string[] = [];
+      const warnings: string[] = [];
+
+      // --- Remove headers ---
+      const removeHeaderIds = args.removeHeaderIds as string[] | undefined;
+      const addHeaders = args.addHeaders as
+        | undefined
+        | { description?: string; enabled?: boolean; key: string; value?: string }[];
+
+      if (removeHeaderIds?.length) {
+        const existingHeaders = await queryCollection((_) =>
+          _.from({ h: httpHeaderCollection }).where((_) => eq(_.h.httpId, httpIdBytes)),
+        );
+        const existingHeaderIds = new Set(
+          existingHeaders
+            .filter((h) => h.httpHeaderId != null)
+            .map((h) => Ulid.construct(h.httpHeaderId).toCanonical()),
+        );
+        let removedCount = 0;
+        for (const id of removeHeaderIds) {
+          if (!existingHeaderIds.has(id)) continue;
+          httpHeaderCollection.utils.delete({ httpHeaderId: parseUlid(id) });
+          removedCount++;
+        }
+        if (removedCount > 0) {
+          patchedFields.push(`removedHeaders(${removedCount})`);
+        }
+        const skippedCount = removeHeaderIds.length - removedCount;
+        if (skippedCount > 0) {
+          warnings.push(`Skipped ${skippedCount} header ID(s) not belonging to this HTTP node.`);
+        }
+      }
+
+      // --- Add headers ---
+      if (addHeaders?.length) {
+        const existingHeaders = await queryCollection((_) =>
+          _.from({ h: httpHeaderCollection }).where((_) => eq(_.h.httpId, httpIdBytes)),
+        );
+        const maxOrder = existingHeaders.reduce((max, h) => Math.max(max, h.order ?? -1), -1);
+        let nextOrder = maxOrder + 1;
+        for (const h of addHeaders) {
+          await httpHeaderCollection.utils.insert({
+            description: h.description ?? '',
+            enabled: h.enabled ?? true,
+            httpHeaderId: Ulid.generate().bytes,
+            httpId: httpIdBytes,
+            key: h.key,
+            order: nextOrder++,
+            value: h.value ?? '',
+          });
+        }
+        patchedFields.push(`addedHeaders(${addHeaders.length})`);
+      }
+
+      // --- Remove search params ---
+      const removeSearchParamIds = args.removeSearchParamIds as string[] | undefined;
+      const addSearchParams = args.addSearchParams as
+        | undefined
+        | { description?: string; enabled?: boolean; key: string; value?: string }[];
+
+      if (removeSearchParamIds?.length) {
+        const existingSearchParams = await queryCollection((_) =>
+          _.from({ sp: httpSearchParamCollection }).where((_) => eq(_.sp.httpId, httpIdBytes)),
+        );
+        const existingSearchParamIds = new Set(
+          existingSearchParams
+            .filter((sp) => sp.httpSearchParamId != null)
+            .map((sp) => Ulid.construct(sp.httpSearchParamId).toCanonical()),
+        );
+        let removedCount = 0;
+        for (const id of removeSearchParamIds) {
+          if (!existingSearchParamIds.has(id)) continue;
+          httpSearchParamCollection.utils.delete({ httpSearchParamId: parseUlid(id) });
+          removedCount++;
+        }
+        if (removedCount > 0) {
+          patchedFields.push(`removedSearchParams(${removedCount})`);
+        }
+        const skippedCount = removeSearchParamIds.length - removedCount;
+        if (skippedCount > 0) {
+          warnings.push(`Skipped ${skippedCount} query param ID(s) not belonging to this HTTP node.`);
+        }
+      }
+
+      // --- Add search params ---
+      if (addSearchParams?.length) {
+        const existingSearchParams = await queryCollection((_) =>
+          _.from({ sp: httpSearchParamCollection }).where((_) => eq(_.sp.httpId, httpIdBytes)),
+        );
+        const maxOrder = existingSearchParams.reduce((max, sp) => Math.max(max, sp.order ?? -1), -1);
+        let nextOrder = maxOrder + 1;
+        for (const sp of addSearchParams) {
+          await httpSearchParamCollection.utils.insert({
+            description: sp.description ?? '',
+            enabled: sp.enabled ?? true,
+            httpId: httpIdBytes,
+            httpSearchParamId: Ulid.generate().bytes,
+            key: sp.key,
+            order: nextOrder++,
+            value: sp.value ?? '',
+          });
+        }
+        patchedFields.push(`addedSearchParams(${addSearchParams.length})`);
+      }
+
+      // --- Remove assertions ---
+      const removeAssertionIds = args.removeAssertionIds as string[] | undefined;
+      const addAssertions = args.addAssertions as undefined | { enabled?: boolean; value: string }[];
+
+      if (removeAssertionIds?.length) {
+        const existingAssertions = await queryCollection((_) =>
+          _.from({ a: httpAssertCollection }).where((_) => eq(_.a.httpId, httpIdBytes)),
+        );
+        const existingAssertionIds = new Set(
+          existingAssertions
+            .filter((a) => a.httpAssertId != null)
+            .map((a) => Ulid.construct(a.httpAssertId).toCanonical()),
+        );
+        let removedCount = 0;
+        for (const id of removeAssertionIds) {
+          if (!existingAssertionIds.has(id)) continue;
+          httpAssertCollection.utils.delete({ httpAssertId: parseUlid(id) });
+          removedCount++;
+        }
+        if (removedCount > 0) {
+          patchedFields.push(`removedAssertions(${removedCount})`);
+        }
+        const skippedCount = removeAssertionIds.length - removedCount;
+        if (skippedCount > 0) {
+          warnings.push(`Skipped ${skippedCount} assertion ID(s) not belonging to this HTTP node.`);
+        }
+      }
+
+      // --- Add assertions ---
+      if (addAssertions?.length) {
+        const existingAssertions = await queryCollection((_) =>
+          _.from({ a: httpAssertCollection }).where((_) => eq(_.a.httpId, httpIdBytes)),
+        );
+        const maxOrder = existingAssertions.reduce((max, a) => Math.max(max, a.order ?? -1), -1);
+        let nextOrder = maxOrder + 1;
+        for (const a of addAssertions) {
+          await httpAssertCollection.utils.insert({
+            enabled: a.enabled ?? true,
+            httpAssertId: Ulid.generate().bytes,
+            httpId: httpIdBytes,
+            order: nextOrder++,
+            value: normalizeConditionSyntax(a.value),
+          });
+        }
+        patchedFields.push(`addedAssertions(${addAssertions.length})`);
+      }
+
+      if (patchedFields.length === 0) {
+        return { message: 'No patch operations provided', success: false };
+      }
+
+      return { patchedFields, success: true, warnings: warnings.length > 0 ? warnings : undefined };
     }
 
     case 'updateNode': {
@@ -1046,16 +1218,6 @@ const executeToolInternal = async (
             updatedFields.push('errorHandling');
           }
           if (hasFeUpdates) forEachCollection.utils.update(feUpdates);
-          break;
-        }
-        case 'JavaScript': {
-          if (args.code !== undefined) {
-            jsCollection.utils.update({
-              code: `export default function(ctx) {\n  ${normalizeJsCodeReferences(args.code as string)}\n}`,
-              nodeId: nodeIdBytes,
-            });
-            updatedFields.push('code');
-          }
           break;
         }
         case 'HTTP': {
@@ -1232,10 +1394,20 @@ const executeToolInternal = async (
                 httpAssertId: Ulid.generate().bytes,
                 httpId: httpIdBytes,
                 order: i,
-                value: a.value,
+                value: normalizeConditionSyntax(a.value),
               });
             }
             updatedFields.push('assertions');
+          }
+          break;
+        }
+        case 'JavaScript': {
+          if (args.code !== undefined) {
+            jsCollection.utils.update({
+              code: `export default function(ctx) {\n  ${normalizeJsCodeReferences(args.code as string)}\n}`,
+              nodeId: nodeIdBytes,
+            });
+            updatedFields.push('code');
           }
           break;
         }
@@ -1246,173 +1418,6 @@ const executeToolInternal = async (
       }
 
       return { success: true, updatedFields };
-    }
-
-    case 'patchHttpNode': {
-      const nodeIdStr = args.nodeId as string;
-      const node = flowContext.nodes.find((n) => n.id === nodeIdStr);
-      if (!node) throw new Error(`Node not found: ${nodeIdStr}`);
-      if (node.kind !== 'HTTP') throw new Error(`patchHttpNode only works on HTTP nodes, got: ${node.kind}`);
-      if (!node.httpId) throw new Error(`HTTP node "${node.name}" has no associated HTTP request`);
-
-      const httpIdBytes = parseUlid(node.httpId);
-      const patchedFields: string[] = [];
-      const warnings: string[] = [];
-
-      // --- Remove headers ---
-      const removeHeaderIds = args.removeHeaderIds as string[] | undefined;
-      const addHeaders = args.addHeaders as
-        | { description?: string; enabled?: boolean; key: string; value?: string }[]
-        | undefined;
-
-      if (removeHeaderIds?.length) {
-        const existingHeaders = await queryCollection((_) =>
-          _.from({ h: httpHeaderCollection }).where((_) => eq(_.h.httpId, httpIdBytes)),
-        );
-        const existingHeaderIds = new Set(
-          existingHeaders
-            .filter((h) => h.httpHeaderId != null)
-            .map((h) => Ulid.construct(h.httpHeaderId).toCanonical()),
-        );
-        let removedCount = 0;
-        for (const id of removeHeaderIds) {
-          if (!existingHeaderIds.has(id)) continue;
-          httpHeaderCollection.utils.delete({ httpHeaderId: parseUlid(id) });
-          removedCount++;
-        }
-        if (removedCount > 0) {
-          patchedFields.push(`removedHeaders(${removedCount})`);
-        }
-        const skippedCount = removeHeaderIds.length - removedCount;
-        if (skippedCount > 0) {
-          warnings.push(`Skipped ${skippedCount} header ID(s) not belonging to this HTTP node.`);
-        }
-      }
-
-      // --- Add headers ---
-      if (addHeaders?.length) {
-        const existingHeaders = await queryCollection((_) =>
-          _.from({ h: httpHeaderCollection }).where((_) => eq(_.h.httpId, httpIdBytes)),
-        );
-        const maxOrder = existingHeaders.reduce((max, h) => Math.max(max, h.order ?? -1), -1);
-        let nextOrder = maxOrder + 1;
-        for (const h of addHeaders) {
-          await httpHeaderCollection.utils.insert({
-            description: h.description ?? '',
-            enabled: h.enabled ?? true,
-            httpHeaderId: Ulid.generate().bytes,
-            httpId: httpIdBytes,
-            key: h.key,
-            order: nextOrder++,
-            value: h.value ?? '',
-          });
-        }
-        patchedFields.push(`addedHeaders(${addHeaders.length})`);
-      }
-
-      // --- Remove search params ---
-      const removeSearchParamIds = args.removeSearchParamIds as string[] | undefined;
-      const addSearchParams = args.addSearchParams as
-        | { description?: string; enabled?: boolean; key: string; value?: string }[]
-        | undefined;
-
-      if (removeSearchParamIds?.length) {
-        const existingSearchParams = await queryCollection((_) =>
-          _.from({ sp: httpSearchParamCollection }).where((_) => eq(_.sp.httpId, httpIdBytes)),
-        );
-        const existingSearchParamIds = new Set(
-          existingSearchParams
-            .filter((sp) => sp.httpSearchParamId != null)
-            .map((sp) => Ulid.construct(sp.httpSearchParamId).toCanonical()),
-        );
-        let removedCount = 0;
-        for (const id of removeSearchParamIds) {
-          if (!existingSearchParamIds.has(id)) continue;
-          httpSearchParamCollection.utils.delete({ httpSearchParamId: parseUlid(id) });
-          removedCount++;
-        }
-        if (removedCount > 0) {
-          patchedFields.push(`removedSearchParams(${removedCount})`);
-        }
-        const skippedCount = removeSearchParamIds.length - removedCount;
-        if (skippedCount > 0) {
-          warnings.push(`Skipped ${skippedCount} query param ID(s) not belonging to this HTTP node.`);
-        }
-      }
-
-      // --- Add search params ---
-      if (addSearchParams?.length) {
-        const existingSearchParams = await queryCollection((_) =>
-          _.from({ sp: httpSearchParamCollection }).where((_) => eq(_.sp.httpId, httpIdBytes)),
-        );
-        const maxOrder = existingSearchParams.reduce((max, sp) => Math.max(max, sp.order ?? -1), -1);
-        let nextOrder = maxOrder + 1;
-        for (const sp of addSearchParams) {
-          await httpSearchParamCollection.utils.insert({
-            description: sp.description ?? '',
-            enabled: sp.enabled ?? true,
-            httpId: httpIdBytes,
-            httpSearchParamId: Ulid.generate().bytes,
-            key: sp.key,
-            order: nextOrder++,
-            value: sp.value ?? '',
-          });
-        }
-        patchedFields.push(`addedSearchParams(${addSearchParams.length})`);
-      }
-
-      // --- Remove assertions ---
-      const removeAssertionIds = args.removeAssertionIds as string[] | undefined;
-      const addAssertions = args.addAssertions as { enabled?: boolean; value: string }[] | undefined;
-
-      if (removeAssertionIds?.length) {
-        const existingAssertions = await queryCollection((_) =>
-          _.from({ a: httpAssertCollection }).where((_) => eq(_.a.httpId, httpIdBytes)),
-        );
-        const existingAssertionIds = new Set(
-          existingAssertions
-            .filter((a) => a.httpAssertId != null)
-            .map((a) => Ulid.construct(a.httpAssertId).toCanonical()),
-        );
-        let removedCount = 0;
-        for (const id of removeAssertionIds) {
-          if (!existingAssertionIds.has(id)) continue;
-          httpAssertCollection.utils.delete({ httpAssertId: parseUlid(id) });
-          removedCount++;
-        }
-        if (removedCount > 0) {
-          patchedFields.push(`removedAssertions(${removedCount})`);
-        }
-        const skippedCount = removeAssertionIds.length - removedCount;
-        if (skippedCount > 0) {
-          warnings.push(`Skipped ${skippedCount} assertion ID(s) not belonging to this HTTP node.`);
-        }
-      }
-
-      // --- Add assertions ---
-      if (addAssertions?.length) {
-        const existingAssertions = await queryCollection((_) =>
-          _.from({ a: httpAssertCollection }).where((_) => eq(_.a.httpId, httpIdBytes)),
-        );
-        const maxOrder = existingAssertions.reduce((max, a) => Math.max(max, a.order ?? -1), -1);
-        let nextOrder = maxOrder + 1;
-        for (const a of addAssertions) {
-          await httpAssertCollection.utils.insert({
-            enabled: a.enabled ?? true,
-            httpAssertId: Ulid.generate().bytes,
-            httpId: httpIdBytes,
-            order: nextOrder++,
-            value: a.value,
-          });
-        }
-        patchedFields.push(`addedAssertions(${addAssertions.length})`);
-      }
-
-      if (patchedFields.length === 0) {
-        return { message: 'No patch operations provided', success: false };
-      }
-
-      return { patchedFields, success: true, warnings: warnings.length > 0 ? warnings : undefined };
     }
 
     case 'updateVariable': {

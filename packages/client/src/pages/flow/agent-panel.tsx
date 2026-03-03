@@ -168,13 +168,13 @@ export const AgentPanel = () => {
       {/* Header */}
       <div
         className={tw`
-        mx-2 mt-2 flex items-center gap-2 rounded-[4px] border border-(--border) bg-(--surface-4) px-3 py-1.5
-      `}
+          mx-2 mt-2 flex items-center gap-2 rounded-[4px] border border-(--border) bg-(--surface-4) px-3 py-1.5
+        `}
       >
         <div
           className={tw`
-          flex flex-1 items-center gap-2 truncate text-sm font-medium tracking-[0.28px] text-(--text-primary)
-        `}
+            flex flex-1 items-center gap-2 truncate text-sm font-medium tracking-[0.28px] text-(--text-primary)
+          `}
         >
           Agent
         </div>
@@ -559,10 +559,11 @@ const AgentSettingsPopover = ({
     <div className={tw`relative`} ref={rootRef}>
       <button
         aria-expanded={open}
-        aria-label='Agent settings'
         aria-haspopup='dialog'
+        aria-label='Agent settings'
         className={tw`
-          relative rounded-[4px] border border-(--border-1) bg-(--surface-5) p-1.5 text-(--text-secondary) transition-colors
+          relative rounded-[4px] border border-(--border-1) bg-(--surface-5) p-1.5 text-(--text-secondary)
+          transition-colors
 
           hover:text-(--text-primary)
 
@@ -579,8 +580,7 @@ const AgentSettingsPopover = ({
       {open && (
         <div
           className={tw`
-            absolute bottom-full z-20 mb-1.5 rounded-[6px] border border-(--border-1) bg-(--surface-4) p-2
-            shadow-lg
+            absolute bottom-full z-20 mb-1.5 rounded-[6px] border border-(--border-1) bg-(--surface-4) p-2 shadow-lg
           `}
           role='dialog'
           style={{ left: `${popoverLeft}px`, width: `${popoverWidth}px` }}
@@ -616,7 +616,8 @@ const AgentSettingsPopover = ({
               <>
                 <input
                   className={tw`
-                    flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-xs text-(--text-primary)
+                    flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-xs
+                    text-(--text-primary)
 
                     placeholder:text-(--text-muted)
 
@@ -644,7 +645,8 @@ const AgentSettingsPopover = ({
                 />
                 <button
                   className={tw`
-                    rounded-[4px] bg-(--text-primary) px-2 py-1 text-xs font-medium text-(--text-inverse) transition-colors
+                    rounded-[4px] bg-(--text-primary) px-2 py-1 text-xs font-medium text-(--text-inverse)
+                    transition-colors
 
                     hover:bg-(--text-secondary)
 
@@ -689,30 +691,30 @@ const StreamingIndicator = () => (
     <div className={tw`flex space-x-0.5`}>
       <div
         className={tw`
-        size-1 animate-bounce rounded-full bg-(--text-muted)
+          size-1 animate-bounce rounded-full bg-(--text-muted)
 
-        [animation-delay:0ms]
+          [animation-delay:0ms]
 
-        [animation-duration:1.2s]
-      `}
+          [animation-duration:1.2s]
+        `}
       />
       <div
         className={tw`
-        size-1 animate-bounce rounded-full bg-(--text-muted)
+          size-1 animate-bounce rounded-full bg-(--text-muted)
 
-        [animation-delay:150ms]
+          [animation-delay:150ms]
 
-        [animation-duration:1.2s]
-      `}
+          [animation-duration:1.2s]
+        `}
       />
       <div
         className={tw`
-        size-1 animate-bounce rounded-full bg-(--text-muted)
+          size-1 animate-bounce rounded-full bg-(--text-muted)
 
-        [animation-delay:300ms]
+          [animation-delay:300ms]
 
-        [animation-duration:1.2s]
-      `}
+          [animation-duration:1.2s]
+        `}
       />
     </div>
   </div>
@@ -767,7 +769,7 @@ const ThinkingBlock = () => {
 };
 
 const StreamingMessage = ({ content }: { content: string }) => (
-  <div className={tw`min-w-0 space-y-1 px-1 text-(--text-secondary) [overflow-wrap:anywhere]`}>
+  <div className={tw`min-w-0 space-y-1 px-1 [overflow-wrap:anywhere] text-(--text-secondary)`}>
     <Markdown
       components={{
         code: ({ children, className }) => {
@@ -775,25 +777,25 @@ const StreamingMessage = ({ content }: { content: string }) => (
           return isBlock ? (
             <pre
               className={tw`
-              my-1 overflow-x-auto rounded-[4px] border border-(--border-1) bg-(--surface-1) p-2 text-xs
-              text-(--text-secondary)
-            `}
+                my-1 overflow-x-auto rounded-[4px] border border-(--border-1) bg-(--surface-1) p-2 text-xs
+                text-(--text-secondary)
+              `}
             >
               <code>{children}</code>
             </pre>
           ) : (
             <code
               className={tw`
-              break-all rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em]
-              text-(--text-primary)
-            `}
+                rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em] break-all
+                text-(--text-primary)
+              `}
             >
               {children}
             </code>
           );
         },
         p: ({ children }) => (
-          <p className={tw`mb-1.5 break-words text-sm leading-[1.4] text-(--text-primary) [overflow-wrap:anywhere]`}>
+          <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>
             {children}
           </p>
         ),
@@ -810,7 +812,8 @@ const StreamingMessage = ({ content }: { content: string }) => (
 const SendButton = ({ disabled, onClick }: { disabled: boolean; onClick: () => void }) => (
   <button
     className={tw`
-      flex size-[22px] items-center justify-center rounded-full bg-(--text-primary) text-(--text-inverse) transition-colors
+      flex size-[22px] items-center justify-center rounded-full bg-(--text-primary) text-(--text-inverse)
+      transition-colors
 
       hover:bg-(--text-secondary)
 
@@ -884,7 +887,8 @@ const TerminalMessage = ({
         <span className={tw`shrink-0 text-(--brand-tertiary-2)`}>&gt;</span>
         <span
           className={tw`
-            min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-sm font-medium text-(--text-primary)
+            min-w-0 flex-1 overflow-hidden rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-sm
+            font-medium text-ellipsis whitespace-nowrap text-(--text-primary)
           `}
           title={message.content}
         >
@@ -902,7 +906,7 @@ const TerminalMessage = ({
     return (
       <div className={tw`space-y-1 px-1`}>
         {message.content && (
-          <div className={tw`min-w-0 text-(--text-secondary) [overflow-wrap:anywhere]`}>
+          <div className={tw`min-w-0 [overflow-wrap:anywhere] text-(--text-secondary)`}>
             <Markdown
               components={{
                 code: ({ children, className }) => {
@@ -910,18 +914,18 @@ const TerminalMessage = ({
                   return isBlock ? (
                     <pre
                       className={tw`
-                      my-1 overflow-x-auto rounded-[4px] border border-(--border-1) bg-(--surface-1) p-2 text-xs
-                      text-(--text-secondary)
-                    `}
+                        my-1 overflow-x-auto rounded-[4px] border border-(--border-1) bg-(--surface-1) p-2 text-xs
+                        text-(--text-secondary)
+                      `}
                     >
                       <code>{children}</code>
                     </pre>
                   ) : (
                     <code
                       className={tw`
-                      break-all rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em]
-                      text-(--text-primary)
-                    `}
+                        rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em]
+                        break-all text-(--text-primary)
+                      `}
                     >
                       {children}
                     </code>
@@ -929,7 +933,7 @@ const TerminalMessage = ({
                 },
                 p: ({ children }) => (
                   <p
-                    className={tw`mb-1.5 break-words text-sm leading-[1.4] text-(--text-primary) [overflow-wrap:anywhere]`}
+                    className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}
                   >
                     {children}
                   </p>
@@ -954,7 +958,7 @@ const TerminalMessage = ({
   if (!message.content) return null;
 
   return (
-    <div className={tw`min-w-0 space-y-1 px-1 text-(--text-secondary) [overflow-wrap:anywhere]`}>
+    <div className={tw`min-w-0 space-y-1 px-1 [overflow-wrap:anywhere] text-(--text-secondary)`}>
       <Markdown
         components={{
           a: ({ children, href }) => (
@@ -970,8 +974,12 @@ const TerminalMessage = ({
           blockquote: ({ children }) => (
             <blockquote
               className={tw`
-              my-1 break-words border-l-2 border-(--border-1) bg-(--surface-4) px-2 py-1 text-(--text-tertiary) [overflow-wrap:anywhere]
-            `}
+                my-1 border-l-2 border-(--border-1) bg-(--surface-4) px-2 py-1
+
+                [overflow-wrap:anywhere]
+
+                text-(--text-tertiary)
+              `}
             >
               {children}
             </blockquote>
@@ -981,18 +989,18 @@ const TerminalMessage = ({
             return isBlock ? (
               <pre
                 className={tw`
-                my-1 overflow-x-auto rounded-[4px] border border-(--border-1) bg-(--surface-1) p-2 text-xs
-                text-(--text-secondary)
-              `}
+                  my-1 overflow-x-auto rounded-[4px] border border-(--border-1) bg-(--surface-1) p-2 text-xs
+                  text-(--text-secondary)
+                `}
               >
                 <code>{children}</code>
               </pre>
             ) : (
               <code
                 className={tw`
-                break-all rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em]
-                text-(--text-primary)
-              `}
+                  rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em] break-all
+                  text-(--text-primary)
+                `}
               >
                 {children}
               </code>
@@ -1006,13 +1014,13 @@ const TerminalMessage = ({
           ),
           h3: ({ children }) => <div className={tw`my-1 text-sm font-semibold text-(--text-primary)`}>{children}</div>,
           li: ({ children }) => (
-            <li className={tw`break-words text-sm leading-[1.4] text-(--text-secondary) [overflow-wrap:anywhere]`}>
+            <li className={tw`text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-secondary)`}>
               {children}
             </li>
           ),
           ol: ({ children }) => <ol className={tw`my-1 list-decimal space-y-0.5 pl-5`}>{children}</ol>,
           p: ({ children }) => (
-            <p className={tw`mb-1.5 break-words text-sm leading-[1.4] text-(--text-primary) [overflow-wrap:anywhere]`}>
+            <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>
               {children}
             </p>
           ),
@@ -1024,11 +1032,11 @@ const TerminalMessage = ({
             </div>
           ),
           td: ({ children }) => (
-            <td className={tw`break-words px-2 py-1 text-(--text-secondary) [overflow-wrap:anywhere]`}>{children}</td>
+            <td className={tw`px-2 py-1 [overflow-wrap:anywhere] text-(--text-secondary)`}>{children}</td>
           ),
           th: ({ children }) => (
             <th
-              className={tw`break-words px-2 py-1 text-left text-xs font-semibold text-(--text-primary) [overflow-wrap:anywhere]`}
+              className={tw`px-2 py-1 text-left text-xs font-semibold [overflow-wrap:anywhere] text-(--text-primary)`}
             >
               {children}
             </th>
