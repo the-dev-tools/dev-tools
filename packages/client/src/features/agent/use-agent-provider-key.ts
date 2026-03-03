@@ -33,11 +33,7 @@ const notify = () => {
 };
 
 export const useAgentProviderKey = () => {
-  const provider = useSyncExternalStore(
-    subscribe,
-    getProviderSnapshot,
-    () => DEFAULT_PROVIDER,
-  );
+  const provider = useSyncExternalStore(subscribe, getProviderSnapshot, () => DEFAULT_PROVIDER);
   const apiKey = useSyncExternalStore(
     subscribe,
     () => getApiKeySnapshot(provider),
@@ -51,16 +47,19 @@ export const useAgentProviderKey = () => {
     notify();
   }, []);
 
-  const setApiKey = useCallback((key: string) => {
-    const trimmed = key.trim();
-    const storageKey = API_KEY_STORAGE_KEYS[provider];
-    if (trimmed) {
-      localStorage.setItem(storageKey, trimmed);
-    } else {
-      localStorage.removeItem(storageKey);
-    }
-    notify();
-  }, [provider]);
+  const setApiKey = useCallback(
+    (key: string) => {
+      const trimmed = key.trim();
+      const storageKey = API_KEY_STORAGE_KEYS[provider];
+      if (trimmed) {
+        localStorage.setItem(storageKey, trimmed);
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+      notify();
+    },
+    [provider],
+  );
 
   const getApiKey = useCallback((provider: AgentProvider) => getApiKeySnapshot(provider), []);
 

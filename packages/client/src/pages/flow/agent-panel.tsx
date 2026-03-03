@@ -795,9 +795,7 @@ const StreamingMessage = ({ content }: { content: string }) => (
           );
         },
         p: ({ children }) => (
-          <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>
-            {children}
-          </p>
+          <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>{children}</p>
         ),
         pre: ({ children }) => <>{children}</>,
       }}
@@ -932,9 +930,7 @@ const TerminalMessage = ({
                   );
                 },
                 p: ({ children }) => (
-                  <p
-                    className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}
-                  >
+                  <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>
                     {children}
                   </p>
                 ),
@@ -1014,9 +1010,7 @@ const TerminalMessage = ({
           ),
           h3: ({ children }) => <div className={tw`my-1 text-sm font-semibold text-(--text-primary)`}>{children}</div>,
           li: ({ children }) => (
-            <li className={tw`text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-secondary)`}>
-              {children}
-            </li>
+            <li className={tw`text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-secondary)`}>{children}</li>
           ),
           ol: ({ children }) => <ol className={tw`my-1 list-decimal space-y-0.5 pl-5`}>{children}</ol>,
           p: ({ children }) => (

@@ -26,8 +26,7 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
   const collection = useApiCollection(HttpVersionCollectionSchema);
 
   const { data: unsortedVersions } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection }).where((_) => eq(_.item.httpId, deltaHttpId ?? httpId)),
+    (_) => _.from({ item: collection }).where((_) => eq(_.item.httpId, deltaHttpId ?? httpId)),
     [collection, deltaHttpId, httpId],
   );
 

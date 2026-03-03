@@ -106,8 +106,7 @@ const Logs = () => {
   const logCollection = useApiCollection(LogCollectionSchema);
 
   const { data: unsortedLogs } = useLiveQuery(
-    (_) =>
-      _.from({ item: logCollection }).select((_) => pick(_.item, 'logId')),
+    (_) => _.from({ item: logCollection }).select((_) => pick(_.item, 'logId')),
     [logCollection],
   );
 
