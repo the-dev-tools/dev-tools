@@ -1,3 +1,13 @@
+## 0.4.0 (2026-03-03)
+
+### 🚀 Features
+
+- Add AI agent feature with tool execution, streaming, and provider settings. Add flow error display, fix version history ordering, and fix execution state display on flow versions. ([156c82ca](https://github.com/the-dev-tools/dev-tools/commit/156c82ca))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 0.3.2 (2026-03-03)
 
 ### 🩹 Fixes
