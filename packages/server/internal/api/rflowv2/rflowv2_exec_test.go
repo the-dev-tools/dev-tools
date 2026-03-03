@@ -216,6 +216,36 @@ func TestFlowStop(t *testing.T) {
 		// Should fail because user doesn't exist or has no access
 		// The EnsureFlowAccess check usually returns specific errors, let's just check it fails
 	})
+
+	t.Run("Stop clears stale running state in DB", func(t *testing.T) {
+		// Simulate stale running state (e.g., from a previous server crash)
+		flow.Running = true
+		err := svc.fs.UpdateFlow(ctx, flow)
+		require.NoError(t, err)
+
+		// Verify it's stuck
+		f, err := svc.fs.GetFlow(ctx, flowID)
+		require.NoError(t, err)
+		require.True(t, f.Running)
+
+		// No entry in runningFlows map — goroutine is gone
+		svc.runningFlowsMu.Lock()
+		delete(svc.runningFlows, flowID.String())
+		svc.runningFlowsMu.Unlock()
+
+		// FlowStop should still reset the stale state
+		req := connect.NewRequest(&flowv1.FlowStopRequest{
+			FlowId: flowID.Bytes(),
+		})
+		resp, err := svc.FlowStop(ctx, req)
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		// Verify DB is cleaned up
+		f, err = svc.fs.GetFlow(ctx, flowID)
+		require.NoError(t, err)
+		assert.False(t, f.Running, "FlowStop should clear stale running state")
+	})
 }
 
 func TestCreateFlowVersionSnapshot(t *testing.T) {
@@ -326,12 +356,12 @@ func TestCreateFlowVersionSnapshot(t *testing.T) {
 			foundNode1 = true
 			assert.Equal(t, node1.Name, n.Name)
 			assert.Equal(t, node1.NodeKind, n.NodeKind)
-			assert.Equal(t, node1.State, n.State, "Node 1 state should be preserved in snapshot")
+			assert.Equal(t, mflow.NODE_STATE_UNSPECIFIED, n.State, "Node 1 state should be UNSPECIFIED in snapshot (not stale parent state)")
 		} else if n.ID == mappedNode2ID {
 			foundNode2 = true
 			assert.Equal(t, node2.Name, n.Name)
 			assert.Equal(t, node2.NodeKind, n.NodeKind)
-			assert.Equal(t, node2.State, n.State, "Node 2 state should be preserved in snapshot")
+			assert.Equal(t, mflow.NODE_STATE_UNSPECIFIED, n.State, "Node 2 state should be UNSPECIFIED in snapshot (not stale parent state)")
 		}
 	}
 	assert.True(t, foundNode1, "Mapped node 1 not found in version nodes")
@@ -1041,4 +1071,307 @@ func TestVersionFlowExecutionMapping_RPC(t *testing.T) {
 
 	_ = queries // Suppress unused warning
 	_ = userID  // Suppress unused warning
+}
+
+func TestFlowRunEarlyFailure_CleansUpRunningState(t *testing.T) {
+	svc, _, ctx, _, workspaceID := setupTestService(t)
+
+	// Create a flow
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Early Failure Test Flow",
+	}
+	err := svc.fs.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Create a start node
+	startNodeID := idwrap.NewNow()
+	err = svc.ns.CreateNode(ctx, mflow.Node{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mflow.NODE_KIND_MANUAL_START,
+		PositionX: 0,
+		PositionY: 0,
+	})
+	require.NoError(t, err)
+
+	// Create a request node WITHOUT http config (triggers BuildNodes error)
+	reqNodeID := idwrap.NewNow()
+	err = svc.ns.CreateNode(ctx, mflow.Node{
+		ID:        reqNodeID,
+		FlowID:    flowID,
+		Name:      "Request",
+		NodeKind:  mflow.NODE_KIND_REQUEST,
+		PositionX: 100,
+		PositionY: 0,
+	})
+	require.NoError(t, err)
+
+	// Create request config with nil HttpID — this will cause "missing http configuration"
+	err = svc.nrs.CreateNodeRequest(ctx, mflow.NodeRequest{
+		FlowNodeID: reqNodeID,
+		HttpID:     nil,
+	})
+	require.NoError(t, err)
+
+	// Create edge from start to request
+	err = svc.es.CreateEdge(ctx, mflow.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      startNodeID,
+		TargetID:      reqNodeID,
+		SourceHandler: mflow.HandleThen,
+	})
+	require.NoError(t, err)
+
+	// Run the flow (async) — this should fail in BuildNodes but still clean up
+	req := connect.NewRequest(&flowv1.FlowRunRequest{
+		FlowId: flowID.Bytes(),
+	})
+	_, err = svc.FlowRun(ctx, req)
+	require.NoError(t, err)
+
+	// Wait for the async goroutine to complete and clean up Running state
+	require.Eventually(t, func() bool {
+		f, fErr := svc.fs.GetFlow(ctx, flowID)
+		if fErr != nil {
+			return false
+		}
+		return !f.Running
+	}, 5*time.Second, 50*time.Millisecond,
+		"Flow should not be stuck in running state after early failure")
+
+	// Verify final state
+	finalFlow, err := svc.fs.GetFlow(ctx, flowID)
+	require.NoError(t, err)
+	assert.False(t, finalFlow.Running, "Flow.Running should be false after early failure")
+	assert.Equal(t, int32(0), finalFlow.Duration, "Duration should be 0 for early failure")
+}
+
+func TestCopyStatesToVersion(t *testing.T) {
+	svc, _, ctx, _, workspaceID := setupTestService(t)
+
+	// Create parent flow with nodes and edges
+	flowID := idwrap.NewNow()
+	parentFlow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Copy States Test",
+	}
+	err := svc.fs.CreateFlow(ctx, parentFlow)
+	require.NoError(t, err)
+
+	node1ID := idwrap.NewNow()
+	node1 := mflow.Node{
+		ID:       node1ID,
+		FlowID:   flowID,
+		Name:     "Start",
+		NodeKind: mflow.NODE_KIND_MANUAL_START,
+	}
+	err = svc.ns.CreateNode(ctx, node1)
+	require.NoError(t, err)
+
+	node2ID := idwrap.NewNow()
+	node2 := mflow.Node{
+		ID:       node2ID,
+		FlowID:   flowID,
+		Name:     "Request",
+		NodeKind: mflow.NODE_KIND_REQUEST,
+	}
+	err = svc.ns.CreateNode(ctx, node2)
+	require.NoError(t, err)
+
+	node3ID := idwrap.NewNow()
+	node3 := mflow.Node{
+		ID:       node3ID,
+		FlowID:   flowID,
+		Name:     "JS",
+		NodeKind: mflow.NODE_KIND_JS,
+	}
+	err = svc.ns.CreateNode(ctx, node3)
+	require.NoError(t, err)
+
+	// Create sub-node data for request node
+	err = svc.nrs.CreateNodeRequest(ctx, mflow.NodeRequest{FlowNodeID: node2ID})
+	require.NoError(t, err)
+	err = svc.njss.CreateNodeJS(ctx, mflow.NodeJS{FlowNodeID: node3ID, Code: []byte("// test")})
+	require.NoError(t, err)
+
+	edge1 := mflow.Edge{
+		ID:       idwrap.NewNow(),
+		FlowID:   flowID,
+		SourceID: node1ID,
+		TargetID: node2ID,
+	}
+	err = svc.es.CreateEdge(ctx, edge1)
+	require.NoError(t, err)
+
+	edge2 := mflow.Edge{
+		ID:       idwrap.NewNow(),
+		FlowID:   flowID,
+		SourceID: node2ID,
+		TargetID: node3ID,
+	}
+	err = svc.es.CreateEdge(ctx, edge2)
+	require.NoError(t, err)
+
+	// Create version snapshot (nodes/edges start with UNSPECIFIED)
+	nodes := []mflow.Node{node1, node2, node3}
+	edges := []mflow.Edge{edge1, edge2}
+	version, nodeIDMapping, err := svc.createFlowVersionSnapshot(ctx, parentFlow, nodes, edges, nil)
+	require.NoError(t, err)
+
+	// Simulate execution: set parent node states
+	err = svc.ns.UpdateNodeState(ctx, node1ID, mflow.NODE_STATE_SUCCESS)
+	require.NoError(t, err)
+	err = svc.ns.UpdateNodeState(ctx, node2ID, mflow.NODE_STATE_SUCCESS)
+	require.NoError(t, err)
+	err = svc.ns.UpdateNodeState(ctx, node3ID, mflow.NODE_STATE_FAILURE)
+	require.NoError(t, err)
+
+	// Simulate execution: set parent edge states
+	err = svc.es.UpdateEdgeState(ctx, edge1.ID, mflow.NODE_STATE_SUCCESS)
+	require.NoError(t, err)
+	err = svc.es.UpdateEdgeState(ctx, edge2.ID, mflow.NODE_STATE_FAILURE)
+	require.NoError(t, err)
+
+	// Verify version nodes still have UNSPECIFIED before copy
+	versionNodes, err := svc.ns.GetNodesByFlowID(ctx, version.ID)
+	require.NoError(t, err)
+	for _, vn := range versionNodes {
+		assert.Equal(t, mflow.NODE_STATE_UNSPECIFIED, vn.State, "Version node should be UNSPECIFIED before copy")
+	}
+
+	// ACT: copy states from parent to version
+	svc.copyStatesToVersion(ctx, flowID, version.ID, nodeIDMapping)
+
+	// ASSERT: version nodes have correct states
+	versionNodes, err = svc.ns.GetNodesByFlowID(ctx, version.ID)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(versionNodes))
+
+	nodeStateMap := make(map[idwrap.IDWrap]mflow.NodeState)
+	for _, vn := range versionNodes {
+		nodeStateMap[vn.ID] = vn.State
+	}
+
+	assert.Equal(t, mflow.NODE_STATE_SUCCESS, nodeStateMap[nodeIDMapping[node1ID.String()]], "Version node 1 should be SUCCESS")
+	assert.Equal(t, mflow.NODE_STATE_SUCCESS, nodeStateMap[nodeIDMapping[node2ID.String()]], "Version node 2 should be SUCCESS")
+	assert.Equal(t, mflow.NODE_STATE_FAILURE, nodeStateMap[nodeIDMapping[node3ID.String()]], "Version node 3 should be FAILURE")
+
+	// ASSERT: version edges have correct states
+	versionEdges, err := svc.es.GetEdgesByFlowID(ctx, version.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(versionEdges))
+
+	edgeStateMap := make(map[string]mflow.NodeState)
+	for _, ve := range versionEdges {
+		key := ve.SourceID.String() + ":" + ve.TargetID.String()
+		edgeStateMap[key] = ve.State
+	}
+
+	vNode1ID := nodeIDMapping[node1ID.String()]
+	vNode2ID := nodeIDMapping[node2ID.String()]
+	vNode3ID := nodeIDMapping[node3ID.String()]
+
+	assert.Equal(t, mflow.NODE_STATE_SUCCESS, edgeStateMap[vNode1ID.String()+":"+vNode2ID.String()], "Version edge 1→2 should be SUCCESS")
+	assert.Equal(t, mflow.NODE_STATE_FAILURE, edgeStateMap[vNode2ID.String()+":"+vNode3ID.String()], "Version edge 2→3 should be FAILURE")
+}
+
+func TestCopyStatesToVersion_EdgeMatching(t *testing.T) {
+	svc, _, ctx, _, workspaceID := setupTestService(t)
+
+	// Create a branching flow: node1 → node2 (Then), node1 → node3 (Else)
+	flowID := idwrap.NewNow()
+	parentFlow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Edge Matching Test",
+	}
+	err := svc.fs.CreateFlow(ctx, parentFlow)
+	require.NoError(t, err)
+
+	node1ID := idwrap.NewNow()
+	err = svc.ns.CreateNode(ctx, mflow.Node{
+		ID: node1ID, FlowID: flowID, Name: "Condition",
+		NodeKind: mflow.NODE_KIND_CONDITION,
+	})
+	require.NoError(t, err)
+	err = svc.nifs.CreateNodeIf(ctx, mflow.NodeIf{FlowNodeID: node1ID})
+	require.NoError(t, err)
+
+	node2ID := idwrap.NewNow()
+	err = svc.ns.CreateNode(ctx, mflow.Node{
+		ID: node2ID, FlowID: flowID, Name: "Then Branch",
+		NodeKind: mflow.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+	err = svc.njss.CreateNodeJS(ctx, mflow.NodeJS{FlowNodeID: node2ID, Code: []byte("// test")})
+	require.NoError(t, err)
+
+	node3ID := idwrap.NewNow()
+	err = svc.ns.CreateNode(ctx, mflow.Node{
+		ID: node3ID, FlowID: flowID, Name: "Else Branch",
+		NodeKind: mflow.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+	err = svc.njss.CreateNodeJS(ctx, mflow.NodeJS{FlowNodeID: node3ID, Code: []byte("// test")})
+	require.NoError(t, err)
+
+	// Edge with Then handler
+	edgeThen := mflow.Edge{
+		ID: idwrap.NewNow(), FlowID: flowID,
+		SourceID: node1ID, TargetID: node2ID,
+		SourceHandler: mflow.HandleThen,
+	}
+	err = svc.es.CreateEdge(ctx, edgeThen)
+	require.NoError(t, err)
+
+	// Edge with Else handler
+	edgeElse := mflow.Edge{
+		ID: idwrap.NewNow(), FlowID: flowID,
+		SourceID: node1ID, TargetID: node3ID,
+		SourceHandler: mflow.HandleElse,
+	}
+	err = svc.es.CreateEdge(ctx, edgeElse)
+	require.NoError(t, err)
+
+	// Create version snapshot
+	nodes := []mflow.Node{
+		{ID: node1ID, FlowID: flowID, Name: "Condition", NodeKind: mflow.NODE_KIND_CONDITION},
+		{ID: node2ID, FlowID: flowID, Name: "Then Branch", NodeKind: mflow.NODE_KIND_JS},
+		{ID: node3ID, FlowID: flowID, Name: "Else Branch", NodeKind: mflow.NODE_KIND_JS},
+	}
+	edges := []mflow.Edge{edgeThen, edgeElse}
+	version, nodeIDMapping, err := svc.createFlowVersionSnapshot(ctx, parentFlow, nodes, edges, nil)
+	require.NoError(t, err)
+
+	// Simulate: Then branch taken (SUCCESS), Else not taken (stays UNSPECIFIED)
+	err = svc.es.UpdateEdgeState(ctx, edgeThen.ID, mflow.NODE_STATE_SUCCESS)
+	require.NoError(t, err)
+	// edgeElse stays UNSPECIFIED (default)
+
+	// ACT
+	svc.copyStatesToVersion(ctx, flowID, version.ID, nodeIDMapping)
+
+	// ASSERT: each version edge has the correct state
+	versionEdges, err := svc.es.GetEdgesByFlowID(ctx, version.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(versionEdges))
+
+	vNode2ID := nodeIDMapping[node2ID.String()]
+	vNode3ID := nodeIDMapping[node3ID.String()]
+
+	for _, ve := range versionEdges {
+		if ve.TargetID == vNode2ID {
+			assert.Equal(t, mflow.NODE_STATE_SUCCESS, ve.State, "Then edge should be SUCCESS")
+		} else if ve.TargetID == vNode3ID {
+			assert.Equal(t, mflow.NODE_STATE_UNSPECIFIED, ve.State, "Else edge should remain UNSPECIFIED")
+		} else {
+			t.Errorf("Unexpected version edge target: %s", ve.TargetID.String())
+		}
+	}
 }

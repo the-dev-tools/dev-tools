@@ -6,6 +6,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -21,6 +22,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -37,6 +39,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -51,6 +54,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow
@@ -59,31 +63,32 @@ WHERE
 
 -- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
+  flow (id, workspace_id, version_parent_id, name, duration, running, error, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateFlowsBulk :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration, running, node_id_mapping)
+  flow (id, workspace_id, version_parent_id, name, duration, running, error, node_id_mapping)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlow :exec
 UPDATE flow
 SET
   name = ?,
   duration = ?,
-  running = ?
+  running = ?,
+  error = ?
 WHERE
   id = ?;
 
@@ -711,6 +716,7 @@ SELECT
   name,
   duration,
   running,
+  error,
   node_id_mapping
 FROM
   flow

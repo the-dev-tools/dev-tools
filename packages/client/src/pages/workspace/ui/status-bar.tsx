@@ -105,13 +105,23 @@ export const StatusBar = () => {
 const Logs = () => {
   const logCollection = useApiCollection(LogCollectionSchema);
 
-  const { data: logs } = useLiveQuery(
-    (_) =>
-      _.from({ item: logCollection })
-        .orderBy((_) => _.item.logId, 'desc')
-        .limit(50)
-        .select((_) => pick(_.item, 'logId')),
+  const { data: unsortedLogs } = useLiveQuery(
+    (_) => _.from({ item: logCollection }).select((_) => pick(_.item, 'logId')),
     [logCollection],
+  );
+
+  // Sort by ULID canonical string instead of raw Uint8Array to avoid
+  // incorrect JS string coercion comparison, then take latest 50.
+  const logs = useMemo(
+    () =>
+      [...unsortedLogs]
+        .sort((a, b) => {
+          const aKey = Ulid.construct(a.logId).toCanonical();
+          const bKey = Ulid.construct(b.logId).toCanonical();
+          return bKey.localeCompare(aKey); // DESC
+        })
+        .slice(0, 50),
+    [unsortedLogs],
   );
 
   return (

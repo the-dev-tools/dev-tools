@@ -28,6 +28,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	globalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/global/v1"
 )
 
 func (s *FlowServiceV2RPC) FlowCollection(
@@ -139,6 +140,7 @@ func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
 			WorkspaceId: evt.Flow.WorkspaceId,
 			Name:        evt.Flow.Name,
 			Running:     evt.Flow.Running,
+			Error:       evt.Flow.Error,
 		}
 		if evt.Flow.Duration != nil {
 			insert.Duration = evt.Flow.Duration
@@ -161,6 +163,17 @@ func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
 			update.Duration = &flowv1.FlowSyncUpdate_DurationUnion{
 				Kind:  flowv1.FlowSyncUpdate_DurationUnion_KIND_VALUE,
 				Value: evt.Flow.Duration,
+			}
+		}
+		if evt.Flow.Error != nil {
+			update.Error = &flowv1.FlowSyncUpdate_ErrorUnion{
+				Kind:  flowv1.FlowSyncUpdate_ErrorUnion_KIND_VALUE,
+				Value: evt.Flow.Error,
+			}
+		} else {
+			update.Error = &flowv1.FlowSyncUpdate_ErrorUnion{
+				Kind:  flowv1.FlowSyncUpdate_ErrorUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
 			}
 		}
 		syncEvent = &flowv1.FlowSync{

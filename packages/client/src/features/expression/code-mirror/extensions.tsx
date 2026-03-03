@@ -124,7 +124,7 @@ const referenceCompletions =
   }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
     // Check for Reference token type first (works in text body)
-    let token = context.tokenBefore(['Word'])?.text.trimStart();
+    let token = context.tokenBefore(['Identifier'])?.text.trimStart();
 
     const isExpression =
       context.tokenBefore(['String', 'StringExpression']) === null || context.tokenBefore(['Interpolation']) !== null;
@@ -273,8 +273,18 @@ const language = ({ kind = 'FullExpression', ...props }: LanguageProps) => {
 
       props: [
         styleTags({
+          BooleanLiteral: tags.bool,
+          Identifier: tags.variableName,
           InterpolationEnd: tags.escape,
           InterpolationStart: tags.escape,
+          Keyword: tags.keyword,
+          LineComment: tags.lineComment,
+          NilLiteral: tags.null,
+          Number: tags.number,
+          Operator: tags.operator,
+          Punctuation: tags.punctuation,
+          RawString: tags.string,
+          SingleString: tags.string,
           String: tags.string,
           StringExpression: tags.string,
         }),

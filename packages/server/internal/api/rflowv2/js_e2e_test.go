@@ -49,10 +49,13 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 		t.Skip("worker-js bundle not found - run 'pnpm nx run worker-js:build' first")
 	}
 
-	// Create temp directory for Unix socket
-	socketDir := t.TempDir()
-	socketPath := filepath.Join(socketDir, "worker-js.socket")
-	t.Logf("Using socket path: %s", socketPath)
+	// Use a short path under /tmp to stay within Unix socket's 104-byte limit on macOS.
+	// t.TempDir() produces paths that are too long (especially inside nix-shell).
+	socketDir, err := os.MkdirTemp("/tmp", "dt-e2e-")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(socketDir) })
+	socketPath := filepath.Join(socketDir, "w.sock")
+	t.Logf("Using socket path: %s (len=%d)", socketPath, len(socketPath))
 
 	// Start worker-js
 	ctx, cancel := context.WithCancel(context.Background())

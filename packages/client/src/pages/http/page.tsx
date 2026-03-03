@@ -1,4 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
+import { Ulid } from 'id128';
+import { useMemo } from 'react';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
@@ -29,17 +31,24 @@ const Page = ({ deltaHttpId, httpId }: PageProps) => {
 
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { httpResponseId } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: responseCollection })
-          .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
-          .select((_) => pick(_.item, 'httpResponseId'))
-          .orderBy((_) => _.item.httpResponseId, 'desc')
-          .limit(1)
-          .findOne(),
-      [responseCollection, deltaHttpId, httpId],
-    ).data ?? {};
+  const { data: responses } = useLiveQuery(
+    (_) =>
+      _.from({ item: responseCollection })
+        .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
+        .select((_) => pick(_.item, 'httpResponseId')),
+    [responseCollection, deltaHttpId, httpId],
+  );
+
+  // Find the latest response by ULID canonical string comparison instead of
+  // raw Uint8Array to avoid incorrect JS string coercion ordering.
+  const httpResponseId = useMemo(() => {
+    if (responses.length === 0) return undefined;
+    return responses.reduce((latest, curr) => {
+      const latestKey = Ulid.construct(latest.httpResponseId).toCanonical();
+      const currKey = Ulid.construct(curr.httpResponseId).toCanonical();
+      return currKey > latestKey ? curr : latest;
+    }).httpResponseId;
+  }, [responses]);
 
   const endpointLayout = useDefaultLayout({ id: 'endpoint' });
 
