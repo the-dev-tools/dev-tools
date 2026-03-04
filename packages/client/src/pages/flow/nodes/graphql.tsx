@@ -10,19 +10,24 @@ import {
   NodeExecutionCollectionSchema,
   NodeGraphQLCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { GraphQLCollectionSchema, GraphQLDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
+import {
+  GraphQLCollectionSchema,
+  GraphQLDeltaCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useDeltaState } from '~/features/delta';
 import { ReferenceContext } from '~/features/expression';
-import { GraphQLRequestPanel, GraphQLResponseInfo, GraphQLResponsePanel } from '~/pages/graphql/@x/flow';
+import { GraphQLRequestPanel, GraphQLResponseInfo, GraphQLResponsePanel, GraphQLUrl } from '~/pages/graphql/@x/flow';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
 import { NodeSettingsBody, NodeSettingsOutputProps, NodeSettingsProps, SimpleNode } from '../node';
+
+const defaultNodeGraphQL = create(NodeGraphQLSchema);
 
 export const GraphQLNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
@@ -37,7 +42,7 @@ export const GraphQLNode = ({ id, selected }: XF.NodeProps) => {
           .select((_) => pick(_.item, 'graphqlId', 'deltaGraphqlId'))
           .findOne(),
       [nodeGraphQLCollection, nodeId],
-    ).data ?? create(NodeGraphQLSchema);
+    ).data ?? defaultNodeGraphQL;
 
   const deltaOptions = {
     deltaId: deltaGraphqlId,
@@ -89,7 +94,7 @@ export const GraphQLSettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'graphqlId', 'deltaGraphqlId'))
           .findOne(),
       [nodeGraphQLCollection, nodeId],
-    ).data ?? create(NodeGraphQLSchema);
+    ).data ?? defaultNodeGraphQL;
 
   return (
     <NodeSettingsBody
@@ -122,14 +127,12 @@ export const GraphQLSettings = ({ nodeId }: NodeSettingsProps) => {
       }
       title='GraphQL request'
     >
+      <GraphQLUrl deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} isReadOnly={isReadOnly} />
+
       <ReferenceContext
         value={{ flowNodeId: nodeId, graphqlId, workspaceId, ...(deltaGraphqlId && { deltaGraphqlId }) }}
       >
-        <GraphQLRequestPanel
-          deltaGraphqlId={deltaGraphqlId}
-          graphqlId={graphqlId}
-          isReadOnly={isReadOnly}
-        />
+        <GraphQLRequestPanel deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} isReadOnly={isReadOnly} />
       </ReferenceContext>
     </NodeSettingsBody>
   );

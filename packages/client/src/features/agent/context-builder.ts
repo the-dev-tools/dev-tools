@@ -8,6 +8,7 @@ import {
   FlowVariableCollectionSchema,
   NodeCollectionSchema,
   NodeExecutionCollectionSchema,
+  NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
@@ -20,6 +21,7 @@ const NODE_KIND_NAMES: Record<number, string> = {
   [NodeKind.CONDITION]: 'Condition',
   [NodeKind.FOR]: 'For',
   [NodeKind.FOR_EACH]: 'ForEach',
+  [NodeKind.GRAPH_Q_L]: 'GraphQL',
   [NodeKind.HTTP]: 'HTTP',
   [NodeKind.JS]: 'JavaScript',
   [NodeKind.MANUAL_START]: 'ManualStart',
@@ -54,6 +56,7 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
   const variableCollection = useApiCollection(FlowVariableCollectionSchema);
   const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
+  const nodeGraphqlCollection = useApiCollection(NodeGraphQLCollectionSchema);
   const httpCollection = useApiCollection(HttpCollectionSchema);
 
   const { data: nodesData } = useLiveQuery(
@@ -94,6 +97,19 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
       .map((nh) => [Ulid.construct(nh.nodeId).toCanonical(), Ulid.construct(nh.httpId).toCanonical()]),
   );
 
+  // Get all nodeGraphql mappings for GraphQL nodes
+  const { data: nodeGraphqlData } = useLiveQuery(
+    (_) => _.from({ nodeGql: nodeGraphqlCollection }),
+    [nodeGraphqlCollection],
+  );
+
+  // Build a map of nodeId -> graphqlId for quick lookup
+  const nodeGraphqlMap = new Map(
+    (nodeGraphqlData ?? [])
+      .filter((ng) => ng.nodeId != null && ng.graphqlId != null)
+      .map((ng) => [Ulid.construct(ng.nodeId).toCanonical(), Ulid.construct(ng.graphqlId).toCanonical()]),
+  );
+
   // Get all HTTP requests to fetch their methods
   const { data: httpData } = useLiveQuery((_) => _.from({ http: httpCollection }), [httpCollection]);
 
@@ -110,7 +126,9 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
       const nodeIdStr = Ulid.construct(n.nodeId).toCanonical();
       const httpId = n.kind === NodeKind.HTTP ? nodeHttpMap.get(nodeIdStr) : undefined;
       const httpMethod = httpId ? httpMethodMap.get(httpId) : undefined;
+      const graphqlId = n.kind === NodeKind.GRAPH_Q_L ? nodeGraphqlMap.get(nodeIdStr) : undefined;
       return {
+        graphqlId,
         httpId,
         httpMethod,
         id: nodeIdStr,
@@ -177,6 +195,7 @@ interface FlowCollections {
   executionCollection: ReturnType<typeof useApiCollection<typeof NodeExecutionCollectionSchema>>;
   httpCollection: ReturnType<typeof useApiCollection<typeof HttpCollectionSchema>>;
   nodeCollection: ReturnType<typeof useApiCollection<typeof NodeCollectionSchema>>;
+  nodeGraphqlCollection: ReturnType<typeof useApiCollection<typeof NodeGraphQLCollectionSchema>>;
   nodeHttpCollection: ReturnType<typeof useApiCollection<typeof NodeHttpCollectionSchema>>;
   variableCollection: ReturnType<typeof useApiCollection<typeof FlowVariableCollectionSchema>>;
 }
@@ -195,6 +214,7 @@ export const refreshFlowContext = async (
     executionCollection,
     httpCollection,
     nodeCollection,
+    nodeGraphqlCollection,
     nodeHttpCollection,
     variableCollection,
   } = collections;
@@ -227,6 +247,13 @@ export const refreshFlowContext = async (
       .map((nh) => [Ulid.construct(nh.nodeId).toCanonical(), Ulid.construct(nh.httpId).toCanonical()]),
   );
 
+  const nodeGraphqlData = await queryCollection((_) => _.from({ nodeGql: nodeGraphqlCollection }));
+  const nodeGraphqlMap = new Map(
+    nodeGraphqlData
+      .filter((ng) => ng.nodeId != null && ng.graphqlId != null)
+      .map((ng) => [Ulid.construct(ng.nodeId).toCanonical(), Ulid.construct(ng.graphqlId).toCanonical()]),
+  );
+
   const httpData = await queryCollection((_) => _.from({ http: httpCollection }));
   const httpMethodMap = new Map(
     httpData
@@ -240,7 +267,9 @@ export const refreshFlowContext = async (
       const nodeIdStr = Ulid.construct(n.nodeId).toCanonical();
       const httpId = n.kind === NodeKind.HTTP ? nodeHttpMap.get(nodeIdStr) : undefined;
       const httpMethod = httpId ? httpMethodMap.get(httpId) : undefined;
+      const graphqlId = n.kind === NodeKind.GRAPH_Q_L ? nodeGraphqlMap.get(nodeIdStr) : undefined;
       return {
+        graphqlId,
         httpId,
         httpMethod,
         id: nodeIdStr,
@@ -380,7 +409,7 @@ const buildXmlFlowBlock = (context: FlowContextData): string => {
   // 4. Compute endpoint set (sequential nodes with no outgoing edges)
   const endpointSet = new Set(
     context.nodes
-      .filter((n) => ['HTTP', 'JavaScript', 'ManualStart'].includes(n.kind) && !outgoingEdges.has(n.id))
+      .filter((n) => ['GraphQL', 'HTTP', 'JavaScript', 'ManualStart'].includes(n.kind) && !outgoingEdges.has(n.id))
       .map((n) => n.id),
   );
 
@@ -451,7 +480,7 @@ const buildXmlCompactSummary = (context: FlowContextData): string => {
   // Find endpoint nodes
   const outgoing = new Set(context.edges.map((e) => e.sourceId));
   const endpoints = context.nodes.filter(
-    (n) => ['HTTP', 'JavaScript', 'ManualStart'].includes(n.kind) && !outgoing.has(n.id),
+    (n) => ['GraphQL', 'HTTP', 'JavaScript', 'ManualStart'].includes(n.kind) && !outgoing.has(n.id),
   );
 
   const lines: string[] = [`<flow-update nodes="${context.nodes.length}" edges="${context.edges.length}">`];
@@ -505,13 +534,13 @@ ${buildXmlFlowBlock(context)}
 IMPORTANT RULES:
 1. To find the start node, look for a node with type "ManualStart".
 2. When connecting nodes, use the node IDs from the workflow XML.
-3. Node outputs are stored by node name. In JS code use ctx["NodeName"]. HTTP nodes output { response: { status, body }, request }. ForEach nodes expose { item, key } during iteration. In HTTP fields use {{NodeName.response.body.field}} interpolation — see <variable-syntax>.
+3. Node outputs are stored by node name. In JS code use ctx["NodeName"]. HTTP nodes output { response: { status, body }, request }. GraphQL nodes output { response: { status, body, headers, duration }, request: { url, query, variables, headers } }. ForEach nodes expose { item, key } during iteration. In HTTP/GraphQL fields use {{NodeName.response.body.field}} interpolation — see <variable-syntax>.
 4. A node can connect to multiple targets for parallel execution (all branches run and complete before downstream nodes continue). To run steps sequentially, chain them: Start → A → B → C. Only create Condition nodes when "then" and "else" lead to DIFFERENT destinations — if both go to the same node, skip the Condition.
 5. ALWAYS use connectChain for ALL connections — sequential, branching (auto-applies "then"), fan-out, and fan-in. Examples: ["A","B"] single, ["A","B","C"] chain, ["A",["B","C"],"D"] fan-out/fan-in, [["B","C"],"D"] fan-in only. Pass sourceHandle: "else" or "loop" for non-default branches. Use edge id attributes from \`<edge>\` elements when calling disconnectNodes.
 6. Always confirm what you did after executing tools.
 7. If a node has state="Failure", use inspectNode to get detailed error and config information.
 8. Use inspectNode with includeOutput: true to see the input/output data of a node's most recent execution.
-9. Use updateNode to modify any node's configuration — condition expressions, loop iterations/paths, JS code, HTTP settings, or node names. Provide only the fields to change. Arrays (headers, searchParams, assertions) replace the full existing set.
+9. Use updateNode to modify any node's configuration — condition expressions, loop iterations/paths, JS code, HTTP settings, GraphQL settings, or node names. Provide only the fields to change. Arrays (headers, searchParams, assertions) replace the full existing set.
 10. Nodes with selected="true" are currently selected on canvas — prefer operating on those nodes unless the user specifies otherwise.
 11. Nodes with endpoint="true" are the last in their chain — new nodes connect there.
 12. Nodes with orphan="true" are mistakes — they must be connected to the flow via connectChain.
@@ -519,10 +548,10 @@ IMPORTANT RULES:
 14. For multi-phase flows, use SEPARATE connectChain calls per phase with a shared fan-in node. Example: ["Start",["GET1","GET2"],"ProcessData"] then ["ProcessData",["POST1","POST2"],"End"]. NEVER use consecutive nested arrays — split them across calls.
 15. NEVER delete a node to work around an error. If a node fails or cannot be configured with available tools, explain the problem to the user and suggest what they need to do manually. Deleting user-requested nodes and replacing them with a different type is not allowed unless the user explicitly asks for it.
 16. AI nodes require a connected AI Provider node that supplies the LLM model and credentials. The agent cannot create or configure AI Provider nodes — this must be done by the user on the canvas. If an AI node fails with a provider-related error, tell the user they need to add and connect an AI Provider node to it with the appropriate credentials.
-17. Use patchHttpNode to add or remove individual headers, query params, or assertions without affecting the rest. Use updateNode only when you want to replace the entire set.
+17. Use patchHttpNode to add or remove individual headers, query params, or assertions on HTTP nodes without affecting the rest. Use patchGraphqlNode for the same on GraphQL nodes. Use updateNode only when you want to replace the entire set.
 
 <variable-syntax>
-All text fields in HTTP nodes (url, headers, body, query params) support {{}} interpolation.
+All text fields in HTTP nodes (url, headers, body, query params) and GraphQL nodes (url, query, variables, headers) support {{}} interpolation.
 The server resolves these at runtime — use variable references, not hardcoded values.
 
 Syntax:
@@ -543,7 +572,7 @@ Node names use underscores for spaces: "Get User" → Get_User in references.
 </variable-syntax>
 
 <assertion-syntax>
-Assertions use expr-lang syntax (NOT JavaScript). They are evaluated server-side against the HTTP response.
+Assertions use expr-lang syntax (NOT JavaScript). They are evaluated server-side against the HTTP/GraphQL response.
 
 Available variables (ONLY these exist — do NOT invent others):
 - response.status (int), response.body (parsed JSON object/array/string), response.headers (map), response.duration (int ms)

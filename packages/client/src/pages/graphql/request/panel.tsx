@@ -61,7 +61,10 @@ export const GraphQLRequestPanel = ({
     );
 
   return (
-    <Tabs className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)} defaultSelectedKey='query'>
+    <Tabs
+      className={twMerge(tw`flex flex-1 flex-col gap-6 overflow-auto p-6 pt-4`, className)}
+      defaultSelectedKey='query'
+    >
       <TabList className={tw`flex gap-3 border-b border-neutral`}>
         <Tab className={tabClass} id='query'>
           Query

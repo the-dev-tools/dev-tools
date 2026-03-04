@@ -25,8 +25,10 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
 )
@@ -124,6 +126,11 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 	nodeAIService := sflow.NewNodeAIService(queries)
 	nodeAiProviderService := sflow.NewNodeAiProviderService(queries)
 	nodeMemoryService := sflow.NewNodeMemoryService(queries)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 
 	// Environment and variable services
 	envService := senv.NewEnvironmentService(queries, logger)
@@ -163,6 +170,7 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 			NodeAI:        &nodeAIService,
 			NodeAiProvider:     &nodeAiProviderService,
 			NodeMemory:    &nodeMemoryService,
+			NodeGraphQL:   &nodeGraphQLService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -171,9 +179,10 @@ func TestJSNodeExecution_E2E(t *testing.T) {
 			HttpBodyRaw:   shttpBodyRawSvc,
 			HttpResponse:  httpResponseService,
 		},
-		Resolver: res,
-		Logger:   logger,
-		JsClient: jsClient,
+		Resolver:        res,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
+		JsClient:        jsClient,
 	})
 
 	// Setup Data

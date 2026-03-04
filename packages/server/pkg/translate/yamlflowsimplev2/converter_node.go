@@ -35,6 +35,8 @@ func getStepCommon(sw YamlStepWrapper) *YamlStepCommon {
 		return &sw.AIProvider.YamlStepCommon
 	case sw.AIMemory != nil:
 		return &sw.AIMemory.YamlStepCommon
+	case sw.GraphQL != nil:
+		return &sw.GraphQL.YamlStepCommon
 	case sw.ManualStart != nil:
 		return sw.ManualStart
 	default:

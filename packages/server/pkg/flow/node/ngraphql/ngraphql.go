@@ -204,7 +204,7 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 		result.Err = fmt.Errorf("graphql request failed: %w", err)
 		return result
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	// Read response body
 	respBody, err := io.ReadAll(httpResp.Body)

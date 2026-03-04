@@ -6,7 +6,12 @@ import * as RAC from 'react-aria-components';
 import { FiArrowLeft, FiBriefcase, FiChevronRight, FiTerminal, FiX } from 'react-icons/fi';
 import { TbRobotFace } from 'react-icons/tb';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
-import { HandleKind, NodeGraphQLInsertSchema, NodeHttpInsertSchema, NodeKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import {
+  HandleKind,
+  NodeGraphQLInsertSchema,
+  NodeHttpInsertSchema,
+  NodeKind,
+} from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {

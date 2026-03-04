@@ -13,11 +13,7 @@ export interface GraphQLQueryEditorProps {
   isReadOnly?: boolean;
 }
 
-export const GraphQLQueryEditor = ({
-  deltaGraphqlId,
-  graphqlId,
-  isReadOnly = false,
-}: GraphQLQueryEditorProps) => {
+export const GraphQLQueryEditor = ({ deltaGraphqlId, graphqlId, isReadOnly = false }: GraphQLQueryEditorProps) => {
   const { theme } = useTheme();
 
   const deltaOptions = {

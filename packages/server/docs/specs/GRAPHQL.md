@@ -47,6 +47,7 @@ A GraphQL request defines what to send to a GraphQL endpoint.
 - **Headers**: Key-value pairs with enable/disable toggle (used for auth tokens, custom headers)
 
 Unlike HTTP requests, GraphQL is always:
+
 - Method: **POST**
 - Content-Type: **application/json**
 - Body: `{ "query": "...", "variables": {...} }`
@@ -211,16 +212,16 @@ Also adds `'graphql'` to the prettier language support in `packages/client/src/f
 
 Following the pattern of `packages/client/src/pages/http/`:
 
-| Component | Description |
-|-----------|-------------|
-| `page.tsx` | Main page with resizable request/response split panels |
-| `request/top-bar.tsx` | URL input, Send button, Fetch Schema button |
-| `request/panel.tsx` | Tabbed panel: Query, Variables, Headers, Docs |
-| `request/query-editor.tsx` | CodeMirror with `cm6-graphql` extensions |
-| `request/variables-editor.tsx` | CodeMirror with JSON language |
-| `request/header.tsx` | Headers key-value table |
-| `request/doc-explorer.tsx` | Schema documentation browser |
-| `response/body.tsx` | Response body viewer (JSON syntax highlighting) |
+| Component                      | Description                                            |
+| ------------------------------ | ------------------------------------------------------ |
+| `page.tsx`                     | Main page with resizable request/response split panels |
+| `request/top-bar.tsx`          | URL input, Send button, Fetch Schema button            |
+| `request/panel.tsx`            | Tabbed panel: Query, Variables, Headers, Docs          |
+| `request/query-editor.tsx`     | CodeMirror with `cm6-graphql` extensions               |
+| `request/variables-editor.tsx` | CodeMirror with JSON language                          |
+| `request/header.tsx`           | Headers key-value table                                |
+| `request/doc-explorer.tsx`     | Schema documentation browser                           |
+| `response/body.tsx`            | Response body viewer (JSON syntax highlighting)        |
 
 ### Documentation Explorer
 
@@ -289,14 +290,23 @@ model GraphQLResponseHeader {
   value: string;
 }
 
-model GraphQLRunRequest { graphqlId: Id; }
+model GraphQLRunRequest {
+  graphqlId: Id;
+}
 op GraphQLRun(...GraphQLRunRequest): {};
 
-model GraphQLDuplicateRequest { graphqlId: Id; }
+model GraphQLDuplicateRequest {
+  graphqlId: Id;
+}
 op GraphQLDuplicate(...GraphQLDuplicateRequest): {};
 
-model GraphQLIntrospectRequest { graphqlId: Id; }
-model GraphQLIntrospectResponse { sdl: string; introspectionJson: string; }
+model GraphQLIntrospectRequest {
+  graphqlId: Id;
+}
+model GraphQLIntrospectResponse {
+  sdl: string;
+  introspectionJson: string;
+}
 op GraphQLIntrospect(...GraphQLIntrospectRequest): GraphQLIntrospectResponse;
 ```
 

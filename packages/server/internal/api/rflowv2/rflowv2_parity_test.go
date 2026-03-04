@@ -22,8 +22,10 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
@@ -59,6 +61,11 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 			envService := senv.NewEnvironmentService(queries, logger)
 			varService := senv.NewVariableService(queries, logger)
 			httpService := shttp.New(queries, logger)
+			nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+			graphqlService := sgraphql.New(queries, logger)
+			graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+			graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+			graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 
 			flowStream = memory.NewInMemorySyncStreamer[FlowTopic, FlowEvent]()
 			nodeStream := memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
@@ -87,6 +94,7 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 					NodeAI:        &aiService,
 					NodeAiProvider:     &aiProviderService,
 					NodeMemory:    &memoryService,
+					NodeGraphQL:   &nodeGraphQLService,
 					NodeExecution: &nodeExecService,
 					FlowVariable:  &flowVarService,
 					Env:           &envService,
@@ -98,8 +106,9 @@ func TestFlowInsert_FlowParity(t *testing.T) {
 					Flow: flowStream,
 					Node: nodeStream,
 				},
-				Resolver: res,
-				Logger:   logger,
+				Resolver:        res,
+				GraphQLResolver: graphqlResolver,
+				Logger:          logger,
 			})
 
 			userID := idwrap.NewNow()
@@ -208,6 +217,11 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 			envService := senv.NewEnvironmentService(queries, logger)
 			varService := senv.NewVariableService(queries, logger)
 			httpService := shttp.New(queries, logger)
+			nodeGraphQLService2 := sflow.NewNodeGraphQLService(queries)
+			graphqlService2 := sgraphql.New(queries, logger)
+			graphqlHeaderService2 := sgraphql.NewGraphQLHeaderService(queries)
+			graphqlAssertService2 := sgraphql.NewGraphQLAssertService(queries)
+			graphqlResolver2 := gqlresolver.NewStandardResolver(graphqlService2.Reader(), &graphqlHeaderService2, &graphqlAssertService2)
 
 			nodeStream = memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
 			flowStream := memory.NewInMemorySyncStreamer[FlowTopic, FlowEvent]()
@@ -236,6 +250,7 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 					NodeAI:        &aiService,
 					NodeAiProvider:     &aiProviderService,
 					NodeMemory:    &memoryService,
+					NodeGraphQL:   &nodeGraphQLService2,
 					NodeExecution: &nodeExecService,
 					FlowVariable:  &flowVarService,
 					Env:           &envService,
@@ -247,8 +262,9 @@ func TestFlowInsert_StartNodeParity(t *testing.T) {
 					Flow: flowStream,
 					Node: nodeStream,
 				},
-				Resolver: res,
-				Logger:   logger,
+				Resolver:        res,
+				GraphQLResolver: graphqlResolver2,
+				Logger:          logger,
 			})
 
 			userID := idwrap.NewNow()

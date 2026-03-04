@@ -78,6 +78,7 @@ func TestNodeCondition_CRUD(t *testing.T) {
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)

@@ -198,7 +198,7 @@ func (s *GraphQLServiceRPC) GraphQLRun(ctx context.Context, req *connect.Request
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("request failed: %w", err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -418,7 +418,7 @@ func (s *GraphQLServiceRPC) GraphQLRun(ctx context.Context, req *connect.Request
 	if len(asserts) > 0 {
 		// Prepare response data for assertion evaluation
 		respData := GraphQLResponseData{
-			StatusCode: int(resp.StatusCode),
+			StatusCode: resp.StatusCode,
 			Body:       body,
 			Headers:    responseHeaders,
 		}
@@ -651,7 +651,7 @@ func (s *GraphQLServiceRPC) GraphQLIntrospect(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("introspection request failed: %w", err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -712,7 +712,7 @@ func prepareGraphQLRequest(gql *mgraphql.GraphQL, headers []mgraphql.GraphQLHead
 		return nil, fmt.Errorf("failed to marshal body: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

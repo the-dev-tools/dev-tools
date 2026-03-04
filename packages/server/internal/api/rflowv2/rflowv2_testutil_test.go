@@ -98,6 +98,7 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver - not needed for non-GraphQL tests
 		logger,
 		nil, // LLMProviderFactory - not needed for non-AI tests
 	)

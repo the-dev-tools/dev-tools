@@ -137,4 +137,3 @@ export const GraphQLHeaderTable = ({
     </Table>
   );
 };
-

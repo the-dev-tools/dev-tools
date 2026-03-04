@@ -78,6 +78,7 @@ func TestNodeExecution_Collection(t *testing.T) {
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)
@@ -228,6 +229,7 @@ func TestNodeExecution_Collection_VersionFlow(t *testing.T) {
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)

@@ -369,6 +369,7 @@ type FlowServiceV2Streamers struct {
 	AiProvider         eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
 	Memory             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	NodeGraphQL        eventstream.SyncStreamer[NodeGraphQLTopic, NodeGraphQLEvent]
+	GraphQL            eventstream.SyncStreamer[rgraphql.GraphQLTopic, rgraphql.GraphQLEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	Http                      eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	HttpResponse              eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
@@ -437,6 +438,8 @@ type FlowServiceV2RPC struct {
 	naps     *sflow.NodeAiProviderService
 	nmems    *sflow.NodeMemoryService
 	ngqs     *sflow.NodeGraphQLService
+	gqls     *sgraphql.GraphQLService
+	gqlhs    *sgraphql.GraphQLHeaderService
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
@@ -462,6 +465,7 @@ type FlowServiceV2RPC struct {
 	aiProviderStream         eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
 	memoryStream             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	nodeGraphQLStream        eventstream.SyncStreamer[NodeGraphQLTopic, NodeGraphQLEvent]
+	graphqlStream            eventstream.SyncStreamer[rgraphql.GraphQLTopic, rgraphql.GraphQLEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpStream                  eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	httpResponseStream          eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
@@ -523,6 +527,8 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		naps:                     deps.Services.NodeAiProvider,
 		nmems:                    deps.Services.NodeMemory,
 		ngqs:                     deps.Services.NodeGraphQL,
+		gqls:                     deps.Services.GraphQL,
+		gqlhs:                    deps.Services.GraphQLHeader,
 		nes:                      deps.Services.NodeExecution,
 		fvs:                      deps.Services.FlowVariable,
 		envs:                     deps.Services.Env,
@@ -547,6 +553,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		aiProviderStream:         deps.Streamers.AiProvider,
 		memoryStream:             deps.Streamers.Memory,
 		nodeGraphQLStream:        deps.Streamers.NodeGraphQL,
+		graphqlStream:            deps.Streamers.GraphQL,
 		executionStream:          deps.Streamers.Execution,
 		httpStream:                  deps.Streamers.Http,
 		httpResponseStream:          deps.Streamers.HttpResponse,

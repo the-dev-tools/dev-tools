@@ -38,11 +38,11 @@ func ResponseCreateGraphQL(
 	graphqlResponse := mgraphql.GraphQLResponse{
 		ID:        responseID,
 		GraphQLID: graphqlID,
-		Status:    int32(statusCode),
+		Status:    int32(statusCode),             //nolint:gosec // G115: HTTP status codes are small
 		Body:      respBody,
 		Time:      now,
-		Duration:  int32(duration.Milliseconds()),
-		Size:      int32(len(respBody)),
+		Duration:  int32(duration.Milliseconds()), //nolint:gosec // G115: duration in ms fits int32
+		Size:      int32(len(respBody)),            //nolint:gosec // G115: response body size fits int32
 		CreatedAt: now,
 	}
 

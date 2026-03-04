@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
@@ -61,34 +60,6 @@ func (s *GraphQLServiceRPC) evaluateAndStoreAssertions(ctx context.Context, tx *
 	}
 
 	return responseAsserts, nil
-}
-
-// evaluateResolvedAssertions evaluates pre-resolved assertions against the response and stores the results
-// This is the original function used for standalone assertion evaluation (kept for compatibility)
-func (s *GraphQLServiceRPC) evaluateResolvedAssertions(ctx context.Context, graphqlID idwrap.IDWrap, responseID idwrap.IDWrap, workspaceID idwrap.IDWrap, resp GraphQLResponseData, asserts []mgraphql.GraphQLAssert) error {
-	if len(asserts) == 0 {
-		return nil
-	}
-
-	enabledAsserts := make([]mgraphql.GraphQLAssert, 0, len(asserts))
-	for _, assert := range asserts {
-		if assert.IsEnabled() {
-			enabledAsserts = append(enabledAsserts, assert)
-		}
-	}
-
-	if len(enabledAsserts) == 0 {
-		return nil
-	}
-
-	evalContext := s.createAssertionEvalContext(resp)
-	results := s.evaluateAssertionsParallel(ctx, enabledAsserts, evalContext)
-
-	if err := s.storeAssertionResultsBatch(ctx, graphqlID, responseID, workspaceID, results); err != nil {
-		return fmt.Errorf("failed to store assertion results for GraphQL %s: %w", graphqlID.String(), err)
-	}
-
-	return nil
 }
 
 // evaluateAssertionsParallel evaluates multiple assertions in parallel with timeout and error handling
@@ -270,79 +241,6 @@ func (s *GraphQLServiceRPC) storeAssertionResultsInTx(ctx context.Context, tx *s
 	return responseAsserts, nil
 }
 
-// storeAssertionResultsBatch stores multiple assertion results in a single database transaction
-func (s *GraphQLServiceRPC) storeAssertionResultsBatch(ctx context.Context, graphqlID idwrap.IDWrap, responseID idwrap.IDWrap, workspaceID idwrap.IDWrap, results []AssertionResult) error {
-	if len(results) == 0 {
-		return nil
-	}
-
-	// Start transaction for batch insertion
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer devtoolsdb.TxnRollback(tx)
-
-	txResponseService := s.responseService.TX(tx)
-
-	// Insert all results in batch
-	now := time.Now().Unix()
-	var events []GraphQLResponseAssertEvent
-
-	for _, result := range results {
-		var value string
-		var success bool
-
-		if result.Error != nil {
-			// Store error information in the value field
-			value = fmt.Sprintf("ERROR: %s", result.Error.Error())
-			success = false
-		} else {
-			// Store successful assertion result
-			value = result.Expression
-			success = result.Success
-		}
-
-		assertID := idwrap.NewNow()
-		assert := mgraphql.GraphQLResponseAssert{
-			ID:         assertID,
-			ResponseID: responseID,
-			Value:      value,
-			Success:    success,
-			CreatedAt:  now,
-		}
-
-		if err := txResponseService.CreateAssert(ctx, assert); err != nil {
-			return fmt.Errorf("failed to insert assertion result for %s: %w", result.AssertionID.String(), err)
-		}
-
-		events = append(events, GraphQLResponseAssertEvent{
-			Type:                  eventTypeInsert,
-			GraphQLResponseAssert: ToAPIGraphQLResponseAssert(assert),
-		})
-	}
-
-	slog.InfoContext(ctx, "Stored assertion results",
-		"count", len(results),
-		"graphql_id", graphqlID.String(),
-		"response_id", responseID.String())
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// Publish events
-	if s.streamers.GraphQLResponseAssert != nil {
-		topic := GraphQLResponseAssertTopic{WorkspaceID: workspaceID}
-		for _, evt := range events {
-			s.streamers.GraphQLResponseAssert.Publish(topic, evt)
-		}
-	}
-
-	return nil
-}
-
 // createAssertionEvalContext creates the evaluation context with response data
 func (s *GraphQLServiceRPC) createAssertionEvalContext(resp GraphQLResponseData) map[string]any {
 	// Parse response body as JSON if possible
@@ -499,7 +397,7 @@ func (s *GraphQLServiceRPC) createJSONPathHelpers(bodyMap map[string]any) map[st
 		default:
 			if str, ok := val.(string); ok {
 				var f float64
-				fmt.Sscanf(str, "%f", &f)
+				_, _ = fmt.Sscanf(str, "%f", &f)
 				return f
 			}
 		}

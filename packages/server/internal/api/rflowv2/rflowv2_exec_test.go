@@ -82,6 +82,7 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)

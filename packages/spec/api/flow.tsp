@@ -173,6 +173,15 @@ model NodeHttp {
   @foreignKey deltaHttpId?: Id;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create GraphQL Node",
+  name: "CreateGraphQLNode",
+  parent: "Node",
+  exclude: #["kind", "graphqlId", "deltaGraphqlId"],
+  include: #[#{ fromModel: "GraphQL", fields: #["url", "query", "variables"] }],
+  description: "Create a new GraphQL request node that executes a GraphQL query or mutation against a GraphQL API endpoint.",
+})
 @TanStackDB.collection
 model NodeGraphQL {
   @primaryKey nodeId: Id;

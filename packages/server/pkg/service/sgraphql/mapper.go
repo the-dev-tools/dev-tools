@@ -70,7 +70,7 @@ func interfaceToFloat32Ptr(v interface{}) *float32 {
 }
 
 func bytesToIDWrapPtr(b []byte) *idwrap.IDWrap {
-	if b == nil || len(b) == 0 {
+	if len(b) == 0 {
 		return nil
 	}
 	id, err := idwrap.NewFromBytes(b)
@@ -92,20 +92,6 @@ func stringPtrToInterface(s *string) interface{} {
 		return nil
 	}
 	return *s
-}
-
-func boolPtrToInterface(b *bool) interface{} {
-	if b == nil {
-		return nil
-	}
-	return *b
-}
-
-func float32PtrToInterface(f *float32) interface{} {
-	if f == nil {
-		return nil
-	}
-	return float64(*f)
 }
 
 func ConvertToDBGraphQL(gql mgraphql.GraphQL) gen.Graphql {

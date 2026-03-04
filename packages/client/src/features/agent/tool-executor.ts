@@ -63,6 +63,9 @@ interface Collections {
   fileCollection: CollectionData;
   forCollection: { utils: CollectionUtils };
   forEachCollection: { utils: CollectionUtils };
+  graphqlAssertCollection: { utils: CollectionUtils };
+  graphqlCollection: { utils: CollectionUtils };
+  graphqlHeaderCollection: { utils: CollectionUtils };
   httpAssertCollection: { utils: CollectionUtils };
   httpBodyRawCollection: { utils: CollectionUtils };
   httpCollection: { utils: CollectionUtils };
@@ -70,6 +73,7 @@ interface Collections {
   httpSearchParamCollection: { utils: CollectionUtils };
   jsCollection: { utils: CollectionUtils };
   nodeCollection: { utils: CollectionUtils };
+  nodeGraphqlCollection: { utils: CollectionUtils };
   nodeHttpCollection: { utils: CollectionUtils };
   variableCollection: { utils: CollectionUtils };
 }
@@ -107,6 +111,7 @@ const NODE_KIND_NAMES: Record<number, string> = {
   [NodeKind.CONDITION]: 'Condition',
   [NodeKind.FOR]: 'For',
   [NodeKind.FOR_EACH]: 'ForEach',
+  [NodeKind.GRAPH_Q_L]: 'GraphQL',
   [NodeKind.HTTP]: 'HTTP',
   [NodeKind.JS]: 'JavaScript',
   [NodeKind.MANUAL_START]: 'ManualStart',
@@ -605,6 +610,55 @@ const executeToolInternal = async (
       }
     }
 
+    case 'createGraphQLNode': {
+      const nodeId = Ulid.generate().bytes;
+      const position = (args.position as { x: number; y: number }) ?? { x: 0, y: 0 };
+      const nodeName = normalizeNodeName(args.name as string);
+      const url = (args.url as string) ?? '';
+      const query = (args.query as string) ?? '';
+      const variables = (args.variables as string) ?? '';
+
+      const graphqlId = Ulid.generate().bytes;
+      const graphqlIdStr = Ulid.construct(graphqlId).toCanonical();
+
+      const insertPromises: Promise<unknown>[] = [
+        collections.graphqlCollection.utils.insert({
+          graphqlId,
+          name: nodeName,
+          query,
+          url,
+          variables,
+        }),
+        getNextAgentFileOrder(fileCollection, workspaceId).then((order) =>
+          fileCollection.utils.insert({
+            fileId: graphqlId,
+            kind: FileKind.GRAPH_Q_L,
+            order,
+            workspaceId,
+          }),
+        ),
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.GRAPH_Q_L,
+          name: nodeName,
+          nodeId,
+          position,
+        }),
+        collections.nodeGraphqlCollection.utils.insert({
+          graphqlId,
+          nodeId,
+        }),
+      ];
+
+      await Promise.all(insertPromises);
+
+      {
+        const canonicalId = Ulid.construct(nodeId).toCanonical();
+        context.sessionCreatedNodeIds.add(canonicalId);
+        return { graphqlId: graphqlIdStr, name: nodeName, nodeId: canonicalId };
+      }
+    }
+
     case 'createJsNode': {
       const nodeId = Ulid.generate().bytes;
       const position = (args.position as { x: number; y: number }) ?? { x: 0, y: 0 };
@@ -839,6 +893,41 @@ const executeToolInternal = async (
           result.errorHandling = feData?.errorHandling === 1 ? 'break' : 'continue';
           break;
         }
+        case 'GraphQL': {
+          if (!node.graphqlId) break;
+          const graphqlIdBytes = parseUlid(node.graphqlId);
+
+          const [graphqlData] = await queryCollection((_) =>
+            _.from({ gql: collections.graphqlCollection })
+              .where((_) => eq(_.gql.graphqlId, graphqlIdBytes))
+              .findOne(),
+          );
+
+          const gqlHeaders = await queryCollection((_) =>
+            _.from({ h: collections.graphqlHeaderCollection }).where((_) => eq(_.h.graphqlId, graphqlIdBytes)),
+          );
+
+          const gqlAsserts = await queryCollection((_) =>
+            _.from({ a: collections.graphqlAssertCollection }).where((_) => eq(_.a.graphqlId, graphqlIdBytes)),
+          );
+
+          result.graphqlId = node.graphqlId;
+          result.url = graphqlData?.url ?? '';
+          result.query = graphqlData?.query ?? '';
+          result.variables = graphqlData?.variables ?? '';
+          result.headers = gqlHeaders.map((h) => ({
+            enabled: h.enabled,
+            id: h.graphqlHeaderId ? Ulid.construct(h.graphqlHeaderId).toCanonical() : undefined,
+            key: h.key,
+            value: h.value,
+          }));
+          result.assertions = gqlAsserts.map((a) => ({
+            enabled: a.enabled,
+            id: a.graphqlAssertId ? Ulid.construct(a.graphqlAssertId).toCanonical() : undefined,
+            value: a.value,
+          }));
+          break;
+        }
         case 'HTTP': {
           if (!node.httpId) break;
           const httpIdBytes = parseUlid(node.httpId);
@@ -953,6 +1042,122 @@ const executeToolInternal = async (
       }
 
       return result;
+    }
+
+    case 'patchGraphqlNode': {
+      const nodeIdStr = args.nodeId as string;
+      const node = flowContext.nodes.find((n) => n.id === nodeIdStr);
+      if (!node) throw new Error(`Node not found: ${nodeIdStr}`);
+      if (node.kind !== 'GraphQL') throw new Error(`patchGraphqlNode only works on GraphQL nodes, got: ${node.kind}`);
+      if (!node.graphqlId) throw new Error(`GraphQL node "${node.name}" has no associated GraphQL request`);
+
+      const graphqlIdBytes = parseUlid(node.graphqlId);
+      const patchedFields: string[] = [];
+      const warnings: string[] = [];
+
+      // --- Remove headers ---
+      const removeHeaderIds = args.removeHeaderIds as string[] | undefined;
+      const addHeaders = args.addHeaders as
+        | undefined
+        | { description?: string; enabled?: boolean; key: string; value?: string }[];
+
+      if (removeHeaderIds?.length) {
+        const existingHeaders = await queryCollection((_) =>
+          _.from({ h: collections.graphqlHeaderCollection }).where((_) => eq(_.h.graphqlId, graphqlIdBytes)),
+        );
+        const existingHeaderIds = new Set(
+          existingHeaders
+            .filter((h) => h.graphqlHeaderId != null)
+            .map((h) => Ulid.construct(h.graphqlHeaderId).toCanonical()),
+        );
+        let removedCount = 0;
+        for (const id of removeHeaderIds) {
+          if (!existingHeaderIds.has(id)) continue;
+          collections.graphqlHeaderCollection.utils.delete({ graphqlHeaderId: parseUlid(id) });
+          removedCount++;
+        }
+        if (removedCount > 0) {
+          patchedFields.push(`removedHeaders(${removedCount})`);
+        }
+        const skippedCount = removeHeaderIds.length - removedCount;
+        if (skippedCount > 0) {
+          warnings.push(`Skipped ${skippedCount} header ID(s) not belonging to this GraphQL node.`);
+        }
+      }
+
+      // --- Add headers ---
+      if (addHeaders?.length) {
+        const existingHeaders = await queryCollection((_) =>
+          _.from({ h: collections.graphqlHeaderCollection }).where((_) => eq(_.h.graphqlId, graphqlIdBytes)),
+        );
+        const maxOrder = existingHeaders.reduce((max, h) => Math.max(max, h.order ?? -1), -1);
+        let nextOrder = maxOrder + 1;
+        for (const h of addHeaders) {
+          await collections.graphqlHeaderCollection.utils.insert({
+            description: h.description ?? '',
+            enabled: h.enabled ?? true,
+            graphqlHeaderId: Ulid.generate().bytes,
+            graphqlId: graphqlIdBytes,
+            key: h.key,
+            order: nextOrder++,
+            value: h.value ?? '',
+          });
+        }
+        patchedFields.push(`addedHeaders(${addHeaders.length})`);
+      }
+
+      // --- Remove assertions ---
+      const removeAssertionIds = args.removeAssertionIds as string[] | undefined;
+      const addAssertions = args.addAssertions as undefined | { enabled?: boolean; value: string }[];
+
+      if (removeAssertionIds?.length) {
+        const existingAssertions = await queryCollection((_) =>
+          _.from({ a: collections.graphqlAssertCollection }).where((_) => eq(_.a.graphqlId, graphqlIdBytes)),
+        );
+        const existingAssertionIds = new Set(
+          existingAssertions
+            .filter((a) => a.graphqlAssertId != null)
+            .map((a) => Ulid.construct(a.graphqlAssertId).toCanonical()),
+        );
+        let removedCount = 0;
+        for (const id of removeAssertionIds) {
+          if (!existingAssertionIds.has(id)) continue;
+          collections.graphqlAssertCollection.utils.delete({ graphqlAssertId: parseUlid(id) });
+          removedCount++;
+        }
+        if (removedCount > 0) {
+          patchedFields.push(`removedAssertions(${removedCount})`);
+        }
+        const skippedCount = removeAssertionIds.length - removedCount;
+        if (skippedCount > 0) {
+          warnings.push(`Skipped ${skippedCount} assertion ID(s) not belonging to this GraphQL node.`);
+        }
+      }
+
+      // --- Add assertions ---
+      if (addAssertions?.length) {
+        const existingAssertions = await queryCollection((_) =>
+          _.from({ a: collections.graphqlAssertCollection }).where((_) => eq(_.a.graphqlId, graphqlIdBytes)),
+        );
+        const maxOrder = existingAssertions.reduce((max, a) => Math.max(max, a.order ?? -1), -1);
+        let nextOrder = maxOrder + 1;
+        for (const a of addAssertions) {
+          await collections.graphqlAssertCollection.utils.insert({
+            enabled: a.enabled ?? true,
+            graphqlAssertId: Ulid.generate().bytes,
+            graphqlId: graphqlIdBytes,
+            order: nextOrder++,
+            value: normalizeConditionSyntax(a.value),
+          });
+        }
+        patchedFields.push(`addedAssertions(${addAssertions.length})`);
+      }
+
+      if (patchedFields.length === 0) {
+        return { message: 'No patch operations provided', success: false };
+      }
+
+      return { patchedFields, success: true, warnings: warnings.length > 0 ? warnings : undefined };
     }
 
     case 'patchHttpNode': {
@@ -1218,6 +1423,87 @@ const executeToolInternal = async (
             updatedFields.push('errorHandling');
           }
           if (hasFeUpdates) forEachCollection.utils.update(feUpdates);
+          break;
+        }
+        case 'GraphQL': {
+          if (!node.graphqlId) throw new Error(`GraphQL node "${node.name}" has no associated GraphQL request`);
+          const graphqlIdBytes = parseUlid(node.graphqlId);
+
+          // Update url/query/variables
+          const gqlUpdates: Record<string, unknown> = { graphqlId: graphqlIdBytes };
+          let hasGqlUpdates = false;
+
+          if (args.url !== undefined) {
+            gqlUpdates.url = args.url;
+            hasGqlUpdates = true;
+            updatedFields.push('url');
+          }
+          if (args.query !== undefined) {
+            gqlUpdates.query = args.query;
+            hasGqlUpdates = true;
+            updatedFields.push('query');
+          }
+          if (args.variables !== undefined) {
+            gqlUpdates.variables = args.variables;
+            hasGqlUpdates = true;
+            updatedFields.push('variables');
+          }
+          if (hasGqlUpdates) {
+            collections.graphqlCollection.utils.update(gqlUpdates);
+          }
+
+          // Replace headers if provided
+          if (args.headers !== undefined) {
+            const existingHeaders = await queryCollection((_) =>
+              _.from({ h: collections.graphqlHeaderCollection }).where((_) => eq(_.h.graphqlId, graphqlIdBytes)),
+            );
+            for (const h of existingHeaders) {
+              if (h.graphqlHeaderId)
+                collections.graphqlHeaderCollection.utils.delete({ graphqlHeaderId: h.graphqlHeaderId });
+            }
+            const newHeaders = args.headers as {
+              description?: string;
+              enabled?: boolean;
+              key: string;
+              value?: string;
+            }[];
+            for (let i = 0; i < newHeaders.length; i++) {
+              const h = newHeaders[i]!;
+              await collections.graphqlHeaderCollection.utils.insert({
+                description: h.description ?? '',
+                enabled: h.enabled ?? true,
+                graphqlHeaderId: Ulid.generate().bytes,
+                graphqlId: graphqlIdBytes,
+                key: h.key,
+                order: i,
+                value: h.value ?? '',
+              });
+            }
+            updatedFields.push('headers');
+          }
+
+          // Replace assertions if provided
+          if (args.assertions !== undefined) {
+            const existingAsserts = await queryCollection((_) =>
+              _.from({ a: collections.graphqlAssertCollection }).where((_) => eq(_.a.graphqlId, graphqlIdBytes)),
+            );
+            for (const a of existingAsserts) {
+              if (a.graphqlAssertId)
+                collections.graphqlAssertCollection.utils.delete({ graphqlAssertId: a.graphqlAssertId });
+            }
+            const newAsserts = args.assertions as { enabled?: boolean; value: string }[];
+            for (let i = 0; i < newAsserts.length; i++) {
+              const a = newAsserts[i]!;
+              await collections.graphqlAssertCollection.utils.insert({
+                enabled: a.enabled ?? true,
+                graphqlAssertId: Ulid.generate().bytes,
+                graphqlId: graphqlIdBytes,
+                order: i,
+                value: normalizeConditionSyntax(a.value),
+              });
+            }
+            updatedFields.push('assertions');
+          }
           break;
         }
         case 'HTTP': {

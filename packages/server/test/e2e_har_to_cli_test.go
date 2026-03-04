@@ -279,6 +279,7 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		cli.Variable,
 		cli.FlowVariable,
 		res,
+		nil, // GraphQLResolver
 		cli.Logger,
 		nil, // LLMProviderFactory
 	)

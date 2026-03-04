@@ -20,11 +20,7 @@ export interface GraphQLAssertTableProps {
   isReadOnly?: boolean;
 }
 
-export const GraphQLAssertTable = ({
-  deltaGraphqlId,
-  graphqlId,
-  isReadOnly = false,
-}: GraphQLAssertTableProps) => {
+export const GraphQLAssertTable = ({ deltaGraphqlId, graphqlId, isReadOnly = false }: GraphQLAssertTableProps) => {
   const collection = useApiCollection(GraphQLAssertCollectionSchema);
 
   const items = useLiveQuery(

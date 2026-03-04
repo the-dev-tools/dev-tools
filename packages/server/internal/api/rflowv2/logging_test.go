@@ -87,6 +87,7 @@ func TestFlowRun_Logging(t *testing.T) {
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)

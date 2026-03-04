@@ -20,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
@@ -62,6 +63,7 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 	nes := sflow.NewNodeExecutionService(queries)
 
 	httpResponseService := shttp.NewHttpResponseService(queries)
+	graphqlResponseService := sgraphql.NewGraphQLResponseService(queries)
 
 	svc := NewReferenceServiceRPC(ReferenceServiceRPCDeps{
 		DB: db,
@@ -76,7 +78,8 @@ func setupTestService(t *testing.T) (*ReferenceServiceRPC, context.Context, idwr
 			FlowVariable:  fvs.Reader(),
 			FlowEdge:      edgeService.Reader(),
 			NodeExecution: nes.Reader(),
-			HttpResponse:  httpResponseService.Reader(),
+			HttpResponse:    httpResponseService.Reader(),
+			GraphQLResponse: &graphqlResponseService,
 		},
 	})
 

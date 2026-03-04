@@ -13,6 +13,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
@@ -40,20 +41,24 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 	httpService := services.HttpService
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
 
+	// GraphQL services
+	graphqlResponseService := sgraphql.NewGraphQLResponseService(base.Queries)
+
 	svc := NewReferenceServiceRPC(ReferenceServiceRPCDeps{
 		DB: base.DB,
 		Readers: ReferenceServiceRPCReaders{
-			User:          sworkspace.NewUserReader(base.DB),
-			Workspace:     services.WorkspaceService.Reader(),
-			Env:           envService.Reader(),
-			Variable:      varService.Reader(),
-			Flow:          flowService.Reader(),
-			Node:          flowNodeService.Reader(),
-			NodeRequest:   flowNodeRequestService.Reader(),
-			FlowVariable:  flowVariableService.Reader(),
-			FlowEdge:      edgeService.Reader(),
-			NodeExecution: nodeExecutionService.Reader(),
-			HttpResponse:  httpResponseService.Reader(),
+			User:            sworkspace.NewUserReader(base.DB),
+			Workspace:       services.WorkspaceService.Reader(),
+			Env:             envService.Reader(),
+			Variable:        varService.Reader(),
+			Flow:            flowService.Reader(),
+			Node:            flowNodeService.Reader(),
+			NodeRequest:     flowNodeRequestService.Reader(),
+			FlowVariable:   flowVariableService.Reader(),
+			FlowEdge:        edgeService.Reader(),
+			NodeExecution:   nodeExecutionService.Reader(),
+			HttpResponse:    httpResponseService.Reader(),
+			GraphQLResponse: &graphqlResponseService,
 		},
 	})
 
