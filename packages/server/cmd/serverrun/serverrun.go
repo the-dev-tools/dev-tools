@@ -463,6 +463,7 @@ func Run() error {
 			Flow:               streamers.Flow,
 			Node:               streamers.Node,
 			Edge:               streamers.Edge,
+			Http:               streamers.Http,
 			Var:                streamers.FlowVariable,
 			Version:            streamers.FlowVersion,
 			For:                streamers.For,

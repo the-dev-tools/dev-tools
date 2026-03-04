@@ -4,7 +4,7 @@ import { useMatchRoute, useRouter } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
 import { Duration, Match, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, ReactNode, use, useRef, useState } from 'react';
+import { PropsWithChildren, ReactNode, use, useCallback, useEffect, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
 import {
   Button as AriaButton,
@@ -19,7 +19,14 @@ import { FiAlertTriangle, FiClock, FiCpu, FiMinus, FiMoreHorizontal, FiPlus, FiS
 import { Group as PanelGroup, Panel as ResizablePanel } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
-import { FlowSchema, FlowService, HandleKind, NodeKind, NodeSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import {
+  FlowSchema,
+  FlowService,
+  HandleKind,
+  NodeKind,
+  NodeSchema,
+  ReferenceMode,
+} from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   EdgeCollectionSchema,
@@ -74,6 +81,8 @@ import { ForEachNode, ForEachSettings } from './nodes/for-each';
 import { HttpNode, HttpSettings } from './nodes/http';
 import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
+import { useFlowSelection } from './selection';
+import { useUndoStack } from './undo';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
 export const nodeTypes: XF.NodeTypes = {
@@ -94,9 +103,10 @@ export const FlowEditPage = () => {
 
   const [sidebar, setSidebar] = useState<ReactNode>(null);
   const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const undoStack = useUndoStack(flowId);
 
   return (
-    <FlowContext.Provider value={{ agentPanelOpen, flowId, setAgentPanelOpen, setSidebar }}>
+    <FlowContext.Provider value={{ agentPanelOpen, flowId, setAgentPanelOpen, setSidebar, undoStack }}>
       <XF.ReactFlowProvider>
         <div className={tw`flex h-full flex-col`}>
           <TopBarWithControls />
@@ -142,9 +152,10 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const nodeEditDialog = useNodeEditDialog();
 
-  const { getNodes, screenToFlowPosition } = XF.useReactFlow();
+  const { getNodes, getViewport, screenToFlowPosition } = XF.useReactFlow();
+  const { deselectAll, selectNodes } = useFlowSelection();
 
-  const { flowId, isReadOnly = false, setSidebar } = use(FlowContext);
+  const { flowId, isReadOnly = false, setSidebar, undoStack } = use(FlowContext);
 
   const { duration } =
     useLiveQuery(
@@ -158,7 +169,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   const ref = useRef<HTMLDivElement>(null);
 
-  const { nodes, onNodesChange } = useNodesState();
+  const { handlePositionChange, nodes, onNodeDragStart, onNodeDragStop, onNodesChange } = useNodesState();
   const { edges, onEdgesChange } = useEdgeState();
   const { onViewportChange, viewport } = useViewport();
 
@@ -175,12 +186,18 @@ export const Flow = ({ children }: PropsWithChildren) => {
     if (sourceHandle === HandleKind.AI_PROVIDER && targetNode?.kind !== NodeKind.AI_PROVIDER) return;
     if (sourceHandle === HandleKind.AI_MEMORY && targetNode?.kind !== NodeKind.AI_MEMORY) return;
 
+    const newEdgeId = Ulid.generate().bytes;
     edgeCollection.utils.insert({
-      edgeId: Ulid.generate().bytes,
+      edgeId: newEdgeId,
       flowId,
       sourceHandle,
       sourceId: Ulid.fromCanonical(_.source).bytes,
       targetId,
+    });
+    undoStack?.push({
+      edgeIds: [newEdgeId],
+      edges: [{ flowId, sourceHandle, sourceId: Ulid.fromCanonical(_.source).bytes, targetId }],
+      type: 'edge-insert',
     });
   };
 
@@ -199,6 +216,185 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
     setSidebar?.(<Sidebar handleKind={handleKind} position={position} sourceId={sourceId} />);
   };
+
+  const { transport } = routes.root.useRouteContext();
+
+  // Set up undo executors
+  useEffect(() => {
+    undoStack?.setExecutors({
+      deleteEdges: (edgeIds) => {
+        const keys = edgeIds.map((edgeId) => edgeCollection.utils.getKeyObject({ edgeId }));
+        edgeCollection.utils.delete(keys);
+      },
+      deleteNodes: (nodeIds) => {
+        // Delete edges connected to these nodes before deleting the nodes
+        const nodeIdSet = new Set(nodeIds.map((id) => Ulid.construct(id).toCanonical()));
+        const connectedEdgeKeys = [...edgeCollection.values()]
+          .filter(
+            (e) =>
+              nodeIdSet.has(Ulid.construct(e.sourceId).toCanonical()) ||
+              nodeIdSet.has(Ulid.construct(e.targetId).toCanonical()),
+          )
+          .map((e) => edgeCollection.utils.getKeyObject({ edgeId: e.edgeId }));
+        if (connectedEdgeKeys.length > 0) edgeCollection.utils.delete(connectedEdgeKeys);
+
+        const keys = nodeIds.map((nodeId) => nodeCollection.utils.getKeyObject({ nodeId }));
+        nodeCollection.utils.delete(keys);
+      },
+      deselectAll,
+      insertEdge: (edge) => {
+        const edgeId = Ulid.generate().bytes;
+        edgeCollection.utils.insert({
+          edgeId,
+          flowId: edge.flowId,
+          sourceHandle: edge.sourceHandle,
+          sourceId: edge.sourceId,
+          targetId: edge.targetId,
+        });
+        return edgeId;
+      },
+      pasteNodes: async (yaml, fId, offset) => {
+        const res = await request({
+          input: {
+            flowId: fId,
+            offsetX: offset.x,
+            offsetY: offset.y,
+            referenceMode: ReferenceMode.CREATE_COPY,
+            yaml,
+          },
+          method: FlowService.method.flowNodesPaste,
+          transport,
+        });
+        return res.message.nodeIds;
+      },
+      updateNodePositions: (nodes) => {
+        for (const n of nodes) {
+          const nodeId = Ulid.fromCanonical(n.id).bytes;
+          const key = nodeCollection.utils.getKey({ nodeId });
+          if (nodeCollection.has(key)) {
+            handlePositionChange({ id: n.id, position: n.position, type: 'position' });
+          }
+        }
+      },
+    });
+  }, [deselectAll, edgeCollection, flowId, handlePositionChange, nodeCollection, transport, undoStack]);
+
+  // Track source flow for smart paste positioning
+  const copySourceFlowIdRef = useRef<null | Uint8Array>(null);
+
+  // Copy/paste keyboard handlers
+  const handleCopy = useCallback(async () => {
+    const selectedIds = getNodes()
+      .filter((n) => n.selected)
+      .map((n) => Ulid.fromCanonical(n.id).bytes);
+    if (selectedIds.length === 0) return;
+
+    try {
+      const res = await request({
+        input: { flowId, nodeIds: selectedIds },
+        method: FlowService.method.flowNodesCopy,
+        transport,
+      });
+      copySourceFlowIdRef.current = flowId;
+      await navigator.clipboard.writeText(res.message.yaml);
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
+  }, [flowId, getNodes, transport]);
+
+  const handlePaste = useCallback(async () => {
+    if (isReadOnly) return;
+
+    let yaml: string;
+    try {
+      yaml = await navigator.clipboard.readText();
+    } catch {
+      return;
+    }
+
+    if (!yaml || (!yaml.includes('steps:') && !yaml.includes('flows:'))) return;
+
+    // Smart positioning: same flow → 200px below selection, different flow → viewport center
+    const isSameFlow =
+      copySourceFlowIdRef.current !== null &&
+      flowId.length === copySourceFlowIdRef.current.length &&
+      flowId.every((b, i) => b === copySourceFlowIdRef.current![i]);
+
+    let offsetX = 0;
+    let offsetY = 200;
+
+    if (!isSameFlow) {
+      // Parse node positions from YAML to compute centroid
+      const posXMatches = [...yaml.matchAll(/position_x:\s*([-\d.]+)/g)].map((_) => parseFloat(_[1]));
+      const posYMatches = [...yaml.matchAll(/position_y:\s*([-\d.]+)/g)].map((_) => parseFloat(_[1]));
+
+      const container = ref.current;
+      if (container && posXMatches.length > 0 && posYMatches.length > 0) {
+        const centroidX = posXMatches.reduce((a, b) => a + b, 0) / posXMatches.length;
+        const centroidY = posYMatches.reduce((a, b) => a + b, 0) / posYMatches.length;
+
+        const { x: vx, y: vy, zoom } = getViewport();
+        const { height, width } = container.getBoundingClientRect();
+
+        // Viewport center in flow coordinates, offset from centroid
+        offsetX = -vx / zoom + width / zoom / 2 - centroidX;
+        offsetY = -vy / zoom + height / zoom / 2 - centroidY;
+      }
+    }
+
+    try {
+      const res = await request({
+        input: { flowId, offsetX, offsetY, referenceMode: ReferenceMode.CREATE_COPY, yaml },
+        method: FlowService.method.flowNodesPaste,
+        transport,
+      });
+
+      undoStack?.push({
+        flowId,
+        nodeIds: res.message.nodeIds,
+        pasteOffset: { x: offsetX, y: offsetY },
+        type: 'paste',
+        yaml,
+      });
+      deselectAll();
+      const pastedCanonicals = res.message.nodeIds.map((id) => Ulid.construct(id).toCanonical());
+      selectNodes(pastedCanonicals);
+    } catch (e) {
+      console.error('Paste failed:', e);
+    }
+  }, [deselectAll, flowId, getViewport, isReadOnly, selectNodes, transport, undoStack]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if focus is inside an input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+
+      if (key === 'c') {
+        e.preventDefault();
+        void handleCopy();
+      }
+      if (key === 'v') {
+        e.preventDefault();
+        void handlePaste();
+      }
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        void undoStack?.undo();
+      }
+      if ((key === 'z' && e.shiftKey) || key === 'y') {
+        e.preventDefault();
+        void undoStack?.redo();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => void document.removeEventListener('keydown', handleKeyDown);
+  }, [handleCopy, handlePaste, undoStack]);
 
   const { dropProps } = useDrop({
     onDrop: async ({ items, x, y }) => {
@@ -283,6 +479,8 @@ export const Flow = ({ children }: PropsWithChildren) => {
           const nodeId = Ulid.fromCanonical(node.id);
           void nodeEditDialog.open(nodeId.bytes);
         }}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDragStop={onNodeDragStop}
         onNodesChange={onNodesChange}
         onViewportChange={onViewportChange}
         panOnDrag={[1, 2]}

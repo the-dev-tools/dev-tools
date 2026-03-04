@@ -33,7 +33,6 @@
     "@hookform/resolvers": "catalog:",
     "@lezer/highlight": "catalog:",
     "@lezer/lr": "catalog:",
-    "@openreplay/tracker": "catalog:",
     "@prettier/plugin-xml": "catalog:",
     "@react-aria/collections": "catalog:",
     "@standard-schema/spec": "catalog:",

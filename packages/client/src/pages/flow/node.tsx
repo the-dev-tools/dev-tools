@@ -11,7 +11,7 @@ import {
 import * as XF from '@xyflow/react';
 import { Array, Match, Option, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, useContext, useState } from 'react';
+import { ReactNode, useCallback, useContext, useRef, useState } from 'react';
 import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
@@ -24,7 +24,11 @@ import {
   NodeExecutionSchema,
   NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
-import { NodeCollectionSchema, NodeExecutionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import {
+  EdgeCollectionSchema,
+  NodeCollectionSchema,
+  NodeExecutionCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { SearchEmptyIllustration } from '@the-dev-tools/ui/illustrations';
@@ -56,8 +60,9 @@ export const nodeClientCollection = createCollection(
 
 export const useNodesState = () => {
   const { transport } = routes.root.useRouteContext();
-  const { flowId } = useContext(FlowContext);
+  const { flowId, undoStack } = useContext(FlowContext);
 
+  const edgeServerCollection = useApiCollection(EdgeCollectionSchema);
   const nodeServerCollection = useApiCollection(NodeCollectionSchema);
 
   const items: XF.Node[] = useLiveQuery(
@@ -114,6 +119,31 @@ export const useNodesState = () => {
     strategy: debounceStrategy({ wait: 500 }),
   });
 
+  // Track drag-start positions for undo via onNodeDragStart/onNodeDragStop
+  const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  const onNodeDragStart: XF.OnNodeDrag = useCallback((_event, _node, nodes) => {
+    for (const n of nodes) {
+      dragStartPositions.current.set(n.id, { ...n.position });
+    }
+  }, []);
+
+  const onNodeDragStop: XF.OnNodeDrag = useCallback(
+    (_event, _node, nodes) => {
+      const moved = nodes
+        .filter((n) => dragStartPositions.current.has(n.id))
+        .map((n) => ({
+          from: dragStartPositions.current.get(n.id)!,
+          id: n.id,
+          to: { ...n.position },
+        }))
+        .filter((n) => n.from.x !== n.to.x || n.from.y !== n.to.y);
+      dragStartPositions.current.clear();
+      if (moved.length > 0) undoStack?.push({ nodes: moved, type: 'position' });
+    },
+    [undoStack],
+  );
+
   const onChange: XF.OnNodesChange = (_) => {
     const changes = Array.groupBy(_, (_) => _.type) as { [T in XF.NodeChange as T['type']]?: T[] };
 
@@ -131,19 +161,44 @@ export const useNodesState = () => {
     changes.position?.forEach(handlePositionChange);
 
     if (changes.remove?.length) {
-      pipe(
-        changes.remove.map((_) => nodeServerCollection.utils.getKeyObject({ nodeId: Ulid.fromCanonical(_.id).bytes })),
-        nodeServerCollection.utils.delete,
+      const nodeIds = changes.remove.map((_) => Ulid.fromCanonical(_.id).bytes);
+      const removeKeys = changes.remove.map((_) =>
+        nodeServerCollection.utils.getKeyObject({ nodeId: Ulid.fromCanonical(_.id).bytes }),
       );
+      const clientKeys = changes.remove.map((_) => _.id);
 
-      pipe(
-        changes.remove.map((_) => _.id),
-        nodeClientCollection.delete,
-      );
+      // Copy YAML before deleting so undo has the full node data.
+      // Delete must wait for copy to avoid a race condition with the server.
+      void (async () => {
+        try {
+          const res = await request({
+            input: { flowId, nodeIds },
+            method: FlowService.method.flowNodesCopy,
+            transport,
+          });
+          undoStack?.push({ flowId, type: 'node-delete', yaml: res.message.yaml });
+        } catch {
+          // If copy fails, delete proceeds without undo support
+        }
+
+        // Delete edges connected to removed nodes before deleting the nodes
+        const nodeIdSet = new Set(changes.remove!.map((_) => _.id));
+        const connectedEdgeKeys = [...edgeServerCollection.values()]
+          .filter(
+            (e) =>
+              nodeIdSet.has(Ulid.construct(e.sourceId).toCanonical()) ||
+              nodeIdSet.has(Ulid.construct(e.targetId).toCanonical()),
+          )
+          .map((e) => edgeServerCollection.utils.getKeyObject({ edgeId: e.edgeId }));
+        if (connectedEdgeKeys.length > 0) edgeServerCollection.utils.delete(connectedEdgeKeys);
+
+        pipe(removeKeys, nodeServerCollection.utils.delete);
+        pipe(clientKeys, nodeClientCollection.delete);
+      })();
     }
   };
 
-  return { nodes: items, onNodesChange: onChange };
+  return { handlePositionChange, nodes: items, onNodeDragStart, onNodeDragStop, onNodesChange: onChange };
 };
 
 const nodeBodyStyles = tv({

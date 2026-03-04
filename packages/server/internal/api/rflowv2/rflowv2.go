@@ -353,6 +353,7 @@ type FlowServiceV2Streamers struct {
 	AiProvider         eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
 	Memory             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	HttpResponse       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	HttpResponseHeader eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
 	HttpResponseAssert eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
@@ -435,6 +436,7 @@ type FlowServiceV2RPC struct {
 	aiProviderStream         eventstream.SyncStreamer[AiProviderTopic, AiProviderEvent]
 	memoryStream             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	httpStream               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
@@ -512,6 +514,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		aiProviderStream:         deps.Streamers.AiProvider,
 		memoryStream:             deps.Streamers.Memory,
 		executionStream:          deps.Streamers.Execution,
+		httpStream:               deps.Streamers.Http,
 		httpResponseStream:       deps.Streamers.HttpResponse,
 		httpResponseHeaderStream: deps.Streamers.HttpResponseHeader,
 		httpResponseAssertStream: deps.Streamers.HttpResponseAssert,

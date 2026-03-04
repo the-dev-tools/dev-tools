@@ -477,6 +477,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowEdgesByFlowIDsStmt, err = db.PrepareContext(ctx, getFlowEdgesByFlowIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowEdgesByFlowIDs: %w", err)
 	}
+	if q.getFlowEdgesBySourceNodeIDsStmt, err = db.PrepareContext(ctx, getFlowEdgesBySourceNodeIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowEdgesBySourceNodeIDs: %w", err)
+	}
+	if q.getFlowEdgesByTargetNodeIDsStmt, err = db.PrepareContext(ctx, getFlowEdgesByTargetNodeIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowEdgesByTargetNodeIDs: %w", err)
+	}
 	if q.getFlowNodeStmt, err = db.PrepareContext(ctx, getFlowNode); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNode: %w", err)
 	}
@@ -1705,6 +1711,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowEdgesByFlowIDsStmt: %w", cerr)
 		}
 	}
+	if q.getFlowEdgesBySourceNodeIDsStmt != nil {
+		if cerr := q.getFlowEdgesBySourceNodeIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowEdgesBySourceNodeIDsStmt: %w", cerr)
+		}
+	}
+	if q.getFlowEdgesByTargetNodeIDsStmt != nil {
+		if cerr := q.getFlowEdgesByTargetNodeIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowEdgesByTargetNodeIDsStmt: %w", cerr)
+		}
+	}
 	if q.getFlowNodeStmt != nil {
 		if cerr := q.getFlowNodeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeStmt: %w", cerr)
@@ -2675,6 +2691,8 @@ type Queries struct {
 	getFlowEdgeStmt                            *sql.Stmt
 	getFlowEdgesByFlowIDStmt                   *sql.Stmt
 	getFlowEdgesByFlowIDsStmt                  *sql.Stmt
+	getFlowEdgesBySourceNodeIDsStmt            *sql.Stmt
+	getFlowEdgesByTargetNodeIDsStmt            *sql.Stmt
 	getFlowNodeStmt                            *sql.Stmt
 	getFlowNodeAIStmt                          *sql.Stmt
 	getFlowNodeAiProviderStmt                  *sql.Stmt
@@ -2988,6 +3006,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowEdgeStmt:                            q.getFlowEdgeStmt,
 		getFlowEdgesByFlowIDStmt:                   q.getFlowEdgesByFlowIDStmt,
 		getFlowEdgesByFlowIDsStmt:                  q.getFlowEdgesByFlowIDsStmt,
+		getFlowEdgesBySourceNodeIDsStmt:            q.getFlowEdgesBySourceNodeIDsStmt,
+		getFlowEdgesByTargetNodeIDsStmt:            q.getFlowEdgesByTargetNodeIDsStmt,
 		getFlowNodeStmt:                            q.getFlowNodeStmt,
 		getFlowNodeAIStmt:                          q.getFlowNodeAIStmt,
 		getFlowNodeAiProviderStmt:                  q.getFlowNodeAiProviderStmt,

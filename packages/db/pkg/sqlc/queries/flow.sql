@@ -295,6 +295,18 @@ SELECT id, flow_id
 FROM flow_edge
 WHERE flow_id IN (sqlc.slice('flow_ids'));
 
+-- name: GetFlowEdgesBySourceNodeIDs :many
+-- Fetches all edges where source is one of the given node IDs
+SELECT id, flow_id, source_id, target_id, source_handle, state
+FROM flow_edge
+WHERE source_id IN (sqlc.slice('nodeIds'));
+
+-- name: GetFlowEdgesByTargetNodeIDs :many
+-- Fetches all edges where target is one of the given node IDs
+SELECT id, flow_id, source_id, target_id, source_handle, state
+FROM flow_edge
+WHERE target_id IN (sqlc.slice('nodeIds'));
+
 -- name: CreateFlowEdge :exec
 INSERT INTO
   flow_edge (id, flow_id, source_id, target_id, source_handle, state)

@@ -34,7 +34,7 @@ export const edgeClientCollection = createCollection(
 );
 
 export const useEdgeState = () => {
-  const { flowId } = useContext(FlowContext);
+  const { flowId, undoStack } = useContext(FlowContext);
 
   const edgeServerCollection = useApiCollection(EdgeCollectionSchema);
 
@@ -77,15 +77,30 @@ export const useEdgeState = () => {
     });
 
     if (changes.remove?.length) {
+      // Snapshot edge data for undo before deleting
+      const edgeSnapshots = changes.remove
+        .map((_) => {
+          const edgeId = Ulid.fromCanonical(_.id).bytes;
+          const key = edgeServerCollection.utils.getKey({ edgeId });
+          const data = edgeServerCollection.get(key);
+          if (!data) return null;
+          return {
+            flowId: data.flowId,
+            sourceHandle: data.sourceHandle,
+            sourceId: data.sourceId,
+            targetId: data.targetId,
+          };
+        })
+        .filter((_) => _ !== null);
+      if (edgeSnapshots.length > 0) undoStack?.push({ edges: edgeSnapshots, type: 'edge-delete' });
+
       pipe(
         changes.remove.map((_) => edgeServerCollection.utils.getKeyObject({ edgeId: Ulid.fromCanonical(_.id).bytes })),
         edgeServerCollection.utils.delete,
       );
 
-      pipe(
-        changes.remove.map((_) => _.id),
-        edgeClientCollection.delete,
-      );
+      const clientKeys = changes.remove.map((_) => _.id).filter((_) => edgeClientCollection.has(_));
+      if (clientKeys.length > 0) pipe(clientKeys, edgeClientCollection.delete);
     }
   };
 

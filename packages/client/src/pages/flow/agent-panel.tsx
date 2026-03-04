@@ -1,5 +1,4 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useRef, useState } from 'react';
 import { FiArrowUp, FiChevronUp, FiEdit, FiSettings, FiX } from 'react-icons/fi';
@@ -12,7 +11,7 @@ import { type Message, type ToolCall, useAgentChat } from '~/features/agent';
 import { type AgentProvider, useAgentProviderKey } from '~/features/agent/use-agent-provider-key';
 import { useApiCollection } from '~/shared/api';
 import { FlowContext } from './context';
-import { nodeClientCollection } from './node';
+import { useFlowSelection } from './selection';
 
 // ---------------------------------------------------------------------------
 // Tool call display helpers
@@ -87,10 +86,7 @@ const PROVIDER_OPTIONS: Record<
 export const AgentPanel = () => {
   const { flowId, setAgentPanelOpen } = use(FlowContext);
   const { apiKey, provider, setApiKey, setProvider } = useAgentProviderKey();
-  const selectedNodeIds = XF.useStore(
-    (s) => s.nodes.filter((n) => n.selected).map((n) => n.id),
-    (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
-  );
+  const { deselectAll, deselectNodes, selectedNodeIds } = useFlowSelection();
   const { cancel, clearMessages, error, isLoading, messages, sendMessage, streamingContent } = useAgentChat({
     apiKey,
     flowId,
@@ -231,7 +227,13 @@ export const AgentPanel = () => {
             className={tw`m-2 mt-0 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2.5 py-1.5`}
             data-agent-composer
           >
-            {selectedNodeIds.length > 0 && <SelectedNodesBar selectedNodeIds={selectedNodeIds} />}
+            {selectedNodeIds.length > 0 && (
+              <SelectedNodesBar
+                deselectAll={deselectAll}
+                deselectNodes={deselectNodes}
+                selectedNodeIds={selectedNodeIds}
+              />
+            )}
             <div className={tw`flex items-end gap-2`}>
               <textarea
                 className={tw`
@@ -279,7 +281,13 @@ export const AgentPanel = () => {
   );
 };
 
-const SelectedNodesBar = ({ selectedNodeIds }: { selectedNodeIds: string[] }) => {
+interface SelectedNodesBarProps {
+  deselectAll: () => void;
+  deselectNodes: (ids: string[]) => void;
+  selectedNodeIds: string[];
+}
+
+const SelectedNodesBar = ({ deselectAll, deselectNodes, selectedNodeIds }: SelectedNodesBarProps) => {
   const { flowId } = use(FlowContext);
   const nodeCollection = useApiCollection(NodeCollectionSchema);
 
@@ -300,16 +308,6 @@ const SelectedNodesBar = ({ selectedNodeIds }: { selectedNodeIds: string[] }) =>
   );
 
   if (selectedNodes.length === 0) return null;
-
-  const handleDeselect = (id: string) => {
-    nodeClientCollection.update(id, (_) => (_.selected = false));
-  };
-
-  const handleClearAll = () => {
-    for (const id of selectedNodeIds) {
-      nodeClientCollection.update(id, (_) => (_.selected = false));
-    }
-  };
 
   return (
     <div className={tw`mb-1.5 flex flex-wrap items-center gap-1.5 border-b border-(--border-1) pb-1.5`}>
@@ -334,7 +332,7 @@ const SelectedNodesBar = ({ selectedNodeIds }: { selectedNodeIds: string[] }) =>
             <span className={tw`max-w-[120px] truncate`}>{node.name}</span>
             <button
               className={tw`rounded-sm text-(--text-muted) hover:text-(--text-primary)`}
-              onClick={() => void handleDeselect(node.id)}
+              onClick={() => void deselectNodes([node.id])}
               type='button'
             >
               <FiX className={tw`size-3`} />
@@ -345,7 +343,7 @@ const SelectedNodesBar = ({ selectedNodeIds }: { selectedNodeIds: string[] }) =>
       {selectedNodes.length >= 2 && (
         <button
           className={tw`text-[11px] text-(--text-muted) hover:text-(--text-secondary)`}
-          onClick={handleClearAll}
+          onClick={deselectAll}
           type='button'
         >
           Clear all

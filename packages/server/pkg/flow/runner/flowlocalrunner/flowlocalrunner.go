@@ -692,16 +692,19 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 
 		subqueue := queue[:processCount]
 
-		wg.Add(processCount)
 		FlowNodeCancelCtx, FlowNodeCancelCtxCancel := context.WithCancel(ctx)
 		defer FlowNodeCancelCtxCancel()
+		var batchErr error
 		for _, flowNodeID := range subqueue {
 			currentNode, ok := req.NodeMap[flowNodeID]
 			if !ok {
-				return fmt.Errorf("node not found: %v", currentNode)
+				batchErr = fmt.Errorf("node not found: %v", flowNodeID)
+				FlowNodeCancelCtxCancel()
+				break
 			}
 			nodeStateMap[flowNodeID] = FlowNodeStatusLocal{StartTime: time.Now()}
 			seenNodes.Store(flowNodeID, struct{}{})
+			wg.Add(1)
 			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
 
@@ -783,6 +786,13 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 		wg.Wait()
 
 		close(resultChan)
+
+		if batchErr != nil {
+			// Drain any results from goroutines that ran before the error
+			for range resultChan {
+			}
+			return batchErr
+		}
 
 		var lastNodeError error
 		for result := range resultChan {
@@ -982,20 +992,22 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 		timeStart := make(map[idwrap.IDWrap]time.Time, processCount)
 
 		batch := queue[:processCount]
-		wg.Add(processCount)
 		flowCtx, flowCancel := context.WithCancel(ctx)
 		defer flowCancel()
 
+		var batchErr error
 		for _, nodeID := range batch {
 			currentNode, ok := req.NodeMap[nodeID]
 			if !ok {
+				batchErr = fmt.Errorf("node not found: %v", nodeID)
 				flowCancel()
-				return fmt.Errorf("node not found: %v", nodeID)
+				break
 			}
 
 			timeStart[nodeID] = time.Now()
 			seenNodes.Store(nodeID, struct{}{})
 
+			wg.Add(1)
 			go func(nodeID idwrap.IDWrap, flowNode node.FlowNode) {
 				defer wg.Done()
 
@@ -1080,6 +1092,12 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 
 		wg.Wait()
 		close(resultChan)
+
+		if batchErr != nil {
+			for range resultChan {
+			}
+			return batchErr
+		}
 
 		queue = queue[processCount:]
 

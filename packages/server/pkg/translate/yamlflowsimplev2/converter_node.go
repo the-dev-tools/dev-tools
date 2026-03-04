@@ -15,6 +15,32 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
+// getStepCommon extracts the YamlStepCommon from any step wrapper
+func getStepCommon(sw YamlStepWrapper) *YamlStepCommon {
+	switch {
+	case sw.Request != nil:
+		return &sw.Request.YamlStepCommon
+	case sw.If != nil:
+		return &sw.If.YamlStepCommon
+	case sw.For != nil:
+		return &sw.For.YamlStepCommon
+	case sw.ForEach != nil:
+		return &sw.ForEach.YamlStepCommon
+	case sw.JS != nil:
+		return &sw.JS.YamlStepCommon
+	case sw.AI != nil:
+		return &sw.AI.YamlStepCommon
+	case sw.AIProvider != nil:
+		return &sw.AIProvider.YamlStepCommon
+	case sw.AIMemory != nil:
+		return &sw.AIMemory.YamlStepCommon
+	case sw.ManualStart != nil:
+		return sw.ManualStart
+	default:
+		return nil
+	}
+}
+
 // createStartNodeWithID creates a default start node with a specific ID
 func createStartNodeWithID(nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) {
 	startNode := mflow.Node{
@@ -154,6 +180,20 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			nodeInfoMap[nodeName] = info
 			nodeList = append(nodeList, info)
 			continue
+		}
+
+		// Apply position from YAML if provided
+		common := getStepCommon(stepWrapper)
+		if common != nil && (common.PositionX != nil || common.PositionY != nil) {
+			if len(result.FlowNodes) > 0 {
+				lastIdx := len(result.FlowNodes) - 1
+				if common.PositionX != nil {
+					result.FlowNodes[lastIdx].PositionX = *common.PositionX
+				}
+				if common.PositionY != nil {
+					result.FlowNodes[lastIdx].PositionY = *common.PositionY
+				}
+			}
 		}
 
 		nodeInfoMap[nodeName] = info
