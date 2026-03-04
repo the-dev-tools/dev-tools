@@ -276,6 +276,48 @@ model NodeAiMemory {
   windowSize: int32;
 }
 
+// Copy/Paste operations
+enum ReferenceMode {
+  CreateCopy,
+  UseExisting,
+}
+
+model FlowNodesCopyRequest {
+  flowId: Id;
+  nodeIds: Id[];
+}
+
+model FlowNodesCopyResponse {
+  yaml: string;
+}
+
+op FlowNodesCopy(...FlowNodesCopyRequest): FlowNodesCopyResponse;
+
+model FlowNodesPasteRequest {
+  flowId: Id;
+  yaml: string;
+  offsetX: float32;
+  offsetY: float32;
+  referenceMode: ReferenceMode;
+}
+
+model FlowNodesPasteResponse {
+  nodeIds: Id[];
+}
+
+op FlowNodesPaste(...FlowNodesPasteRequest): FlowNodesPasteResponse;
+
+model FlowNodesPastePreviewRequest {
+  flowId: Id;
+  yaml: string;
+}
+
+model FlowNodesPastePreviewResponse {
+  existingRequests: string[];
+}
+
+op FlowNodesPastePreview(...FlowNodesPastePreviewRequest): FlowNodesPastePreviewResponse;
+
 @TanStackDB.collection(#{ isReadOnly: true })
 model NodeExecution {
   @primaryKey nodeExecutionId: Id;

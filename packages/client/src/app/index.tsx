@@ -11,7 +11,6 @@ import { makeToastQueue } from '@the-dev-tools/ui/toast';
 import { ApiCollections, ApiTransport } from '~/shared/api';
 import { runtimeAtom } from '~/shared/lib/runtime';
 import { RouterContext } from './context';
-import { startOpenReplay } from './open-replay';
 import { router } from './router';
 import { initUmami } from './umami';
 
@@ -23,7 +22,6 @@ const appAtom = runtimeAtom.atom(
 
     // Telemetry startup should never block app rendering.
     void Runtime.runPromise(runtime)(initUmami).catch(() => undefined);
-    void Runtime.runPromise(runtime)(startOpenReplay).catch(() => undefined);
 
     yield* ApiCollections;
     const transport = yield* ApiTransport;

@@ -236,10 +236,28 @@ func (s *FlowServiceV2RPC) executeFlow(
 	}()
 
 	sharedHTTPClient := httpclient.New()
-	edgeMap := mflow.NewEdgesMap(edges)
+
+	// Filter out orphaned edges (source or target node missing) to prevent
+	// runner panics when edges reference deleted nodes.
+	nodeIDSet := make(map[idwrap.IDWrap]struct{}, len(nodes))
+	for _, n := range nodes {
+		nodeIDSet[n.ID] = struct{}{}
+	}
+	validEdges := edges[:0:0]
+	for _, e := range edges {
+		if _, srcOK := nodeIDSet[e.SourceID]; !srcOK {
+			continue
+		}
+		if _, tgtOK := nodeIDSet[e.TargetID]; !tgtOK {
+			continue
+		}
+		validEdges = append(validEdges, e)
+	}
+
+	edgeMap := mflow.NewEdgesMap(validEdges)
 	// Build edgesBySource map for O(1) edge lookup by source node ID
-	edgesBySource := make(map[idwrap.IDWrap][]mflow.Edge, len(edges))
-	for _, edge := range edges {
+	edgesBySource := make(map[idwrap.IDWrap][]mflow.Edge, len(validEdges))
+	for _, edge := range validEdges {
 		edgesBySource[edge.SourceID] = append(edgesBySource[edge.SourceID], edge)
 	}
 

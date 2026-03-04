@@ -78,6 +78,8 @@ type YamlStepWrapper struct {
 type YamlStepCommon struct {
 	Name      string        `yaml:"name"`
 	DependsOn StringOrSlice `yaml:"depends_on,omitempty"`
+	PositionX *float64      `yaml:"position_x,omitempty"`
+	PositionY *float64      `yaml:"position_y,omitempty"`
 }
 
 type YamlStepRequest struct {

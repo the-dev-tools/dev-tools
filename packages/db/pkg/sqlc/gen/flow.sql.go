@@ -1306,6 +1306,100 @@ func (q *Queries) GetFlowEdgesByFlowIDs(ctx context.Context, flowIds []idwrap.ID
 	return items, nil
 }
 
+const getFlowEdgesBySourceNodeIDs = `-- name: GetFlowEdgesBySourceNodeIDs :many
+SELECT id, flow_id, source_id, target_id, source_handle, state
+FROM flow_edge
+WHERE source_id IN (/*SLICE:nodeIds*/?)
+`
+
+// Fetches all edges where source is one of the given node IDs
+func (q *Queries) GetFlowEdgesBySourceNodeIDs(ctx context.Context, nodeids []idwrap.IDWrap) ([]FlowEdge, error) {
+	query := getFlowEdgesBySourceNodeIDs
+	var queryParams []interface{}
+	if len(nodeids) > 0 {
+		for _, v := range nodeids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:nodeIds*/?", strings.Repeat(",?", len(nodeids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:nodeIds*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowEdge{}
+	for rows.Next() {
+		var i FlowEdge
+		if err := rows.Scan(
+			&i.ID,
+			&i.FlowID,
+			&i.SourceID,
+			&i.TargetID,
+			&i.SourceHandle,
+			&i.State,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFlowEdgesByTargetNodeIDs = `-- name: GetFlowEdgesByTargetNodeIDs :many
+SELECT id, flow_id, source_id, target_id, source_handle, state
+FROM flow_edge
+WHERE target_id IN (/*SLICE:nodeIds*/?)
+`
+
+// Fetches all edges where target is one of the given node IDs
+func (q *Queries) GetFlowEdgesByTargetNodeIDs(ctx context.Context, nodeids []idwrap.IDWrap) ([]FlowEdge, error) {
+	query := getFlowEdgesByTargetNodeIDs
+	var queryParams []interface{}
+	if len(nodeids) > 0 {
+		for _, v := range nodeids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:nodeIds*/?", strings.Repeat(",?", len(nodeids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:nodeIds*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowEdge{}
+	for rows.Next() {
+		var i FlowEdge
+		if err := rows.Scan(
+			&i.ID,
+			&i.FlowID,
+			&i.SourceID,
+			&i.TargetID,
+			&i.SourceHandle,
+			&i.State,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlowNode = `-- name: GetFlowNode :one
 SELECT
   id,

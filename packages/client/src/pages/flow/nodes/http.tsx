@@ -23,6 +23,8 @@ import { FlowContext } from '../context';
 import { Handle } from '../handle';
 import { NodeSettingsBody, NodeSettingsOutputProps, NodeSettingsProps, SimpleNode } from '../node';
 
+const defaultNodeHttp = create(NodeHttpSchema);
+
 export const HttpNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
@@ -36,7 +38,7 @@ export const HttpNode = ({ id, selected }: XF.NodeProps) => {
           .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
           .findOne(),
       [nodeHttpCollection, nodeId],
-    ).data ?? create(NodeHttpSchema);
+    ).data ?? defaultNodeHttp;
 
   const deltaOptions = {
     deltaId: deltaHttpId,
@@ -90,7 +92,7 @@ export const HttpSettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
           .findOne(),
       [nodeHttpCollection, nodeId],
-    ).data ?? create(NodeHttpSchema);
+    ).data ?? defaultNodeHttp;
 
   return (
     <NodeSettingsBody

@@ -262,6 +262,16 @@ func (s *FlowServiceV2RPC) NodeDelete(
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 
+	// FETCH: Find all edges connected to nodes being deleted (before transaction)
+	nodeIDs := make([]idwrap.IDWrap, len(validatedItems))
+	for i, data := range validatedItems {
+		nodeIDs[i] = data.nodeID
+	}
+	connectedEdges, err := s.flowEdgeReader.GetEdgesByNodeIDs(ctx, nodeIDs)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// 2. Begin transaction with mutation context
 	mut := mutation.New(s.DB, mutation.WithPublisher(s.mutationPublisher()))
 	if err := mut.Begin(ctx); err != nil {
@@ -270,6 +280,21 @@ func (s *FlowServiceV2RPC) NodeDelete(
 	defer mut.Rollback()
 
 	// 3. Execute all deletes in transaction
+
+	// Delete connected edges first (cascade)
+	for i := range connectedEdges {
+		mut.Track(mutation.Event{
+			Entity:   mutation.EntityFlowEdge,
+			Op:       mutation.OpDelete,
+			ID:       connectedEdges[i].ID,
+			ParentID: connectedEdges[i].FlowID,
+		})
+		if err := mut.Queries().DeleteFlowEdge(ctx, connectedEdges[i].ID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Delete nodes
 	for _, data := range validatedItems {
 		mut.Track(mutation.Event{
 			Entity:   mutation.EntityFlowNode,

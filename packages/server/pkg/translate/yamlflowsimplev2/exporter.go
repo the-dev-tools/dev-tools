@@ -3,6 +3,7 @@ package yamlflowsimplev2
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flowgraph"
@@ -292,10 +293,14 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			}
 			sort.Strings(explicitDeps)
 
-			// Common struct logic
+			// Common struct logic — round positions to 2 decimal places
+			posX := math.Round(node.PositionX*100) / 100
+			posY := math.Round(node.PositionY*100) / 100
 			common := YamlStepCommon{
 				Name:      node.Name,
 				DependsOn: StringOrSlice(explicitDeps),
+				PositionX: &posX,
+				PositionY: &posY,
 			}
 
 			switch node.NodeKind {
