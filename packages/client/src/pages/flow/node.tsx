@@ -122,13 +122,13 @@ export const useNodesState = () => {
   // Track drag-start positions for undo via onNodeDragStart/onNodeDragStop
   const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-  const onNodeDragStart: XF.NodeDragHandler = useCallback((_event, _node, nodes) => {
+  const onNodeDragStart: XF.OnNodeDrag = useCallback((_event, _node, nodes) => {
     for (const n of nodes) {
       dragStartPositions.current.set(n.id, { ...n.position });
     }
   }, []);
 
-  const onNodeDragStop: XF.NodeDragHandler = useCallback(
+  const onNodeDragStop: XF.OnNodeDrag = useCallback(
     (_event, _node, nodes) => {
       const moved = nodes
         .filter((n) => dragStartPositions.current.has(n.id))
@@ -139,7 +139,7 @@ export const useNodesState = () => {
         }))
         .filter((n) => n.from.x !== n.to.x || n.from.y !== n.to.y);
       dragStartPositions.current.clear();
-      if (moved.length > 0) undoStack?.push({ type: 'position', nodes: moved });
+      if (moved.length > 0) undoStack?.push({ nodes: moved, type: 'position' });
     },
     [undoStack],
   );
@@ -176,7 +176,7 @@ export const useNodesState = () => {
             method: FlowService.method.flowNodesCopy,
             transport,
           });
-          undoStack?.push({ type: 'node-delete', flowId, yaml: res.message.yaml });
+          undoStack?.push({ flowId, type: 'node-delete', yaml: res.message.yaml });
         } catch {
           // If copy fails, delete proceeds without undo support
         }

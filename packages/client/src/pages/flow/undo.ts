@@ -1,6 +1,6 @@
-import { HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { Ulid } from 'id128';
 import { useMemo } from 'react';
+import { HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,11 +19,11 @@ interface PasteOffset {
 }
 
 export type UndoEntry =
-  | { type: 'position'; nodes: { from: { x: number; y: number }; id: string; to: { x: number; y: number } }[] }
-  | { type: 'node-delete'; flowId: Uint8Array; pasteOffset?: PasteOffset; yaml: string }
-  | { type: 'edge-delete'; edges: EdgeSnapshot[] }
-  | { type: 'edge-insert'; edgeIds: Uint8Array[]; edges: EdgeSnapshot[] }
-  | { type: 'paste'; flowId: Uint8Array; nodeIds: Uint8Array[]; pasteOffset: PasteOffset; yaml: string };
+  | { edgeIds: Uint8Array[]; edges: EdgeSnapshot[]; type: 'edge-insert' }
+  | { edges: EdgeSnapshot[]; type: 'edge-delete' }
+  | { flowId: Uint8Array; nodeIds: Uint8Array[]; pasteOffset: PasteOffset; type: 'paste'; yaml: string }
+  | { flowId: Uint8Array; pasteOffset?: PasteOffset; type: 'node-delete'; yaml: string }
+  | { nodes: { from: { x: number; y: number }; id: string; to: { x: number; y: number } }[]; type: 'position' };
 
 export interface UndoExecutors {
   deleteEdges(edgeIds: Uint8Array[]): void;
@@ -41,10 +41,10 @@ export interface UndoExecutors {
 const MAX_STACK_SIZE = 50;
 
 export class UndoStack {
-  private executors: UndoExecutors | null = null;
   private executing = false;
-  private undoEntries: UndoEntry[] = [];
+  private executors: null | UndoExecutors = null;
   private redoEntries: UndoEntry[] = [];
+  private undoEntries: UndoEntry[] = [];
 
   setExecutors(executors: UndoExecutors) {
     this.executors = executors;
@@ -95,42 +95,42 @@ export class UndoStack {
   }
 
   // Execute the inverse of an entry, returning a new entry for the opposite stack
-  private async executeInverse(entry: UndoEntry): Promise<UndoEntry | null> {
+  private async executeInverse(entry: UndoEntry): Promise<null | UndoEntry> {
     const exec = this.executors!;
     exec.deselectAll();
 
     switch (entry.type) {
-      case 'position': {
-        exec.updateNodePositions(entry.nodes.map((_) => ({ id: _.id, position: _.from })));
-        return {
-          type: 'position',
-          nodes: entry.nodes.map((_) => ({ from: _.to, id: _.id, to: _.from })),
-        };
+      case 'edge-delete': {
+        // Undo edge delete = re-insert edges, inverse is edge-insert (to delete them again on redo)
+        const newEdgeIds = entry.edges.map((_) => exec.insertEdge(_));
+        return { edgeIds: newEdgeIds, edges: entry.edges, type: 'edge-insert' };
+      }
+
+      case 'edge-insert': {
+        // Undo edge insert = delete the inserted edges, inverse is edge-delete (to re-insert on redo)
+        exec.deleteEdges(entry.edgeIds);
+        return { edges: entry.edges, type: 'edge-delete' };
       }
 
       case 'node-delete': {
         // Undo delete = paste the YAML back
         const pasteOffset = entry.pasteOffset ?? { x: 0, y: 0 };
         const newNodeIds = await exec.pasteNodes(entry.yaml, entry.flowId, pasteOffset);
-        return { type: 'paste', flowId: entry.flowId, nodeIds: newNodeIds, pasteOffset, yaml: entry.yaml };
+        return { flowId: entry.flowId, nodeIds: newNodeIds, pasteOffset, type: 'paste', yaml: entry.yaml };
       }
 
       case 'paste': {
         // Undo paste = delete pasted nodes
         exec.deleteNodes(entry.nodeIds);
-        return { type: 'node-delete', flowId: entry.flowId, pasteOffset: entry.pasteOffset, yaml: entry.yaml };
+        return { flowId: entry.flowId, pasteOffset: entry.pasteOffset, type: 'node-delete', yaml: entry.yaml };
       }
 
-      case 'edge-delete': {
-        // Undo edge delete = re-insert edges, inverse is edge-insert (to delete them again on redo)
-        const newEdgeIds = entry.edges.map((_) => exec.insertEdge(_));
-        return { type: 'edge-insert', edgeIds: newEdgeIds, edges: entry.edges };
-      }
-
-      case 'edge-insert': {
-        // Undo edge insert = delete the inserted edges, inverse is edge-delete (to re-insert on redo)
-        exec.deleteEdges(entry.edgeIds);
-        return { type: 'edge-delete', edges: entry.edges };
+      case 'position': {
+        exec.updateNodePositions(entry.nodes.map((_) => ({ id: _.id, position: _.from })));
+        return {
+          nodes: entry.nodes.map((_) => ({ from: _.to, id: _.id, to: _.from })),
+          type: 'position',
+        };
       }
     }
   }
