@@ -10,26 +10,32 @@ import (
 )
 
 // TestMain builds the CLI binary once for all tests in this package.
+// If DEVTOOLS_CLI_BIN is already set, it skips the build step.
 func TestMain(m *testing.M) {
 	if os.Getenv("RUN_CLI_INTEGRATION") != "true" {
 		os.Exit(0)
 	}
 
-	// Build CLI binary with cli tag
-	binPath := filepath.Join(os.TempDir(), "devtools-cli-test")
-	cmd := exec.Command("go", "build", "-tags", "cli", "-o", binPath, "../../.")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		panic("failed to build CLI binary: " + err.Error())
+	binPath := os.Getenv("DEVTOOLS_CLI_BIN")
+	cleanUp := false
+	if binPath == "" {
+		// Build CLI binary with cli tag
+		binPath = filepath.Join(os.TempDir(), "devtools-cli-test")
+		cmd := exec.Command("go", "build", "-tags", "cli", "-o", binPath, "../../.")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			panic("failed to build CLI binary: " + err.Error())
+		}
+		os.Setenv("DEVTOOLS_CLI_BIN", binPath)
+		cleanUp = true
 	}
-
-	// Store binary path for tests
-	os.Setenv("DEVTOOLS_CLI_BIN", binPath)
 
 	code := m.Run()
 
-	os.Remove(binPath)
+	if cleanUp {
+		os.Remove(binPath)
+	}
 	os.Exit(code)
 }
 
