@@ -122,14 +122,11 @@ export const useNodesState = () => {
   // Track drag-start positions for undo via onNodeDragStart/onNodeDragStop
   const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-  const onNodeDragStart: XF.NodeDragHandler = useCallback(
-    (_event, _node, nodes) => {
-      for (const n of nodes) {
-        dragStartPositions.current.set(n.id, { ...n.position });
-      }
-    },
-    [],
-  );
+  const onNodeDragStart: XF.NodeDragHandler = useCallback((_event, _node, nodes) => {
+    for (const n of nodes) {
+      dragStartPositions.current.set(n.id, { ...n.position });
+    }
+  }, []);
 
   const onNodeDragStop: XF.NodeDragHandler = useCallback(
     (_event, _node, nodes) => {

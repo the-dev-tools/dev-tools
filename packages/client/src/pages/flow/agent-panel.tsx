@@ -228,7 +228,11 @@ export const AgentPanel = () => {
             data-agent-composer
           >
             {selectedNodeIds.length > 0 && (
-              <SelectedNodesBar deselectAll={deselectAll} deselectNodes={deselectNodes} selectedNodeIds={selectedNodeIds} />
+              <SelectedNodesBar
+                deselectAll={deselectAll}
+                deselectNodes={deselectNodes}
+                selectedNodeIds={selectedNodeIds}
+              />
             )}
             <div className={tw`flex items-end gap-2`}>
               <textarea

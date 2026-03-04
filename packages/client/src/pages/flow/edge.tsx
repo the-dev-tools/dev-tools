@@ -84,7 +84,12 @@ export const useEdgeState = () => {
           const key = edgeServerCollection.utils.getKey({ edgeId });
           const data = edgeServerCollection.get(key);
           if (!data) return null;
-          return { flowId: data.flowId, sourceHandle: data.sourceHandle, sourceId: data.sourceId, targetId: data.targetId };
+          return {
+            flowId: data.flowId,
+            sourceHandle: data.sourceHandle,
+            sourceId: data.sourceId,
+            targetId: data.targetId,
+          };
         })
         .filter((_) => _ !== null);
       if (edgeSnapshots.length > 0) undoStack?.push({ type: 'edge-delete', edges: edgeSnapshots });

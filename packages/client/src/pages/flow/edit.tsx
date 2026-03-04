@@ -244,7 +244,13 @@ export const Flow = ({ children }: PropsWithChildren) => {
       },
       insertEdge: (edge) => {
         const edgeId = Ulid.generate().bytes;
-        edgeCollection.utils.insert({ edgeId, flowId: edge.flowId, sourceHandle: edge.sourceHandle, sourceId: edge.sourceId, targetId: edge.targetId });
+        edgeCollection.utils.insert({
+          edgeId,
+          flowId: edge.flowId,
+          sourceHandle: edge.sourceHandle,
+          sourceId: edge.sourceId,
+          targetId: edge.targetId,
+        });
         return edgeId;
       },
       pasteNodes: async (yaml, fId, offset) => {
@@ -343,7 +349,13 @@ export const Flow = ({ children }: PropsWithChildren) => {
         transport,
       });
 
-      undoStack?.push({ type: 'paste', flowId, nodeIds: res.message.nodeIds, pasteOffset: { x: offsetX, y: offsetY }, yaml });
+      undoStack?.push({
+        type: 'paste',
+        flowId,
+        nodeIds: res.message.nodeIds,
+        pasteOffset: { x: offsetX, y: offsetY },
+        yaml,
+      });
       deselectAll();
       const pastedCanonicals = res.message.nodeIds.map((id) => Ulid.construct(id).toCanonical());
       selectNodes(pastedCanonicals);
