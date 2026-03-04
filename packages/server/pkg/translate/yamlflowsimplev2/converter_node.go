@@ -499,6 +499,7 @@ func processGraphQLStructStep(step *YamlStepGraphQL, nodeID, flowID idwrap.IDWra
 	query := step.Query
 	variables := step.Variables
 	var headers HeaderMapOrSlice
+	var assertions AssertionsOrSlice
 
 	if step.UseRequest != "" {
 		if tmpl, ok := templates[step.UseRequest]; ok {
@@ -512,6 +513,7 @@ func processGraphQLStructStep(step *YamlStepGraphQL, nodeID, flowID idwrap.IDWra
 				variables = tmpl.Variables
 			}
 			headers = tmpl.Headers
+			assertions = tmpl.Assertions
 		} else {
 			return NewYamlFlowErrorV2(fmt.Sprintf("graphql step '%s' references unknown template '%s'", step.Name, step.UseRequest), "use_request", step.UseRequest)
 		}
@@ -529,6 +531,9 @@ func processGraphQLStructStep(step *YamlStepGraphQL, nodeID, flowID idwrap.IDWra
 	}
 	if len(step.Headers) > 0 {
 		headers = append(headers, step.Headers...)
+	}
+	if len(step.Assertions) > 0 {
+		assertions = append(assertions, step.Assertions...)
 	}
 
 	if url == "" {
@@ -564,6 +569,20 @@ func processGraphQLStructStep(step *YamlStepGraphQL, nodeID, flowID idwrap.IDWra
 			UpdatedAt:    now,
 		}
 		result.GraphQLHeaders = append(result.GraphQLHeaders, header)
+	}
+
+	// Create assertions
+	for i, a := range assertions {
+		assert := mgraphql.GraphQLAssert{
+			ID:           idwrap.NewNow(),
+			GraphQLID:    gqlID,
+			Value:        a.Expression,
+			Enabled:      a.Enabled,
+			DisplayOrder: float32(i),
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		result.GraphQLAsserts = append(result.GraphQLAsserts, assert)
 	}
 
 	// Create flow node

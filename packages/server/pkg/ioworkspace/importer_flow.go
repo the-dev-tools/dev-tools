@@ -320,6 +320,24 @@ func (s *IOWorkspaceService) importGraphQLHeaders(ctx context.Context, graphqlHe
 	return nil
 }
 
+// importGraphQLAsserts imports GraphQL assertions from the bundle.
+func (s *IOWorkspaceService) importGraphQLAsserts(ctx context.Context, graphqlAssertService sgraphql.GraphQLAssertService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, assert := range bundle.GraphQLAsserts {
+		// Generate new ID if not preserving
+		if !opts.PreserveIDs {
+			assert.ID = idwrap.NewNow()
+		}
+
+		// Create assert
+		if err := graphqlAssertService.Create(ctx, &assert); err != nil {
+			return fmt.Errorf("failed to create GraphQL assert: %w", err)
+		}
+
+		result.GraphQLAssertsCreated++
+	}
+	return nil
+}
+
 // importFlowGraphQLNodes imports flow GraphQL nodes from the bundle.
 func (s *IOWorkspaceService) importFlowGraphQLNodes(ctx context.Context, nodeGraphQLService sflow.NodeGraphQLService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, gqlNode := range bundle.FlowGraphQLNodes {

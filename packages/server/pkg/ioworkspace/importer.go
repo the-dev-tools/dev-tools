@@ -39,6 +39,7 @@ type ImportResult struct {
 	FlowGraphQLNodesCreated     int
 	GraphQLRequestsCreated      int
 	GraphQLHeadersCreated       int
+	GraphQLAssertsCreated       int
 	EnvironmentsCreated         int
 	EnvironmentVarsCreated    int
 
@@ -93,6 +94,7 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 
 	graphqlService := sgraphql.New(s.queries, nil).TX(tx)
 	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(s.queries).TX(tx)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
 	envService := senv.NewEnvironmentService(s.queries, nil).TX(tx)
@@ -148,6 +150,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	if opts.ImportHTTP && len(bundle.GraphQLHeaders) > 0 {
 		if err := s.importGraphQLHeaders(ctx, graphqlHeaderService, bundle, opts, result); err != nil {
 			return nil, fmt.Errorf("failed to import GraphQL headers: %w", err)
+		}
+	}
+
+	if opts.ImportHTTP && len(bundle.GraphQLAsserts) > 0 {
+		if err := s.importGraphQLAsserts(ctx, graphqlAssertService, bundle, opts, result); err != nil {
+			return nil, fmt.Errorf("failed to import GraphQL asserts: %w", err)
 		}
 	}
 

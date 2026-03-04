@@ -55,11 +55,12 @@ type YamlRequestDefV2 struct {
 
 // YamlGraphQLDefV2 represents a GraphQL request definition (template or standalone)
 type YamlGraphQLDefV2 struct {
-	Name      string           `yaml:"name,omitempty"`
-	URL       string           `yaml:"url,omitempty"`
-	Query     string           `yaml:"query"`
-	Variables string           `yaml:"variables,omitempty"`
-	Headers   HeaderMapOrSlice `yaml:"headers,omitempty"`
+	Name       string            `yaml:"name,omitempty"`
+	URL        string            `yaml:"url,omitempty"`
+	Query      string            `yaml:"query"`
+	Variables  string            `yaml:"variables,omitempty"`
+	Headers    HeaderMapOrSlice  `yaml:"headers,omitempty"`
+	Assertions AssertionsOrSlice `yaml:"assertions,omitempty"`
 }
 
 // YamlFlowFlowV2 represents a flow in the modern YAML format
@@ -107,11 +108,12 @@ type YamlStepRequest struct {
 
 type YamlStepGraphQL struct {
 	YamlStepCommon `yaml:",inline"`
-	UseRequest     string           `yaml:"use_request,omitempty"`
-	URL            string           `yaml:"url,omitempty"`
-	Query          string           `yaml:"query,omitempty"`
-	Variables      string           `yaml:"variables,omitempty"`
-	Headers        HeaderMapOrSlice `yaml:"headers,omitempty"`
+	UseRequest     string            `yaml:"use_request,omitempty"`
+	URL            string            `yaml:"url,omitempty"`
+	Query          string            `yaml:"query,omitempty"`
+	Variables      string            `yaml:"variables,omitempty"`
+	Headers        HeaderMapOrSlice  `yaml:"headers,omitempty"`
+	Assertions     AssertionsOrSlice `yaml:"assertions,omitempty"`
 }
 
 type YamlStepIf struct {

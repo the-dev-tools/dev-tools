@@ -304,10 +304,11 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	return nil
 }
 
-// exportGraphQL exports GraphQL requests and their headers
+// exportGraphQL exports GraphQL requests and their headers and assertions
 func (s *IOWorkspaceService) exportGraphQL(ctx context.Context, opts ExportOptions, bundle *WorkspaceBundle) error {
 	graphqlService := sgraphql.New(s.queries, s.logger)
 	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(s.queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(s.queries)
 
 	gqlRequests, err := graphqlService.GetByWorkspaceID(ctx, opts.WorkspaceID)
 	if err != nil {
@@ -321,11 +322,18 @@ func (s *IOWorkspaceService) exportGraphQL(ctx context.Context, opts ExportOptio
 			return fmt.Errorf("failed to get headers for GraphQL %s: %w", gql.ID.String(), err)
 		}
 		bundle.GraphQLHeaders = append(bundle.GraphQLHeaders, headers...)
+
+		asserts, err := graphqlAssertService.GetByGraphQLID(ctx, gql.ID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("failed to get asserts for GraphQL %s: %w", gql.ID.String(), err)
+		}
+		bundle.GraphQLAsserts = append(bundle.GraphQLAsserts, asserts...)
 	}
 
 	s.logger.DebugContext(ctx, "Exported GraphQL requests",
 		"count", len(bundle.GraphQLRequests),
-		"headers", len(bundle.GraphQLHeaders))
+		"headers", len(bundle.GraphQLHeaders),
+		"asserts", len(bundle.GraphQLAsserts))
 
 	return nil
 }

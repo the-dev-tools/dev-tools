@@ -120,6 +120,7 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		&varService,
 		&flowVariableService,
 		res,
+		nil, // GraphQLResolver - not needed for CLI tests
 		logger,
 		nil, // LLMProviderFactory - not needed for CLI tests
 	)

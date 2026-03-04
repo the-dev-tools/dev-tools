@@ -30,6 +30,7 @@ type WorkspaceBundle struct {
 	// GraphQL requests and associated data
 	GraphQLRequests []mgraphql.GraphQL
 	GraphQLHeaders  []mgraphql.GraphQLHeader
+	GraphQLAsserts  []mgraphql.GraphQLAssert
 
 	// File organization
 	Files []mfile.File

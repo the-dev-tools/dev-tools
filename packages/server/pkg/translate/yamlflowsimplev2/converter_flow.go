@@ -273,6 +273,7 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 
 	result.GraphQLRequests = append(result.GraphQLRequests, flowData.GraphQLRequests...)
 	result.GraphQLHeaders = append(result.GraphQLHeaders, flowData.GraphQLHeaders...)
+	result.GraphQLAsserts = append(result.GraphQLAsserts, flowData.GraphQLAsserts...)
 	result.FlowGraphQLNodes = append(result.FlowGraphQLNodes, flowData.FlowGraphQLNodes...)
 }
 

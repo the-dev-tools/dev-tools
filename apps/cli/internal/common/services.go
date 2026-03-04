@@ -46,6 +46,7 @@ type Services struct {
 	// GraphQL
 	GraphQL       sgraphql.GraphQLService
 	GraphQLHeader sgraphql.GraphQLHeaderService
+	GraphQLAssert sgraphql.GraphQLAssertService
 
 	// Credentials
 	Credential scredential.CredentialService
@@ -98,6 +99,7 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		// GraphQL
 		GraphQL:       sgraphql.New(queries, logger),
 		GraphQLHeader: sgraphql.NewGraphQLHeaderService(queries),
+		GraphQLAssert: sgraphql.NewGraphQLAssertService(queries),
 
 		// Credentials
 		Credential: scredential.NewCredentialService(queries),

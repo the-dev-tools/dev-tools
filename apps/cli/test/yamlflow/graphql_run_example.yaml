@@ -1,0 +1,70 @@
+workspace_name: GraphQL Run Example
+run:
+  - flow: QueryAndLookup
+graphql_requests:
+  - name: ListCountries
+    url: https://countries.trevorblades.com/graphql
+    query: |-
+      query {
+        countries {
+          code
+          name
+          capital
+        }
+      }
+    variables: '{}'
+    assertions:
+      - response.status == 200
+      - response.body.data.countries != nil
+  - name: GetCountry
+    url: https://countries.trevorblades.com/graphql
+    query: |-
+      query GetCountry($code: ID!) {
+        country(code: $code) {
+          name
+          capital
+          currency
+          languages {
+            name
+          }
+        }
+      }
+    variables: '{}'
+    assertions:
+      - response.status == 200
+flows:
+  - name: QueryAndLookup
+    steps:
+      - manual_start:
+          name: Start
+          position_x: 0
+          position_y: 0
+      - graphql:
+          name: ListCountries
+          depends_on: Start
+          position_x: 300
+          position_y: 0
+          use_request: ListCountries
+      - js:
+          name: PickCountry
+          depends_on: ListCountries
+          position_x: 600
+          position_y: 0
+          code: |-
+            export default function(ctx) {
+              const countries = ctx.ListCountries.response.body.data.countries;
+              const country = countries[0];
+              return { code: country.code, name: country.name };
+            }
+      - graphql:
+          name: GetCountry
+          depends_on: PickCountry
+          position_x: 900
+          position_y: 0
+          use_request: GetCountry
+          variables: '{"code": "{{PickCountry.code}}"}'
+          assertions:
+            - response.body.data.country.name != nil
+environments:
+  - name: default
+    variables: {}

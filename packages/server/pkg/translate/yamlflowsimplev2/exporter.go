@@ -133,6 +133,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		graphqlHeadersMap[h.GraphQLID] = append(graphqlHeadersMap[h.GraphQLID], h)
 	}
 
+	graphqlAssertsMap := make(map[idwrap.IDWrap][]mgraphql.GraphQLAssert)
+	for _, a := range data.GraphQLAsserts {
+		graphqlAssertsMap[a.GraphQLID] = append(graphqlAssertsMap[a.GraphQLID], a)
+	}
+
 	// Credential Map (ID -> Credential)
 	credentialMap := make(map[idwrap.IDWrap]mcredential.Credential)
 	for _, c := range data.Credentials {
@@ -283,11 +288,12 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		gqlReq := graphqlMap[gqlID]
 
 		gqlDef := YamlGraphQLDefV2{
-			Name:      gqlName,
-			URL:       gqlReq.Url,
-			Query:     gqlReq.Query,
-			Variables: gqlReq.Variables,
-			Headers:   buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlID]),
+			Name:       gqlName,
+			URL:        gqlReq.Url,
+			Query:      gqlReq.Query,
+			Variables:  gqlReq.Variables,
+			Headers:    buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlID]),
+			Assertions: buildGraphQLAssertions(graphqlAssertsMap[gqlID]),
 		}
 		graphqlRequests = append(graphqlRequests, gqlDef)
 	}
@@ -552,6 +558,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					gqlStep.Query = gqlReq.Query
 					gqlStep.Variables = gqlReq.Variables
 					gqlStep.Headers = buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlReq.ID])
+					gqlStep.Assertions = buildGraphQLAssertions(graphqlAssertsMap[gqlReq.ID])
 				}
 				stepWrapper.GraphQL = gqlStep
 
@@ -649,6 +656,17 @@ func buildGraphQLHeaderMapOrSlice(headers []mgraphql.GraphQLHeader) HeaderMapOrS
 		})
 	}
 	return HeaderMapOrSlice(result)
+}
+
+func buildGraphQLAssertions(asserts []mgraphql.GraphQLAssert) AssertionsOrSlice {
+	if len(asserts) == 0 {
+		return nil
+	}
+	var result []YamlAssertionV2
+	for _, a := range asserts {
+		result = append(result, YamlAssertionV2{Expression: a.Value, Enabled: a.Enabled})
+	}
+	return AssertionsOrSlice(result)
 }
 
 type deltaLookupContext struct {
