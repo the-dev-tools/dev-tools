@@ -92,7 +92,7 @@ export const useEdgeState = () => {
           };
         })
         .filter((_) => _ !== null);
-      if (edgeSnapshots.length > 0) undoStack?.push({ type: 'edge-delete', edges: edgeSnapshots });
+      if (edgeSnapshots.length > 0) undoStack?.push({ edges: edgeSnapshots, type: 'edge-delete' });
 
       pipe(
         changes.remove.map((_) => edgeServerCollection.utils.getKeyObject({ edgeId: Ulid.fromCanonical(_.id).bytes })),

@@ -65,8 +65,6 @@ import { AgentPanel } from './agent-panel';
 import { FlowContext } from './context';
 import { ConnectionLine, edgeTypes, useEdgeState } from './edge';
 import { useNodesState } from './node';
-import { useFlowSelection } from './selection';
-import { useUndoStack } from './undo';
 import {
   AiMemoryNode,
   AiMemorySettings,
@@ -83,6 +81,8 @@ import { ForEachNode, ForEachSettings } from './nodes/for-each';
 import { HttpNode, HttpSettings } from './nodes/http';
 import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
+import { useFlowSelection } from './selection';
+import { useUndoStack } from './undo';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
 export const nodeTypes: XF.NodeTypes = {
@@ -195,9 +195,9 @@ export const Flow = ({ children }: PropsWithChildren) => {
       targetId,
     });
     undoStack?.push({
-      type: 'edge-insert',
       edgeIds: [newEdgeId],
       edges: [{ flowId, sourceHandle, sourceId: Ulid.fromCanonical(_.source).bytes, targetId }],
+      type: 'edge-insert',
     });
   };
 
@@ -222,7 +222,6 @@ export const Flow = ({ children }: PropsWithChildren) => {
   // Set up undo executors
   useEffect(() => {
     undoStack?.setExecutors({
-      deselectAll,
       deleteEdges: (edgeIds) => {
         const keys = edgeIds.map((edgeId) => edgeCollection.utils.getKeyObject({ edgeId }));
         edgeCollection.utils.delete(keys);
@@ -242,6 +241,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         const keys = nodeIds.map((nodeId) => nodeCollection.utils.getKeyObject({ nodeId }));
         nodeCollection.utils.delete(keys);
       },
+      deselectAll,
       insertEdge: (edge) => {
         const edgeId = Ulid.generate().bytes;
         edgeCollection.utils.insert({
@@ -280,7 +280,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   }, [deselectAll, edgeCollection, flowId, handlePositionChange, nodeCollection, transport, undoStack]);
 
   // Track source flow for smart paste positioning
-  const copySourceFlowIdRef = useRef<Uint8Array | null>(null);
+  const copySourceFlowIdRef = useRef<null | Uint8Array>(null);
 
   // Copy/paste keyboard handlers
   const handleCopy = useCallback(async () => {
@@ -334,7 +334,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         const centroidY = posYMatches.reduce((a, b) => a + b, 0) / posYMatches.length;
 
         const { x: vx, y: vy, zoom } = getViewport();
-        const { width, height } = container.getBoundingClientRect();
+        const { height, width } = container.getBoundingClientRect();
 
         // Viewport center in flow coordinates, offset from centroid
         offsetX = -vx / zoom + width / zoom / 2 - centroidX;
@@ -350,10 +350,10 @@ export const Flow = ({ children }: PropsWithChildren) => {
       });
 
       undoStack?.push({
-        type: 'paste',
         flowId,
         nodeIds: res.message.nodeIds,
         pasteOffset: { x: offsetX, y: offsetY },
+        type: 'paste',
         yaml,
       });
       deselectAll();
@@ -393,7 +393,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => void document.removeEventListener('keydown', handleKeyDown);
   }, [handleCopy, handlePaste, undoStack]);
 
   const { dropProps } = useDrop({
