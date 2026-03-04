@@ -1,3 +1,13 @@
+## 0.5.0 (2026-03-04)
+
+### 🚀 Features
+
+- Add flow node copy/paste and canvas undo/redo support. ([28f2da05](https://github.com/the-dev-tools/dev-tools/commit/28f2da05))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 0.4.0 (2026-03-03)
 
 ### 🚀 Features
