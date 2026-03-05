@@ -563,8 +563,9 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q request schema", node.Name)); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+		default:
+			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
-		// Other node types (JS, CONDITION, etc.) don't have default schemas
 	}
 
 	return nodeRefs, nil
@@ -860,6 +861,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					"metrics":    map[string]interface{}{},
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+			default:
+				// Other node types don't have default schemas for completion
 			}
 		}
 
@@ -1014,6 +1017,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 							"duration": 0,
 						})
 					}
+				default:
+					// Other node types don't have self-reference schemas
 				}
 			}
 		}
@@ -1297,8 +1302,9 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					},
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
+			default:
+				// Other node types (JS, CONDITION, etc.) don't have default schemas
 			}
-			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
 
 		// Add self-reference for REQUEST, FOR, and FOREACH nodes so they can reference their own variables
@@ -1412,6 +1418,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 							"duration": 0,
 						})
 					}
+				default:
+					// Other node types don't have self-reference schemas
 				}
 			}
 		}

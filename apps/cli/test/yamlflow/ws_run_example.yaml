@@ -1,0 +1,57 @@
+workspace_name: New Workspace
+run:
+    - flow: ws-integration
+flows:
+    - name: ws-integration
+      steps:
+        - manual_start:
+            name: Start
+            position_x: -182.05
+            position_y: -3.7
+        - wait:
+            name: wait_4
+            depends_on: Start
+            position_x: 201
+            position_y: -139.77
+            duration_ms: "8000"
+        - ws_connection:
+            name: ws_connection_5
+            depends_on: Start
+            position_x: 218.43
+            position_y: -3.21
+            url: http://localhost:8080/
+        - for:
+            name: for_6
+            depends_on: ws_connection_5
+            position_x: 462.56
+            position_y: -146.17
+            iter_count: "10"
+        - wait:
+            name: wait_7
+            depends_on: ws_connection_5
+            position_x: 470.57
+            position_y: 88.8
+            duration_ms: "1000"
+        - ws_send:
+            name: ws_send_6
+            depends_on: for_6.loop
+            position_x: 592.26
+            position_y: -52.7
+            ws_connection_node_name: ws_connection_5
+            message: '{"a":"{{ for_6.index }}"}'
+        - ws_send:
+            name: ws_send_6_1
+            depends_on: wait_7
+            position_x: 631.96
+            position_y: 99.13
+            ws_connection_node_name: ws_connection_5
+            message: '{"a":"2"}'
+        - wait:
+            name: wait_7
+            depends_on: ws_send_6
+            position_x: 803.84
+            position_y: -54.89
+            duration_ms: "1000"
+environments:
+    - name: default
+      variables: {}

@@ -5,7 +5,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
-type NodeKind = int32
+type NodeKind int32
 
 const (
 	NODE_KIND_UNSPECIFIED  NodeKind = 0
@@ -18,7 +18,11 @@ const (
 	NODE_KIND_AI           NodeKind = 7
 	NODE_KIND_AI_PROVIDER  NodeKind = 8
 	NODE_KIND_AI_MEMORY    NodeKind = 9
-	NODE_KIND_GRAPHQL      NodeKind = 10
+	NODE_KIND_GRAPHQL       NodeKind = 10
+	NODE_KIND_WS_CONNECTION NodeKind = 11
+	NODE_KIND_WS_SEND       NodeKind = 12
+	NODE_KIND_WAIT          NodeKind = 13
+	// NODE_KIND_WEBHOOK NodeKind = 14 // reserved for future trigger entry
 )
 
 type NodeState = int8

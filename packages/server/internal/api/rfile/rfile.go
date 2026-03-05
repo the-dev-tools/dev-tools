@@ -142,6 +142,8 @@ func toAPIFileKind(kind mfile.ContentType) apiv1.FileKind {
 		return apiv1.FileKind_FILE_KIND_CREDENTIAL
 	case mfile.ContentTypeGraphQL:
 		return apiv1.FileKind_FILE_KIND_GRAPH_Q_L
+	case mfile.ContentTypeWebSocket:
+		return apiv1.FileKind_FILE_KIND_WEB_SOCKET
 	default:
 		return apiv1.FileKind_FILE_KIND_UNSPECIFIED
 	}
@@ -162,6 +164,8 @@ func fromAPIFileKind(kind apiv1.FileKind) mfile.ContentType {
 		return mfile.ContentTypeCredential
 	case apiv1.FileKind_FILE_KIND_GRAPH_Q_L:
 		return mfile.ContentTypeGraphQL
+	case apiv1.FileKind_FILE_KIND_WEB_SOCKET:
+		return mfile.ContentTypeWebSocket
 	default:
 		return mfile.ContentTypeUnknown
 	}

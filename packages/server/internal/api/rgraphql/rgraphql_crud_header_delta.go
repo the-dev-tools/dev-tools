@@ -4,6 +4,7 @@ package rgraphql
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -335,9 +336,60 @@ func (s *GraphQLServiceRPC) GraphQLHeaderDeltaDelete(ctx context.Context, req *c
 
 // GraphQLHeaderDeltaSync streams delta header changes to the client
 func (s *GraphQLServiceRPC) GraphQLHeaderDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[graphqlv1.GraphQLHeaderDeltaSyncResponse]) error {
-	// TODO: Implement streaming delta sync with proper event filtering
-	// Similar to GraphQLDeltaSync, this requires a delta-specific event stream
-	// that only publishes delta-related changes to prevent flooding clients
-	// with non-delta header updates.
-	return nil
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return s.streamGraphQLHeaderDeltaSync(ctx, userID, stream.Send)
+}
+
+func (s *GraphQLServiceRPC) streamGraphQLHeaderDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*graphqlv1.GraphQLHeaderDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic GraphQLHeaderTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.streamers.GraphQLHeader.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			headerID, err := idwrap.NewFromBytes(evt.Payload.GraphQLHeader.GetGraphqlHeaderId())
+			if err != nil {
+				continue
+			}
+			headerRecord, err := s.headerService.GetByID(ctx, headerID)
+			if err != nil {
+				continue
+			}
+			if !headerRecord.IsDelta {
+				continue
+			}
+			resp := graphqlHeaderDeltaSyncResponseFrom(evt.Payload, *headerRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

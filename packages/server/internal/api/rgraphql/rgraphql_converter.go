@@ -8,6 +8,7 @@ import (
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	graphqlv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/graph_q_l/v1"
+	globalv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/global/v1"
 )
 
 // Model -> Proto
@@ -286,6 +287,226 @@ func graphqlDeltaSyncResponseFrom(event GraphQLEvent) *graphqlv1.GraphQLDeltaSyn
 	// For now, return nil as delta sync is not fully implemented
 	// Delta CRUD operations work, but real-time sync needs separate event streams
 	return nil
+}
+
+func graphqlHeaderDeltaSyncResponseFrom(event GraphQLHeaderEvent, header mgraphql.GraphQLHeader) *graphqlv1.GraphQLHeaderDeltaSyncResponse {
+	var value *graphqlv1.GraphQLHeaderDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeInsert:
+		delta := &graphqlv1.GraphQLHeaderDeltaSyncInsert{
+			DeltaGraphqlHeaderId: header.ID.Bytes(),
+			GraphqlId:            header.GraphQLID.Bytes(),
+		}
+		if header.ParentGraphQLHeaderID != nil {
+			delta.GraphqlHeaderId = header.ParentGraphQLHeaderID.Bytes()
+		}
+		if header.DeltaKey != nil {
+			delta.Key = header.DeltaKey
+		}
+		if header.DeltaValue != nil {
+			delta.Value = header.DeltaValue
+		}
+		if header.DeltaEnabled != nil {
+			delta.Enabled = header.DeltaEnabled
+		}
+		if header.DeltaDescription != nil {
+			delta.Description = header.DeltaDescription
+		}
+		if header.DeltaDisplayOrder != nil {
+			delta.Order = header.DeltaDisplayOrder
+		}
+		value = &graphqlv1.GraphQLHeaderDeltaSync_ValueUnion{
+			Kind:   graphqlv1.GraphQLHeaderDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
+		}
+	case eventTypeUpdate:
+		delta := &graphqlv1.GraphQLHeaderDeltaSyncUpdate{
+			DeltaGraphqlHeaderId: header.ID.Bytes(),
+			GraphqlId:            header.GraphQLID.Bytes(),
+		}
+		if header.ParentGraphQLHeaderID != nil {
+			delta.GraphqlHeaderId = header.ParentGraphQLHeaderID.Bytes()
+		}
+		if header.DeltaKey != nil {
+			keyStr := *header.DeltaKey
+			delta.Key = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_KeyUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+				Value: &keyStr,
+			}
+		} else {
+			delta.Key = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_KeyUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_KeyUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if header.DeltaValue != nil {
+			valueStr := *header.DeltaValue
+			delta.Value = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_ValueUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
+			}
+		} else {
+			delta.Value = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_ValueUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if header.DeltaEnabled != nil {
+			enabledBool := *header.DeltaEnabled
+			delta.Enabled = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_EnabledUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
+			}
+		} else {
+			delta.Enabled = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_EnabledUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if header.DeltaDescription != nil {
+			descStr := *header.DeltaDescription
+			delta.Description = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_DescriptionUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+				Value: &descStr,
+			}
+		} else {
+			delta.Description = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_DescriptionUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_DescriptionUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if header.DeltaDisplayOrder != nil {
+			orderFloat := *header.DeltaDisplayOrder
+			delta.Order = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_OrderUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
+			}
+		} else {
+			delta.Order = &graphqlv1.GraphQLHeaderDeltaSyncUpdate_OrderUnion{
+				Kind:  graphqlv1.GraphQLHeaderDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		value = &graphqlv1.GraphQLHeaderDeltaSync_ValueUnion{
+			Kind:   graphqlv1.GraphQLHeaderDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &graphqlv1.GraphQLHeaderDeltaSync_ValueUnion{
+			Kind: graphqlv1.GraphQLHeaderDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &graphqlv1.GraphQLHeaderDeltaSyncDelete{
+				DeltaGraphqlHeaderId: header.ID.Bytes(),
+			},
+		}
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	return &graphqlv1.GraphQLHeaderDeltaSyncResponse{
+		Items: []*graphqlv1.GraphQLHeaderDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+func graphqlAssertDeltaSyncResponseFrom(event GraphQLAssertEvent, assert mgraphql.GraphQLAssert) *graphqlv1.GraphQLAssertDeltaSyncResponse {
+	var value *graphqlv1.GraphQLAssertDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeInsert:
+		delta := &graphqlv1.GraphQLAssertDeltaSyncInsert{
+			DeltaGraphqlAssertId: assert.ID.Bytes(),
+			GraphqlId:            assert.GraphQLID.Bytes(),
+		}
+		if assert.ParentGraphQLAssertID != nil {
+			delta.GraphqlAssertId = assert.ParentGraphQLAssertID.Bytes()
+		}
+		if assert.DeltaValue != nil {
+			delta.Value = assert.DeltaValue
+		}
+		if assert.DeltaEnabled != nil {
+			delta.Enabled = assert.DeltaEnabled
+		}
+		if assert.DeltaDisplayOrder != nil {
+			delta.Order = assert.DeltaDisplayOrder
+		}
+		value = &graphqlv1.GraphQLAssertDeltaSync_ValueUnion{
+			Kind:   graphqlv1.GraphQLAssertDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
+		}
+	case eventTypeUpdate:
+		delta := &graphqlv1.GraphQLAssertDeltaSyncUpdate{
+			DeltaGraphqlAssertId: assert.ID.Bytes(),
+			GraphqlId:            assert.GraphQLID.Bytes(),
+		}
+		if assert.ParentGraphQLAssertID != nil {
+			delta.GraphqlAssertId = assert.ParentGraphQLAssertID.Bytes()
+		}
+		if assert.DeltaValue != nil {
+			valueStr := *assert.DeltaValue
+			delta.Value = &graphqlv1.GraphQLAssertDeltaSyncUpdate_ValueUnion{
+				Kind:  graphqlv1.GraphQLAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
+			}
+		} else {
+			delta.Value = &graphqlv1.GraphQLAssertDeltaSyncUpdate_ValueUnion{
+				Kind:  graphqlv1.GraphQLAssertDeltaSyncUpdate_ValueUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if assert.DeltaEnabled != nil {
+			enabledBool := *assert.DeltaEnabled
+			delta.Enabled = &graphqlv1.GraphQLAssertDeltaSyncUpdate_EnabledUnion{
+				Kind:  graphqlv1.GraphQLAssertDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
+			}
+		} else {
+			delta.Enabled = &graphqlv1.GraphQLAssertDeltaSyncUpdate_EnabledUnion{
+				Kind:  graphqlv1.GraphQLAssertDeltaSyncUpdate_EnabledUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		if assert.DeltaDisplayOrder != nil {
+			orderFloat := *assert.DeltaDisplayOrder
+			delta.Order = &graphqlv1.GraphQLAssertDeltaSyncUpdate_OrderUnion{
+				Kind:  graphqlv1.GraphQLAssertDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
+			}
+		} else {
+			delta.Order = &graphqlv1.GraphQLAssertDeltaSyncUpdate_OrderUnion{
+				Kind:  graphqlv1.GraphQLAssertDeltaSyncUpdate_OrderUnion_KIND_UNSET,
+				Unset: globalv1.Unset_UNSET.Enum(),
+			}
+		}
+		value = &graphqlv1.GraphQLAssertDeltaSync_ValueUnion{
+			Kind:   graphqlv1.GraphQLAssertDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &graphqlv1.GraphQLAssertDeltaSync_ValueUnion{
+			Kind: graphqlv1.GraphQLAssertDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &graphqlv1.GraphQLAssertDeltaSyncDelete{
+				DeltaGraphqlAssertId: assert.ID.Bytes(),
+			},
+		}
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	return &graphqlv1.GraphQLAssertDeltaSyncResponse{
+		Items: []*graphqlv1.GraphQLAssertDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
 }
 
 // graphqlAssertSyncResponseFrom converts GraphQLAssertEvent to GraphQLAssertSync response

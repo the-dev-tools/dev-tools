@@ -59,6 +59,11 @@ func (c *Context) DeleteFile(ctx context.Context, file FileDeleteItem) error {
 			}); err != nil {
 				return err
 			}
+		case mfile.ContentTypeWebSocket:
+			// WebSocket - cascade via FK ON DELETE CASCADE in DB
+			if err := c.q.DeleteWebSocket(ctx, *file.ContentID); err != nil {
+				return err
+			}
 		case mfile.ContentTypeFolder:
 			// Content deletion handled by recursion above (folders don't have separate content tables)
 		}

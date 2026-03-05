@@ -626,6 +626,8 @@ func TestToAPINodeKind(t *testing.T) {
 		{mflow.NODE_KIND_FOR, flowv1.NodeKind_NODE_KIND_FOR},
 		{mflow.NODE_KIND_FOR_EACH, flowv1.NodeKind_NODE_KIND_FOR_EACH},
 		{mflow.NODE_KIND_JS, flowv1.NodeKind_NODE_KIND_JS},
+		{mflow.NODE_KIND_WS_CONNECTION, flowv1.NodeKind_NODE_KIND_WS_CONNECTION},
+		{mflow.NODE_KIND_WS_SEND, flowv1.NodeKind_NODE_KIND_WS_SEND},
 		{mflow.NodeKind(-1), flowv1.NodeKind_NODE_KIND_UNSPECIFIED},
 	}
 

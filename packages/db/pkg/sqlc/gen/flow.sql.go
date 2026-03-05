@@ -79,6 +79,15 @@ func (q *Queries) CleanupOrphanedFlowNodeJs(ctx context.Context) error {
 	return err
 }
 
+const cleanupOrphanedFlowNodeWait = `-- name: CleanupOrphanedFlowNodeWait :exec
+DELETE FROM flow_node_wait WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeWait(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeWaitStmt, cleanupOrphanedFlowNodeWait)
+	return err
+}
+
 const cleanupOrphanedNodeExecutions = `-- name: CleanupOrphanedNodeExecutions :exec
 DELETE FROM node_execution WHERE node_id NOT IN (SELECT id FROM flow_node)
 `
@@ -291,6 +300,23 @@ type CreateFlowNodeJsParams struct {
 
 func (q *Queries) CreateFlowNodeJs(ctx context.Context, arg CreateFlowNodeJsParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeJsStmt, createFlowNodeJs, arg.FlowNodeID, arg.Code, arg.CodeCompressType)
+	return err
+}
+
+const createFlowNodeWait = `-- name: CreateFlowNodeWait :exec
+INSERT INTO
+  flow_node_wait (flow_node_id, duration_ms)
+VALUES
+  (?, ?)
+`
+
+type CreateFlowNodeWaitParams struct {
+	FlowNodeID idwrap.IDWrap
+	DurationMs int64
+}
+
+func (q *Queries) CreateFlowNodeWait(ctx context.Context, arg CreateFlowNodeWaitParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeWaitStmt, createFlowNodeWait, arg.FlowNodeID, arg.DurationMs)
 	return err
 }
 
@@ -1070,6 +1096,17 @@ func (q *Queries) DeleteFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap
 	return err
 }
 
+const deleteFlowNodeWait = `-- name: DeleteFlowNodeWait :exec
+DELETE FROM flow_node_wait
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeWait(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeWaitStmt, deleteFlowNodeWait, flowNodeID)
+	return err
+}
+
 const deleteFlowTag = `-- name: DeleteFlowTag :exec
 DELETE FROM flow_tag
 WHERE
@@ -1589,6 +1626,23 @@ func (q *Queries) GetFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap) (
 	row := q.queryRow(ctx, q.getFlowNodeJsStmt, getFlowNodeJs, flowNodeID)
 	var i FlowNodeJ
 	err := row.Scan(&i.FlowNodeID, &i.Code, &i.CodeCompressType)
+	return i, err
+}
+
+const getFlowNodeWait = `-- name: GetFlowNodeWait :one
+SELECT
+  flow_node_id,
+  duration_ms
+FROM
+  flow_node_wait
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) GetFlowNodeWait(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeWait, error) {
+	row := q.queryRow(ctx, q.getFlowNodeWaitStmt, getFlowNodeWait, flowNodeID)
+	var i FlowNodeWait
+	err := row.Scan(&i.FlowNodeID, &i.DurationMs)
 	return i, err
 }
 
@@ -2708,6 +2762,24 @@ type UpdateFlowNodeStateParams struct {
 
 func (q *Queries) UpdateFlowNodeState(ctx context.Context, arg UpdateFlowNodeStateParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeStateStmt, updateFlowNodeState, arg.State, arg.ID)
+	return err
+}
+
+const updateFlowNodeWait = `-- name: UpdateFlowNodeWait :exec
+UPDATE flow_node_wait
+SET
+  duration_ms = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeWaitParams struct {
+	DurationMs int64
+	FlowNodeID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeWait(ctx context.Context, arg UpdateFlowNodeWaitParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeWaitStmt, updateFlowNodeWait, arg.DurationMs, arg.FlowNodeID)
 	return err
 }
 

@@ -83,8 +83,11 @@ type YamlStepWrapper struct {
 	JS          *YamlStepJS         `yaml:"js,omitempty"`
 	AI          *YamlStepAI         `yaml:"ai,omitempty"`
 	AIProvider  *YamlStepAIProvider `yaml:"ai_provider,omitempty"`
-	AIMemory    *YamlStepAIMemory   `yaml:"ai_memory,omitempty"`
-	ManualStart *YamlStepCommon     `yaml:"manual_start,omitempty"`
+	AIMemory       *YamlStepAIMemory      `yaml:"ai_memory,omitempty"`
+	WsConnection   *YamlStepWsConnection  `yaml:"ws_connection,omitempty"`
+	WsSend         *YamlStepWsSend        `yaml:"ws_send,omitempty"`
+	Wait           *YamlStepWait          `yaml:"wait,omitempty"`
+	ManualStart    *YamlStepCommon        `yaml:"manual_start,omitempty"`
 }
 
 // Common fields for all step types
@@ -164,6 +167,23 @@ type YamlStepAIMemory struct {
 	YamlStepCommon `yaml:",inline"`
 	Type           string `yaml:"type,omitempty"`        // window_buffer (default) | summary
 	WindowSize     int    `yaml:"window_size,omitempty"` // Number of messages to keep (default 10)
+}
+
+type YamlStepWsConnection struct {
+	YamlStepCommon `yaml:",inline"`
+	URL            string           `yaml:"url,omitempty"`
+	Headers        HeaderMapOrSlice `yaml:"headers,omitempty"`
+}
+
+type YamlStepWsSend struct {
+	YamlStepCommon       `yaml:",inline"`
+	WsConnectionNodeName string `yaml:"ws_connection_node_name"`
+	Message              string `yaml:"message,omitempty"`
+}
+
+type YamlStepWait struct {
+	YamlStepCommon `yaml:",inline"`
+	DurationMs     string `yaml:"duration_ms"`
 }
 
 // YamlFlowVariableV2 represents a flow variable
@@ -418,7 +438,9 @@ type YamlFlowDataV2 struct {
 	AINodes          []mflow.NodeAI
 	AIProviderNodes  []mflow.NodeAiProvider
 	AIMemoryNodes    []mflow.NodeMemory
-	GraphQLNodes     []mflow.NodeGraphQL
+	GraphQLNodes        []mflow.NodeGraphQL
+	WsConnectionNodes   []mflow.NodeWsConnection
+	WsSendNodes         []mflow.NodeWsSend
 }
 
 // YamlVariableV2 represents a variable during parsing

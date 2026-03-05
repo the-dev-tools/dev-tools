@@ -379,6 +379,12 @@ func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 		return flowv1.NodeKind_NODE_KIND_AI_MEMORY
 	case mflow.NODE_KIND_GRAPHQL:
 		return flowv1.NodeKind_NODE_KIND_GRAPH_Q_L
+	case mflow.NODE_KIND_WS_CONNECTION:
+		return flowv1.NodeKind_NODE_KIND_WS_CONNECTION
+	case mflow.NODE_KIND_WS_SEND:
+		return flowv1.NodeKind_NODE_KIND_WS_SEND
+	case mflow.NODE_KIND_WAIT:
+		return flowv1.NodeKind_NODE_KIND_WAIT
 	default:
 		return flowv1.NodeKind_NODE_KIND_UNSPECIFIED
 	}

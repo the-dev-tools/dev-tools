@@ -346,7 +346,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	const defaultNodeTimeout = 60 // seconds
 	timeoutDuration := time.Duration(defaultNodeTimeout) * time.Second
 
-	flowNodeMap, startNodeID, err := s.builder.BuildNodes(
+	flowNodeMap, startNodeIDs, err := s.builder.BuildNodes(
 		ctx,
 		flow,
 		nodes,
@@ -360,7 +360,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 		return 0, err
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewMonotonic(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewMonotonic(), flow.ID, startNodeIDs, flowNodeMap, edgeMap, 0, nil)
 
 	// Reset all node states to UNSPECIFIED before flow execution
 	nodeResetEvents := make([]NodeEvent, 0, len(nodes))
@@ -436,7 +436,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 			// Check if this is a loop coordinator (For/ForEach) wrapper status
 			// Skip NodeExecution creation for these, but still update node visual state
 			nodeKind := nodeKindMap[status.NodeID]
-			isLoopNode := nodeKind == mflow.NODE_KIND_FOR || nodeKind == mflow.NODE_KIND_FOR_EACH
+			isLoopNode := nodeKind == mflow.NODE_KIND_FOR || nodeKind == mflow.NODE_KIND_FOR_EACH || nodeKind == mflow.NODE_KIND_WS_CONNECTION
 			skipExecution := isLoopNode && !status.IterationEvent
 
 			// Persist execution state (skip for loop node wrapper statuses)
@@ -805,8 +805,11 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		jsData         *mflow.NodeJS
 		aiData         *mflow.NodeAI
 		aiProviderData *mflow.NodeAiProvider
-		memoryData     *mflow.NodeMemory
-		graphqlData    *mflow.NodeGraphQL
+		memoryData       *mflow.NodeMemory
+		graphqlData      *mflow.NodeGraphQL
+		wsConnectionData *mflow.NodeWsConnection
+		wsSendData       *mflow.NodeWsSend
+		waitData         *mflow.NodeWait
 	}
 
 	nodeConfigs := make([]nodeConfig, 0, len(sourceNodes))
@@ -815,6 +818,8 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		config := nodeConfig{sourceNode: sourceNode}
 
 		switch sourceNode.NodeKind {
+		case mflow.NODE_KIND_MANUAL_START:
+			// No type-specific data for ManualStart
 		case mflow.NODE_KIND_REQUEST:
 			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
 			if err == nil && requestData != nil {
@@ -884,6 +889,34 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			} else if graphqlData != nil {
 				config.graphqlData = graphqlData
 			}
+
+		case mflow.NODE_KIND_WS_CONNECTION:
+			if s.nwcs != nil {
+				wsConnData, err := s.nwcs.GetNodeWsConnection(ctx, sourceNode.ID)
+				if err != nil {
+					s.logger.Warn("failed to get ws connection node config", "node_id", sourceNode.ID.String(), "error", err)
+				} else if wsConnData != nil {
+					config.wsConnectionData = wsConnData
+				}
+			}
+		case mflow.NODE_KIND_WS_SEND:
+			if s.nwss != nil {
+				wsSendData, err := s.nwss.GetNodeWsSend(ctx, sourceNode.ID)
+				if err != nil {
+					s.logger.Warn("failed to get ws send node config", "node_id", sourceNode.ID.String(), "error", err)
+				} else if wsSendData != nil {
+					config.wsSendData = wsSendData
+				}
+			}
+		case mflow.NODE_KIND_WAIT:
+			if s.nwaits != nil {
+				waitData, err := s.nwaits.GetNodeWait(ctx, sourceNode.ID)
+				if err != nil {
+					s.logger.Warn("failed to get wait node config", "node_id", sourceNode.ID.String(), "error", err)
+				} else if waitData != nil {
+					config.waitData = waitData
+				}
+			}
 		}
 
 		nodeConfigs = append(nodeConfigs, config)
@@ -923,6 +956,21 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	if s.ngqs != nil {
 		txService := s.ngqs.TX(tx)
 		ngqsWriter = &txService
+	}
+	var nwcsWriter *sflow.NodeWsConnectionService
+	if s.nwcs != nil {
+		txService := s.nwcs.TX(tx)
+		nwcsWriter = &txService
+	}
+	var nwssWriter *sflow.NodeWsSendService
+	if s.nwss != nil {
+		txService := s.nwss.TX(tx)
+		nwssWriter = &txService
+	}
+	var nwaitsWriter *sflow.NodeWaitService
+	if s.nwaits != nil {
+		txService := s.nwaits.TX(tx)
+		nwaitsWriter = &txService
 	}
 	edgeWriter := s.es.TX(tx)
 	varWriter := s.fvs.TX(tx)
@@ -969,6 +1017,8 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 
 		// Duplicate node-type specific data
 		switch sourceNode.NodeKind {
+		case mflow.NODE_KIND_MANUAL_START:
+			// No type-specific data for ManualStart
 		case mflow.NODE_KIND_REQUEST:
 			if config.requestData != nil {
 				// Copy the request node config (referencing same HTTP, not duplicating)
@@ -1141,6 +1191,31 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 				}
 				if err := ngqsWriter.CreateNodeGraphQL(ctx, newGraphQLData); err != nil {
 					return mflow.Flow{}, nil, fmt.Errorf("create graphql node: %w", err)
+				}
+			}
+
+		case mflow.NODE_KIND_WS_CONNECTION:
+			if nwcsWriter != nil && config.wsConnectionData != nil {
+				newWsConnData := *config.wsConnectionData
+				newWsConnData.FlowNodeID = newNodeID
+				if err := nwcsWriter.CreateNodeWsConnection(ctx, newWsConnData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create ws connection node: %w", err)
+				}
+			}
+		case mflow.NODE_KIND_WS_SEND:
+			if nwssWriter != nil && config.wsSendData != nil {
+				newWsSendData := *config.wsSendData
+				newWsSendData.FlowNodeID = newNodeID
+				if err := nwssWriter.CreateNodeWsSend(ctx, newWsSendData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create ws send node: %w", err)
+				}
+			}
+		case mflow.NODE_KIND_WAIT:
+			if nwaitsWriter != nil && config.waitData != nil {
+				newWaitData := *config.waitData
+				newWaitData.FlowNodeID = newNodeID
+				if err := nwaitsWriter.CreateNodeWait(ctx, newWaitData); err != nil {
+					return mflow.Flow{}, nil, fmt.Errorf("create wait node: %w", err)
 				}
 			}
 		}

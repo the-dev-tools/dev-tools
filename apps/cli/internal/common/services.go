@@ -12,6 +12,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
 
@@ -32,16 +33,23 @@ type Services struct {
 	FlowVariable sflow.FlowVariableService
 
 	// Flow Nodes
-	Node        sflow.NodeService
-	NodeRequest sflow.NodeRequestService
-	NodeFor     sflow.NodeForService
-	NodeForEach sflow.NodeForEachService
-	NodeIf      sflow.NodeIfService
-	NodeJS      sflow.NodeJsService
-	NodeAI         sflow.NodeAIService
-	NodeAiProvider sflow.NodeAiProviderService
-	NodeMemory     sflow.NodeMemoryService
-	NodeGraphQL    sflow.NodeGraphQLService
+	Node             sflow.NodeService
+	NodeRequest      sflow.NodeRequestService
+	NodeFor          sflow.NodeForService
+	NodeForEach      sflow.NodeForEachService
+	NodeIf           sflow.NodeIfService
+	NodeJS           sflow.NodeJsService
+	NodeAI           sflow.NodeAIService
+	NodeAiProvider   sflow.NodeAiProviderService
+	NodeMemory       sflow.NodeMemoryService
+	NodeGraphQL      sflow.NodeGraphQLService
+	NodeWsConnection sflow.NodeWsConnectionService
+	NodeWsSend       sflow.NodeWsSendService
+	NodeWait         sflow.NodeWaitService
+
+	// WebSocket
+	WebSocket       swebsocket.WebSocketService
+	WebSocketHeader swebsocket.WebSocketHeaderService
 
 	// GraphQL
 	GraphQL       sgraphql.GraphQLService
@@ -94,7 +102,14 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		NodeAI:         sflow.NewNodeAIService(queries),
 		NodeAiProvider: sflow.NewNodeAiProviderService(queries),
 		NodeMemory:     sflow.NewNodeMemoryService(queries),
-		NodeGraphQL:    sflow.NewNodeGraphQLService(queries),
+		NodeGraphQL:      sflow.NewNodeGraphQLService(queries),
+		NodeWsConnection: sflow.NewNodeWsConnectionService(queries),
+		NodeWsSend:        sflow.NewNodeWsSendService(queries),
+		NodeWait:          sflow.NewNodeWaitService(queries),
+
+		// WebSocket
+		WebSocket:       swebsocket.New(queries, logger),
+		WebSocketHeader: swebsocket.NewWebSocketHeaderService(queries),
 
 		// GraphQL
 		GraphQL:       sgraphql.New(queries, logger),

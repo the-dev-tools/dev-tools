@@ -51,7 +51,7 @@ func TestSync_DeleteRobustness(t *testing.T) {
 		// Should still receive an event because we publish it to trigger re-fetch
 		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
 		require.Len(t, events, 1)
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		assert.Equal(t, nodeEventDelete, events[0].Type)
 	})
 
 	t.Run("NodeJs Delete robustness", func(t *testing.T) {

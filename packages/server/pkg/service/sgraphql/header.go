@@ -25,6 +25,17 @@ func (s GraphQLHeaderService) TX(tx *sql.Tx) GraphQLHeaderService {
 	return GraphQLHeaderService{queries: s.queries.WithTx(tx)}
 }
 
+func (s GraphQLHeaderService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mgraphql.GraphQLHeader, error) {
+	headers, err := s.GetByIDs(ctx, []idwrap.IDWrap{id})
+	if err != nil {
+		return nil, err
+	}
+	if len(headers) == 0 {
+		return nil, ErrNoGraphQLHeaderFound
+	}
+	return &headers[0], nil
+}
+
 func (s GraphQLHeaderService) GetByGraphQLID(ctx context.Context, graphqlID idwrap.IDWrap) ([]mgraphql.GraphQLHeader, error) {
 	headers, err := s.queries.GetGraphQLHeaders(ctx, graphqlID)
 	if err != nil {

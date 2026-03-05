@@ -83,6 +83,9 @@ import { GraphQLNode, GraphQLSettings } from './nodes/graphql';
 import { HttpNode, HttpSettings } from './nodes/http';
 import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
+import { WaitNode, WaitSettings } from './nodes/wait';
+import { WsConnectionNode, WsConnectionSettings } from './nodes/ws-connection';
+import { WsSendNode, WsSendSettings } from './nodes/ws-send';
 import { useFlowSelection } from './selection';
 import { useUndoStack } from './undo';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
@@ -99,6 +102,9 @@ export const nodeTypes: XF.NodeTypes = {
   [NodeKind.JS]: JavaScriptNode,
   [NodeKind.MANUAL_START]: ManualStartNode,
   [NodeKind.UNSPECIFIED]: () => null,
+  [NodeKind.WAIT]: WaitNode,
+  [NodeKind.WS_CONNECTION]: WsConnectionNode,
+  [NodeKind.WS_SEND]: WsSendNode,
 };
 
 export const FlowEditPage = () => {
@@ -881,6 +887,9 @@ const useNodeEditDialog = () => {
       Match.when({ kind: NodeKind.AI }, (_) => <AiSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_PROVIDER }, (_) => <AiProviderSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_MEMORY }, (_) => <AiMemorySettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.WAIT }, () => <WaitSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.WS_CONNECTION }, () => <WsConnectionSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.WS_SEND }, () => <WsSendSettings nodeId={nodeId} />),
       Match.orElse(() => null),
     );
 

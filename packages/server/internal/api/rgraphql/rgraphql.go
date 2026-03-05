@@ -53,6 +53,7 @@ type GraphQLHeaderTopic struct {
 type GraphQLHeaderEvent struct {
 	Type          string
 	GraphQLHeader *graphqlv1.GraphQLHeader
+	IsDelta       bool
 }
 
 type GraphQLResponseTopic struct {
@@ -333,6 +334,7 @@ func (p *rgraphqlPublisher) publishGraphQLHeader(evt mutation.Event) {
 	}
 	var model *graphqlv1.GraphQLHeader
 	var eventType string
+	isDelta := false
 
 	switch evt.Op {
 	case mutation.OpInsert, mutation.OpUpdate:
@@ -343,8 +345,10 @@ func (p *rgraphqlPublisher) publishGraphQLHeader(evt mutation.Event) {
 		}
 		if h, ok := evt.Payload.(mgraphql.GraphQLHeader); ok {
 			model = ToAPIGraphQLHeader(h)
+			isDelta = h.IsDelta
 		} else if hp, ok := evt.Payload.(*mgraphql.GraphQLHeader); ok {
 			model = ToAPIGraphQLHeader(*hp)
+			isDelta = hp.IsDelta
 		}
 	case mutation.OpDelete:
 		eventType = eventTypeDelete
@@ -355,6 +359,7 @@ func (p *rgraphqlPublisher) publishGraphQLHeader(evt mutation.Event) {
 		p.streamers.GraphQLHeader.Publish(GraphQLHeaderTopic{WorkspaceID: evt.WorkspaceID}, GraphQLHeaderEvent{
 			Type:          eventType,
 			GraphQLHeader: model,
+			IsDelta:       isDelta,
 		})
 	}
 }
