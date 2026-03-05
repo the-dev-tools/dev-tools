@@ -273,6 +273,11 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		nil, // NodeGraphQLService
+		nil, // NodeWsConnectionService
+		nil, // NodeWsSendService
+		nil, // NodeWaitService
+		nil, // WebSocketService
+		nil, // WebSocketHeaderService
 		nil, // GraphQLService
 		nil, // GraphQLHeaderService
 		cli.Workspace,
@@ -491,7 +496,7 @@ func executeFlow(ctx context.Context, flowPtr *mflow.Flow, c *cliServices, build
 	defer close(gqlRespChan)
 
 	// Build flow node map
-	flowNodeMap, startNodeID, err := builder.BuildNodes(
+	flowNodeMap, startNodeIDs, err := builder.BuildNodes(
 		ctx,
 		*flowPtr,
 		nodes,
@@ -506,7 +511,7 @@ func executeFlow(ctx context.Context, flowPtr *mflow.Flow, c *cliServices, build
 	}
 
 	// Create runner
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout, nil)
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeIDs, flowNodeMap, edgeMap, nodeTimeout, nil)
 
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
 	flowStatusChan := make(chan runner.FlowStatus, 10)

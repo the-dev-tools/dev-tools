@@ -5,15 +5,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"runtime"
+	"sync"
+	"time"
+
+	"golang.org/x/sync/errgroup"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/tracking"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"log/slog"
-	"runtime"
-	"sync"
-	"time"
 )
 
 // ExecutionMode controls how FlowLocalRunner schedules nodes.
@@ -31,9 +34,9 @@ type FlowLocalRunner struct {
 	FlowNodeMap      map[idwrap.IDWrap]node.FlowNode
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
 
-	EdgesMap    mflow.EdgesMap
-	StartNodeID idwrap.IDWrap
-	Timeout     time.Duration
+	EdgesMap     mflow.EdgesMap
+	StartNodeIDs []idwrap.IDWrap
+	Timeout      time.Duration
 
 	mode               ExecutionMode
 	selectedMode       ExecutionMode
@@ -43,11 +46,11 @@ type FlowLocalRunner struct {
 
 var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
 
-func CreateFlowRunner(id, flowID, startNodeID idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
+func CreateFlowRunner(id, flowID idwrap.IDWrap, startNodeIDs []idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
 	return &FlowLocalRunner{
 		ID:                 id,
 		FlowID:             flowID,
-		StartNodeID:        startNodeID,
+		StartNodeIDs:       startNodeIDs,
 		FlowNodeMap:        flowNodeMap,
 		PendingAtmoicMap:   make(map[idwrap.IDWrap]uint32),
 		EdgesMap:           edgesMap,
@@ -459,8 +462,6 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		defer close(channels.FlowStatus)
 	}
 
-	nextNodeID := &r.StartNodeID
-
 	flowEdgeDepCounter := make(map[idwrap.IDWrap]uint32)
 	for _, v := range r.EdgesMap {
 		for _, targetIDs := range v {
@@ -491,6 +492,9 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		statusFunc = node.LogPushFunc(statusEmitter.emit)
 	}
 
+	// Shared mutex for PendingAtmoicMap across concurrent entry chains
+	pendingMu := &sync.Mutex{}
+
 	req := &node.FlowNodeRequest{
 		VarMap:           baseVars,
 		ReadWriteLock:    &sync.RWMutex{},
@@ -499,6 +503,7 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		LogPushFunc:      statusFunc,
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
+		PendingMapMu:     pendingMu,
 		Logger:           r.logger,
 	}
 	predecessorMap := BuildPredecessorMap(r.EdgesMap)
@@ -513,7 +518,20 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		channels.FlowStatus <- runner.FlowStatusStarting
 	}
 
-	err := runNodes(ctx, *nextNodeID, req, statusFunc, predecessorMap, mode, r.Timeout, r.enableDataTracking)
+	var err error
+	if len(r.StartNodeIDs) == 1 {
+		// Single entry — fast path, no errgroup overhead
+		err = runNodes(ctx, r.StartNodeIDs[0], req, statusFunc, predecessorMap, mode, r.Timeout, r.enableDataTracking)
+	} else {
+		// Multiple entries — run each chain concurrently
+		eg, egCtx := errgroup.WithContext(ctx)
+		for _, startID := range r.StartNodeIDs {
+			eg.Go(func() error {
+				return runNodes(egCtx, startID, req, statusFunc, predecessorMap, mode, r.Timeout, r.enableDataTracking)
+			})
+		}
+		err = eg.Wait()
+	}
 
 	if channels.FlowStatus != nil {
 		if err != nil {
@@ -614,8 +632,11 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 
 	var status runner.FlowNodeStatus
 	var processCount int
-	// Mutex to protect PendingAtmoicMap from concurrent access
-	var pendingMapMutex sync.Mutex
+	// Use shared mutex from request if available (multi-entry), otherwise local
+	pendingMapMutex := req.PendingMapMu
+	if pendingMapMutex == nil {
+		pendingMapMutex = &sync.Mutex{}
+	}
 	// Track nodes that have been sent RUNNING status but haven't completed
 	// Map from executionID to the full status for proper state transitions
 	runningNodes := make(map[idwrap.IDWrap]runner.FlowNodeStatus)
@@ -930,7 +951,11 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 
 	var status runner.FlowNodeStatus
 	var processCount int
-	var pendingMapMutex sync.Mutex
+	// Use shared mutex from request if available (multi-entry), otherwise local
+	pendingMapMutex := req.PendingMapMu
+	if pendingMapMutex == nil {
+		pendingMapMutex = &sync.Mutex{}
+	}
 	runningNodes := make(map[idwrap.IDWrap]runner.FlowNodeStatus)
 	runningNodesMutex := sync.Mutex{}
 	nodeStartTimes := make(map[idwrap.IDWrap]time.Time)

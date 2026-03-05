@@ -8,6 +8,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 )
 
@@ -32,6 +33,10 @@ type WorkspaceBundle struct {
 	GraphQLHeaders  []mgraphql.GraphQLHeader
 	GraphQLAsserts  []mgraphql.GraphQLAssert
 
+	// WebSocket requests and associated data
+	WebSockets       []mwebsocket.WebSocket
+	WebSocketHeaders []mwebsocket.WebSocketHeader
+
 	// File organization
 	Files []mfile.File
 
@@ -50,7 +55,10 @@ type WorkspaceBundle struct {
 	FlowAINodes         []mflow.NodeAI
 	FlowAIProviderNodes []mflow.NodeAiProvider
 	FlowAIMemoryNodes   []mflow.NodeMemory
-	FlowGraphQLNodes    []mflow.NodeGraphQL
+	FlowGraphQLNodes        []mflow.NodeGraphQL
+	FlowWsConnectionNodes   []mflow.NodeWsConnection
+	FlowWsSendNodes         []mflow.NodeWsSend
+	FlowWaitNodes           []mflow.NodeWait
 
 	// Environments and variables
 	Environments    []menv.Env
@@ -73,6 +81,8 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"http_asserts":         len(wb.HTTPAsserts),
 		"graphql_requests":     len(wb.GraphQLRequests),
 		"graphql_headers":      len(wb.GraphQLHeaders),
+		"websockets":           len(wb.WebSockets),
+		"websocket_headers":    len(wb.WebSocketHeaders),
 		"files":                len(wb.Files),
 		"flows":                len(wb.Flows),
 		"flow_variables":       len(wb.FlowVariables),
@@ -86,8 +96,11 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"flow_ai_nodes":          len(wb.FlowAINodes),
 		"flow_ai_provider_nodes": len(wb.FlowAIProviderNodes),
 		"flow_ai_memory_nodes":   len(wb.FlowAIMemoryNodes),
-		"flow_graphql_nodes":     len(wb.FlowGraphQLNodes),
-		"environments":           len(wb.Environments),
+		"flow_graphql_nodes":        len(wb.FlowGraphQLNodes),
+		"flow_ws_connection_nodes":  len(wb.FlowWsConnectionNodes),
+		"flow_ws_send_nodes":        len(wb.FlowWsSendNodes),
+		"flow_wait_nodes":           len(wb.FlowWaitNodes),
+		"environments":              len(wb.Environments),
 		"environment_vars":     len(wb.EnvironmentVars),
 		"credentials":          len(wb.Credentials),
 	}

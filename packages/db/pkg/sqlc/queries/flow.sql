@@ -522,6 +522,33 @@ DELETE FROM flow_node_js
 WHERE
   flow_node_id = ?;
 
+-- name: GetFlowNodeWait :one
+SELECT
+  flow_node_id,
+  duration_ms
+FROM
+  flow_node_wait
+WHERE
+  flow_node_id = ?;
+
+-- name: CreateFlowNodeWait :exec
+INSERT INTO
+  flow_node_wait (flow_node_id, duration_ms)
+VALUES
+  (?, ?);
+
+-- name: UpdateFlowNodeWait :exec
+UPDATE flow_node_wait
+SET
+  duration_ms = ?
+WHERE
+  flow_node_id = ?;
+
+-- name: DeleteFlowNodeWait :exec
+DELETE FROM flow_node_wait
+WHERE
+  flow_node_id = ?;
+
 -- name: GetMigration :one
 SELECT
   id,
@@ -740,6 +767,9 @@ DELETE FROM flow_node_condition WHERE flow_node_id NOT IN (SELECT id FROM flow_n
 
 -- name: CleanupOrphanedFlowNodeJs :exec
 DELETE FROM flow_node_js WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowNodeWait :exec
+DELETE FROM flow_node_wait WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
 
 -- name: CleanupOrphanedFlowEdges :exec
 DELETE FROM flow_edge WHERE source_id NOT IN (SELECT id FROM flow_node) OR target_id NOT IN (SELECT id FROM flow_node);

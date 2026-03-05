@@ -21,3 +21,13 @@ model ExportCurlResponse {
   data: string;
 }
 op ExportCurl(...ExportCurlRequest): ExportCurlResponse;
+
+model ExportCurlGraphQLRequest {
+  workspaceId: Id;
+  graphqlIds?: Id[];
+}
+
+model ExportCurlGraphQLResponse {
+  data: string;
+}
+op ExportCurlGraphQL(...ExportCurlGraphQLRequest): ExportCurlGraphQLResponse;

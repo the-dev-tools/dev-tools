@@ -346,7 +346,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	const defaultNodeTimeout = 60 // seconds
 	timeoutDuration := time.Duration(defaultNodeTimeout) * time.Second
 
-	flowNodeMap, startNodeID, err := s.builder.BuildNodes(
+	flowNodeMap, startNodeIDs, err := s.builder.BuildNodes(
 		ctx,
 		flow,
 		nodes,
@@ -360,7 +360,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 		return 0, err
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewMonotonic(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewMonotonic(), flow.ID, startNodeIDs, flowNodeMap, edgeMap, 0, nil)
 
 	// Reset all node states to UNSPECIFIED before flow execution
 	nodeResetEvents := make([]NodeEvent, 0, len(nodes))
@@ -436,7 +436,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 			// Check if this is a loop coordinator (For/ForEach) wrapper status
 			// Skip NodeExecution creation for these, but still update node visual state
 			nodeKind := nodeKindMap[status.NodeID]
-			isLoopNode := nodeKind == mflow.NODE_KIND_FOR || nodeKind == mflow.NODE_KIND_FOR_EACH
+			isLoopNode := nodeKind == mflow.NODE_KIND_FOR || nodeKind == mflow.NODE_KIND_FOR_EACH || nodeKind == mflow.NODE_KIND_WS_CONNECTION
 			skipExecution := isLoopNode && !status.IterationEvent
 
 			// Persist execution state (skip for loop node wrapper statuses)
@@ -884,6 +884,13 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			} else if graphqlData != nil {
 				config.graphqlData = graphqlData
 			}
+
+		case mflow.NODE_KIND_WS_CONNECTION:
+			// TODO: fetch NodeWsConnection config when service is wired
+		case mflow.NODE_KIND_WS_SEND:
+			// TODO: fetch NodeWsSend config when service is wired
+		case mflow.NODE_KIND_WAIT:
+			// Wait node config is fetched by flowbuilder at execution time
 		}
 
 		nodeConfigs = append(nodeConfigs, config)
@@ -1143,6 +1150,13 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					return mflow.Flow{}, nil, fmt.Errorf("create graphql node: %w", err)
 				}
 			}
+
+		case mflow.NODE_KIND_WS_CONNECTION:
+			// TODO: create version snapshot for WS Connection node when service is wired
+		case mflow.NODE_KIND_WS_SEND:
+			// TODO: create version snapshot for WS Send node when service is wired
+		case mflow.NODE_KIND_WAIT:
+			// TODO: create version snapshot for wait node when needed
 		}
 
 		// Collect base node event

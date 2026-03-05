@@ -275,7 +275,7 @@ func TestFlowLocalRunnerEmitsLogEvents(t *testing.T) {
 		},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 
 	stateChan := make(chan runner.FlowNodeStatus, 8)
 	logChan := make(chan runner.FlowNodeLogPayload, 8)
@@ -343,7 +343,7 @@ func TestFlowLocalRunnerMultiFailureIncludesOutputData(t *testing.T) {
 		},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
 
 	stateChan := make(chan runner.FlowNodeStatus, 8)
@@ -539,7 +539,7 @@ func TestLoopNodeEmitsFinalSuccessStatus(t *testing.T) {
 		nodeID: loopNode,
 	}
 	edgesMap := make(mflow.EdgesMap)
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), nodeID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{nodeID}, nodeMap, edgesMap, 0, nil)
 
 	statusChan := make(chan runner.FlowNodeStatus, 8)
 	flowStatusChan := make(chan runner.FlowStatus, 2)
@@ -590,7 +590,7 @@ func BenchmarkFlowRunnerForLoopWithMockRequest(b *testing.B) {
 		},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID}, nodeMap, edgesMap, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -615,7 +615,7 @@ func TestFlowLocalRunnerSingleModeSequential(t *testing.T) {
 	}
 
 	runnerID := idwrap.NewNow()
-	flowRunner := flowlocalrunner.CreateFlowRunner(runnerID, idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(runnerID, idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeSingle)
 
 	statusChan := make(chan runner.FlowNodeStatus, 16)
@@ -690,7 +690,7 @@ func TestFlowLocalRunnerMultiModeConcurrentExecution(t *testing.T) {
 		rightNode.GetID(): map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
 
 	statusChan := make(chan runner.FlowNodeStatus, 16)
@@ -738,7 +738,7 @@ func TestFlowLocalRunnerMultiModeConcurrentExecution(t *testing.T) {
 
 func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 	linearStart, linearNodeMap, linearEdges, _ := buildLinearStubFlow(3, false)
-	linearRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), linearStart, linearNodeMap, linearEdges, 0, nil)
+	linearRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{linearStart}, linearNodeMap, linearEdges, 0, nil)
 
 	statusChan := make(chan runner.FlowNodeStatus, 8)
 	flowStatusChan := make(chan runner.FlowStatus, 4)
@@ -755,7 +755,7 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 	}
 
 	branchStart, branchNodes, branchEdges := buildBranchingStubFlow()
-	branchRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), branchStart, branchNodes, branchEdges, 0, nil)
+	branchRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{branchStart}, branchNodes, branchEdges, 0, nil)
 
 	statusChan = make(chan runner.FlowNodeStatus, 8)
 	flowStatusChan = make(chan runner.FlowStatus, 4)
@@ -786,7 +786,7 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 		bodyID: map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
-	loopRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, loopNodes, loopEdges, 0, nil)
+	loopRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID}, loopNodes, loopEdges, 0, nil)
 	statusChan = make(chan runner.FlowNodeStatus, 8)
 	flowStatusChan = make(chan runner.FlowStatus, 4)
 	if err := loopRunner.Run(context.Background(), statusChan, flowStatusChan, nil); err != nil {
@@ -823,7 +823,7 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 		bodyBID: map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
-	complexRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID2, complexNodes, complexEdges, 0, nil)
+	complexRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID2}, complexNodes, complexEdges, 0, nil)
 	statusChan = make(chan runner.FlowNodeStatus, 8)
 	flowStatusChan = make(chan runner.FlowStatus, 4)
 	if err := complexRunner.Run(context.Background(), statusChan, flowStatusChan, nil); err != nil {
@@ -841,7 +841,7 @@ func TestFlowLocalRunnerAutoModeSelection(t *testing.T) {
 
 func TestFlowLocalRunnerModeOverride(t *testing.T) {
 	startID, nodeMap, edgesMap, _ := buildLinearStubFlow(2, false)
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
 
 	statusChan := make(chan runner.FlowNodeStatus, 8)
@@ -880,7 +880,7 @@ func TestLoopCoordinatorPerNodeTimeout(t *testing.T) {
 		bodyID: map[mflow.EdgeHandle][]idwrap.IDWrap{},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, nodeMap, edgesMap, perNodeTimeout, nil)
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID}, nodeMap, edgesMap, perNodeTimeout, nil)
 	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
 
 	stateChan := make(chan runner.FlowNodeStatus, 64)
@@ -933,7 +933,7 @@ func benchmarkBlockingFlow(b *testing.B, mode flowlocalrunner.ExecutionMode, wid
 		edgesMap[startID][mflow.HandleUnspecified] = append([]idwrap.IDWrap(nil), branchIDs...)
 		startNode.next = append([]idwrap.IDWrap(nil), branchIDs...)
 
-		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 		flowRunner.SetExecutionMode(mode)
 
 		statusChan := make(chan runner.FlowNodeStatus, width*4)
@@ -978,7 +978,7 @@ func runExecutionModeBenchmark(b *testing.B, startID idwrap.IDWrap, nodeMap map[
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 		flowRunner.SetExecutionMode(mode)
 
 		statusChan := make(chan runner.FlowNodeStatus, len(nodeMap)*4)

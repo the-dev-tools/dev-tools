@@ -15,7 +15,7 @@ import {
   TreeProps,
   useDragAndDrop,
 } from 'react-aria-components';
-import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
+import { FiFolder, FiMoreHorizontal, FiWifi, FiX } from 'react-icons/fi';
 import { RiAnthropicFill, RiGeminiFill, RiOpenaiFill } from 'react-icons/ri';
 import { TbGauge } from 'react-icons/tb';
 import { twJoin } from 'tailwind-merge';
@@ -31,6 +31,7 @@ import {
 import { FlowSchema, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { GraphQLSchema as GraphQLItemSchema } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
 import { HttpDeltaSchema, HttpMethod, HttpSchema, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
+import { WebSocketSchema as WebSocketItemSchema } from '@the-dev-tools/spec/buf/api/web_socket/v1/web_socket_pb';
 import {
   CredentialAnthropicCollectionSchema,
   CredentialCollectionSchema,
@@ -41,6 +42,7 @@ import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spe
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { WebSocketCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/web_socket';
 import { Button } from '@the-dev-tools/ui/button';
 import { FlowsIcon, FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -89,6 +91,7 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
   const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
   const httpCollection = useApiCollection(HttpCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
+  const websocketCollection = useApiCollection(WebSocketCollectionSchema);
 
   const insertFile = useInsertFile(parentFolderId);
 
@@ -150,6 +153,16 @@ export const FileCreateMenu = ({ parentFolderId, ...props }: FileCreateMenuProps
         }}
       >
         Flow
+      </MenuItem>
+
+      <MenuItem
+        onAction={async () => {
+          const websocketUlid = Ulid.generate();
+          websocketCollection.utils.insert({ name: 'New WebSocket', url: '', websocketId: websocketUlid.bytes });
+          await insertFile({ fileId: websocketUlid.bytes, kind: FileKind.WEB_SOCKET });
+        }}
+      >
+        WebSocket
       </MenuItem>
 
       <CreateCredentialSubmenu navigate={toNavigate} {...(parentFolderId && { parentFolderId })} />
@@ -353,6 +366,7 @@ const FileItem = ({ id }: FileItemProps) => {
     Match.when(FileKind.FLOW, () => <FlowFile id={id} />),
     Match.when(FileKind.GRAPH_Q_L, () => <GraphQLFile id={id} />),
     Match.when(FileKind.CREDENTIAL, () => <CredentialFile id={id} />),
+    Match.when(FileKind.WEB_SOCKET, () => <WebSocketFile id={id} />),
     Match.orElse(() => null),
   );
 };
@@ -908,6 +922,10 @@ const GraphQLFile = ({ id }: FileItemProps) => {
   const router = useRouter();
   const matchRoute = useMatchRoute();
 
+  const { theme } = useTheme();
+
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { fileId: graphqlId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
@@ -923,6 +941,11 @@ const GraphQLFile = ({ id }: FileItemProps) => {
           .findOne(),
       [graphqlCollection, graphqlId],
     ).data ?? create(GraphQLItemSchema);
+
+  const modal = useProgrammaticModal();
+
+  const exportMutation = useConnectMutation(ExportService.method.export);
+  const exportCurlGraphQLMutation = useConnectMutation(ExportService.method.exportCurlGraphQL);
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
 
@@ -943,6 +966,8 @@ const GraphQLFile = ({ id }: FileItemProps) => {
 
   const content = (
     <>
+      {modal.children && <Modal {...modal} size='sm' />}
+
       <span className={tw`rounded bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -967,6 +992,167 @@ const GraphQLFile = ({ id }: FileItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <SubmenuTrigger>
+              <MenuItem>Export</MenuItem>
+
+              <Menu>
+                <MenuItem
+                  onAction={async () => {
+                    const { data, name } = await exportMutation.mutateAsync({
+                      fileIds: [graphqlId],
+                      workspaceId,
+                    });
+                    saveFile({ blobParts: [data], name });
+                  }}
+                >
+                  YAML (DevTools)
+                </MenuItem>
+
+                <MenuItem
+                  onAction={async () => {
+                    const { data } = await exportCurlGraphQLMutation.mutateAsync({
+                      graphqlIds: [graphqlId],
+                      workspaceId,
+                    });
+                    modal.onOpenChange(
+                      true,
+                      <Dialog className={tw`flex h-full flex-col gap-4 p-6`}>
+                        {({ close }) => (
+                          <>
+                            <div className={tw`flex items-center justify-between`}>
+                              <Heading
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
+                                slot='title'
+                              >
+                                cURL export
+                              </Heading>
+
+                              <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
+                                <FiX className={tw`size-5 text-on-neutral-low`} />
+                              </Button>
+                            </div>
+
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={theme} value={data} />
+                          </>
+                        )}
+                      </Dialog>,
+                    );
+                  }}
+                >
+                  cURL
+                </MenuItem>
+              </Menu>
+            </SubmenuTrigger>
+
+            <MenuItem
+              onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}
+              variant='danger'
+            >
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      )}
+    </>
+  );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
+    id,
+    onContextMenu,
+    textValue: name,
+  } satisfies TreeItemProps<object>;
+
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
+};
+
+const WebSocketFile = ({ id }: FileItemProps) => {
+  const router = useRouter();
+  const matchRoute = useMatchRoute();
+
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { fileId: websocketId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
+
+  const websocketCollection = useApiCollection(WebSocketCollectionSchema);
+
+  const { name } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: websocketCollection })
+          .where((_) => eq(_.item.websocketId, websocketId))
+          .select((_) => pick(_.item, 'name'))
+          .findOne(),
+      [websocketCollection, websocketId],
+    ).data ?? create(WebSocketItemSchema);
+
+  const exportMutation = useConnectMutation(ExportService.method.export);
+
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
+
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => websocketCollection.utils.update({ name: _, websocketId }),
+    value: name,
+  });
+
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const route = {
+    from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+    params: { websocketIdCan: Ulid.construct(websocketId).toCanonical() },
+    to: router.routesById[routes.dashboard.workspace.websocket.route.id].fullPath,
+  } satisfies ToOptions;
+
+  const content = (
+    <>
+      <FiWifi className={tw`size-4 text-on-neutral-low`} />
+
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
+        {name}
+      </Text>
+
+      {isEditing &&
+        escapeRender(
+          <TextInputField
+            aria-label='WebSocket name'
+            className={tw`w-full`}
+            inputClassName={tw`-my-1 py-1`}
+            {...textFieldProps}
+          />,
+        )}
+
+      {showControls && (
+        <MenuTrigger {...menuTriggerProps}>
+          <Button className={tw`p-0.5`} variant='ghost'>
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
+          </Button>
+
+          <Menu {...menuProps}>
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <SubmenuTrigger>
+              <MenuItem>Export</MenuItem>
+
+              <Menu>
+                <MenuItem
+                  onAction={async () => {
+                    const { data, name } = await exportMutation.mutateAsync({
+                      fileIds: [websocketId],
+                      workspaceId,
+                    });
+                    saveFile({ blobParts: [data], name });
+                  }}
+                >
+                  YAML (DevTools)
+                </MenuItem>
+              </Menu>
+            </SubmenuTrigger>
 
             <MenuItem
               onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}

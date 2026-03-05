@@ -67,6 +67,7 @@ enum HandleKind {
   AiProvider,
   AiMemory,
   AiTools,
+  WsMessage,
 }
 
 @AITools.mutationTool(#{
@@ -96,6 +97,9 @@ enum NodeKind {
   AiProvider,
   AiMemory,
   GraphQL,
+  WsConnection,
+  WsSend,
+  Wait,
 }
 
 enum AiMemoryType {
@@ -291,6 +295,25 @@ model NodeAiMemory {
   @primaryKey nodeId: Id;
   memoryType: AiMemoryType;
   windowSize: int32;
+}
+
+@TanStackDB.collection
+model NodeWsConnection {
+  @primaryKey nodeId: Id;
+  @foreignKey websocketId?: Id;
+}
+
+@TanStackDB.collection
+model NodeWsSend {
+  @primaryKey nodeId: Id;
+  wsConnectionNodeName: string;
+  message: string;
+}
+
+@TanStackDB.collection
+model NodeWait {
+  @primaryKey nodeId: Id;
+  durationMs: int64;
 }
 
 // Copy/Paste operations

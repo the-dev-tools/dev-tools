@@ -275,6 +275,10 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 	result.GraphQLHeaders = append(result.GraphQLHeaders, flowData.GraphQLHeaders...)
 	result.GraphQLAsserts = append(result.GraphQLAsserts, flowData.GraphQLAsserts...)
 	result.FlowGraphQLNodes = append(result.FlowGraphQLNodes, flowData.FlowGraphQLNodes...)
+	result.FlowWsConnectionNodes = append(result.FlowWsConnectionNodes, flowData.FlowWsConnectionNodes...)
+	result.FlowWsSendNodes = append(result.FlowWsSendNodes, flowData.FlowWsSendNodes...)
+	result.WebSockets = append(result.WebSockets, flowData.WebSockets...)
+	result.WebSocketHeaders = append(result.WebSocketHeaders, flowData.WebSocketHeaders...)
 }
 
 func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssociatedData) {

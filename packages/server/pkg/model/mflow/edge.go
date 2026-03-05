@@ -23,6 +23,7 @@ const (
 	HandleAiProvider
 	HandleAiMemory
 	HandleAiTools
+	HandleWsMessage
 	HandleLength
 )
 

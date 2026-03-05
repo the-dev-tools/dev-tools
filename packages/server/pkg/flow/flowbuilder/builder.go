@@ -20,6 +20,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nwait"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nwsconnection"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nwssend"
 	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
@@ -30,6 +33,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
 )
@@ -44,9 +48,14 @@ type Builder struct {
 	NodeAI      *sflow.NodeAIService
 	NodeAiProvider *sflow.NodeAiProviderService
 	NodeMemory  *sflow.NodeMemoryService
-	NodeGraphQL  *sflow.NodeGraphQLService
-	GraphQL      *sgraphql.GraphQLService
-	GraphQLHeader *sgraphql.GraphQLHeaderService
+	NodeGraphQL      *sflow.NodeGraphQLService
+	NodeWsConnection *sflow.NodeWsConnectionService
+	NodeWsSend       *sflow.NodeWsSendService
+	NodeWait         *sflow.NodeWaitService
+	WebSocket        *swebsocket.WebSocketService
+	WebSocketHeader  *swebsocket.WebSocketHeaderService
+	GraphQL          *sgraphql.GraphQLService
+	GraphQLHeader    *sgraphql.GraphQLHeaderService
 
 	Workspace    *sworkspace.WorkspaceService
 	Variable     *senv.VariableService
@@ -69,6 +78,11 @@ func New(
 	naps *sflow.NodeAiProviderService,
 	nmems *sflow.NodeMemoryService,
 	ngqs *sflow.NodeGraphQLService,
+	nwcs *sflow.NodeWsConnectionService,
+	nwss *sflow.NodeWsSendService,
+	nwaits *sflow.NodeWaitService,
+	wsSvc *swebsocket.WebSocketService,
+	wsHeaderSvc *swebsocket.WebSocketHeaderService,
 	gqls *sgraphql.GraphQLService,
 	gqlhs *sgraphql.GraphQLHeaderService,
 	ws *sworkspace.WorkspaceService,
@@ -90,6 +104,11 @@ func New(
 		NodeAiProvider:     naps,
 		NodeMemory:         nmems,
 		NodeGraphQL:        ngqs,
+		NodeWsConnection:   nwcs,
+		NodeWsSend:         nwss,
+		NodeWait:           nwaits,
+		WebSocket:          wsSvc,
+		WebSocketHeader:    wsHeaderSvc,
 		GraphQL:            gqls,
 		GraphQLHeader:      gqlhs,
 		Workspace:          ws,
@@ -111,27 +130,27 @@ func (b *Builder) BuildNodes(
 	respChan chan nrequest.NodeRequestSideResp,
 	gqlRespChan chan ngraphql.NodeGraphQLSideResp,
 	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient,
-) (map[idwrap.IDWrap]node.FlowNode, idwrap.IDWrap, error) {
+) (map[idwrap.IDWrap]node.FlowNode, []idwrap.IDWrap, error) {
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(nodes))
-	var startNodeID idwrap.IDWrap
+	var startNodeIDs []idwrap.IDWrap
 
 	for _, nodeModel := range nodes {
 		switch nodeModel.NodeKind {
 		case mflow.NODE_KIND_MANUAL_START:
 			flowNodeMap[nodeModel.ID] = nstart.New(nodeModel.ID, nodeModel.Name)
-			startNodeID = nodeModel.ID
+			startNodeIDs = append(startNodeIDs, nodeModel.ID)
 		case mflow.NODE_KIND_REQUEST:
 			requestCfg, err := b.NodeRequest.GetNodeRequest(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if requestCfg == nil || requestCfg.HttpID == nil || isZeroID(*requestCfg.HttpID) {
-				return nil, idwrap.IDWrap{}, fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String())
+				return nil, nil, fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String())
 			}
 
 			resolved, err := b.Resolver.Resolve(ctx, *requestCfg.HttpID, requestCfg.DeltaHttpID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, fmt.Errorf("resolve http %s: %w", requestCfg.HttpID.String(), err)
+				return nil, nil, fmt.Errorf("resolve http %s: %w", requestCfg.HttpID.String(), err)
 			}
 
 			requestNode := nrequest.New(
@@ -153,7 +172,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_FOR:
 			forCfg, err := b.NodeFor.GetNodeFor(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if forCfg == nil {
 				// Default configuration if missing
@@ -173,7 +192,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_FOR_EACH:
 			forEachCfg, err := b.NodeForEach.GetNodeForEach(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if forEachCfg == nil {
 				// Default configuration if missing
@@ -184,7 +203,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_CONDITION:
 			condCfg, err := b.NodeIf.GetNodeIf(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if condCfg == nil {
 				// Default to "true" or "false"? Usually better to default to something safe or empty.
@@ -196,7 +215,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_JS:
 			jsCfg, err := b.NodeJS.GetNodeJS(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if jsCfg == nil {
 				// Default empty JS
@@ -206,7 +225,7 @@ func (b *Builder) BuildNodes(
 				if jsCfg.CodeCompressType != compress.CompressTypeNone {
 					codeBytes, err = compress.Decompress(jsCfg.Code, jsCfg.CodeCompressType)
 					if err != nil {
-						return nil, idwrap.IDWrap{}, fmt.Errorf("decompress js code: %w", err)
+						return nil, nil, fmt.Errorf("decompress js code: %w", err)
 					}
 				}
 				flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), jsClient)
@@ -214,7 +233,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_AI:
 			aiCfg, err := b.NodeAI.GetNodeAI(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if aiCfg == nil {
 				// Default AI node with empty prompt
@@ -237,7 +256,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_AI_PROVIDER:
 			providerCfg, err := b.NodeAiProvider.GetNodeAiProvider(ctx, nodeModel.ID)
 			if err != nil && !errors.Is(err, sflow.ErrNoNodeAiProviderFound) {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if providerCfg == nil {
 				// Default AI Provider node (no credential set)
@@ -262,7 +281,7 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_AI_MEMORY:
 			memoryCfg, err := b.NodeMemory.GetNodeMemory(ctx, nodeModel.ID)
 			if err != nil && !errors.Is(err, sflow.ErrNoNodeMemoryFound) {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if memoryCfg == nil {
 				// Default Memory node with window buffer of 10 messages
@@ -283,16 +302,16 @@ func (b *Builder) BuildNodes(
 		case mflow.NODE_KIND_GRAPHQL:
 			gqlCfg, err := b.NodeGraphQL.GetNodeGraphQL(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, err
+				return nil, nil, err
 			}
 			if gqlCfg == nil || gqlCfg.GraphQLID == nil || isZeroID(*gqlCfg.GraphQLID) {
-				return nil, idwrap.IDWrap{}, fmt.Errorf("graphql node %s missing graphql configuration", nodeModel.ID.String())
+				return nil, nil, fmt.Errorf("graphql node %s missing graphql configuration", nodeModel.ID.String())
 			}
 
 			// Resolve GraphQL entity with delta
 			resolved, err := b.GraphQLResolver.Resolve(ctx, *gqlCfg.GraphQLID, gqlCfg.DeltaGraphQLID)
 			if err != nil {
-				return nil, idwrap.IDWrap{}, fmt.Errorf("resolve graphql %s: %w", gqlCfg.GraphQLID.String(), err)
+				return nil, nil, fmt.Errorf("resolve graphql %s: %w", gqlCfg.GraphQLID.String(), err)
 			}
 
 			flowNodeMap[nodeModel.ID] = ngraphql.New(
@@ -305,16 +324,73 @@ func (b *Builder) BuildNodes(
 				gqlRespChan,
 				b.Logger,
 			)
+		case mflow.NODE_KIND_WS_CONNECTION:
+			var url string
+			var headers map[string]string
+			if b.NodeWsConnection != nil {
+				wsCfg, err := b.NodeWsConnection.GetNodeWsConnection(ctx, nodeModel.ID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("get ws connection config: %w", err)
+				}
+				if wsCfg != nil && wsCfg.WebSocketID != nil && !isZeroID(*wsCfg.WebSocketID) && b.WebSocket != nil {
+					wsEntity, err := b.WebSocket.Get(ctx, *wsCfg.WebSocketID)
+					if err != nil {
+						return nil, nil, fmt.Errorf("resolve websocket %s: %w", wsCfg.WebSocketID.String(), err)
+					}
+					url = wsEntity.Url
+					if b.WebSocketHeader != nil {
+						wsHeaders, err := b.WebSocketHeader.GetByWebSocketID(ctx, *wsCfg.WebSocketID)
+						if err != nil {
+							return nil, nil, fmt.Errorf("resolve websocket headers %s: %w", wsCfg.WebSocketID.String(), err)
+						}
+						headers = make(map[string]string, len(wsHeaders))
+						for _, h := range wsHeaders {
+							if h.Enabled {
+								headers[h.Key] = h.Value
+							}
+						}
+					}
+				}
+			}
+			wsNode := nwsconnection.New(nodeModel.ID, nodeModel.Name, url, headers)
+			flowNodeMap[nodeModel.ID] = wsNode
+			startNodeIDs = append(startNodeIDs, nodeModel.ID)
+		case mflow.NODE_KIND_WS_SEND:
+			var wsConnName string
+			var message string
+			if b.NodeWsSend != nil {
+				wsCfg, err := b.NodeWsSend.GetNodeWsSend(ctx, nodeModel.ID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("get ws send config: %w", err)
+				}
+				if wsCfg != nil {
+					wsConnName = wsCfg.WsConnectionNodeName
+					message = wsCfg.Message
+				}
+			}
+			flowNodeMap[nodeModel.ID] = nwssend.New(nodeModel.ID, nodeModel.Name, wsConnName, message)
+		case mflow.NODE_KIND_WAIT:
+			var durationMs int64 = 1000 // default 1 second
+			if b.NodeWait != nil {
+				waitCfg, err := b.NodeWait.GetNodeWait(ctx, nodeModel.ID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("get wait config: %w", err)
+				}
+				if waitCfg != nil {
+					durationMs = waitCfg.DurationMs
+				}
+			}
+			flowNodeMap[nodeModel.ID] = nwait.New(nodeModel.ID, nodeModel.Name, durationMs)
 		default:
-			return nil, idwrap.IDWrap{}, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)
+			return nil, nil, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)
 		}
 	}
 
-	if startNodeID == (idwrap.IDWrap{}) {
-		return nil, idwrap.IDWrap{}, errors.New("flow missing start node")
+	if len(startNodeIDs) == 0 {
+		return nil, nil, errors.New("flow missing start node")
 	}
 
-	return flowNodeMap, startNodeID, nil
+	return flowNodeMap, startNodeIDs, nil
 }
 
 func (b *Builder) BuildVariables(

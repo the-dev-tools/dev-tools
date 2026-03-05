@@ -256,7 +256,27 @@ type NodeMemory struct {
 // --- GraphQL Node ---
 
 type NodeGraphQL struct {
-	FlowNodeID      idwrap.IDWrap
-	GraphQLID       *idwrap.IDWrap
-	DeltaGraphQLID  *idwrap.IDWrap
+	FlowNodeID     idwrap.IDWrap
+	GraphQLID      *idwrap.IDWrap
+	DeltaGraphQLID *idwrap.IDWrap
+}
+
+// --- WebSocket Nodes ---
+
+type NodeWsConnection struct {
+	FlowNodeID  idwrap.IDWrap
+	WebSocketID *idwrap.IDWrap
+}
+
+type NodeWsSend struct {
+	FlowNodeID           idwrap.IDWrap
+	WsConnectionNodeName string
+	Message              string
+}
+
+// --- Wait Node ---
+
+type NodeWait struct {
+	FlowNodeID idwrap.IDWrap
+	DurationMs int64
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
@@ -37,6 +38,12 @@ func getStepCommon(sw YamlStepWrapper) *YamlStepCommon {
 		return &sw.AIMemory.YamlStepCommon
 	case sw.GraphQL != nil:
 		return &sw.GraphQL.YamlStepCommon
+	case sw.WsConnection != nil:
+		return &sw.WsConnection.YamlStepCommon
+	case sw.WsSend != nil:
+		return &sw.WsSend.YamlStepCommon
+	case sw.Wait != nil:
+		return &sw.Wait.YamlStepCommon
 	case sw.ManualStart != nil:
 		return sw.ManualStart
 	default:
@@ -96,6 +103,15 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.AIMemory != nil:
 			nodeName = stepWrapper.AIMemory.Name
 			dependsOn = stepWrapper.AIMemory.DependsOn
+		case stepWrapper.WsConnection != nil:
+			nodeName = stepWrapper.WsConnection.Name
+			dependsOn = stepWrapper.WsConnection.DependsOn
+		case stepWrapper.WsSend != nil:
+			nodeName = stepWrapper.WsSend.Name
+			dependsOn = stepWrapper.WsSend.DependsOn
+		case stepWrapper.Wait != nil:
+			nodeName = stepWrapper.Wait.Name
+			dependsOn = stepWrapper.Wait.DependsOn
 		case stepWrapper.ManualStart != nil:
 			nodeName = stepWrapper.ManualStart.Name
 			dependsOn = stepWrapper.ManualStart.DependsOn
@@ -179,6 +195,18 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			}
 		case stepWrapper.AIMemory != nil:
 			if err := processAIMemoryStructStep(stepWrapper.AIMemory, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.WsConnection != nil:
+			if err := processWsConnectionStructStep(stepWrapper.WsConnection, nodeID, flowID, opts, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.WsSend != nil:
+			if err := processWsSendStructStep(stepWrapper.WsSend, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.Wait != nil:
+			if err := processWaitStructStep(stepWrapper.Wait, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
 		case stepWrapper.ManualStart != nil:
@@ -601,5 +629,98 @@ func processGraphQLStructStep(step *YamlStepGraphQL, nodeID, flowID idwrap.IDWra
 	}
 	result.FlowGraphQLNodes = append(result.FlowGraphQLNodes, graphqlNode)
 
+	return nil
+}
+
+func processWsConnectionStructStep(step *YamlStepWsConnection, nodeID, flowID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
+	if step.URL == "" {
+		return NewYamlFlowErrorV2(fmt.Sprintf("ws_connection step '%s' missing required url", step.Name), "url", nil)
+	}
+
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_WS_CONNECTION,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Create WebSocket entity (like GraphQL pattern)
+	wsID := idwrap.NewNow()
+	now := time.Now().UnixMilli()
+	ws := mwebsocket.WebSocket{
+		ID:          wsID,
+		WorkspaceID: opts.WorkspaceID,
+		Name:        step.Name,
+		Url:         step.URL,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	result.WebSockets = append(result.WebSockets, ws)
+
+	// Create headers
+	for i, h := range step.Headers {
+		header := mwebsocket.WebSocketHeader{
+			ID:           idwrap.NewNow(),
+			WebSocketID:  wsID,
+			Key:          h.Name,
+			Value:        h.Value,
+			Enabled:      h.Enabled,
+			DisplayOrder: float32(i),
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		result.WebSocketHeaders = append(result.WebSocketHeaders, header)
+	}
+
+	wsConnNode := mflow.NodeWsConnection{
+		FlowNodeID:  nodeID,
+		WebSocketID: &wsID,
+	}
+	result.FlowWsConnectionNodes = append(result.FlowWsConnectionNodes, wsConnNode)
+	return nil
+}
+
+func processWsSendStructStep(step *YamlStepWsSend, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_WS_SEND,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	wsSendNode := mflow.NodeWsSend{
+		FlowNodeID:           nodeID,
+		WsConnectionNodeName: step.WsConnectionNodeName,
+		Message:              step.Message,
+	}
+	result.FlowWsSendNodes = append(result.FlowWsSendNodes, wsSendNode)
+	return nil
+}
+
+func processWaitStructStep(step *YamlStepWait, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_WAIT,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	var durationMs int64
+	if step.DurationMs != "" {
+		d, err := strconv.ParseInt(step.DurationMs, 10, 64)
+		if err != nil {
+			return NewYamlFlowErrorV2(fmt.Sprintf("invalid duration_ms value '%s': %v", step.DurationMs, err), "duration_ms", step.DurationMs)
+		}
+		durationMs = d
+	}
+
+	waitNode := mflow.NodeWait{
+		FlowNodeID: nodeID,
+		DurationMs: durationMs,
+	}
+	result.FlowWaitNodes = append(result.FlowWaitNodes, waitNode)
 	return nil
 }

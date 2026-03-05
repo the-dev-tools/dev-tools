@@ -1,0 +1,41 @@
+workspace_name: New Workspace
+run:
+    - flow: New flow
+flows:
+    - name: New flow
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - ws_connection:
+            name: ws_connection_5
+            depends_on: Start
+            position_x: 229.5
+            position_y: -31.05
+            url: http://localhost:8080/
+            headers:
+                t: "1"
+        - ws_send:
+            name: ws_send_6
+            depends_on: ws_connection_5
+            position_x: 529.5
+            position_y: -106.05
+            ws_connection_node_name: ws_connection_5
+            message: '{"a":"{{now().Unix()}}"}'
+        - ws_send:
+            name: ws_send_6_1
+            depends_on: ws_connection_5
+            position_x: 529.5
+            position_y: 43.95
+            ws_connection_node_name: ws_connection_5
+            message: '{"a":"2"}'
+        - wait:
+            name: Wait_5_Seconds
+            depends_on: ws_send_6
+            position_x: 829.5
+            position_y: -31.05
+            duration_ms: "5000"
+environments:
+    - name: default
+      variables: {}

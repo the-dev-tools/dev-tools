@@ -39,9 +39,10 @@ const (
 	DefaultCollectionName = "Imported Collection"
 
 	// Dependency handler suffixes (used in depends_on field)
-	DependsSuffixThen = ".then"
-	DependsSuffixElse = ".else"
-	DependsSuffixLoop = ".loop"
+	DependsSuffixThen      = ".then"
+	DependsSuffixElse      = ".else"
+	DependsSuffixLoop      = ".loop"
+	DependsSuffixWsMessage = ".ws_message"
 
 	// Environment variable template patterns (used in credential export)
 	EnvVarTemplateToken  = "{{ #env:%s_TOKEN }}"  //nolint:gosec // G101: template pattern, not a credential
