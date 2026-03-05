@@ -552,6 +552,8 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 	for _, n := range sourceNodes {
 		detail := nodeDetail{node: n}
 		switch n.NodeKind {
+		case mflow.NODE_KIND_MANUAL_START:
+			// No type-specific data for ManualStart
 		case mflow.NODE_KIND_REQUEST:
 			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil && d != nil {
 				detail.request = d

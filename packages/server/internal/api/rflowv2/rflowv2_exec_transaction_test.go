@@ -284,6 +284,7 @@ func TestFlowVersionSnapshot_TransactionAtomicity(t *testing.T) {
 			ifData, err := nifsService.GetNodeIf(ctx, node.ID)
 			require.NoError(t, err)
 			require.NotNil(t, ifData, "Condition config should exist")
+		default:
 		}
 	}
 

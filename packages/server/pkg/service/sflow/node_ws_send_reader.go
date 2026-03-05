@@ -14,10 +14,6 @@ type NodeWsSendReader struct {
 	queries *gen.Queries
 }
 
-func NewNodeWsSendReader(db *sql.DB) *NodeWsSendReader {
-	return &NodeWsSendReader{queries: gen.New(db)}
-}
-
 func NewNodeWsSendReaderFromQueries(queries *gen.Queries) *NodeWsSendReader {
 	return &NodeWsSendReader{queries: queries}
 }

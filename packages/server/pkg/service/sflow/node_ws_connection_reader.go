@@ -14,10 +14,6 @@ type NodeWsConnectionReader struct {
 	queries *gen.Queries
 }
 
-func NewNodeWsConnectionReader(db *sql.DB) *NodeWsConnectionReader {
-	return &NodeWsConnectionReader{queries: gen.New(db)}
-}
-
 func NewNodeWsConnectionReaderFromQueries(queries *gen.Queries) *NodeWsConnectionReader {
 	return &NodeWsConnectionReader{queries: queries}
 }

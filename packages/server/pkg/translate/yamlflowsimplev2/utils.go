@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -487,7 +488,7 @@ func GenerateStats(data *ioworkspace.WorkspaceBundle) map[string]interface{} {
 	// Flow node breakdown
 	nodeTypes := make(map[string]int)
 	for _, node := range data.FlowNodes {
-		nodeTypes[string(node.NodeKind)]++
+		nodeTypes[strconv.FormatInt(int64(node.NodeKind), 10)]++
 	}
 	stats["flow_node_types"] = nodeTypes
 

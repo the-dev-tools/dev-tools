@@ -5,7 +5,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 )
 
-type NodeKind = int32
+type NodeKind int32
 
 const (
 	NODE_KIND_UNSPECIFIED  NodeKind = 0

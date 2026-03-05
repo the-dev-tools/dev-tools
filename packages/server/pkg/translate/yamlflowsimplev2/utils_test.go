@@ -1,6 +1,7 @@
 package yamlflowsimplev2
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -359,8 +360,8 @@ func TestGenerateStats(t *testing.T) {
 
 	// Check node type breakdown
 	nodeTypes := stats["flow_node_types"].(map[string]int)
-	require.Equal(t, 2, nodeTypes[string(mflow.NODE_KIND_REQUEST)])
-	require.Equal(t, 1, nodeTypes[string(mflow.NODE_KIND_CONDITION)])
+	require.Equal(t, 2, nodeTypes[strconv.FormatInt(int64(mflow.NODE_KIND_REQUEST), 10)])
+	require.Equal(t, 1, nodeTypes[strconv.FormatInt(int64(mflow.NODE_KIND_CONDITION), 10)])
 
 	// Check averages
 	require.Equal(t, 1.5, stats["avg_nodes_per_flow"].(float64))

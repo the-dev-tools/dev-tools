@@ -10,8 +10,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-var ErrNoNodeWsSendFound = sql.ErrNoRows
-
 type NodeWsSendService struct {
 	reader  *NodeWsSendReader
 	queries *gen.Queries
@@ -30,17 +28,6 @@ func (s NodeWsSendService) TX(tx *sql.Tx) NodeWsSendService {
 		reader:  NewNodeWsSendReaderFromQueries(newQueries),
 		queries: newQueries,
 	}
-}
-
-func NewNodeWsSendServiceTX(ctx context.Context, tx *sql.Tx) (*NodeWsSendService, error) {
-	queries, err := gen.Prepare(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	return &NodeWsSendService{
-		reader:  NewNodeWsSendReaderFromQueries(queries),
-		queries: queries,
-	}, nil
 }
 
 func (s NodeWsSendService) GetNodeWsSend(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeWsSend, error) {

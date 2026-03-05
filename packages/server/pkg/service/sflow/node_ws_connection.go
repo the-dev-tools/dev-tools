@@ -10,8 +10,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-var ErrNoNodeWsConnectionFound = sql.ErrNoRows
-
 type NodeWsConnectionService struct {
 	reader  *NodeWsConnectionReader
 	queries *gen.Queries
@@ -30,17 +28,6 @@ func (s NodeWsConnectionService) TX(tx *sql.Tx) NodeWsConnectionService {
 		reader:  NewNodeWsConnectionReaderFromQueries(newQueries),
 		queries: newQueries,
 	}
-}
-
-func NewNodeWsConnectionServiceTX(ctx context.Context, tx *sql.Tx) (*NodeWsConnectionService, error) {
-	queries, err := gen.Prepare(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	return &NodeWsConnectionService{
-		reader:  NewNodeWsConnectionReaderFromQueries(queries),
-		queries: queries,
-	}, nil
 }
 
 func (s NodeWsConnectionService) GetNodeWsConnection(ctx context.Context, id idwrap.IDWrap) (*mflow.NodeWsConnection, error) {

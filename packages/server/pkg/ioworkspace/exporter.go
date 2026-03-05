@@ -368,6 +368,8 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	websocketHeaderService swebsocket.WebSocketHeaderService,
 ) error {
 	switch node.NodeKind {
+	case mflow.NODE_KIND_MANUAL_START:
+		// No type-specific data for ManualStart
 	case mflow.NODE_KIND_REQUEST:
 		nodeRequest, err := nodeRequestService.GetNodeRequest(ctx, node.ID)
 		if err != nil {
