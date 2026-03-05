@@ -41,6 +41,7 @@ export interface FlowContextData {
 }
 
 export interface NodeInfo {
+  graphqlId?: string;
   httpId?: string;
   httpMethod?: string;
   id: string;

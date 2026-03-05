@@ -48,6 +48,7 @@ func (w *NodeExecutionWriter) CreateNodeExecution(ctx context.Context, ne mflow.
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		HttpResponseID:         ne.ResponseID,
+		GraphqlResponseID:      ne.GraphQLResponseID,
 		CompletedAt:            completedAtSQL,
 	})
 
@@ -78,6 +79,7 @@ func (w *NodeExecutionWriter) UpdateNodeExecution(ctx context.Context, ne mflow.
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		HttpResponseID:         ne.ResponseID,
+		GraphqlResponseID:      ne.GraphQLResponseID,
 		CompletedAt:            completedAtSQL,
 	})
 
@@ -112,6 +114,7 @@ func (w *NodeExecutionWriter) UpsertNodeExecution(ctx context.Context, ne mflow.
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		HttpResponseID:         ne.ResponseID,
+		GraphqlResponseID:      ne.GraphQLResponseID,
 		CompletedAt:            completedAtSQL,
 	})
 

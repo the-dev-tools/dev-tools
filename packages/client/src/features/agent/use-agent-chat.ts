@@ -15,9 +15,15 @@ import {
   NodeExecutionCollectionSchema,
   NodeForCollectionSchema,
   NodeForEachCollectionSchema,
+  NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
   NodeJsCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
+import {
+  GraphQLAssertCollectionSchema,
+  GraphQLCollectionSchema,
+  GraphQLHeaderCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import {
   HttpAssertCollectionSchema,
   HttpBodyRawCollectionSchema,
@@ -202,6 +208,7 @@ const NODE_KIND_NAMES: Record<number, string> = {
   [NodeKind.CONDITION]: 'Condition',
   [NodeKind.FOR]: 'For',
   [NodeKind.FOR_EACH]: 'ForEach',
+  [NodeKind.GRAPH_Q_L]: 'GraphQL',
   [NodeKind.HTTP]: 'HTTP',
   [NodeKind.JS]: 'JavaScript',
   [NodeKind.MANUAL_START]: 'ManualStart',
@@ -266,7 +273,7 @@ const applyLayoutToFlow = async (
 const clientToolSchemas: ToolSchema[] = [
   {
     description:
-      "Inspect a node's full config and execution state. Returns type-specific config (HTTP: url/method/headers/params/body/assertions, JS: code, Condition: expression, For: iterations/condition, ForEach: path/condition) plus execution state/error. " +
+      "Inspect a node's full config and execution state. Returns type-specific config (HTTP: url/method/headers/params/body/assertions, GraphQL: url/query/variables/headers/assertions, JS: code, Condition: expression, For: iterations/condition, ForEach: path/condition) plus execution state/error. " +
       'Set includeOutput: true to also get execution input/output payloads (can be large).',
     name: 'inspectNode',
     parameters: {
@@ -299,19 +306,20 @@ const clientToolSchemas: ToolSchema[] = [
       'Base fields (name) work on any node. Type-specific fields: ' +
       'Ai: prompt, maxIterations. Condition: condition. For: iterations, condition (break), errorHandling. ' +
       'ForEach: path, condition (break), errorHandling. JS: code. ' +
-      'HTTP: method, url, headers, searchParams, body, assertions (arrays replace existing set).',
+      'HTTP: method, url, headers, searchParams, body, assertions (arrays replace existing set). ' +
+      'GraphQL: url, query, variables, headers, assertions (arrays replace existing set).',
     name: 'updateNode',
     parameters: {
       additionalProperties: false,
       properties: {
         assertions: {
-          description: 'Replaces all existing assertions (HTTP only)',
+          description: 'Replaces all existing assertions (HTTP and GraphQL)',
           items: {
             properties: {
               enabled: { type: 'boolean' },
               value: {
                 description:
-                  'Expr-lang boolean expression evaluated against the HTTP response. Must be a complete expression, not a bare identifier. Available: response.status (int), response.body (parsed JSON), response.headers (map), response.duration. Examples: response.status == 200, response.body != nil, response.body.id != nil, len(response.body) > 0, response.headers["Content-Type"] contains "json"',
+                  'Expr-lang boolean expression evaluated against the HTTP/GraphQL response. Must be a complete expression, not a bare identifier. Available: response.status (int), response.body (parsed JSON), response.headers (map), response.duration. For GraphQL: data.* and errors.* also available. Examples: response.status == 200, response.body != nil, data.users[0].id != nil',
                 type: 'string',
               },
             },
@@ -340,7 +348,7 @@ const clientToolSchemas: ToolSchema[] = [
           type: 'string',
         },
         headers: {
-          description: 'Replaces all existing headers (HTTP only)',
+          description: 'Replaces all existing headers (HTTP and GraphQL)',
           items: {
             properties: {
               enabled: { type: 'boolean' },
@@ -381,6 +389,10 @@ const clientToolSchemas: ToolSchema[] = [
           description: 'The prompt or system instructions for the AI agent (Ai nodes only)',
           type: 'string',
         },
+        query: {
+          description: 'GraphQL query or mutation string (GraphQL nodes only)',
+          type: 'string',
+        },
         searchParams: {
           description: 'Replaces all existing query parameters (HTTP only)',
           items: {
@@ -396,7 +408,11 @@ const clientToolSchemas: ToolSchema[] = [
         },
         url: {
           description:
-            'Request URL (HTTP nodes only). Supports {{variable}} interpolation, e.g. {{BASE_URL}}/api/users/{{id}}',
+            'Request URL (HTTP and GraphQL nodes). Supports {{variable}} interpolation, e.g. {{BASE_URL}}/api/users/{{id}}',
+          type: 'string',
+        },
+        variables: {
+          description: 'JSON string of GraphQL variables (GraphQL nodes only). Supports {{variable}} interpolation.',
           type: 'string',
         },
       },
@@ -469,6 +485,60 @@ const clientToolSchemas: ToolSchema[] = [
         },
         removeSearchParamIds: {
           description: 'IDs of query params to remove (get IDs from inspectNode)',
+          items: { type: 'string' },
+          type: 'array',
+        },
+      },
+      required: ['nodeId'],
+      type: 'object',
+    },
+  },
+  {
+    description:
+      'Incrementally add or remove headers or assertions on a GraphQL node without replacing the full set. ' +
+      'Use this when modifying individual items. For full replacement, use updateNode instead.',
+    name: 'patchGraphqlNode',
+    parameters: {
+      additionalProperties: false,
+      properties: {
+        addAssertions: {
+          description: 'Assertions to append',
+          items: {
+            properties: {
+              enabled: { type: 'boolean' },
+              value: {
+                description:
+                  'Expr-lang boolean expression evaluated against the GraphQL response. Available: response.status, response.body, data.*, errors.*. Examples: response.status == 200, data.users != nil, len(data.users) > 0',
+                type: 'string',
+              },
+            },
+            required: ['value'],
+            type: 'object',
+          },
+          type: 'array',
+        },
+        addHeaders: {
+          description: 'Headers to append. Supports {{variable}} interpolation in values.',
+          items: {
+            properties: {
+              description: { type: 'string' },
+              enabled: { type: 'boolean' },
+              key: { type: 'string' },
+              value: { description: 'Supports {{variable}} interpolation', type: 'string' },
+            },
+            required: ['key'],
+            type: 'object',
+          },
+          type: 'array',
+        },
+        nodeId: { description: 'The GraphQL node ID to patch', type: 'string' },
+        removeAssertionIds: {
+          description: 'IDs of assertions to remove (get IDs from inspectNode)',
+          items: { type: 'string' },
+          type: 'array',
+        },
+        removeHeaderIds: {
+          description: 'IDs of headers to remove (get IDs from inspectNode)',
           items: { type: 'string' },
           type: 'array',
         },
@@ -628,6 +698,10 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
   const httpHeaderCollection = useApiCollection(HttpHeaderCollectionSchema);
   const httpBodyRawCollection = useApiCollection(HttpBodyRawCollectionSchema);
   const httpAssertCollection = useApiCollection(HttpAssertCollectionSchema);
+  const nodeGraphqlCollection = useApiCollection(NodeGraphQLCollectionSchema);
+  const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
+  const graphqlHeaderCollection = useApiCollection(GraphQLHeaderCollectionSchema);
+  const graphqlAssertCollection = useApiCollection(GraphQLAssertCollectionSchema);
   const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
   const fileCollection = useApiCollection(FileCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
@@ -656,6 +730,9 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
         fileCollection,
         forCollection,
         forEachCollection,
+        graphqlAssertCollection,
+        graphqlCollection,
+        graphqlHeaderCollection,
         httpAssertCollection,
         httpBodyRawCollection,
         httpCollection,
@@ -663,6 +740,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
         httpSearchParamCollection,
         jsCollection,
         nodeCollection,
+        nodeGraphqlCollection,
         nodeHttpCollection,
         variableCollection,
       };
@@ -812,6 +890,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
                   executionCollection,
                   httpCollection,
                   nodeCollection,
+                  nodeGraphqlCollection,
                   nodeHttpCollection,
                   variableCollection,
                 })),
@@ -1027,11 +1106,15 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
       forCollection,
       forEachCollection,
       nodeHttpCollection,
+      nodeGraphqlCollection,
       httpCollection,
       httpSearchParamCollection,
       httpHeaderCollection,
       httpBodyRawCollection,
       httpAssertCollection,
+      graphqlCollection,
+      graphqlHeaderCollection,
+      graphqlAssertCollection,
       executionCollection,
       fileCollection,
       flowCollection,

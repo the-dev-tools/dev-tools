@@ -11,6 +11,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
@@ -34,6 +35,8 @@ func getStepCommon(sw YamlStepWrapper) *YamlStepCommon {
 		return &sw.AIProvider.YamlStepCommon
 	case sw.AIMemory != nil:
 		return &sw.AIMemory.YamlStepCommon
+	case sw.GraphQL != nil:
+		return &sw.GraphQL.YamlStepCommon
 	case sw.ManualStart != nil:
 		return sw.ManualStart
 	default:
@@ -53,7 +56,7 @@ func createStartNodeWithID(nodeID, flowID idwrap.IDWrap, result *ioworkspace.Wor
 }
 
 // processSteps processes all steps in a flow
-func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (*StepProcessingResult, error) {
+func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV2, graphqlTemplates map[string]YamlGraphQLDefV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (*StepProcessingResult, error) {
 	nodeInfoMap := make(map[string]*nodeInfo)
 	nodeList := make([]*nodeInfo, 0)
 	startNodeFound := false
@@ -69,6 +72,9 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.Request != nil:
 			nodeName = stepWrapper.Request.Name
 			dependsOn = stepWrapper.Request.DependsOn
+		case stepWrapper.GraphQL != nil:
+			nodeName = stepWrapper.GraphQL.Name
+			dependsOn = stepWrapper.GraphQL.DependsOn
 		case stepWrapper.If != nil:
 			nodeName = stepWrapper.If.Name
 			dependsOn = stepWrapper.If.DependsOn
@@ -123,6 +129,10 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			if opts.GenerateFiles {
 				file := createFileForHTTP(*httpReq, opts)
 				result.Files = append(result.Files, file)
+			}
+		case stepWrapper.GraphQL != nil:
+			if err := processGraphQLStructStep(stepWrapper.GraphQL, nodeID, flowID, graphqlTemplates, opts, result); err != nil {
+				return nil, err
 			}
 		case stepWrapper.If != nil:
 			if stepWrapper.If.Condition == "" {
@@ -481,5 +491,115 @@ func processAIMemoryStructStep(step *YamlStepAIMemory, nodeID, flowID idwrap.IDW
 		WindowSize: int32(windowSize), //nolint:gosec // validated above
 	}
 	result.FlowAIMemoryNodes = append(result.FlowAIMemoryNodes, memoryNode)
+	return nil
+}
+
+func processGraphQLStructStep(step *YamlStepGraphQL, nodeID, flowID idwrap.IDWrap, templates map[string]YamlGraphQLDefV2, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) error {
+	url := step.URL
+	query := step.Query
+	variables := step.Variables
+	var headers HeaderMapOrSlice
+	var assertions AssertionsOrSlice
+
+	if step.UseRequest != "" {
+		if tmpl, ok := templates[step.UseRequest]; ok {
+			if tmpl.URL != "" {
+				url = tmpl.URL
+			}
+			if tmpl.Query != "" {
+				query = tmpl.Query
+			}
+			if tmpl.Variables != "" {
+				variables = tmpl.Variables
+			}
+			headers = tmpl.Headers
+			assertions = tmpl.Assertions
+		} else {
+			return NewYamlFlowErrorV2(fmt.Sprintf("graphql step '%s' references unknown template '%s'", step.Name, step.UseRequest), "use_request", step.UseRequest)
+		}
+	}
+
+	// Step-level values override template
+	if step.URL != "" {
+		url = step.URL
+	}
+	if step.Query != "" {
+		query = step.Query
+	}
+	if step.Variables != "" {
+		variables = step.Variables
+	}
+	if len(step.Headers) > 0 {
+		headers = append(headers, step.Headers...)
+	}
+	if len(step.Assertions) > 0 {
+		assertions = append(assertions, step.Assertions...)
+	}
+
+	if url == "" {
+		return NewYamlFlowErrorV2(fmt.Sprintf("graphql step '%s' missing required url", step.Name), "url", nil)
+	}
+
+	gqlID := idwrap.NewNow()
+	now := time.Now().UnixMilli()
+
+	gqlReq := mgraphql.GraphQL{
+		ID:          gqlID,
+		WorkspaceID: opts.WorkspaceID,
+		FolderID:    opts.FolderID,
+		Name:        step.Name,
+		Url:         url,
+		Query:       query,
+		Variables:   variables,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	result.GraphQLRequests = append(result.GraphQLRequests, gqlReq)
+
+	// Create headers
+	for i, h := range headers {
+		header := mgraphql.GraphQLHeader{
+			ID:           idwrap.NewNow(),
+			GraphQLID:    gqlID,
+			Key:          h.Name,
+			Value:        h.Value,
+			Enabled:      h.Enabled,
+			DisplayOrder: float32(i),
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		result.GraphQLHeaders = append(result.GraphQLHeaders, header)
+	}
+
+	// Create assertions
+	for i, a := range assertions {
+		assert := mgraphql.GraphQLAssert{
+			ID:           idwrap.NewNow(),
+			GraphQLID:    gqlID,
+			Value:        a.Expression,
+			Enabled:      a.Enabled,
+			DisplayOrder: float32(i),
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		result.GraphQLAsserts = append(result.GraphQLAsserts, assert)
+	}
+
+	// Create flow node
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_GRAPHQL,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	// Create GraphQL node linking flow node to GraphQL entity
+	graphqlNode := mflow.NodeGraphQL{
+		FlowNodeID: nodeID,
+		GraphQLID:  &gqlID,
+	}
+	result.FlowGraphQLNodes = append(result.FlowGraphQLNodes, graphqlNode)
+
 	return nil
 }

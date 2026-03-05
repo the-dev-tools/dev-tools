@@ -126,6 +126,33 @@ if (createHttpNodeDef) {
   }
 }
 
+// Patch CreateGraphQLNode to add field descriptions
+const createGraphQLNodeDef = mutationSchemas.find((t) => t.name === 'createGraphQLNode');
+if (createGraphQLNodeDef) {
+  const params = createGraphQLNodeDef.parameters as {
+    properties: Record<string, unknown>;
+  };
+  if (params.properties['url']) {
+    params.properties['url'] = {
+      ...(params.properties['url'] as object),
+      description: 'The GraphQL API endpoint URL. Supports {{variable}} interpolation, e.g. {{BASE_URL}}/graphql',
+    };
+  }
+  if (params.properties['query']) {
+    params.properties['query'] = {
+      ...(params.properties['query'] as object),
+      description: 'The GraphQL query or mutation string. Example: query { users { id name } }',
+    };
+  }
+  if (params.properties['variables']) {
+    params.properties['variables'] = {
+      ...(params.properties['variables'] as object),
+      description:
+        'JSON string of GraphQL variables. Supports {{variable}} interpolation. Example: {"userId": "{{user_id}}"}',
+    };
+  }
+}
+
 /** All tool schemas combined - ready for AI tool calling */
 export const allToolSchemas = [...executionSchemas, ...mutationSchemas];
 

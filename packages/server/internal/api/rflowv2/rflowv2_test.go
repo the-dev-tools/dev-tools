@@ -23,8 +23,10 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -182,6 +184,11 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 	httpService := shttp.New(queries, logger)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 
 	svc := New(FlowServiceV2Deps{
 		DB: db,
@@ -206,6 +213,7 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 			NodeAI:        &aiService,
 			NodeAiProvider:     &aiProviderService,
 			NodeMemory:    &memoryService,
+			NodeGraphQL:   &nodeGraphQLService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -213,8 +221,9 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 			Http:          &httpService,
 			HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
 		},
-		Resolver: res,
-		Logger:   logger,
+		Resolver:        res,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
 	})
 
 	userID := idwrap.NewNow()
@@ -329,6 +338,11 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 	httpService := shttp.New(queries, logger)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 
 	svc := New(FlowServiceV2Deps{
 		DB: db,
@@ -353,6 +367,7 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 			NodeAI:        &aiService,
 			NodeAiProvider:     &aiProviderService,
 			NodeMemory:    &memoryService,
+			NodeGraphQL:   &nodeGraphQLService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -360,8 +375,9 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 			Http:          &httpService,
 			HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
 		},
-		Resolver: res,
-		Logger:   logger,
+		Resolver:        res,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
 	})
 
 	// Setup Data
@@ -482,6 +498,11 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	// Mock resolver
 	res := resolver.NewStandardResolver(nil, nil, nil, nil, nil, nil, nil)
 	httpService := shttp.New(queries, logger)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 
 	svc := New(FlowServiceV2Deps{
 		DB: db,
@@ -506,6 +527,7 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 			NodeAI:        &aiService,
 			NodeAiProvider:     &aiProviderService,
 			NodeMemory:    &memoryService,
+			NodeGraphQL:   &nodeGraphQLService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -513,8 +535,9 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 			Http:          &httpService,
 			HttpBodyRaw:   shttp.NewHttpBodyRawService(queries),
 		},
-		Resolver: res,
-		Logger:   logger,
+		Resolver:        res,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
 	})
 
 	// Setup Data

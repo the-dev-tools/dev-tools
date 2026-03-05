@@ -18,6 +18,7 @@ type NodeExecution struct {
 	OutputData             []byte         `json:"output_data,omitempty"`
 	OutputDataCompressType int8           `json:"output_data_compress_type"`
 	ResponseID             *idwrap.IDWrap `json:"response_id,omitempty"`
+	GraphQLResponseID      *idwrap.IDWrap `json:"graphql_response_id,omitempty"`
 	CompletedAt            *int64         `json:"completed_at,omitempty"`
 }
 

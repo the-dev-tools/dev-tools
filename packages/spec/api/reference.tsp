@@ -45,6 +45,8 @@ model ReferenceContext {
   workspaceId?: Id;
   httpId?: Id;
   deltaHttpId?: Id;
+  graphqlId?: Id;
+  deltaGraphqlId?: Id;
   flowNodeId?: Id;
 }
 

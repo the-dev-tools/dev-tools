@@ -83,7 +83,7 @@ flows:
           depends_on: RequestB
       - if:
           name: CheckPostCount
-          condition: RequestB.response.body.length > 10
+          condition: len(RequestB.response.body) > 10
           then: LogManyPosts
           else: LogFewPosts
           depends_on: RequestB

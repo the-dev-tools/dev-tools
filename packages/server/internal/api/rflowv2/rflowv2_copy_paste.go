@@ -11,12 +11,14 @@ import (
 	"gopkg.in/yaml.v3"
 
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
@@ -148,6 +150,24 @@ func (s *FlowServiceV2RPC) FlowNodesCopy(
 					bundle.FlowAIMemoryNodes = append(bundle.FlowAIMemoryNodes, *d)
 				}
 			}
+		case mflow.NODE_KIND_GRAPHQL:
+			if s.ngqs != nil {
+				if d, err := s.ngqs.GetNodeGraphQL(ctx, n.ID); err == nil {
+					bundle.FlowGraphQLNodes = append(bundle.FlowGraphQLNodes, *d)
+					if d.GraphQLID != nil {
+						if g, err := s.gqls.Get(ctx, *d.GraphQLID); err == nil {
+							bundle.GraphQLRequests = append(bundle.GraphQLRequests, *g)
+							s.populateGraphQLBundle(ctx, g.ID, bundle)
+						}
+						if d.DeltaGraphQLID != nil {
+							if dg, err := s.gqls.Get(ctx, *d.DeltaGraphQLID); err == nil {
+								bundle.GraphQLRequests = append(bundle.GraphQLRequests, *dg)
+								s.populateGraphQLBundle(ctx, dg.ID, bundle)
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -193,6 +213,13 @@ func (s *FlowServiceV2RPC) populateHTTPBundle(ctx context.Context, httpID idwrap
 	}
 	if asserts, err := s.hs.GetAssertsByHttpID(ctx, httpID); err == nil {
 		bundle.HTTPAsserts = append(bundle.HTTPAsserts, asserts...)
+	}
+}
+
+// populateGraphQLBundle fetches headers for a GraphQL request and adds them to the bundle.
+func (s *FlowServiceV2RPC) populateGraphQLBundle(ctx context.Context, graphqlID idwrap.IDWrap, bundle *ioworkspace.WorkspaceBundle) {
+	if headers, err := s.gqlhs.GetByGraphQLID(ctx, graphqlID); err == nil {
+		bundle.GraphQLHeaders = append(bundle.GraphQLHeaders, headers...)
 	}
 }
 
@@ -249,15 +276,25 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		existingNames[n.Name] = true
 	}
 
-	// For USE_EXISTING reference mode, look up existing HTTP requests by name
+	// For USE_EXISTING reference mode, look up existing requests by name
 	referenceMode := req.Msg.GetReferenceMode()
 	existingHTTPByName := make(map[string]*idwrap.IDWrap)
+	existingGQLByName := make(map[string]*idwrap.IDWrap)
 	if referenceMode == flowv1.ReferenceMode_REFERENCE_MODE_USE_EXISTING {
 		existingHTTPs, err := s.hs.GetByWorkspaceID(ctx, targetFlow.WorkspaceID)
 		if err == nil {
 			for _, h := range existingHTTPs {
 				id := h.ID
 				existingHTTPByName[h.Name] = &id
+			}
+		}
+		if s.gqls != nil {
+			existingGQLs, err := s.gqls.GetByWorkspaceID(ctx, targetFlow.WorkspaceID)
+			if err == nil {
+				for _, g := range existingGQLs {
+					id := g.ID
+					existingGQLByName[g.Name] = &id
+				}
 			}
 		}
 	}
@@ -348,6 +385,11 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			parsed.FlowAIMemoryNodes[i].FlowNodeID = newID
 		}
 	}
+	for i := range parsed.FlowGraphQLNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowGraphQLNodes[i].FlowNodeID]; ok {
+			parsed.FlowGraphQLNodes[i].FlowNodeID = newID
+		}
+	}
 
 	// Remap variable references in expression fields when node names changed
 	if len(nameMapping) > 0 {
@@ -391,6 +433,12 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 		for i := range parsed.HTTPAsserts {
 			parsed.HTTPAsserts[i].Value = remapVarRefs(parsed.HTTPAsserts[i].Value, nameMapping)
+		}
+		for i := range parsed.GraphQLRequests {
+			parsed.GraphQLRequests[i].Url = remapVarRefs(parsed.GraphQLRequests[i].Url, nameMapping)
+		}
+		for i := range parsed.GraphQLHeaders {
+			parsed.GraphQLHeaders[i].Value = remapVarRefs(parsed.GraphQLHeaders[i].Value, nameMapping)
 		}
 	}
 
@@ -520,6 +568,55 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 	}
 
+	// Handle GraphQL requests — resolve references based on referenceMode
+	gqlIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // parsed GQL ID -> actual GQL ID
+	gqlIDsToCreate := make(map[idwrap.IDWrap]bool)        // new GQL IDs that need creation
+	for i := range parsed.GraphQLRequests {
+		gqlReq := &parsed.GraphQLRequests[i]
+		oldID := gqlReq.ID
+		if referenceMode == flowv1.ReferenceMode_REFERENCE_MODE_USE_EXISTING {
+			if existingID, ok := existingGQLByName[gqlReq.Name]; ok {
+				gqlIDMapping[oldID] = *existingID
+				continue
+			}
+		}
+		// CREATE_COPY or not found: create new GraphQL request
+		newGQLID := idwrap.NewNow()
+		gqlIDMapping[oldID] = newGQLID
+		gqlReq.ID = newGQLID
+		gqlReq.WorkspaceID = targetFlow.WorkspaceID
+		gqlReq.IsDelta = false
+		gqlReq.ParentGraphQLID = nil
+		gqlIDsToCreate[newGQLID] = true
+	}
+
+	// Update GraphQL node references
+	for i := range parsed.FlowGraphQLNodes {
+		gn := &parsed.FlowGraphQLNodes[i]
+		if gn.GraphQLID != nil {
+			if newID, ok := gqlIDMapping[*gn.GraphQLID]; ok {
+				gn.GraphQLID = &newID
+			}
+		}
+		// Clear delta reference — paste always uses resolved (base) requests
+		gn.DeltaGraphQLID = nil
+	}
+
+	// Remap GraphQL children's GraphQLID fields and filter to only those needing creation
+	var gqlHeadersToCreate []mgraphql.GraphQLHeader
+	for i := range parsed.GraphQLHeaders {
+		h := &parsed.GraphQLHeaders[i]
+		if newID, ok := gqlIDMapping[h.GraphQLID]; ok {
+			h.GraphQLID = newID
+			h.ID = idwrap.NewNow()
+			h.IsDelta = false
+			h.ParentGraphQLHeaderID = nil
+			if gqlIDsToCreate[newID] {
+				gqlHeadersToCreate = append(gqlHeadersToCreate, *h)
+			}
+		}
+	}
+
 	// Begin transaction for creating all entities
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -583,6 +680,26 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 	}
 
+	// Create GraphQL requests that need creation
+	if s.gqls != nil && len(gqlIDsToCreate) > 0 {
+		gqlWriter := s.gqls.TX(tx)
+		for i := range parsed.GraphQLRequests {
+			if gqlIDsToCreate[parsed.GraphQLRequests[i].ID] {
+				if err := gqlWriter.Create(ctx, &parsed.GraphQLRequests[i]); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create GraphQL request: %w", err))
+				}
+			}
+		}
+	}
+	if s.gqlhs != nil && len(gqlHeadersToCreate) > 0 {
+		gqlHeaderWriter := s.gqlhs.TX(tx)
+		for i := range gqlHeadersToCreate {
+			if err := gqlHeaderWriter.Create(ctx, &gqlHeadersToCreate[i]); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create GraphQL header: %w", err))
+			}
+		}
+	}
+
 	// Create nodes
 	var createdNodeIDs [][]byte
 	for _, n := range parsed.FlowNodes {
@@ -642,6 +759,14 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			}
 		}
 	}
+	if s.ngqs != nil {
+		for _, gn := range parsed.FlowGraphQLNodes {
+			ngqsWriter := sflow.NewNodeGraphQLWriter(tx)
+			if err := ngqsWriter.CreateNodeGraphQL(ctx, gn); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create graphql node: %w", err))
+			}
+		}
+	}
 
 	// Create edges
 	for _, e := range validEdges {
@@ -676,6 +801,16 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			s.httpStream.Publish(rhttp.HttpTopic{WorkspaceID: targetFlow.WorkspaceID}, rhttp.HttpEvent{
 				Type: eventTypeInsert,
 				Http: converter.ToAPIHttp(parsed.HTTPRequests[i]),
+			})
+		}
+	}
+
+	// Publish GraphQL events for newly created requests
+	for i := range parsed.GraphQLRequests {
+		if gqlIDsToCreate[parsed.GraphQLRequests[i].ID] {
+			s.graphqlStream.Publish(rgraphql.GraphQLTopic{WorkspaceID: targetFlow.WorkspaceID}, rgraphql.GraphQLEvent{
+				Type:    eventTypeInsert,
+				GraphQL: rgraphql.ToAPIGraphQL(parsed.GraphQLRequests[i]),
 			})
 		}
 	}

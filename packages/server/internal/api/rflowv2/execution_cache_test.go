@@ -26,8 +26,10 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -76,6 +78,11 @@ func TestExecutionCache(t *testing.T) {
 	nodeAIService := sflow.NewNodeAIService(queries)
 	nodeAiProviderService := sflow.NewNodeAiProviderService(queries)
 	nodeMemoryService := sflow.NewNodeMemoryService(queries)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 	envService := senv.NewEnvironmentService(queries, logger)
 	varService := senv.NewVariableService(queries, logger)
 
@@ -117,6 +124,7 @@ func TestExecutionCache(t *testing.T) {
 			NodeAI:        &nodeAIService,
 			NodeAiProvider:     &nodeAiProviderService,
 			NodeMemory:    &nodeMemoryService,
+			NodeGraphQL:   &nodeGraphQLService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -129,8 +137,9 @@ func TestExecutionCache(t *testing.T) {
 			Execution:          executionStream,
 			HttpResponseAssert: assertStream,
 		},
-		Resolver: res,
-		Logger:   logger,
+		Resolver:        res,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
 	})
 
 	// 4. Setup Data

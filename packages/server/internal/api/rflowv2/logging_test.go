@@ -80,10 +80,14 @@ func TestFlowRun_Logging(t *testing.T) {
 		nil, // NodeAIService
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
+		nil, // NodeGraphQLService
+		nil, // GraphQLService
+		nil, // GraphQLHeaderService
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)

@@ -71,10 +71,14 @@ func TestNodeExecution_Collection(t *testing.T) {
 		nil, // NodeAIService
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
+		nil, // NodeGraphQLService
+		nil, // GraphQLService
+		nil, // GraphQLHeaderService
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)
@@ -218,10 +222,14 @@ func TestNodeExecution_Collection_VersionFlow(t *testing.T) {
 		nil, // NodeAIService
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
+		nil, // NodeGraphQLService
+		nil, // GraphQLService
+		nil, // GraphQLHeaderService
 		&wsService,
 		&varService,
 		&flowVarService,
 		res,
+		nil, // GraphQLResolver
 		logger,
 		nil, // LLMProviderFactory
 	)

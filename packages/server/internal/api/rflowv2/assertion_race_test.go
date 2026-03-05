@@ -20,7 +20,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
@@ -82,6 +84,11 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 	nodeAIService := sflow.NewNodeAIService(queries)
 	nodeAiProviderService := sflow.NewNodeAiProviderService(queries)
 	nodeMemoryService := sflow.NewNodeMemoryService(queries)
+	nodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	graphqlService := sgraphql.New(queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(queries)
+	graphqlResolver := gqlresolver.NewStandardResolver(graphqlService.Reader(), &graphqlHeaderService, &graphqlAssertService)
 	envService := senv.NewEnvironmentService(queries, logger)
 	varService := senv.NewVariableService(queries, logger)
 
@@ -123,6 +130,7 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 			NodeAI:        &nodeAIService,
 			NodeAiProvider:     &nodeAiProviderService,
 			NodeMemory:    &nodeMemoryService,
+			NodeGraphQL:   &nodeGraphQLService,
 			NodeExecution: &nodeExecService,
 			FlowVariable:  &flowVarService,
 			Env:           &envService,
@@ -135,8 +143,9 @@ func TestFlowRun_AssertionOrder(t *testing.T) {
 			Execution:          executionStream,
 			HttpResponseAssert: assertStream,
 		},
-		Resolver: res,
-		Logger:   logger,
+		Resolver:        res,
+		GraphQLResolver: graphqlResolver,
+		Logger:          logger,
 	})
 
 	// 4. Setup Data

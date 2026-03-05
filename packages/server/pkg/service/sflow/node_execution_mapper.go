@@ -34,6 +34,7 @@ func ConvertNodeExecutionToDB(ne mflow.NodeExecution) *gen.NodeExecution {
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorSQL,
 		HttpResponseID:         ne.ResponseID,
+		GraphqlResponseID:      ne.GraphQLResponseID,
 		CompletedAt:            completedAtSQL,
 	}
 }
@@ -62,6 +63,7 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mflow.NodeExecution {
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorPtr,
 		ResponseID:             responseIDPtr,
+		GraphQLResponseID:      ne.GraphqlResponseID,
 		CompletedAt:            completedAtPtr,
 	}
 }

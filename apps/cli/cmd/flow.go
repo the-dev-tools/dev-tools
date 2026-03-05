@@ -14,6 +14,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
@@ -153,7 +154,7 @@ var yamlflowRunCmd = &cobra.Command{
 			return fmt.Errorf("failed to convert YAML using v2: %w", err)
 		}
 
-		resolver := resolver.NewStandardResolver(
+		httpResolver := resolver.NewStandardResolver(
 			&services.HTTP,
 			&services.HTTPHeader,
 			services.HTTPSearchParam,
@@ -161,6 +162,12 @@ var yamlflowRunCmd = &cobra.Command{
 			services.HTTPBodyForm,
 			services.HTTPBodyUrlEncoded,
 			services.HTTPAssert,
+		)
+
+		graphqlResolver := gqlresolver.NewStandardResolver(
+			services.GraphQL.Reader(),
+			&services.GraphQLHeader,
+			&services.GraphQLAssert,
 		)
 
 		// Create LLM provider factory for AI nodes
@@ -176,10 +183,14 @@ var yamlflowRunCmd = &cobra.Command{
 			&services.NodeAI,
 			&services.NodeAiProvider,
 			&services.NodeMemory,
+			&services.NodeGraphQL,
+			&services.GraphQL,
+			&services.GraphQLHeader,
 			&services.Workspace,
 			&services.Variable,
 			&services.FlowVariable,
-			resolver,
+			httpResolver,
+			graphqlResolver,
 			services.Logger,
 			llmFactory,
 		)

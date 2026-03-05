@@ -60,6 +60,21 @@
       },
       "dependsOn": ["copy-worker"]
     },
+    "test:integration": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "parallel": false,
+        "commands": [
+          "go build -tags cli -o dist/devtools-cli-test .",
+          "RUN_CLI_INTEGRATION=true DEVTOOLS_CLI_BIN=$(pwd)/dist/devtools-cli-test go test -tags cli_integration ./test/yamlflow/ -v -timeout 120s"
+        ],
+        "env": {
+          "DEVTOOLS_MODE": "cli"
+        }
+      },
+      "dependsOn": ["copy-worker"]
+    },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
