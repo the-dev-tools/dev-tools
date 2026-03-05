@@ -859,15 +859,24 @@ func (p *rflowPublisher) publishNodeHttp(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
-	// 1. Publish update to base node stream
+	// 1. Publish to base node stream
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeHttpWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeHttpWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -877,7 +886,7 @@ func (p *rflowPublisher) publishNodeHttp(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})
@@ -1120,14 +1129,23 @@ func (p *rflowPublisher) publishNodeGraphQL(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeGraphQLWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeGraphQLWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -1137,7 +1155,7 @@ func (p *rflowPublisher) publishNodeGraphQL(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})
@@ -1151,14 +1169,23 @@ func (p *rflowPublisher) publishNodeWsConnection(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeWsConnectionWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeWsConnectionWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -1168,7 +1195,7 @@ func (p *rflowPublisher) publishNodeWsConnection(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})
@@ -1182,14 +1209,23 @@ func (p *rflowPublisher) publishNodeWsSend(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeWsSendWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeWsSendWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -1199,7 +1235,7 @@ func (p *rflowPublisher) publishNodeWsSend(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})
@@ -1213,14 +1249,23 @@ func (p *rflowPublisher) publishNodeWait(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeWaitWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeWaitWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -1230,7 +1275,7 @@ func (p *rflowPublisher) publishNodeWait(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})

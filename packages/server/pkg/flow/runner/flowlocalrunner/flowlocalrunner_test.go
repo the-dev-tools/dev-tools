@@ -1041,3 +1041,338 @@ func BenchmarkFlowLocalRunnerLoopFlow(b *testing.B) {
 		runExecutionModeBenchmark(b, startID, nodeMap, edgesMap, flowlocalrunner.ExecutionModeAuto)
 	})
 }
+
+// TestEventDrivenIndependentBranches verifies that independent branches don't
+// block each other. When START → [FAST, SLOW] and FAST → FAST_CHILD, FAST_CHILD
+// should start executing while SLOW is still running.
+func TestEventDrivenIndependentBranches(t *testing.T) {
+	slowRelease := make(chan struct{})
+	slowNode := newBlockingNode("slow", slowRelease)
+
+	fastID := idwrap.NewNow()
+	fastChildID := idwrap.NewNow()
+	fastChild := newBlockingNode("fast_child", nil) // completes immediately
+
+	startID := idwrap.NewNow()
+	startNode := &stubNode{
+		id:   startID,
+		name: "start",
+		next: []idwrap.IDWrap{fastID, slowNode.GetID()},
+	}
+	fastNode := &stubNode{
+		id:   fastID,
+		name: "fast",
+		next: []idwrap.IDWrap{fastChildID},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID:          startNode,
+		fastID:           fastNode,
+		slowNode.GetID(): slowNode,
+		fastChildID:      fastChild,
+	}
+	edgesMap := mflow.EdgesMap{
+		startID: {mflow.HandleUnspecified: []idwrap.IDWrap{fastID, slowNode.GetID()}},
+		fastID:  {mflow.HandleUnspecified: []idwrap.IDWrap{fastChildID}},
+		slowNode.GetID(): {},
+		fastChildID:      {},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
+	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
+
+	statusChan := make(chan runner.FlowNodeStatus, 32)
+	flowStatusChan := make(chan runner.FlowStatus, 4)
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- flowRunner.Run(context.Background(), statusChan, flowStatusChan, nil)
+	}()
+
+	// Wait for fast_child to start — this proves it didn't wait for slow
+	waitForStart(t, fastChild.started, "fast_child")
+
+	// At this point, slow should still be running (it's blocked)
+	waitForStart(t, slowNode.started, "slow")
+
+	// Release slow so the flow can complete
+	close(slowRelease)
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("flow runner returned error: %v", err)
+	}
+
+	for range statusChan {
+	}
+	for range flowStatusChan {
+	}
+}
+
+// blockingStubNode combines blocking behavior with next-node return.
+type blockingStubNode struct {
+	id      idwrap.IDWrap
+	name    string
+	release <-chan struct{}
+	started chan struct{}
+	once    sync.Once
+	next    []idwrap.IDWrap
+}
+
+func newBlockingStubNode(name string, release <-chan struct{}, next []idwrap.IDWrap) *blockingStubNode {
+	return &blockingStubNode{
+		id:      idwrap.NewNow(),
+		name:    name,
+		release: release,
+		started: make(chan struct{}),
+		next:    next,
+	}
+}
+
+func (b *blockingStubNode) GetID() idwrap.IDWrap { return b.id }
+func (b *blockingStubNode) GetName() string      { return b.name }
+
+func (b *blockingStubNode) RunSync(ctx context.Context, _ *node.FlowNodeRequest) node.FlowNodeResult {
+	b.once.Do(func() { close(b.started) })
+	if b.release != nil {
+		select {
+		case <-b.release:
+		case <-ctx.Done():
+			return node.FlowNodeResult{Err: ctx.Err()}
+		}
+	}
+	return node.FlowNodeResult{NextNodeID: append([]idwrap.IDWrap(nil), b.next...)}
+}
+
+func (b *blockingStubNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	resultChan <- b.RunSync(ctx, req)
+}
+
+// TestEventDrivenDiamondConvergence verifies that converge points still wait for
+// all predecessors. In START → [A, B] → JOIN, JOIN only executes after both
+// A and B complete.
+func TestEventDrivenDiamondConvergence(t *testing.T) {
+	joinID := idwrap.NewNow()
+
+	releaseA := make(chan struct{})
+	releaseB := make(chan struct{})
+	nodeA := newBlockingStubNode("a", releaseA, []idwrap.IDWrap{joinID})
+	nodeB := newBlockingStubNode("b", releaseB, []idwrap.IDWrap{joinID})
+
+	joinNode := newBlockingStubNode("join", nil, nil)
+	// Override the auto-generated ID to use our pre-declared joinID
+	joinNode.id = joinID
+
+	startID := idwrap.NewNow()
+	startNode := &stubNode{
+		id:   startID,
+		name: "start",
+		next: []idwrap.IDWrap{nodeA.GetID(), nodeB.GetID()},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID:       startNode,
+		nodeA.GetID(): nodeA,
+		nodeB.GetID(): nodeB,
+		joinID:        joinNode,
+	}
+	edgesMap := mflow.EdgesMap{
+		startID:       {mflow.HandleUnspecified: []idwrap.IDWrap{nodeA.GetID(), nodeB.GetID()}},
+		nodeA.GetID(): {mflow.HandleUnspecified: []idwrap.IDWrap{joinID}},
+		nodeB.GetID(): {mflow.HandleUnspecified: []idwrap.IDWrap{joinID}},
+		joinID:        {},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
+	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
+
+	statusChan := make(chan runner.FlowNodeStatus, 32)
+	flowStatusChan := make(chan runner.FlowStatus, 4)
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- flowRunner.Run(context.Background(), statusChan, flowStatusChan, nil)
+	}()
+
+	// Wait for A and B to start
+	waitForStart(t, nodeA.started, "a")
+	waitForStart(t, nodeB.started, "b")
+
+	// Release B first — JOIN should NOT start yet (A is still blocked)
+	close(releaseB)
+	time.Sleep(50 * time.Millisecond)
+
+	select {
+	case <-joinNode.started:
+		t.Fatal("join started before all predecessors completed")
+	default:
+		// Good — join hasn't started yet
+	}
+
+	// Release A — NOW join should start
+	close(releaseA)
+	waitForStart(t, joinNode.started, "join")
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("flow runner returned error: %v", err)
+	}
+
+	for range statusChan {
+	}
+	for range flowStatusChan {
+	}
+}
+
+// TestEventDrivenErrorCancelsOtherBranches verifies that when one branch fails,
+// other in-flight branches are canceled.
+func TestEventDrivenErrorCancelsOtherBranches(t *testing.T) {
+	slowRelease := make(chan struct{})
+	slowNode := newBlockingNode("slow", slowRelease)
+	defer close(slowRelease)
+
+	failID := idwrap.NewNow()
+	failNode := newFailingNode(failID, "fail", nil, errors.New("boom"))
+
+	startID := idwrap.NewNow()
+	startNode := &stubNode{
+		id:   startID,
+		name: "start",
+		next: []idwrap.IDWrap{failID, slowNode.GetID()},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID:          startNode,
+		failID:           failNode,
+		slowNode.GetID(): slowNode,
+	}
+	edgesMap := mflow.EdgesMap{
+		startID:          {mflow.HandleUnspecified: []idwrap.IDWrap{failID, slowNode.GetID()}},
+		failID:           {},
+		slowNode.GetID(): {},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
+	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
+
+	statusChan := make(chan runner.FlowNodeStatus, 32)
+	flowStatusChan := make(chan runner.FlowStatus, 4)
+
+	err := flowRunner.Run(context.Background(), statusChan, flowStatusChan, nil)
+	require.Error(t, err)
+
+	statuses := drainStates(statusChan)
+	_ = drainFlowStatus(flowStatusChan)
+
+	// Verify the failing node reported FAILURE
+	foundFailure := false
+	foundCanceled := false
+	for _, s := range statuses {
+		if s.NodeID == failID && s.State == mflow.NODE_STATE_FAILURE {
+			foundFailure = true
+		}
+		if s.NodeID == slowNode.GetID() && s.State == mflow.NODE_STATE_CANCELED {
+			foundCanceled = true
+		}
+	}
+
+	require.True(t, foundFailure, "expected FAILURE status for fail node, statuses: %+v", statuses)
+	require.True(t, foundCanceled, "expected CANCELED status for slow node, statuses: %+v", statuses)
+}
+
+// concurrencyTrackingNode is a FlowNode that tracks concurrent execution.
+type concurrencyTrackingNode struct {
+	id           idwrap.IDWrap
+	nodeName     string
+	mu           *sync.Mutex
+	activeConcur *int
+	maxConcur    *int
+}
+
+func (n *concurrencyTrackingNode) GetID() idwrap.IDWrap { return n.id }
+func (n *concurrencyTrackingNode) GetName() string      { return n.nodeName }
+
+func (n *concurrencyTrackingNode) RunSync(_ context.Context, _ *node.FlowNodeRequest) node.FlowNodeResult {
+	n.mu.Lock()
+	*n.activeConcur++
+	if *n.activeConcur > *n.maxConcur {
+		*n.maxConcur = *n.activeConcur
+	}
+	n.mu.Unlock()
+
+	// Small delay to increase the window for concurrent overlap
+	time.Sleep(5 * time.Millisecond)
+
+	n.mu.Lock()
+	*n.activeConcur--
+	n.mu.Unlock()
+
+	return node.FlowNodeResult{}
+}
+
+func (n *concurrencyTrackingNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	resultChan <- n.RunSync(ctx, req)
+}
+
+// TestEventDrivenSemaphoreBoundsConcurrency verifies that the semaphore limits
+// how many nodes are actively processing at any time.
+func TestEventDrivenSemaphoreBoundsConcurrency(t *testing.T) {
+	cleanup := flowlocalrunner.SetGoroutineCountForTesting(1)
+	defer cleanup()
+
+	var mu sync.Mutex
+	maxConcurrent := 0
+	activeConcurrent := 0
+
+	newTrackingNode := func(name string) *concurrencyTrackingNode {
+		return &concurrencyTrackingNode{
+			id:           idwrap.NewNow(),
+			nodeName:     name,
+			mu:           &mu,
+			activeConcur: &activeConcurrent,
+			maxConcur:    &maxConcurrent,
+		}
+	}
+
+	tn1 := newTrackingNode("worker-0")
+	tn2 := newTrackingNode("worker-1")
+	tn3 := newTrackingNode("worker-2")
+
+	startID := idwrap.NewNow()
+	startNode := &stubNode{
+		id:   startID,
+		name: "start",
+		next: []idwrap.IDWrap{tn1.id, tn2.id, tn3.id},
+	}
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID: startNode,
+		tn1.id:  tn1,
+		tn2.id:  tn2,
+		tn3.id:  tn3,
+	}
+	edgesMap := mflow.EdgesMap{
+		startID: {mflow.HandleUnspecified: []idwrap.IDWrap{tn1.id, tn2.id, tn3.id}},
+		tn1.id:  {},
+		tn2.id:  {},
+		tn3.id:  {},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
+	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
+
+	statusChan := make(chan runner.FlowNodeStatus, 32)
+	flowStatusChan := make(chan runner.FlowStatus, 4)
+
+	err := flowRunner.Run(context.Background(), statusChan, flowStatusChan, nil)
+	require.Nil(t, err)
+
+	for range statusChan {
+	}
+	for range flowStatusChan {
+	}
+
+	mu.Lock()
+	finalMax := maxConcurrent
+	mu.Unlock()
+
+	require.LessOrEqual(t, finalMax, 1, "expected max concurrent processing to be 1 (semaphore bound), got %d", finalMax)
+}

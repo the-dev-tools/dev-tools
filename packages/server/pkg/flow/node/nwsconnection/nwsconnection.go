@@ -111,20 +111,25 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 	}
 
 	// Store connection in VarMap so WsSend nodes can use it
-	if err := node.WriteNodeVar(req, n.Name, "url", url); err != nil {
+	writeVar := func(key string, v any) error {
+		if req.VariableTracker != nil {
+			return node.WriteNodeVarWithTracking(req, n.Name, key, v, req.VariableTracker)
+		}
+		return node.WriteNodeVar(req, n.Name, key, v)
+	}
+	if err := writeVar("url", url); err != nil {
 		closeConn()
 		return node.FlowNodeResult{Err: fmt.Errorf("write url var: %w", err)}
 	}
-	if err := node.WriteNodeVar(req, n.Name, "connected", true); err != nil {
+	if err := writeVar("connected", true); err != nil {
 		closeConn()
 		return node.FlowNodeResult{Err: fmt.Errorf("write connected var: %w", err)}
 	}
-	// Store the actual connection object for WsSend nodes to use
+	// Store the actual connection object (internal, not tracked)
 	if err := node.WriteNodeVar(req, n.Name, "_conn", conn); err != nil {
 		closeConn()
 		return node.FlowNodeResult{Err: fmt.Errorf("write conn var: %w", err)}
 	}
-
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)
 
 	// Check for HandleWsMessage targets — if present, read messages and dispatch child chains
@@ -155,7 +160,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 						NodeID:         n.FlowNodeID,
 						Name:           fmt.Sprintf("%s Message %d", n.Name, msgIndex+1),
 						State:          mflow.NODE_STATE_SUCCESS,
-						OutputData:     map[string]any{"message": msgStr, "index": msgIndex},
+						OutputData:     map[string]any{"type": "received", "index": msgIndex, "message": msgStr},
 						IterationEvent: true,
 						IterationIndex: msgIndex,
 						LoopNodeID:     n.FlowNodeID,
@@ -221,7 +226,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 					NodeID:           n.FlowNodeID,
 					Name:             executionName,
 					State:            mflow.NODE_STATE_RUNNING,
-					OutputData:       map[string]any{"message": msgStr, "index": msgIndex},
+					OutputData:       map[string]any{"type": "received", "index": msgIndex, "message": msgStr},
 					IterationEvent:   true,
 					IterationIndex:   msgIndex,
 					LoopNodeID:       n.FlowNodeID,
@@ -262,7 +267,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 					Name:             executionName,
 					State:            state,
 					Error:            iterErr,
-					OutputData:       map[string]any{"message": msgStr, "index": msgIndex},
+					OutputData:       map[string]any{"type": "received", "index": msgIndex, "message": msgStr},
 					IterationEvent:   true,
 					IterationIndex:   msgIndex,
 					LoopNodeID:       n.FlowNodeID,

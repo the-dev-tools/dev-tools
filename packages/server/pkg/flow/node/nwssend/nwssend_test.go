@@ -79,12 +79,12 @@ func TestNodeWsSend_Success(t *testing.T) {
 	}
 
 	// Verify output variables
-	sentMsg, err := node.ReadNodeVar(req, "SendMsg", "sentMessage")
+	sentMsg, err := node.ReadNodeVar(req, "SendMsg", "message")
 	if err != nil {
-		t.Fatalf("read sentMessage: %v", err)
+		t.Fatalf("read message: %v", err)
 	}
 	if sentMsg != "hello world" {
-		t.Errorf("sentMessage = %v, want hello world", sentMsg)
+		t.Errorf("message = %v, want hello world", sentMsg)
 	}
 
 	connNode, err := node.ReadNodeVar(req, "SendMsg", "connectionNode")
@@ -130,9 +130,9 @@ func TestNodeWsSend_Interpolation(t *testing.T) {
 		t.Fatalf("RunSync error: %v", result.Err)
 	}
 
-	sentMsg, _ := node.ReadNodeVar(req, "SendMsg", "sentMessage")
+	sentMsg, _ := node.ReadNodeVar(req, "SendMsg", "message")
 	if sentMsg != "hello world" {
-		t.Errorf("sentMessage = %v, want hello world", sentMsg)
+		t.Errorf("message = %v, want hello world", sentMsg)
 	}
 }
 

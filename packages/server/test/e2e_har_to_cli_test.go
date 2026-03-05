@@ -454,7 +454,6 @@ func executeFlow(ctx context.Context, flowPtr *mflow.Flow, c *cliServices, build
 	if err != nil {
 		return err
 	}
-	fmt.Printf("DEBUG: Found %d edges for flow %s\n", len(edges), latestFlowID)
 	edgeMap := mflow.NewEdgesMap(edges)
 
 	flowVars, err := c.FlowVariable.GetFlowVariablesByFlowID(ctx, latestFlowID)

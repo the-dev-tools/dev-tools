@@ -354,7 +354,6 @@ func (b *Builder) BuildNodes(
 			}
 			wsNode := nwsconnection.New(nodeModel.ID, nodeModel.Name, url, headers)
 			flowNodeMap[nodeModel.ID] = wsNode
-			startNodeIDs = append(startNodeIDs, nodeModel.ID)
 		case mflow.NODE_KIND_WS_SEND:
 			var wsConnName string
 			var message string

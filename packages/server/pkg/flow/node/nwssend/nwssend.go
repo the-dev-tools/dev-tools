@@ -52,7 +52,8 @@ func (n *NodeWsSend) GetRequiredVariables() []string {
 // GetOutputVariables implements node.VariableIntrospector.
 func (n *NodeWsSend) GetOutputVariables() []string {
 	return []string{
-		"sentMessage",
+		"type",
+		"message",
 		"connectionNode",
 	}
 }
@@ -83,10 +84,19 @@ func (n *NodeWsSend) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 	}
 
 	// Write the sent message to output vars
-	if err := node.WriteNodeVar(req, n.Name, "sentMessage", interpolated); err != nil {
-		return node.FlowNodeResult{Err: fmt.Errorf("write sentMessage var: %w", err)}
+	writeVar := func(key string, v any) error {
+		if req.VariableTracker != nil {
+			return node.WriteNodeVarWithTracking(req, n.Name, key, v, req.VariableTracker)
+		}
+		return node.WriteNodeVar(req, n.Name, key, v)
 	}
-	if err := node.WriteNodeVar(req, n.Name, "connectionNode", n.WsConnectionNodeName); err != nil {
+	if err := writeVar("type", "sent"); err != nil {
+		return node.FlowNodeResult{Err: fmt.Errorf("write type var: %w", err)}
+	}
+	if err := writeVar("message", interpolated); err != nil {
+		return node.FlowNodeResult{Err: fmt.Errorf("write message var: %w", err)}
+	}
+	if err := writeVar("connectionNode", n.WsConnectionNodeName); err != nil {
 		return node.FlowNodeResult{Err: fmt.Errorf("write connectionNode var: %w", err)}
 	}
 

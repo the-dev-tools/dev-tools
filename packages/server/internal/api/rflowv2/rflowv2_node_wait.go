@@ -375,29 +375,29 @@ func (s *FlowServiceV2RPC) nodeWaitEventToSyncResponse(
 	var syncEvent *flowv1.NodeWaitSync
 	switch evt.Type {
 	case nodeEventInsert:
-		insert := &flowv1.NodeWaitSyncInsert{
-			NodeId: nodeID.Bytes(),
-		}
-		if nodeWait != nil {
-			insert.DurationMs = nodeWait.DurationMs
+		if nodeWait == nil {
+			return nil, nil
 		}
 		syncEvent = &flowv1.NodeWaitSync{
 			Value: &flowv1.NodeWaitSync_ValueUnion{
-				Kind:   flowv1.NodeWaitSync_ValueUnion_KIND_INSERT,
-				Insert: insert,
+				Kind: flowv1.NodeWaitSync_ValueUnion_KIND_INSERT,
+				Insert: &flowv1.NodeWaitSyncInsert{
+					NodeId:     nodeID.Bytes(),
+					DurationMs: nodeWait.DurationMs,
+				},
 			},
 		}
 	case nodeEventUpdate:
-		update := &flowv1.NodeWaitSyncUpdate{
-			NodeId: nodeID.Bytes(),
-		}
-		if nodeWait != nil {
-			update.DurationMs = &nodeWait.DurationMs
+		if nodeWait == nil {
+			return nil, nil
 		}
 		syncEvent = &flowv1.NodeWaitSync{
 			Value: &flowv1.NodeWaitSync_ValueUnion{
-				Kind:   flowv1.NodeWaitSync_ValueUnion_KIND_UPDATE,
-				Update: update,
+				Kind: flowv1.NodeWaitSync_ValueUnion_KIND_UPDATE,
+				Update: &flowv1.NodeWaitSyncUpdate{
+					NodeId:     nodeID.Bytes(),
+					DurationMs: &nodeWait.DurationMs,
+				},
 			},
 		}
 	case nodeEventDelete:

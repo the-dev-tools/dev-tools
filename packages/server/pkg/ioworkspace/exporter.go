@@ -231,6 +231,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	nodeGraphQLService := sflow.NewNodeGraphQLService(s.queries)
 	nodeWsConnectionService := sflow.NewNodeWsConnectionService(s.queries)
 	nodeWsSendService := sflow.NewNodeWsSendService(s.queries)
+	nodeWaitService := sflow.NewNodeWaitService(s.queries)
 	websocketService := swebsocket.New(s.queries, s.logger)
 	websocketHeaderService := swebsocket.NewWebSocketHeaderService(s.queries)
 
@@ -286,7 +287,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
-			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService, nodeGraphQLService, nodeWsConnectionService, nodeWsSendService, websocketService, websocketHeaderService); err != nil {
+			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService, nodeGraphQLService, nodeWsConnectionService, nodeWsSendService, nodeWaitService, websocketService, websocketHeaderService); err != nil {
 				return fmt.Errorf("failed to export node implementation for node %s: %w", node.ID.String(), err)
 			}
 		}
@@ -306,7 +307,8 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 		"ai_memory_nodes", len(bundle.FlowAIMemoryNodes),
 		"graphql_nodes", len(bundle.FlowGraphQLNodes),
 		"ws_connection_nodes", len(bundle.FlowWsConnectionNodes),
-		"ws_send_nodes", len(bundle.FlowWsSendNodes))
+		"ws_send_nodes", len(bundle.FlowWsSendNodes),
+		"wait_nodes", len(bundle.FlowWaitNodes))
 
 	return nil
 }
@@ -361,6 +363,7 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	nodeGraphQLService sflow.NodeGraphQLService,
 	nodeWsConnectionService sflow.NodeWsConnectionService,
 	nodeWsSendService sflow.NodeWsSendService,
+	nodeWaitService sflow.NodeWaitService,
 	websocketService swebsocket.WebSocketService,
 	websocketHeaderService swebsocket.WebSocketHeaderService,
 ) error {
@@ -477,6 +480,15 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 		}
 		if nodeWsSend != nil {
 			bundle.FlowWsSendNodes = append(bundle.FlowWsSendNodes, *nodeWsSend)
+		}
+
+	case mflow.NODE_KIND_WAIT:
+		nodeWait, err := nodeWaitService.GetNodeWait(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get wait node: %w", err)
+		}
+		if nodeWait != nil {
+			bundle.FlowWaitNodes = append(bundle.FlowWaitNodes, *nodeWait)
 		}
 	}
 

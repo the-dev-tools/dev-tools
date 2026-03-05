@@ -533,16 +533,20 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 	// Collect node details outside TX
 	type nodeDetail struct {
-		node       mflow.Node
-		request    *mflow.NodeRequest
-		http       *mhttp.HTTP
-		forNode    *mflow.NodeFor
-		forEach    *mflow.NodeForEach
-		ifNode     *mflow.NodeIf
-		jsNode     *mflow.NodeJS
-		aiNode     *mflow.NodeAI
-		aiProvider *mflow.NodeAiProvider
-		memoryNode *mflow.NodeMemory
+		node             mflow.Node
+		request          *mflow.NodeRequest
+		http             *mhttp.HTTP
+		forNode          *mflow.NodeFor
+		forEach          *mflow.NodeForEach
+		ifNode           *mflow.NodeIf
+		jsNode           *mflow.NodeJS
+		aiNode           *mflow.NodeAI
+		aiProvider       *mflow.NodeAiProvider
+		memoryNode       *mflow.NodeMemory
+		graphqlNode      *mflow.NodeGraphQL
+		wsConnectionNode *mflow.NodeWsConnection
+		wsSendNode       *mflow.NodeWsSend
+		waitNode         *mflow.NodeWait
 	}
 	details := make([]nodeDetail, 0, len(sourceNodes))
 	for _, n := range sourceNodes {
@@ -589,6 +593,30 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			if s.nmems != nil {
 				if d, err := s.nmems.GetNodeMemory(ctx, n.ID); err == nil {
 					detail.memoryNode = d
+				}
+			}
+		case mflow.NODE_KIND_GRAPHQL:
+			if s.ngqs != nil {
+				if d, err := s.ngqs.GetNodeGraphQL(ctx, n.ID); err == nil {
+					detail.graphqlNode = d
+				}
+			}
+		case mflow.NODE_KIND_WS_CONNECTION:
+			if s.nwcs != nil {
+				if d, err := s.nwcs.GetNodeWsConnection(ctx, n.ID); err == nil {
+					detail.wsConnectionNode = d
+				}
+			}
+		case mflow.NODE_KIND_WS_SEND:
+			if s.nwss != nil {
+				if d, err := s.nwss.GetNodeWsSend(ctx, n.ID); err == nil {
+					detail.wsSendNode = d
+				}
+			}
+		case mflow.NODE_KIND_WAIT:
+			if s.nwaits != nil {
+				if d, err := s.nwaits.GetNodeWait(ctx, n.ID); err == nil && d != nil {
+					detail.waitNode = d
 				}
 			}
 		}
@@ -720,6 +748,38 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			node.FlowNodeID = newNodeID
 			nmemsWriter := s.nmems.TX(tx)
 			if err := nmemsWriter.CreateNodeMemory(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.graphqlNode != nil && s.ngqs != nil {
+			node := *d.graphqlNode
+			node.FlowNodeID = newNodeID
+			ngqsWriter := s.ngqs.TX(tx)
+			if err := ngqsWriter.CreateNodeGraphQL(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.wsConnectionNode != nil && s.nwcs != nil {
+			node := *d.wsConnectionNode
+			node.FlowNodeID = newNodeID
+			nwcsWriter := s.nwcs.TX(tx)
+			if err := nwcsWriter.CreateNodeWsConnection(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.wsSendNode != nil && s.nwss != nil {
+			node := *d.wsSendNode
+			node.FlowNodeID = newNodeID
+			nwssWriter := s.nwss.TX(tx)
+			if err := nwssWriter.CreateNodeWsSend(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.waitNode != nil && s.nwaits != nil {
+			node := *d.waitNode
+			node.FlowNodeID = newNodeID
+			nwaitsWriter := s.nwaits.TX(tx)
+			if err := nwaitsWriter.CreateNodeWait(ctx, node); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}
