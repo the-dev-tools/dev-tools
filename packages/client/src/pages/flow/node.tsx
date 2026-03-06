@@ -484,7 +484,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
   };
 
   const selectedExecutionId =
-    typeof selectedKey === 'string' ? executions.find((_) => _.key === selectedKey)?.nodeExecutionId ?? null : null;
+    typeof selectedKey === 'string' ? (executions.find((_) => _.key === selectedKey)?.nodeExecutionId ?? null) : null;
 
   // React Aria workaround: only render full list when dropdown is open
   // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825

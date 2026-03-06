@@ -17,6 +17,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
 	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -504,11 +505,11 @@ type FlowServiceV2RPC struct {
 	fileService              *sfile.FileService
 	fileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
-	// JS executor client for running JS nodes (connects to worker-js)
-	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient
+	// Session factory for creating execution sessions (local or distributed)
+	sessionFactory flowexec.SessionFactory
 
-	// Shared builder for flow execution
-	builder *flowbuilder.Builder
+	// Snapshot registry for flow version snapshots
+	snapshotRegistry *flowexec.SnapshotRegistry
 
 	// Running flows map for cancellation
 	runningFlowsMu sync.Mutex
@@ -533,6 +534,35 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
 		deps.Resolver, deps.GraphQLResolver, deps.Logger, llmFactory,
 	)
+
+	// Build snapshot registry for flow version snapshots
+	registry := flowexec.NewSnapshotRegistry()
+	registry.Register(&flowexec.RequestSnapshot{Service: deps.Services.NodeRequest})
+	registry.Register(&flowexec.ForSnapshot{Service: deps.Services.NodeFor})
+	registry.Register(&flowexec.ForEachSnapshot{Service: deps.Services.NodeForEach})
+	registry.Register(&flowexec.ConditionSnapshot{Service: deps.Services.NodeIf})
+	registry.Register(&flowexec.JSSnapshot{Service: deps.Services.NodeJs})
+	if deps.Services.NodeAI != nil {
+		registry.Register(&flowexec.AISnapshot{Service: deps.Services.NodeAI})
+	}
+	if deps.Services.NodeAiProvider != nil {
+		registry.Register(&flowexec.AIProviderSnapshot{Service: deps.Services.NodeAiProvider})
+	}
+	if deps.Services.NodeMemory != nil {
+		registry.Register(&flowexec.MemorySnapshot{Service: deps.Services.NodeMemory})
+	}
+	if deps.Services.NodeGraphQL != nil {
+		registry.Register(&flowexec.GraphQLSnapshot{Service: deps.Services.NodeGraphQL})
+	}
+	if deps.Services.NodeWsConnection != nil {
+		registry.Register(&flowexec.WsConnectionSnapshot{Service: deps.Services.NodeWsConnection})
+	}
+	if deps.Services.NodeWsSend != nil {
+		registry.Register(&flowexec.WsSendSnapshot{Service: deps.Services.NodeWsSend})
+	}
+	if deps.Services.NodeWait != nil {
+		registry.Register(&flowexec.WaitSnapshot{Service: deps.Services.NodeWait})
+	}
 
 	return &FlowServiceV2RPC{
 		DB:                       deps.DB,
@@ -599,8 +629,11 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		logStream:                   deps.Streamers.Log,
 		fileService:              deps.Services.File,
 		fileStream:               deps.Streamers.File,
-		jsClient:                 deps.JsClient,
-		builder:                  builder,
+		sessionFactory: &flowexec.LocalSessionFactory{
+			Builder:  builder,
+			JsClient: deps.JsClient,
+		},
+		snapshotRegistry: registry,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}
 }

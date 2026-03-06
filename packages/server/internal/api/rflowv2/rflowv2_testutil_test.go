@@ -14,6 +14,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -126,7 +127,7 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		nifs:           nifsService,
 		njss:           &njssService,
 		logger:         logger,
-		builder:        builder,
+		sessionFactory: &flowexec.LocalSessionFactory{Builder: builder},
 	}
 
 	// Create User
