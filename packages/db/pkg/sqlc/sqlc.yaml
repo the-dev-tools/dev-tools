@@ -932,3 +932,56 @@ sql:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ## WebSocket system
+          ### websocket table
+          - column: 'websocket.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'websocket.workspace_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'websocket.folder_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### websocket_header table
+          - column: 'websocket_header.id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'websocket_header.websocket_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_node_ws_connection table
+          - column: 'flow_node_ws_connection.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'flow_node_ws_connection.websocket_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### flow_node_ws_send table
+          - column: 'flow_node_ws_send.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_node_wait table
+          - column: 'flow_node_wait.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'

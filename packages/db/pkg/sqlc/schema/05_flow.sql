@@ -103,6 +103,11 @@ CREATE TABLE flow_node_js (
   code_compress_type INT8 NOT NULL
 );
 
+CREATE TABLE flow_node_wait (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  duration_ms BIGINT NOT NULL
+);
+
 CREATE TABLE flow_variable (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,

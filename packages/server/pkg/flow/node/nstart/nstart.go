@@ -41,6 +41,10 @@ func (nr *NodeStart) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 	}
 }
 
+func (nr *NodeStart) IsEntryNode() bool {
+	return true
+}
+
 func (nr *NodeStart) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleUnspecified)
 

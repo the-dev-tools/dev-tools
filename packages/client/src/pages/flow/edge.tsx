@@ -147,7 +147,7 @@ const DefaultEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, tar
         </div>
 
         <div
-          // eslint-disable-next-line better-tailwindcss/no-unregistered-classes
+          // eslint-disable-next-line better-tailwindcss/no-unknown-classes
           className={tw`nodrag nopan pointer-events-auto absolute`}
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)` }}
         >

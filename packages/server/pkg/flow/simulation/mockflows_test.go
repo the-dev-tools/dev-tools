@@ -246,7 +246,7 @@ func TestCreateMockFlow_IntegrationWithFlowLocalRunner(t *testing.T) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		flowID,
-		result.StartNodeID,
+		result.StartNodeIDs,
 		result.Nodes,
 		result.EdgesMap,
 		5*time.Second, // 5 second timeout
@@ -334,7 +334,7 @@ func TestCreateMockFlow_Performance_BasicLoad(t *testing.T) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		flowID,
-		result.StartNodeID,
+		result.StartNodeIDs,
 		result.Nodes,
 		result.EdgesMap,
 		10*time.Second, // Generous timeout
@@ -455,7 +455,7 @@ func TestCreateMockFlow_ExecutionModeSelection(t *testing.T) {
 			flowRunner := flowlocalrunner.CreateFlowRunner(
 				idwrap.NewNow(),
 				flowID,
-				result.StartNodeID,
+				result.StartNodeIDs,
 				result.Nodes,
 				result.EdgesMap,
 				5*time.Second,
@@ -521,7 +521,7 @@ func TestCreateMockFlow_TimeoutBehavior(t *testing.T) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		flowID,
-		result.StartNodeID,
+		result.StartNodeIDs,
 		result.Nodes,
 		result.EdgesMap,
 		timeout,
@@ -676,7 +676,7 @@ func BenchmarkFlowExecution_Small(b *testing.B) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		flowID,
-		result.StartNodeID,
+		result.StartNodeIDs,
 		result.Nodes,
 		result.EdgesMap,
 		5*time.Second,
@@ -713,7 +713,7 @@ func BenchmarkFlowExecution_Medium(b *testing.B) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		flowID,
-		result.StartNodeID,
+		result.StartNodeIDs,
 		result.Nodes,
 		result.EdgesMap,
 		10*time.Second,
@@ -750,7 +750,7 @@ func BenchmarkFlowExecution_Large(b *testing.B) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		flowID,
-		result.StartNodeID,
+		result.StartNodeIDs,
 		result.Nodes,
 		result.EdgesMap,
 		30*time.Second,

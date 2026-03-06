@@ -26,9 +26,11 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
+	"github.com/coder/websocket"
 )
 
 // flowTestFixture provides a common test environment for flow execution tests
@@ -88,6 +90,13 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 	httpAssertService := shttp.NewHttpAssertService(queries)
 
+	// WebSocket services
+	nodeWsConnectionService := sflow.NewNodeWsConnectionService(queries)
+	nodeWsSendService := sflow.NewNodeWsSendService(queries)
+	nodeWaitService := sflow.NewNodeWaitService(queries)
+	webSocketService := swebsocket.New(queries, logger)
+	webSocketHeaderService := swebsocket.NewWebSocketHeaderService(queries)
+
 	// Additional services for builder
 	varService := senv.NewVariableService(queries, logger)
 
@@ -114,6 +123,11 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		nil, // NodeAiProviderService - not needed for CLI tests
 		nil, // NodeMemoryService - not needed for CLI tests
 		nil, // NodeGraphQLService - not needed for CLI tests
+		&nodeWsConnectionService,
+		&nodeWsSendService,
+		&nodeWaitService,
+		&webSocketService,
+		&webSocketHeaderService,
 		nil, // GraphQLService - not needed for CLI tests
 		nil, // GraphQLHeaderService - not needed for CLI tests
 		&workspaceService,
@@ -149,6 +163,11 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		HTTPBodyUrlEncoded: httpBodyUrlEncodedService,
 		HTTPBodyRaw:        httpBodyRawService,
 		HTTPAssert:         httpAssertService,
+		NodeWsConnection:   nodeWsConnectionService,
+		NodeWsSend:         nodeWsSendService,
+		NodeWait:           nodeWaitService,
+		WebSocket:          webSocketService,
+		WebSocketHeader:    webSocketHeaderService,
 		Logger:             logger,
 	}
 
@@ -761,5 +780,105 @@ flows:
 
 	if orphanExecuted {
 		t.Error("OrphanRequest should NOT have been executed (it's an orphan node)")
+	}
+}
+
+// echoWSServer creates a test WebSocket server that echoes messages back.
+func echoWSServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "") //nolint:errcheck // best-effort cleanup
+		for {
+			typ, msg, err := conn.Read(r.Context())
+			if err != nil {
+				return
+			}
+			if err := conn.Write(r.Context(), typ, msg); err != nil {
+				return
+			}
+		}
+	}))
+}
+
+func wsURL(s *httptest.Server) string {
+	return "ws" + strings.TrimPrefix(s.URL, "http")
+}
+
+// TestFlowRun_WebSocket tests a flow with WebSocket connection and send nodes.
+func TestFlowRun_WebSocket(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	wsSrv := echoWSServer(t)
+	defer wsSrv.Close()
+
+	yamlContent := fmt.Sprintf(`workspace_name: WS Test
+flows:
+  - name: WSFlow
+    steps:
+      - manual_start:
+          name: Start
+      - ws_connection:
+          name: MyWS
+          depends_on: Start
+          url: %s
+      - ws_send:
+          name: SendHello
+          depends_on: MyWS
+          ws_connection_node_name: MyWS
+          message: '{"hello":"world"}'
+`, wsURL(wsSrv))
+
+	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML([]byte(yamlContent), yamlflowsimplev2.ConvertOptionsV2{
+		WorkspaceID: fixture.workspaceID,
+	})
+	if err != nil {
+		t.Fatalf("failed to convert YAML: %v", err)
+	}
+
+	fixture.importWorkspaceBundle(resolved)
+
+	flow := fixture.getFlowByName("WSFlow")
+	if flow == nil {
+		t.Fatal("WSFlow not found")
+	}
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	result, err := runner.RunFlow(ctx, flow, fixture.getRunnerServices(nil), nil)
+
+	if err != nil {
+		t.Errorf("flow execution failed: %v", err)
+	}
+
+	if result.Status != "success" {
+		t.Errorf("expected status 'success', got '%s'. Error: %s", result.Status, result.Error)
+	}
+
+	// Verify both WS nodes were executed
+	foundConn := false
+	foundSend := false
+	for _, node := range result.Nodes {
+		switch node.Name {
+		case "MyWS":
+			foundConn = true
+		case "SendHello":
+			foundSend = true
+		}
+	}
+
+	if !foundConn {
+		t.Error("WS connection node 'MyWS' was not executed")
+	}
+	if !foundSend {
+		t.Error("WS send node 'SendHello' was not executed")
 	}
 }

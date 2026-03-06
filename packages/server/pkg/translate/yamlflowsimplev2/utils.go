@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,9 +40,10 @@ const (
 	DefaultCollectionName = "Imported Collection"
 
 	// Dependency handler suffixes (used in depends_on field)
-	DependsSuffixThen = ".then"
-	DependsSuffixElse = ".else"
-	DependsSuffixLoop = ".loop"
+	DependsSuffixThen      = ".then"
+	DependsSuffixElse      = ".else"
+	DependsSuffixLoop      = ".loop"
+	DependsSuffixWsMessage = ".ws_message"
 
 	// Environment variable template patterns (used in credential export)
 	EnvVarTemplateToken  = "{{ #env:%s_TOKEN }}"  //nolint:gosec // G101: template pattern, not a credential
@@ -486,7 +488,7 @@ func GenerateStats(data *ioworkspace.WorkspaceBundle) map[string]interface{} {
 	// Flow node breakdown
 	nodeTypes := make(map[string]int)
 	for _, node := range data.FlowNodes {
-		nodeTypes[string(node.NodeKind)]++
+		nodeTypes[strconv.FormatInt(int64(node.NodeKind), 10)]++
 	}
 	stats["flow_node_types"] = nodeTypes
 

@@ -8,6 +8,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 )
 
 // importFlows imports flows from the bundle.
@@ -352,6 +353,103 @@ func (s *IOWorkspaceService) importFlowGraphQLNodes(ctx context.Context, nodeGra
 		}
 
 		result.FlowGraphQLNodesCreated++
+	}
+	return nil
+}
+
+// importFlowWsConnectionNodes imports flow WS connection nodes from the bundle.
+func (s *IOWorkspaceService) importFlowWsConnectionNodes(ctx context.Context, nodeWsConnectionService sflow.NodeWsConnectionService, bundle *WorkspaceBundle, _ ImportOptions, result *ImportResult) error {
+	for _, wsNode := range bundle.FlowWsConnectionNodes {
+		if newNodeID, ok := result.NodeIDMap[wsNode.FlowNodeID]; ok {
+			wsNode.FlowNodeID = newNodeID
+		}
+
+		// Remap WebSocket ID
+		if wsNode.WebSocketID != nil {
+			if newWSID, ok := result.WebSocketIDMap[*wsNode.WebSocketID]; ok {
+				wsNode.WebSocketID = &newWSID
+			}
+		}
+
+		if err := nodeWsConnectionService.CreateNodeWsConnection(ctx, wsNode); err != nil {
+			return fmt.Errorf("failed to create flow WS connection node: %w", err)
+		}
+
+		result.FlowWsConnectionNodesCreated++
+	}
+	return nil
+}
+
+// importFlowWsSendNodes imports flow WS send nodes from the bundle.
+func (s *IOWorkspaceService) importFlowWsSendNodes(ctx context.Context, nodeWsSendService sflow.NodeWsSendService, bundle *WorkspaceBundle, _ ImportOptions, result *ImportResult) error {
+	for _, wsNode := range bundle.FlowWsSendNodes {
+		if newNodeID, ok := result.NodeIDMap[wsNode.FlowNodeID]; ok {
+			wsNode.FlowNodeID = newNodeID
+		}
+
+		if err := nodeWsSendService.CreateNodeWsSend(ctx, wsNode); err != nil {
+			return fmt.Errorf("failed to create flow WS send node: %w", err)
+		}
+
+		result.FlowWsSendNodesCreated++
+	}
+	return nil
+}
+
+// importFlowWaitNodes imports flow wait nodes from the bundle.
+func (s *IOWorkspaceService) importFlowWaitNodes(ctx context.Context, nodeWaitService sflow.NodeWaitService, bundle *WorkspaceBundle, _ ImportOptions, result *ImportResult) error {
+	for _, waitNode := range bundle.FlowWaitNodes {
+		if newNodeID, ok := result.NodeIDMap[waitNode.FlowNodeID]; ok {
+			waitNode.FlowNodeID = newNodeID
+		}
+
+		if err := nodeWaitService.CreateNodeWait(ctx, waitNode); err != nil {
+			return fmt.Errorf("failed to create flow wait node: %w", err)
+		}
+
+		result.FlowWaitNodesCreated++
+	}
+	return nil
+}
+
+// importWebSockets imports WebSocket entities from the bundle.
+func (s *IOWorkspaceService) importWebSockets(ctx context.Context, wsService swebsocket.WebSocketService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, ws := range bundle.WebSockets {
+		oldID := ws.ID
+
+		if !opts.PreserveIDs {
+			ws.ID = idwrap.NewNow()
+		}
+		ws.WorkspaceID = opts.WorkspaceID
+
+		if err := wsService.Create(ctx, &ws); err != nil {
+			return fmt.Errorf("failed to create WebSocket %s: %w", ws.Name, err)
+		}
+
+		result.WebSocketIDMap[oldID] = ws.ID
+		result.WebSocketsCreated++
+	}
+	return nil
+}
+
+// importWebSocketHeaders imports WebSocket headers from the bundle.
+func (s *IOWorkspaceService) importWebSocketHeaders(ctx context.Context, wsHeaderService swebsocket.WebSocketHeaderService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	for _, h := range bundle.WebSocketHeaders {
+		// Generate new ID if not preserving
+		if !opts.PreserveIDs {
+			h.ID = idwrap.NewNow()
+		}
+
+		// Remap parent WebSocket ID
+		if newWSID, ok := result.WebSocketIDMap[h.WebSocketID]; ok {
+			h.WebSocketID = newWSID
+		}
+
+		if err := wsHeaderService.Create(ctx, h); err != nil {
+			return fmt.Errorf("failed to create WebSocket header: %w", err)
+		}
+
+		result.WebSocketHeadersCreated++
 	}
 	return nil
 }

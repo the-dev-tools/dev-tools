@@ -34,6 +34,10 @@ export const routes = {
           '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(http)/http/$httpIdCan/delta/$deltaHttpIdCan',
         ),
       },
+      websocket: {
+        route: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(websocket)/websocket/$websocketIdCan'),
+        index: getRouteApi('/(dashboard)/(workspace)/workspace/$workspaceIdCan/(websocket)/websocket/$websocketIdCan/'),
+      },
     },
   },
 };

@@ -201,6 +201,22 @@ type FlowNodeMemory struct {
 	WindowSize int32
 }
 
+type FlowNodeWait struct {
+	FlowNodeID idwrap.IDWrap
+	DurationMs int64
+}
+
+type FlowNodeWsConnection struct {
+	FlowNodeID  idwrap.IDWrap
+	WebsocketID *idwrap.IDWrap
+}
+
+type FlowNodeWsSend struct {
+	FlowNodeID           idwrap.IDWrap
+	WsConnectionNodeName string
+	Message              string
+}
+
 type FlowTag struct {
 	ID     idwrap.IDWrap
 	FlowID idwrap.IDWrap
@@ -527,6 +543,30 @@ type Variable struct {
 	Enabled      bool
 	Description  string
 	DisplayOrder float64
+}
+
+type Websocket struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	FolderID    *idwrap.IDWrap
+	Name        string
+	Url         string
+	Description string
+	LastRunAt   interface{}
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+type WebsocketHeader struct {
+	ID           idwrap.IDWrap
+	WebsocketID  idwrap.IDWrap
+	HeaderKey    string
+	HeaderValue  string
+	Description  string
+	Enabled      bool
+	DisplayOrder float64
+	CreatedAt    int64
+	UpdatedAt    int64
 }
 
 type Workspace struct {

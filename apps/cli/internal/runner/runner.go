@@ -264,7 +264,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	defer close(gqlRespChan)
 
 	// Build flow node map using flowbuilder
-	flowNodeMap, startNodeID, err := services.Builder.BuildNodes(
+	flowNodeMap, startNodeIDs, err := services.Builder.BuildNodes(
 		ctx,
 		*flowPtr,
 		nodes,
@@ -279,7 +279,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	}
 
 	// Use the same timeout for the flow runner
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout, nil)
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeIDs, flowNodeMap, edgeMap, nodeTimeout, nil)
 
 	// Use a large buffer for CLI to avoid blocking
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 10000)

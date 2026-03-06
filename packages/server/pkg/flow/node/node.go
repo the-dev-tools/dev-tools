@@ -56,6 +56,7 @@ type FlowNodeRequest struct {
 	Timeout          time.Duration
 	LogPushFunc      LogPushFunc
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
+	PendingMapMu     *sync.Mutex              // Thread-safe pending map across concurrent entry chains
 	VariableTracker  *tracking.VariableTracker // Optional tracking for input/output data
 	IterationContext *runner.IterationContext  // For hierarchical execution naming in loops
 	ExecutionID      idwrap.IDWrap             // Unique ID for this specific execution of the node
@@ -239,36 +240,44 @@ func FilterLoopEntryNodes(edgeMap mflow.EdgesMap, loopTargets []idwrap.IDWrap) [
 // When the requested targets already match the existing loop edges, the
 // original map is returned to avoid unnecessary allocations.
 func BuildLoopExecutionEdgeMap(edgeMap mflow.EdgesMap, loopNodeID idwrap.IDWrap, loopTargets []idwrap.IDWrap) mflow.EdgesMap {
-	if len(loopTargets) == 0 {
+	return BuildHandleExecutionEdgeMap(edgeMap, loopNodeID, mflow.HandleLoop, loopTargets)
+}
+
+// BuildHandleExecutionEdgeMap returns an edge map suitable for executing a
+// sub-chain connected via the given handle. It rewrites the handle on nodeID
+// to include only the provided targets so duplicate edges to downstream nodes
+// do not participate in scheduling decisions.
+func BuildHandleExecutionEdgeMap(edgeMap mflow.EdgesMap, nodeID idwrap.IDWrap, handle mflow.EdgeHandle, targets []idwrap.IDWrap) mflow.EdgesMap {
+	if len(targets) == 0 {
 		return edgeMap
 	}
 
-	loopHandles, ok := edgeMap[loopNodeID]
+	handles, ok := edgeMap[nodeID]
 	if ok {
-		if current, ok := loopHandles[mflow.HandleLoop]; ok && equalIDSlice(current, loopTargets) {
+		if current, ok := handles[handle]; ok && equalIDSlice(current, targets) {
 			return edgeMap
 		}
 	}
 
 	cloned := make(mflow.EdgesMap, len(edgeMap))
-	for sourceID, handles := range edgeMap {
-		handleMap := make(map[mflow.EdgeHandle][]idwrap.IDWrap, len(handles))
-		for handle, targets := range handles {
-			if sourceID == loopNodeID && handle == mflow.HandleLoop {
-				handleMap[handle] = append([]idwrap.IDWrap(nil), loopTargets...)
+	for sourceID, srcHandles := range edgeMap {
+		handleMap := make(map[mflow.EdgeHandle][]idwrap.IDWrap, len(srcHandles))
+		for h, t := range srcHandles {
+			if sourceID == nodeID && h == handle {
+				handleMap[h] = append([]idwrap.IDWrap(nil), targets...)
 				continue
 			}
-			handleMap[handle] = append([]idwrap.IDWrap(nil), targets...)
+			handleMap[h] = append([]idwrap.IDWrap(nil), t...)
 		}
 		cloned[sourceID] = handleMap
 	}
 
-	if _, exists := cloned[loopNodeID]; !exists {
-		cloned[loopNodeID] = map[mflow.EdgeHandle][]idwrap.IDWrap{
-			mflow.HandleLoop: append([]idwrap.IDWrap(nil), loopTargets...),
+	if _, exists := cloned[nodeID]; !exists {
+		cloned[nodeID] = map[mflow.EdgeHandle][]idwrap.IDWrap{
+			handle: append([]idwrap.IDWrap(nil), targets...),
 		}
-	} else if _, ok := cloned[loopNodeID][mflow.HandleLoop]; !ok {
-		cloned[loopNodeID][mflow.HandleLoop] = append([]idwrap.IDWrap(nil), loopTargets...)
+	} else if _, ok := cloned[nodeID][handle]; !ok {
+		cloned[nodeID][handle] = append([]idwrap.IDWrap(nil), targets...)
 	}
 
 	return cloned

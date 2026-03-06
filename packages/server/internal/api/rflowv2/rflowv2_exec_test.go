@@ -20,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -76,6 +77,11 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		&aiProviderService,
 		&memoryService,
 		nil, // NodeGraphQLService
+		nil, // NodeWsConnectionService
+		nil, // NodeWsSendService
+		nil, // NodeWaitService
+		nil, // WebSocketService
+		nil, // WebSocketHeaderService
 		nil, // GraphQLService
 		nil, // GraphQLHeaderService
 		&wsService,
@@ -87,27 +93,38 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		nil, // LLMProviderFactory
 	)
 
+	// Build snapshot registry for version snapshots
+	registry := flowexec.NewSnapshotRegistry()
+	registry.Register(&flowexec.RequestSnapshot{Service: &reqService})
+	registry.Register(&flowexec.ForSnapshot{Service: &forService})
+	registry.Register(&flowexec.ForEachSnapshot{Service: &forEachService})
+	registry.Register(&flowexec.ConditionSnapshot{Service: ifService})
+	registry.Register(&flowexec.JSSnapshot{Service: &jsService})
+	registry.Register(&flowexec.AIProviderSnapshot{Service: &aiProviderService})
+	registry.Register(&flowexec.MemorySnapshot{Service: &memoryService})
+
 	svc := &FlowServiceV2RPC{
-		DB:           db,
-		wsReader:     wsReader,
-		fsReader:     fsReader,
-		nsReader:     nsReader,
-		ws:           &wsService,
-		fs:           &flowService,
-		ns:           &nodeService,
-		nes:          &nodeExecService,
-		es:           &edgeService,
-		fvs:          &flowVarService,
-		nrs:          &reqService, // Added missing services to struct
-		nfs:          &forService,
-		nfes:         &forEachService,
-		nifs:         ifService,
-		njss:         &jsService,
-		naps:         &aiProviderService,
-		nmems:        &memoryService,
-		logger:       logger,
-		builder:      builder,
-		runningFlows: make(map[string]context.CancelFunc),
+		DB:               db,
+		wsReader:         wsReader,
+		fsReader:         fsReader,
+		nsReader:         nsReader,
+		ws:               &wsService,
+		fs:               &flowService,
+		ns:               &nodeService,
+		nes:              &nodeExecService,
+		es:               &edgeService,
+		fvs:              &flowVarService,
+		nrs:              &reqService,
+		nfs:              &forService,
+		nfes:             &forEachService,
+		nifs:             ifService,
+		njss:             &jsService,
+		naps:             &aiProviderService,
+		nmems:            &memoryService,
+		logger:           logger,
+		sessionFactory:   &flowexec.LocalSessionFactory{Builder: builder},
+		snapshotRegistry: registry,
+		runningFlows:     make(map[string]context.CancelFunc),
 	}
 
 	// Setup User & Workspace

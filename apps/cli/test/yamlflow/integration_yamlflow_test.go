@@ -76,3 +76,4 @@ func TestYAMLFlow_TestRunField(t *testing.T) {
 func TestYAMLFlow_GraphQLRun(t *testing.T) {
 	runCLI(t, "graphql_run_example.yaml")
 }
+

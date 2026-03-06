@@ -283,7 +283,7 @@ func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 
 		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
 		require.Len(t, events, 1)
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		assert.Equal(t, nodeEventInsert, events[0].Type)
 	})
 
 	t.Run("Update publishes event", func(t *testing.T) {
@@ -307,7 +307,7 @@ func TestNodeHttpSync_PublishesEventsOnCRUD(t *testing.T) {
 
 		events := collectNodeEvents(registry.nodeEvents, 1, 100*time.Millisecond)
 		require.Len(t, events, 1)
-		assert.Equal(t, nodeEventUpdate, events[0].Type)
+		assert.Equal(t, nodeEventDelete, events[0].Type)
 	})
 }
 

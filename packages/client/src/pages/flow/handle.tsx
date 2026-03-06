@@ -16,6 +16,7 @@ import { FlowContext } from './context';
 interface HandleProps extends Omit<XF.HandleProps, 'children' | 'id'> {
   alwaysVisible?: boolean;
   kind?: HandleKind;
+  label?: string;
   nodeId: Uint8Array;
   nodeOffset?: { x?: number; y?: number };
   Sidebar?: (props: AddNodeSidebarProps) => ReactNode;
@@ -25,6 +26,7 @@ export const Handle = ({
   alwaysVisible,
   className,
   kind = HandleKind.UNSPECIFIED,
+  label: labelOverride,
   nodeId,
   nodeOffset,
   Sidebar = AddNodeSidebar,
@@ -38,16 +40,19 @@ export const Handle = ({
 
   const id = kind === HandleKind.UNSPECIFIED ? null : kind.toString();
 
-  const label = pipe(
-    Match.value(kind),
-    Match.when(HandleKind.ELSE, () => 'Else'),
-    Match.when(HandleKind.THEN, () => 'Then'),
-    Match.when(HandleKind.LOOP, () => 'Loop'),
-    Match.when(HandleKind.AI_PROVIDER, () => 'Provider'),
-    Match.when(HandleKind.AI_MEMORY, () => 'Memory'),
-    Match.when(HandleKind.AI_TOOLS, () => 'Tools'),
-    Match.orElse(() => null),
-  );
+  const label =
+    labelOverride ??
+    pipe(
+      Match.value(kind),
+      Match.when(HandleKind.ELSE, () => 'Else'),
+      Match.when(HandleKind.THEN, () => 'Then'),
+      Match.when(HandleKind.LOOP, () => 'Loop'),
+      Match.when(HandleKind.AI_PROVIDER, () => 'Provider'),
+      Match.when(HandleKind.AI_MEMORY, () => 'Memory'),
+      Match.when(HandleKind.AI_TOOLS, () => 'Tools'),
+      Match.when(HandleKind.WS_MESSAGE, () => 'Message'),
+      Match.orElse(() => null),
+    );
 
   const edgeCollection = useApiCollection(EdgeCollectionSchema);
 

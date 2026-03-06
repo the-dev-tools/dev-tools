@@ -3,7 +3,7 @@ import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { ReactNode, use } from 'react';
 import * as RAC from 'react-aria-components';
-import { FiArrowLeft, FiBriefcase, FiChevronRight, FiTerminal, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiBriefcase, FiChevronRight, FiClock, FiSend, FiTerminal, FiWifi, FiX } from 'react-icons/fi';
 import { TbRobotFace } from 'react-icons/tb';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
@@ -24,9 +24,13 @@ import {
   NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
   NodeJsCollectionSchema,
+  NodeWaitCollectionSchema,
+  NodeWsConnectionCollectionSchema,
+  NodeWsSendCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { WebSocketCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/web_socket';
 import { Button } from '@the-dev-tools/ui/button';
 import { FlowsIcon, ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
@@ -181,6 +185,7 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
   const conditionCollection = useApiCollection(NodeConditionCollectionSchema);
   const forCollection = useApiCollection(NodeForCollectionSchema);
   const forEachCollection = useApiCollection(NodeForEachCollectionSchema);
+  const waitCollection = useApiCollection(NodeWaitCollectionSchema);
 
   return (
     <>
@@ -219,6 +224,17 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
           }}
           title='For each loop'
         />
+
+        <SidebarItem
+          description='Pause execution for a duration'
+          icon={<FiClock />}
+          onAction={() => {
+            const nodeId = Ulid.generate().bytes;
+            waitCollection.utils.insert({ durationMs: 1000n, nodeId });
+            insertNode({ handleKind, kind: NodeKind.WAIT, name: 'wait', nodeId, position, sourceId, targetId });
+          }}
+          title='Wait'
+        />
       </RAC.ListBox>
     </>
   );
@@ -231,6 +247,9 @@ const AddCoreNodeSidebar = (props: AddNodeSidebarProps) => {
   const insertNode = useInsertNode();
 
   const jsCollection = useApiCollection(NodeJsCollectionSchema);
+  const websocketCollection = useApiCollection(WebSocketCollectionSchema);
+  const wsConnectionCollection = useApiCollection(NodeWsConnectionCollectionSchema);
+  const wsSendCollection = useApiCollection(NodeWsSendCollectionSchema);
 
   return (
     <>
@@ -260,6 +279,46 @@ const AddCoreNodeSidebar = (props: AddNodeSidebarProps) => {
           icon={<SendRequestIcon />}
           onAction={() => void setSidebar?.((_) => <AddGraphQLRequestNodeSidebar {...props} previous={_} />)}
           title='GraphQL Request'
+        />
+
+        <SidebarItem
+          description='Connect to a WebSocket endpoint'
+          icon={<FiWifi />}
+          onAction={() => {
+            const websocketId = Ulid.generate().bytes;
+            websocketCollection.utils.insert({ name: 'New WebSocket', url: '', websocketId });
+            const nodeId = Ulid.generate().bytes;
+            wsConnectionCollection.utils.insert({ nodeId, websocketId });
+            insertNode({
+              handleKind,
+              kind: NodeKind.WS_CONNECTION,
+              name: 'ws_connection',
+              nodeId,
+              position,
+              sourceId,
+              targetId,
+            });
+          }}
+          title='WebSocket Connection'
+        />
+
+        <SidebarItem
+          description='Send a message to a WebSocket connection'
+          icon={<FiSend />}
+          onAction={() => {
+            const nodeId = Ulid.generate().bytes;
+            wsSendCollection.utils.insert({ nodeId });
+            insertNode({
+              handleKind,
+              kind: NodeKind.WS_SEND,
+              name: 'ws_send',
+              nodeId,
+              position,
+              sourceId,
+              targetId,
+            });
+          }}
+          title='WebSocket Send'
         />
       </RAC.ListBox>
     </>

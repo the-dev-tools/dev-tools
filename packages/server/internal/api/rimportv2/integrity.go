@@ -108,6 +108,9 @@ func ValidateImportIntegrity(
 		case mfile.ContentTypeGraphQL:
 			// GraphQL files reference GraphQL IDs - validation not yet implemented
 			continue
+		case mfile.ContentTypeWebSocket:
+			// WebSocket files reference WebSocket IDs - validation not yet implemented
+			continue
 		case mfile.ContentTypeFlow, mfile.ContentTypeFolder, mfile.ContentTypeCredential:
 			// Flow files reference flow IDs - we could validate these too
 			// Folders don't have ContentID
@@ -177,6 +180,9 @@ func ValidateTranslationResult(result *TranslationResult) *IntegrityReport {
 			}
 		case mfile.ContentTypeGraphQL:
 			// GraphQL files reference GraphQL IDs - validation not yet implemented
+			continue
+		case mfile.ContentTypeWebSocket:
+			// WebSocket files reference WebSocket IDs - validation not yet implemented
 			continue
 		case mfile.ContentTypeFlow, mfile.ContentTypeFolder, mfile.ContentTypeCredential:
 			continue

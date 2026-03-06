@@ -16,6 +16,7 @@ import (
 	gen "github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcondition"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -24,6 +25,16 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 )
+
+func newTestSnapshotRegistry(nrs *sflow.NodeRequestService, nfs *sflow.NodeForService, nfes *sflow.NodeForEachService, nifs *sflow.NodeIfService, njss *sflow.NodeJsService) *flowexec.SnapshotRegistry {
+	registry := flowexec.NewSnapshotRegistry()
+	registry.Register(&flowexec.RequestSnapshot{Service: nrs})
+	registry.Register(&flowexec.ForSnapshot{Service: nfs})
+	registry.Register(&flowexec.ForEachSnapshot{Service: nfes})
+	registry.Register(&flowexec.ConditionSnapshot{Service: nifs})
+	registry.Register(&flowexec.JSSnapshot{Service: njss})
+	return registry
+}
 
 // TestFlowVersionSnapshot_TransactionAtomicity verifies that createFlowVersionSnapshot
 // uses a single transaction and either creates ALL entities or NONE.
@@ -53,18 +64,19 @@ func TestFlowVersionSnapshot_TransactionAtomicity(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
-		fs:     &flowService,
-		ns:     &nodeService,
-		es:     &edgeService,
-		nrs:    &nrsService,
-		nfs:    &nfsService,
-		nfes:   &nfesService,
-		nifs:   nifsService,
-		njss:   &njssService,
-		fvs:    &varService,
-		logger: logger,
+		DB:               db,
+		ws:               &wsService,
+		fs:               &flowService,
+		ns:               &nodeService,
+		es:               &edgeService,
+		nrs:              &nrsService,
+		nfs:              &nfsService,
+		nfes:             &nfesService,
+		nifs:             nifsService,
+		njss:             &njssService,
+		fvs:              &varService,
+		logger:           logger,
+		snapshotRegistry: newTestSnapshotRegistry(&nrsService, &nfsService, &nfesService, nifsService, &njssService),
 	}
 
 	// Create test data
@@ -284,6 +296,7 @@ func TestFlowVersionSnapshot_TransactionAtomicity(t *testing.T) {
 			ifData, err := nifsService.GetNodeIf(ctx, node.ID)
 			require.NoError(t, err)
 			require.NotNil(t, ifData, "Condition config should exist")
+		default:
 		}
 	}
 
@@ -329,18 +342,19 @@ func TestFlowVersionSnapshot_EmptyFlow(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
-		fs:     &flowService,
-		ns:     &nodeService,
-		es:     &edgeService,
-		nrs:    &nrsService,
-		nfs:    &nfsService,
-		nfes:   &nfesService,
-		nifs:   nifsService,
-		njss:   &njssService,
-		fvs:    &varService,
-		logger: logger,
+		DB:               db,
+		ws:               &wsService,
+		fs:               &flowService,
+		ns:               &nodeService,
+		es:               &edgeService,
+		nrs:              &nrsService,
+		nfs:              &nfsService,
+		nfes:             &nfesService,
+		nifs:             nifsService,
+		njss:             &njssService,
+		fvs:              &varService,
+		logger:           logger,
+		snapshotRegistry: newTestSnapshotRegistry(&nrsService, &nfsService, &nfesService, nifsService, &njssService),
 	}
 
 	userID := idwrap.NewNow()
@@ -439,18 +453,19 @@ func TestFlowVersionSnapshot_Concurrency_Simple(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
-		fs:     &flowService,
-		ns:     &nodeService,
-		es:     &edgeService,
-		nrs:    &nrsService,
-		nfs:    &nfsService,
-		nfes:   &nfesService,
-		nifs:   nifsService,
-		njss:   &njssService,
-		fvs:    &varService,
-		logger: logger,
+		DB:               db,
+		ws:               &wsService,
+		fs:               &flowService,
+		ns:               &nodeService,
+		es:               &edgeService,
+		nrs:              &nrsService,
+		nfs:              &nfsService,
+		nfes:             &nfesService,
+		nifs:             nifsService,
+		njss:             &njssService,
+		fvs:              &varService,
+		logger:           logger,
+		snapshotRegistry: newTestSnapshotRegistry(&nrsService, &nfsService, &nfesService, nifsService, &njssService),
 	}
 
 	userID := idwrap.NewNow()
@@ -548,18 +563,19 @@ func TestFlowVersionSnapshot_Concurrency_WithNodes(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
-		fs:     &flowService,
-		ns:     &nodeService,
-		es:     &edgeService,
-		nrs:    &nrsService,
-		nfs:    &nfsService,
-		nfes:   &nfesService,
-		nifs:   nifsService,
-		njss:   &njssService,
-		fvs:    &varService,
-		logger: logger,
+		DB:               db,
+		ws:               &wsService,
+		fs:               &flowService,
+		ns:               &nodeService,
+		es:               &edgeService,
+		nrs:              &nrsService,
+		nfs:              &nfsService,
+		nfes:             &nfesService,
+		nifs:             nifsService,
+		njss:             &njssService,
+		fvs:              &varService,
+		logger:           logger,
+		snapshotRegistry: newTestSnapshotRegistry(&nrsService, &nfsService, &nfesService, nifsService, &njssService),
 	}
 
 	userID := idwrap.NewNow()
@@ -676,18 +692,19 @@ func TestFlowVersionSnapshot_Concurrency_Complex(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		DB:     db,
-		ws:     &wsService,
-		fs:     &flowService,
-		ns:     &nodeService,
-		es:     &edgeService,
-		nrs:    &nrsService,
-		nfs:    &nfsService,
-		nfes:   &nfesService,
-		nifs:   nifsService,
-		njss:   &njssService,
-		fvs:    &varService,
-		logger: logger,
+		DB:               db,
+		ws:               &wsService,
+		fs:               &flowService,
+		ns:               &nodeService,
+		es:               &edgeService,
+		nrs:              &nrsService,
+		nfs:              &nfsService,
+		nfes:             &nfesService,
+		nifs:             nifsService,
+		njss:             &njssService,
+		fvs:              &varService,
+		logger:           logger,
+		snapshotRegistry: newTestSnapshotRegistry(&nrsService, &nfsService, &nfesService, nifsService, &njssService),
 	}
 
 	userID := idwrap.NewNow()

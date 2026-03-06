@@ -9,7 +9,7 @@ import {
   usePacedMutations,
 } from '@tanstack/react-db';
 import * as XF from '@xyflow/react';
-import { Array, Match, Option, pipe, Schema } from 'effect';
+import { Array, Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, useCallback, useContext, useRef, useState } from 'react';
 import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
@@ -454,46 +454,42 @@ interface NodeSettingsBodyProps {
 export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHeader, title }: NodeSettingsBodyProps) => {
   const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
 
-  const { data: executions } = useLiveQuery(
+  const { data: rawExecutions } = useLiveQuery(
     (_) => {
       const item = _.from({ item: executionCollection })
         .where((_) => eq(_.item.nodeId, nodeId))
         .fn.select((_) => ({
           ...pick(_.item, 'nodeExecutionId', 'name'),
-          order: Ulid.construct(_.item.nodeExecutionId).toCanonical(),
+          key: Ulid.construct(_.item.nodeExecutionId).toCanonical(),
         }));
 
-      return _.from({ item }).orderBy((_) => _.item.order, 'desc');
+      return _.from({ item }).orderBy((_) => _.item.key, 'desc');
     },
     [executionCollection, nodeId],
   );
 
-  const latestExecutionId = pipe(
-    Array.head(executions),
-    Option.map((_) => _.nodeExecutionId),
-    Option.getOrNull,
-  );
+  // Deduplicate by canonical ULID — reactive queries can transiently emit duplicates during sync
+  const executions = Array.dedupeWith(rawExecutions, (a, b) => a.key === b.key);
 
-  const latestExecutionIdCan = latestExecutionId ? Ulid.construct(latestExecutionId).toCanonical() : null;
+  const latestKey = executions[0]?.key ?? null;
 
-  const [selectedExecKey, setSelectedExecKey] = useState<Key | null>(latestExecutionId ? 'latest' : null);
+  // Track whether user is "following" the latest execution (auto-advance on new arrivals)
+  // vs pinned to a specific historical execution.
+  const [pinnedKey, setPinnedKey] = useState<null | string>(null);
+  const selectedKey = pinnedKey ?? latestKey;
+
+  const handleSelectionChange = (key: Key | null) => {
+    // If user selects the latest execution, clear the pin so we follow new arrivals
+    setPinnedKey(key === latestKey ? null : typeof key === 'string' ? key : null);
+  };
 
   const selectedExecutionId =
-    selectedExecKey === 'latest'
-      ? latestExecutionId
-      : typeof selectedExecKey === 'string'
-        ? Ulid.fromCanonical(selectedExecKey).bytes
-        : null;
+    typeof selectedKey === 'string' ? (executions.find((_) => _.key === selectedKey)?.nodeExecutionId ?? null) : null;
 
-  const selectedExecutionIdCan = selectedExecutionId ? Ulid.construct(selectedExecutionId).toCanonical() : null;
-
-  // Fix React Aria over-rendering non-visible components
+  // React Aria workaround: only render full list when dropdown is open
   // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825
-  // TODO: move the workaround to an improved select component
   const [isExecListOpen, setIsExecListOpen] = useState(false);
-  const execItems = isExecListOpen
-    ? executions
-    : executions.filter((_) => Ulid.construct(_.nodeExecutionId).toCanonical() === selectedExecutionIdCan);
+  const execItems = isExecListOpen ? executions : executions.filter((_) => _.key === selectedKey);
 
   const nodeSettingsLayout = useDefaultLayout({ id: 'node-settings' });
 
@@ -506,16 +502,11 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             aria-label='Node execution'
             isOpen={isExecListOpen}
             items={execItems}
-            onChange={setSelectedExecKey}
+            onChange={handleSelectionChange}
             onOpenChange={setIsExecListOpen}
-            value={selectedExecKey}
+            value={selectedKey}
           >
-            {(_) => {
-              let key = Ulid.construct(_.nodeExecutionId).toCanonical();
-              if (key === latestExecutionIdCan) key = 'latest';
-
-              return <SelectItem id={key}>{_.name}</SelectItem>;
-            }}
+            {(_) => <SelectItem id={_.key}>{_.name}</SelectItem>}
           </Select>
         )
       }

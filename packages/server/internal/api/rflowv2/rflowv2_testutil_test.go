@@ -14,6 +14,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -92,6 +93,11 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		nil, // NodeAiProviderService - not needed for non-AI tests
 		nil, // NodeMemoryService - not needed for non-AI tests
 		nil, // NodeGraphQLService - not needed for non-GraphQL tests
+		nil, // NodeWsConnectionService - not needed for non-WS tests
+		nil, // NodeWsSendService - not needed for non-WS tests
+		nil, // NodeWaitService - not needed for non-wait tests
+		nil, // WebSocketService - not needed for non-WS tests
+		nil, // WebSocketHeaderService - not needed for non-WS tests
 		nil, // GraphQLService - not needed for non-GraphQL tests
 		nil, // GraphQLHeaderService - not needed for non-GraphQL tests
 		&wsService,
@@ -121,7 +127,7 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		nifs:           nifsService,
 		njss:           &njssService,
 		logger:         logger,
-		builder:        builder,
+		sessionFactory: &flowexec.LocalSessionFactory{Builder: builder},
 	}
 
 	// Create User

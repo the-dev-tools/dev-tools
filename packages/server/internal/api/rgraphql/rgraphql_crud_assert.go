@@ -830,8 +830,62 @@ func (s *GraphQLServiceRPC) GraphQLAssertDeltaDelete(ctx context.Context, req *c
 }
 
 func (s *GraphQLServiceRPC) GraphQLAssertDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[graphqlv1.GraphQLAssertDeltaSyncResponse]) error {
-	// TODO: Implement streaming delta sync
-	return nil
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return s.streamGraphQLAssertDeltaSync(ctx, userID, stream.Send)
+}
+
+func (s *GraphQLServiceRPC) streamGraphQLAssertDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*graphqlv1.GraphQLAssertDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	filter := func(topic GraphQLAssertTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := s.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.streamers.GraphQLAssert.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			if !evt.Payload.IsDelta {
+				continue
+			}
+			assertID, err := idwrap.NewFromBytes(evt.Payload.GraphQLAssert.GetGraphqlAssertId())
+			if err != nil {
+				continue
+			}
+			assertRecord, err := s.graphqlAssertService.GetByID(ctx, assertID)
+			if err != nil {
+				continue
+			}
+			resp := graphqlAssertDeltaSyncResponseFrom(evt.Payload, *assertRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // Helper functions for null conversions

@@ -9,6 +9,7 @@ enum FileKind {
   Flow,
   Credential,
   GraphQL,
+  WebSocket,
 }
 
 @TanStackDB.collection
