@@ -297,12 +297,29 @@ model NodeAiMemory {
   windowSize: int32;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create WebSocket Connection Node",
+  name: "CreateWsConnectionNode",
+  parent: "Node",
+  exclude: #["kind", "websocketId"],
+  include: #[#{ fromModel: "WebSocket", fields: #["url"] }],
+  description: "Create a new WebSocket connection node that opens a WebSocket endpoint and can trigger a ws_message branch for each incoming message.",
+})
 @TanStackDB.collection
 model NodeWsConnection {
   @primaryKey nodeId: Id;
   @foreignKey websocketId?: Id;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create WebSocket Send Node",
+  name: "CreateWsSendNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a node that sends a message through a named WebSocket connection node.",
+})
 @TanStackDB.collection
 model NodeWsSend {
   @primaryKey nodeId: Id;
@@ -310,6 +327,14 @@ model NodeWsSend {
   message: string;
 }
 
+@AITools.mutationTool(#{
+  operation: AITools.CrudOperation.Insert,
+  title: "Create Wait Node",
+  name: "CreateWaitNode",
+  parent: "Node",
+  exclude: #["kind"],
+  description: "Create a wait node that pauses execution for a duration in milliseconds.",
+})
 @TanStackDB.collection
 model NodeWait {
   @primaryKey nodeId: Id;
@@ -371,3 +396,4 @@ model NodeExecution {
   graphqlResponseId?: Id;
   completedAt?: Protobuf.WellKnown.Timestamp;
 }
+

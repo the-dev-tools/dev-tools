@@ -10,8 +10,10 @@ import {
   NodeExecutionCollectionSchema,
   NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
+  NodeWsConnectionCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { WebSocketCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/web_socket';
 import { useApiCollection } from '~/shared/api';
 import { queryCollection } from '~/shared/lib';
 import type { EdgeInfo, FlowContextData, NodeExecutionInfo, NodeInfo, VariableInfo } from './types';
@@ -25,6 +27,9 @@ const NODE_KIND_NAMES: Record<number, string> = {
   [NodeKind.HTTP]: 'HTTP',
   [NodeKind.JS]: 'JavaScript',
   [NodeKind.MANUAL_START]: 'ManualStart',
+  [NodeKind.WAIT]: 'Wait',
+  [NodeKind.WS_CONNECTION]: 'WsConnection',
+  [NodeKind.WS_SEND]: 'WsSend',
   [NodeKind.UNSPECIFIED]: 'Unknown',
 };
 
@@ -56,8 +61,10 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
   const variableCollection = useApiCollection(FlowVariableCollectionSchema);
   const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
-  const nodeGraphqlCollection = useApiCollection(NodeGraphQLCollectionSchema);
+    const nodeGraphqlCollection = useApiCollection(NodeGraphQLCollectionSchema);
+  const nodeWsConnectionCollection = useApiCollection(NodeWsConnectionCollectionSchema);
   const httpCollection = useApiCollection(HttpCollectionSchema);
+  const websocketCollection = useApiCollection(WebSocketCollectionSchema);
 
   const { data: nodesData } = useLiveQuery(
     (_) => _.from({ node: nodeCollection }).where((_) => eq(_.node.flowId, flowId)),
@@ -110,8 +117,25 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
       .map((ng) => [Ulid.construct(ng.nodeId).toCanonical(), Ulid.construct(ng.graphqlId).toCanonical()]),
   );
 
+  const { data: nodeWsConnectionData } = useLiveQuery(
+    (_) => _.from({ nodeWsConnection: nodeWsConnectionCollection }),
+    [nodeWsConnectionCollection],
+  );
+
+  const nodeWsConnectionMap = new Map(
+    (nodeWsConnectionData ?? [])
+      .filter((nw) => nw.nodeId != null && nw.websocketId != null)
+      .map((nw) => [Ulid.construct(nw.nodeId).toCanonical(), Ulid.construct(nw.websocketId).toCanonical()]),
+  );
+
   // Get all HTTP requests to fetch their methods
   const { data: httpData } = useLiveQuery((_) => _.from({ http: httpCollection }), [httpCollection]);
+
+  const { data: websocketData } = useLiveQuery((_) => _.from({ websocket: websocketCollection }), [websocketCollection]);
+
+  const websocketIdSet = new Set(
+    (websocketData ?? []).filter((ws) => ws.websocketId != null).map((ws) => Ulid.construct(ws.websocketId).toCanonical()),
+  );
 
   // Build a map of httpId -> method for quick lookup
   const httpMethodMap = new Map(
@@ -126,7 +150,8 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
       const nodeIdStr = Ulid.construct(n.nodeId).toCanonical();
       const httpId = n.kind === NodeKind.HTTP ? nodeHttpMap.get(nodeIdStr) : undefined;
       const httpMethod = httpId ? httpMethodMap.get(httpId) : undefined;
-      const graphqlId = n.kind === NodeKind.GRAPH_Q_L ? nodeGraphqlMap.get(nodeIdStr) : undefined;
+            const graphqlId = n.kind === NodeKind.GRAPH_Q_L ? nodeGraphqlMap.get(nodeIdStr) : undefined;
+      const websocketId = n.kind === NodeKind.WS_CONNECTION ? nodeWsConnectionMap.get(nodeIdStr) : undefined;
       return {
         graphqlId,
         httpId,
@@ -137,6 +162,7 @@ export const useFlowContext = (flowId: Uint8Array): FlowContextData => {
         name: n.name,
         position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
         state: FLOW_ITEM_STATE_NAMES[n.state] ?? 'Idle',
+        websocketId: websocketId && websocketIdSet.has(websocketId) ? websocketId : undefined,
       };
     });
 
@@ -197,7 +223,9 @@ interface FlowCollections {
   nodeCollection: ReturnType<typeof useApiCollection<typeof NodeCollectionSchema>>;
   nodeGraphqlCollection: ReturnType<typeof useApiCollection<typeof NodeGraphQLCollectionSchema>>;
   nodeHttpCollection: ReturnType<typeof useApiCollection<typeof NodeHttpCollectionSchema>>;
+  nodeWsConnectionCollection: ReturnType<typeof useApiCollection<typeof NodeWsConnectionCollectionSchema>>;
   variableCollection: ReturnType<typeof useApiCollection<typeof FlowVariableCollectionSchema>>;
+  websocketCollection: ReturnType<typeof useApiCollection<typeof WebSocketCollectionSchema>>;
 }
 
 /**
@@ -212,11 +240,13 @@ export const refreshFlowContext = async (
   const {
     edgeCollection,
     executionCollection,
-    httpCollection,
+        httpCollection,
     nodeCollection,
     nodeGraphqlCollection,
     nodeHttpCollection,
+    nodeWsConnectionCollection,
     variableCollection,
+    websocketCollection,
   } = collections;
 
   const nodesData = await queryCollection((_) =>
@@ -254,7 +284,18 @@ export const refreshFlowContext = async (
       .map((ng) => [Ulid.construct(ng.nodeId).toCanonical(), Ulid.construct(ng.graphqlId).toCanonical()]),
   );
 
+    const nodeWsConnectionData = await queryCollection((_) => _.from({ nodeWsConnection: nodeWsConnectionCollection }));
+  const nodeWsConnectionMap = new Map(
+    nodeWsConnectionData
+      .filter((nw) => nw.nodeId != null && nw.websocketId != null)
+      .map((nw) => [Ulid.construct(nw.nodeId).toCanonical(), Ulid.construct(nw.websocketId).toCanonical()]),
+  );
+
   const httpData = await queryCollection((_) => _.from({ http: httpCollection }));
+  const websocketData = await queryCollection((_) => _.from({ websocket: websocketCollection }));
+  const websocketIdSet = new Set(
+    websocketData.filter((ws) => ws.websocketId != null).map((ws) => Ulid.construct(ws.websocketId).toCanonical()),
+  );
   const httpMethodMap = new Map(
     httpData
       .filter((h) => h.httpId != null)
@@ -267,7 +308,8 @@ export const refreshFlowContext = async (
       const nodeIdStr = Ulid.construct(n.nodeId).toCanonical();
       const httpId = n.kind === NodeKind.HTTP ? nodeHttpMap.get(nodeIdStr) : undefined;
       const httpMethod = httpId ? httpMethodMap.get(httpId) : undefined;
-      const graphqlId = n.kind === NodeKind.GRAPH_Q_L ? nodeGraphqlMap.get(nodeIdStr) : undefined;
+            const graphqlId = n.kind === NodeKind.GRAPH_Q_L ? nodeGraphqlMap.get(nodeIdStr) : undefined;
+      const websocketId = n.kind === NodeKind.WS_CONNECTION ? nodeWsConnectionMap.get(nodeIdStr) : undefined;
       return {
         graphqlId,
         httpId,
@@ -278,6 +320,7 @@ export const refreshFlowContext = async (
         name: n.name,
         position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
         state: FLOW_ITEM_STATE_NAMES[n.state] ?? 'Idle',
+        websocketId: websocketId && websocketIdSet.has(websocketId) ? websocketId : undefined,
       };
     });
 
@@ -409,7 +452,7 @@ const buildXmlFlowBlock = (context: FlowContextData): string => {
   // 4. Compute endpoint set (sequential nodes with no outgoing edges)
   const endpointSet = new Set(
     context.nodes
-      .filter((n) => ['GraphQL', 'HTTP', 'JavaScript', 'ManualStart'].includes(n.kind) && !outgoingEdges.has(n.id))
+      .filter((n) => ['GraphQL', 'HTTP', 'JavaScript', 'ManualStart', 'Wait', 'WsConnection', 'WsSend'].includes(n.kind) && !outgoingEdges.has(n.id))
       .map((n) => n.id),
   );
 
@@ -480,7 +523,7 @@ const buildXmlCompactSummary = (context: FlowContextData): string => {
   // Find endpoint nodes
   const outgoing = new Set(context.edges.map((e) => e.sourceId));
   const endpoints = context.nodes.filter(
-    (n) => ['GraphQL', 'HTTP', 'JavaScript', 'ManualStart'].includes(n.kind) && !outgoing.has(n.id),
+    (n) => ['GraphQL', 'HTTP', 'JavaScript', 'ManualStart', 'Wait', 'WsConnection', 'WsSend'].includes(n.kind) && !outgoing.has(n.id),
   );
 
   const lines: string[] = [`<flow-update nodes="${context.nodes.length}" edges="${context.edges.length}">`];
@@ -536,11 +579,11 @@ IMPORTANT RULES:
 2. When connecting nodes, use the node IDs from the workflow XML.
 3. Node outputs are stored by node name. In JS code use ctx["NodeName"]. HTTP nodes output { response: { status, body }, request }. GraphQL nodes output { response: { status, body, headers, duration }, request: { url, query, variables, headers } }. ForEach nodes expose { item, key } during iteration. In HTTP/GraphQL fields use {{NodeName.response.body.field}} interpolation — see <variable-syntax>.
 4. A node can connect to multiple targets for parallel execution (all branches run and complete before downstream nodes continue). To run steps sequentially, chain them: Start → A → B → C. Only create Condition nodes when "then" and "else" lead to DIFFERENT destinations — if both go to the same node, skip the Condition.
-5. ALWAYS use connectChain for ALL connections — sequential, branching (auto-applies "then"), fan-out, and fan-in. Examples: ["A","B"] single, ["A","B","C"] chain, ["A",["B","C"],"D"] fan-out/fan-in, [["B","C"],"D"] fan-in only. Pass sourceHandle: "else" or "loop" for non-default branches. Use edge id attributes from \`<edge>\` elements when calling disconnectNodes.
+5. ALWAYS use connectChain for ALL connections — sequential, branching (auto-applies "then"), fan-out, and fan-in. Examples: ["A","B"] single, ["A","B","C"] chain, ["A",["B","C"],"D"] fan-out/fan-in, [["B","C"],"D"] fan-in only. Pass sourceHandle: "else", "loop", or "ws_message" for non-default branches. Use edge id attributes from \`<edge>\` elements when calling disconnectNodes.
 6. Always confirm what you did after executing tools.
 7. If a node has state="Failure", use inspectNode to get detailed error and config information.
 8. Use inspectNode with includeOutput: true to see the input/output data of a node's most recent execution.
-9. Use updateNode to modify any node's configuration — condition expressions, loop iterations/paths, JS code, HTTP settings, GraphQL settings, or node names. Provide only the fields to change. Arrays (headers, searchParams, assertions) replace the full existing set.
+9. Use updateNode to modify any node's configuration — condition expressions, loop iterations/paths, JS code, wait durations, HTTP settings, GraphQL settings, WebSocket connection settings, WebSocket send settings, or node names. Provide only the fields to change. Arrays (headers, searchParams, assertions) replace the full existing set.
 10. Nodes with selected="true" are currently selected on canvas — prefer operating on those nodes unless the user specifies otherwise.
 11. Nodes with endpoint="true" are the last in their chain — new nodes connect there.
 12. Nodes with orphan="true" are mistakes — they must be connected to the flow via connectChain.
@@ -549,6 +592,7 @@ IMPORTANT RULES:
 15. NEVER delete a node to work around an error. If a node fails or cannot be configured with available tools, explain the problem to the user and suggest what they need to do manually. Deleting user-requested nodes and replacing them with a different type is not allowed unless the user explicitly asks for it.
 16. AI nodes require a connected AI Provider node that supplies the LLM model and credentials. The agent cannot create or configure AI Provider nodes — this must be done by the user on the canvas. If an AI node fails with a provider-related error, tell the user they need to add and connect an AI Provider node to it with the appropriate credentials.
 17. Use patchHttpNode to add or remove individual headers, query params, or assertions on HTTP nodes without affecting the rest. Use patchGraphqlNode for the same on GraphQL nodes. Use updateNode only when you want to replace the entire set.
+18. WS Connection nodes have a normal sequential output plus a special ws_message output that runs once per incoming message. Use sourceHandle: "ws_message" when connecting message-handler chains. WS Send nodes must target a WS Connection node name via wsConnectionNodeName. Wait node durations are in milliseconds.
 
 <variable-syntax>
 All text fields in HTTP nodes (url, headers, body, query params) and GraphQL nodes (url, query, variables, headers) support {{}} interpolation.
@@ -602,3 +646,4 @@ Examples:
 IMPORTANT: Every assertion must be a complete boolean expression. Do NOT use bare identifiers like "is_json" or "has_body" — those variables do not exist. Instead write: response.headers["Content-Type"] contains "json", response.body != nil, etc.
 </assertion-syntax>`;
 };
+

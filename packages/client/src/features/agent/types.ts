@@ -50,6 +50,7 @@ export interface NodeInfo {
   name: string;
   position: { x: number; y: number };
   state: string;
+  websocketId?: string;
 }
 
 export interface NodeExecutionInfo {
@@ -98,3 +99,4 @@ export const formatToolAsOpenAI = (schema: ToolSchema): ChatCompletionTool => ({
 });
 
 export type OpenAIMessage = ChatCompletionMessageParam;
+

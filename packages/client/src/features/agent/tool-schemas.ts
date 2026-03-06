@@ -153,6 +153,71 @@ if (createGraphQLNodeDef) {
   }
 }
 
+
+const removeRequiredField = (
+  params: {
+    properties: Record<string, unknown>;
+    required?: string[];
+  },
+  field: string,
+): void => {
+  if (!params.required) return;
+  params.required = params.required.filter((value) => value !== field);
+};
+
+const createWaitNodeDef = mutationSchemas.find((t) => t.name === 'createWaitNode');
+if (createWaitNodeDef) {
+  const params = createWaitNodeDef.parameters as {
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+  removeRequiredField(params, 'durationMs');
+  if (params.properties['durationMs']) {
+    params.properties['durationMs'] = {
+      ...(params.properties['durationMs'] as object),
+      description: 'Optional wait duration in milliseconds. Defaults to 1000 when omitted.',
+    };
+  }
+}
+
+const createWsConnectionNodeDef = mutationSchemas.find((t) => t.name === 'createWsConnectionNode');
+if (createWsConnectionNodeDef) {
+  const params = createWsConnectionNodeDef.parameters as {
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+  removeRequiredField(params, 'url');
+  if (params.properties['url']) {
+    params.properties['url'] = {
+      ...(params.properties['url'] as object),
+      description:
+        'Optional WebSocket URL. Provide it when known so the node is immediately usable; otherwise the node is created with an empty URL.',
+    };
+  }
+}
+
+const createWsSendNodeDef = mutationSchemas.find((t) => t.name === 'createWsSendNode');
+if (createWsSendNodeDef) {
+  const params = createWsSendNodeDef.parameters as {
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+  removeRequiredField(params, 'message');
+  removeRequiredField(params, 'wsConnectionNodeName');
+  if (params.properties['message']) {
+    params.properties['message'] = {
+      ...(params.properties['message'] as object),
+      description: 'Optional message body to send. Defaults to an empty string so you can wire the flow first.',
+    };
+  }
+  if (params.properties['wsConnectionNodeName']) {
+    params.properties['wsConnectionNodeName'] = {
+      ...(params.properties['wsConnectionNodeName'] as object),
+      description:
+        'Optional name of the WS Connection node this sender should use. Defaults to empty so you can configure it later.',
+    };
+  }
+}
 /** All tool schemas combined - ready for AI tool calling */
 export const allToolSchemas = [...executionSchemas, ...mutationSchemas];
 
@@ -200,3 +265,5 @@ export function validateToolInput(
     return { errors: ['Unknown validation error'], success: false };
   }
 }
+
+

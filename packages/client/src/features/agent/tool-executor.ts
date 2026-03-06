@@ -76,6 +76,11 @@ interface Collections {
   nodeGraphqlCollection: { utils: CollectionUtils };
   nodeHttpCollection: { utils: CollectionUtils };
   variableCollection: { utils: CollectionUtils };
+  waitCollection: { utils: CollectionUtils };
+  websocketCollection: { utils: CollectionUtils };
+  websocketHeaderCollection: { utils: CollectionUtils };
+  wsConnectionCollection: { utils: CollectionUtils };
+  wsSendCollection: { utils: CollectionUtils };
 }
 
 interface ToolExecutorContext {
@@ -94,6 +99,7 @@ const HANDLE_KIND_MAP: Record<string, HandleKind> = {
   else: HandleKind.ELSE,
   loop: HandleKind.LOOP,
   then: HandleKind.THEN,
+  ws_message: HandleKind.WS_MESSAGE,
 };
 
 const HTTP_METHOD_MAP: Record<string, HttpMethod> = {
@@ -115,6 +121,9 @@ const NODE_KIND_NAMES: Record<number, string> = {
   [NodeKind.HTTP]: 'HTTP',
   [NodeKind.JS]: 'JavaScript',
   [NodeKind.MANUAL_START]: 'ManualStart',
+  [NodeKind.WAIT]: 'Wait',
+  [NodeKind.WS_CONNECTION]: 'WsConnection',
+  [NodeKind.WS_SEND]: 'WsSend',
   [NodeKind.UNSPECIFIED]: 'Unknown',
 };
 
@@ -165,10 +174,15 @@ const MUTATION_TOOLS = new Set([
   'createConditionNode',
   'createForEachNode',
   'createForNode',
+  'createGraphQLNode',
   'createHttpNode',
   'createJsNode',
+  'createWaitNode',
+  'createWsConnectionNode',
+  'createWsSendNode',
   'deleteNode',
   'disconnectNodes',
+  'patchGraphqlNode',
   'patchHttpNode',
   'updateNode',
 ]);
@@ -218,14 +232,21 @@ const executeToolInternal = async (
     nodeCollection,
     nodeHttpCollection,
     variableCollection,
+    waitCollection,
+    websocketCollection,
+    websocketHeaderCollection,
+    wsConnectionCollection,
+    wsSendCollection,
   } = collections;
 
   switch (name) {
     case 'connectChain': {
       const nodeIds = args.nodeIds as (string | string[])[];
       const handleOverride = args.sourceHandle as string | undefined;
-      if (handleOverride && !['ai_tools', 'else', 'loop', 'then'].includes(handleOverride)) {
-        throw new Error(`Invalid sourceHandle "${handleOverride}". Valid values: "then", "else", "loop", "ai_tools".`);
+      if (handleOverride && !['ai_tools', 'else', 'loop', 'then', 'ws_message'].includes(handleOverride)) {
+        throw new Error(
+          `Invalid sourceHandle "${handleOverride}". Valid values: "then", "else", "loop", "ai_tools", "ws_message".`,
+        );
       }
       if (!nodeIds || nodeIds.length < 2) {
         throw new Error('connectChain requires at least 2 elements.');
@@ -293,6 +314,7 @@ const executeToolInternal = async (
           const sourceNode = flowContext.nodes.find((n) => n.id === sourceIdStr);
           const isBranching = sourceNode && ['Condition', 'For', 'ForEach'].includes(sourceNode.kind);
           const isAiSource = sourceNode?.kind === 'Ai';
+          const isWsConnectionSource = sourceNode?.kind === 'WsConnection';
 
           // Validate handle is valid for the specific node type
           if (isBranching && handleOverride) {
@@ -317,9 +339,20 @@ const executeToolInternal = async (
             }
           }
 
+          if (isWsConnectionSource && handleOverride) {
+            const validHandles = ['ws_message'];
+            if (!validHandles.includes(handleOverride)) {
+              errors.push(
+                `Edge ${idx}: Invalid sourceHandle "${handleOverride}" for WsConnection node "${sourceNode.name}". ` +
+                  `Valid handles: ${validHandles.join(', ')}. Skipped.`,
+              );
+              continue;
+            }
+          }
+
           const edgeHandle = isBranching
             ? (HANDLE_KIND_MAP[handleOverride ?? 'then'] ?? HandleKind.THEN)
-            : isAiSource && handleOverride
+            : (isAiSource || isWsConnectionSource) && handleOverride
               ? HANDLE_KIND_MAP[handleOverride]
               : undefined;
 
@@ -689,6 +722,91 @@ const executeToolInternal = async (
       }
     }
 
+    case 'createWaitNode': {
+      const nodeId = Ulid.generate().bytes;
+      const position = (args.position as { x: number; y: number }) ?? { x: 0, y: 0 };
+      const nodeName = normalizeNodeName(args.name as string);
+      const rawDuration = (args.durationMs as bigint | number | string | undefined) ?? 1000;
+      const durationMs = BigInt(rawDuration);
+
+      if (durationMs < 0n) {
+        throw new Error(`durationMs must be greater than or equal to 0, got: ${rawDuration}`);
+      }
+
+      await Promise.all([
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.WAIT,
+          name: nodeName,
+          nodeId,
+          position,
+        }),
+        waitCollection.utils.insert({ durationMs, nodeId }),
+      ]);
+
+      {
+        const canonicalId = Ulid.construct(nodeId).toCanonical();
+        context.sessionCreatedNodeIds.add(canonicalId);
+        return { durationMs: durationMs.toString(), name: nodeName, nodeId: canonicalId };
+      }
+    }
+
+    case 'createWsConnectionNode': {
+      const nodeId = Ulid.generate().bytes;
+      const position = (args.position as { x: number; y: number }) ?? { x: 0, y: 0 };
+      const nodeName = normalizeNodeName(args.name as string);
+      const url = (args.url as string) ?? '';
+      const websocketId = Ulid.generate().bytes;
+
+      await Promise.all([
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.WS_CONNECTION,
+          name: nodeName,
+          nodeId,
+          position,
+        }),
+        websocketCollection.utils.insert({
+          name: nodeName,
+          url,
+          websocketId,
+        }),
+        wsConnectionCollection.utils.insert({ nodeId, websocketId }),
+      ]);
+
+      {
+        const canonicalId = Ulid.construct(nodeId).toCanonical();
+        const websocketIdStr = Ulid.construct(websocketId).toCanonical();
+        context.sessionCreatedNodeIds.add(canonicalId);
+        return { name: nodeName, nodeId: canonicalId, url, websocketId: websocketIdStr };
+      }
+    }
+
+    case 'createWsSendNode': {
+      const nodeId = Ulid.generate().bytes;
+      const position = (args.position as { x: number; y: number }) ?? { x: 0, y: 0 };
+      const nodeName = normalizeNodeName(args.name as string);
+      const message = (args.message as string) ?? '';
+      const wsConnectionNodeName = normalizeNodeName((args.wsConnectionNodeName as string) ?? '');
+
+      await Promise.all([
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.WS_SEND,
+          name: nodeName,
+          nodeId,
+          position,
+        }),
+        wsSendCollection.utils.insert({ message, nodeId, wsConnectionNodeName }),
+      ]);
+
+      {
+        const canonicalId = Ulid.construct(nodeId).toCanonical();
+        context.sessionCreatedNodeIds.add(canonicalId);
+        return { message, name: nodeName, nodeId: canonicalId, wsConnectionNodeName };
+      }
+    }
+
     case 'createVariable': {
       const flowVariableId = Ulid.generate().bytes;
       const key = args.key as string;
@@ -891,6 +1009,57 @@ const executeToolInternal = async (
           result.path = feData?.path ?? '';
           result.condition = feData?.condition ?? '';
           result.errorHandling = feData?.errorHandling === 1 ? 'break' : 'continue';
+          break;
+        }
+        case 'Wait': {
+          const [waitData] = await queryCollection((_) =>
+            _.from({ wait: waitCollection })
+              .where((_) => eq(_.wait.nodeId, nodeIdBytes))
+              .findOne(),
+          );
+          result.durationMs = waitData?.durationMs ?? 0n;
+          break;
+        }
+        case 'WsConnection': {
+          const [wsConnectionData] = await queryCollection((_) =>
+            _.from({ wsConnection: wsConnectionCollection })
+              .where((_) => eq(_.wsConnection.nodeId, nodeIdBytes))
+              .findOne(),
+          );
+          const websocketId =
+            node.websocketId ??
+            (wsConnectionData?.websocketId ? Ulid.construct(wsConnectionData.websocketId).toCanonical() : undefined);
+          if (!websocketId) break;
+
+          const websocketIdBytes = parseUlid(websocketId);
+          const [websocketData] = await queryCollection((_) =>
+            _.from({ websocket: websocketCollection })
+              .where((_) => eq(_.websocket.websocketId, websocketIdBytes))
+              .findOne(),
+          );
+          const websocketHeaders = await queryCollection((_) =>
+            _.from({ h: websocketHeaderCollection }).where((_) => eq(_.h.websocketId, websocketIdBytes)),
+          );
+
+          result.websocketId = websocketId;
+          result.url = websocketData?.url ?? '';
+          result.headers = websocketHeaders.map((h) => ({
+            description: h.description,
+            enabled: h.enabled,
+            id: h.websocketHeaderId ? Ulid.construct(h.websocketHeaderId).toCanonical() : undefined,
+            key: h.key,
+            value: h.value,
+          }));
+          break;
+        }
+        case 'WsSend': {
+          const [wsSendData] = await queryCollection((_) =>
+            _.from({ wsSend: wsSendCollection })
+              .where((_) => eq(_.wsSend.nodeId, nodeIdBytes))
+              .findOne(),
+          );
+          result.message = wsSendData?.message ?? '';
+          result.wsConnectionNodeName = wsSendData?.wsConnectionNodeName ?? '';
           break;
         }
         case 'GraphQL': {
@@ -1425,6 +1594,83 @@ const executeToolInternal = async (
           if (hasFeUpdates) forEachCollection.utils.update(feUpdates);
           break;
         }
+        case 'Wait': {
+          if (args.durationMs !== undefined) {
+            const rawDuration = args.durationMs as bigint | number | string;
+            const durationMs = BigInt(rawDuration);
+            if (durationMs < 0n) {
+              throw new Error(`durationMs must be greater than or equal to 0, got: ${rawDuration}`);
+            }
+            waitCollection.utils.update({ durationMs, nodeId: nodeIdBytes });
+            updatedFields.push('durationMs');
+          }
+          break;
+        }
+        case 'WsConnection': {
+          const [wsConnectionData] = await queryCollection((_) =>
+            _.from({ wsConnection: wsConnectionCollection })
+              .where((_) => eq(_.wsConnection.nodeId, nodeIdBytes))
+              .findOne(),
+          );
+          const websocketIdBytes = node.websocketId
+            ? parseUlid(node.websocketId)
+            : wsConnectionData?.websocketId;
+          if (!websocketIdBytes) {
+            throw new Error(`WsConnection node "${node.name}" has no associated WebSocket request`);
+          }
+
+          if (args.url !== undefined) {
+            websocketCollection.utils.update({ url: args.url as string, websocketId: websocketIdBytes });
+            updatedFields.push('url');
+          }
+
+          if (args.headers !== undefined) {
+            const existingHeaders = await queryCollection((_) =>
+              _.from({ h: websocketHeaderCollection }).where((_) => eq(_.h.websocketId, websocketIdBytes)),
+            );
+            for (const h of existingHeaders) {
+              if (h.websocketHeaderId)
+                websocketHeaderCollection.utils.delete({ websocketHeaderId: h.websocketHeaderId });
+            }
+            const newHeaders = args.headers as {
+              description?: string;
+              enabled?: boolean;
+              key: string;
+              value?: string;
+            }[];
+            for (let i = 0; i < newHeaders.length; i++) {
+              const h = newHeaders[i]!;
+              await websocketHeaderCollection.utils.insert({
+                description: h.description ?? '',
+                enabled: h.enabled ?? true,
+                key: h.key,
+                order: i,
+                value: h.value ?? '',
+                websocketHeaderId: Ulid.generate().bytes,
+                websocketId: websocketIdBytes,
+              });
+            }
+            updatedFields.push('headers');
+          }
+          break;
+        }
+        case 'WsSend': {
+          const wsSendUpdates: Record<string, unknown> = { nodeId: nodeIdBytes };
+          let hasWsSendUpdates = false;
+
+          if (args.wsConnectionNodeName !== undefined) {
+            wsSendUpdates.wsConnectionNodeName = normalizeNodeName(args.wsConnectionNodeName as string);
+            hasWsSendUpdates = true;
+            updatedFields.push('wsConnectionNodeName');
+          }
+          if (args.message !== undefined) {
+            wsSendUpdates.message = args.message as string;
+            hasWsSendUpdates = true;
+            updatedFields.push('message');
+          }
+          if (hasWsSendUpdates) wsSendCollection.utils.update(wsSendUpdates);
+          break;
+        }
         case 'GraphQL': {
           if (!node.graphqlId) throw new Error(`GraphQL node "${node.name}" has no associated GraphQL request`);
           const graphqlIdBytes = parseUlid(node.graphqlId);
@@ -1726,3 +1972,12 @@ const executeToolInternal = async (
 };
 
 export type { Collections, ToolExecutorContext };
+
+
+
+
+
+
+
+
+

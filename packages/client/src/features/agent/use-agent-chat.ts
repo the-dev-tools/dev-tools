@@ -18,6 +18,9 @@ import {
   NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
   NodeJsCollectionSchema,
+  NodeWaitCollectionSchema,
+  NodeWsConnectionCollectionSchema,
+  NodeWsSendCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import {
   GraphQLAssertCollectionSchema,
@@ -31,6 +34,7 @@ import {
   HttpHeaderCollectionSchema,
   HttpSearchParamCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { WebSocketCollectionSchema, WebSocketHeaderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/web_socket';
 import { useApiCollection } from '~/shared/api';
 import { queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -212,6 +216,9 @@ const NODE_KIND_NAMES: Record<number, string> = {
   [NodeKind.HTTP]: 'HTTP',
   [NodeKind.JS]: 'JavaScript',
   [NodeKind.MANUAL_START]: 'ManualStart',
+  [NodeKind.WAIT]: 'Wait',
+  [NodeKind.WS_CONNECTION]: 'WsConnection',
+  [NodeKind.WS_SEND]: 'WsSend',
   [NodeKind.UNSPECIFIED]: 'Unknown',
 };
 
@@ -273,7 +280,7 @@ const applyLayoutToFlow = async (
 const clientToolSchemas: ToolSchema[] = [
   {
     description:
-      "Inspect a node's full config and execution state. Returns type-specific config (HTTP: url/method/headers/params/body/assertions, GraphQL: url/query/variables/headers/assertions, JS: code, Condition: expression, For: iterations/condition, ForEach: path/condition) plus execution state/error. " +
+      "Inspect a node's full config and execution state. Returns type-specific config (HTTP: url/method/headers/params/body/assertions, GraphQL: url/query/variables/headers/assertions, JS: code, Condition: expression, For: iterations/condition, ForEach: path/condition, Wait: durationMs, WsConnection: url/headers, WsSend: wsConnectionNodeName/message) plus execution state/error. " +
       'Set includeOutput: true to also get execution input/output payloads (can be large).',
     name: 'inspectNode',
     parameters: {
@@ -302,12 +309,13 @@ const clientToolSchemas: ToolSchema[] = [
   },
   {
     description:
-      "Update any node's configuration in a single call. Provide nodeId and only the fields to change — unspecified fields stay unchanged. " +
+      "Update any node's configuration in a single call. Provide nodeId and only the fields to change - unspecified fields stay unchanged. " +
       'Base fields (name) work on any node. Type-specific fields: ' +
       'Ai: prompt, maxIterations. Condition: condition. For: iterations, condition (break), errorHandling. ' +
-      'ForEach: path, condition (break), errorHandling. JS: code. ' +
+      'ForEach: path, condition (break), errorHandling. Wait: durationMs. JS: code. ' +
       'HTTP: method, url, headers, searchParams, body, assertions (arrays replace existing set). ' +
-      'GraphQL: url, query, variables, headers, assertions (arrays replace existing set).',
+      'GraphQL: url, query, variables, headers, assertions (arrays replace existing set). ' +
+      'WsConnection: url, headers. WsSend: wsConnectionNodeName, message.',
     name: 'updateNode',
     parameters: {
       additionalProperties: false,
@@ -348,7 +356,7 @@ const clientToolSchemas: ToolSchema[] = [
           type: 'string',
         },
         headers: {
-          description: 'Replaces all existing headers (HTTP and GraphQL)',
+          description: 'Replaces all existing headers (HTTP, GraphQL, and WsConnection)',
           items: {
             properties: {
               enabled: { type: 'boolean' },
@@ -381,12 +389,24 @@ const clientToolSchemas: ToolSchema[] = [
           type: 'string',
         },
         nodeId: { description: 'The node ID to update', type: 'string' },
+        durationMs: {
+          description: 'Wait duration in milliseconds (Wait nodes only)',
+          type: ['integer', 'string'],
+        },
+        message: {
+          description: 'Message body to send via the selected WebSocket connection (WsSend nodes only)',
+          type: 'string',
+        },
         path: {
           description: 'Collection expression to iterate (ForEach nodes only, expr-lang syntax)',
           type: 'string',
         },
         prompt: {
           description: 'The prompt or system instructions for the AI agent (Ai nodes only)',
+          type: 'string',
+        },
+        wsConnectionNodeName: {
+          description: 'Name of the WS Connection node this WsSend node should use',
           type: 'string',
         },
         query: {
@@ -408,7 +428,7 @@ const clientToolSchemas: ToolSchema[] = [
         },
         url: {
           description:
-            'Request URL (HTTP and GraphQL nodes). Supports {{variable}} interpolation, e.g. {{BASE_URL}}/api/users/{{id}}',
+            'Request URL (HTTP, GraphQL, and WsConnection nodes). Supports {{variable}} interpolation, e.g. {{BASE_URL}}/api/users/{{id}}',
           type: 'string',
         },
         variables: {
@@ -554,7 +574,7 @@ const clientToolSchemas: ToolSchema[] = [
       'Example: ["Start",["A","B"],"End"] creates Start→A, Start→B, A→End, B→End. ' +
       'Works for ALL node types. For branching nodes (Condition, For, ForEach, Ai), auto-applies "then" handle by default. ' +
       'Use sourceHandle "else" or "loop" to override for non-default branches. ' +
-      'Use sourceHandle "ai_tools" to connect tool nodes to an Ai node.',
+      'Use sourceHandle "ai_tools" to connect tool nodes to an Ai node. Use sourceHandle "ws_message" to connect a message-handler chain to a WsConnection node.',
     name: 'connectChain',
     parameters: {
       additionalProperties: false,
@@ -572,8 +592,8 @@ const clientToolSchemas: ToolSchema[] = [
           description:
             'Handle for branching source nodes. Defaults to "then". ' +
             'Use "else" for Condition false-branch, "loop" for For/ForEach loop-body, ' +
-            '"ai_tools" for connecting tool nodes to an Ai node.',
-          enum: ['then', 'else', 'loop', 'ai_tools'],
+            '"ai_tools" for connecting tool nodes to an Ai node, "ws_message" for the message branch of a WsConnection node.',
+          enum: ['then', 'else', 'loop', 'ai_tools', 'ws_message'],
           type: 'string',
         },
       },
@@ -692,6 +712,9 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
   const conditionCollection = useApiCollection(NodeConditionCollectionSchema);
   const forCollection = useApiCollection(NodeForCollectionSchema);
   const forEachCollection = useApiCollection(NodeForEachCollectionSchema);
+  const waitCollection = useApiCollection(NodeWaitCollectionSchema);
+  const wsConnectionCollection = useApiCollection(NodeWsConnectionCollectionSchema);
+  const wsSendCollection = useApiCollection(NodeWsSendCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
   const httpCollection = useApiCollection(HttpCollectionSchema);
   const httpSearchParamCollection = useApiCollection(HttpSearchParamCollectionSchema);
@@ -702,6 +725,8 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
   const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
   const graphqlHeaderCollection = useApiCollection(GraphQLHeaderCollectionSchema);
   const graphqlAssertCollection = useApiCollection(GraphQLAssertCollectionSchema);
+  const websocketCollection = useApiCollection(WebSocketCollectionSchema);
+  const websocketHeaderCollection = useApiCollection(WebSocketHeaderCollectionSchema);
   const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
   const fileCollection = useApiCollection(FileCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
@@ -743,6 +768,11 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
         nodeGraphqlCollection,
         nodeHttpCollection,
         variableCollection,
+        waitCollection,
+        websocketCollection,
+        websocketHeaderCollection,
+        wsConnectionCollection,
+        wsSendCollection,
       };
 
       const waitForFlowCompletion = async (): Promise<void> => {
@@ -892,7 +922,9 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
                   nodeCollection,
                   nodeGraphqlCollection,
                   nodeHttpCollection,
+                  nodeWsConnectionCollection: wsConnectionCollection,
                   variableCollection,
+                  websocketCollection,
                 })),
                 selectedNodeIds: selectedNodeIdsRef.current,
               };
@@ -1105,6 +1137,9 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
       conditionCollection,
       forCollection,
       forEachCollection,
+      waitCollection,
+      wsConnectionCollection,
+      wsSendCollection,
       nodeHttpCollection,
       nodeGraphqlCollection,
       httpCollection,
@@ -1115,6 +1150,8 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
       graphqlCollection,
       graphqlHeaderCollection,
       graphqlAssertCollection,
+      websocketCollection,
+      websocketHeaderCollection,
       executionCollection,
       fileCollection,
       flowCollection,
@@ -1179,3 +1216,6 @@ const messageToOpenAI = (message: Message): OpenAIMessage => {
     role: message.role as 'assistant' | 'system' | 'user',
   };
 };
+
+
+
