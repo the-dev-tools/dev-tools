@@ -65,9 +65,10 @@ export const WsSendSettings = ({ nodeId }: NodeSettingsProps) => {
   // React Aria workaround: only render full list when dropdown is open
   // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825
   const [isConnListOpen, setIsConnListOpen] = useState(false);
-  const connItems = isConnListOpen
-    ? wsConnectionNodes
-    : wsConnectionNodes.filter((_) => _.name === wsConnectionNodeName);
+  const connItems =
+    isConnListOpen || !wsConnectionNodeName
+      ? wsConnectionNodes
+      : wsConnectionNodes.filter((_) => _.name === wsConnectionNodeName);
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='WebSocket Send'>
