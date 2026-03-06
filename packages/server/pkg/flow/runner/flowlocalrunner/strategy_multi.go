@@ -11,7 +11,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
 type processResult struct {
@@ -66,26 +65,14 @@ func signalNodeComplete(signals *sync.Map, id idwrap.IDWrap) {
 // this dispatches successors immediately when a node finishes. Only converge points
 // (nodes with multiple incoming edges) wait for all predecessors.
 func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
-	statusLogFunc node.LogPushFunc,
-	predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
-	timeout time.Duration,
-	trackData bool,
-	emitter *runner.StatusEmitter,
-	executor *LocalExecutor,
-	maxConcurrency int,
+	cfg RunConfig, executor *LocalExecutor, tracker *runner.ConvergenceTracker,
 ) error {
-	// Use shared mutex from request if available (multi-entry), otherwise local
-	pendingMapMu := req.PendingMapMu
-	if pendingMapMu == nil {
-		pendingMapMu = &sync.Mutex{}
-	}
-
 	nodeSignals := &sync.Map{}
 	seenNodes := &sync.Map{}
 
 	// Semaphore for bounded processing concurrency
-	sem := make(chan struct{}, maxConcurrency)
-	resultChan := make(chan processResult, maxConcurrency)
+	sem := make(chan struct{}, cfg.MaxConcurrency)
+	resultChan := make(chan processResult, cfg.MaxConcurrency)
 
 	// Cancellation context for the entire execution
 	flowCtx, flowCancel := context.WithCancel(ctx)
@@ -114,7 +101,7 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 			// Phase 1: Wait for predecessors OUTSIDE the semaphore.
 			// This prevents deadlocks where goroutines hold semaphore slots
 			// while waiting for predecessors that need slots to finish.
-			if predecessors := predecessorMap[nodeID]; len(predecessors) > 0 {
+			if predecessors := cfg.PredecessorMap[nodeID]; len(predecessors) > 0 {
 				if err := waitForPredecessors(flowCtx, nodeSignals, seenNodes, predecessors); err != nil {
 					resultChan <- processResult{
 						originalID: currentNode.GetID(),
@@ -141,7 +128,7 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 			startTime := time.Now()
 
 			// Atomically register + emit RUNNING (fixes race with cancellation)
-			emitter.EmitRunning(runner.NodeExecution{
+			cfg.Emitter.EmitRunning(runner.NodeExecution{
 				ExecutionID: executionID,
 				NodeID:      nodeID,
 				Name:        currentNode.GetName(),
@@ -156,9 +143,9 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 			// Per-node timeout (skip for LoopCoordinator nodes)
 			nodeCtx := flowCtx
 			var cancelNode context.CancelFunc
-			if timeout > 0 {
+			if cfg.Timeout > 0 {
 				if _, isLoop := currentNode.(node.LoopCoordinator); !isLoop {
-					nodeCtx, cancelNode = context.WithTimeout(flowCtx, timeout)
+					nodeCtx, cancelNode = context.WithTimeout(flowCtx, cfg.Timeout)
 				}
 			}
 			if cancelNode != nil {
@@ -195,7 +182,7 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 
 	defer func() {
 		if ctx.Err() != nil {
-			emitter.CancelAllRunning(ctx.Err())
+			cfg.Emitter.CancelAllRunning(ctx.Err())
 		}
 	}()
 
@@ -219,11 +206,8 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 			// Signal that this node completed (unblocks nodes waiting for it)
 			signalNodeComplete(nodeSignals, result.originalID)
 
-			// Remove from running tracking
-			emitter.Deregister(result.executionID)
-
-			// Build status
-			status := runner.FlowNodeStatus{
+			// Build base status (shared across all terminal paths)
+			base := runner.FlowNodeStatus{
 				NodeID:           result.originalID,
 				ExecutionID:      result.executionID,
 				Name:             nodeName,
@@ -234,28 +218,8 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 
 			// ERROR PATH
 			if result.err != nil {
-				switch {
-				case result.timedOut || errors.Is(result.err, context.DeadlineExceeded):
-					status.State = mflow.NODE_STATE_FAILURE
-				case runner.IsCancellationError(result.err):
-					status.State = mflow.NODE_STATE_CANCELED
-				default:
-					status.State = mflow.NODE_STATE_FAILURE
-				}
-				status.Error = result.err
-
-				if trackData {
-					if result.outputData != nil {
-						status.OutputData = node.DeepCopyValue(result.outputData)
-					} else {
-						status.OutputData = collectSingleModeOutput(req, nodeName)
-					}
-					if result.inputData != nil {
-						status.InputData = node.DeepCopyValue(result.inputData)
-					}
-				}
-				status.OutputData = flattenNodeOutput(nodeName, status.OutputData)
-				statusLogFunc(status)
+				status := buildTerminalStatus(base, result.err, result.timedOut, result.inputData, result.outputData, req, cfg.TrackData)
+				cfg.Emitter.EmitTerminal(result.executionID, status, false)
 
 				if firstErr == nil {
 					firstErr = result.err
@@ -272,53 +236,26 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 					_, isLoop = currentNode.(node.LoopCoordinator)
 				}
 				if !isLoop {
-					status.State = mflow.NODE_STATE_CANCELED
-					status.Error = flowCtx.Err()
-					if trackData {
-						if result.inputData != nil {
-							status.InputData = node.DeepCopyValue(result.inputData)
-						}
-						if result.outputData != nil {
-							status.OutputData = node.DeepCopyValue(result.outputData)
-						}
-					}
-					status.OutputData = flattenNodeOutput(nodeName, status.OutputData)
-					statusLogFunc(status)
+					status := buildTerminalStatus(base, flowCtx.Err(), false, result.inputData, result.outputData, req, cfg.TrackData)
+					cfg.Emitter.EmitTerminal(result.executionID, status, false)
 					continue
 				}
+				// LoopCoordinator exemption: fall through to success path.
+				// EmitTerminal handles deregistration — calling Deregister here
+				// would clear wasRunning and suppress the success emission.
 			}
 
 			// SUCCESS PATH
-			if !result.skipFinalStatus {
-				status.State = mflow.NODE_STATE_SUCCESS
-				status.Error = nil
-				if trackData {
-					if result.outputData != nil {
-						status.OutputData = node.DeepCopyValue(result.outputData)
-					}
-					if result.inputData != nil {
-						status.InputData = node.DeepCopyValue(result.inputData)
-					}
-				}
-				status.OutputData = flattenNodeOutput(nodeName, status.OutputData)
-				statusLogFunc(status)
-			}
+			status := buildTerminalStatus(base, nil, false, result.inputData, result.outputData, req, cfg.TrackData)
+			cfg.Emitter.EmitTerminal(result.executionID, status, result.skipFinalStatus)
 
 			// Dispatch ready successors immediately
 			if firstErr == nil {
 				for _, nextID := range result.nextNodes {
-					pendingMapMu.Lock()
-					remaining, hasPending := req.PendingAtmoicMap[nextID]
-					if !hasPending || remaining <= 1 {
-						if hasPending {
-							delete(req.PendingAtmoicMap, nextID)
-						}
-						pendingMapMu.Unlock()
-						launchNode(nextID)
-					} else {
-						req.PendingAtmoicMap[nextID] = remaining - 1
-						pendingMapMu.Unlock()
+					if !tracker.Arrive(nextID) {
+						continue
 					}
+					launchNode(nextID)
 				}
 			}
 
@@ -326,7 +263,7 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 			flowCancel()
 			// Send CANCELED status for all currently running nodes
 			// BEFORE draining, since drain removes goroutines from tracking.
-			emitter.CancelAllRunning(ctx.Err())
+			cfg.Emitter.CancelAllRunning(ctx.Err())
 			// Drain remaining results so goroutines can exit
 			for atomic.LoadInt64(&outstanding) > 0 {
 				result := <-resultChan

@@ -25,6 +25,17 @@ const (
 	ExecutionModeMulti
 )
 
+// RunConfig bundles the parameters that both strategies need, reducing the
+// parameter count of runNodes and the strategy functions.
+type RunConfig struct {
+	Timeout        time.Duration
+	TrackData      bool
+	MaxConcurrency int
+	Emitter        *runner.StatusEmitter
+	StatusLogFunc  node.LogPushFunc
+	PredecessorMap map[idwrap.IDWrap][]idwrap.IDWrap
+}
+
 type FlowLocalRunner struct {
 	ID          idwrap.IDWrap
 	FlowID      idwrap.IDWrap
@@ -76,16 +87,16 @@ func (r *FlowLocalRunner) SetDataTrackingEnabled(enabled bool) {
 }
 
 func runNodes(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
-	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
-	mode ExecutionMode, timeout time.Duration, trackData bool,
-	emitter *runner.StatusEmitter, maxConcurrency int,
+	mode ExecutionMode, cfg RunConfig,
 ) error {
-	executor := NewLocalExecutor(trackData)
+	executor := NewLocalExecutor(cfg.TrackData)
+	tracker := runner.NewConvergenceTrackerFromPending(req.PendingAtmoicMap)
+
 	switch mode {
 	case ExecutionModeSingle:
-		return runNodesSingle(ctx, startNodeID, req, statusLogFunc, predecessorMap, timeout, trackData, executor)
+		return runNodesSingle(ctx, startNodeID, req, cfg, executor, tracker)
 	default:
-		return runNodesMultiEventDriven(ctx, startNodeID, req, statusLogFunc, predecessorMap, timeout, trackData, emitter, executor, maxConcurrency)
+		return runNodesMultiEventDriven(ctx, startNodeID, req, cfg, executor, tracker)
 	}
 }
 
@@ -94,7 +105,15 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
 ) error {
 	emitter := runner.NewStatusEmitter(func(s runner.FlowNodeStatus) { statusLogFunc(s) })
-	return runNodes(ctx, startNodeID, req, statusLogFunc, predecessorMap, ExecutionModeMulti, 0, true, emitter, goroutineCount)
+	cfg := RunConfig{
+		Timeout:        0,
+		TrackData:      true,
+		MaxConcurrency: goroutineCount,
+		Emitter:        emitter,
+		StatusLogFunc:  statusLogFunc,
+		PredecessorMap: predecessorMap,
+	}
+	return runNodes(ctx, startNodeID, req, ExecutionModeMulti, cfg)
 }
 
 // RunNodeASync retains the legacy behaviour for packages that directly invoke the runner with timeouts.
@@ -102,7 +121,15 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
 ) error {
 	emitter := runner.NewStatusEmitter(func(s runner.FlowNodeStatus) { statusLogFunc(s) })
-	return runNodes(ctx, startNodeID, req, statusLogFunc, predecessorMap, ExecutionModeMulti, req.Timeout, true, emitter, goroutineCount)
+	cfg := RunConfig{
+		Timeout:        req.Timeout,
+		TrackData:      true,
+		MaxConcurrency: goroutineCount,
+		Emitter:        emitter,
+		StatusLogFunc:  statusLogFunc,
+		PredecessorMap: predecessorMap,
+	}
+	return runNodes(ctx, startNodeID, req, ExecutionModeMulti, cfg)
 }
 
 func (r *FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus, baseVars map[string]any) error {
@@ -168,16 +195,25 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		channels.FlowStatus <- runner.FlowStatusStarting
 	}
 
+	cfg := RunConfig{
+		Timeout:        r.Timeout,
+		TrackData:      r.enableDataTracking,
+		MaxConcurrency: r.maxConcurrency,
+		Emitter:        emitter,
+		StatusLogFunc:  statusFunc,
+		PredecessorMap: r.graph.Predecessors,
+	}
+
 	var err error
 	if len(r.graph.StartNodeIDs) == 1 {
 		// Single entry — fast path, no errgroup overhead
-		err = runNodes(ctx, r.graph.StartNodeIDs[0], req, statusFunc, r.graph.Predecessors, mode, r.Timeout, r.enableDataTracking, emitter, r.maxConcurrency)
+		err = runNodes(ctx, r.graph.StartNodeIDs[0], req, mode, cfg)
 	} else {
 		// Multiple entries — run each chain concurrently
 		eg, egCtx := errgroup.WithContext(ctx)
 		for _, startID := range r.graph.StartNodeIDs {
 			eg.Go(func() error {
-				return runNodes(egCtx, startID, req, statusFunc, r.graph.Predecessors, mode, r.Timeout, r.enableDataTracking, emitter, r.maxConcurrency)
+				return runNodes(egCtx, startID, req, mode, cfg)
 			})
 		}
 		err = eg.Wait()

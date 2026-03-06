@@ -17,16 +17,6 @@ type NodeExecution struct {
 	IterCtx     *IterationContext
 }
 
-// ExecutionResult captures the outcome of a node execution.
-type ExecutionResult struct {
-	State           mflow.NodeState
-	Err             error
-	SkipFinalStatus bool
-	AuxiliaryID     *idwrap.IDWrap
-	InputData       any
-	OutputData      any
-}
-
 // StatusEmitter tracks running nodes and emits status events.
 // It delegates the actual event delivery to an emit function, making it
 // usable with both channel-based delivery (RunWithEvents) and callback-based
@@ -82,28 +72,19 @@ func (se *StatusEmitter) EmitRunning(exec NodeExecution) {
 	})
 }
 
-// EmitTerminal emits a terminal status and deregisters the node from tracking.
-func (se *StatusEmitter) EmitTerminal(exec NodeExecution, result ExecutionResult) {
+// EmitTerminal deregisters the node and emits a pre-built terminal status.
+// The wasRunning guard prevents double emission: if CancelAllRunning already
+// processed this node (cleared from running map), emission is skipped.
+func (se *StatusEmitter) EmitTerminal(executionID idwrap.IDWrap, status FlowNodeStatus, skip bool) {
 	se.mu.Lock()
-	delete(se.running, exec.ExecutionID)
+	_, wasRunning := se.running[executionID]
+	delete(se.running, executionID)
 	se.mu.Unlock()
 
-	if result.SkipFinalStatus {
+	if skip || !wasRunning {
 		return
 	}
-
-	se.emitFn(FlowNodeStatus{
-		ExecutionID:      exec.ExecutionID,
-		NodeID:           exec.NodeID,
-		Name:             exec.Name,
-		State:            result.State,
-		Error:            result.Err,
-		RunDuration:      time.Since(exec.StartTime),
-		IterationContext: exec.IterCtx,
-		AuxiliaryID:      result.AuxiliaryID,
-		InputData:        result.InputData,
-		OutputData:       result.OutputData,
-	})
+	se.emitFn(status)
 }
 
 // Deregister removes a node from running tracking without emitting a status.

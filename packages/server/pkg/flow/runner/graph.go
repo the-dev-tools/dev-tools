@@ -65,6 +65,17 @@ func (g *FlowGraph) NewConvergenceTracker() *ConvergenceTracker {
 	return &ConvergenceTracker{pending: pending}
 }
 
+// NewConvergenceTrackerFromPending creates a tracker from a pre-built pending
+// map (e.g. from FlowNodeRequest.PendingAtmoicMap). It copies the map to avoid
+// aliasing the original.
+func NewConvergenceTrackerFromPending(pending map[idwrap.IDWrap]uint32) *ConvergenceTracker {
+	clone := make(map[idwrap.IDWrap]uint32, len(pending))
+	for k, v := range pending {
+		clone[k] = v
+	}
+	return &ConvergenceTracker{pending: clone}
+}
+
 // BuildPredecessorMap computes which nodes precede each node in the graph.
 func BuildPredecessorMap(edges mflow.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
 	predecessors := make(map[idwrap.IDWrap][]idwrap.IDWrap, len(edges))

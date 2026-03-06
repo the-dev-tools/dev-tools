@@ -1,34 +1,58 @@
 package flowlocalrunner
 
 import (
+	"context"
+	"errors"
+
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 )
 
-func gatherSingleModeInputData(req *node.FlowNodeRequest, predecessorIDs []idwrap.IDWrap) map[string]any {
-	if len(predecessorIDs) == 0 {
-		return nil
+// buildTerminalStatus consolidates state classification, data attachment, and
+// output flattening into a single function. Both strategies call this instead
+// of duplicating ~50 lines each.
+//
+// base must have ExecutionID, NodeID, Name, IterationContext, RunDuration,
+// and AuxiliaryID pre-filled. This function fills State, Error, InputData,
+// and OutputData.
+func buildTerminalStatus(
+	base runner.FlowNodeStatus,
+	nodeErr error,
+	timedOut bool,
+	trackedInput, trackedOutput map[string]any,
+	req *node.FlowNodeRequest,
+	trackData bool,
+) runner.FlowNodeStatus {
+	status := base
+
+	if nodeErr != nil {
+		switch {
+		case timedOut || errors.Is(nodeErr, context.DeadlineExceeded):
+			status.State = mflow.NODE_STATE_FAILURE
+		case runner.IsCancellationError(nodeErr):
+			status.State = mflow.NODE_STATE_CANCELED
+		default:
+			status.State = mflow.NODE_STATE_FAILURE
+		}
+		status.Error = nodeErr
+	} else {
+		status.State = mflow.NODE_STATE_SUCCESS
 	}
 
-	inputs := make(map[string]any, len(predecessorIDs))
-	for _, predID := range predecessorIDs {
-		predNode, ok := req.NodeMap[predID]
-		if !ok {
-			continue
+	if trackData {
+		if len(trackedOutput) > 0 {
+			status.OutputData = node.DeepCopyValue(trackedOutput)
+		} else {
+			status.OutputData = collectSingleModeOutput(req, status.Name)
 		}
-		predName := predNode.GetName()
-		if predName == "" {
-			continue
-		}
-		if data, err := node.ReadVarRaw(req, predName); err == nil {
-			inputs[predName] = node.DeepCopyValue(data)
+		if len(trackedInput) > 0 {
+			status.InputData = node.DeepCopyValue(trackedInput)
 		}
 	}
+	status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 
-	if len(inputs) == 0 {
-		return nil
-	}
-	return inputs
+	return status
 }
 
 func collectSingleModeOutput(req *node.FlowNodeRequest, nodeName string) any {
