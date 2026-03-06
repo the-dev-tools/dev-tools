@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/andybalholm/brotli v1.2.0
+	github.com/coder/websocket v1.8.14
 	github.com/expr-lang/expr v1.17.7
 	github.com/goccy/go-json v0.10.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -26,7 +27,6 @@ require (
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.43.0
-	nhooyr.io/websocket v1.8.17
 )
 
 require (

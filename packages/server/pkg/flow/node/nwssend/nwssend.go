@@ -9,7 +9,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"nhooyr.io/websocket" //nolint:staticcheck // nhooyr.io/websocket is the project's current WS library
+	"github.com/coder/websocket"
 )
 
 // Compile-time check that NodeWsSend implements VariableIntrospector.
@@ -73,13 +73,13 @@ func (n *NodeWsSend) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 		return node.FlowNodeResult{Err: fmt.Errorf("read ws connection from node %q: %w", n.WsConnectionNodeName, err)}
 	}
 
-	conn, ok := connRaw.(*websocket.Conn) //nolint:staticcheck // nhooyr.io/websocket
+	conn, ok := connRaw.(*websocket.Conn)
 	if !ok {
 		return node.FlowNodeResult{Err: fmt.Errorf("ws connection from node %q is not a valid WebSocket connection", n.WsConnectionNodeName)}
 	}
 
 	// Send the message
-	if err := conn.Write(ctx, websocket.MessageText, []byte(interpolated)); err != nil { //nolint:staticcheck // nhooyr.io/websocket
+	if err := conn.Write(ctx, websocket.MessageText, []byte(interpolated)); err != nil {
 		return node.FlowNodeResult{Err: fmt.Errorf("websocket write: %w", err)}
 	}
 

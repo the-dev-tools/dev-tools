@@ -13,7 +13,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 // echoServer creates a test WS server that echoes messages back.

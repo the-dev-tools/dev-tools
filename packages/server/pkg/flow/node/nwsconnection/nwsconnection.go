@@ -12,7 +12,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
-	"nhooyr.io/websocket" //nolint:staticcheck // nhooyr.io/websocket is the project's current WS library
+	"github.com/coder/websocket"
 )
 
 // Compile-time check that NodeWsConnection implements VariableIntrospector.
@@ -96,7 +96,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 	}
 
 	// Dial WebSocket
-	conn, resp, err := websocket.Dial(ctx, url, &websocket.DialOptions{ //nolint:staticcheck // nhooyr.io/websocket in use
+	conn, resp, err := websocket.Dial(ctx, url, &websocket.DialOptions{
 		HTTPHeader: httpHeaders,
 	})
 	if resp != nil && resp.Body != nil {
@@ -107,7 +107,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 	}
 
 	closeConn := func() {
-		_ = conn.Close(websocket.StatusNormalClosure, "") //nolint:staticcheck // best-effort cleanup
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}
 
 	// Store connection in VarMap so WsSend nodes can use it
@@ -138,7 +138,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 	// No HandleWsMessage targets — just read and log messages passively
 	if msgTargets == nil {
 		go func() {
-			defer conn.Close(websocket.StatusNormalClosure, "done") //nolint:errcheck,staticcheck // best-effort cleanup
+			defer conn.Close(websocket.StatusNormalClosure, "done") //nolint:errcheck // best-effort cleanup
 			var msgIndex int
 			for {
 				select {
@@ -146,7 +146,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 					return
 				default:
 				}
-				_, msg, err := conn.Read(ctx) //nolint:staticcheck // nhooyr.io/websocket
+				_, msg, err := conn.Read(ctx)
 				if err != nil {
 					return
 				}
@@ -179,7 +179,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 
 	// Read messages in a loop until context cancellation, executing the message handler chain per message
 	go func() {
-		defer conn.Close(websocket.StatusNormalClosure, "done") //nolint:errcheck,staticcheck // best-effort cleanup
+		defer conn.Close(websocket.StatusNormalClosure, "done") //nolint:errcheck // best-effort cleanup
 		var msgIndex int
 		for {
 			select {
@@ -187,7 +187,7 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 				return
 			default:
 			}
-			_, msg, err := conn.Read(ctx) //nolint:staticcheck // nhooyr.io/websocket
+			_, msg, err := conn.Read(ctx)
 			if err != nil {
 				return
 			}
