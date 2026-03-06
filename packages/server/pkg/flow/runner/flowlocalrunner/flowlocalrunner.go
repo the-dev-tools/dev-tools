@@ -939,14 +939,14 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 
 		case <-ctx.Done():
 			flowCancel()
+			// Send CANCELED status for all currently running nodes
+			// BEFORE draining, since drain clears the map.
+			sendCanceledStatuses(ctx.Err())
 			// Drain remaining results so goroutines can exit
 			for atomic.LoadInt64(&outstanding) > 0 {
 				result := <-resultChan
 				atomic.AddInt64(&outstanding, -1)
 				signalNodeComplete(nodeSignals, result.originalID)
-				runningMu.Lock()
-				delete(runningNodes, result.executionID)
-				runningMu.Unlock()
 			}
 			if firstErr != nil {
 				return firstErr
