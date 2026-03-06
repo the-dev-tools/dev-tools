@@ -162,6 +162,7 @@ overrides:
   '@codemirror/language': 6.12.1
   '@codemirror/state': 6.5.3
   '@codemirror/view': 6.39.9
+  '@lezer/common': 1.5.1
   '@types/eslint': '-'
 
 patchedDependencies:

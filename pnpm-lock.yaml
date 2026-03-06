@@ -379,6 +379,7 @@ overrides:
   '@codemirror/language': 6.12.1
   '@codemirror/state': 6.5.3
   '@codemirror/view': 6.39.9
+  '@lezer/common': 1.5.1
   '@types/eslint': '-'
 
 patchedDependencies:
@@ -2899,9 +2900,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
-
-  '@lezer/common@1.5.0':
-    resolution: {integrity: sha512-PNGcolp9hr4PJdXR4ix7XtixDrClScvtSCYW3rQG106oVMOOI+jFb+0+J3mbeL/53g1Zd6s0kJzaw6Ri68GmAA==}
 
   '@lezer/common@1.5.1':
     resolution: {integrity: sha512-6YRVG9vBkaY7p1IVxL4s44n5nUnaNnGM2/AckNgYOnxTG2kWh1vR8BMxPseWPjRNpb5VtXnMpeYAEAADoRV1Iw==}
@@ -12153,7 +12151,7 @@ snapshots:
       '@codemirror/autocomplete': 6.20.0
       '@codemirror/language': 6.12.1
       '@codemirror/state': 6.5.3
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/css': 1.3.0
 
   '@codemirror/lang-html@6.4.11':
@@ -12164,7 +12162,7 @@ snapshots:
       '@codemirror/language': 6.12.1
       '@codemirror/state': 6.5.3
       '@codemirror/view': 6.39.9
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/css': 1.3.0
       '@lezer/html': 1.3.13
 
@@ -12175,7 +12173,7 @@ snapshots:
       '@codemirror/lint': 6.9.2
       '@codemirror/state': 6.5.3
       '@codemirror/view': 6.39.9
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/javascript': 1.5.4
 
   '@codemirror/lang-json@6.0.2':
@@ -12189,7 +12187,7 @@ snapshots:
       '@codemirror/language': 6.12.1
       '@codemirror/state': 6.5.3
       '@codemirror/view': 6.39.9
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/xml': 1.0.6
 
   '@codemirror/language@6.12.1':
@@ -13060,50 +13058,48 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@lezer/common@1.5.0': {}
-
   '@lezer/common@1.5.1': {}
 
   '@lezer/css@1.3.0':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.7
 
   '@lezer/generator@1.8.0':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/lr': 1.4.7
 
   '@lezer/highlight@1.2.3':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
 
   '@lezer/html@1.3.13':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.7
 
   '@lezer/javascript@1.5.4':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.7
 
   '@lezer/json@1.0.3':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.7
 
   '@lezer/lr@1.4.7':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
 
   '@lezer/xml@1.0.6':
     dependencies:
-      '@lezer/common': 1.5.0
+      '@lezer/common': 1.5.1
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.7
 
