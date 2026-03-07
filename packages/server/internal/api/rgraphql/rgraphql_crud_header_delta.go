@@ -263,7 +263,7 @@ func (s *GraphQLServiceRPC) GraphQLHeaderDeltaUpdate(ctx context.Context, req *c
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		err = s.headerService.TX(mut.TX()).Update(ctx, &existingDelta)
+		err = s.headerService.TX(mut.TX()).UpdateDelta(ctx, &existingDelta)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

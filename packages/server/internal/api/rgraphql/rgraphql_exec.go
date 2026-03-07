@@ -534,10 +534,14 @@ func (s *GraphQLServiceRPC) GraphQLDuplicate(ctx context.Context, req *connect.R
 		return nil, err
 	}
 
-	// Read headers outside TX
+	// Read sub-entities outside TX (SQLite deadlock prevention)
 	headers, err := s.headerService.GetByGraphQLID(ctx, gqlID)
 	if err != nil {
 		headers = []mgraphql.GraphQLHeader{}
+	}
+	asserts, err := s.graphqlAssertService.GetByGraphQLID(ctx, gqlID)
+	if err != nil {
+		asserts = []mgraphql.GraphQLAssert{}
 	}
 
 	newGQLID := idwrap.NewNow()
@@ -550,6 +554,7 @@ func (s *GraphQLServiceRPC) GraphQLDuplicate(ctx context.Context, req *connect.R
 
 	txGraphqlService := s.graphqlService.TX(tx)
 	txHeaderService := s.headerService.TX(tx)
+	txAssertService := s.graphqlAssertService.TX(tx)
 
 	newEntry := &mgraphql.GraphQL{
 		ID:          newGQLID,
@@ -577,6 +582,20 @@ func (s *GraphQLServiceRPC) GraphQLDuplicate(ctx context.Context, req *connect.R
 			DisplayOrder: h.DisplayOrder,
 		}
 		if err := txHeaderService.Create(ctx, newHeader); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	for _, a := range asserts {
+		newAssert := &mgraphql.GraphQLAssert{
+			ID:           idwrap.NewNow(),
+			GraphQLID:    newGQLID,
+			Value:        a.Value,
+			Enabled:      a.Enabled,
+			Description:  a.Description,
+			DisplayOrder: a.DisplayOrder,
+		}
+		if err := txAssertService.Create(ctx, newAssert); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}

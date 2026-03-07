@@ -309,6 +309,7 @@ type FlowServiceV2Services struct {
 	GraphQLResponse sgraphql.GraphQLResponseService
 	GraphQL         *sgraphql.GraphQLService
 	GraphQLHeader   *sgraphql.GraphQLHeaderService
+	GraphQLAssert   *sgraphql.GraphQLAssertService
 	File            *sfile.FileService
 	Importer      WorkspaceImporter
 	Credential    scredential.CredentialService
@@ -466,6 +467,7 @@ type FlowServiceV2RPC struct {
 	wsHeaderService *swebsocket.WebSocketHeaderService
 	gqls          *sgraphql.GraphQLService
 	gqlhs         *sgraphql.GraphQLHeaderService
+	gqlas         *sgraphql.GraphQLAssertService
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
@@ -592,6 +594,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		wsHeaderService:          deps.Services.WebSocketHeader,
 		gqls:                     deps.Services.GraphQL,
 		gqlhs:                    deps.Services.GraphQLHeader,
+		gqlas:                    deps.Services.GraphQLAssert,
 		nes:                      deps.Services.NodeExecution,
 		fvs:                      deps.Services.FlowVariable,
 		envs:                     deps.Services.Env,

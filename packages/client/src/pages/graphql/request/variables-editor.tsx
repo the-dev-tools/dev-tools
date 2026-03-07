@@ -7,7 +7,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
-import { useDeltaState } from '~/features/delta';
+import { DeltaResetButton, useDeltaState } from '~/features/delta';
 
 export interface GraphQLVariablesEditorProps {
   deltaGraphqlId?: Uint8Array | undefined;
@@ -36,16 +36,24 @@ export const GraphQLVariablesEditor = ({
   const extensions = useMemo(() => [json()], []);
 
   return (
-    <CodeMirror
-      className={tw`h-full`}
-      extensions={extensions}
-      height='100%'
-      indentWithTab={false}
-      onChange={(_) => void setValue(_)}
-      placeholder='{"key": "value"}'
-      readOnly={isReadOnly}
-      theme={theme}
-      value={value ?? ''}
-    />
+    <div className={tw`flex h-full flex-col`}>
+      {!isReadOnly && (
+        <div className={tw`flex items-center justify-end gap-2 pb-2`}>
+          <DeltaResetButton {...deltaOptions} />
+        </div>
+      )}
+
+      <CodeMirror
+        className={tw`flex-1`}
+        extensions={extensions}
+        height='100%'
+        indentWithTab={false}
+        onChange={(_) => void setValue(_)}
+        placeholder='{"key": "value"}'
+        readOnly={isReadOnly}
+        theme={theme}
+        value={value ?? ''}
+      />
+    </div>
   );
 };

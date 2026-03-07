@@ -19,7 +19,8 @@ const (
 	ContentTypeFlow      ContentType = 3 // flow
 	ContentTypeCredential ContentType = 4 // credential
 	ContentTypeGraphQL    ContentType = 5 // graphql
-	ContentTypeWebSocket ContentType = 6 // websocket
+	ContentTypeWebSocket      ContentType = 6 // websocket
+	ContentTypeGraphQLDelta   ContentType = 7 // graphql delta (draft/overlay)
 )
 
 // String returns the string representation of ContentType
@@ -39,6 +40,8 @@ func (ct ContentType) String() string {
 		return "graphql"
 	case ContentTypeWebSocket:
 		return "websocket"
+	case ContentTypeGraphQLDelta:
+		return "graphql_delta"
 	default:
 		return "unknown"
 	}
@@ -103,6 +106,11 @@ func (f File) IsWebSocket() bool {
 	return f.ContentType == ContentTypeWebSocket
 }
 
+// IsGraphQLDelta returns true if the file contains a GraphQL delta request
+func (f File) IsGraphQLDelta() bool {
+	return f.ContentType == ContentTypeGraphQLDelta
+}
+
 // IsRoot returns true if the file has no parent folder
 func (f File) IsRoot() bool {
 	return f.ParentID == nil
@@ -150,6 +158,8 @@ func ContentTypeFromString(s string) ContentType {
 		return ContentTypeGraphQL
 	case "websocket":
 		return ContentTypeWebSocket
+	case "graphql_delta":
+		return ContentTypeGraphQLDelta
 	default:
 		return ContentTypeUnknown
 	}
@@ -157,7 +167,7 @@ func ContentTypeFromString(s string) ContentType {
 
 // IsValidContentType checks if the content type is valid
 func IsValidContentType(kind ContentType) bool {
-	return kind == ContentTypeFolder || kind == ContentTypeFlow || kind == ContentTypeHTTP || kind == ContentTypeHTTPDelta || kind == ContentTypeCredential || kind == ContentTypeGraphQL || kind == ContentTypeWebSocket
+	return kind == ContentTypeFolder || kind == ContentTypeFlow || kind == ContentTypeHTTP || kind == ContentTypeHTTPDelta || kind == ContentTypeCredential || kind == ContentTypeGraphQL || kind == ContentTypeGraphQLDelta || kind == ContentTypeWebSocket
 }
 
 // IDEquals checks if two IDWrap values are equal

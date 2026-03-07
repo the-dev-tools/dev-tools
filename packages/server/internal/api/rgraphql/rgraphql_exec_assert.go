@@ -260,52 +260,27 @@ func (s *GraphQLServiceRPC) createAssertionEvalContext(resp GraphQLResponseData)
 
 	// Convert headers to map
 	headers := make(map[string]string)
-	headersLower := make(map[string]string)
 	contentType := ""
 
 	for key, value := range resp.Headers {
-		lowerKey := strings.ToLower(key)
 		headers[key] = value
-		headersLower[lowerKey] = value
 
-		if lowerKey == "content-type" {
+		if strings.EqualFold(key, "content-type") {
 			contentType = value
-		}
-	}
-
-	// Extract GraphQL-specific fields from response
-	var data any
-	var errors any
-	if bodyMap != nil {
-		if d, ok := bodyMap["data"]; ok {
-			data = d
-		}
-		if e, ok := bodyMap["errors"]; ok {
-			errors = e
 		}
 	}
 
 	// Extract JSON path helpers (for full body navigation)
 	jsonPathHelpers := s.createJSONPathHelpers(bodyMap)
 
-	// Extract JSON path helpers for data field specifically
-	var dataMap map[string]any
-	if data != nil {
-		if dm, ok := data.(map[string]any); ok {
-			dataMap = dm
-		}
-	}
-	dataPathHelpers := s.createJSONPathHelpers(dataMap)
-
 	// Create comprehensive evaluation context
+	// Users access GraphQL data via response.body.data or body.data (consistent with HTTP)
 	context := map[string]any{
 		// Main response object
 		"response": map[string]any{
 			"status":  resp.StatusCode,
 			"body":    body,
 			"headers": headers,
-			"data":    data,
-			"errors":  errors,
 		},
 
 		// Direct access to commonly used fields
@@ -315,23 +290,15 @@ func (s *GraphQLServiceRPC) createAssertionEvalContext(resp GraphQLResponseData)
 		"headers":      headers,
 		"content_type": contentType,
 
-		// GraphQL-specific fields (top-level for convenience)
-		"data":   data,
-		"errors": errors,
-
 		// Convenience variables
 		"success":      resp.StatusCode >= 200 && resp.StatusCode < 300,
 		"client_error": resp.StatusCode >= 400 && resp.StatusCode < 500,
 		"server_error": resp.StatusCode >= 500 && resp.StatusCode < 600,
 		"is_json":      strings.HasPrefix(contentType, "application/json"),
 		"has_body":     len(resp.Body) > 0,
-		"has_data":     data != nil,
-		"has_errors":   errors != nil,
 
 		// JSON path helpers (for full body)
 		"json": jsonPathHelpers,
-		// JSON path helpers specifically for data field
-		"dataJson": dataPathHelpers,
 	}
 
 	return context

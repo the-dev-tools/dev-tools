@@ -273,6 +273,16 @@ func (s *GraphQLServiceRPC) GraphQLAssertUpdate(ctx context.Context, req *connec
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		mut.Track(mutation.Event{
+			Entity:      mutation.EntityGraphQLAssert,
+			Op:          mutation.OpUpdate,
+			ID:          assert.ID,
+			ParentID:    assert.GraphQLID,
+			WorkspaceID: data.workspaceID,
+			Payload:     assert,
+			Patch:       assertPatch,
+		})
 	}
 
 	if err := mut.Commit(ctx); err != nil { // Auto-publishes events!

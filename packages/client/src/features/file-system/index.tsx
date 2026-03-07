@@ -29,7 +29,10 @@ import {
   FolderSchema,
 } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import { FlowSchema, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
-import { GraphQLSchema as GraphQLItemSchema } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
+import {
+  GraphQLDeltaSchema,
+  GraphQLSchema as GraphQLItemSchema,
+} from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
 import { HttpDeltaSchema, HttpMethod, HttpSchema, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { WebSocketSchema as WebSocketItemSchema } from '@the-dev-tools/spec/buf/api/web_socket/v1/web_socket_pb';
 import {
@@ -40,7 +43,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/credential';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
+import { GraphQLCollectionSchema, GraphQLDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { WebSocketCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/web_socket';
 import { Button } from '@the-dev-tools/ui/button';
@@ -290,7 +293,9 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
       if (dropPosition !== 'on') return false;
 
       const sourceCanMove =
-        !sourceKinds.has(`kind_${FileKind.UNSPECIFIED}`) && !sourceKinds.has(`kind_${FileKind.HTTP_DELTA}`);
+        !sourceKinds.has(`kind_${FileKind.UNSPECIFIED}`) &&
+        !sourceKinds.has(`kind_${FileKind.HTTP_DELTA}`) &&
+        !sourceKinds.has(`kind_${FileKind.GRAPH_Q_L_DELTA}`);
       const targetCanAccept = fileCollection.get(key.toString())?.kind === FileKind.FOLDER;
 
       return sourceCanMove && targetCanAccept;
@@ -365,6 +370,7 @@ const FileItem = ({ id }: FileItemProps) => {
     Match.when(FileKind.HTTP_DELTA, () => <HttpDeltaFile id={id} />),
     Match.when(FileKind.FLOW, () => <FlowFile id={id} />),
     Match.when(FileKind.GRAPH_Q_L, () => <GraphQLFile id={id} />),
+    Match.when(FileKind.GRAPH_Q_L_DELTA, () => <GraphQLDeltaFile id={id} />),
     Match.when(FileKind.CREDENTIAL, () => <CredentialFile id={id} />),
     Match.when(FileKind.WEB_SOCKET, () => <WebSocketFile id={id} />),
     Match.orElse(() => null),
@@ -919,8 +925,9 @@ const FlowFile = ({ id }: FileItemProps) => {
 };
 
 const GraphQLFile = ({ id }: FileItemProps) => {
-  const router = useRouter();
   const matchRoute = useMatchRoute();
+  const router = useRouter();
+  const navigate = useNavigate();
 
   const { theme } = useTheme();
 
@@ -941,6 +948,17 @@ const GraphQLFile = ({ id }: FileItemProps) => {
           .findOne(),
       [graphqlCollection, graphqlId],
     ).data ?? create(GraphQLItemSchema);
+
+  const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
+
+  const { data: files } = useLiveQuery(
+    (_) =>
+      _.from({ file: fileCollection })
+        .where((_) => eq(_.file.parentId, graphqlId))
+        .orderBy((_) => _.file.order)
+        .select((_) => pick(_.file, 'fileId', 'order')),
+    [fileCollection, graphqlId],
+  );
 
   const modal = useProgrammaticModal();
 
@@ -991,6 +1009,31 @@ const GraphQLFile = ({ id }: FileItemProps) => {
           </Button>
 
           <Menu {...menuProps}>
+            <MenuItem
+              onAction={async () => {
+                const deltaGraphqlId = Ulid.generate().bytes;
+                deltaCollection.utils.insert({ deltaGraphqlId, graphqlId });
+                fileCollection.utils.insert({
+                  fileId: deltaGraphqlId,
+                  kind: FileKind.GRAPH_Q_L_DELTA,
+                  order: await getNextOrder(fileCollection),
+                  parentId: graphqlId,
+                  workspaceId,
+                });
+                if (toNavigate)
+                  await navigate({
+                    from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+                    params: {
+                      deltaGraphqlIdCan: Ulid.construct(deltaGraphqlId).toCanonical(),
+                      graphqlIdCan: Ulid.construct(graphqlId).toCanonical(),
+                    },
+                    to: router.routesById[routes.dashboard.workspace.graphql.delta.id].fullPath,
+                  });
+              }}
+            >
+              New delta
+            </MenuItem>
+
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <SubmenuTrigger>
@@ -1061,8 +1104,175 @@ const GraphQLFile = ({ id }: FileItemProps) => {
     children: content,
     className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
     id,
+    item: (_) => <FileItem id={fileCollection.utils.getKey(_)} />,
+    items: files,
     onContextMenu,
     textValue: name,
+  } satisfies TreeItemProps<(typeof files)[number]>;
+
+  return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
+};
+
+const GraphQLDeltaFile = ({ id }: FileItemProps) => {
+  const router = useRouter();
+  const matchRoute = useMatchRoute();
+
+  const { theme } = useTheme();
+
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { fileId: deltaGraphqlId } = useMemo(
+    () => fileCollection.utils.parseKeyUnsafe(id),
+    [fileCollection.utils, id],
+  );
+
+  const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
+
+  const { graphqlId } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: deltaCollection })
+          .where((_) => eq(_.item.deltaGraphqlId, deltaGraphqlId))
+          .select((_) => pick(_.item, 'graphqlId'))
+          .findOne(),
+      [deltaCollection, deltaGraphqlId],
+    ).data ?? create(GraphQLDeltaSchema);
+
+  const deltaOptions = {
+    deltaId: deltaGraphqlId,
+    deltaSchema: GraphQLDeltaCollectionSchema,
+    originId: graphqlId,
+    originSchema: GraphQLCollectionSchema,
+  } as const;
+
+  const [name, setName] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
+
+  const modal = useProgrammaticModal();
+
+  const exportMutation = useConnectMutation(ExportService.method.export);
+  const exportCurlGraphQLMutation = useConnectMutation(ExportService.method.exportCurlGraphQL);
+
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
+
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => {
+      if (_ === name) return;
+      setName(_);
+    },
+    value: name ?? '',
+  });
+
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const route = {
+    from: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+    params: {
+      deltaGraphqlIdCan: Ulid.construct(deltaGraphqlId).toCanonical(),
+      graphqlIdCan: Ulid.construct(graphqlId).toCanonical(),
+    },
+    to: router.routesById[routes.dashboard.workspace.graphql.delta.id].fullPath,
+  } satisfies ToOptions;
+
+  const content = (
+    <>
+      {modal.children && <Modal {...modal} size='sm' />}
+
+      <span className={tw`rounded bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
+
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
+        {name}
+      </Text>
+
+      {isEditing &&
+        escapeRender(
+          <TextInputField
+            aria-label='GraphQL request name'
+            className={tw`w-full`}
+            inputClassName={tw`-my-1 py-1`}
+            {...textFieldProps}
+          />,
+        )}
+
+      {showControls && (
+        <MenuTrigger {...menuTriggerProps}>
+          <Button className={tw`p-0.5`} variant='ghost'>
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
+          </Button>
+
+          <Menu {...menuProps}>
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <SubmenuTrigger>
+              <MenuItem>Export</MenuItem>
+
+              <Menu>
+                <MenuItem
+                  onAction={async () => {
+                    const { data, name } = await exportMutation.mutateAsync({
+                      fileIds: [deltaGraphqlId],
+                      workspaceId,
+                    });
+                    saveFile({ blobParts: [data], name });
+                  }}
+                >
+                  YAML (DevTools)
+                </MenuItem>
+
+                <MenuItem
+                  onAction={async () => {
+                    const { data } = await exportCurlGraphQLMutation.mutateAsync({
+                      graphqlIds: [deltaGraphqlId],
+                      workspaceId,
+                    });
+                    modal.onOpenChange(
+                      true,
+                      <Dialog className={tw`flex h-full flex-col gap-4 p-6`}>
+                        {({ close }) => (
+                          <>
+                            <div className={tw`flex items-center justify-between`}>
+                              <Heading
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
+                                slot='title'
+                              >
+                                cURL export
+                              </Heading>
+
+                              <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
+                                <FiX className={tw`size-5 text-on-neutral-low`} />
+                              </Button>
+                            </div>
+
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly theme={theme} value={data} />
+                          </>
+                        )}
+                      </Dialog>,
+                    );
+                  }}
+                >
+                  cURL
+                </MenuItem>
+              </Menu>
+            </SubmenuTrigger>
+
+            <MenuItem onAction={() => void fileCollection.utils.delete({ fileId: deltaGraphqlId })} variant='danger'>
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      )}
+    </>
+  );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-neutral` : '',
+    id,
+    onContextMenu,
+    textValue: name ?? '',
   } satisfies TreeItemProps<object>;
 
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;

@@ -14,4 +14,13 @@ export const Route = createFileRoute('/(dashboard)/(workspace)/workspace/$worksp
       node: <HttpTab httpId={httpId} />,
     });
   },
+  onStay: async (match) => {
+    const { httpId } = match.context;
+
+    await openTab({
+      id: httpTabId({ httpId }),
+      match,
+      node: <HttpTab httpId={httpId} />,
+    });
+  },
 });

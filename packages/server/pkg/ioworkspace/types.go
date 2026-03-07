@@ -81,6 +81,7 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"http_asserts":         len(wb.HTTPAsserts),
 		"graphql_requests":     len(wb.GraphQLRequests),
 		"graphql_headers":      len(wb.GraphQLHeaders),
+		"graphql_asserts":      len(wb.GraphQLAsserts),
 		"websockets":           len(wb.WebSockets),
 		"websocket_headers":    len(wb.WebSocketHeaders),
 		"files":                len(wb.Files),

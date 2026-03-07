@@ -351,6 +351,12 @@ func ToAPIFileKind(kind mfile.ContentType) filev1.FileKind {
 		return filev1.FileKind_FILE_KIND_FLOW
 	case mfile.ContentTypeCredential:
 		return filev1.FileKind_FILE_KIND_CREDENTIAL
+	case mfile.ContentTypeGraphQL:
+		return filev1.FileKind_FILE_KIND_GRAPH_Q_L
+	case mfile.ContentTypeGraphQLDelta:
+		return filev1.FileKind_FILE_KIND_GRAPH_Q_L_DELTA
+	case mfile.ContentTypeWebSocket:
+		return filev1.FileKind_FILE_KIND_WEB_SOCKET
 	default:
 		return filev1.FileKind_FILE_KIND_UNSPECIFIED
 	}

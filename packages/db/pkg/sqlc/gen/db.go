@@ -1065,6 +1065,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateGraphQLHeaderStmt, err = db.PrepareContext(ctx, updateGraphQLHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateGraphQLHeader: %w", err)
 	}
+	if q.updateGraphQLHeaderDeltaStmt, err = db.PrepareContext(ctx, updateGraphQLHeaderDelta); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateGraphQLHeaderDelta: %w", err)
+	}
 	if q.updateHTTPStmt, err = db.PrepareContext(ctx, updateHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTP: %w", err)
 	}
@@ -2901,6 +2904,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateGraphQLHeaderStmt: %w", cerr)
 		}
 	}
+	if q.updateGraphQLHeaderDeltaStmt != nil {
+		if cerr := q.updateGraphQLHeaderDeltaStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateGraphQLHeaderDeltaStmt: %w", cerr)
+		}
+	}
 	if q.updateHTTPStmt != nil {
 		if cerr := q.updateHTTPStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHTTPStmt: %w", cerr)
@@ -3447,6 +3455,7 @@ type Queries struct {
 	updateGraphQLAssertDeltaStmt               *sql.Stmt
 	updateGraphQLDeltaStmt                     *sql.Stmt
 	updateGraphQLHeaderStmt                    *sql.Stmt
+	updateGraphQLHeaderDeltaStmt               *sql.Stmt
 	updateHTTPStmt                             *sql.Stmt
 	updateHTTPAssertStmt                       *sql.Stmt
 	updateHTTPAssertDeltaStmt                  *sql.Stmt
@@ -3832,6 +3841,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateGraphQLAssertDeltaStmt:               q.updateGraphQLAssertDeltaStmt,
 		updateGraphQLDeltaStmt:                     q.updateGraphQLDeltaStmt,
 		updateGraphQLHeaderStmt:                    q.updateGraphQLHeaderStmt,
+		updateGraphQLHeaderDeltaStmt:               q.updateGraphQLHeaderDeltaStmt,
 		updateHTTPStmt:                             q.updateHTTPStmt,
 		updateHTTPAssertStmt:                       q.updateHTTPAssertStmt,
 		updateHTTPAssertDeltaStmt:                  q.updateHTTPAssertDeltaStmt,

@@ -1,17 +1,21 @@
 import { Array, pipe } from 'effect';
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { Button as AriaButton, DialogTrigger, MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
 import { GraphQLService } from '@the-dev-tools/spec/buf/api/graph_q_l/v1/graph_q_l_pb';
-import { GraphQLCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
+import {
+  GraphQLCollectionSchema,
+  GraphQLDeltaCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { ReferenceField } from '~/features/expression';
+import { DeltaResetButton, useDeltaState } from '~/features/delta';
 import { request, useApiCollection } from '~/shared/api';
 import { routes } from '~/shared/routes';
 import { HistoryModal } from '../history';
+import { GraphQLUrl } from './url';
 
 export interface GraphQLTopBarProps {
   deltaGraphqlId?: Uint8Array | undefined;
@@ -22,22 +26,29 @@ export const GraphQLTopBar = ({ deltaGraphqlId, graphqlId }: GraphQLTopBarProps)
   const { transport } = routes.root.useRouteContext();
 
   const collection = useApiCollection(GraphQLCollectionSchema);
+  const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
 
-  const item = collection.get(collection.utils.getKey({ graphqlId }));
+  const deltaOptions = {
+    deltaId: deltaGraphqlId,
+    deltaSchema: GraphQLDeltaCollectionSchema,
+    isDelta: deltaGraphqlId !== undefined,
+    originId: graphqlId,
+    originSchema: GraphQLCollectionSchema,
+  };
+
+  const [name, setName] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => {
-      if (_ === item?.name) return;
-      collection.utils.update({ graphqlId, name: _ });
+      if (_ === name) return;
+      setName(_);
     },
-    value: item?.name ?? '',
+    value: name ?? '',
   });
 
   const [isSending, startTransition] = useTransition();
-
-  const [urlState, setUrlState] = useState<string>();
 
   return (
     <>
@@ -59,9 +70,11 @@ export const GraphQLTopBar = ({ deltaGraphqlId, graphqlId }: GraphQLTopBarProps)
               onContextMenu={onContextMenu}
               onPress={() => void edit()}
             >
-              {item?.name}
+              {name}
             </AriaButton>
           )}
+
+          <DeltaResetButton {...deltaOptions} valueKey='name' />
         </div>
 
         <DialogTrigger>
@@ -80,7 +93,13 @@ export const GraphQLTopBar = ({ deltaGraphqlId, graphqlId }: GraphQLTopBarProps)
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => collection.utils.delete({ graphqlId })} variant='danger'>
+            <MenuItem
+              onAction={() => {
+                if (deltaGraphqlId) deltaCollection.utils.delete({ deltaGraphqlId });
+                else collection.utils.delete({ graphqlId });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -88,34 +107,24 @@ export const GraphQLTopBar = ({ deltaGraphqlId, graphqlId }: GraphQLTopBarProps)
       </div>
 
       <div className={tw`flex gap-3 p-6 pb-0`}>
-        <ReferenceField
-          aria-label='URL'
-          className={tw`flex-1 font-mono text-sm`}
-          kind='StringExpression'
-          onBlur={() => {
-            if (urlState !== undefined) {
-              collection.utils.update({ graphqlId, url: urlState });
-            }
-          }}
-          onChange={(_) => void setUrlState(_)}
-          value={urlState ?? item?.url ?? ''}
-        />
+        <GraphQLUrl deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} />
 
         <Button
           className={tw`px-6`}
           isPending={isSending}
           onPress={() =>
             void startTransition(async () => {
-              const transactions = Array.fromIterable(collection._state.transactions.values());
+              const graphqlTransactions = Array.fromIterable(collection._state.transactions.values());
+              const deltaTransactions = Array.fromIterable(deltaCollection._state.transactions.values());
 
               await pipe(
-                transactions,
+                Array.appendAll(graphqlTransactions, deltaTransactions),
                 Array.map((_) => _.isPersisted.promise),
                 (_) => Promise.all(_),
               );
 
               await request({
-                input: { graphqlId },
+                input: { graphqlId: deltaGraphqlId ?? graphqlId },
                 method: GraphQLService.method.graphQLRun,
                 transport,
               });

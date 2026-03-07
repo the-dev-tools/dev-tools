@@ -47,6 +47,17 @@ export const Route = createFileRoute(
       node: <CredentialTab credentialId={credentialId} />,
     });
   },
+  onStay: async (match) => {
+    if (!match.loaderData) return;
+
+    const { credentialId } = match.loaderData;
+
+    await openTab({
+      id: credentialTabId(credentialId),
+      match,
+      node: <CredentialTab credentialId={credentialId} />,
+    });
+  },
 });
 /* eslint-enable perfectionist/sort-objects */
 

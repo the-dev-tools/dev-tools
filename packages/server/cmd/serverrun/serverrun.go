@@ -491,6 +491,7 @@ func Run() error {
 			GraphQLResponse: graphqlResponseService,
 			GraphQL:         &graphqlService,
 			GraphQLHeader:   &graphqlHeaderService,
+			GraphQLAssert:   &graphqlAssertService,
 			File:            fileService,
 			Importer:       workspaceImporter,
 			Credential:     credentialService,

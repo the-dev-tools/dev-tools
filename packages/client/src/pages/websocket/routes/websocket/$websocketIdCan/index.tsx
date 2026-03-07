@@ -16,4 +16,13 @@ export const Route = createFileRoute(
       node: <WebSocketTab websocketId={websocketId} />,
     });
   },
+  onStay: async (match) => {
+    const { websocketId } = match.context;
+
+    await openTab({
+      id: websocketTabId({ websocketId }),
+      match,
+      node: <WebSocketTab websocketId={websocketId} />,
+    });
+  },
 });

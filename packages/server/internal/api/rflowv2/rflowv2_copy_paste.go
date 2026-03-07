@@ -242,10 +242,15 @@ func (s *FlowServiceV2RPC) populateHTTPBundle(ctx context.Context, httpID idwrap
 	}
 }
 
-// populateGraphQLBundle fetches headers for a GraphQL request and adds them to the bundle.
+// populateGraphQLBundle fetches headers and assertions for a GraphQL request and adds them to the bundle.
 func (s *FlowServiceV2RPC) populateGraphQLBundle(ctx context.Context, graphqlID idwrap.IDWrap, bundle *ioworkspace.WorkspaceBundle) {
 	if headers, err := s.gqlhs.GetByGraphQLID(ctx, graphqlID); err == nil {
 		bundle.GraphQLHeaders = append(bundle.GraphQLHeaders, headers...)
+	}
+	if s.gqlas != nil {
+		if asserts, err := s.gqlas.GetByGraphQLID(ctx, graphqlID); err == nil {
+			bundle.GraphQLAsserts = append(bundle.GraphQLAsserts, asserts...)
+		}
 	}
 }
 
@@ -495,6 +500,9 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		for i := range parsed.GraphQLHeaders {
 			parsed.GraphQLHeaders[i].Value = remapVarRefs(parsed.GraphQLHeaders[i].Value, nameMapping)
 		}
+		for i := range parsed.GraphQLAsserts {
+			parsed.GraphQLAsserts[i].Value = remapVarRefs(parsed.GraphQLAsserts[i].Value, nameMapping)
+		}
 		for i := range parsed.FlowWsSendNodes {
 			parsed.FlowWsSendNodes[i].Message = remapVarRefs(parsed.FlowWsSendNodes[i].Message, nameMapping)
 			if newName, ok := nameMapping[parsed.FlowWsSendNodes[i].WsConnectionNodeName]; ok {
@@ -684,6 +692,21 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 	}
 
+	// Remap GraphQL assertions and filter to only those needing creation
+	var gqlAssertsToCreate []mgraphql.GraphQLAssert
+	for i := range parsed.GraphQLAsserts {
+		a := &parsed.GraphQLAsserts[i]
+		if newID, ok := gqlIDMapping[a.GraphQLID]; ok {
+			a.GraphQLID = newID
+			a.ID = idwrap.NewNow()
+			a.IsDelta = false
+			a.ParentGraphQLAssertID = nil
+			if gqlIDsToCreate[newID] {
+				gqlAssertsToCreate = append(gqlAssertsToCreate, *a)
+			}
+		}
+	}
+
 	// Handle WebSocket entities — create copies
 	wsIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
 	for i := range parsed.WebSockets {
@@ -791,6 +814,14 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		for i := range gqlHeadersToCreate {
 			if err := gqlHeaderWriter.Create(ctx, &gqlHeadersToCreate[i]); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create GraphQL header: %w", err))
+			}
+		}
+	}
+	if s.gqlas != nil && len(gqlAssertsToCreate) > 0 {
+		gqlAssertWriter := s.gqlas.TX(tx)
+		for i := range gqlAssertsToCreate {
+			if err := gqlAssertWriter.Create(ctx, &gqlAssertsToCreate[i]); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create GraphQL assert: %w", err))
 			}
 		}
 	}

@@ -23,6 +23,17 @@ export const Route = createFileRoute('/(dashboard)/(workspace)/workspace/$worksp
       node: <FlowTab flowId={flowId} />,
     });
   },
+  onStay: async (match) => {
+    if (!match.loaderData) return;
+
+    const { flowId } = match.loaderData;
+
+    await openTab({
+      id: flowTabId(flowId),
+      match,
+      node: <FlowTab flowId={flowId} />,
+    });
+  },
 });
 /* eslint-enable perfectionist/sort-objects */
 
