@@ -14,8 +14,10 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	exportv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/export/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/export/v1/exportv1connect"
@@ -158,14 +160,19 @@ type ExportV2RPC struct {
 }
 
 type ExportV2Deps struct {
-	DB        *sql.DB
-	Queries   *gen.Queries
-	Workspace sworkspace.WorkspaceService
-	User      suser.UserService
-	Http      *shttp.HTTPService
-	Flow      *sflow.FlowService
-	File      *sfile.FileService
-	Logger    *slog.Logger
+	DB                     *sql.DB
+	Queries                *gen.Queries
+	Workspace              sworkspace.WorkspaceService
+	User                   suser.UserService
+	Http                   *shttp.HTTPService
+	Flow                   *sflow.FlowService
+	File                   *sfile.FileService
+	GraphQL                *sgraphql.GraphQLService
+	GraphQLHeader          *sgraphql.GraphQLHeaderService
+	GraphQLAssert          *sgraphql.GraphQLAssertService
+	WebSocket              *swebsocket.WebSocketService
+	WebSocketHeader        *swebsocket.WebSocketHeaderService
+	Logger                 *slog.Logger
 }
 
 func (d *ExportV2Deps) Validate() error {
@@ -203,7 +210,9 @@ func NewExportV2RPC(deps ExportV2Deps) *ExportV2RPC {
 	storage := NewStorage(&deps.Workspace, deps.Http, deps.Flow, deps.File)
 
 	// Create simple exporter with IOWorkspaceService
-	exporter := NewExporter(deps.Http, deps.Flow, deps.File, ioWorkspaceService)
+	exporter := NewExporter(deps.Http, deps.Flow, deps.File, ioWorkspaceService,
+		deps.GraphQL, deps.GraphQLHeader, deps.GraphQLAssert,
+		deps.WebSocket, deps.WebSocketHeader)
 
 	// Create simple validator
 	validator := NewValidator(&deps.User)
@@ -289,6 +298,49 @@ func (h *ExportV2RPC) ExportCurl(ctx context.Context, req *connect.Request[expor
 		"curl_commands_length", len(protoResp.Data))
 
 	return connect.NewResponse(protoResp), nil
+}
+
+// ExportCurlGraphQL implements the ExportCurlGraphQL RPC method
+func (h *ExportV2RPC) ExportCurlGraphQL(ctx context.Context, req *connect.Request[exportv1.ExportCurlGraphQLRequest]) (*connect.Response[exportv1.ExportCurlGraphQLResponse], error) {
+	h.logger.Info("Received ExportCurlGraphQL request",
+		"workspace_id", req.Msg.WorkspaceId,
+		"graphql_ids_count", len(req.Msg.GraphqlIds))
+
+	// Parse workspace ID
+	workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, NewValidationError("workspaceId", err.Error()))
+	}
+
+	// Validate workspace access
+	if err := h.service.validator.ValidateWorkspaceAccess(ctx, workspaceID); err != nil {
+		return nil, handleServiceError(err)
+	}
+
+	// Parse GraphQL IDs
+	graphqlIDs := make([]idwrap.IDWrap, 0, len(req.Msg.GraphqlIds))
+	for _, idBytes := range req.Msg.GraphqlIds {
+		gqlID, err := idwrap.NewFromBytes(idBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, NewValidationError("graphqlIds", err.Error()))
+		}
+		graphqlIDs = append(graphqlIDs, gqlID)
+	}
+
+	// Get the exporter
+	simpleExporter, ok := h.service.exporter.(*SimpleExporter)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("exporter does not support GraphQL cURL export"))
+	}
+
+	curlData, err := simpleExporter.ExportGraphQLToCurl(ctx, graphqlIDs)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&exportv1.ExportCurlGraphQLResponse{
+		Data: curlData,
+	}), nil
 }
 
 // Private conversion functions

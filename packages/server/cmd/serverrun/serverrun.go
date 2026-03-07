@@ -34,6 +34,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rimportv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rreference"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/migrations"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/credvault"
@@ -52,6 +53,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/suser"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/streamregistry"
 	envapiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/environment/v1"
@@ -193,6 +195,13 @@ func Run() error {
 	flowNodeAiProviderService := sflow.NewNodeAiProviderService(queries)
 	flowNodeMemoryService := sflow.NewNodeMemoryService(queries)
 	flowNodeGraphQLService := sflow.NewNodeGraphQLService(queries)
+	flowNodeWsConnectionService := sflow.NewNodeWsConnectionService(queries)
+	flowNodeWsSendService := sflow.NewNodeWsSendService(queries)
+	flowNodeWaitService := sflow.NewNodeWaitService(queries)
+
+	// WebSocket
+	websocketService := swebsocket.New(queries, logger)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(queries)
 
 	// GraphQL
 	graphqlService := sgraphql.New(queries, logger)
@@ -466,8 +475,13 @@ func Run() error {
 			NodeAI:         &flowNodeAIService,
 			NodeAiProvider: &flowNodeAiProviderService,
 			NodeMemory:      &flowNodeMemoryService,
-			NodeGraphQL:     &flowNodeGraphQLService,
-			NodeExecution:   &nodeExecutionService,
+			NodeGraphQL:      &flowNodeGraphQLService,
+			NodeWsConnection: &flowNodeWsConnectionService,
+			NodeWsSend:       &flowNodeWsSendService,
+			NodeWait:         &flowNodeWaitService,
+			WebSocket:        &websocketService,
+			WebSocketHeader:  &websocketHeaderService,
+			NodeExecution:    &nodeExecutionService,
 			FlowVariable:   &flowVariableService,
 			Env:            &environmentService,
 			Var:            &variableService,
@@ -477,6 +491,7 @@ func Run() error {
 			GraphQLResponse: graphqlResponseService,
 			GraphQL:         &graphqlService,
 			GraphQLHeader:   &graphqlHeaderService,
+			GraphQLAssert:   &graphqlAssertService,
 			File:            fileService,
 			Importer:       workspaceImporter,
 			Credential:     credentialService,
@@ -497,6 +512,7 @@ func Run() error {
 			Memory:                streamers.Memory,
 			NodeGraphQL:           streamers.NodeGraphQL,
 			GraphQL:               streamers.GraphQL,
+			WebSocket:             streamers.WebSocket,
 			Execution:             streamers.Execution,
 			HttpResponse:       streamers.HttpResponse,
 			HttpResponseHeader: streamers.HttpResponseHeader,
@@ -519,14 +535,19 @@ func Run() error {
 
 	// ExportV2 Service
 	exportV2Srv := rexportv2.NewExportV2RPC(rexportv2.ExportV2Deps{
-		DB:        currentDB,
-		Queries:   queries,
-		Workspace: workspaceService,
-		User:      userService,
-		Http:      &httpService,
-		Flow:      &flowService,
-		File:      fileService,
-		Logger:    logger,
+		DB:              currentDB,
+		Queries:         queries,
+		Workspace:       workspaceService,
+		User:            userService,
+		Http:            &httpService,
+		Flow:            &flowService,
+		File:            fileService,
+		GraphQL:         &graphqlService,
+		GraphQLHeader:   &graphqlHeaderService,
+		GraphQLAssert:   &graphqlAssertService,
+		WebSocket:       &websocketService,
+		WebSocketHeader: &websocketHeaderService,
+		Logger:          logger,
 	})
 	newServiceManager.addService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
 
@@ -617,6 +638,18 @@ func Run() error {
 		},
 	})
 	newServiceManager.addService(rreference.CreateService(refServiceRPC, optionsAll))
+
+	// WebSocket Service
+	wsSrv := rwebsocket.New(rwebsocket.Deps{
+		DB:        currentDB,
+		WS:        websocketService,
+		WSH:       websocketHeaderService,
+		US:        userService,
+		Workspace: workspaceService,
+		WSStream:  streamers.WebSocket,
+		WSHStream: streamers.WebSocketHeader,
+	})
+	newServiceManager.addService(rwebsocket.CreateService(wsSrv, optionsAll))
 
 	// Start services
 	go func() {
@@ -774,6 +807,8 @@ type streamers struct {
 	CredentialOpenAi    eventstream.SyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent]
 	CredentialGemini    eventstream.SyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent]
 	CredentialAnthropic eventstream.SyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent]
+	WebSocket           eventstream.SyncStreamer[rwebsocket.WebSocketTopic, rwebsocket.WebSocketEvent]
+	WebSocketHeader     eventstream.SyncStreamer[rwebsocket.WebSocketHeaderTopic, rwebsocket.WebSocketHeaderEvent]
 }
 
 func newStreamers() *streamers {
@@ -819,6 +854,8 @@ func newStreamers() *streamers {
 		CredentialOpenAi:    memory.NewInMemorySyncStreamer[rcredential.CredentialOpenAiTopic, rcredential.CredentialOpenAiEvent](),
 		CredentialGemini:    memory.NewInMemorySyncStreamer[rcredential.CredentialGeminiTopic, rcredential.CredentialGeminiEvent](),
 		CredentialAnthropic: memory.NewInMemorySyncStreamer[rcredential.CredentialAnthropicTopic, rcredential.CredentialAnthropicEvent](),
+		WebSocket:           memory.NewInMemorySyncStreamer[rwebsocket.WebSocketTopic, rwebsocket.WebSocketEvent](),
+		WebSocketHeader:     memory.NewInMemorySyncStreamer[rwebsocket.WebSocketHeaderTopic, rwebsocket.WebSocketHeaderEvent](),
 	}
 }
 
@@ -864,6 +901,8 @@ func (s *streamers) shutdown() {
 	s.CredentialOpenAi.Shutdown()
 	s.CredentialGemini.Shutdown()
 	s.CredentialAnthropic.Shutdown()
+	s.WebSocket.Shutdown()
+	s.WebSocketHeader.Shutdown()
 }
 
 // registerCascadeHandlers registers all handlers needed for cascade deletion events.

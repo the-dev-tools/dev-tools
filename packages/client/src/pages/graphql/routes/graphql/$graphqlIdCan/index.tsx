@@ -16,4 +16,13 @@ export const Route = createFileRoute(
       node: <GraphQLTab graphqlId={graphqlId} />,
     });
   },
+  onStay: async (match) => {
+    const { graphqlId } = match.context;
+
+    await openTab({
+      id: graphqlTabId({ graphqlId }),
+      match,
+      node: <GraphQLTab graphqlId={graphqlId} />,
+    });
+  },
 });

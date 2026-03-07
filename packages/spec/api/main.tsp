@@ -17,6 +17,7 @@ import "./private/node-js-executor.tsp";
 import "./log.tsp";
 import "./reference.tsp";
 // import "./user.tsp";
+import "./websocket.tsp";
 import "./workspace.tsp";
 
 using DevTools;

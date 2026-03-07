@@ -39,6 +39,9 @@ const (
 	EntityFlowNodeAiProvider
 	EntityFlowNodeMemory
 	EntityFlowNodeGraphQL
+	EntityFlowNodeWsConnection
+	EntityFlowNodeWsSend
+	EntityFlowNodeWait
 	EntityFlowEdge
 	EntityFlowVariable
 	EntityFlowTag

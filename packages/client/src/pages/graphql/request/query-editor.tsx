@@ -5,7 +5,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
-import { useDeltaState } from '~/features/delta';
+import { DeltaResetButton, useDeltaState } from '~/features/delta';
 
 export interface GraphQLQueryEditorProps {
   deltaGraphqlId?: Uint8Array | undefined;
@@ -28,15 +28,23 @@ export const GraphQLQueryEditor = ({ deltaGraphqlId, graphqlId, isReadOnly = fal
   const [value, setValue] = useDeltaState(deltaOptions);
 
   return (
-    <CodeMirror
-      className={tw`h-full`}
-      height='100%'
-      indentWithTab={false}
-      onChange={(_) => void setValue(_)}
-      placeholder='Enter your GraphQL query...'
-      readOnly={isReadOnly}
-      theme={theme}
-      value={value ?? ''}
-    />
+    <div className={tw`flex h-full flex-col`}>
+      {!isReadOnly && (
+        <div className={tw`flex items-center justify-end gap-2 pb-2`}>
+          <DeltaResetButton {...deltaOptions} />
+        </div>
+      )}
+
+      <CodeMirror
+        className={tw`flex-1`}
+        height='100%'
+        indentWithTab={false}
+        onChange={(_) => void setValue(_)}
+        placeholder='Enter your GraphQL query...'
+        readOnly={isReadOnly}
+        theme={theme}
+        value={value ?? ''}
+      />
+    </div>
   );
 };

@@ -21,4 +21,13 @@ export const Route = createFileRoute(
       node: <GraphQLTab deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} />,
     });
   },
+  onStay: async (match) => {
+    const { deltaGraphqlId, graphqlId } = match.context;
+
+    await openTab({
+      id: graphqlTabId({ deltaGraphqlId, graphqlId }),
+      match,
+      node: <GraphQLTab deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} />,
+    });
+  },
 });

@@ -25,7 +25,7 @@
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "catalog:",
     "prettier": "catalog:",
-    "tsx": "^4.19.0",
+    "tsx": "catalog:",
     "typescript": "catalog:"
   }
 }

@@ -563,8 +563,52 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q request schema", node.Name)); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+
+		case mflow.NODE_KIND_GRAPHQL:
+			// For GRAPHQL nodes, provide the schema structure
+			nodeVarsMap := map[string]interface{}{
+				"request": map[string]interface{}{
+					"url":       "string",
+					"query":     "string",
+					"variables": map[string]interface{}{},
+					"headers":   map[string]string{},
+				},
+				"response": map[string]interface{}{
+					"status":   200,
+					"body":     map[string]interface{}{},
+					"headers":  map[string]string{},
+					"duration": 0,
+				},
+			}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q graphql schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+		case mflow.NODE_KIND_WS_CONNECTION:
+			nodeVarsMap := map[string]interface{}{
+				"url":         "string",
+				"connected":   false,
+				"lastMessage": "string",
+			}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q ws connection schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+		case mflow.NODE_KIND_WS_SEND:
+			nodeVarsMap := map[string]interface{}{
+				"type":           "string",
+				"message":        "string",
+				"connectionNode": "string",
+			}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q ws send schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		default:
+			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
-		// Other node types (JS, CONDITION, etc.) don't have default schemas
 	}
 
 	return nodeRefs, nil
@@ -829,6 +873,40 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
 
+			case mflow.NODE_KIND_GRAPHQL:
+				// For GRAPHQL nodes, provide the schema structure
+				nodeVarsMap := map[string]interface{}{
+					"request": map[string]interface{}{
+						"url":       "string",
+						"query":     "string",
+						"variables": map[string]interface{}{},
+						"headers":   map[string]string{},
+					},
+					"response": map[string]interface{}{
+						"status":   200,
+						"body":     map[string]interface{}{},
+						"headers":  map[string]string{},
+						"duration": 0,
+					},
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_WS_CONNECTION:
+				nodeVarsMap := map[string]interface{}{
+					"url":         "string",
+					"connected":   false,
+					"lastMessage": "string",
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_WS_SEND:
+				nodeVarsMap := map[string]interface{}{
+					"type":           "string",
+					"message":        "string",
+					"connectionNode": "string",
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
 			case mflow.NODE_KIND_AI:
 				// For AI nodes, provide the output schema
 				nodeVarsMap := map[string]interface{}{
@@ -860,6 +938,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					"metrics":    map[string]interface{}{},
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+			default:
+				// Other node types don't have default schemas for completion
 			}
 		}
 
@@ -1014,6 +1094,63 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 							"duration": 0,
 						})
 					}
+
+				case mflow.NODE_KIND_GRAPHQL:
+					// GRAPHQL nodes can reference their own response and request directly (without prefix)
+					var nodeData interface{}
+					hasExecutionData := false
+
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						latestExecution := &executions[0]
+
+						if true {
+							data := latestExecution.OutputData
+							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+								decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+								if err == nil {
+									data = decompressed
+								}
+							}
+
+							var genericOutput interface{}
+							if err := json.Unmarshal(data, &genericOutput); err == nil {
+								nodeData = genericOutput
+								hasExecutionData = true
+							}
+						}
+					}
+
+					dataAdded := false
+					if hasExecutionData && nodeData != nil {
+						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+							if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
+								if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
+									for key, value := range nodeVars {
+										creator.AddWithKey(key, value)
+									}
+									dataAdded = true
+								}
+							}
+						}
+					}
+
+					if !dataAdded {
+						creator.AddWithKey("request", map[string]interface{}{
+							"url":       "string",
+							"query":     "string",
+							"variables": map[string]interface{}{},
+							"headers":   map[string]string{},
+						})
+						creator.AddWithKey("response", map[string]interface{}{
+							"status":   200,
+							"body":     map[string]interface{}{},
+							"headers":  map[string]string{},
+							"duration": 0,
+						})
+					}
+				default:
+					// Other node types don't have self-reference schemas
 				}
 			}
 		}
@@ -1297,8 +1434,43 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					},
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_GRAPHQL:
+				// For GRAPHQL nodes, provide the schema structure
+				nodeVarsMap := map[string]interface{}{
+					"request": map[string]interface{}{
+						"url":       "string",
+						"query":     "string",
+						"variables": map[string]interface{}{},
+						"headers":   map[string]string{},
+					},
+					"response": map[string]interface{}{
+						"status":   200,
+						"body":     map[string]interface{}{},
+						"headers":  map[string]string{},
+						"duration": 0,
+					},
+				}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_WS_CONNECTION:
+				nodeVarsMap := map[string]interface{}{
+					"url":         "string",
+					"connected":   false,
+					"lastMessage": "string",
+				}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_WS_SEND:
+				nodeVarsMap := map[string]interface{}{
+					"type":           "string",
+					"message":        "string",
+					"connectionNode": "string",
+				}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+			default:
+				// Other node types (JS, CONDITION, etc.) don't have default schemas
 			}
-			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
 
 		// Add self-reference for REQUEST, FOR, and FOREACH nodes so they can reference their own variables
@@ -1412,6 +1584,61 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 							"duration": 0,
 						})
 					}
+
+				case mflow.NODE_KIND_GRAPHQL:
+					// GRAPHQL nodes can reference their own response and request directly (without prefix)
+					var nodeData interface{}
+					hasExecutionData := false
+
+					executions, err := c.nodeExecutionReader.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						latestExecution := executions[0]
+
+						data := latestExecution.OutputData
+						if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+							decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+							if err == nil {
+								data = decompressed
+							}
+						}
+
+						var genericOutput interface{}
+						if err := json.Unmarshal(data, &genericOutput); err == nil {
+							nodeData = genericOutput
+							hasExecutionData = true
+						}
+					}
+
+					dataAdded := false
+					if hasExecutionData && nodeData != nil {
+						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+							if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
+								if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
+									for key, value := range nodeVars {
+										lookup.AddWithKey(key, value)
+									}
+									dataAdded = true
+								}
+							}
+						}
+					}
+
+					if !dataAdded {
+						lookup.AddWithKey("request", map[string]interface{}{
+							"url":       "string",
+							"query":     "string",
+							"variables": map[string]interface{}{},
+							"headers":   map[string]string{},
+						})
+						lookup.AddWithKey("response", map[string]interface{}{
+							"status":   200,
+							"body":     map[string]interface{}{},
+							"headers":  map[string]string{},
+							"duration": 0,
+						})
+					}
+				default:
+					// Other node types don't have self-reference schemas
 				}
 			}
 		}

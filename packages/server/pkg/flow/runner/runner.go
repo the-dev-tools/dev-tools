@@ -70,15 +70,6 @@ type FlowNodeStatus struct {
 	AuxiliaryID      *idwrap.IDWrap
 }
 
-func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mflow.NodeState, output []byte) FlowNodeStatus {
-	return FlowNodeStatus{
-		NodeID:     nodeID,
-		State:      status,
-		OutputData: output,
-		Error:      nil,
-	}
-}
-
 type FlowNodeEventTarget uint8
 
 const (

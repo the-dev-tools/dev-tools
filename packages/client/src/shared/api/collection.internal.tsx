@@ -108,7 +108,11 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
           Match.value,
           Match.when(
             { $typeName: schema.sync.insert.typeName },
-            (_: Message) => void write({ type: 'insert', value: createAlike<DescMessage>(schema.item, _) as Item }),
+            (_: Message) =>
+              void write({
+                type: collection.has(getKey(_ as Item)) ? 'update' : 'insert',
+                value: createAlike<DescMessage>(schema.item, _) as Item,
+              }),
           ),
           Match.when(
             { $typeName: schema.sync.upsert.typeName },

@@ -15,7 +15,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rlog"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
 	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -28,6 +30,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1/flowv1connect"
@@ -190,6 +193,18 @@ type nodeGraphQLWithFlow struct {
 	baseNode    *mflow.Node
 }
 
+type nodeWsConnectionWithFlow struct {
+	nodeWsConnection mflow.NodeWsConnection
+	flowID           idwrap.IDWrap
+	baseNode         *mflow.Node
+}
+
+type nodeWsSendWithFlow struct {
+	nodeWsSend mflow.NodeWsSend
+	flowID     idwrap.IDWrap
+	baseNode   *mflow.Node
+}
+
 // Shared event type strings for all entity types.
 // Using mutation.Operation.String() values for consistency.
 const (
@@ -278,8 +293,13 @@ type FlowServiceV2Services struct {
 	NodeAI        *sflow.NodeAIService
 	NodeAiProvider *sflow.NodeAiProviderService
 	NodeMemory    *sflow.NodeMemoryService
-	NodeGraphQL   *sflow.NodeGraphQLService
-	NodeExecution *sflow.NodeExecutionService
+	NodeGraphQL      *sflow.NodeGraphQLService
+	NodeWsConnection *sflow.NodeWsConnectionService
+	NodeWsSend       *sflow.NodeWsSendService
+	NodeWait         *sflow.NodeWaitService
+	WebSocket        *swebsocket.WebSocketService
+	WebSocketHeader  *swebsocket.WebSocketHeaderService
+	NodeExecution    *sflow.NodeExecutionService
 	FlowVariable  *sflow.FlowVariableService
 	Env           *senv.EnvironmentService
 	Var           *senv.VariableService
@@ -289,6 +309,7 @@ type FlowServiceV2Services struct {
 	GraphQLResponse sgraphql.GraphQLResponseService
 	GraphQL         *sgraphql.GraphQLService
 	GraphQLHeader   *sgraphql.GraphQLHeaderService
+	GraphQLAssert   *sgraphql.GraphQLAssertService
 	File            *sfile.FileService
 	Importer      WorkspaceImporter
 	Credential    scredential.CredentialService
@@ -370,6 +391,7 @@ type FlowServiceV2Streamers struct {
 	Memory             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	NodeGraphQL        eventstream.SyncStreamer[NodeGraphQLTopic, NodeGraphQLEvent]
 	GraphQL            eventstream.SyncStreamer[rgraphql.GraphQLTopic, rgraphql.GraphQLEvent]
+	WebSocket          eventstream.SyncStreamer[rwebsocket.WebSocketTopic, rwebsocket.WebSocketEvent]
 	Execution          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	Http                      eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	HttpResponse              eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
@@ -438,8 +460,14 @@ type FlowServiceV2RPC struct {
 	naps     *sflow.NodeAiProviderService
 	nmems    *sflow.NodeMemoryService
 	ngqs     *sflow.NodeGraphQLService
-	gqls     *sgraphql.GraphQLService
-	gqlhs    *sgraphql.GraphQLHeaderService
+	nwcs          *sflow.NodeWsConnectionService
+	nwss          *sflow.NodeWsSendService
+	nwaits        *sflow.NodeWaitService
+	wsService     *swebsocket.WebSocketService
+	wsHeaderService *swebsocket.WebSocketHeaderService
+	gqls          *sgraphql.GraphQLService
+	gqlhs         *sgraphql.GraphQLHeaderService
+	gqlas         *sgraphql.GraphQLAssertService
 	nes      *sflow.NodeExecutionService
 	fvs      *sflow.FlowVariableService
 	envs     *senv.EnvironmentService
@@ -466,6 +494,7 @@ type FlowServiceV2RPC struct {
 	memoryStream             eventstream.SyncStreamer[MemoryTopic, MemoryEvent]
 	nodeGraphQLStream        eventstream.SyncStreamer[NodeGraphQLTopic, NodeGraphQLEvent]
 	graphqlStream            eventstream.SyncStreamer[rgraphql.GraphQLTopic, rgraphql.GraphQLEvent]
+	wsStream                 eventstream.SyncStreamer[rwebsocket.WebSocketTopic, rwebsocket.WebSocketEvent]
 	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 	httpStream                  eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	httpResponseStream          eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
@@ -478,11 +507,11 @@ type FlowServiceV2RPC struct {
 	fileService              *sfile.FileService
 	fileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
-	// JS executor client for running JS nodes (connects to worker-js)
-	jsClient node_js_executorv1connect.NodeJsExecutorServiceClient
+	// Session factory for creating execution sessions (local or distributed)
+	sessionFactory flowexec.SessionFactory
 
-	// Shared builder for flow execution
-	builder *flowbuilder.Builder
+	// Snapshot registry for flow version snapshots
+	snapshotRegistry *flowexec.SnapshotRegistry
 
 	// Running flows map for cancellation
 	runningFlowsMu sync.Mutex
@@ -501,10 +530,41 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		deps.Services.Node, deps.Services.NodeRequest, deps.Services.NodeFor, deps.Services.NodeForEach,
 		deps.Services.NodeIf, deps.Services.NodeJs, deps.Services.NodeAI,
 		deps.Services.NodeAiProvider, deps.Services.NodeMemory, deps.Services.NodeGraphQL,
+		deps.Services.NodeWsConnection, deps.Services.NodeWsSend, deps.Services.NodeWait,
+		deps.Services.WebSocket, deps.Services.WebSocketHeader,
 		deps.Services.GraphQL, deps.Services.GraphQLHeader,
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
 		deps.Resolver, deps.GraphQLResolver, deps.Logger, llmFactory,
 	)
+
+	// Build snapshot registry for flow version snapshots
+	registry := flowexec.NewSnapshotRegistry()
+	registry.Register(&flowexec.RequestSnapshot{Service: deps.Services.NodeRequest})
+	registry.Register(&flowexec.ForSnapshot{Service: deps.Services.NodeFor})
+	registry.Register(&flowexec.ForEachSnapshot{Service: deps.Services.NodeForEach})
+	registry.Register(&flowexec.ConditionSnapshot{Service: deps.Services.NodeIf})
+	registry.Register(&flowexec.JSSnapshot{Service: deps.Services.NodeJs})
+	if deps.Services.NodeAI != nil {
+		registry.Register(&flowexec.AISnapshot{Service: deps.Services.NodeAI})
+	}
+	if deps.Services.NodeAiProvider != nil {
+		registry.Register(&flowexec.AIProviderSnapshot{Service: deps.Services.NodeAiProvider})
+	}
+	if deps.Services.NodeMemory != nil {
+		registry.Register(&flowexec.MemorySnapshot{Service: deps.Services.NodeMemory})
+	}
+	if deps.Services.NodeGraphQL != nil {
+		registry.Register(&flowexec.GraphQLSnapshot{Service: deps.Services.NodeGraphQL})
+	}
+	if deps.Services.NodeWsConnection != nil {
+		registry.Register(&flowexec.WsConnectionSnapshot{Service: deps.Services.NodeWsConnection})
+	}
+	if deps.Services.NodeWsSend != nil {
+		registry.Register(&flowexec.WsSendSnapshot{Service: deps.Services.NodeWsSend})
+	}
+	if deps.Services.NodeWait != nil {
+		registry.Register(&flowexec.WaitSnapshot{Service: deps.Services.NodeWait})
+	}
 
 	return &FlowServiceV2RPC{
 		DB:                       deps.DB,
@@ -527,8 +587,14 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		naps:                     deps.Services.NodeAiProvider,
 		nmems:                    deps.Services.NodeMemory,
 		ngqs:                     deps.Services.NodeGraphQL,
+		nwcs:                     deps.Services.NodeWsConnection,
+		nwss:                     deps.Services.NodeWsSend,
+		nwaits:                   deps.Services.NodeWait,
+		wsService:                deps.Services.WebSocket,
+		wsHeaderService:          deps.Services.WebSocketHeader,
 		gqls:                     deps.Services.GraphQL,
 		gqlhs:                    deps.Services.GraphQLHeader,
+		gqlas:                    deps.Services.GraphQLAssert,
 		nes:                      deps.Services.NodeExecution,
 		fvs:                      deps.Services.FlowVariable,
 		envs:                     deps.Services.Env,
@@ -554,6 +620,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		memoryStream:             deps.Streamers.Memory,
 		nodeGraphQLStream:        deps.Streamers.NodeGraphQL,
 		graphqlStream:            deps.Streamers.GraphQL,
+		wsStream:                 deps.Streamers.WebSocket,
 		executionStream:          deps.Streamers.Execution,
 		httpStream:                  deps.Streamers.Http,
 		httpResponseStream:          deps.Streamers.HttpResponse,
@@ -565,8 +632,11 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		logStream:                   deps.Streamers.Log,
 		fileService:              deps.Services.File,
 		fileStream:               deps.Streamers.File,
-		jsClient:                 deps.JsClient,
-		builder:                  builder,
+		sessionFactory: &flowexec.LocalSessionFactory{
+			Builder:  builder,
+			JsClient: deps.JsClient,
+		},
+		snapshotRegistry: registry,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}
 }
@@ -640,6 +710,12 @@ func (p *rflowPublisher) PublishAll(events []mutation.Event) {
 			p.publishNodeMemory(evt)
 		case mutation.EntityFlowNodeGraphQL:
 			p.publishNodeGraphQL(evt)
+		case mutation.EntityFlowNodeWsConnection:
+			p.publishNodeWsConnection(evt)
+		case mutation.EntityFlowNodeWsSend:
+			p.publishNodeWsSend(evt)
+		case mutation.EntityFlowNodeWait:
+			p.publishNodeWait(evt)
 		case mutation.EntityFlowEdge:
 			p.publishEdge(evt)
 		case mutation.EntityFlowVariable:
@@ -819,15 +895,24 @@ func (p *rflowPublisher) publishNodeHttp(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
-	// 1. Publish update to base node stream
+	// 1. Publish to base node stream
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeHttpWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeHttpWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -837,7 +922,7 @@ func (p *rflowPublisher) publishNodeHttp(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})
@@ -1080,14 +1165,23 @@ func (p *rflowPublisher) publishNodeGraphQL(evt mutation.Event) {
 
 	var node *flowv1.Node
 	var flowID idwrap.IDWrap
+	var eventType string
 
 	switch evt.Op {
-	case mutation.OpInsert, mutation.OpUpdate:
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeGraphQLWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeGraphQLWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}
 	case mutation.OpDelete:
+		eventType = nodeEventDelete
 		node = &flowv1.Node{
 			NodeId: evt.ID.Bytes(),
 			FlowId: evt.ParentID.Bytes(),
@@ -1097,7 +1191,127 @@ func (p *rflowPublisher) publishNodeGraphQL(evt mutation.Event) {
 
 	if node != nil {
 		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
-			Type:   nodeEventUpdate,
+			Type:   eventType,
+			FlowID: flowID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeWsConnection(evt mutation.Event) {
+	if p.nodeStream == nil {
+		return
+	}
+
+	var node *flowv1.Node
+	var flowID idwrap.IDWrap
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeWsConnectionWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
+		if data, ok := evt.Payload.(nodeWsConnectionWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpDelete:
+		eventType = nodeEventDelete
+		node = &flowv1.Node{
+			NodeId: evt.ID.Bytes(),
+			FlowId: evt.ParentID.Bytes(),
+		}
+		flowID = evt.ParentID
+	}
+
+	if node != nil {
+		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
+			Type:   eventType,
+			FlowID: flowID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeWsSend(evt mutation.Event) {
+	if p.nodeStream == nil {
+		return
+	}
+
+	var node *flowv1.Node
+	var flowID idwrap.IDWrap
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeWsSendWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
+		if data, ok := evt.Payload.(nodeWsSendWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpDelete:
+		eventType = nodeEventDelete
+		node = &flowv1.Node{
+			NodeId: evt.ID.Bytes(),
+			FlowId: evt.ParentID.Bytes(),
+		}
+		flowID = evt.ParentID
+	}
+
+	if node != nil {
+		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
+			Type:   eventType,
+			FlowID: flowID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeWait(evt mutation.Event) {
+	if p.nodeStream == nil {
+		return
+	}
+
+	var node *flowv1.Node
+	var flowID idwrap.IDWrap
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeWaitWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
+		if data, ok := evt.Payload.(nodeWaitWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpDelete:
+		eventType = nodeEventDelete
+		node = &flowv1.Node{
+			NodeId: evt.ID.Bytes(),
+			FlowId: evt.ParentID.Bytes(),
+		}
+		flowID = evt.ParentID
+	}
+
+	if node != nil {
+		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
+			Type:   eventType,
 			FlowID: flowID,
 			Node:   node,
 		})

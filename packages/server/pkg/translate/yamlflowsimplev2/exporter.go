@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flowgraph"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
@@ -13,6 +14,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mwebsocket"
 
 	"gopkg.in/yaml.v3"
 )
@@ -121,6 +123,31 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	graphqlNodeMap := make(map[idwrap.IDWrap]mflow.NodeGraphQL)
 	for _, n := range data.FlowGraphQLNodes {
 		graphqlNodeMap[n.FlowNodeID] = n
+	}
+
+	wsConnectionNodeMap := make(map[idwrap.IDWrap]mflow.NodeWsConnection)
+	for _, n := range data.FlowWsConnectionNodes {
+		wsConnectionNodeMap[n.FlowNodeID] = n
+	}
+
+	wsSendNodeMap := make(map[idwrap.IDWrap]mflow.NodeWsSend)
+	for _, n := range data.FlowWsSendNodes {
+		wsSendNodeMap[n.FlowNodeID] = n
+	}
+
+	waitNodeMap := make(map[idwrap.IDWrap]mflow.NodeWait)
+	for _, n := range data.FlowWaitNodes {
+		waitNodeMap[n.FlowNodeID] = n
+	}
+
+	wsEntityMap := make(map[idwrap.IDWrap]mwebsocket.WebSocket)
+	for _, ws := range data.WebSockets {
+		wsEntityMap[ws.ID] = ws
+	}
+
+	wsHeaderMap := make(map[idwrap.IDWrap][]mwebsocket.WebSocketHeader)
+	for _, h := range data.WebSocketHeaders {
+		wsHeaderMap[h.WebSocketID] = append(wsHeaderMap[h.WebSocketID], h)
 	}
 
 	graphqlMap := make(map[idwrap.IDWrap]mgraphql.GraphQL)
@@ -372,6 +399,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					depStr += DependsSuffixElse
 				case mflow.HandleLoop:
 					depStr += DependsSuffixLoop
+				case mflow.HandleWsMessage:
+					depStr += DependsSuffixWsMessage
 				case mflow.HandleUnspecified:
 					// Do nothing, just the name
 				default:
@@ -562,6 +591,54 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 				stepWrapper.GraphQL = gqlStep
 
+			case mflow.NODE_KIND_WS_CONNECTION:
+				wsConnNode, ok := wsConnectionNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				wsStep := &YamlStepWsConnection{
+					YamlStepCommon: common,
+				}
+				if wsConnNode.WebSocketID != nil {
+					if wsEntity, ok := wsEntityMap[*wsConnNode.WebSocketID]; ok {
+						wsStep.URL = wsEntity.Url
+					}
+					if headers, ok := wsHeaderMap[*wsConnNode.WebSocketID]; ok {
+						for _, h := range headers {
+							if h.Enabled {
+								wsStep.Headers = append(wsStep.Headers, YamlNameValuePairV2{
+									Name:    h.Key,
+									Value:   h.Value,
+									Enabled: true,
+								})
+							}
+						}
+					}
+				}
+				stepWrapper.WsConnection = wsStep
+
+			case mflow.NODE_KIND_WS_SEND:
+				wsSendNode, ok := wsSendNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				wsStep := &YamlStepWsSend{
+					YamlStepCommon:       common,
+					WsConnectionNodeName: wsSendNode.WsConnectionNodeName,
+					Message:              wsSendNode.Message,
+				}
+				stepWrapper.WsSend = wsStep
+
+			case mflow.NODE_KIND_WAIT:
+				waitNode, ok := waitNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				stepWrapper.Wait = &YamlStepWait{
+					YamlStepCommon: common,
+					DurationMs:     strconv.FormatInt(waitNode.DurationMs, 10),
+				}
+
 			case mflow.NODE_KIND_MANUAL_START:
 				if node.ID == startNodeID {
 					stepWrapper.ManualStart = &common
@@ -575,7 +652,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			// Checking if any field is set (simplified check, assume one set if we got here)
 			isValid := stepWrapper.Request != nil || stepWrapper.GraphQL != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
 				stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil ||
-				stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.ManualStart != nil
+				stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.WsConnection != nil ||
+				stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil
 			if isValid {
 				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}

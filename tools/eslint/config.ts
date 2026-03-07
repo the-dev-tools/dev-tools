@@ -137,7 +137,7 @@ const rules = defineConfig({
       'warn',
       { group: 'emptyLine', preferSingleLine: true, printWidth: 120 },
     ],
-    'better-tailwindcss/enforce-consistent-variable-syntax': ['warn', { syntax: 'parentheses' }],
+    'better-tailwindcss/enforce-consistent-variable-syntax': ['warn', { syntax: 'variable' }],
   },
 });
 

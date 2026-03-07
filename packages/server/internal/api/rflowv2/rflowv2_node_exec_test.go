@@ -17,6 +17,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -72,6 +73,11 @@ func TestNodeExecution_Collection(t *testing.T) {
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		nil, // NodeGraphQLService
+		nil, // NodeWsConnectionService
+		nil, // NodeWsSendService
+		nil, // NodeWaitService
+		nil, // WebSocketService
+		nil, // WebSocketHeaderService
 		nil, // GraphQLService
 		nil, // GraphQLHeaderService
 		&wsService,
@@ -96,7 +102,7 @@ func TestNodeExecution_Collection(t *testing.T) {
 		es:       &edgeService,
 		fvs:      &flowVarService,
 		logger:   logger,
-		builder:  builder,
+		sessionFactory: &flowexec.LocalSessionFactory{Builder: builder},
 	}
 
 	// Setup Data
@@ -223,6 +229,11 @@ func TestNodeExecution_Collection_VersionFlow(t *testing.T) {
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		nil, // NodeGraphQLService
+		nil, // NodeWsConnectionService
+		nil, // NodeWsSendService
+		nil, // NodeWaitService
+		nil, // WebSocketService
+		nil, // WebSocketHeaderService
 		nil, // GraphQLService
 		nil, // GraphQLHeaderService
 		&wsService,
@@ -247,7 +258,7 @@ func TestNodeExecution_Collection_VersionFlow(t *testing.T) {
 		es:       &edgeService,
 		fvs:      &flowVarService,
 		logger:   logger,
-		builder:  builder,
+		sessionFactory: &flowexec.LocalSessionFactory{Builder: builder},
 	}
 
 	// Setup Data

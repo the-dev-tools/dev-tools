@@ -25,6 +25,17 @@ func (s GraphQLHeaderService) TX(tx *sql.Tx) GraphQLHeaderService {
 	return GraphQLHeaderService{queries: s.queries.WithTx(tx)}
 }
 
+func (s GraphQLHeaderService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mgraphql.GraphQLHeader, error) {
+	headers, err := s.GetByIDs(ctx, []idwrap.IDWrap{id})
+	if err != nil {
+		return nil, err
+	}
+	if len(headers) == 0 {
+		return nil, ErrNoGraphQLHeaderFound
+	}
+	return &headers[0], nil
+}
+
 func (s GraphQLHeaderService) GetByGraphQLID(ctx context.Context, graphqlID idwrap.IDWrap) ([]mgraphql.GraphQLHeader, error) {
 	headers, err := s.queries.GetGraphQLHeaders(ctx, graphqlID)
 	if err != nil {
@@ -59,7 +70,7 @@ func (s GraphQLHeaderService) Create(ctx context.Context, header *mgraphql.Graph
 	header.CreatedAt = now.Unix()
 	header.UpdatedAt = now.Unix()
 
-	return s.queries.CreateGraphQLHeader(ctx, gen.CreateGraphQLHeaderParams{
+	params := gen.CreateGraphQLHeaderParams{
 		ID:           header.ID,
 		GraphqlID:    header.GraphQLID,
 		HeaderKey:    header.Key,
@@ -69,7 +80,29 @@ func (s GraphQLHeaderService) Create(ctx context.Context, header *mgraphql.Graph
 		DisplayOrder: float64(header.DisplayOrder),
 		CreatedAt:    header.CreatedAt,
 		UpdatedAt:    header.UpdatedAt,
-	})
+		IsDelta:      header.IsDelta,
+	}
+
+	if header.ParentGraphQLHeaderID != nil {
+		params.ParentGraphqlHeaderID = header.ParentGraphQLHeaderID.Bytes()
+	}
+	if header.DeltaKey != nil {
+		params.DeltaHeaderKey = *header.DeltaKey
+	}
+	if header.DeltaValue != nil {
+		params.DeltaHeaderValue = *header.DeltaValue
+	}
+	if header.DeltaDescription != nil {
+		params.DeltaDescription = *header.DeltaDescription
+	}
+	if header.DeltaEnabled != nil {
+		params.DeltaEnabled = *header.DeltaEnabled
+	}
+	if header.DeltaDisplayOrder != nil {
+		params.DeltaDisplayOrder = *header.DeltaDisplayOrder
+	}
+
+	return s.queries.CreateGraphQLHeader(ctx, params)
 }
 
 func (s GraphQLHeaderService) Update(ctx context.Context, header *mgraphql.GraphQLHeader) error {
@@ -80,6 +113,18 @@ func (s GraphQLHeaderService) Update(ctx context.Context, header *mgraphql.Graph
 		Description:  header.Description,
 		Enabled:      header.Enabled,
 		DisplayOrder: float64(header.DisplayOrder),
+	})
+}
+
+func (s GraphQLHeaderService) UpdateDelta(ctx context.Context, header *mgraphql.GraphQLHeader) error {
+	return s.queries.UpdateGraphQLHeaderDelta(ctx, gen.UpdateGraphQLHeaderDeltaParams{
+		ID:                header.ID,
+		DeltaHeaderKey:    header.DeltaKey,
+		DeltaHeaderValue:  header.DeltaValue,
+		DeltaDescription:  header.DeltaDescription,
+		DeltaEnabled:      header.DeltaEnabled,
+		DeltaDisplayOrder: header.DeltaDisplayOrder,
+		UpdatedAt:         dbtime.DBNow().Unix(),
 	})
 }
 

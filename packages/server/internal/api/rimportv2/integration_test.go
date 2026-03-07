@@ -1788,6 +1788,7 @@ flows:
 			require.NotEmpty(t, forEachNode.IterExpression, "ForEach node should have items expression for node %s", node.Name)
 			t.Logf("  ForEach Node: Items=%q", forEachNode.IterExpression)
 			forEachNodesFound++
+		default:
 		}
 	}
 
@@ -1976,6 +1977,7 @@ flows:
 					if fe != nil {
 						gotForEach++
 					}
+				default:
 				}
 			}
 

@@ -101,7 +101,7 @@ func TestNodeForEachDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 		},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, map[idwrap.IDWrap]node.FlowNode{
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID}, map[idwrap.IDWrap]node.FlowNode{
 		loopID:  loop,
 		childID: child,
 	}, edgeMap, 0, nil)
@@ -167,7 +167,7 @@ func TestNodeForEachSetsIterationEventFlag(t *testing.T) {
 		},
 	}
 
-	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, map[idwrap.IDWrap]node.FlowNode{
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID}, map[idwrap.IDWrap]node.FlowNode{
 		loopID: loop,
 	}, edgeMap, 0, nil)
 
@@ -228,7 +228,7 @@ func TestNodeForEachSkipsDuplicateLoopEntryTargets(t *testing.T) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
 		idwrap.NewNow(),
-		loopID,
+		[]idwrap.IDWrap{loopID},
 		map[idwrap.IDWrap]node.FlowNode{
 			loopID:  loop,
 			nodeAID: nodeA,

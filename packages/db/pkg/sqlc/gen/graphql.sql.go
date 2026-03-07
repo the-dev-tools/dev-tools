@@ -1535,7 +1535,7 @@ SELECT
   parent_graphql_id, is_delta, is_snapshot,
   delta_name, delta_url, delta_query, delta_variables, delta_description
 FROM graphql
-WHERE workspace_id = ?
+WHERE workspace_id = ? AND is_delta = FALSE AND is_snapshot = FALSE
 ORDER BY updated_at DESC
 `
 
@@ -1743,6 +1743,41 @@ func (q *Queries) UpdateGraphQLHeader(ctx context.Context, arg UpdateGraphQLHead
 		arg.Description,
 		arg.Enabled,
 		arg.DisplayOrder,
+		arg.ID,
+	)
+	return err
+}
+
+const updateGraphQLHeaderDelta = `-- name: UpdateGraphQLHeaderDelta :exec
+UPDATE graphql_header
+SET
+  delta_header_key = ?,
+  delta_header_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  delta_display_order = ?,
+  updated_at = ?
+WHERE id = ?
+`
+
+type UpdateGraphQLHeaderDeltaParams struct {
+	DeltaHeaderKey    interface{}
+	DeltaHeaderValue  interface{}
+	DeltaDescription  interface{}
+	DeltaEnabled      interface{}
+	DeltaDisplayOrder interface{}
+	UpdatedAt         int64
+	ID                idwrap.IDWrap
+}
+
+func (q *Queries) UpdateGraphQLHeaderDelta(ctx context.Context, arg UpdateGraphQLHeaderDeltaParams) error {
+	_, err := q.exec(ctx, q.updateGraphQLHeaderDeltaStmt, updateGraphQLHeaderDelta,
+		arg.DeltaHeaderKey,
+		arg.DeltaHeaderValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
+		arg.UpdatedAt,
 		arg.ID,
 	)
 	return err

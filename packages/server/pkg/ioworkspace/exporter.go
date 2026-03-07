@@ -15,6 +15,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 )
 
@@ -228,6 +229,11 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	nodeAIProviderService := sflow.NewNodeAiProviderService(s.queries)
 	nodeMemoryService := sflow.NewNodeMemoryService(s.queries)
 	nodeGraphQLService := sflow.NewNodeGraphQLService(s.queries)
+	nodeWsConnectionService := sflow.NewNodeWsConnectionService(s.queries)
+	nodeWsSendService := sflow.NewNodeWsSendService(s.queries)
+	nodeWaitService := sflow.NewNodeWaitService(s.queries)
+	websocketService := swebsocket.New(s.queries, s.logger)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(s.queries)
 
 	var flowIDs []idwrap.IDWrap
 
@@ -281,7 +287,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
-			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService, nodeGraphQLService); err != nil {
+			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService, nodeGraphQLService, nodeWsConnectionService, nodeWsSendService, nodeWaitService, websocketService, websocketHeaderService); err != nil {
 				return fmt.Errorf("failed to export node implementation for node %s: %w", node.ID.String(), err)
 			}
 		}
@@ -299,7 +305,10 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 		"ai_nodes", len(bundle.FlowAINodes),
 		"ai_provider_nodes", len(bundle.FlowAIProviderNodes),
 		"ai_memory_nodes", len(bundle.FlowAIMemoryNodes),
-		"graphql_nodes", len(bundle.FlowGraphQLNodes))
+		"graphql_nodes", len(bundle.FlowGraphQLNodes),
+		"ws_connection_nodes", len(bundle.FlowWsConnectionNodes),
+		"ws_send_nodes", len(bundle.FlowWsSendNodes),
+		"wait_nodes", len(bundle.FlowWaitNodes))
 
 	return nil
 }
@@ -352,8 +361,15 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	nodeAIProviderService sflow.NodeAiProviderService,
 	nodeMemoryService sflow.NodeMemoryService,
 	nodeGraphQLService sflow.NodeGraphQLService,
+	nodeWsConnectionService sflow.NodeWsConnectionService,
+	nodeWsSendService sflow.NodeWsSendService,
+	nodeWaitService sflow.NodeWaitService,
+	websocketService swebsocket.WebSocketService,
+	websocketHeaderService swebsocket.WebSocketHeaderService,
 ) error {
 	switch node.NodeKind {
+	case mflow.NODE_KIND_MANUAL_START:
+		// No type-specific data for ManualStart
 	case mflow.NODE_KIND_REQUEST:
 		nodeRequest, err := nodeRequestService.GetNodeRequest(ctx, node.ID)
 		if err != nil {
@@ -433,6 +449,48 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 		}
 		if nodeGraphQL != nil {
 			bundle.FlowGraphQLNodes = append(bundle.FlowGraphQLNodes, *nodeGraphQL)
+		}
+
+	case mflow.NODE_KIND_WS_CONNECTION:
+		nodeWsConn, err := nodeWsConnectionService.GetNodeWsConnection(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get ws connection node: %w", err)
+		}
+		if nodeWsConn != nil {
+			bundle.FlowWsConnectionNodes = append(bundle.FlowWsConnectionNodes, *nodeWsConn)
+			// Also fetch and store the WebSocket entity and headers
+			if nodeWsConn.WebSocketID != nil {
+				wsEntity, err := websocketService.Get(ctx, *nodeWsConn.WebSocketID)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("failed to get websocket entity: %w", err)
+				}
+				if wsEntity != nil {
+					bundle.WebSockets = append(bundle.WebSockets, *wsEntity)
+				}
+				wsHeaders, err := websocketHeaderService.GetByWebSocketID(ctx, *nodeWsConn.WebSocketID)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("failed to get websocket headers: %w", err)
+				}
+				bundle.WebSocketHeaders = append(bundle.WebSocketHeaders, wsHeaders...)
+			}
+		}
+
+	case mflow.NODE_KIND_WS_SEND:
+		nodeWsSend, err := nodeWsSendService.GetNodeWsSend(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get ws send node: %w", err)
+		}
+		if nodeWsSend != nil {
+			bundle.FlowWsSendNodes = append(bundle.FlowWsSendNodes, *nodeWsSend)
+		}
+
+	case mflow.NODE_KIND_WAIT:
+		nodeWait, err := nodeWaitService.GetNodeWait(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get wait node: %w", err)
+		}
+		if nodeWait != nil {
+			bundle.FlowWaitNodes = append(bundle.FlowWaitNodes, *nodeWait)
 		}
 	}
 

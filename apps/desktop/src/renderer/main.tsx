@@ -68,7 +68,7 @@ const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
         <div className={tw`mt-2 text-2xl`}>Update available!</div>
       </div>
 
-      {/* eslint-disable-next-line better-tailwindcss/no-unregistered-classes */}
+      {/* eslint-disable-next-line better-tailwindcss/no-unknown-classes */}
       <div className={tw`prose dark:prose-invert flex-1 overflow-auto`}>
         <Markdown>{children}</Markdown>
       </div>

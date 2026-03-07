@@ -13,6 +13,7 @@ import (
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
@@ -20,11 +21,13 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
+	wsapiv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/web_socket/v1"
 )
 
 // FlowNodesCopy serializes selected nodes to YAML for clipboard copy.
@@ -98,6 +101,8 @@ func (s *FlowServiceV2RPC) FlowNodesCopy(
 
 		// Fetch type-specific data
 		switch n.NodeKind {
+		case mflow.NODE_KIND_MANUAL_START:
+			// No type-specific data for ManualStart
 		case mflow.NODE_KIND_REQUEST:
 			if d, err := s.nrs.GetNodeRequest(ctx, n.ID); err == nil && d != nil {
 				bundle.FlowRequestNodes = append(bundle.FlowRequestNodes, *d)
@@ -168,6 +173,27 @@ func (s *FlowServiceV2RPC) FlowNodesCopy(
 					}
 				}
 			}
+		case mflow.NODE_KIND_WS_CONNECTION:
+			if s.nwcs != nil {
+				if d, err := s.nwcs.GetNodeWsConnection(ctx, n.ID); err == nil {
+					bundle.FlowWsConnectionNodes = append(bundle.FlowWsConnectionNodes, *d)
+					if d.WebSocketID != nil {
+						s.populateWebSocketBundle(ctx, *d.WebSocketID, bundle)
+					}
+				}
+			}
+		case mflow.NODE_KIND_WS_SEND:
+			if s.nwss != nil {
+				if d, err := s.nwss.GetNodeWsSend(ctx, n.ID); err == nil {
+					bundle.FlowWsSendNodes = append(bundle.FlowWsSendNodes, *d)
+				}
+			}
+		case mflow.NODE_KIND_WAIT:
+			if s.nwaits != nil {
+				if d, err := s.nwaits.GetNodeWait(ctx, n.ID); err == nil && d != nil {
+					bundle.FlowWaitNodes = append(bundle.FlowWaitNodes, *d)
+				}
+			}
 		}
 	}
 
@@ -216,10 +242,29 @@ func (s *FlowServiceV2RPC) populateHTTPBundle(ctx context.Context, httpID idwrap
 	}
 }
 
-// populateGraphQLBundle fetches headers for a GraphQL request and adds them to the bundle.
+// populateGraphQLBundle fetches headers and assertions for a GraphQL request and adds them to the bundle.
 func (s *FlowServiceV2RPC) populateGraphQLBundle(ctx context.Context, graphqlID idwrap.IDWrap, bundle *ioworkspace.WorkspaceBundle) {
 	if headers, err := s.gqlhs.GetByGraphQLID(ctx, graphqlID); err == nil {
 		bundle.GraphQLHeaders = append(bundle.GraphQLHeaders, headers...)
+	}
+	if s.gqlas != nil {
+		if asserts, err := s.gqlas.GetByGraphQLID(ctx, graphqlID); err == nil {
+			bundle.GraphQLAsserts = append(bundle.GraphQLAsserts, asserts...)
+		}
+	}
+}
+
+// populateWebSocketBundle fetches the WebSocket entity and its headers and adds them to the bundle.
+func (s *FlowServiceV2RPC) populateWebSocketBundle(ctx context.Context, wsID idwrap.IDWrap, bundle *ioworkspace.WorkspaceBundle) {
+	if s.wsService != nil {
+		if ws, err := s.wsService.Get(ctx, wsID); err == nil {
+			bundle.WebSockets = append(bundle.WebSockets, *ws)
+		}
+	}
+	if s.wsHeaderService != nil {
+		if headers, err := s.wsHeaderService.GetByWebSocketID(ctx, wsID); err == nil {
+			bundle.WebSocketHeaders = append(bundle.WebSocketHeaders, headers...)
+		}
 	}
 }
 
@@ -390,6 +435,21 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			parsed.FlowGraphQLNodes[i].FlowNodeID = newID
 		}
 	}
+	for i := range parsed.FlowWsConnectionNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowWsConnectionNodes[i].FlowNodeID]; ok {
+			parsed.FlowWsConnectionNodes[i].FlowNodeID = newID
+		}
+	}
+	for i := range parsed.FlowWsSendNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowWsSendNodes[i].FlowNodeID]; ok {
+			parsed.FlowWsSendNodes[i].FlowNodeID = newID
+		}
+	}
+	for i := range parsed.FlowWaitNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowWaitNodes[i].FlowNodeID]; ok {
+			parsed.FlowWaitNodes[i].FlowNodeID = newID
+		}
+	}
 
 	// Remap variable references in expression fields when node names changed
 	if len(nameMapping) > 0 {
@@ -439,6 +499,21 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 		for i := range parsed.GraphQLHeaders {
 			parsed.GraphQLHeaders[i].Value = remapVarRefs(parsed.GraphQLHeaders[i].Value, nameMapping)
+		}
+		for i := range parsed.GraphQLAsserts {
+			parsed.GraphQLAsserts[i].Value = remapVarRefs(parsed.GraphQLAsserts[i].Value, nameMapping)
+		}
+		for i := range parsed.FlowWsSendNodes {
+			parsed.FlowWsSendNodes[i].Message = remapVarRefs(parsed.FlowWsSendNodes[i].Message, nameMapping)
+			if newName, ok := nameMapping[parsed.FlowWsSendNodes[i].WsConnectionNodeName]; ok {
+				parsed.FlowWsSendNodes[i].WsConnectionNodeName = newName
+			}
+		}
+		for i := range parsed.WebSockets {
+			parsed.WebSockets[i].Url = remapVarRefs(parsed.WebSockets[i].Url, nameMapping)
+		}
+		for i := range parsed.WebSocketHeaders {
+			parsed.WebSocketHeaders[i].Value = remapVarRefs(parsed.WebSocketHeaders[i].Value, nameMapping)
 		}
 	}
 
@@ -617,6 +692,49 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 	}
 
+	// Remap GraphQL assertions and filter to only those needing creation
+	var gqlAssertsToCreate []mgraphql.GraphQLAssert
+	for i := range parsed.GraphQLAsserts {
+		a := &parsed.GraphQLAsserts[i]
+		if newID, ok := gqlIDMapping[a.GraphQLID]; ok {
+			a.GraphQLID = newID
+			a.ID = idwrap.NewNow()
+			a.IsDelta = false
+			a.ParentGraphQLAssertID = nil
+			if gqlIDsToCreate[newID] {
+				gqlAssertsToCreate = append(gqlAssertsToCreate, *a)
+			}
+		}
+	}
+
+	// Handle WebSocket entities — create copies
+	wsIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	for i := range parsed.WebSockets {
+		ws := &parsed.WebSockets[i]
+		oldID := ws.ID
+		newID := idwrap.NewNow()
+		wsIDMapping[oldID] = newID
+		ws.ID = newID
+		ws.WorkspaceID = targetFlow.WorkspaceID
+	}
+	for i := range parsed.FlowWsConnectionNodes {
+		wcn := &parsed.FlowWsConnectionNodes[i]
+		if wcn.WebSocketID != nil {
+			if newID, ok := wsIDMapping[*wcn.WebSocketID]; ok {
+				wcn.WebSocketID = &newID
+			}
+		}
+	}
+	var wsHeadersToCreate []mwebsocket.WebSocketHeader
+	for i := range parsed.WebSocketHeaders {
+		h := &parsed.WebSocketHeaders[i]
+		if newID, ok := wsIDMapping[h.WebSocketID]; ok {
+			h.WebSocketID = newID
+			h.ID = idwrap.NewNow()
+			wsHeadersToCreate = append(wsHeadersToCreate, *h)
+		}
+	}
+
 	// Begin transaction for creating all entities
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -699,6 +817,14 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			}
 		}
 	}
+	if s.gqlas != nil && len(gqlAssertsToCreate) > 0 {
+		gqlAssertWriter := s.gqlas.TX(tx)
+		for i := range gqlAssertsToCreate {
+			if err := gqlAssertWriter.Create(ctx, &gqlAssertsToCreate[i]); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create GraphQL assert: %w", err))
+			}
+		}
+	}
 
 	// Create nodes
 	var createdNodeIDs [][]byte
@@ -767,6 +893,46 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			}
 		}
 	}
+	if s.wsService != nil {
+		for i := range parsed.WebSockets {
+			wsTx := s.wsService.TX(tx)
+			if err := wsTx.Create(ctx, &parsed.WebSockets[i]); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create websocket: %w", err))
+			}
+		}
+	}
+	if s.wsHeaderService != nil {
+		for _, h := range wsHeadersToCreate {
+			wshTx := s.wsHeaderService.TX(tx)
+			if err := wshTx.Create(ctx, h); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create ws header: %w", err))
+			}
+		}
+	}
+	if s.nwcs != nil {
+		for _, wsn := range parsed.FlowWsConnectionNodes {
+			nwcsWriter := sflow.NewNodeWsConnectionWriter(tx)
+			if err := nwcsWriter.CreateNodeWsConnection(ctx, wsn); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create ws connection node: %w", err))
+			}
+		}
+	}
+	if s.nwss != nil {
+		for _, wsn := range parsed.FlowWsSendNodes {
+			nwssWriter := sflow.NewNodeWsSendWriter(tx)
+			if err := nwssWriter.CreateNodeWsSend(ctx, wsn); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create ws send node: %w", err))
+			}
+		}
+	}
+	if s.nwaits != nil {
+		for _, wn := range parsed.FlowWaitNodes {
+			nwaitsWriter := sflow.NewNodeWaitWriter(tx)
+			if err := nwaitsWriter.CreateNodeWait(ctx, wn); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create wait node: %w", err))
+			}
+		}
+	}
 
 	// Create edges
 	for _, e := range validEdges {
@@ -813,6 +979,19 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 				GraphQL: rgraphql.ToAPIGraphQL(parsed.GraphQLRequests[i]),
 			})
 		}
+	}
+
+	// Publish WebSocket events for newly created entities
+	for i := range parsed.WebSockets {
+		ws := parsed.WebSockets[i]
+		s.wsStream.Publish(rwebsocket.WebSocketTopic{WorkspaceID: targetFlow.WorkspaceID}, rwebsocket.WebSocketEvent{
+			Type: eventTypeInsert,
+			WebSocket: &wsapiv1.WebSocket{
+				WebsocketId: ws.ID.Bytes(),
+				Name:        ws.Name,
+				Url:         ws.Url,
+			},
+		})
 	}
 
 	return connect.NewResponse(&flowv1.FlowNodesPasteResponse{

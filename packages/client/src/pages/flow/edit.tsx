@@ -35,6 +35,7 @@ import {
   NodeCollectionSchema,
   NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
+  NodeWsConnectionCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { Checkbox } from '@the-dev-tools/ui/checkbox';
@@ -83,6 +84,9 @@ import { GraphQLNode, GraphQLSettings } from './nodes/graphql';
 import { HttpNode, HttpSettings } from './nodes/http';
 import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
+import { WaitNode, WaitSettings } from './nodes/wait';
+import { WsConnectionNode, WsConnectionSettings } from './nodes/ws-connection';
+import { WsSendNode, WsSendSettings } from './nodes/ws-send';
 import { useFlowSelection } from './selection';
 import { useUndoStack } from './undo';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
@@ -99,6 +103,9 @@ export const nodeTypes: XF.NodeTypes = {
   [NodeKind.JS]: JavaScriptNode,
   [NodeKind.MANUAL_START]: ManualStartNode,
   [NodeKind.UNSPECIFIED]: () => null,
+  [NodeKind.WAIT]: WaitNode,
+  [NodeKind.WS_CONNECTION]: WsConnectionNode,
+  [NodeKind.WS_SEND]: WsSendNode,
 };
 
 export const FlowEditPage = () => {
@@ -153,6 +160,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const nodeGraphQLCollection = useApiCollection(NodeGraphQLCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
+  const nodeWsConnectionCollection = useApiCollection(NodeWsConnectionCollectionSchema);
 
   const nodeEditDialog = useNodeEditDialog();
 
@@ -457,6 +465,23 @@ export const Flow = ({ children }: PropsWithChildren) => {
           flowId,
           kind: NodeKind.GRAPH_Q_L,
           name: `graphql_${getNodes().length}`,
+          nodeId,
+          position,
+        });
+      }
+
+      if (file?.kind === FileKind.WEB_SOCKET) {
+        const nodeId = Ulid.generate().bytes;
+
+        nodeWsConnectionCollection.utils.insert({
+          nodeId,
+          websocketId: file.fileId,
+        });
+
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.WS_CONNECTION,
+          name: `ws_connection_${getNodes().length}`,
           nodeId,
           position,
         });
@@ -881,6 +906,9 @@ const useNodeEditDialog = () => {
       Match.when({ kind: NodeKind.AI }, (_) => <AiSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_PROVIDER }, (_) => <AiProviderSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_MEMORY }, (_) => <AiMemorySettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.WAIT }, () => <WaitSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.WS_CONNECTION }, () => <WsConnectionSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.WS_SEND }, () => <WsSendSettings nodeId={nodeId} />),
       Match.orElse(() => null),
     );
 

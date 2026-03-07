@@ -37,7 +37,7 @@
     "electron": "catalog:",
     "electron-builder": "catalog:",
     "electron-devtools-installer": "catalog:",
-    "electron-updater": "6.7.3",
+    "electron-updater": "catalog:",
     "electron-vite": "catalog:",
     "eslint": "catalog:",
     "react": "catalog:",

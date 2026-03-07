@@ -18,7 +18,7 @@ SELECT
   parent_graphql_id, is_delta, is_snapshot,
   delta_name, delta_url, delta_query, delta_variables, delta_description
 FROM graphql
-WHERE workspace_id = ?
+WHERE workspace_id = ? AND is_delta = FALSE AND is_snapshot = FALSE
 ORDER BY updated_at DESC;
 
 -- name: GetGraphQLWorkspaceID :one
@@ -104,6 +104,17 @@ SET
   enabled = ?,
   display_order = ?,
   updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateGraphQLHeaderDelta :exec
+UPDATE graphql_header
+SET
+  delta_header_key = ?,
+  delta_header_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  delta_display_order = ?,
+  updated_at = ?
 WHERE id = ?;
 
 -- name: DeleteGraphQLHeader :exec

@@ -654,6 +654,6 @@ func TestNodeHttp_DeleteConfig(t *testing.T) {
 		// Wait for sync event
 		evt, ok := waitForEvent(t, eventChan, 2*time.Second)
 		require.True(t, ok, "Should receive sync event for NodeHttp delete")
-		assert.Equal(t, nodeEventUpdate, evt.Type)
+		assert.Equal(t, nodeEventDelete, evt.Type)
 	})
 }

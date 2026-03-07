@@ -351,6 +351,12 @@ func ToAPIFileKind(kind mfile.ContentType) filev1.FileKind {
 		return filev1.FileKind_FILE_KIND_FLOW
 	case mfile.ContentTypeCredential:
 		return filev1.FileKind_FILE_KIND_CREDENTIAL
+	case mfile.ContentTypeGraphQL:
+		return filev1.FileKind_FILE_KIND_GRAPH_Q_L
+	case mfile.ContentTypeGraphQLDelta:
+		return filev1.FileKind_FILE_KIND_GRAPH_Q_L_DELTA
+	case mfile.ContentTypeWebSocket:
+		return filev1.FileKind_FILE_KIND_WEB_SOCKET
 	default:
 		return filev1.FileKind_FILE_KIND_UNSPECIFIED
 	}
@@ -379,6 +385,12 @@ func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 		return flowv1.NodeKind_NODE_KIND_AI_MEMORY
 	case mflow.NODE_KIND_GRAPHQL:
 		return flowv1.NodeKind_NODE_KIND_GRAPH_Q_L
+	case mflow.NODE_KIND_WS_CONNECTION:
+		return flowv1.NodeKind_NODE_KIND_WS_CONNECTION
+	case mflow.NODE_KIND_WS_SEND:
+		return flowv1.NodeKind_NODE_KIND_WS_SEND
+	case mflow.NODE_KIND_WAIT:
+		return flowv1.NodeKind_NODE_KIND_WAIT
 	default:
 		return flowv1.NodeKind_NODE_KIND_UNSPECIFIED
 	}

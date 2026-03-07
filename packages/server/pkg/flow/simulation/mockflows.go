@@ -19,10 +19,11 @@ type MockFlowParams struct {
 
 // MockFlowResult contains the three data structures FlowLocalRunner needs
 type MockFlowResult struct {
-	Nodes       map[idwrap.IDWrap]node.FlowNode
-	Edges       []mflow.Edge
-	EdgesMap    mflow.EdgesMap
-	StartNodeID idwrap.IDWrap
+	Nodes        map[idwrap.IDWrap]node.FlowNode
+	Edges        []mflow.Edge
+	EdgesMap     mflow.EdgesMap
+	StartNodeID  idwrap.IDWrap
+	StartNodeIDs []idwrap.IDWrap
 }
 
 // CreateMockFlow creates a simple linear mock flow for testing
@@ -109,9 +110,10 @@ func CreateMockFlow(params MockFlowParams) MockFlowResult {
 	edgesMap := mflow.NewEdgesMap(edges)
 
 	return MockFlowResult{
-		Nodes:       nodes,
-		Edges:       edges,
-		EdgesMap:    edgesMap,
-		StartNodeID: startNodeID,
+		Nodes:        nodes,
+		Edges:        edges,
+		EdgesMap:     edgesMap,
+		StartNodeID:  startNodeID,
+		StartNodeIDs: []idwrap.IDWrap{startNodeID},
 	}
 }

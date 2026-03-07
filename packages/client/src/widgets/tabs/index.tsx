@@ -118,6 +118,7 @@ const TabItem = ({ id }: TabItemProps) => {
   return (
     <Primitive.ListBoxItemRouteLink
       {...(tab.route as ToOptions)}
+      activeOptions={{ exact: true }}
       aria-label='Tab'
       className={tw`
         relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs

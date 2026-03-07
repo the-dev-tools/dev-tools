@@ -18,6 +18,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/dbtime"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream/memory"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowexec"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -81,6 +82,11 @@ func TestFlowRun_Logging(t *testing.T) {
 		nil, // NodeAiProviderService
 		nil, // NodeMemoryService
 		nil, // NodeGraphQLService
+		nil, // NodeWsConnectionService
+		nil, // NodeWsSendService
+		nil, // NodeWaitService
+		nil, // WebSocketService
+		nil, // WebSocketHeaderService
 		nil, // GraphQLService
 		nil, // GraphQLHeaderService
 		&wsService,
@@ -110,7 +116,7 @@ func TestFlowRun_Logging(t *testing.T) {
 		fvs:          &flowVarService,
 		logger:       logger,
 		logStream:    logStreamer,
-		builder:      builder,
+		sessionFactory: &flowexec.LocalSessionFactory{Builder: builder},
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 

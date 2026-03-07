@@ -210,7 +210,7 @@ func TestFilesTableConstraintUpdated(t *testing.T) {
 		t.Fatalf("failed to run migrations: %v", err)
 	}
 
-	// Verify files table supports content_kind=5 (graphql)
+	// Verify files table supports content_kind=6 (websocket)
 	var tableDef string
 	err = db.QueryRowContext(ctx, `
 		SELECT sql FROM sqlite_master
@@ -220,9 +220,9 @@ func TestFilesTableConstraintUpdated(t *testing.T) {
 		t.Fatalf("failed to get files table definition: %v", err)
 	}
 
-	// Check that the constraint includes content_kind=5
-	if !contains(tableDef, "content_kind IN (0, 1, 2, 3, 4, 5)") {
-		t.Errorf("files table CHECK constraint doesn't include content_kind=5: %s", tableDef)
+	// Check that the constraint includes content_kind=6
+	if !contains(tableDef, "content_kind IN (0, 1, 2, 3, 4, 5, 6)") {
+		t.Errorf("files table CHECK constraint doesn't include content_kind=6: %s", tableDef)
 	}
 }
 

@@ -141,6 +141,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.cleanupOrphanedFlowNodeJsStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeJs: %w", err)
 	}
+	if q.cleanupOrphanedFlowNodeWaitStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeWait); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeWait: %w", err)
+	}
 	if q.cleanupOrphanedNodeExecutionsStmt, err = db.PrepareContext(ctx, cleanupOrphanedNodeExecutions); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedNodeExecutions: %w", err)
 	}
@@ -198,8 +201,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createFlowNodeMemoryStmt, err = db.PrepareContext(ctx, createFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeMemory: %w", err)
 	}
+	if q.createFlowNodeWaitStmt, err = db.PrepareContext(ctx, createFlowNodeWait); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeWait: %w", err)
+	}
 	if q.createFlowNodeWithStateStmt, err = db.PrepareContext(ctx, createFlowNodeWithState); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeWithState: %w", err)
+	}
+	if q.createFlowNodeWsConnectionStmt, err = db.PrepareContext(ctx, createFlowNodeWsConnection); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeWsConnection: %w", err)
+	}
+	if q.createFlowNodeWsSendStmt, err = db.PrepareContext(ctx, createFlowNodeWsSend); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeWsSend: %w", err)
 	}
 	if q.createFlowNodesBulkStmt, err = db.PrepareContext(ctx, createFlowNodesBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodesBulk: %w", err)
@@ -306,6 +318,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createVariableBulkStmt, err = db.PrepareContext(ctx, createVariableBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateVariableBulk: %w", err)
 	}
+	if q.createWebSocketStmt, err = db.PrepareContext(ctx, createWebSocket); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateWebSocket: %w", err)
+	}
+	if q.createWebSocketHeaderStmt, err = db.PrepareContext(ctx, createWebSocketHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateWebSocketHeader: %w", err)
+	}
 	if q.createWorkspaceStmt, err = db.PrepareContext(ctx, createWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspace: %w", err)
 	}
@@ -365,6 +383,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowNodeMemoryStmt, err = db.PrepareContext(ctx, deleteFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeMemory: %w", err)
+	}
+	if q.deleteFlowNodeWaitStmt, err = db.PrepareContext(ctx, deleteFlowNodeWait); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeWait: %w", err)
+	}
+	if q.deleteFlowNodeWsConnectionStmt, err = db.PrepareContext(ctx, deleteFlowNodeWsConnection); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeWsConnection: %w", err)
+	}
+	if q.deleteFlowNodeWsSendStmt, err = db.PrepareContext(ctx, deleteFlowNodeWsSend); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeWsSend: %w", err)
 	}
 	if q.deleteFlowTagStmt, err = db.PrepareContext(ctx, deleteFlowTag); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowTag: %w", err)
@@ -434,6 +461,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteVariableStmt, err = db.PrepareContext(ctx, deleteVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteVariable: %w", err)
+	}
+	if q.deleteWebSocketStmt, err = db.PrepareContext(ctx, deleteWebSocket); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteWebSocket: %w", err)
+	}
+	if q.deleteWebSocketHeaderStmt, err = db.PrepareContext(ctx, deleteWebSocketHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteWebSocketHeader: %w", err)
+	}
+	if q.deleteWebSocketHeadersByWebSocketIDStmt, err = db.PrepareContext(ctx, deleteWebSocketHeadersByWebSocketID); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteWebSocketHeadersByWebSocketID: %w", err)
 	}
 	if q.deleteWorkspaceStmt, err = db.PrepareContext(ctx, deleteWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspace: %w", err)
@@ -560,6 +596,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowNodeMemoryStmt, err = db.PrepareContext(ctx, getFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeMemory: %w", err)
+	}
+	if q.getFlowNodeWaitStmt, err = db.PrepareContext(ctx, getFlowNodeWait); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeWait: %w", err)
+	}
+	if q.getFlowNodeWsConnectionStmt, err = db.PrepareContext(ctx, getFlowNodeWsConnection); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeWsConnection: %w", err)
+	}
+	if q.getFlowNodeWsSendStmt, err = db.PrepareContext(ctx, getFlowNodeWsSend); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeWsSend: %w", err)
 	}
 	if q.getFlowNodesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowNodesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodesByFlowID: %w", err)
@@ -870,6 +915,21 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getVariablesByEnvironmentIDOrderedStmt, err = db.PrepareContext(ctx, getVariablesByEnvironmentIDOrdered); err != nil {
 		return nil, fmt.Errorf("error preparing query GetVariablesByEnvironmentIDOrdered: %w", err)
 	}
+	if q.getWebSocketStmt, err = db.PrepareContext(ctx, getWebSocket); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWebSocket: %w", err)
+	}
+	if q.getWebSocketHeaderByIDStmt, err = db.PrepareContext(ctx, getWebSocketHeaderByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWebSocketHeaderByID: %w", err)
+	}
+	if q.getWebSocketHeadersStmt, err = db.PrepareContext(ctx, getWebSocketHeaders); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWebSocketHeaders: %w", err)
+	}
+	if q.getWebSocketWorkspaceIDStmt, err = db.PrepareContext(ctx, getWebSocketWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWebSocketWorkspaceID: %w", err)
+	}
+	if q.getWebSocketsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getWebSocketsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWebSocketsByWorkspaceID: %w", err)
+	}
 	if q.getWorkspaceStmt, err = db.PrepareContext(ctx, getWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspace: %w", err)
 	}
@@ -975,6 +1035,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeStateStmt, err = db.PrepareContext(ctx, updateFlowNodeState); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeState: %w", err)
 	}
+	if q.updateFlowNodeWaitStmt, err = db.PrepareContext(ctx, updateFlowNodeWait); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeWait: %w", err)
+	}
+	if q.updateFlowNodeWsConnectionStmt, err = db.PrepareContext(ctx, updateFlowNodeWsConnection); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeWsConnection: %w", err)
+	}
+	if q.updateFlowNodeWsSendStmt, err = db.PrepareContext(ctx, updateFlowNodeWsSend); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeWsSend: %w", err)
+	}
 	if q.updateFlowVariableStmt, err = db.PrepareContext(ctx, updateFlowVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowVariable: %w", err)
 	}
@@ -995,6 +1064,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateGraphQLHeaderStmt, err = db.PrepareContext(ctx, updateGraphQLHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateGraphQLHeader: %w", err)
+	}
+	if q.updateGraphQLHeaderDeltaStmt, err = db.PrepareContext(ctx, updateGraphQLHeaderDelta); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateGraphQLHeaderDelta: %w", err)
 	}
 	if q.updateHTTPStmt, err = db.PrepareContext(ctx, updateHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTP: %w", err)
@@ -1070,6 +1142,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateVariableStmt, err = db.PrepareContext(ctx, updateVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateVariable: %w", err)
+	}
+	if q.updateWebSocketStmt, err = db.PrepareContext(ctx, updateWebSocket); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWebSocket: %w", err)
+	}
+	if q.updateWebSocketHeaderStmt, err = db.PrepareContext(ctx, updateWebSocketHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWebSocketHeader: %w", err)
 	}
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
@@ -1286,6 +1364,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeJsStmt: %w", cerr)
 		}
 	}
+	if q.cleanupOrphanedFlowNodeWaitStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeWaitStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeWaitStmt: %w", cerr)
+		}
+	}
 	if q.cleanupOrphanedNodeExecutionsStmt != nil {
 		if cerr := q.cleanupOrphanedNodeExecutionsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing cleanupOrphanedNodeExecutionsStmt: %w", cerr)
@@ -1381,9 +1464,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createFlowNodeMemoryStmt: %w", cerr)
 		}
 	}
+	if q.createFlowNodeWaitStmt != nil {
+		if cerr := q.createFlowNodeWaitStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeWaitStmt: %w", cerr)
+		}
+	}
 	if q.createFlowNodeWithStateStmt != nil {
 		if cerr := q.createFlowNodeWithStateStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeWithStateStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeWsConnectionStmt != nil {
+		if cerr := q.createFlowNodeWsConnectionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeWsConnectionStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeWsSendStmt != nil {
+		if cerr := q.createFlowNodeWsSendStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeWsSendStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodesBulkStmt != nil {
@@ -1561,6 +1659,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createVariableBulkStmt: %w", cerr)
 		}
 	}
+	if q.createWebSocketStmt != nil {
+		if cerr := q.createWebSocketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createWebSocketStmt: %w", cerr)
+		}
+	}
+	if q.createWebSocketHeaderStmt != nil {
+		if cerr := q.createWebSocketHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createWebSocketHeaderStmt: %w", cerr)
+		}
+	}
 	if q.createWorkspaceStmt != nil {
 		if cerr := q.createWorkspaceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createWorkspaceStmt: %w", cerr)
@@ -1659,6 +1767,21 @@ func (q *Queries) Close() error {
 	if q.deleteFlowNodeMemoryStmt != nil {
 		if cerr := q.deleteFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeWaitStmt != nil {
+		if cerr := q.deleteFlowNodeWaitStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeWaitStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeWsConnectionStmt != nil {
+		if cerr := q.deleteFlowNodeWsConnectionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeWsConnectionStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeWsSendStmt != nil {
+		if cerr := q.deleteFlowNodeWsSendStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeWsSendStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowTagStmt != nil {
@@ -1774,6 +1897,21 @@ func (q *Queries) Close() error {
 	if q.deleteVariableStmt != nil {
 		if cerr := q.deleteVariableStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteVariableStmt: %w", cerr)
+		}
+	}
+	if q.deleteWebSocketStmt != nil {
+		if cerr := q.deleteWebSocketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteWebSocketStmt: %w", cerr)
+		}
+	}
+	if q.deleteWebSocketHeaderStmt != nil {
+		if cerr := q.deleteWebSocketHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteWebSocketHeaderStmt: %w", cerr)
+		}
+	}
+	if q.deleteWebSocketHeadersByWebSocketIDStmt != nil {
+		if cerr := q.deleteWebSocketHeadersByWebSocketIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteWebSocketHeadersByWebSocketIDStmt: %w", cerr)
 		}
 	}
 	if q.deleteWorkspaceStmt != nil {
@@ -1984,6 +2122,21 @@ func (q *Queries) Close() error {
 	if q.getFlowNodeMemoryStmt != nil {
 		if cerr := q.getFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeWaitStmt != nil {
+		if cerr := q.getFlowNodeWaitStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeWaitStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeWsConnectionStmt != nil {
+		if cerr := q.getFlowNodeWsConnectionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeWsConnectionStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeWsSendStmt != nil {
+		if cerr := q.getFlowNodeWsSendStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeWsSendStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodesByFlowIDStmt != nil {
@@ -2501,6 +2654,31 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getVariablesByEnvironmentIDOrderedStmt: %w", cerr)
 		}
 	}
+	if q.getWebSocketStmt != nil {
+		if cerr := q.getWebSocketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWebSocketStmt: %w", cerr)
+		}
+	}
+	if q.getWebSocketHeaderByIDStmt != nil {
+		if cerr := q.getWebSocketHeaderByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWebSocketHeaderByIDStmt: %w", cerr)
+		}
+	}
+	if q.getWebSocketHeadersStmt != nil {
+		if cerr := q.getWebSocketHeadersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWebSocketHeadersStmt: %w", cerr)
+		}
+	}
+	if q.getWebSocketWorkspaceIDStmt != nil {
+		if cerr := q.getWebSocketWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWebSocketWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getWebSocketsByWorkspaceIDStmt != nil {
+		if cerr := q.getWebSocketsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWebSocketsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getWorkspaceStmt != nil {
 		if cerr := q.getWorkspaceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWorkspaceStmt: %w", cerr)
@@ -2676,6 +2854,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeStateStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowNodeWaitStmt != nil {
+		if cerr := q.updateFlowNodeWaitStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeWaitStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeWsConnectionStmt != nil {
+		if cerr := q.updateFlowNodeWsConnectionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeWsConnectionStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeWsSendStmt != nil {
+		if cerr := q.updateFlowNodeWsSendStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeWsSendStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowVariableStmt != nil {
 		if cerr := q.updateFlowVariableStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowVariableStmt: %w", cerr)
@@ -2709,6 +2902,11 @@ func (q *Queries) Close() error {
 	if q.updateGraphQLHeaderStmt != nil {
 		if cerr := q.updateGraphQLHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateGraphQLHeaderStmt: %w", cerr)
+		}
+	}
+	if q.updateGraphQLHeaderDeltaStmt != nil {
+		if cerr := q.updateGraphQLHeaderDeltaStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateGraphQLHeaderDeltaStmt: %w", cerr)
 		}
 	}
 	if q.updateHTTPStmt != nil {
@@ -2836,6 +3034,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateVariableStmt: %w", cerr)
 		}
 	}
+	if q.updateWebSocketStmt != nil {
+		if cerr := q.updateWebSocketStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWebSocketStmt: %w", cerr)
+		}
+	}
+	if q.updateWebSocketHeaderStmt != nil {
+		if cerr := q.updateWebSocketHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWebSocketHeaderStmt: %w", cerr)
+		}
+	}
 	if q.updateWorkspaceStmt != nil {
 		if cerr := q.updateWorkspaceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateWorkspaceStmt: %w", cerr)
@@ -2939,6 +3147,7 @@ type Queries struct {
 	cleanupOrphanedFlowNodeGraphQLStmt         *sql.Stmt
 	cleanupOrphanedFlowNodeHttpStmt            *sql.Stmt
 	cleanupOrphanedFlowNodeJsStmt              *sql.Stmt
+	cleanupOrphanedFlowNodeWaitStmt            *sql.Stmt
 	cleanupOrphanedNodeExecutionsStmt          *sql.Stmt
 	createCredentialStmt                       *sql.Stmt
 	createCredentialAnthropicStmt              *sql.Stmt
@@ -2958,7 +3167,10 @@ type Queries struct {
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
 	createFlowNodeMemoryStmt                   *sql.Stmt
+	createFlowNodeWaitStmt                     *sql.Stmt
 	createFlowNodeWithStateStmt                *sql.Stmt
+	createFlowNodeWsConnectionStmt             *sql.Stmt
+	createFlowNodeWsSendStmt                   *sql.Stmt
 	createFlowNodesBulkStmt                    *sql.Stmt
 	createFlowTagStmt                          *sql.Stmt
 	createFlowVariableStmt                     *sql.Stmt
@@ -2994,6 +3206,8 @@ type Queries struct {
 	createUserStmt                             *sql.Stmt
 	createVariableStmt                         *sql.Stmt
 	createVariableBulkStmt                     *sql.Stmt
+	createWebSocketStmt                        *sql.Stmt
+	createWebSocketHeaderStmt                  *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
 	deleteCredentialStmt                       *sql.Stmt
@@ -3014,6 +3228,9 @@ type Queries struct {
 	deleteFlowNodeHTTPStmt                     *sql.Stmt
 	deleteFlowNodeJsStmt                       *sql.Stmt
 	deleteFlowNodeMemoryStmt                   *sql.Stmt
+	deleteFlowNodeWaitStmt                     *sql.Stmt
+	deleteFlowNodeWsConnectionStmt             *sql.Stmt
+	deleteFlowNodeWsSendStmt                   *sql.Stmt
 	deleteFlowTagStmt                          *sql.Stmt
 	deleteFlowVariableStmt                     *sql.Stmt
 	deleteGraphQLStmt                          *sql.Stmt
@@ -3037,6 +3254,9 @@ type Queries struct {
 	deleteTagStmt                              *sql.Stmt
 	deleteUserStmt                             *sql.Stmt
 	deleteVariableStmt                         *sql.Stmt
+	deleteWebSocketStmt                        *sql.Stmt
+	deleteWebSocketHeaderStmt                  *sql.Stmt
+	deleteWebSocketHeadersByWebSocketIDStmt    *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
 	findFileByPathHashStmt                     *sql.Stmt
@@ -3079,6 +3299,9 @@ type Queries struct {
 	getFlowNodeHTTPStmt                        *sql.Stmt
 	getFlowNodeJsStmt                          *sql.Stmt
 	getFlowNodeMemoryStmt                      *sql.Stmt
+	getFlowNodeWaitStmt                        *sql.Stmt
+	getFlowNodeWsConnectionStmt                *sql.Stmt
+	getFlowNodeWsSendStmt                      *sql.Stmt
 	getFlowNodesByFlowIDStmt                   *sql.Stmt
 	getFlowNodesByFlowIDsStmt                  *sql.Stmt
 	getFlowTagStmt                             *sql.Stmt
@@ -3182,6 +3405,11 @@ type Queries struct {
 	getVariableStmt                            *sql.Stmt
 	getVariablesByEnvironmentIDStmt            *sql.Stmt
 	getVariablesByEnvironmentIDOrderedStmt     *sql.Stmt
+	getWebSocketStmt                           *sql.Stmt
+	getWebSocketHeaderByIDStmt                 *sql.Stmt
+	getWebSocketHeadersStmt                    *sql.Stmt
+	getWebSocketWorkspaceIDStmt                *sql.Stmt
+	getWebSocketsByWorkspaceIDStmt             *sql.Stmt
 	getWorkspaceStmt                           *sql.Stmt
 	getWorkspaceByUserIDStmt                   *sql.Stmt
 	getWorkspaceByUserIDandWorkspaceIDStmt     *sql.Stmt
@@ -3217,6 +3445,9 @@ type Queries struct {
 	updateFlowNodeJsStmt                       *sql.Stmt
 	updateFlowNodeMemoryStmt                   *sql.Stmt
 	updateFlowNodeStateStmt                    *sql.Stmt
+	updateFlowNodeWaitStmt                     *sql.Stmt
+	updateFlowNodeWsConnectionStmt             *sql.Stmt
+	updateFlowNodeWsSendStmt                   *sql.Stmt
 	updateFlowVariableStmt                     *sql.Stmt
 	updateFlowVariableOrderStmt                *sql.Stmt
 	updateGraphQLStmt                          *sql.Stmt
@@ -3224,6 +3455,7 @@ type Queries struct {
 	updateGraphQLAssertDeltaStmt               *sql.Stmt
 	updateGraphQLDeltaStmt                     *sql.Stmt
 	updateGraphQLHeaderStmt                    *sql.Stmt
+	updateGraphQLHeaderDeltaStmt               *sql.Stmt
 	updateHTTPStmt                             *sql.Stmt
 	updateHTTPAssertStmt                       *sql.Stmt
 	updateHTTPAssertDeltaStmt                  *sql.Stmt
@@ -3249,6 +3481,8 @@ type Queries struct {
 	updateTagStmt                              *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
+	updateWebSocketStmt                        *sql.Stmt
+	updateWebSocketHeaderStmt                  *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt             *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
@@ -3299,6 +3533,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		cleanupOrphanedFlowNodeGraphQLStmt:         q.cleanupOrphanedFlowNodeGraphQLStmt,
 		cleanupOrphanedFlowNodeHttpStmt:            q.cleanupOrphanedFlowNodeHttpStmt,
 		cleanupOrphanedFlowNodeJsStmt:              q.cleanupOrphanedFlowNodeJsStmt,
+		cleanupOrphanedFlowNodeWaitStmt:            q.cleanupOrphanedFlowNodeWaitStmt,
 		cleanupOrphanedNodeExecutionsStmt:          q.cleanupOrphanedNodeExecutionsStmt,
 		createCredentialStmt:                       q.createCredentialStmt,
 		createCredentialAnthropicStmt:              q.createCredentialAnthropicStmt,
@@ -3318,7 +3553,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
 		createFlowNodeMemoryStmt:                   q.createFlowNodeMemoryStmt,
+		createFlowNodeWaitStmt:                     q.createFlowNodeWaitStmt,
 		createFlowNodeWithStateStmt:                q.createFlowNodeWithStateStmt,
+		createFlowNodeWsConnectionStmt:             q.createFlowNodeWsConnectionStmt,
+		createFlowNodeWsSendStmt:                   q.createFlowNodeWsSendStmt,
 		createFlowNodesBulkStmt:                    q.createFlowNodesBulkStmt,
 		createFlowTagStmt:                          q.createFlowTagStmt,
 		createFlowVariableStmt:                     q.createFlowVariableStmt,
@@ -3354,6 +3592,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createUserStmt:                             q.createUserStmt,
 		createVariableStmt:                         q.createVariableStmt,
 		createVariableBulkStmt:                     q.createVariableBulkStmt,
+		createWebSocketStmt:                        q.createWebSocketStmt,
+		createWebSocketHeaderStmt:                  q.createWebSocketHeaderStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
 		deleteCredentialStmt:                       q.deleteCredentialStmt,
@@ -3374,6 +3614,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteFlowNodeHTTPStmt:                     q.deleteFlowNodeHTTPStmt,
 		deleteFlowNodeJsStmt:                       q.deleteFlowNodeJsStmt,
 		deleteFlowNodeMemoryStmt:                   q.deleteFlowNodeMemoryStmt,
+		deleteFlowNodeWaitStmt:                     q.deleteFlowNodeWaitStmt,
+		deleteFlowNodeWsConnectionStmt:             q.deleteFlowNodeWsConnectionStmt,
+		deleteFlowNodeWsSendStmt:                   q.deleteFlowNodeWsSendStmt,
 		deleteFlowTagStmt:                          q.deleteFlowTagStmt,
 		deleteFlowVariableStmt:                     q.deleteFlowVariableStmt,
 		deleteGraphQLStmt:                          q.deleteGraphQLStmt,
@@ -3397,6 +3640,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteTagStmt:                              q.deleteTagStmt,
 		deleteUserStmt:                             q.deleteUserStmt,
 		deleteVariableStmt:                         q.deleteVariableStmt,
+		deleteWebSocketStmt:                        q.deleteWebSocketStmt,
+		deleteWebSocketHeaderStmt:                  q.deleteWebSocketHeaderStmt,
+		deleteWebSocketHeadersByWebSocketIDStmt:    q.deleteWebSocketHeadersByWebSocketIDStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
 		findFileByPathHashStmt:                     q.findFileByPathHashStmt,
@@ -3439,6 +3685,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowNodeHTTPStmt:                        q.getFlowNodeHTTPStmt,
 		getFlowNodeJsStmt:                          q.getFlowNodeJsStmt,
 		getFlowNodeMemoryStmt:                      q.getFlowNodeMemoryStmt,
+		getFlowNodeWaitStmt:                        q.getFlowNodeWaitStmt,
+		getFlowNodeWsConnectionStmt:                q.getFlowNodeWsConnectionStmt,
+		getFlowNodeWsSendStmt:                      q.getFlowNodeWsSendStmt,
 		getFlowNodesByFlowIDStmt:                   q.getFlowNodesByFlowIDStmt,
 		getFlowNodesByFlowIDsStmt:                  q.getFlowNodesByFlowIDsStmt,
 		getFlowTagStmt:                             q.getFlowTagStmt,
@@ -3542,6 +3791,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getVariableStmt:                            q.getVariableStmt,
 		getVariablesByEnvironmentIDStmt:            q.getVariablesByEnvironmentIDStmt,
 		getVariablesByEnvironmentIDOrderedStmt:     q.getVariablesByEnvironmentIDOrderedStmt,
+		getWebSocketStmt:                           q.getWebSocketStmt,
+		getWebSocketHeaderByIDStmt:                 q.getWebSocketHeaderByIDStmt,
+		getWebSocketHeadersStmt:                    q.getWebSocketHeadersStmt,
+		getWebSocketWorkspaceIDStmt:                q.getWebSocketWorkspaceIDStmt,
+		getWebSocketsByWorkspaceIDStmt:             q.getWebSocketsByWorkspaceIDStmt,
 		getWorkspaceStmt:                           q.getWorkspaceStmt,
 		getWorkspaceByUserIDStmt:                   q.getWorkspaceByUserIDStmt,
 		getWorkspaceByUserIDandWorkspaceIDStmt:     q.getWorkspaceByUserIDandWorkspaceIDStmt,
@@ -3577,6 +3831,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
 		updateFlowNodeMemoryStmt:                   q.updateFlowNodeMemoryStmt,
 		updateFlowNodeStateStmt:                    q.updateFlowNodeStateStmt,
+		updateFlowNodeWaitStmt:                     q.updateFlowNodeWaitStmt,
+		updateFlowNodeWsConnectionStmt:             q.updateFlowNodeWsConnectionStmt,
+		updateFlowNodeWsSendStmt:                   q.updateFlowNodeWsSendStmt,
 		updateFlowVariableStmt:                     q.updateFlowVariableStmt,
 		updateFlowVariableOrderStmt:                q.updateFlowVariableOrderStmt,
 		updateGraphQLStmt:                          q.updateGraphQLStmt,
@@ -3584,6 +3841,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateGraphQLAssertDeltaStmt:               q.updateGraphQLAssertDeltaStmt,
 		updateGraphQLDeltaStmt:                     q.updateGraphQLDeltaStmt,
 		updateGraphQLHeaderStmt:                    q.updateGraphQLHeaderStmt,
+		updateGraphQLHeaderDeltaStmt:               q.updateGraphQLHeaderDeltaStmt,
 		updateHTTPStmt:                             q.updateHTTPStmt,
 		updateHTTPAssertStmt:                       q.updateHTTPAssertStmt,
 		updateHTTPAssertDeltaStmt:                  q.updateHTTPAssertDeltaStmt,
@@ -3609,6 +3867,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateTagStmt:                              q.updateTagStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,
+		updateWebSocketStmt:                        q.updateWebSocketStmt,
+		updateWebSocketHeaderStmt:                  q.updateWebSocketHeaderStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
 		updateWorkspaceUpdatedTimeStmt:             q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,

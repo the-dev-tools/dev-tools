@@ -21,4 +21,13 @@ export const Route = createFileRoute(
       node: <HttpTab deltaHttpId={deltaHttpId} httpId={httpId} />,
     });
   },
+  onStay: async (match) => {
+    const { deltaHttpId, httpId } = match.context;
+
+    await openTab({
+      id: httpTabId({ deltaHttpId, httpId }),
+      match,
+      node: <HttpTab deltaHttpId={deltaHttpId} httpId={httpId} />,
+    });
+  },
 });

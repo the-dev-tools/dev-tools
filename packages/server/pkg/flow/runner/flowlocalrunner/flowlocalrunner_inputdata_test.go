@@ -88,7 +88,7 @@ func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	fr := CreateFlowRunner(runnerID, flowID, startID, nodeMap, edgesMap, 0, nil)
+	fr := CreateFlowRunner(runnerID, flowID, []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 
 	nodeStates := make(chan runner.FlowNodeStatus, 10)
 	flowStatus := make(chan runner.FlowStatus, 2)
@@ -225,7 +225,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	fr := CreateFlowRunner(runnerID, flowID, startID, nodeMap, edgesMap, 0, nil)
+	fr := CreateFlowRunner(runnerID, flowID, []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 
 	nodeStates := make(chan runner.FlowNodeStatus, 10)
 	flowStatus := make(chan runner.FlowStatus, 2)
@@ -372,7 +372,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables(t *testing
 
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	fr := CreateFlowRunner(runnerID, flowID, startID, nodeMap, edgesMap, 0, nil)
+	fr := CreateFlowRunner(runnerID, flowID, []idwrap.IDWrap{startID}, nodeMap, edgesMap, 0, nil)
 
 	nodeStates := make(chan runner.FlowNodeStatus, 10)
 	flowStatus := make(chan runner.FlowStatus, 2)

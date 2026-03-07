@@ -15,7 +15,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/testutil"
 )
 
@@ -36,7 +38,12 @@ func TestNewExporter(t *testing.T) {
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
 
-	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService)
+	graphqlService := sgraphql.New(base.Queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(base.Queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(base.Queries)
+	websocketService := swebsocket.New(base.Queries, logger)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(base.Queries)
+	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService, &graphqlService, &graphqlHeaderService, &graphqlAssertService, &websocketService, &websocketHeaderService)
 	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
 	exporter.SetStorage(storage)
 
@@ -123,7 +130,12 @@ func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
 	workspaceService := services.WorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
 
-	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService)
+	graphqlService := sgraphql.New(base.Queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(base.Queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(base.Queries)
+	websocketService := swebsocket.New(base.Queries, logger)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(base.Queries)
+	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService, &graphqlService, &graphqlHeaderService, &graphqlAssertService, &websocketService, &websocketHeaderService)
 	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
 	exporter.SetStorage(storage)
 
@@ -524,7 +536,12 @@ func setupExporterWithoutData(t *testing.T, ctx context.Context) *SimpleExporter
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
 
-	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService)
+	graphqlService := sgraphql.New(base.Queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(base.Queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(base.Queries)
+	websocketService := swebsocket.New(base.Queries, logger)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(base.Queries)
+	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService, &graphqlService, &graphqlHeaderService, &graphqlAssertService, &websocketService, &websocketHeaderService)
 	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
 	exporter.SetStorage(storage)
 
@@ -549,7 +566,12 @@ func setupExporterWithTestData(t *testing.T, ctx context.Context) (*SimpleExport
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
 
-	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService)
+	graphqlService := sgraphql.New(base.Queries, logger)
+	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(base.Queries)
+	graphqlAssertService := sgraphql.NewGraphQLAssertService(base.Queries)
+	websocketService := swebsocket.New(base.Queries, logger)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(base.Queries)
+	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService, &graphqlService, &graphqlHeaderService, &graphqlAssertService, &websocketService, &websocketHeaderService)
 	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
 	exporter.SetStorage(storage)
 

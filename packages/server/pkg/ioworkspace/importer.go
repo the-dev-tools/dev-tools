@@ -11,6 +11,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/swebsocket"
 )
 
 // ImportResult contains statistics and mappings from the import operation.
@@ -36,8 +37,13 @@ type ImportResult struct {
 	FlowAINodesCreated          int
 	FlowAIProviderNodesCreated  int
 	FlowAIMemoryNodesCreated    int
-	FlowGraphQLNodesCreated     int
-	GraphQLRequestsCreated      int
+	FlowGraphQLNodesCreated        int
+	FlowWsConnectionNodesCreated   int
+	FlowWsSendNodesCreated         int
+	FlowWaitNodesCreated           int
+	WebSocketsCreated              int
+	WebSocketHeadersCreated        int
+	GraphQLRequestsCreated         int
 	GraphQLHeadersCreated       int
 	GraphQLAssertsCreated       int
 	EnvironmentsCreated         int
@@ -49,6 +55,7 @@ type ImportResult struct {
 	NodeIDMap        map[idwrap.IDWrap]idwrap.IDWrap
 	FileIDMap        map[idwrap.IDWrap]idwrap.IDWrap
 	EnvironmentIDMap map[idwrap.IDWrap]idwrap.IDWrap
+	WebSocketIDMap   map[idwrap.IDWrap]idwrap.IDWrap
 }
 
 // Import imports a WorkspaceBundle into the database using the provided options.
@@ -66,6 +73,7 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		NodeIDMap:        make(map[idwrap.IDWrap]idwrap.IDWrap),
 		FileIDMap:        make(map[idwrap.IDWrap]idwrap.IDWrap),
 		EnvironmentIDMap: make(map[idwrap.IDWrap]idwrap.IDWrap),
+		WebSocketIDMap:   make(map[idwrap.IDWrap]idwrap.IDWrap),
 	}
 
 	// Create service instances with transaction support
@@ -91,10 +99,16 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	nodeAIProviderService := sflow.NewNodeAiProviderService(s.queries).TX(tx)
 	nodeMemoryService := sflow.NewNodeMemoryService(s.queries).TX(tx)
 	nodeGraphQLService := sflow.NewNodeGraphQLService(s.queries).TX(tx)
+	nodeWsConnectionService := sflow.NewNodeWsConnectionService(s.queries).TX(tx)
+	nodeWsSendService := sflow.NewNodeWsSendService(s.queries).TX(tx)
+	nodeWaitService := sflow.NewNodeWaitService(s.queries).TX(tx)
 
 	graphqlService := sgraphql.New(s.queries, nil).TX(tx)
 	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(s.queries).TX(tx)
 	graphqlAssertService := sgraphql.NewGraphQLAssertService(s.queries).TX(tx)
+
+	websocketService := swebsocket.New(s.queries, nil).TX(tx)
+	websocketHeaderService := swebsocket.NewWebSocketHeaderService(s.queries).TX(tx)
 
 	fileService := sfile.New(s.queries, nil).TX(tx)
 	envService := senv.NewEnvironmentService(s.queries, nil).TX(tx)
@@ -117,6 +131,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	if opts.ImportHTTP && len(bundle.GraphQLRequests) > 0 {
 		if err := s.importGraphQLRequests(ctx, graphqlService, bundle, opts, result); err != nil {
 			return nil, fmt.Errorf("failed to import GraphQL requests: %w", err)
+		}
+	}
+
+	if opts.ImportHTTP && len(bundle.WebSockets) > 0 {
+		if err := s.importWebSockets(ctx, websocketService, bundle, opts, result); err != nil {
+			return nil, fmt.Errorf("failed to import WebSocket requests: %w", err)
 		}
 	}
 
@@ -156,6 +176,12 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	if opts.ImportHTTP && len(bundle.GraphQLAsserts) > 0 {
 		if err := s.importGraphQLAsserts(ctx, graphqlAssertService, bundle, opts, result); err != nil {
 			return nil, fmt.Errorf("failed to import GraphQL asserts: %w", err)
+		}
+	}
+
+	if opts.ImportHTTP && len(bundle.WebSocketHeaders) > 0 {
+		if err := s.importWebSocketHeaders(ctx, websocketHeaderService, bundle, opts, result); err != nil {
+			return nil, fmt.Errorf("failed to import WebSocket headers: %w", err)
 		}
 	}
 
@@ -263,6 +289,24 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		if len(bundle.FlowGraphQLNodes) > 0 {
 			if err := s.importFlowGraphQLNodes(ctx, nodeGraphQLService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow GraphQL nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowWsConnectionNodes) > 0 {
+			if err := s.importFlowWsConnectionNodes(ctx, nodeWsConnectionService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow WS connection nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowWsSendNodes) > 0 {
+			if err := s.importFlowWsSendNodes(ctx, nodeWsSendService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow WS send nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowWaitNodes) > 0 {
+			if err := s.importFlowWaitNodes(ctx, nodeWaitService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow wait nodes: %w", err)
 			}
 		}
 	}

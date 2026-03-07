@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
-import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useRef, useState } from 'react';
+import { type SyntheticEvent, KeyboardEvent, use, useEffect, useMemo, useRef, useState } from 'react';
 import { FiArrowUp, FiChevronUp, FiEdit, FiSettings, FiX } from 'react-icons/fi';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -133,7 +133,7 @@ export const AgentPanel = () => {
     el.style.height = `${el.scrollHeight}px`;
   };
 
-  const handleSubmit = (e?: FormEvent) => {
+  const handleSubmit = (e?: SyntheticEvent) => {
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
     void sendMessage(input.trim());
@@ -369,7 +369,7 @@ const ApiKeyPrompt = ({
     setValue('');
   }, [provider]);
 
-  const handleSubmit = (e?: FormEvent) => {
+  const handleSubmit = (e?: SyntheticEvent) => {
     e?.preventDefault();
     if (!value.trim()) return;
     onSubmit(value);
