@@ -276,6 +276,9 @@ func TestE2E_HAR_To_CLI_Chain(t *testing.T) {
 		nil, // NodeWsConnectionService
 		nil, // NodeWsSendService
 		nil, // NodeWaitService
+		nil, // NodeSubFlowTriggerService
+		nil, // NodeSubFlowReturnService
+		nil, // NodeRunSubFlowService
 		nil, // WebSocketService
 		nil, // WebSocketHeaderService
 		nil, // GraphQLService

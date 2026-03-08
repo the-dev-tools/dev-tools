@@ -40,7 +40,10 @@ type ImportResult struct {
 	FlowGraphQLNodesCreated        int
 	FlowWsConnectionNodesCreated   int
 	FlowWsSendNodesCreated         int
-	FlowWaitNodesCreated           int
+	FlowWaitNodesCreated               int
+	FlowSubFlowTriggerNodesCreated     int
+	FlowSubFlowReturnNodesCreated      int
+	FlowRunSubFlowNodesCreated         int
 	WebSocketsCreated              int
 	WebSocketHeadersCreated        int
 	GraphQLRequestsCreated         int
@@ -102,6 +105,9 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	nodeWsConnectionService := sflow.NewNodeWsConnectionService(s.queries).TX(tx)
 	nodeWsSendService := sflow.NewNodeWsSendService(s.queries).TX(tx)
 	nodeWaitService := sflow.NewNodeWaitService(s.queries).TX(tx)
+	nodeSubFlowTriggerService := sflow.NewNodeSubFlowTriggerService(s.queries).TX(tx)
+	nodeSubFlowReturnService := sflow.NewNodeSubFlowReturnService(s.queries).TX(tx)
+	nodeRunSubFlowService := sflow.NewNodeRunSubFlowService(s.queries).TX(tx)
 
 	graphqlService := sgraphql.New(s.queries, nil).TX(tx)
 	graphqlHeaderService := sgraphql.NewGraphQLHeaderService(s.queries).TX(tx)
@@ -307,6 +313,24 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		if len(bundle.FlowWaitNodes) > 0 {
 			if err := s.importFlowWaitNodes(ctx, nodeWaitService, bundle, opts, result); err != nil {
 				return nil, fmt.Errorf("failed to import flow wait nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowSubFlowTriggerNodes) > 0 {
+			if err := s.importFlowSubFlowTriggerNodes(ctx, nodeSubFlowTriggerService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow sub-flow trigger nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowSubFlowReturnNodes) > 0 {
+			if err := s.importFlowSubFlowReturnNodes(ctx, nodeSubFlowReturnService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow sub-flow return nodes: %w", err)
+			}
+		}
+
+		if len(bundle.FlowRunSubFlowNodes) > 0 {
+			if err := s.importFlowRunSubFlowNodes(ctx, nodeRunSubFlowService, bundle, opts, result); err != nil {
+				return nil, fmt.Errorf("failed to import flow run sub-flow nodes: %w", err)
 			}
 		}
 	}

@@ -35,14 +35,23 @@ func (s *FlowServiceV2RPC) FlowCollection(
 	ctx context.Context,
 	_ *connect.Request[emptypb.Empty],
 ) (*connect.Response[flowv1.FlowCollectionResponse], error) {
-	flows, err := s.listAccessibleFlows(ctx)
+	workspaces, err := s.listUserWorkspaces(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*flowv1.Flow, 0, len(flows))
-	for _, flow := range flows {
-		items = append(items, serializeFlow(flow))
+	var items []*flowv1.Flow
+	for _, ws := range workspaces {
+		flows, err := s.fsReader.GetFlowsByWorkspaceID(ctx, ws.ID)
+		if err != nil {
+			if errors.Is(err, sflow.ErrNoFlowFound) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, flow := range flows {
+			items = append(items, serializeFlow(flow))
+		}
 	}
 
 	return connect.NewResponse(&flowv1.FlowCollectionResponse{Items: items}), nil
@@ -544,9 +553,12 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 		aiProvider       *mflow.NodeAiProvider
 		memoryNode       *mflow.NodeMemory
 		graphqlNode      *mflow.NodeGraphQL
-		wsConnectionNode *mflow.NodeWsConnection
-		wsSendNode       *mflow.NodeWsSend
-		waitNode         *mflow.NodeWait
+		wsConnectionNode     *mflow.NodeWsConnection
+		wsSendNode           *mflow.NodeWsSend
+		waitNode             *mflow.NodeWait
+		subFlowTriggerNode   *mflow.NodeSubFlowTrigger
+		subFlowReturnNode    *mflow.NodeSubFlowReturn
+		runSubFlowNode       *mflow.NodeRunSubFlow
 	}
 	details := make([]nodeDetail, 0, len(sourceNodes))
 	for _, n := range sourceNodes {
@@ -621,6 +633,26 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 					detail.waitNode = d
 				}
 			}
+		case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+			if s.nsfts != nil {
+				if d, err := s.nsfts.GetNodeSubFlowTrigger(ctx, n.ID); err == nil && d != nil {
+					detail.subFlowTriggerNode = d
+				}
+			}
+		case mflow.NODE_KIND_SUB_FLOW_RETURN:
+			if s.nsfrs != nil {
+				if d, err := s.nsfrs.GetNodeSubFlowReturn(ctx, n.ID); err == nil && d != nil {
+					detail.subFlowReturnNode = d
+				}
+			}
+		case mflow.NODE_KIND_RUN_SUB_FLOW:
+			if s.nrsfs != nil {
+				if d, err := s.nrsfs.GetNodeRunSubFlow(ctx, n.ID); err == nil && d != nil {
+					detail.runSubFlowNode = d
+				}
+			}
+		case mflow.NODE_KIND_WEBHOOK_TRIGGER:
+			// Not yet implemented
 		}
 		details = append(details, detail)
 	}
@@ -782,6 +814,30 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			node.FlowNodeID = newNodeID
 			nwaitsWriter := s.nwaits.TX(tx)
 			if err := nwaitsWriter.CreateNodeWait(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.subFlowTriggerNode != nil && s.nsfts != nil {
+			node := *d.subFlowTriggerNode
+			node.FlowNodeID = newNodeID
+			writer := s.nsfts.TX(tx)
+			if err := writer.CreateNodeSubFlowTrigger(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.subFlowReturnNode != nil && s.nsfrs != nil {
+			node := *d.subFlowReturnNode
+			node.FlowNodeID = newNodeID
+			writer := s.nsfrs.TX(tx)
+			if err := writer.CreateNodeSubFlowReturn(ctx, node); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+		if d.runSubFlowNode != nil && s.nrsfs != nil {
+			node := *d.runSubFlowNode
+			node.FlowNodeID = newNodeID
+			writer := s.nrsfs.TX(tx)
+			if err := writer.CreateNodeRunSubFlow(ctx, node); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 		}

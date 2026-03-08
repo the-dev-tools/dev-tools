@@ -22,7 +22,10 @@ const (
 	NODE_KIND_WS_CONNECTION NodeKind = 11
 	NODE_KIND_WS_SEND       NodeKind = 12
 	NODE_KIND_WAIT          NodeKind = 13
-	// NODE_KIND_WEBHOOK NodeKind = 14 // reserved for future trigger entry
+	NODE_KIND_WEBHOOK_TRIGGER NodeKind = 14
+	NODE_KIND_SUB_FLOW_TRIGGER NodeKind = 15
+	NODE_KIND_SUB_FLOW_RETURN  NodeKind = 16
+	NODE_KIND_RUN_SUB_FLOW     NodeKind = 17
 )
 
 type NodeState = int8

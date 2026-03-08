@@ -51,8 +51,8 @@ func (c *Context) DeleteFile(ctx context.Context, file FileDeleteItem) error {
 			if err := c.q.DeleteCredential(ctx, *file.ContentID); err != nil {
 				return err
 			}
-		case mfile.ContentTypeGraphQL:
-			// GraphQL - cascade to headers
+		case mfile.ContentTypeGraphQL, mfile.ContentTypeGraphQLDelta:
+			// GraphQL / GraphQL Delta - cascade to headers
 			if err := c.DeleteGraphQL(ctx, GraphQLDeleteItem{
 				ID:          *file.ContentID,
 				WorkspaceID: file.WorkspaceID,

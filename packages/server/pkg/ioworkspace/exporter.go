@@ -232,6 +232,9 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	nodeWsConnectionService := sflow.NewNodeWsConnectionService(s.queries)
 	nodeWsSendService := sflow.NewNodeWsSendService(s.queries)
 	nodeWaitService := sflow.NewNodeWaitService(s.queries)
+	nodeSubFlowTriggerService := sflow.NewNodeSubFlowTriggerService(s.queries)
+	nodeSubFlowReturnService := sflow.NewNodeSubFlowReturnService(s.queries)
+	nodeRunSubFlowService := sflow.NewNodeRunSubFlowService(s.queries)
 	websocketService := swebsocket.New(s.queries, s.logger)
 	websocketHeaderService := swebsocket.NewWebSocketHeaderService(s.queries)
 
@@ -287,7 +290,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
-			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService, nodeGraphQLService, nodeWsConnectionService, nodeWsSendService, nodeWaitService, websocketService, websocketHeaderService); err != nil {
+			if err := s.exportNodeImplementation(ctx, node, bundle, nodeRequestService, nodeIfService, nodeForService, nodeForEachService, nodeJSService, nodeAIService, nodeAIProviderService, nodeMemoryService, nodeGraphQLService, nodeWsConnectionService, nodeWsSendService, nodeWaitService, nodeSubFlowTriggerService, nodeSubFlowReturnService, nodeRunSubFlowService, websocketService, websocketHeaderService); err != nil {
 				return fmt.Errorf("failed to export node implementation for node %s: %w", node.ID.String(), err)
 			}
 		}
@@ -308,7 +311,10 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 		"graphql_nodes", len(bundle.FlowGraphQLNodes),
 		"ws_connection_nodes", len(bundle.FlowWsConnectionNodes),
 		"ws_send_nodes", len(bundle.FlowWsSendNodes),
-		"wait_nodes", len(bundle.FlowWaitNodes))
+		"wait_nodes", len(bundle.FlowWaitNodes),
+		"sub_flow_trigger_nodes", len(bundle.FlowSubFlowTriggerNodes),
+		"sub_flow_return_nodes", len(bundle.FlowSubFlowReturnNodes),
+		"run_sub_flow_nodes", len(bundle.FlowRunSubFlowNodes))
 
 	return nil
 }
@@ -364,6 +370,9 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 	nodeWsConnectionService sflow.NodeWsConnectionService,
 	nodeWsSendService sflow.NodeWsSendService,
 	nodeWaitService sflow.NodeWaitService,
+	nodeSubFlowTriggerService sflow.NodeSubFlowTriggerService,
+	nodeSubFlowReturnService sflow.NodeSubFlowReturnService,
+	nodeRunSubFlowService sflow.NodeRunSubFlowService,
 	websocketService swebsocket.WebSocketService,
 	websocketHeaderService swebsocket.WebSocketHeaderService,
 ) error {
@@ -492,6 +501,36 @@ func (s *IOWorkspaceService) exportNodeImplementation(
 		if nodeWait != nil {
 			bundle.FlowWaitNodes = append(bundle.FlowWaitNodes, *nodeWait)
 		}
+
+	case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+		nodeTrigger, err := nodeSubFlowTriggerService.GetNodeSubFlowTrigger(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get sub-flow trigger node: %w", err)
+		}
+		if nodeTrigger != nil {
+			bundle.FlowSubFlowTriggerNodes = append(bundle.FlowSubFlowTriggerNodes, *nodeTrigger)
+		}
+
+	case mflow.NODE_KIND_SUB_FLOW_RETURN:
+		nodeReturn, err := nodeSubFlowReturnService.GetNodeSubFlowReturn(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get sub-flow return node: %w", err)
+		}
+		if nodeReturn != nil {
+			bundle.FlowSubFlowReturnNodes = append(bundle.FlowSubFlowReturnNodes, *nodeReturn)
+		}
+
+	case mflow.NODE_KIND_RUN_SUB_FLOW:
+		nodeRunSubFlow, err := nodeRunSubFlowService.GetNodeRunSubFlow(ctx, node.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get run sub-flow node: %w", err)
+		}
+		if nodeRunSubFlow != nil {
+			bundle.FlowRunSubFlowNodes = append(bundle.FlowRunSubFlowNodes, *nodeRunSubFlow)
+		}
+
+	case mflow.NODE_KIND_WEBHOOK_TRIGGER:
+		// Not yet implemented
 	}
 
 	return nil

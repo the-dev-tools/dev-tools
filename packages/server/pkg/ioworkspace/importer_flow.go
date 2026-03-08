@@ -412,6 +412,61 @@ func (s *IOWorkspaceService) importFlowWaitNodes(ctx context.Context, nodeWaitSe
 	return nil
 }
 
+// importFlowSubFlowTriggerNodes imports flow SubFlowTrigger nodes from the bundle.
+func (s *IOWorkspaceService) importFlowSubFlowTriggerNodes(ctx context.Context, service sflow.NodeSubFlowTriggerService, bundle *WorkspaceBundle, _ ImportOptions, result *ImportResult) error {
+	for _, node := range bundle.FlowSubFlowTriggerNodes {
+		if newNodeID, ok := result.NodeIDMap[node.FlowNodeID]; ok {
+			node.FlowNodeID = newNodeID
+		}
+
+		if err := service.CreateNodeSubFlowTrigger(ctx, node); err != nil {
+			return fmt.Errorf("failed to create flow SubFlowTrigger node: %w", err)
+		}
+
+		result.FlowSubFlowTriggerNodesCreated++
+	}
+	return nil
+}
+
+// importFlowSubFlowReturnNodes imports flow SubFlowReturn nodes from the bundle.
+func (s *IOWorkspaceService) importFlowSubFlowReturnNodes(ctx context.Context, service sflow.NodeSubFlowReturnService, bundle *WorkspaceBundle, _ ImportOptions, result *ImportResult) error {
+	for _, node := range bundle.FlowSubFlowReturnNodes {
+		if newNodeID, ok := result.NodeIDMap[node.FlowNodeID]; ok {
+			node.FlowNodeID = newNodeID
+		}
+
+		if err := service.CreateNodeSubFlowReturn(ctx, node); err != nil {
+			return fmt.Errorf("failed to create flow SubFlowReturn node: %w", err)
+		}
+
+		result.FlowSubFlowReturnNodesCreated++
+	}
+	return nil
+}
+
+// importFlowRunSubFlowNodes imports flow RunSubFlow nodes from the bundle.
+func (s *IOWorkspaceService) importFlowRunSubFlowNodes(ctx context.Context, service sflow.NodeRunSubFlowService, bundle *WorkspaceBundle, _ ImportOptions, result *ImportResult) error {
+	for _, node := range bundle.FlowRunSubFlowNodes {
+		if newNodeID, ok := result.NodeIDMap[node.FlowNodeID]; ok {
+			node.FlowNodeID = newNodeID
+		}
+
+		// Remap target flow ID if it was remapped during import
+		if node.TargetFlowID != nil {
+			if newFlowID, ok := result.FlowIDMap[*node.TargetFlowID]; ok {
+				node.TargetFlowID = &newFlowID
+			}
+		}
+
+		if err := service.CreateNodeRunSubFlow(ctx, node); err != nil {
+			return fmt.Errorf("failed to create flow RunSubFlow node: %w", err)
+		}
+
+		result.FlowRunSubFlowNodesCreated++
+	}
+	return nil
+}
+
 // importWebSockets imports WebSocket entities from the bundle.
 func (s *IOWorkspaceService) importWebSockets(ctx context.Context, wsService swebsocket.WebSocketService, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
 	for _, ws := range bundle.WebSockets {

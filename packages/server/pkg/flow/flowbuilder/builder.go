@@ -20,6 +20,9 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/naiprovider"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nstart"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrunsubflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nsubflowreturn"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nsubflowtrigger"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nwait"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nwsconnection"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nwssend"
@@ -51,7 +54,11 @@ type Builder struct {
 	NodeGraphQL      *sflow.NodeGraphQLService
 	NodeWsConnection *sflow.NodeWsConnectionService
 	NodeWsSend       *sflow.NodeWsSendService
-	NodeWait         *sflow.NodeWaitService
+	NodeWait             *sflow.NodeWaitService
+	NodeSubFlowTrigger   *sflow.NodeSubFlowTriggerService
+	NodeSubFlowReturn    *sflow.NodeSubFlowReturnService
+	NodeRunSubFlow       *sflow.NodeRunSubFlowService
+	SubFlowExecutor      nrunsubflow.SubFlowExecutor
 	WebSocket        *swebsocket.WebSocketService
 	WebSocketHeader  *swebsocket.WebSocketHeaderService
 	GraphQL          *sgraphql.GraphQLService
@@ -81,6 +88,9 @@ func New(
 	nwcs *sflow.NodeWsConnectionService,
 	nwss *sflow.NodeWsSendService,
 	nwaits *sflow.NodeWaitService,
+	nsfts *sflow.NodeSubFlowTriggerService,
+	nsfrs *sflow.NodeSubFlowReturnService,
+	nrsfs *sflow.NodeRunSubFlowService,
 	wsSvc *swebsocket.WebSocketService,
 	wsHeaderSvc *swebsocket.WebSocketHeaderService,
 	gqls *sgraphql.GraphQLService,
@@ -107,6 +117,9 @@ func New(
 		NodeWsConnection:   nwcs,
 		NodeWsSend:         nwss,
 		NodeWait:           nwaits,
+		NodeSubFlowTrigger: nsfts,
+		NodeSubFlowReturn:  nsfrs,
+		NodeRunSubFlow:     nrsfs,
 		WebSocket:          wsSvc,
 		WebSocketHeader:    wsHeaderSvc,
 		GraphQL:            gqls,
@@ -380,6 +393,48 @@ func (b *Builder) BuildNodes(
 				}
 			}
 			flowNodeMap[nodeModel.ID] = nwait.New(nodeModel.ID, nodeModel.Name, durationMs)
+		case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+			var params []mflow.SubFlowParam
+			if b.NodeSubFlowTrigger != nil {
+				cfg, err := b.NodeSubFlowTrigger.GetNodeSubFlowTrigger(ctx, nodeModel.ID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("get sub-flow trigger config: %w", err)
+				}
+				if cfg != nil {
+					params = cfg.Params
+				}
+			}
+			flowNodeMap[nodeModel.ID] = nsubflowtrigger.New(nodeModel.ID, nodeModel.Name, params)
+			startNodeIDs = append(startNodeIDs, nodeModel.ID)
+		case mflow.NODE_KIND_SUB_FLOW_RETURN:
+			var outputs []mflow.SubFlowOutput
+			if b.NodeSubFlowReturn != nil {
+				cfg, err := b.NodeSubFlowReturn.GetNodeSubFlowReturn(ctx, nodeModel.ID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("get sub-flow return config: %w", err)
+				}
+				if cfg != nil {
+					outputs = cfg.Outputs
+				}
+			}
+			flowNodeMap[nodeModel.ID] = nsubflowreturn.New(nodeModel.ID, nodeModel.Name, outputs)
+		case mflow.NODE_KIND_RUN_SUB_FLOW:
+			var targetFlowID *idwrap.IDWrap
+			var targetFlowName string
+			var inputs []mflow.SubFlowInputMapping
+			if b.NodeRunSubFlow != nil {
+				cfg, err := b.NodeRunSubFlow.GetNodeRunSubFlow(ctx, nodeModel.ID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("get run sub-flow config: %w", err)
+				}
+				if cfg != nil {
+					targetFlowID = cfg.TargetFlowID
+					targetFlowName = cfg.TargetFlowName
+					inputs = cfg.Inputs
+				}
+			}
+			runNode := nrunsubflow.New(nodeModel.ID, nodeModel.Name, targetFlowID, targetFlowName, inputs, b.SubFlowExecutor)
+			flowNodeMap[nodeModel.ID] = runNode
 		default:
 			return nil, nil, fmt.Errorf("node kind %d not supported", nodeModel.NodeKind)
 		}

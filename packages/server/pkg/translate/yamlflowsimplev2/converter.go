@@ -74,6 +74,22 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		mergeFlowData(result, flowData, opts)
 	}
 
+	// Resolve RunSubFlow TargetFlowName → TargetFlowID references
+	if len(result.FlowRunSubFlowNodes) > 0 {
+		flowNameToID := make(map[string]idwrap.IDWrap, len(result.Flows))
+		for _, f := range result.Flows {
+			flowNameToID[f.Name] = f.ID
+		}
+		for i := range result.FlowRunSubFlowNodes {
+			node := &result.FlowRunSubFlowNodes[i]
+			if node.TargetFlowID == nil && node.TargetFlowName != "" {
+				if id, ok := flowNameToID[node.TargetFlowName]; ok {
+					node.TargetFlowID = &id
+				}
+			}
+		}
+	}
+
 	// Process Environments
 	// Map to track env ID by name for workspace linking
 	envNameMap := make(map[string]idwrap.IDWrap)

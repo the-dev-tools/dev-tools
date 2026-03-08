@@ -284,24 +284,26 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
           await waitForSync(mutationTime);
         },
         onMutate: (input) => {
+          const itemSchema = update.input.field['items']!.message!;
           pipe(
             Array.ensure(input),
-            (_) => create(update.input, { items: _ }) as Message & { items: Item[] },
-            (_) =>
-              Array.map(_.items, (delta) => {
-                params.collection.update(getKey(delta), (draft: Item) => {
-                  draftDelta(draft, delta, UnsetSchema);
-                });
-              }),
+            Array.map((_) => createDelta(itemSchema, _ as Record<string, unknown>)),
+            Array.map((delta) => {
+              params.collection.update(getKey(delta as Item), (draft: Item) => {
+                draftDelta(draft, delta, UnsetSchema);
+              });
+            }),
           );
         },
       });
+
+      const updateItemSchema = update.input.field['items']!.message!;
 
       (operations as { updatePaced: Operation<'update'> }).updatePaced = createPacedMutations({
         mutationFn: async ({ transaction }) => {
           const mutationTime = Date.now();
           const items = transaction.mutations.map((_) =>
-            createDelta(update.input.field['items']!.message!, {
+            createDelta(updateItemSchema, {
               ...parseKeyUnsafe(_.key as string),
               ..._.changes,
             }),
@@ -312,13 +314,12 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
         onMutate: (input) => {
           pipe(
             Array.ensure(input),
-            (_) => create(update.input, { items: _ }) as Message & { items: Item[] },
-            (_) =>
-              Array.map(_.items, (delta) => {
-                params.collection.update(getKey(delta), (draft: Item) => {
-                  draftDelta(draft, delta, UnsetSchema);
-                });
-              }),
+            Array.map((_) => createDelta(updateItemSchema, _ as Record<string, unknown>)),
+            Array.map((delta) => {
+              params.collection.update(getKey(delta as Item), (draft: Item) => {
+                draftDelta(draft, delta, UnsetSchema);
+              });
+            }),
           );
         },
         strategy: debounceStrategy({ wait: 200 }),

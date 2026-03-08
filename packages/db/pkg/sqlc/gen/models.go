@@ -201,6 +201,23 @@ type FlowNodeMemory struct {
 	WindowSize int32
 }
 
+type FlowNodeRunSubFlow struct {
+	FlowNodeID     idwrap.IDWrap
+	TargetFlowID   *idwrap.IDWrap
+	TargetFlowName string
+	Inputs         []byte
+}
+
+type FlowNodeSubFlowReturn struct {
+	FlowNodeID idwrap.IDWrap
+	Outputs    []byte
+}
+
+type FlowNodeSubFlowTrigger struct {
+	FlowNodeID idwrap.IDWrap
+	Params     []byte
+}
+
 type FlowNodeWait struct {
 	FlowNodeID idwrap.IDWrap
 	DurationMs int64

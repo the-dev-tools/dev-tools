@@ -123,7 +123,7 @@ export const WsConnectionSettings = ({ nodeId }: NodeSettingsProps) => {
       }
       title='WebSocket Connection'
     >
-      <ReferenceContext value={{ flowNodeId: nodeId, websocketId, workspaceId }}>
+      <ReferenceContext value={{ flowNodeId: nodeId, workspaceId }}>
         <FieldLabel>URL</FieldLabel>
         <ReferenceField
           kind='StringExpression'

@@ -198,6 +198,9 @@ func Run() error {
 	flowNodeWsConnectionService := sflow.NewNodeWsConnectionService(queries)
 	flowNodeWsSendService := sflow.NewNodeWsSendService(queries)
 	flowNodeWaitService := sflow.NewNodeWaitService(queries)
+	flowNodeSubFlowTriggerService := sflow.NewNodeSubFlowTriggerService(queries)
+	flowNodeSubFlowReturnService := sflow.NewNodeSubFlowReturnService(queries)
+	flowNodeRunSubFlowService := sflow.NewNodeRunSubFlowService(queries)
 
 	// WebSocket
 	websocketService := swebsocket.New(queries, logger)
@@ -478,7 +481,10 @@ func Run() error {
 			NodeGraphQL:      &flowNodeGraphQLService,
 			NodeWsConnection: &flowNodeWsConnectionService,
 			NodeWsSend:       &flowNodeWsSendService,
-			NodeWait:         &flowNodeWaitService,
+			NodeWait:             &flowNodeWaitService,
+			NodeSubFlowTrigger:   &flowNodeSubFlowTriggerService,
+			NodeSubFlowReturn:    &flowNodeSubFlowReturnService,
+			NodeRunSubFlow:       &flowNodeRunSubFlowService,
 			WebSocket:        &websocketService,
 			WebSocketHeader:  &websocketHeaderService,
 			NodeExecution:    &nodeExecutionService,
@@ -634,7 +640,8 @@ func Run() error {
 			FlowEdge:        flowEdgeReader,
 			NodeExecution:   nodeExecutionReader,
 			HttpResponse:    httpResponseReader,
-			GraphQLResponse: &graphqlResponseService,
+			GraphQLResponse:    &graphqlResponseService,
+			NodeSubFlowTrigger: &flowNodeSubFlowTriggerService,
 		},
 	})
 	newServiceManager.addService(rreference.CreateService(refServiceRPC, optionsAll))

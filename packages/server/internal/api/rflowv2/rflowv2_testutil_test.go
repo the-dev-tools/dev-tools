@@ -96,6 +96,9 @@ func NewRFlowTestContext(t *testing.T) *RFlowTestContext {
 		nil, // NodeWsConnectionService - not needed for non-WS tests
 		nil, // NodeWsSendService - not needed for non-WS tests
 		nil, // NodeWaitService - not needed for non-wait tests
+		nil, // NodeSubFlowTriggerService - not needed for non-subflow tests
+		nil, // NodeSubFlowReturnService - not needed for non-subflow tests
+		nil, // NodeRunSubFlowService - not needed for non-subflow tests
 		nil, // WebSocketService - not needed for non-WS tests
 		nil, // WebSocketHeaderService - not needed for non-WS tests
 		nil, // GraphQLService - not needed for non-GraphQL tests

@@ -76,6 +76,9 @@ func TestNodeExecution_Collection(t *testing.T) {
 		nil, // NodeWsConnectionService
 		nil, // NodeWsSendService
 		nil, // NodeWaitService
+		nil, // NodeSubFlowTriggerService
+		nil, // NodeSubFlowReturnService
+		nil, // NodeRunSubFlowService
 		nil, // WebSocketService
 		nil, // WebSocketHeaderService
 		nil, // GraphQLService
@@ -232,6 +235,9 @@ func TestNodeExecution_Collection_VersionFlow(t *testing.T) {
 		nil, // NodeWsConnectionService
 		nil, // NodeWsSendService
 		nil, // NodeWaitService
+		nil, // NodeSubFlowTriggerService
+		nil, // NodeSubFlowReturnService
+		nil, // NodeRunSubFlowService
 		nil, // WebSocketService
 		nil, // WebSocketHeaderService
 		nil, // GraphQLService

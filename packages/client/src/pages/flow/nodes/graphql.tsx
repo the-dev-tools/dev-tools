@@ -127,11 +127,10 @@ export const GraphQLSettings = ({ nodeId }: NodeSettingsProps) => {
       }
       title='GraphQL request'
     >
-      <GraphQLUrl deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} isReadOnly={isReadOnly} />
-
       <ReferenceContext
         value={{ flowNodeId: nodeId, graphqlId, workspaceId, ...(deltaGraphqlId && { deltaGraphqlId }) }}
       >
+        <GraphQLUrl deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} isReadOnly={isReadOnly} />
         <GraphQLRequestPanel deltaGraphqlId={deltaGraphqlId} graphqlId={graphqlId} isReadOnly={isReadOnly} />
       </ReferenceContext>
     </NodeSettingsBody>

@@ -391,6 +391,14 @@ func ToAPINodeKind(kind mflow.NodeKind) flowv1.NodeKind {
 		return flowv1.NodeKind_NODE_KIND_WS_SEND
 	case mflow.NODE_KIND_WAIT:
 		return flowv1.NodeKind_NODE_KIND_WAIT
+	case mflow.NODE_KIND_WEBHOOK_TRIGGER:
+		return flowv1.NodeKind_NODE_KIND_WEBHOOK_TRIGGER
+	case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+		return flowv1.NodeKind_NODE_KIND_SUB_FLOW_TRIGGER
+	case mflow.NODE_KIND_SUB_FLOW_RETURN:
+		return flowv1.NodeKind_NODE_KIND_SUB_FLOW_RETURN
+	case mflow.NODE_KIND_RUN_SUB_FLOW:
+		return flowv1.NodeKind_NODE_KIND_RUN_SUB_FLOW
 	default:
 		return flowv1.NodeKind_NODE_KIND_UNSPECIFIED
 	}

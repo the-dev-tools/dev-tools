@@ -76,6 +76,9 @@ func TestNodeCondition_CRUD(t *testing.T) {
 		nil, // NodeWsConnectionService
 		nil, // NodeWsSendService
 		nil, // NodeWaitService
+		nil, // NodeSubFlowTriggerService
+		nil, // NodeSubFlowReturnService
+		nil, // NodeRunSubFlowService
 		nil, // WebSocketService
 		nil, // WebSocketHeaderService
 		nil, // GraphQLService

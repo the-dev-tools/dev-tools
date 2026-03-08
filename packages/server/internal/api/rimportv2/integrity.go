@@ -105,7 +105,7 @@ func ValidateImportIntegrity(
 				report.AddError("file", file.ID, "ContentID", *file.ContentID,
 					fmt.Sprintf("file references non-existent HTTP (type=%s)", file.ContentType))
 			}
-		case mfile.ContentTypeGraphQL:
+		case mfile.ContentTypeGraphQL, mfile.ContentTypeGraphQLDelta:
 			// GraphQL files reference GraphQL IDs - validation not yet implemented
 			continue
 		case mfile.ContentTypeWebSocket:
@@ -178,7 +178,7 @@ func ValidateTranslationResult(result *TranslationResult) *IntegrityReport {
 				report.AddError("file", file.ID, "ContentID", *file.ContentID,
 					fmt.Sprintf("file references HTTP not in translation result (type=%s)", file.ContentType))
 			}
-		case mfile.ContentTypeGraphQL:
+		case mfile.ContentTypeGraphQL, mfile.ContentTypeGraphQLDelta:
 			// GraphQL files reference GraphQL IDs - validation not yet implemented
 			continue
 		case mfile.ContentTypeWebSocket:

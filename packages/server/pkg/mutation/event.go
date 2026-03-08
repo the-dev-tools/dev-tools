@@ -42,6 +42,9 @@ const (
 	EntityFlowNodeWsConnection
 	EntityFlowNodeWsSend
 	EntityFlowNodeWait
+	EntityFlowNodeSubFlowTrigger
+	EntityFlowNodeSubFlowReturn
+	EntityFlowNodeRunSubFlow
 	EntityFlowEdge
 	EntityFlowVariable
 	EntityFlowTag

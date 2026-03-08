@@ -296,7 +296,10 @@ type FlowServiceV2Services struct {
 	NodeGraphQL      *sflow.NodeGraphQLService
 	NodeWsConnection *sflow.NodeWsConnectionService
 	NodeWsSend       *sflow.NodeWsSendService
-	NodeWait         *sflow.NodeWaitService
+	NodeWait             *sflow.NodeWaitService
+	NodeSubFlowTrigger   *sflow.NodeSubFlowTriggerService
+	NodeSubFlowReturn    *sflow.NodeSubFlowReturnService
+	NodeRunSubFlow       *sflow.NodeRunSubFlowService
 	WebSocket        *swebsocket.WebSocketService
 	WebSocketHeader  *swebsocket.WebSocketHeaderService
 	NodeExecution    *sflow.NodeExecutionService
@@ -463,6 +466,9 @@ type FlowServiceV2RPC struct {
 	nwcs          *sflow.NodeWsConnectionService
 	nwss          *sflow.NodeWsSendService
 	nwaits        *sflow.NodeWaitService
+	nsfts         *sflow.NodeSubFlowTriggerService
+	nsfrs         *sflow.NodeSubFlowReturnService
+	nrsfs         *sflow.NodeRunSubFlowService
 	wsService     *swebsocket.WebSocketService
 	wsHeaderService *swebsocket.WebSocketHeaderService
 	gqls          *sgraphql.GraphQLService
@@ -531,10 +537,16 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		deps.Services.NodeIf, deps.Services.NodeJs, deps.Services.NodeAI,
 		deps.Services.NodeAiProvider, deps.Services.NodeMemory, deps.Services.NodeGraphQL,
 		deps.Services.NodeWsConnection, deps.Services.NodeWsSend, deps.Services.NodeWait,
+		deps.Services.NodeSubFlowTrigger, deps.Services.NodeSubFlowReturn, deps.Services.NodeRunSubFlow,
 		deps.Services.WebSocket, deps.Services.WebSocketHeader,
 		deps.Services.GraphQL, deps.Services.GraphQLHeader,
 		deps.Services.Workspace, deps.Services.Var, deps.Services.FlowVariable,
 		deps.Resolver, deps.GraphQLResolver, deps.Logger, llmFactory,
+	)
+
+	// Wire sub-flow executor so RunSubFlow nodes can invoke other flows
+	builder.SubFlowExecutor = flowbuilder.NewSubFlowExecutor(
+		builder, deps.Services.Flow, deps.Services.Edge, deps.JsClient, deps.Logger,
 	)
 
 	// Build snapshot registry for flow version snapshots
@@ -565,6 +577,15 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 	if deps.Services.NodeWait != nil {
 		registry.Register(&flowexec.WaitSnapshot{Service: deps.Services.NodeWait})
 	}
+	if deps.Services.NodeSubFlowTrigger != nil {
+		registry.Register(&flowexec.SubFlowTriggerSnapshot{Service: deps.Services.NodeSubFlowTrigger})
+	}
+	if deps.Services.NodeSubFlowReturn != nil {
+		registry.Register(&flowexec.SubFlowReturnSnapshot{Service: deps.Services.NodeSubFlowReturn})
+	}
+	if deps.Services.NodeRunSubFlow != nil {
+		registry.Register(&flowexec.RunSubFlowSnapshot{Service: deps.Services.NodeRunSubFlow})
+	}
 
 	return &FlowServiceV2RPC{
 		DB:                       deps.DB,
@@ -590,6 +611,9 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		nwcs:                     deps.Services.NodeWsConnection,
 		nwss:                     deps.Services.NodeWsSend,
 		nwaits:                   deps.Services.NodeWait,
+		nsfts:                    deps.Services.NodeSubFlowTrigger,
+		nsfrs:                    deps.Services.NodeSubFlowReturn,
+		nrsfs:                    deps.Services.NodeRunSubFlow,
 		wsService:                deps.Services.WebSocket,
 		wsHeaderService:          deps.Services.WebSocketHeader,
 		gqls:                     deps.Services.GraphQL,
@@ -716,6 +740,12 @@ func (p *rflowPublisher) PublishAll(events []mutation.Event) {
 			p.publishNodeWsSend(evt)
 		case mutation.EntityFlowNodeWait:
 			p.publishNodeWait(evt)
+		case mutation.EntityFlowNodeSubFlowTrigger:
+			p.publishNodeSubFlowTrigger(evt)
+		case mutation.EntityFlowNodeSubFlowReturn:
+			p.publishNodeSubFlowReturn(evt)
+		case mutation.EntityFlowNodeRunSubFlow:
+			p.publishNodeRunSubFlow(evt)
 		case mutation.EntityFlowEdge:
 			p.publishEdge(evt)
 		case mutation.EntityFlowVariable:
@@ -1297,6 +1327,126 @@ func (p *rflowPublisher) publishNodeWait(evt mutation.Event) {
 	case mutation.OpUpdate:
 		eventType = nodeEventUpdate
 		if data, ok := evt.Payload.(nodeWaitWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpDelete:
+		eventType = nodeEventDelete
+		node = &flowv1.Node{
+			NodeId: evt.ID.Bytes(),
+			FlowId: evt.ParentID.Bytes(),
+		}
+		flowID = evt.ParentID
+	}
+
+	if node != nil {
+		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
+			Type:   eventType,
+			FlowID: flowID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeSubFlowTrigger(evt mutation.Event) {
+	if p.nodeStream == nil {
+		return
+	}
+
+	var node *flowv1.Node
+	var flowID idwrap.IDWrap
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeSubFlowTriggerWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
+		if data, ok := evt.Payload.(nodeSubFlowTriggerWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpDelete:
+		eventType = nodeEventDelete
+		node = &flowv1.Node{
+			NodeId: evt.ID.Bytes(),
+			FlowId: evt.ParentID.Bytes(),
+		}
+		flowID = evt.ParentID
+	}
+
+	if node != nil {
+		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
+			Type:   eventType,
+			FlowID: flowID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeSubFlowReturn(evt mutation.Event) {
+	if p.nodeStream == nil {
+		return
+	}
+
+	var node *flowv1.Node
+	var flowID idwrap.IDWrap
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeSubFlowReturnWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
+		if data, ok := evt.Payload.(nodeSubFlowReturnWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpDelete:
+		eventType = nodeEventDelete
+		node = &flowv1.Node{
+			NodeId: evt.ID.Bytes(),
+			FlowId: evt.ParentID.Bytes(),
+		}
+		flowID = evt.ParentID
+	}
+
+	if node != nil {
+		p.nodeStream.Publish(NodeTopic{FlowID: flowID}, NodeEvent{
+			Type:   eventType,
+			FlowID: flowID,
+			Node:   node,
+		})
+	}
+}
+
+func (p *rflowPublisher) publishNodeRunSubFlow(evt mutation.Event) {
+	if p.nodeStream == nil {
+		return
+	}
+
+	var node *flowv1.Node
+	var flowID idwrap.IDWrap
+	var eventType string
+
+	switch evt.Op {
+	case mutation.OpInsert:
+		eventType = nodeEventInsert
+		if data, ok := evt.Payload.(nodeRunSubFlowWithFlow); ok && data.baseNode != nil {
+			node = serializeNode(*data.baseNode)
+			flowID = data.flowID
+		}
+	case mutation.OpUpdate:
+		eventType = nodeEventUpdate
+		if data, ok := evt.Payload.(nodeRunSubFlowWithFlow); ok && data.baseNode != nil {
 			node = serializeNode(*data.baseNode)
 			flowID = data.flowID
 		}

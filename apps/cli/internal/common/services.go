@@ -43,9 +43,12 @@ type Services struct {
 	NodeAiProvider   sflow.NodeAiProviderService
 	NodeMemory       sflow.NodeMemoryService
 	NodeGraphQL      sflow.NodeGraphQLService
-	NodeWsConnection sflow.NodeWsConnectionService
-	NodeWsSend       sflow.NodeWsSendService
-	NodeWait         sflow.NodeWaitService
+	NodeWsConnection     sflow.NodeWsConnectionService
+	NodeWsSend           sflow.NodeWsSendService
+	NodeWait             sflow.NodeWaitService
+	NodeSubFlowTrigger   sflow.NodeSubFlowTriggerService
+	NodeSubFlowReturn    sflow.NodeSubFlowReturnService
+	NodeRunSubFlow       sflow.NodeRunSubFlowService
 
 	// WebSocket
 	WebSocket       swebsocket.WebSocketService
@@ -103,9 +106,12 @@ func CreateServices(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Serv
 		NodeAiProvider: sflow.NewNodeAiProviderService(queries),
 		NodeMemory:     sflow.NewNodeMemoryService(queries),
 		NodeGraphQL:      sflow.NewNodeGraphQLService(queries),
-		NodeWsConnection: sflow.NewNodeWsConnectionService(queries),
-		NodeWsSend:        sflow.NewNodeWsSendService(queries),
-		NodeWait:          sflow.NewNodeWaitService(queries),
+		NodeWsConnection:   sflow.NewNodeWsConnectionService(queries),
+		NodeWsSend:         sflow.NewNodeWsSendService(queries),
+		NodeWait:           sflow.NewNodeWaitService(queries),
+		NodeSubFlowTrigger: sflow.NewNodeSubFlowTriggerService(queries),
+		NodeSubFlowReturn:  sflow.NewNodeSubFlowReturnService(queries),
+		NodeRunSubFlow:     sflow.NewNodeRunSubFlowService(queries),
 
 		// WebSocket
 		WebSocket:       swebsocket.New(queries, logger),

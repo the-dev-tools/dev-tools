@@ -52,6 +52,9 @@ type ReferenceServiceRPC struct {
 
 	// graphql
 	graphqlResponseReader *sgraphql.GraphQLResponseService
+
+	// sub-flow
+	nodeSubFlowTriggerService *sflow.NodeSubFlowTriggerService
 }
 
 type ReferenceServiceRPCReaders struct {
@@ -66,7 +69,8 @@ type ReferenceServiceRPCReaders struct {
 	FlowEdge      *sflow.EdgeReader
 	NodeExecution     *sflow.NodeExecutionReader
 	HttpResponse      *shttp.HttpResponseReader
-	GraphQLResponse   *sgraphql.GraphQLResponseService
+	GraphQLResponse         *sgraphql.GraphQLResponseService
+	NodeSubFlowTrigger      *sflow.NodeSubFlowTriggerService
 }
 
 func (r *ReferenceServiceRPCReaders) Validate() error {
@@ -145,13 +149,40 @@ func NewReferenceServiceRPC(deps ReferenceServiceRPCDeps) *ReferenceServiceRPC {
 		flowEdgeReader:      deps.Readers.FlowEdge,
 		nodeExecutionReader: deps.Readers.NodeExecution,
 		httpResponseReader:  deps.Readers.HttpResponse,
-		graphqlResponseReader: deps.Readers.GraphQLResponse,
+		graphqlResponseReader:     deps.Readers.GraphQLResponse,
+		nodeSubFlowTriggerService: deps.Readers.NodeSubFlowTrigger,
 	}
 }
 
 func CreateService(srv *ReferenceServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := referencev1connect.NewReferenceServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
+}
+
+// subFlowTriggerParamMap builds a variable map from sub-flow trigger params.
+// This mirrors the runtime structure written by nsubflowtrigger.RunSync.
+func (s *ReferenceServiceRPC) subFlowTriggerParamMap(ctx context.Context, nodeID idwrap.IDWrap) map[string]interface{} {
+	if s.nodeSubFlowTriggerService == nil {
+		return map[string]interface{}{}
+	}
+	trigger, err := s.nodeSubFlowTriggerService.GetNodeSubFlowTrigger(ctx, nodeID)
+	if err != nil || trigger == nil {
+		return map[string]interface{}{}
+	}
+	m := make(map[string]interface{}, len(trigger.Params))
+	for _, p := range trigger.Params {
+		switch p.Type {
+		case "number":
+			m[p.Name] = 0
+		case "boolean":
+			m[p.Name] = false
+		case "json":
+			m[p.Name] = map[string]interface{}{}
+		default:
+			m[p.Name] = ""
+		}
+	}
+	return m
 }
 
 var (
@@ -606,6 +637,25 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q ws send schema", node.Name)); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+
+		case mflow.NODE_KIND_RUN_SUB_FLOW:
+			// RunSubFlow outputs are dynamic, defined by the target flow's SubFlowReturn node
+			nodeVarsMap := map[string]interface{}{}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q run sub-flow schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+		case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+			nodeVarsMap := c.subFlowTriggerParamMap(ctx, node.ID)
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q sub-flow trigger schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+		case mflow.NODE_KIND_SUB_FLOW_RETURN:
+			// Terminal node — no output variables for downstream nodes
+
 		default:
 			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
@@ -938,6 +988,19 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					"metrics":    map[string]interface{}{},
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_RUN_SUB_FLOW:
+				// RunSubFlow outputs are dynamic, defined by target flow's SubFlowReturn
+				nodeVarsMap := map[string]interface{}{}
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+				nodeVarsMap := c.subFlowTriggerParamMap(ctx, node.ID)
+				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_SUB_FLOW_RETURN:
+				// Terminal node — no output for downstream nodes
+
 			default:
 				// Other node types don't have default schemas for completion
 			}
@@ -1468,6 +1531,18 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					"connectionNode": "string",
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_RUN_SUB_FLOW:
+				nodeVarsMap := map[string]interface{}{}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+				nodeVarsMap := c.subFlowTriggerParamMap(ctx, node.ID)
+				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mflow.NODE_KIND_SUB_FLOW_RETURN:
+				// Terminal node — no output for downstream nodes
+
 			default:
 				// Other node types (JS, CONDITION, etc.) don't have default schemas
 			}

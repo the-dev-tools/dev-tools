@@ -3,6 +3,7 @@ package yamlflowsimplev2
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +47,12 @@ func getStepCommon(sw YamlStepWrapper) *YamlStepCommon {
 		return &sw.Wait.YamlStepCommon
 	case sw.ManualStart != nil:
 		return sw.ManualStart
+	case sw.SubFlowTrigger != nil:
+		return &sw.SubFlowTrigger.YamlStepCommon
+	case sw.SubFlowReturn != nil:
+		return &sw.SubFlowReturn.YamlStepCommon
+	case sw.RunSubFlow != nil:
+		return &sw.RunSubFlow.YamlStepCommon
 	default:
 		return nil
 	}
@@ -115,6 +122,15 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 		case stepWrapper.ManualStart != nil:
 			nodeName = stepWrapper.ManualStart.Name
 			dependsOn = stepWrapper.ManualStart.DependsOn
+		case stepWrapper.SubFlowTrigger != nil:
+			nodeName = stepWrapper.SubFlowTrigger.Name
+			dependsOn = stepWrapper.SubFlowTrigger.DependsOn
+		case stepWrapper.SubFlowReturn != nil:
+			nodeName = stepWrapper.SubFlowReturn.Name
+			dependsOn = stepWrapper.SubFlowReturn.DependsOn
+		case stepWrapper.RunSubFlow != nil:
+			nodeName = stepWrapper.RunSubFlow.Name
+			dependsOn = stepWrapper.RunSubFlow.DependsOn
 		default:
 			return nil, NewYamlFlowErrorV2("empty step definition", "step", i)
 		}
@@ -207,6 +223,23 @@ func processSteps(flowEntry YamlFlowFlowV2, templates map[string]YamlRequestDefV
 			}
 		case stepWrapper.Wait != nil:
 			if err := processWaitStructStep(stepWrapper.Wait, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.SubFlowTrigger != nil:
+			if err := processSubFlowTriggerStructStep(stepWrapper.SubFlowTrigger, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+			// SubFlowTrigger is an entry node — use startNodeID like ManualStart
+			info.id = startNodeID
+			lastIdx := len(result.FlowNodes) - 1
+			result.FlowNodes[lastIdx].ID = startNodeID
+			startNodeFound = true
+		case stepWrapper.SubFlowReturn != nil:
+			if err := processSubFlowReturnStructStep(stepWrapper.SubFlowReturn, nodeID, flowID, result); err != nil {
+				return nil, err
+			}
+		case stepWrapper.RunSubFlow != nil:
+			if err := processRunSubFlowStructStep(stepWrapper.RunSubFlow, nodeID, flowID, result); err != nil {
 				return nil, err
 			}
 		case stepWrapper.ManualStart != nil:
@@ -722,5 +755,92 @@ func processWaitStructStep(step *YamlStepWait, nodeID, flowID idwrap.IDWrap, res
 		DurationMs: durationMs,
 	}
 	result.FlowWaitNodes = append(result.FlowWaitNodes, waitNode)
+	return nil
+}
+
+func processSubFlowTriggerStructStep(step *YamlStepSubFlowTrigger, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_SUB_FLOW_TRIGGER,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	var params []mflow.SubFlowParam
+	for _, p := range step.Params {
+		params = append(params, mflow.SubFlowParam{
+			Name:         p.Name,
+			Type:         p.Type,
+			DefaultValue: p.DefaultValue,
+			Required:     p.Required,
+		})
+	}
+
+	triggerNode := mflow.NodeSubFlowTrigger{
+		FlowNodeID: nodeID,
+		Params:     params,
+	}
+	result.FlowSubFlowTriggerNodes = append(result.FlowSubFlowTriggerNodes, triggerNode)
+	return nil
+}
+
+func processSubFlowReturnStructStep(step *YamlStepSubFlowReturn, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_SUB_FLOW_RETURN,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	var outputs []mflow.SubFlowOutput
+	for _, o := range step.Outputs {
+		outputs = append(outputs, mflow.SubFlowOutput{
+			Name:       o.Name,
+			Expression: o.Expression,
+		})
+	}
+
+	returnNode := mflow.NodeSubFlowReturn{
+		FlowNodeID: nodeID,
+		Outputs:    outputs,
+	}
+	result.FlowSubFlowReturnNodes = append(result.FlowSubFlowReturnNodes, returnNode)
+	return nil
+}
+
+func processRunSubFlowStructStep(step *YamlStepRunSubFlow, nodeID, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) error {
+	if step.Flow == "" {
+		return NewYamlFlowErrorV2(fmt.Sprintf("run_sub_flow step '%s' missing required flow name", step.Name), "flow", nil)
+	}
+
+	flowNode := mflow.Node{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     step.Name,
+		NodeKind: mflow.NODE_KIND_RUN_SUB_FLOW,
+	}
+	result.FlowNodes = append(result.FlowNodes, flowNode)
+
+	var inputs []mflow.SubFlowInputMapping
+	paramNames := make([]string, 0, len(step.Inputs))
+	for paramName := range step.Inputs {
+		paramNames = append(paramNames, paramName)
+	}
+	sort.Strings(paramNames)
+	for _, paramName := range paramNames {
+		inputs = append(inputs, mflow.SubFlowInputMapping{
+			ParamName:  paramName,
+			Expression: step.Inputs[paramName],
+		})
+	}
+
+	runNode := mflow.NodeRunSubFlow{
+		FlowNodeID:     nodeID,
+		TargetFlowName: step.Flow,
+		Inputs:         inputs,
+	}
+	result.FlowRunSubFlowNodes = append(result.FlowRunSubFlowNodes, runNode)
 	return nil
 }

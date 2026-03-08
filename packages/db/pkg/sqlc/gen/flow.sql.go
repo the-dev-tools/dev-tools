@@ -79,6 +79,33 @@ func (q *Queries) CleanupOrphanedFlowNodeJs(ctx context.Context) error {
 	return err
 }
 
+const cleanupOrphanedFlowNodeRunSubFlow = `-- name: CleanupOrphanedFlowNodeRunSubFlow :exec
+DELETE FROM flow_node_run_sub_flow WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeRunSubFlow(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeRunSubFlowStmt, cleanupOrphanedFlowNodeRunSubFlow)
+	return err
+}
+
+const cleanupOrphanedFlowNodeSubFlowReturn = `-- name: CleanupOrphanedFlowNodeSubFlowReturn :exec
+DELETE FROM flow_node_sub_flow_return WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeSubFlowReturn(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeSubFlowReturnStmt, cleanupOrphanedFlowNodeSubFlowReturn)
+	return err
+}
+
+const cleanupOrphanedFlowNodeSubFlowTrigger = `-- name: CleanupOrphanedFlowNodeSubFlowTrigger :exec
+DELETE FROM flow_node_sub_flow_trigger WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeSubFlowTrigger(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeSubFlowTriggerStmt, cleanupOrphanedFlowNodeSubFlowTrigger)
+	return err
+}
+
 const cleanupOrphanedFlowNodeWait = `-- name: CleanupOrphanedFlowNodeWait :exec
 DELETE FROM flow_node_wait WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
 `
@@ -300,6 +327,58 @@ type CreateFlowNodeJsParams struct {
 
 func (q *Queries) CreateFlowNodeJs(ctx context.Context, arg CreateFlowNodeJsParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeJsStmt, createFlowNodeJs, arg.FlowNodeID, arg.Code, arg.CodeCompressType)
+	return err
+}
+
+const createFlowNodeRunSubFlow = `-- name: CreateFlowNodeRunSubFlow :exec
+INSERT INTO flow_node_run_sub_flow (flow_node_id, target_flow_id, target_flow_name, inputs)
+VALUES (?, ?, ?, ?)
+`
+
+type CreateFlowNodeRunSubFlowParams struct {
+	FlowNodeID     idwrap.IDWrap
+	TargetFlowID   *idwrap.IDWrap
+	TargetFlowName string
+	Inputs         []byte
+}
+
+func (q *Queries) CreateFlowNodeRunSubFlow(ctx context.Context, arg CreateFlowNodeRunSubFlowParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeRunSubFlowStmt, createFlowNodeRunSubFlow,
+		arg.FlowNodeID,
+		arg.TargetFlowID,
+		arg.TargetFlowName,
+		arg.Inputs,
+	)
+	return err
+}
+
+const createFlowNodeSubFlowReturn = `-- name: CreateFlowNodeSubFlowReturn :exec
+INSERT INTO flow_node_sub_flow_return (flow_node_id, outputs)
+VALUES (?, ?)
+`
+
+type CreateFlowNodeSubFlowReturnParams struct {
+	FlowNodeID idwrap.IDWrap
+	Outputs    []byte
+}
+
+func (q *Queries) CreateFlowNodeSubFlowReturn(ctx context.Context, arg CreateFlowNodeSubFlowReturnParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeSubFlowReturnStmt, createFlowNodeSubFlowReturn, arg.FlowNodeID, arg.Outputs)
+	return err
+}
+
+const createFlowNodeSubFlowTrigger = `-- name: CreateFlowNodeSubFlowTrigger :exec
+INSERT INTO flow_node_sub_flow_trigger (flow_node_id, params)
+VALUES (?, ?)
+`
+
+type CreateFlowNodeSubFlowTriggerParams struct {
+	FlowNodeID idwrap.IDWrap
+	Params     []byte
+}
+
+func (q *Queries) CreateFlowNodeSubFlowTrigger(ctx context.Context, arg CreateFlowNodeSubFlowTriggerParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeSubFlowTriggerStmt, createFlowNodeSubFlowTrigger, arg.FlowNodeID, arg.Params)
 	return err
 }
 
@@ -1096,6 +1175,36 @@ func (q *Queries) DeleteFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap
 	return err
 }
 
+const deleteFlowNodeRunSubFlow = `-- name: DeleteFlowNodeRunSubFlow :exec
+DELETE FROM flow_node_run_sub_flow
+WHERE flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeRunSubFlow(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeRunSubFlowStmt, deleteFlowNodeRunSubFlow, flowNodeID)
+	return err
+}
+
+const deleteFlowNodeSubFlowReturn = `-- name: DeleteFlowNodeSubFlowReturn :exec
+DELETE FROM flow_node_sub_flow_return
+WHERE flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeSubFlowReturn(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeSubFlowReturnStmt, deleteFlowNodeSubFlowReturn, flowNodeID)
+	return err
+}
+
+const deleteFlowNodeSubFlowTrigger = `-- name: DeleteFlowNodeSubFlowTrigger :exec
+DELETE FROM flow_node_sub_flow_trigger
+WHERE flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeSubFlowTrigger(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeSubFlowTriggerStmt, deleteFlowNodeSubFlowTrigger, flowNodeID)
+	return err
+}
+
 const deleteFlowNodeWait = `-- name: DeleteFlowNodeWait :exec
 DELETE FROM flow_node_wait
 WHERE
@@ -1626,6 +1735,56 @@ func (q *Queries) GetFlowNodeJs(ctx context.Context, flowNodeID idwrap.IDWrap) (
 	row := q.queryRow(ctx, q.getFlowNodeJsStmt, getFlowNodeJs, flowNodeID)
 	var i FlowNodeJ
 	err := row.Scan(&i.FlowNodeID, &i.Code, &i.CodeCompressType)
+	return i, err
+}
+
+const getFlowNodeRunSubFlow = `-- name: GetFlowNodeRunSubFlow :one
+SELECT flow_node_id, target_flow_id, target_flow_name, inputs
+FROM flow_node_run_sub_flow
+WHERE flow_node_id = ?
+LIMIT 1
+`
+
+// Run Sub-Flow
+func (q *Queries) GetFlowNodeRunSubFlow(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeRunSubFlow, error) {
+	row := q.queryRow(ctx, q.getFlowNodeRunSubFlowStmt, getFlowNodeRunSubFlow, flowNodeID)
+	var i FlowNodeRunSubFlow
+	err := row.Scan(
+		&i.FlowNodeID,
+		&i.TargetFlowID,
+		&i.TargetFlowName,
+		&i.Inputs,
+	)
+	return i, err
+}
+
+const getFlowNodeSubFlowReturn = `-- name: GetFlowNodeSubFlowReturn :one
+SELECT flow_node_id, outputs
+FROM flow_node_sub_flow_return
+WHERE flow_node_id = ?
+LIMIT 1
+`
+
+// Sub-Flow Return
+func (q *Queries) GetFlowNodeSubFlowReturn(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeSubFlowReturn, error) {
+	row := q.queryRow(ctx, q.getFlowNodeSubFlowReturnStmt, getFlowNodeSubFlowReturn, flowNodeID)
+	var i FlowNodeSubFlowReturn
+	err := row.Scan(&i.FlowNodeID, &i.Outputs)
+	return i, err
+}
+
+const getFlowNodeSubFlowTrigger = `-- name: GetFlowNodeSubFlowTrigger :one
+SELECT flow_node_id, params
+FROM flow_node_sub_flow_trigger
+WHERE flow_node_id = ?
+LIMIT 1
+`
+
+// Sub-Flow Trigger
+func (q *Queries) GetFlowNodeSubFlowTrigger(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeSubFlowTrigger, error) {
+	row := q.queryRow(ctx, q.getFlowNodeSubFlowTriggerStmt, getFlowNodeSubFlowTrigger, flowNodeID)
+	var i FlowNodeSubFlowTrigger
+	err := row.Scan(&i.FlowNodeID, &i.Params)
 	return i, err
 }
 
@@ -2747,6 +2906,29 @@ func (q *Queries) UpdateFlowNodeJs(ctx context.Context, arg UpdateFlowNodeJsPara
 	return err
 }
 
+const updateFlowNodeRunSubFlow = `-- name: UpdateFlowNodeRunSubFlow :exec
+UPDATE flow_node_run_sub_flow
+SET target_flow_id = ?, target_flow_name = ?, inputs = ?
+WHERE flow_node_id = ?
+`
+
+type UpdateFlowNodeRunSubFlowParams struct {
+	TargetFlowID   *idwrap.IDWrap
+	TargetFlowName string
+	Inputs         []byte
+	FlowNodeID     idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeRunSubFlow(ctx context.Context, arg UpdateFlowNodeRunSubFlowParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeRunSubFlowStmt, updateFlowNodeRunSubFlow,
+		arg.TargetFlowID,
+		arg.TargetFlowName,
+		arg.Inputs,
+		arg.FlowNodeID,
+	)
+	return err
+}
+
 const updateFlowNodeState = `-- name: UpdateFlowNodeState :exec
 UPDATE flow_node
 SET
@@ -2762,6 +2944,38 @@ type UpdateFlowNodeStateParams struct {
 
 func (q *Queries) UpdateFlowNodeState(ctx context.Context, arg UpdateFlowNodeStateParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeStateStmt, updateFlowNodeState, arg.State, arg.ID)
+	return err
+}
+
+const updateFlowNodeSubFlowReturn = `-- name: UpdateFlowNodeSubFlowReturn :exec
+UPDATE flow_node_sub_flow_return
+SET outputs = ?
+WHERE flow_node_id = ?
+`
+
+type UpdateFlowNodeSubFlowReturnParams struct {
+	Outputs    []byte
+	FlowNodeID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeSubFlowReturn(ctx context.Context, arg UpdateFlowNodeSubFlowReturnParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeSubFlowReturnStmt, updateFlowNodeSubFlowReturn, arg.Outputs, arg.FlowNodeID)
+	return err
+}
+
+const updateFlowNodeSubFlowTrigger = `-- name: UpdateFlowNodeSubFlowTrigger :exec
+UPDATE flow_node_sub_flow_trigger
+SET params = ?
+WHERE flow_node_id = ?
+`
+
+type UpdateFlowNodeSubFlowTriggerParams struct {
+	Params     []byte
+	FlowNodeID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeSubFlowTrigger(ctx context.Context, arg UpdateFlowNodeSubFlowTriggerParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeSubFlowTriggerStmt, updateFlowNodeSubFlowTrigger, arg.Params, arg.FlowNodeID)
 	return err
 }
 

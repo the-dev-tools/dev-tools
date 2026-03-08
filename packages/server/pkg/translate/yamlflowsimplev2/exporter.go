@@ -140,6 +140,21 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		waitNodeMap[n.FlowNodeID] = n
 	}
 
+	subFlowTriggerNodeMap := make(map[idwrap.IDWrap]mflow.NodeSubFlowTrigger)
+	for _, n := range data.FlowSubFlowTriggerNodes {
+		subFlowTriggerNodeMap[n.FlowNodeID] = n
+	}
+
+	subFlowReturnNodeMap := make(map[idwrap.IDWrap]mflow.NodeSubFlowReturn)
+	for _, n := range data.FlowSubFlowReturnNodes {
+		subFlowReturnNodeMap[n.FlowNodeID] = n
+	}
+
+	runSubFlowNodeMap := make(map[idwrap.IDWrap]mflow.NodeRunSubFlow)
+	for _, n := range data.FlowRunSubFlowNodes {
+		runSubFlowNodeMap[n.FlowNodeID] = n
+	}
+
 	wsEntityMap := make(map[idwrap.IDWrap]mwebsocket.WebSocket)
 	for _, ws := range data.WebSockets {
 		wsEntityMap[ws.ID] = ws
@@ -366,7 +381,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		for _, n := range data.FlowNodes {
 			if n.FlowID == flow.ID {
 				flowNodes = append(flowNodes, n)
-				if n.NodeKind == mflow.NODE_KIND_MANUAL_START {
+				if n.NodeKind == mflow.NODE_KIND_MANUAL_START || n.NodeKind == mflow.NODE_KIND_SUB_FLOW_TRIGGER {
 					startNodeID = n.ID
 				}
 			}
@@ -639,12 +654,68 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					DurationMs:     strconv.FormatInt(waitNode.DurationMs, 10),
 				}
 
+			case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+				triggerNode, ok := subFlowTriggerNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				triggerStep := &YamlStepSubFlowTrigger{
+					YamlStepCommon: common,
+				}
+				for _, p := range triggerNode.Params {
+					triggerStep.Params = append(triggerStep.Params, YamlSubFlowParam{
+						Name:         p.Name,
+						Type:         p.Type,
+						DefaultValue: p.DefaultValue,
+						Required:     p.Required,
+					})
+				}
+				stepWrapper.SubFlowTrigger = triggerStep
+
+			case mflow.NODE_KIND_SUB_FLOW_RETURN:
+				returnNode, ok := subFlowReturnNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				returnStep := &YamlStepSubFlowReturn{
+					YamlStepCommon: common,
+				}
+				for _, o := range returnNode.Outputs {
+					returnStep.Outputs = append(returnStep.Outputs, YamlSubFlowOutput{
+						Name:       o.Name,
+						Expression: o.Expression,
+					})
+				}
+				stepWrapper.SubFlowReturn = returnStep
+
+			case mflow.NODE_KIND_RUN_SUB_FLOW:
+				runNode, ok := runSubFlowNodeMap[node.ID]
+				if !ok {
+					continue
+				}
+				inputs := make(map[string]string, len(runNode.Inputs))
+				for _, input := range runNode.Inputs {
+					inputs[input.ParamName] = input.Expression
+				}
+				runStep := &YamlStepRunSubFlow{
+					YamlStepCommon: common,
+					Flow:           runNode.TargetFlowName,
+				}
+				if len(inputs) > 0 {
+					runStep.Inputs = inputs
+				}
+				stepWrapper.RunSubFlow = runStep
+
 			case mflow.NODE_KIND_MANUAL_START:
 				if node.ID == startNodeID {
 					stepWrapper.ManualStart = &common
 				} else {
 					continue
 				}
+
+			case mflow.NODE_KIND_WEBHOOK_TRIGGER:
+				// Not yet implemented
+				continue
 			}
 
 			// Add to flow
@@ -653,7 +724,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			isValid := stepWrapper.Request != nil || stepWrapper.GraphQL != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
 				stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil ||
 				stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.WsConnection != nil ||
-				stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil
+				stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil ||
+				stepWrapper.SubFlowTrigger != nil || stepWrapper.SubFlowReturn != nil || stepWrapper.RunSubFlow != nil
 			if isValid {
 				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}

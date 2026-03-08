@@ -394,3 +394,66 @@ func (s *WaitSnapshot) WriteTx(ctx context.Context, tx *sql.Tx, newNodeID idwrap
 	writer := s.Service.TX(tx)
 	return newData, writer.CreateNodeWait(ctx, newData)
 }
+
+// --- SubFlowTrigger ---
+
+type SubFlowTriggerSnapshot struct{ Service *sflow.NodeSubFlowTriggerService }
+
+func (s *SubFlowTriggerSnapshot) Kind() mflow.NodeKind { return mflow.NODE_KIND_SUB_FLOW_TRIGGER }
+
+func (s *SubFlowTriggerSnapshot) Read(ctx context.Context, nodeID idwrap.IDWrap) (any, error) {
+	return s.Service.GetNodeSubFlowTrigger(ctx, nodeID)
+}
+
+func (s *SubFlowTriggerSnapshot) WriteTx(ctx context.Context, tx *sql.Tx, newNodeID idwrap.IDWrap, config any) (any, error) {
+	src, _ := config.(*mflow.NodeSubFlowTrigger)
+	if src == nil {
+		return nil, nil
+	}
+	newData := *src
+	newData.FlowNodeID = newNodeID
+	writer := s.Service.TX(tx)
+	return newData, writer.CreateNodeSubFlowTrigger(ctx, newData)
+}
+
+// --- SubFlowReturn ---
+
+type SubFlowReturnSnapshot struct{ Service *sflow.NodeSubFlowReturnService }
+
+func (s *SubFlowReturnSnapshot) Kind() mflow.NodeKind { return mflow.NODE_KIND_SUB_FLOW_RETURN }
+
+func (s *SubFlowReturnSnapshot) Read(ctx context.Context, nodeID idwrap.IDWrap) (any, error) {
+	return s.Service.GetNodeSubFlowReturn(ctx, nodeID)
+}
+
+func (s *SubFlowReturnSnapshot) WriteTx(ctx context.Context, tx *sql.Tx, newNodeID idwrap.IDWrap, config any) (any, error) {
+	src, _ := config.(*mflow.NodeSubFlowReturn)
+	if src == nil {
+		return nil, nil
+	}
+	newData := *src
+	newData.FlowNodeID = newNodeID
+	writer := s.Service.TX(tx)
+	return newData, writer.CreateNodeSubFlowReturn(ctx, newData)
+}
+
+// --- RunSubFlow ---
+
+type RunSubFlowSnapshot struct{ Service *sflow.NodeRunSubFlowService }
+
+func (s *RunSubFlowSnapshot) Kind() mflow.NodeKind { return mflow.NODE_KIND_RUN_SUB_FLOW }
+
+func (s *RunSubFlowSnapshot) Read(ctx context.Context, nodeID idwrap.IDWrap) (any, error) {
+	return s.Service.GetNodeRunSubFlow(ctx, nodeID)
+}
+
+func (s *RunSubFlowSnapshot) WriteTx(ctx context.Context, tx *sql.Tx, newNodeID idwrap.IDWrap, config any) (any, error) {
+	src, _ := config.(*mflow.NodeRunSubFlow)
+	if src == nil {
+		return nil, nil
+	}
+	newData := *src
+	newData.FlowNodeID = newNodeID
+	writer := s.Service.TX(tx)
+	return newData, writer.CreateNodeRunSubFlow(ctx, newData)
+}

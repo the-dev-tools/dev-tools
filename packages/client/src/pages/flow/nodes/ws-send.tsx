@@ -9,9 +9,10 @@ import { NodeCollectionSchema, NodeWsSendCollectionSchema } from '@the-dev-tools
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { ReferenceField } from '~/features/expression';
+import { ReferenceContext, ReferenceField } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
 import { eqStruct, pick } from '~/shared/lib';
+import { routes } from '~/shared/routes';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
 import { NodeSettingsBody, NodeSettingsProps, SimpleNode } from '../node';
@@ -39,6 +40,8 @@ export const WsSendNode = ({ id, selected }: XF.NodeProps) => {
 };
 
 export const WsSendSettings = ({ nodeId }: NodeSettingsProps) => {
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
   const collection = useApiCollection(NodeWsSendCollectionSchema);
   const nodeCollection = useApiCollection(NodeCollectionSchema);
 
@@ -72,28 +75,30 @@ export const WsSendSettings = ({ nodeId }: NodeSettingsProps) => {
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='WebSocket Send'>
-      <FieldLabel>Connection</FieldLabel>
-      <Select
-        aria-label='WebSocket Connection'
-        isDisabled={isReadOnly}
-        isOpen={isConnListOpen}
-        items={connItems}
-        onChange={(_) => {
-          if (_ === null) return;
-          collection.utils.updatePaced({ nodeId, wsConnectionNodeName: String(_) });
-        }}
-        onOpenChange={setIsConnListOpen}
-        value={wsConnectionNodeName || null}
-      >
-        {(_) => <SelectItem id={_.name}>{_.name}</SelectItem>}
-      </Select>
+      <ReferenceContext value={{ flowNodeId: nodeId, workspaceId }}>
+        <FieldLabel>Connection</FieldLabel>
+        <Select
+          aria-label='WebSocket Connection'
+          isDisabled={isReadOnly}
+          isOpen={isConnListOpen}
+          items={connItems}
+          onChange={(_) => {
+            if (_ === null) return;
+            collection.utils.updatePaced({ nodeId, wsConnectionNodeName: String(_) });
+          }}
+          onOpenChange={setIsConnListOpen}
+          value={wsConnectionNodeName || null}
+        >
+          {(_) => <SelectItem id={_.name}>{_.name}</SelectItem>}
+        </Select>
 
-      <FieldLabel className={tw`mt-4`}>Message</FieldLabel>
-      <ReferenceField
-        onChange={(_) => collection.utils.updatePaced({ message: _, nodeId })}
-        readOnly={isReadOnly}
-        value={message}
-      />
+        <FieldLabel className={tw`mt-4`}>Message</FieldLabel>
+        <ReferenceField
+          onChange={(_) => collection.utils.updatePaced({ message: _, nodeId })}
+          readOnly={isReadOnly}
+          value={message}
+        />
+      </ReferenceContext>
     </NodeSettingsBody>
   );
 };

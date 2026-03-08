@@ -86,8 +86,11 @@ type YamlStepWrapper struct {
 	AIMemory       *YamlStepAIMemory      `yaml:"ai_memory,omitempty"`
 	WsConnection   *YamlStepWsConnection  `yaml:"ws_connection,omitempty"`
 	WsSend         *YamlStepWsSend        `yaml:"ws_send,omitempty"`
-	Wait           *YamlStepWait          `yaml:"wait,omitempty"`
-	ManualStart    *YamlStepCommon        `yaml:"manual_start,omitempty"`
+	Wait              *YamlStepWait             `yaml:"wait,omitempty"`
+	ManualStart       *YamlStepCommon           `yaml:"manual_start,omitempty"`
+	SubFlowTrigger    *YamlStepSubFlowTrigger   `yaml:"sub_flow_trigger,omitempty"`
+	SubFlowReturn     *YamlStepSubFlowReturn    `yaml:"sub_flow_return,omitempty"`
+	RunSubFlow        *YamlStepRunSubFlow       `yaml:"run_sub_flow,omitempty"`
 }
 
 // Common fields for all step types
@@ -184,6 +187,34 @@ type YamlStepWsSend struct {
 type YamlStepWait struct {
 	YamlStepCommon `yaml:",inline"`
 	DurationMs     string `yaml:"duration_ms"`
+}
+
+type YamlStepSubFlowTrigger struct {
+	YamlStepCommon `yaml:",inline"`
+	Params         []YamlSubFlowParam `yaml:"params,omitempty"`
+}
+
+type YamlSubFlowParam struct {
+	Name         string `yaml:"name"`
+	Type         string `yaml:"type,omitempty"`
+	DefaultValue string `yaml:"default_value,omitempty"`
+	Required     bool   `yaml:"required,omitempty"`
+}
+
+type YamlStepSubFlowReturn struct {
+	YamlStepCommon `yaml:",inline"`
+	Outputs        []YamlSubFlowOutput `yaml:"outputs,omitempty"`
+}
+
+type YamlSubFlowOutput struct {
+	Name       string `yaml:"name"`
+	Expression string `yaml:"expression"`
+}
+
+type YamlStepRunSubFlow struct {
+	YamlStepCommon `yaml:",inline"`
+	Flow           string            `yaml:"flow"`
+	Inputs         map[string]string `yaml:"inputs,omitempty"`
 }
 
 // YamlFlowVariableV2 represents a flow variable
@@ -439,8 +470,12 @@ type YamlFlowDataV2 struct {
 	AIProviderNodes  []mflow.NodeAiProvider
 	AIMemoryNodes    []mflow.NodeMemory
 	GraphQLNodes        []mflow.NodeGraphQL
-	WsConnectionNodes   []mflow.NodeWsConnection
-	WsSendNodes         []mflow.NodeWsSend
+	WsConnectionNodes      []mflow.NodeWsConnection
+	WsSendNodes            []mflow.NodeWsSend
+	WaitNodes              []mflow.NodeWait
+	SubFlowTriggerNodes    []mflow.NodeSubFlowTrigger
+	SubFlowReturnNodes     []mflow.NodeSubFlowReturn
+	RunSubFlowNodes        []mflow.NodeRunSubFlow
 }
 
 // YamlVariableV2 represents a variable during parsing

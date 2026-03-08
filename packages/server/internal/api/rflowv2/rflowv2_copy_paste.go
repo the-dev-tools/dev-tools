@@ -194,6 +194,26 @@ func (s *FlowServiceV2RPC) FlowNodesCopy(
 					bundle.FlowWaitNodes = append(bundle.FlowWaitNodes, *d)
 				}
 			}
+		case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+			if s.nsfts != nil {
+				if d, err := s.nsfts.GetNodeSubFlowTrigger(ctx, n.ID); err == nil && d != nil {
+					bundle.FlowSubFlowTriggerNodes = append(bundle.FlowSubFlowTriggerNodes, *d)
+				}
+			}
+		case mflow.NODE_KIND_SUB_FLOW_RETURN:
+			if s.nsfrs != nil {
+				if d, err := s.nsfrs.GetNodeSubFlowReturn(ctx, n.ID); err == nil && d != nil {
+					bundle.FlowSubFlowReturnNodes = append(bundle.FlowSubFlowReturnNodes, *d)
+				}
+			}
+		case mflow.NODE_KIND_RUN_SUB_FLOW:
+			if s.nrsfs != nil {
+				if d, err := s.nrsfs.GetNodeRunSubFlow(ctx, n.ID); err == nil && d != nil {
+					bundle.FlowRunSubFlowNodes = append(bundle.FlowRunSubFlowNodes, *d)
+				}
+			}
+		case mflow.NODE_KIND_WEBHOOK_TRIGGER:
+			// Not yet implemented
 		}
 	}
 
@@ -450,6 +470,21 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			parsed.FlowWaitNodes[i].FlowNodeID = newID
 		}
 	}
+	for i := range parsed.FlowSubFlowTriggerNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowSubFlowTriggerNodes[i].FlowNodeID]; ok {
+			parsed.FlowSubFlowTriggerNodes[i].FlowNodeID = newID
+		}
+	}
+	for i := range parsed.FlowSubFlowReturnNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowSubFlowReturnNodes[i].FlowNodeID]; ok {
+			parsed.FlowSubFlowReturnNodes[i].FlowNodeID = newID
+		}
+	}
+	for i := range parsed.FlowRunSubFlowNodes {
+		if newID, ok := nodeIDMapping[parsed.FlowRunSubFlowNodes[i].FlowNodeID]; ok {
+			parsed.FlowRunSubFlowNodes[i].FlowNodeID = newID
+		}
+	}
 
 	// Remap variable references in expression fields when node names changed
 	if len(nameMapping) > 0 {
@@ -514,6 +549,18 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 		}
 		for i := range parsed.WebSocketHeaders {
 			parsed.WebSocketHeaders[i].Value = remapVarRefs(parsed.WebSocketHeaders[i].Value, nameMapping)
+		}
+		for i := range parsed.FlowSubFlowReturnNodes {
+			for j := range parsed.FlowSubFlowReturnNodes[i].Outputs {
+				parsed.FlowSubFlowReturnNodes[i].Outputs[j].Expression = remapVarRefs(
+					parsed.FlowSubFlowReturnNodes[i].Outputs[j].Expression, nameMapping)
+			}
+		}
+		for i := range parsed.FlowRunSubFlowNodes {
+			for j := range parsed.FlowRunSubFlowNodes[i].Inputs {
+				parsed.FlowRunSubFlowNodes[i].Inputs[j].Expression = remapVarRefs(
+					parsed.FlowRunSubFlowNodes[i].Inputs[j].Expression, nameMapping)
+			}
 		}
 	}
 
@@ -930,6 +977,30 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 			nwaitsWriter := sflow.NewNodeWaitWriter(tx)
 			if err := nwaitsWriter.CreateNodeWait(ctx, wn); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create wait node: %w", err))
+			}
+		}
+	}
+	if s.nsfts != nil {
+		for _, n := range parsed.FlowSubFlowTriggerNodes {
+			w := sflow.NewNodeSubFlowTriggerWriter(tx)
+			if err := w.CreateNodeSubFlowTrigger(ctx, n); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create sub-flow trigger node: %w", err))
+			}
+		}
+	}
+	if s.nsfrs != nil {
+		for _, n := range parsed.FlowSubFlowReturnNodes {
+			w := sflow.NewNodeSubFlowReturnWriter(tx)
+			if err := w.CreateNodeSubFlowReturn(ctx, n); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create sub-flow return node: %w", err))
+			}
+		}
+	}
+	if s.nrsfs != nil {
+		for _, n := range parsed.FlowRunSubFlowNodes {
+			w := sflow.NewNodeRunSubFlowWriter(tx)
+			if err := w.CreateNodeRunSubFlow(ctx, n); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create run sub-flow node: %w", err))
 			}
 		}
 	}

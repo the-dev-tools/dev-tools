@@ -141,6 +141,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.cleanupOrphanedFlowNodeJsStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeJs); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeJs: %w", err)
 	}
+	if q.cleanupOrphanedFlowNodeRunSubFlowStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeRunSubFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeRunSubFlow: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeSubFlowReturnStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeSubFlowReturn); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeSubFlowReturn: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeSubFlowTriggerStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeSubFlowTrigger); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeSubFlowTrigger: %w", err)
+	}
 	if q.cleanupOrphanedFlowNodeWaitStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeWait); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeWait: %w", err)
 	}
@@ -200,6 +209,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.createFlowNodeMemoryStmt, err = db.PrepareContext(ctx, createFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeMemory: %w", err)
+	}
+	if q.createFlowNodeRunSubFlowStmt, err = db.PrepareContext(ctx, createFlowNodeRunSubFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeRunSubFlow: %w", err)
+	}
+	if q.createFlowNodeSubFlowReturnStmt, err = db.PrepareContext(ctx, createFlowNodeSubFlowReturn); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeSubFlowReturn: %w", err)
+	}
+	if q.createFlowNodeSubFlowTriggerStmt, err = db.PrepareContext(ctx, createFlowNodeSubFlowTrigger); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFlowNodeSubFlowTrigger: %w", err)
 	}
 	if q.createFlowNodeWaitStmt, err = db.PrepareContext(ctx, createFlowNodeWait); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlowNodeWait: %w", err)
@@ -383,6 +401,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowNodeMemoryStmt, err = db.PrepareContext(ctx, deleteFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeMemory: %w", err)
+	}
+	if q.deleteFlowNodeRunSubFlowStmt, err = db.PrepareContext(ctx, deleteFlowNodeRunSubFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeRunSubFlow: %w", err)
+	}
+	if q.deleteFlowNodeSubFlowReturnStmt, err = db.PrepareContext(ctx, deleteFlowNodeSubFlowReturn); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeSubFlowReturn: %w", err)
+	}
+	if q.deleteFlowNodeSubFlowTriggerStmt, err = db.PrepareContext(ctx, deleteFlowNodeSubFlowTrigger); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeSubFlowTrigger: %w", err)
 	}
 	if q.deleteFlowNodeWaitStmt, err = db.PrepareContext(ctx, deleteFlowNodeWait); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeWait: %w", err)
@@ -596,6 +623,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowNodeMemoryStmt, err = db.PrepareContext(ctx, getFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeMemory: %w", err)
+	}
+	if q.getFlowNodeRunSubFlowStmt, err = db.PrepareContext(ctx, getFlowNodeRunSubFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeRunSubFlow: %w", err)
+	}
+	if q.getFlowNodeSubFlowReturnStmt, err = db.PrepareContext(ctx, getFlowNodeSubFlowReturn); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeSubFlowReturn: %w", err)
+	}
+	if q.getFlowNodeSubFlowTriggerStmt, err = db.PrepareContext(ctx, getFlowNodeSubFlowTrigger); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeSubFlowTrigger: %w", err)
 	}
 	if q.getFlowNodeWaitStmt, err = db.PrepareContext(ctx, getFlowNodeWait); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeWait: %w", err)
@@ -1032,8 +1068,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowNodeMemoryStmt, err = db.PrepareContext(ctx, updateFlowNodeMemory); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeMemory: %w", err)
 	}
+	if q.updateFlowNodeRunSubFlowStmt, err = db.PrepareContext(ctx, updateFlowNodeRunSubFlow); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeRunSubFlow: %w", err)
+	}
 	if q.updateFlowNodeStateStmt, err = db.PrepareContext(ctx, updateFlowNodeState); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeState: %w", err)
+	}
+	if q.updateFlowNodeSubFlowReturnStmt, err = db.PrepareContext(ctx, updateFlowNodeSubFlowReturn); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeSubFlowReturn: %w", err)
+	}
+	if q.updateFlowNodeSubFlowTriggerStmt, err = db.PrepareContext(ctx, updateFlowNodeSubFlowTrigger); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowNodeSubFlowTrigger: %w", err)
 	}
 	if q.updateFlowNodeWaitStmt, err = db.PrepareContext(ctx, updateFlowNodeWait); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowNodeWait: %w", err)
@@ -1364,6 +1409,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeJsStmt: %w", cerr)
 		}
 	}
+	if q.cleanupOrphanedFlowNodeRunSubFlowStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeRunSubFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeRunSubFlowStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeSubFlowReturnStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeSubFlowReturnStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeSubFlowReturnStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeSubFlowTriggerStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeSubFlowTriggerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeSubFlowTriggerStmt: %w", cerr)
+		}
+	}
 	if q.cleanupOrphanedFlowNodeWaitStmt != nil {
 		if cerr := q.cleanupOrphanedFlowNodeWaitStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeWaitStmt: %w", cerr)
@@ -1462,6 +1522,21 @@ func (q *Queries) Close() error {
 	if q.createFlowNodeMemoryStmt != nil {
 		if cerr := q.createFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeRunSubFlowStmt != nil {
+		if cerr := q.createFlowNodeRunSubFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeRunSubFlowStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeSubFlowReturnStmt != nil {
+		if cerr := q.createFlowNodeSubFlowReturnStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeSubFlowReturnStmt: %w", cerr)
+		}
+	}
+	if q.createFlowNodeSubFlowTriggerStmt != nil {
+		if cerr := q.createFlowNodeSubFlowTriggerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFlowNodeSubFlowTriggerStmt: %w", cerr)
 		}
 	}
 	if q.createFlowNodeWaitStmt != nil {
@@ -1767,6 +1842,21 @@ func (q *Queries) Close() error {
 	if q.deleteFlowNodeMemoryStmt != nil {
 		if cerr := q.deleteFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeRunSubFlowStmt != nil {
+		if cerr := q.deleteFlowNodeRunSubFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeRunSubFlowStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeSubFlowReturnStmt != nil {
+		if cerr := q.deleteFlowNodeSubFlowReturnStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeSubFlowReturnStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeSubFlowTriggerStmt != nil {
+		if cerr := q.deleteFlowNodeSubFlowTriggerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeSubFlowTriggerStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowNodeWaitStmt != nil {
@@ -2122,6 +2212,21 @@ func (q *Queries) Close() error {
 	if q.getFlowNodeMemoryStmt != nil {
 		if cerr := q.getFlowNodeMemoryStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeMemoryStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeRunSubFlowStmt != nil {
+		if cerr := q.getFlowNodeRunSubFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeRunSubFlowStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeSubFlowReturnStmt != nil {
+		if cerr := q.getFlowNodeSubFlowReturnStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeSubFlowReturnStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeSubFlowTriggerStmt != nil {
+		if cerr := q.getFlowNodeSubFlowTriggerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeSubFlowTriggerStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodeWaitStmt != nil {
@@ -2849,9 +2954,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowNodeMemoryStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowNodeRunSubFlowStmt != nil {
+		if cerr := q.updateFlowNodeRunSubFlowStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeRunSubFlowStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowNodeStateStmt != nil {
 		if cerr := q.updateFlowNodeStateStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowNodeStateStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeSubFlowReturnStmt != nil {
+		if cerr := q.updateFlowNodeSubFlowReturnStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeSubFlowReturnStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowNodeSubFlowTriggerStmt != nil {
+		if cerr := q.updateFlowNodeSubFlowTriggerStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowNodeSubFlowTriggerStmt: %w", cerr)
 		}
 	}
 	if q.updateFlowNodeWaitStmt != nil {
@@ -3147,6 +3267,9 @@ type Queries struct {
 	cleanupOrphanedFlowNodeGraphQLStmt         *sql.Stmt
 	cleanupOrphanedFlowNodeHttpStmt            *sql.Stmt
 	cleanupOrphanedFlowNodeJsStmt              *sql.Stmt
+	cleanupOrphanedFlowNodeRunSubFlowStmt      *sql.Stmt
+	cleanupOrphanedFlowNodeSubFlowReturnStmt   *sql.Stmt
+	cleanupOrphanedFlowNodeSubFlowTriggerStmt  *sql.Stmt
 	cleanupOrphanedFlowNodeWaitStmt            *sql.Stmt
 	cleanupOrphanedNodeExecutionsStmt          *sql.Stmt
 	createCredentialStmt                       *sql.Stmt
@@ -3167,6 +3290,9 @@ type Queries struct {
 	createFlowNodeHTTPStmt                     *sql.Stmt
 	createFlowNodeJsStmt                       *sql.Stmt
 	createFlowNodeMemoryStmt                   *sql.Stmt
+	createFlowNodeRunSubFlowStmt               *sql.Stmt
+	createFlowNodeSubFlowReturnStmt            *sql.Stmt
+	createFlowNodeSubFlowTriggerStmt           *sql.Stmt
 	createFlowNodeWaitStmt                     *sql.Stmt
 	createFlowNodeWithStateStmt                *sql.Stmt
 	createFlowNodeWsConnectionStmt             *sql.Stmt
@@ -3228,6 +3354,9 @@ type Queries struct {
 	deleteFlowNodeHTTPStmt                     *sql.Stmt
 	deleteFlowNodeJsStmt                       *sql.Stmt
 	deleteFlowNodeMemoryStmt                   *sql.Stmt
+	deleteFlowNodeRunSubFlowStmt               *sql.Stmt
+	deleteFlowNodeSubFlowReturnStmt            *sql.Stmt
+	deleteFlowNodeSubFlowTriggerStmt           *sql.Stmt
 	deleteFlowNodeWaitStmt                     *sql.Stmt
 	deleteFlowNodeWsConnectionStmt             *sql.Stmt
 	deleteFlowNodeWsSendStmt                   *sql.Stmt
@@ -3299,6 +3428,9 @@ type Queries struct {
 	getFlowNodeHTTPStmt                        *sql.Stmt
 	getFlowNodeJsStmt                          *sql.Stmt
 	getFlowNodeMemoryStmt                      *sql.Stmt
+	getFlowNodeRunSubFlowStmt                  *sql.Stmt
+	getFlowNodeSubFlowReturnStmt               *sql.Stmt
+	getFlowNodeSubFlowTriggerStmt              *sql.Stmt
 	getFlowNodeWaitStmt                        *sql.Stmt
 	getFlowNodeWsConnectionStmt                *sql.Stmt
 	getFlowNodeWsSendStmt                      *sql.Stmt
@@ -3444,7 +3576,10 @@ type Queries struct {
 	updateFlowNodeIDMappingStmt                *sql.Stmt
 	updateFlowNodeJsStmt                       *sql.Stmt
 	updateFlowNodeMemoryStmt                   *sql.Stmt
+	updateFlowNodeRunSubFlowStmt               *sql.Stmt
 	updateFlowNodeStateStmt                    *sql.Stmt
+	updateFlowNodeSubFlowReturnStmt            *sql.Stmt
+	updateFlowNodeSubFlowTriggerStmt           *sql.Stmt
 	updateFlowNodeWaitStmt                     *sql.Stmt
 	updateFlowNodeWsConnectionStmt             *sql.Stmt
 	updateFlowNodeWsSendStmt                   *sql.Stmt
@@ -3533,6 +3668,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		cleanupOrphanedFlowNodeGraphQLStmt:         q.cleanupOrphanedFlowNodeGraphQLStmt,
 		cleanupOrphanedFlowNodeHttpStmt:            q.cleanupOrphanedFlowNodeHttpStmt,
 		cleanupOrphanedFlowNodeJsStmt:              q.cleanupOrphanedFlowNodeJsStmt,
+		cleanupOrphanedFlowNodeRunSubFlowStmt:      q.cleanupOrphanedFlowNodeRunSubFlowStmt,
+		cleanupOrphanedFlowNodeSubFlowReturnStmt:   q.cleanupOrphanedFlowNodeSubFlowReturnStmt,
+		cleanupOrphanedFlowNodeSubFlowTriggerStmt:  q.cleanupOrphanedFlowNodeSubFlowTriggerStmt,
 		cleanupOrphanedFlowNodeWaitStmt:            q.cleanupOrphanedFlowNodeWaitStmt,
 		cleanupOrphanedNodeExecutionsStmt:          q.cleanupOrphanedNodeExecutionsStmt,
 		createCredentialStmt:                       q.createCredentialStmt,
@@ -3553,6 +3691,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowNodeHTTPStmt:                     q.createFlowNodeHTTPStmt,
 		createFlowNodeJsStmt:                       q.createFlowNodeJsStmt,
 		createFlowNodeMemoryStmt:                   q.createFlowNodeMemoryStmt,
+		createFlowNodeRunSubFlowStmt:               q.createFlowNodeRunSubFlowStmt,
+		createFlowNodeSubFlowReturnStmt:            q.createFlowNodeSubFlowReturnStmt,
+		createFlowNodeSubFlowTriggerStmt:           q.createFlowNodeSubFlowTriggerStmt,
 		createFlowNodeWaitStmt:                     q.createFlowNodeWaitStmt,
 		createFlowNodeWithStateStmt:                q.createFlowNodeWithStateStmt,
 		createFlowNodeWsConnectionStmt:             q.createFlowNodeWsConnectionStmt,
@@ -3614,6 +3755,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteFlowNodeHTTPStmt:                     q.deleteFlowNodeHTTPStmt,
 		deleteFlowNodeJsStmt:                       q.deleteFlowNodeJsStmt,
 		deleteFlowNodeMemoryStmt:                   q.deleteFlowNodeMemoryStmt,
+		deleteFlowNodeRunSubFlowStmt:               q.deleteFlowNodeRunSubFlowStmt,
+		deleteFlowNodeSubFlowReturnStmt:            q.deleteFlowNodeSubFlowReturnStmt,
+		deleteFlowNodeSubFlowTriggerStmt:           q.deleteFlowNodeSubFlowTriggerStmt,
 		deleteFlowNodeWaitStmt:                     q.deleteFlowNodeWaitStmt,
 		deleteFlowNodeWsConnectionStmt:             q.deleteFlowNodeWsConnectionStmt,
 		deleteFlowNodeWsSendStmt:                   q.deleteFlowNodeWsSendStmt,
@@ -3685,6 +3829,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowNodeHTTPStmt:                        q.getFlowNodeHTTPStmt,
 		getFlowNodeJsStmt:                          q.getFlowNodeJsStmt,
 		getFlowNodeMemoryStmt:                      q.getFlowNodeMemoryStmt,
+		getFlowNodeRunSubFlowStmt:                  q.getFlowNodeRunSubFlowStmt,
+		getFlowNodeSubFlowReturnStmt:               q.getFlowNodeSubFlowReturnStmt,
+		getFlowNodeSubFlowTriggerStmt:              q.getFlowNodeSubFlowTriggerStmt,
 		getFlowNodeWaitStmt:                        q.getFlowNodeWaitStmt,
 		getFlowNodeWsConnectionStmt:                q.getFlowNodeWsConnectionStmt,
 		getFlowNodeWsSendStmt:                      q.getFlowNodeWsSendStmt,
@@ -3830,7 +3977,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeIDMappingStmt:                q.updateFlowNodeIDMappingStmt,
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
 		updateFlowNodeMemoryStmt:                   q.updateFlowNodeMemoryStmt,
+		updateFlowNodeRunSubFlowStmt:               q.updateFlowNodeRunSubFlowStmt,
 		updateFlowNodeStateStmt:                    q.updateFlowNodeStateStmt,
+		updateFlowNodeSubFlowReturnStmt:            q.updateFlowNodeSubFlowReturnStmt,
+		updateFlowNodeSubFlowTriggerStmt:           q.updateFlowNodeSubFlowTriggerStmt,
 		updateFlowNodeWaitStmt:                     q.updateFlowNodeWaitStmt,
 		updateFlowNodeWsConnectionStmt:             q.updateFlowNodeWsConnectionStmt,
 		updateFlowNodeWsSendStmt:                   q.updateFlowNodeWsSendStmt,

@@ -35,6 +35,7 @@ import {
   NodeCollectionSchema,
   NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
+  NodeRunSubFlowCollectionSchema,
   NodeWsConnectionCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
@@ -84,6 +85,9 @@ import { GraphQLNode, GraphQLSettings } from './nodes/graphql';
 import { HttpNode, HttpSettings } from './nodes/http';
 import { JavaScriptNode, JavaScriptSettings } from './nodes/javascript';
 import { ManualStartNode } from './nodes/manual-start';
+import { RunSubFlowNode, RunSubFlowSettings } from './nodes/run-sub-flow';
+import { SubFlowReturnNode, SubFlowReturnSettings } from './nodes/sub-flow-return';
+import { SubFlowTriggerNode, SubFlowTriggerSettings } from './nodes/sub-flow-trigger';
 import { WaitNode, WaitSettings } from './nodes/wait';
 import { WsConnectionNode, WsConnectionSettings } from './nodes/ws-connection';
 import { WsSendNode, WsSendSettings } from './nodes/ws-send';
@@ -102,6 +106,9 @@ export const nodeTypes: XF.NodeTypes = {
   [NodeKind.HTTP]: HttpNode,
   [NodeKind.JS]: JavaScriptNode,
   [NodeKind.MANUAL_START]: ManualStartNode,
+  [NodeKind.RUN_SUB_FLOW]: RunSubFlowNode,
+  [NodeKind.SUB_FLOW_RETURN]: SubFlowReturnNode,
+  [NodeKind.SUB_FLOW_TRIGGER]: SubFlowTriggerNode,
   [NodeKind.UNSPECIFIED]: () => null,
   [NodeKind.WAIT]: WaitNode,
   [NodeKind.WS_CONNECTION]: WsConnectionNode,
@@ -160,6 +167,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const nodeGraphQLCollection = useApiCollection(NodeGraphQLCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
+  const nodeRunSubFlowCollection = useApiCollection(NodeRunSubFlowCollectionSchema);
   const nodeWsConnectionCollection = useApiCollection(NodeWsConnectionCollectionSchema);
 
   const nodeEditDialog = useNodeEditDialog();
@@ -482,6 +490,31 @@ export const Flow = ({ children }: PropsWithChildren) => {
           flowId,
           kind: NodeKind.WS_CONNECTION,
           name: `ws_connection_${getNodes().length}`,
+          nodeId,
+          position,
+        });
+      }
+
+      if (file?.kind === FileKind.FLOW) {
+        // Prevent adding the same flow as a sub-flow (recursive)
+        if (file.fileId.length === flowId.length && file.fileId.every((b, i) => b === flowId[i])) return;
+
+        const targetFlow = flowCollection.get(
+          flowCollection.utils.getKey({ flowId: file.fileId }),
+        );
+
+        const nodeId = Ulid.generate().bytes;
+
+        nodeRunSubFlowCollection.utils.insert({
+          nodeId,
+          targetFlowId: file.fileId,
+          targetFlowName: targetFlow?.name ?? '',
+        });
+
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.RUN_SUB_FLOW,
+          name: `run_sub_flow_${getNodes().length}`,
           nodeId,
           position,
         });
@@ -906,6 +939,9 @@ const useNodeEditDialog = () => {
       Match.when({ kind: NodeKind.AI }, (_) => <AiSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_PROVIDER }, (_) => <AiProviderSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.AI_MEMORY }, (_) => <AiMemorySettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.RUN_SUB_FLOW }, () => <RunSubFlowSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.SUB_FLOW_RETURN }, () => <SubFlowReturnSettings nodeId={nodeId} />),
+      Match.when({ kind: NodeKind.SUB_FLOW_TRIGGER }, () => <SubFlowTriggerSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.WAIT }, () => <WaitSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.WS_CONNECTION }, () => <WsConnectionSettings nodeId={nodeId} />),
       Match.when({ kind: NodeKind.WS_SEND }, () => <WsSendSettings nodeId={nodeId} />),

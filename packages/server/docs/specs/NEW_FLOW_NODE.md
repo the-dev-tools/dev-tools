@@ -189,6 +189,17 @@ type <Type> struct {
 
 These bridge between API types (protobuf) and DB types (sqlc gen). Keep them pure Go — no dependencies on protobuf or sqlc packages.
 
+### Node Kind Converter
+
+**File:** `packages/server/internal/converter/converter.go`
+
+Add a case for the new `NODE_KIND_<TYPE>` in `ToAPINodeKind()`. This function converts model `mflow.NodeKind` to API `flowv1.NodeKind` and is called by `serializeNode()` for every sync response. **If the case is missing, the kind falls through to `NODE_KIND_UNSPECIFIED` and the client renders the node as invisible.**
+
+```go
+case mflow.NODE_KIND_<TYPE>:
+    return flowv1.NodeKind_NODE_KIND_<TYPE>
+```
+
 ---
 
 ## 4. Server Service Layer
@@ -311,6 +322,8 @@ func (n *Node<Type>) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
     return result
 }
 ```
+
+**Expression evaluation:** If the node evaluates user-provided expressions that come from the client's `ReferenceField` UI, use `env.EvalInterpolated()` — NOT `env.Eval()`. The `ReferenceField` stores expressions in `{{ }}` template format (e.g., `{{ http_0.response.body.id }}`). `EvalInterpolated()` handles both `{{ }}` wrapped expressions and raw expressions, while `Eval()` only handles raw expr-lang syntax and will fail on the `{{ }}` format with a cryptic compile error.
 
 **Existing executor packages** (for reference):
 - `nrequest` — HTTP requests
@@ -775,6 +788,15 @@ Assertions validate response data after execution:
 
 Add the new node type to the reference service so variables like `{{ NodeName.response.body }}` resolve correctly across flow nodes. Only nodes that write output variables (via `WriteNodeVarBulk`) need a reference service entry. Passive nodes (e.g., Memory) that don't produce output should be skipped — the `default` case handles them correctly.
 
+The reference service has **three switch statements** that all need the new node kind case:
+1. **`ReferenceSchema`** (~line 640) — returns the variable schema (type structure) for the node
+2. **`ReferenceCompletion`** (~line 989) — returns autocomplete suggestions when typing `{{ nodeName.` }}
+3. **`ReferenceValue`** (~line 1531) — returns the actual runtime values for variable preview
+
+**Parameter-based nodes** (e.g., SubFlowTrigger): Some nodes have user-configured parameters that define their output variables, rather than producing output from execution results. For these, inject the node's type-specific service into `ReferenceServiceRPC` and `ReferenceServiceRPCReaders`, then build a variable map from the node's parameter definitions. Example: SubFlowTrigger injects `NodeSubFlowTriggerService` and builds a map from `trigger.Params`.
+
+**Wiring:** After adding the service to the `ReferenceServiceRPC` struct, also wire it in `serverrun.go` where `ReferenceServiceRPCReaders` is constructed.
+
 ### 12f. Migration
 
 **File:** `packages/server/internal/migrations/01XXXXX_add_<type>_<feature>.go`
@@ -784,6 +806,9 @@ Create a migration that adds the new tables. Follow the existing pattern — reg
 ---
 
 ## Common Pitfalls
+
+### Missing `ToAPINodeKind` Case — Invisible Nodes
+If `ToAPINodeKind()` in `converter.go` doesn't have a case for the new `NODE_KIND_<TYPE>`, every sync response serializes the node with `kind = UNSPECIFIED`. The client maps `UNSPECIFIED` to `() => null`, so the node appears briefly (optimistic insert with correct kind) then becomes invisible when the sync response overwrites it with `UNSPECIFIED`. No errors are logged anywhere — completely silent.
 
 ### Sync Events Silently Dropped
 The most insidious bug. If a CRUD handler calls `mut.Insert<Type>()` or `mut.Update<Type>()` without a separate `mut.Track(Event{Payload: model})`, the sync event has no payload. The publisher silently drops it (model is nil). The client never receives the update. Data persists in DB but UI doesn't reflect changes until page refresh. Always verify sync works end-to-end.
@@ -814,6 +839,12 @@ Three common gaps when adding delta support to sub-entities (headers, assertions
 1. **`Create` ignores delta fields** — The service `Create` method only passes base fields to the sqlc `CreateParams`, even though the struct includes delta fields. Delta records get inserted with `is_delta = false` and nil delta values. Fix: populate `IsDelta`, `ParentID`, and all `Delta*` fields in the `Create` call.
 2. **No `UpdateDelta` method** — The service only has a base `Update` that writes base columns. Delta field updates silently do nothing because the `Update` SQL doesn't touch `delta_*` columns. Fix: add an `UpdateDelta` query in sqlc and a corresponding service method.
 3. **Handler calls `Update` instead of `UpdateDelta`** — The delta update RPC handler modifies the model's `Delta*` fields in memory, then calls `Update()` which only persists base fields. The delta changes are discarded. Returns 400 if `is_delta` is checked (since the DB row has `is_delta = false` from gap #1). Fix: call `UpdateDelta` in the handler.
+
+### Expression Evaluation — `Eval()` vs `EvalInterpolated()`
+If the node evaluates expressions that come from the client's `ReferenceField` UI component, you MUST use `env.EvalInterpolated()`, not `env.Eval()`. The `ReferenceField` stores expressions in `{{ }}` template format (e.g., `{{ http_0.response.body }}`). `Eval()` only handles raw expr-lang syntax and fails on `{{ }}` with an error like `expression "{{ foo.bar }}" failed during compile: a map key must be a quoted string`. `EvalInterpolated()` handles both formats. This affects any node that uses `expression.NewUnifiedEnv()` to evaluate user-provided input/output mappings.
+
+### Reference Service — Missing Switch Cases or Service Wiring
+The reference service (`rreference.go`) has **three** switch statements on `NodeKind`: `ReferenceSchema`, `ReferenceCompletion`, and `ReferenceValue`. If ANY of the three is missing a case for the new node kind, autocomplete won't work for that node's variables. The symptoms are subtle — no error, just empty completion suggestions when pressing Ctrl+Space. For parameter-based nodes (like SubFlowTrigger), the service also needs the type-specific node service injected into both `ReferenceServiceRPC` and `ReferenceServiceRPCReaders` (wired in `serverrun.go`).
 
 ### Tab Active State — Parent Route Highlighting on Delta Pages
 TanStack Router's link `activeOptions` defaults to `{ exact: false }`. When viewing a delta page (e.g., `/graphql/$id/delta/$deltaId`), the parent route (`/graphql/$id`) also matches as "active". This causes both the original request tab and the delta tab to highlight simultaneously. Fix: add `activeOptions={{ exact: true }}` to tab link components.
@@ -908,6 +939,7 @@ This means:
 - [ ] Model structs created (`pkg/model/m<type>/`)
 - [ ] Flow node model added to `pkg/model/mflow/node_types.go`
 - [ ] Node kind constant added to `pkg/model/mflow/node.go`
+- [ ] `ToAPINodeKind()` case added in `internal/converter/converter.go`
 - [ ] Service reader/writer created (`pkg/service/s<type>/`)
 - [ ] Flow node service created (`pkg/service/sflow/node_<type>*.go` — service, reader, writer, mapper)
 - [ ] Node kind mapping added to `pkg/service/sflow/node_mapper.go`
@@ -921,6 +953,7 @@ This means:
 - [ ] Executor package created (`pkg/flow/node/n<type>/`)
 - [ ] Implements `FlowNode` interface (`GetID`, `GetName`, `RunSync`, `RunAsync`)
 - [ ] Implements `VariableIntrospector` (optional, for AI integration)
+- [ ] Uses `EvalInterpolated()` (not `Eval()`) for expressions from ReferenceField UI
 
 ### RPC & Wiring
 - [ ] RPC handlers created (`internal/api/r<type>/`)
@@ -952,6 +985,11 @@ This means:
 - [ ] Top bar uses `useDeltaState` + `DeltaResetButton` for name/URL
 - [ ] CodeMirror editors (query, variables, raw body) have `DeltaResetButton`
 - [ ] Tab links use `activeOptions={{ exact: true }}` to prevent parent route highlighting
+
+### Reference Service
+- [ ] All three switch statements updated (`ReferenceSchema`, `ReferenceCompletion`, `ReferenceValue`)
+- [ ] Type-specific service injected if node has user-configured parameters
+- [ ] Service wired in `serverrun.go` `ReferenceServiceRPCReaders`
 
 ### Verification
 - [ ] CRUD handlers have `mut.Track()` with Payload for sync

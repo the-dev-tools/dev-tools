@@ -74,7 +74,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			kind = eventsync.KindFlowFile
 		case mfile.ContentTypeFolder:
 			kind = eventsync.KindFolder
-		case mfile.ContentTypeHTTP, mfile.ContentTypeHTTPDelta, mfile.ContentTypeCredential, mfile.ContentTypeGraphQL, mfile.ContentTypeWebSocket:
+		case mfile.ContentTypeHTTP, mfile.ContentTypeHTTPDelta, mfile.ContentTypeCredential, mfile.ContentTypeGraphQL, mfile.ContentTypeGraphQLDelta, mfile.ContentTypeWebSocket:
 			// Keep default KindHTTPFile
 		}
 

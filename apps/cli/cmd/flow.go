@@ -187,6 +187,9 @@ var yamlflowRunCmd = &cobra.Command{
 			&services.NodeWsConnection,
 			&services.NodeWsSend,
 			&services.NodeWait,
+			&services.NodeSubFlowTrigger,
+			&services.NodeSubFlowReturn,
+			&services.NodeRunSubFlow,
 			&services.WebSocket,
 			&services.WebSocketHeader,
 			&services.GraphQL,
@@ -198,6 +201,11 @@ var yamlflowRunCmd = &cobra.Command{
 			graphqlResolver,
 			services.Logger,
 			llmFactory,
+		)
+
+		// Wire sub-flow executor so RunSubFlow nodes can invoke other flows
+		builder.SubFlowExecutor = flowbuilder.NewSubFlowExecutor(
+			builder, &services.Flow, &services.FlowEdge, nil, services.Logger,
 		)
 
 		if !quietMode {

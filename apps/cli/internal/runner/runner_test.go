@@ -126,6 +126,9 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 		&nodeWsConnectionService,
 		&nodeWsSendService,
 		&nodeWaitService,
+		nil, // NodeSubFlowTriggerService - not needed for CLI tests
+		nil, // NodeSubFlowReturnService - not needed for CLI tests
+		nil, // NodeRunSubFlowService - not needed for CLI tests
 		&webSocketService,
 		&webSocketHeaderService,
 		nil, // GraphQLService - not needed for CLI tests

@@ -108,6 +108,24 @@ CREATE TABLE flow_node_wait (
   duration_ms BIGINT NOT NULL
 );
 
+CREATE TABLE flow_node_sub_flow_trigger (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  params BLOB NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE flow_node_sub_flow_return (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  outputs BLOB NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE flow_node_run_sub_flow (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  target_flow_id BLOB,
+  target_flow_name TEXT NOT NULL DEFAULT '',
+  inputs BLOB NOT NULL DEFAULT '[]',
+  FOREIGN KEY (target_flow_id) REFERENCES flow (id) ON DELETE SET NULL
+);
+
 CREATE TABLE flow_variable (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,

@@ -139,7 +139,7 @@ export const createDelta = <T extends DescMessage>(schema: T, value: Record<stri
   const delta = Record.map(value, (value, key) => {
     if (!isUnionDesc(schema.field[key]?.message)) return value;
     // TODO: deduplicate spec union kind enums and un-hardcode numeric value
-    if (!value) return { kind: 183079996 /* UNSET */, unset: 0 };
+    if (value == null) return { kind: 183079996 /* UNSET */, unset: 0 };
     return { kind: 165745230 /* VALUE */, value };
   });
 

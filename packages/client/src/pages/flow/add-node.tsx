@@ -24,6 +24,9 @@ import {
   NodeGraphQLCollectionSchema,
   NodeHttpCollectionSchema,
   NodeJsCollectionSchema,
+  NodeRunSubFlowCollectionSchema,
+  NodeSubFlowReturnCollectionSchema,
+  NodeSubFlowTriggerCollectionSchema,
   NodeWaitCollectionSchema,
   NodeWsConnectionCollectionSchema,
   NodeWsSendCollectionSchema,
@@ -185,6 +188,9 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
   const conditionCollection = useApiCollection(NodeConditionCollectionSchema);
   const forCollection = useApiCollection(NodeForCollectionSchema);
   const forEachCollection = useApiCollection(NodeForEachCollectionSchema);
+  const runSubFlowCollection = useApiCollection(NodeRunSubFlowCollectionSchema);
+  const subFlowReturnCollection = useApiCollection(NodeSubFlowReturnCollectionSchema);
+  const subFlowTriggerCollection = useApiCollection(NodeSubFlowTriggerCollectionSchema);
   const waitCollection = useApiCollection(NodeWaitCollectionSchema);
 
   return (
@@ -234,6 +240,63 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
             insertNode({ handleKind, kind: NodeKind.WAIT, name: 'wait', nodeId, position, sourceId, targetId });
           }}
           title='Wait'
+        />
+
+        <SidebarItem
+          description='Execute another flow as a sub-routine'
+          icon={<FlowsIcon />}
+          onAction={() => {
+            const nodeId = Ulid.generate().bytes;
+            runSubFlowCollection.utils.insert({ nodeId, targetFlowName: '' });
+            insertNode({
+              handleKind,
+              kind: NodeKind.RUN_SUB_FLOW,
+              name: 'run_sub_flow',
+              nodeId,
+              position,
+              sourceId,
+              targetId,
+            });
+          }}
+          title='Run Sub-Flow'
+        />
+
+        <SidebarItem
+          description='Entry point for a sub-flow with input parameters'
+          icon={<FlowsIcon />}
+          onAction={() => {
+            const nodeId = Ulid.generate().bytes;
+            subFlowTriggerCollection.utils.insert({ nodeId });
+            insertNode({
+              handleKind,
+              kind: NodeKind.SUB_FLOW_TRIGGER,
+              name: 'sub_flow_trigger',
+              nodeId,
+              position,
+              sourceId,
+              targetId,
+            });
+          }}
+          title='Sub-Flow Trigger'
+        />
+
+        <SidebarItem
+          description='Return values from a sub-flow to the caller'
+          icon={<FlowsIcon />}
+          onAction={() => {
+            const nodeId = Ulid.generate().bytes;
+            subFlowReturnCollection.utils.insert({ nodeId });
+            insertNode({
+              handleKind,
+              kind: NodeKind.SUB_FLOW_RETURN,
+              name: 'sub_flow_return',
+              nodeId,
+              position,
+              sourceId,
+              targetId,
+            });
+          }}
+          title='Sub-Flow Return'
         />
       </RAC.ListBox>
     </>

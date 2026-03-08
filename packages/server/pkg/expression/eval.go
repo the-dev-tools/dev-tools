@@ -44,28 +44,40 @@ func (e *UnifiedEnv) Eval(ctx context.Context, exprStr string) (any, error) {
 
 // EvalInterpolated first interpolates {{ }} patterns, then evaluates the result.
 // Use this when you need both interpolation AND expression evaluation.
+//
+// For single {{ expr }} patterns, typed values (arrays, maps, numbers, bools) are
+// preserved without stringification. For multi-expression strings like "{{ a }} + {{ b }}",
+// interpolation produces a string which is then evaluated as an expression.
 func (e *UnifiedEnv) EvalInterpolated(ctx context.Context, exprStr string) (any, error) {
 	if e == nil {
 		return nil, ErrNilEnv
 	}
 
-	// Fast path: skip interpolation if no {{ }} patterns
-	interpolated := exprStr
 	if HasVars(exprStr) {
-		var err error
-		interpolated, err = e.Interpolate(exprStr)
+		// Use ResolveValue which preserves typed values for single {{ expr }} patterns
+		// and interpolates multi-expression strings.
+		val, err := e.ResolveValue(exprStr)
 		if err != nil {
 			return nil, err
 		}
 
-		// If the entire string was just a variable reference that got replaced,
-		// and the result is not a valid expression, return the interpolated value
-		if !looksLikeExpression(interpolated) {
-			return interpolated, nil
+		// If the resolved value is not a string (e.g. array, map, number, bool),
+		// return it directly — no further expression evaluation needed.
+		str, isString := val.(string)
+		if !isString {
+			return val, nil
 		}
+
+		// For string results, check if it looks like an expression to evaluate
+		// (e.g. "5 + 3" from "{{ a }} + {{ b }}" interpolation).
+		if looksLikeExpression(str) {
+			return e.Eval(ctx, str)
+		}
+
+		return str, nil
 	}
 
-	return e.Eval(ctx, interpolated)
+	return e.Eval(ctx, exprStr)
 }
 
 // EvalBool evaluates a pure expr-lang expression and returns the result as a boolean.

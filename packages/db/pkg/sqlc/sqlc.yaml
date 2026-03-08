@@ -985,3 +985,27 @@ sql:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### flow_node_sub_flow_trigger table
+          - column: 'flow_node_sub_flow_trigger.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_node_sub_flow_return table
+          - column: 'flow_node_sub_flow_return.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_node_run_sub_flow table
+          - column: 'flow_node_run_sub_flow.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'flow_node_run_sub_flow.target_flow_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true

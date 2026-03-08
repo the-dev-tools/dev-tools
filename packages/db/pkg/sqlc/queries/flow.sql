@@ -771,6 +771,75 @@ DELETE FROM flow_node_js WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
 -- name: CleanupOrphanedFlowNodeWait :exec
 DELETE FROM flow_node_wait WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
 
+-- Sub-Flow Trigger
+-- name: GetFlowNodeSubFlowTrigger :one
+SELECT flow_node_id, params
+FROM flow_node_sub_flow_trigger
+WHERE flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeSubFlowTrigger :exec
+INSERT INTO flow_node_sub_flow_trigger (flow_node_id, params)
+VALUES (?, ?);
+
+-- name: UpdateFlowNodeSubFlowTrigger :exec
+UPDATE flow_node_sub_flow_trigger
+SET params = ?
+WHERE flow_node_id = ?;
+
+-- name: DeleteFlowNodeSubFlowTrigger :exec
+DELETE FROM flow_node_sub_flow_trigger
+WHERE flow_node_id = ?;
+
+-- name: CleanupOrphanedFlowNodeSubFlowTrigger :exec
+DELETE FROM flow_node_sub_flow_trigger WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- Sub-Flow Return
+-- name: GetFlowNodeSubFlowReturn :one
+SELECT flow_node_id, outputs
+FROM flow_node_sub_flow_return
+WHERE flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeSubFlowReturn :exec
+INSERT INTO flow_node_sub_flow_return (flow_node_id, outputs)
+VALUES (?, ?);
+
+-- name: UpdateFlowNodeSubFlowReturn :exec
+UPDATE flow_node_sub_flow_return
+SET outputs = ?
+WHERE flow_node_id = ?;
+
+-- name: DeleteFlowNodeSubFlowReturn :exec
+DELETE FROM flow_node_sub_flow_return
+WHERE flow_node_id = ?;
+
+-- name: CleanupOrphanedFlowNodeSubFlowReturn :exec
+DELETE FROM flow_node_sub_flow_return WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- Run Sub-Flow
+-- name: GetFlowNodeRunSubFlow :one
+SELECT flow_node_id, target_flow_id, target_flow_name, inputs
+FROM flow_node_run_sub_flow
+WHERE flow_node_id = ?
+LIMIT 1;
+
+-- name: CreateFlowNodeRunSubFlow :exec
+INSERT INTO flow_node_run_sub_flow (flow_node_id, target_flow_id, target_flow_name, inputs)
+VALUES (?, ?, ?, ?);
+
+-- name: UpdateFlowNodeRunSubFlow :exec
+UPDATE flow_node_run_sub_flow
+SET target_flow_id = ?, target_flow_name = ?, inputs = ?
+WHERE flow_node_id = ?;
+
+-- name: DeleteFlowNodeRunSubFlow :exec
+DELETE FROM flow_node_run_sub_flow
+WHERE flow_node_id = ?;
+
+-- name: CleanupOrphanedFlowNodeRunSubFlow :exec
+DELETE FROM flow_node_run_sub_flow WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
 -- name: CleanupOrphanedFlowEdges :exec
 DELETE FROM flow_edge WHERE source_id NOT IN (SELECT id FROM flow_node) OR target_id NOT IN (SELECT id FROM flow_node);
 

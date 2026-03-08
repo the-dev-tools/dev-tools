@@ -278,6 +278,9 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 	result.FlowWsConnectionNodes = append(result.FlowWsConnectionNodes, flowData.FlowWsConnectionNodes...)
 	result.FlowWsSendNodes = append(result.FlowWsSendNodes, flowData.FlowWsSendNodes...)
 	result.FlowWaitNodes = append(result.FlowWaitNodes, flowData.FlowWaitNodes...)
+	result.FlowSubFlowTriggerNodes = append(result.FlowSubFlowTriggerNodes, flowData.FlowSubFlowTriggerNodes...)
+	result.FlowSubFlowReturnNodes = append(result.FlowSubFlowReturnNodes, flowData.FlowSubFlowReturnNodes...)
+	result.FlowRunSubFlowNodes = append(result.FlowRunSubFlowNodes, flowData.FlowRunSubFlowNodes...)
 	result.WebSockets = append(result.WebSockets, flowData.WebSockets...)
 	result.WebSocketHeaders = append(result.WebSocketHeaders, flowData.WebSocketHeaders...)
 }

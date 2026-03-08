@@ -58,7 +58,10 @@ type WorkspaceBundle struct {
 	FlowGraphQLNodes        []mflow.NodeGraphQL
 	FlowWsConnectionNodes   []mflow.NodeWsConnection
 	FlowWsSendNodes         []mflow.NodeWsSend
-	FlowWaitNodes           []mflow.NodeWait
+	FlowWaitNodes              []mflow.NodeWait
+	FlowSubFlowTriggerNodes    []mflow.NodeSubFlowTrigger
+	FlowSubFlowReturnNodes     []mflow.NodeSubFlowReturn
+	FlowRunSubFlowNodes        []mflow.NodeRunSubFlow
 
 	// Environments and variables
 	Environments    []menv.Env
@@ -100,7 +103,10 @@ func (wb *WorkspaceBundle) CountEntities() map[string]int {
 		"flow_graphql_nodes":        len(wb.FlowGraphQLNodes),
 		"flow_ws_connection_nodes":  len(wb.FlowWsConnectionNodes),
 		"flow_ws_send_nodes":        len(wb.FlowWsSendNodes),
-		"flow_wait_nodes":           len(wb.FlowWaitNodes),
+		"flow_wait_nodes":                len(wb.FlowWaitNodes),
+		"flow_sub_flow_trigger_nodes":    len(wb.FlowSubFlowTriggerNodes),
+		"flow_sub_flow_return_nodes":     len(wb.FlowSubFlowReturnNodes),
+		"flow_run_sub_flow_nodes":        len(wb.FlowRunSubFlowNodes),
 		"environments":              len(wb.Environments),
 		"environment_vars":     len(wb.EnvironmentVars),
 		"credentials":          len(wb.Credentials),

@@ -80,6 +80,9 @@ func setupTestService(t *testing.T) (*FlowServiceV2RPC, *gen.Queries, context.Co
 		nil, // NodeWsConnectionService
 		nil, // NodeWsSendService
 		nil, // NodeWaitService
+		nil, // NodeSubFlowTriggerService
+		nil, // NodeSubFlowReturnService
+		nil, // NodeRunSubFlowService
 		nil, // WebSocketService
 		nil, // WebSocketHeaderService
 		nil, // GraphQLService

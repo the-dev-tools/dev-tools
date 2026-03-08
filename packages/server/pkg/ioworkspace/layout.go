@@ -38,7 +38,8 @@ func (wb *WorkspaceBundle) ensureStartNodeForFlow(flowID idwrap.IDWrap) error {
 	// Check if start node already exists for this flow
 	var startNodeID *idwrap.IDWrap
 	for j := range wb.FlowNodes {
-		if wb.FlowNodes[j].NodeKind == mflow.NODE_KIND_MANUAL_START &&
+		if (wb.FlowNodes[j].NodeKind == mflow.NODE_KIND_MANUAL_START ||
+			wb.FlowNodes[j].NodeKind == mflow.NODE_KIND_SUB_FLOW_TRIGGER) &&
 			wb.FlowNodes[j].FlowID.Compare(flowID) == 0 {
 			startNodeID = &wb.FlowNodes[j].ID
 			break

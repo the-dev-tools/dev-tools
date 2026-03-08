@@ -100,6 +100,10 @@ enum NodeKind {
   WsConnection,
   WsSend,
   Wait,
+  WebhookTrigger,
+  SubFlowTrigger,
+  SubFlowReturn,
+  RunSubFlow,
 }
 
 enum AiMemoryType {
@@ -314,6 +318,43 @@ model NodeWsSend {
 model NodeWait {
   @primaryKey nodeId: Id;
   durationMs: int64;
+}
+
+model SubFlowParam {
+  name: string;
+  type: string;
+  defaultValue: string;
+  required: boolean;
+}
+
+@TanStackDB.collection
+model NodeSubFlowTrigger {
+  @primaryKey nodeId: Id;
+  params: SubFlowParam[];
+}
+
+model SubFlowOutput {
+  name: string;
+  expression: string;
+}
+
+@TanStackDB.collection
+model NodeSubFlowReturn {
+  @primaryKey nodeId: Id;
+  outputs: SubFlowOutput[];
+}
+
+model SubFlowInputMapping {
+  paramName: string;
+  expression: string;
+}
+
+@TanStackDB.collection
+model NodeRunSubFlow {
+  @primaryKey nodeId: Id;
+  targetFlowId?: Id;
+  targetFlowName: string;
+  inputs: SubFlowInputMapping[];
 }
 
 // Copy/Paste operations
