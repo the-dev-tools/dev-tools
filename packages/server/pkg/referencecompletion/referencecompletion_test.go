@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/reference"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/referencecompletion"
 )
 
@@ -539,6 +540,229 @@ func TestParsePath(t *testing.T) {
 		})
 	}
 }
+func TestFindNextLevel(t *testing.T) {
+	creator := referencecompletion.NewReferenceCompletionCreator()
+
+	data := map[string]any{
+		"response": map[string]any{
+			"body": map[string]any{
+				"data": []any{
+					map[string]any{"id": 1, "name": "Alice"},
+					map[string]any{"id": 2, "name": "Bob"},
+				},
+			},
+			"status":  200,
+			"headers": map[string]string{"Content-Type": "application/json"},
+		},
+		"env": map[string]any{
+			"API_KEY": "secret",
+		},
+	}
+	creator.Add(data)
+
+	tests := []struct {
+		name     string
+		query    string
+		expected []string
+	}{
+		{
+			name:     "Empty query returns top-level keys only",
+			query:    "",
+			expected: []string{"env", "response"},
+		},
+		{
+			name:     "Partial top-level match",
+			query:    "res",
+			expected: []string{"response"},
+		},
+		{
+			name:     "Exact top-level match",
+			query:    "response",
+			expected: []string{"response"},
+		},
+		{
+			name:     "Dot-drill into object",
+			query:    "response.",
+			expected: []string{"response.body", "response.headers", "response.status"},
+		},
+		{
+			name:     "Partial child match",
+			query:    "response.bo",
+			expected: []string{"response.body"},
+		},
+		{
+			name:     "Deeper dot-drill",
+			query:    "response.body.",
+			expected: []string{"response.body.data"},
+		},
+		{
+			name:     "Exact nested match",
+			query:    "response.body.data",
+			expected: []string{"response.body.data"},
+		},
+		{
+			name:     "Array bracket entry",
+			query:    "response.body.data[",
+			expected: []string{"response.body.data[0]", "response.body.data[1]"},
+		},
+		{
+			name:     "Partial array index",
+			query:    "response.body.data[0",
+			expected: []string{"response.body.data[0]"},
+		},
+		{
+			name:     "Drill into array element",
+			query:    "response.body.data[0].",
+			expected: []string{"response.body.data[0].id", "response.body.data[0].name"},
+		},
+		{
+			name:     "Partial key in array element",
+			query:    "response.body.data[0].n",
+			expected: []string{"response.body.data[0].name"},
+		},
+		{
+			name:     "Nonexistent prefix with dot",
+			query:    "nonexistent.",
+			expected: []string{},
+		},
+		{
+			name:     "Nonexistent partial at valid level",
+			query:    "response.nonexistent",
+			expected: []string{},
+		},
+		{
+			name:     "Case insensitive partial",
+			query:    "RES",
+			expected: []string{"response"},
+		},
+		{
+			name:     "Case insensitive dot-drill",
+			query:    "Response.",
+			expected: []string{"response.body", "response.headers", "response.status"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matches := creator.FindNextLevel(tt.query)
+			actual := make([]string, len(matches))
+			for i, m := range matches {
+				actual[i] = m.Target
+			}
+			sort.Strings(actual)
+			sort.Strings(tt.expected)
+
+			if !reflect.DeepEqual(tt.expected, actual) {
+				t.Errorf("FindNextLevel(%q):\n  expected: %v\n  actual:   %v", tt.query, tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestFindNextLevelCompletionData(t *testing.T) {
+	creator := referencecompletion.NewReferenceCompletionCreator()
+
+	data := map[string]any{
+		"response": map[string]any{
+			"body": map[string]any{
+				"data": []any{
+					map[string]any{"id": 1, "name": "Alice"},
+					map[string]any{"id": 2, "name": "Bob"},
+				},
+			},
+			"status":  200,
+			"headers": map[string]string{"Content-Type": "application/json"},
+		},
+		"env": map[string]any{
+			"API_KEY": "secret",
+		},
+	}
+	creator.Add(data)
+
+	tests := []struct {
+		name          string
+		query         string
+		endToken      string
+		expectedKind  reference.ReferenceKind
+		minItemCount  int32
+		expectedIndex int32
+	}{
+		{
+			name:          "Top-level map",
+			query:         "",
+			endToken:      "response",
+			expectedKind:  reference.ReferenceKind_REFERENCE_KIND_MAP,
+			minItemCount:  3,
+			expectedIndex: 0,
+		},
+		{
+			name:          "Child map (body has children)",
+			query:         "response.",
+			endToken:      "response.body",
+			expectedKind:  reference.ReferenceKind_REFERENCE_KIND_MAP,
+			minItemCount:  1,
+			expectedIndex: 9,
+		},
+		{
+			name:          "Child value (status is leaf)",
+			query:         "response.",
+			endToken:      "response.status",
+			expectedKind:  reference.ReferenceKind_REFERENCE_KIND_VALUE,
+			minItemCount:  0,
+			expectedIndex: 9,
+		},
+		{
+			name:          "Array kind",
+			query:         "response.body.",
+			endToken:      "response.body.data",
+			expectedKind:  reference.ReferenceKind_REFERENCE_KIND_ARRAY,
+			minItemCount:  2,
+			expectedIndex: 14,
+		},
+		{
+			name:          "Array element is map",
+			query:         "response.body.data[",
+			endToken:      "response.body.data[0]",
+			expectedKind:  reference.ReferenceKind_REFERENCE_KIND_MAP,
+			minItemCount:  2,
+			expectedIndex: 19, // len("response.body.data[") = 19
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := creator.FindNextLevelCompletionData(tt.query)
+
+			// Find the specific item
+			var found *referencecompletion.ReferenceCompletionItem
+			for i := range items {
+				if items[i].EndToken == tt.endToken {
+					found = &items[i]
+					break
+				}
+			}
+
+			if found == nil {
+				tokens := make([]string, len(items))
+				for i, item := range items {
+					tokens[i] = item.EndToken
+				}
+				t.Fatalf("expected item with endToken %q not found in results: %v", tt.endToken, tokens)
+			}
+
+			if found.Kind != tt.expectedKind {
+				t.Errorf("Kind: expected %v, got %v", tt.expectedKind, found.Kind)
+			}
+			if found.ItemCount != nil && *found.ItemCount < tt.minItemCount {
+				t.Errorf("ItemCount: expected >= %d, got %d", tt.minItemCount, *found.ItemCount)
+			}
+			if found.EndIndex != tt.expectedIndex {
+				t.Errorf("EndIndex: expected %d, got %d", tt.expectedIndex, found.EndIndex)
+			}
+		})
+	}
+}
+
 func TestReferenceCompletionLookUp_Add_InvalidReflectValue(t *testing.T) {
 	lookup := referencecompletion.NewReferenceCompletionLookup()
 

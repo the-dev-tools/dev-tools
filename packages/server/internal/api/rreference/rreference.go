@@ -1225,7 +1225,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		creator.AddWithKey(k, v)
 	}
 
-	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
+	items := creator.FindNextLevelCompletionData(req.Msg.Start)
 
 	completions, err := convertReferenceCompletionItemsFn(items)
 	if err != nil {

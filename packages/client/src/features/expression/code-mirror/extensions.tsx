@@ -114,7 +114,6 @@ interface ReferenceCompletionsProps {
   reactRender: ReactRender;
 }
 
-// TODO: fix implementation
 const referenceCompletions =
   ({
     allowFiles = false,
@@ -123,58 +122,59 @@ const referenceCompletions =
     reactRender,
   }: ReferenceCompletionsProps): CompletionSource =>
   async (context) => {
-    // Check for Reference token type first (works in text body)
-    let token = context.tokenBefore(['Identifier'])?.text.trimStart();
+    let token: string | undefined;
 
     const isExpression =
       context.tokenBefore(['String', 'StringExpression']) === null || context.tokenBefore(['Interpolation']) !== null;
 
-    if (token === undefined && isExpression) token = '';
+    // Extract the full reference path (e.g. "response.body.data[0].name")
+    // by scanning backwards from the cursor through valid path characters.
+    const line = context.state.doc.lineAt(context.pos);
+    const cursorInLine = context.pos - line.from;
+    const textBefore = line.text.substring(0, cursorInLine);
 
-    // If no Reference token found, check if we have JSON string content with variables
+    if (isExpression) {
+      // In expression context: scan backwards for the full dotted path
+      let pathStart = textBefore.length;
+      for (let i = textBefore.length - 1; i >= 0; i--) {
+        const ch = textBefore[i];
+        if (/[a-zA-Z0-9_.[\]]/.test(ch)) {
+          pathStart = i;
+        } else {
+          break;
+        }
+      }
+      token = textBefore.substring(pathStart);
+    }
+
+    // If not in expression context, check for {{ }} interpolation in strings
     if (token === undefined) {
-      // Look for JSON string tokens that might contain variable references
-      const line = context.state.doc.lineAt(context.pos);
-      const lineText = line.text;
-
-      // Find '{{' pattern in the current line before the cursor position
-      const cursorPosInLine = context.pos - line.from;
-      const beforeCursor = lineText.substring(0, cursorPosInLine);
-      const openBraceIndex = beforeCursor.lastIndexOf('{{');
-
+      const openBraceIndex = textBefore.lastIndexOf('{{');
       if (openBraceIndex >= 0) {
-        // Extract potential variable reference text
-        token = beforeCursor.substring(openBraceIndex + 2).trim();
+        token = textBefore.substring(openBraceIndex + 2).trim();
       }
     }
 
-    // Special handling for JSON string context
-    // Look for tokens of different types that might be inside a JSON string
+    // Fallback: check for {{ }} inside JSON string tokens
     if (token === undefined) {
-      // Get the token at the current position
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       const tree = (context.state as any).syntaxTree;
-      // Add null check to prevent TypeError
       if (!tree) return null;
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const tokenAtCursor = tree.resolveInner(context.pos);
 
-      // If we're in a string token (JSON or otherwise)
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
       if (tokenAtCursor && /string/i.test(tokenAtCursor.type.name)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
         const stringContent = context.state.doc.sliceString(tokenAtCursor.from, tokenAtCursor.to);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const cursorOffsetInString = context.pos - tokenAtCursor.from;
-        const textBeforeCursor = stringContent.substring(0, cursorOffsetInString);
+        const textBeforeCursorInString = stringContent.substring(0, cursorOffsetInString);
 
-        // Check if there's a '{{' before the cursor in this string
-        const varStartIndex = textBeforeCursor.lastIndexOf('{{');
-
+        const varStartIndex = textBeforeCursorInString.lastIndexOf('{{');
         if (varStartIndex >= 0) {
-          // Extract the variable reference text
-          token = textBeforeCursor.substring(varStartIndex + 2);
+          token = textBeforeCursorInString.substring(varStartIndex + 2);
         }
       }
     }
@@ -204,8 +204,10 @@ const referenceCompletions =
       });
     }
 
+    const items = (await client.referenceCompletion({ ...referenceContext, start: token })).items;
+
     options = pipe(
-      (await client.referenceCompletion({ ...referenceContext, start: token })).items,
+      items,
       Array.map((_): Completion => {
         const type = pipe(
           Match.value(_.kind),
@@ -223,8 +225,10 @@ const referenceCompletions =
           Match.orElse(() => undefined!),
         );
 
+        // endIndex points to the start of the segment name within endToken
+        // e.g. for endToken="response.body" with endIndex=9, label="body"
         const label = _.endToken.substring(_.endIndex);
-        const path = token + label;
+        const path = _.endToken;
 
         const info = () => {
           if (![ReferenceKind.VALUE, ReferenceKind.VARIABLE].includes(_.kind)) return null;
@@ -240,7 +244,6 @@ const referenceCompletions =
 
         return {
           detail,
-          displayLabel: _.endToken,
           info,
           label,
           type,
@@ -249,16 +252,17 @@ const referenceCompletions =
       Array.appendAll(options),
     );
 
+    // Calculate how many characters of the current segment the user has already typed.
+    // All items share the same endIndex since they're at the same level.
+    const segmentStart = items.length > 0 ? items[0].endIndex : 0;
+    const partialLength = token.length - segmentStart;
+
     return {
-      commitCharacters: ['.'],
-      filter: false,
-      from: context.pos,
-      getMatch: (_) => {
-        if (!_.displayLabel) return [];
-        const endIndex = _.displayLabel.length - _.label.length;
-        return [0, endIndex];
-      },
+      commitCharacters: ['.', '['],
+      filter: true,
+      from: context.pos - Math.max(0, partialLength),
       options,
+      validFor: /^[a-zA-Z0-9_\]]*$/,
     };
   };
 
@@ -266,7 +270,7 @@ interface LanguageProps extends ReferenceCompletionsProps {
   kind?: 'FullExpression' | 'StringExpression' | undefined;
 }
 
-const language = ({ kind = 'FullExpression', ...props }: LanguageProps) => {
+const language = ({ kind = 'FullExpression' }: LanguageProps) => {
   const lrl = LRLanguage.define({
     parser: parser.configure({
       top: kind,
@@ -292,12 +296,7 @@ const language = ({ kind = 'FullExpression', ...props }: LanguageProps) => {
     }),
   });
 
-  return new LanguageSupport(lrl, [
-    lrl.data.of({
-      // Handle both direct Reference tokens and other contexts
-      autocomplete: referenceCompletions(props),
-    }),
-  ]);
+  return new LanguageSupport(lrl);
 };
 
 const expressionBracketSpacing = EditorView.updateListener.of((update) => {

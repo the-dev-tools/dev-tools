@@ -230,6 +230,145 @@ func (c ReferenceCompletionCreator) FindMatchAndCalcCompletionData(query string)
 	return referenceCompletionItems
 }
 
+// parseQuerySegments splits a query into the resolved prefix (everything up to
+// and including the last delimiter) and the partial segment (text being typed
+// after the last delimiter). Delimiters are '.' and '['.
+func parseQuerySegments(query string) (resolvedPrefix, partial string) {
+	// Find the last '.' or '[' in the query
+	lastDot := strings.LastIndex(query, ".")
+	lastBracket := strings.LastIndex(query, "[")
+
+	lastDelim := lastDot
+	if lastBracket > lastDelim {
+		lastDelim = lastBracket
+	}
+
+	if lastDelim < 0 {
+		// No delimiter found — entire query is a partial at root level
+		return "", query
+	}
+
+	// Include the delimiter in the prefix
+	return query[:lastDelim+1], query[lastDelim+1:]
+}
+
+// FindNextLevel returns only the immediate next-level children matching the query.
+// For "response." it returns ["response.body", "response.status", "response.headers"]
+// rather than all descendants. This enables VS Code-style drill-down completion.
+func (c ReferenceCompletionCreator) FindNextLevel(query string) []fuzzyfinder.Rank {
+	resolvedPrefix, partial := parseQuerySegments(query)
+	lowerPrefix := strings.ToLower(resolvedPrefix)
+	lowerPartial := strings.ToLower(partial)
+
+	candidates := make(map[string]struct{})
+
+	for path := range c.PathMap {
+		lowerPath := strings.ToLower(path)
+
+		// Path must start with the resolved prefix (case-insensitive)
+		if !strings.HasPrefix(lowerPath, lowerPrefix) {
+			continue
+		}
+
+		// Use the actual path's prefix to preserve original casing
+		actualPrefix := path[:len(resolvedPrefix)]
+
+		// Extract the remainder after the prefix
+		rest := path[len(actualPrefix):]
+		if rest == "" {
+			continue
+		}
+
+		// Find the next segment boundary (first '.' or '[' after position 0)
+		boundary := len(rest)
+		for i := range len(rest) {
+			if rest[i] == '.' || rest[i] == '[' {
+				if i == 0 {
+					continue // skip leading delimiter
+				}
+				boundary = i
+				break
+			}
+			// Include closing bracket ']' as part of the segment for array indices
+			if rest[i] == ']' {
+				boundary = i + 1 // include the ']'
+				break
+			}
+		}
+
+		nextSegment := rest[:boundary]
+		lowerSegment := strings.ToLower(nextSegment)
+
+		// Filter by partial match (case-insensitive)
+		if !strings.HasPrefix(lowerSegment, lowerPartial) {
+			continue
+		}
+
+		candidate := actualPrefix + nextSegment
+		candidates[candidate] = struct{}{}
+	}
+
+	ranks := make([]fuzzyfinder.Rank, 0, len(candidates))
+	for c := range candidates {
+		ranks = append(ranks, fuzzyfinder.Rank{Target: c})
+	}
+
+	sort.Slice(ranks, func(i, j int) bool {
+		return smartCompare(ranks[i].Target, ranks[j].Target)
+	})
+
+	return ranks
+}
+
+// FindNextLevelCompletionData returns completion items for the next level only,
+// with proper Kind detection and EndIndex set to the start of the segment name.
+func (c ReferenceCompletionCreator) FindNextLevelCompletionData(query string) []ReferenceCompletionItem {
+	ranks := c.FindNextLevel(query)
+	resolvedPrefix, _ := parseQuerySegments(query)
+
+	items := make([]ReferenceCompletionItem, len(ranks))
+	for i, rank := range ranks {
+		matchedPath := rank.Target
+		pathKind := reference.ReferenceKind_REFERENCE_KIND_VALUE
+
+		// Check for children with '.' prefix (map children)
+		dotPrefix := matchedPath + "."
+		bracketPrefix := matchedPath + "["
+		hasMapChildren := false
+		hasArrayChildren := false
+
+		for path := range c.PathMap {
+			if strings.HasPrefix(path, dotPrefix) {
+				hasMapChildren = true
+			}
+			if strings.HasPrefix(path, bracketPrefix) {
+				hasArrayChildren = true
+			}
+			if hasMapChildren && hasArrayChildren {
+				break
+			}
+		}
+
+		if hasArrayChildren {
+			pathKind = reference.ReferenceKind_REFERENCE_KIND_ARRAY
+		} else if hasMapChildren {
+			pathKind = reference.ReferenceKind_REFERENCE_KIND_MAP
+		}
+
+		details := c.PathMap[matchedPath]
+		itemCount := int32(details.Count) // nolint:gosec // G115
+
+		items[i] = ReferenceCompletionItem{
+			Kind:      pathKind,
+			EndToken:  matchedPath,
+			EndIndex:  int32(len(resolvedPrefix)), // nolint:gosec // G115
+			ItemCount: &itemCount,
+		}
+	}
+
+	return items
+}
+
 type ReferenceCompletionItem struct {
 	Kind reference.ReferenceKind
 
