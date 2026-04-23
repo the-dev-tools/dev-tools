@@ -242,6 +242,9 @@ func (e *UnifiedEnv) buildExprEnv() map[string]any {
 	env["uuid"] = helperUUID
 	env["ulid"] = helperULID
 
+	// Add faker namespace for fake-data generators (faker.email(), faker.name(), ...)
+	env["faker"] = fakerNamespace()
+
 	return env
 }
 
@@ -361,6 +364,7 @@ func isKeyword(s string) bool {
 		"now": true, "date": true, "duration": true,
 		// Custom helper functions
 		"get": true, "has": true, "ai": true, "uuid": true, "ulid": true,
+		"faker": true,
 	}
 	return keywords[s]
 }

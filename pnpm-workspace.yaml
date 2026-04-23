@@ -79,7 +79,7 @@ catalog:
   '@vitejs/plugin-react': 5.1.4
   '@xyflow/react': 12.10.1
   babel-plugin-react-compiler: 19.1.0-rc.3
-  better-auth: 1.5.4
+  better-auth: 1.4.21
   builder-util-runtime: 9.5.1
   effect: 3.19.19
   electron: 40.8.0

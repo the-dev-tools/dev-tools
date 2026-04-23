@@ -59,7 +59,7 @@ const react = defineConfig(
 
 const tailwind = defineConfig({
   plugins: { 'better-tailwindcss': tailwindPlugin },
-  rules: tailwindPlugin.configs['recommended']!.rules,
+  rules: tailwindPlugin.configs.recommended.rules,
   settings: {
     'better-tailwindcss': {
       entryPoint: resolve(root, 'packages/ui/src/styles/index.css'),

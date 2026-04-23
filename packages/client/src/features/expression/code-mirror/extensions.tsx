@@ -63,6 +63,83 @@ export const useCodeMirrorLanguageExtensions = (language: CodeMirrorLanguage): E
   return extensions;
 };
 
+interface BuiltinMethod {
+  detail: string;
+  label: string;
+}
+
+// A builtin is either:
+//  - callable: root-level function (e.g. `uuid()`), optional method chain on its return (e.g. `now().Unix()`)
+//  - namespace: root-level identifier holding sub-functions (e.g. `faker.email()`)
+interface BuiltinFunction {
+  detail: string;
+  kind: 'callable' | 'namespace';
+  label: string;
+  methods?: BuiltinMethod[];
+  name: string;
+}
+
+const BUILTIN_FUNCTIONS: BuiltinFunction[] = [
+  { detail: 'Generate UUID v4', kind: 'callable', label: 'uuid()', name: 'uuid' },
+  { detail: 'Generate UUID v4', kind: 'callable', label: 'uuid("v4")', name: 'uuid' },
+  { detail: 'Generate UUID v7', kind: 'callable', label: 'uuid("v7")', name: 'uuid' },
+  { detail: 'Generate ULID', kind: 'callable', label: 'ulid()', name: 'ulid' },
+  {
+    detail: 'Current ISO 8601 datetime',
+    kind: 'callable',
+    label: 'now()',
+    methods: [
+      { detail: 'Unix timestamp (seconds)', label: 'Unix()' },
+      { detail: 'Unix timestamp (milliseconds)', label: 'UnixMilli()' },
+      { detail: 'Unix timestamp (microseconds)', label: 'UnixMicro()' },
+      { detail: 'Unix timestamp (nanoseconds)', label: 'UnixNano()' },
+    ],
+    name: 'now',
+  },
+  {
+    detail: 'Fake data generators',
+    kind: 'namespace',
+    label: 'faker',
+    methods: [
+      { detail: 'Random full name', label: 'name()' },
+      { detail: 'Random first name', label: 'firstName()' },
+      { detail: 'Random last name', label: 'lastName()' },
+      { detail: 'Random male title', label: 'titleMale()' },
+      { detail: 'Random female title', label: 'titleFemale()' },
+      { detail: 'Random email', label: 'email()' },
+      { detail: 'Random phone number', label: 'phoneNumber()' },
+      { detail: 'Random URL', label: 'url()' },
+      { detail: 'Random domain name', label: 'domainName()' },
+      { detail: 'Random IPv4 address', label: 'ipv4()' },
+      { detail: 'Random IPv6 address', label: 'ipv6()' },
+      { detail: 'Random MAC address', label: 'macAddress()' },
+      { detail: 'Random username', label: 'username()' },
+      { detail: 'Random password', label: 'password()' },
+      { detail: 'Random word', label: 'word()' },
+      { detail: 'Random sentence', label: 'sentence()' },
+      { detail: 'Random paragraph', label: 'paragraph()' },
+      { detail: 'Random date', label: 'date()' },
+      { detail: 'Random time string', label: 'time()' },
+      { detail: 'Random month name', label: 'monthName()' },
+      { detail: 'Random day of week', label: 'dayOfWeek()' },
+      { detail: 'Random day of month', label: 'dayOfMonth()' },
+      { detail: 'Random year', label: 'year()' },
+      { detail: 'Random century', label: 'century()' },
+      { detail: 'Random timestamp', label: 'timestamp()' },
+      { detail: 'Random timezone', label: 'timezone()' },
+      { detail: 'Random unix time (int64)', label: 'unixTime()' },
+      { detail: 'Random credit-card number', label: 'ccNumber()' },
+      { detail: 'Random credit-card type', label: 'ccType()' },
+      { detail: 'Random currency code', label: 'currency()' },
+      { detail: 'Random amount with currency', label: 'amountWithCurrency()' },
+      { detail: 'Random hyphenated UUID', label: 'uuid()' },
+      { detail: 'Random digit-only UUID', label: 'uuidDigit()' },
+      { detail: 'Random int; (max) or (min, max)', label: 'randomInt(min, max)' },
+    ],
+    name: 'faker',
+  },
+];
+
 interface CompletionInfoProps {
   completion: ReferenceCompletion;
   context: ReferenceContextProps;
@@ -134,11 +211,12 @@ const referenceCompletions =
     const textBefore = line.text.substring(0, cursorInLine);
 
     if (isExpression) {
-      // In expression context: scan backwards for the full dotted path
+      // In expression context: scan backwards for the full dotted path.
+      // Parens are included so method chains on builtin calls (e.g. now().Unix) stay intact.
       let pathStart = textBefore.length;
       for (let i = textBefore.length - 1; i >= 0; i--) {
         const ch = textBefore[i];
-        if (/[a-zA-Z0-9_.[\]]/.test(ch)) {
+        if (/[a-zA-Z0-9_.[\]()]/.test(ch)) {
           pathStart = i;
         } else {
           break;
@@ -181,6 +259,31 @@ const referenceCompletions =
 
     if (token === undefined) return null;
 
+    // Method / namespace-member completion for builtins (VS Code-style dot chain).
+    // - `now().` or `now().Un` → Unix(), UnixMilli(), ... (callable return)
+    // - `faker.`  or `faker.em`  → email(), name(), ...   (namespace member)
+    for (const fn of BUILTIN_FUNCTIONS) {
+      if (!fn.methods) continue;
+      const marker = fn.kind === 'callable' ? `${fn.name}().` : `${fn.name}.`;
+      const markerIdx = token.lastIndexOf(marker);
+      if (markerIdx < 0) continue;
+      const partial = token.substring(markerIdx + marker.length);
+      if (!/^\w*$/.test(partial)) continue;
+      return {
+        commitCharacters: ['.', '['],
+        filter: true,
+        from: context.pos - partial.length,
+        options: fn.methods.map(
+          (m): Completion => ({
+            detail: m.detail,
+            label: m.label,
+            type: 'method',
+          }),
+        ),
+        validFor: /^[a-zA-Z0-9_]*$/,
+      };
+    }
+
     let options: Completion[] = [];
 
     const fileToken = '#file:';
@@ -205,6 +308,20 @@ const referenceCompletions =
     }
 
     const items = (await client.referenceCompletion({ ...referenceContext, start: token })).items;
+
+    // Builtin functions/namespaces appear only at root (no dotted prefix in the current segment).
+    if (/^\w*$/.test(token)) {
+      options = [
+        ...options,
+        ...BUILTIN_FUNCTIONS.map(
+          (fn): Completion => ({
+            detail: fn.detail,
+            label: fn.label,
+            type: fn.kind === 'namespace' ? 'namespace' : 'function',
+          }),
+        ),
+      ];
+    }
 
     options = pipe(
       items,

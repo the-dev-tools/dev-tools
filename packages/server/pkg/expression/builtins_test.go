@@ -314,3 +314,101 @@ func TestBuiltinAI_InterpolationErrorWhenNotFound(t *testing.T) {
 		t.Fatal("expected error when variable not found, got nil")
 	}
 }
+
+// =============================================================================
+// Faker Namespace Tests
+// =============================================================================
+
+func TestBuiltinFaker_EmailReturnsEmailLikeString(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, "faker.email()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if !strings.Contains(str, "@") {
+		t.Errorf("expected email-like string containing '@', got: %s", str)
+	}
+}
+
+func TestBuiltinFaker_NameReturnsNonEmpty(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, "faker.name()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if str == "" {
+		t.Error("expected non-empty name, got empty string")
+	}
+}
+
+func TestBuiltinFaker_RandomIntInRange(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	for i := 0; i < 50; i++ {
+		result, err := env.Eval(ctx, "faker.randomInt(5, 15)")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		n, ok := result.(int)
+		if !ok {
+			t.Fatalf("expected int, got %T", result)
+		}
+
+		if n < 5 || n > 15 {
+			t.Errorf("expected value in [5, 15], got %d", n)
+		}
+	}
+}
+
+func TestBuiltinFaker_Interpolation(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+
+	result, err := env.Interpolate("user={{ faker.email() }}")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.HasPrefix(result, "user=") {
+		t.Errorf("expected 'user=' prefix, got: %s", result)
+	}
+	if !strings.Contains(result, "@") {
+		t.Errorf("expected '@' in interpolated email, got: %s", result)
+	}
+}
+
+func TestBuiltinFaker_UUIDHyphenated(t *testing.T) {
+	env := NewUnifiedEnv(nil)
+	ctx := context.Background()
+
+	result, err := env.Eval(ctx, "faker.uuid()")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	str, ok := result.(string)
+	if !ok {
+		t.Fatalf("expected string, got %T", result)
+	}
+
+	if !strings.Contains(str, "-") {
+		t.Errorf("expected hyphenated UUID, got: %s", str)
+	}
+}
