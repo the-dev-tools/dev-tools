@@ -4,6 +4,7 @@ import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, nativeTheme, protocol, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,6 +12,41 @@ import nodePath from 'node:path';
 import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
 import { CustomUpdateProvider, UpdateOptions } from './update';
+
+/**
+ * On macOS, detect whether the current process is running under Rosetta 2
+ * translation (i.e. the x64 build of the app was installed on an Apple
+ * Silicon Mac). Rosetta imposes a significant performance penalty — every
+ * JS-heavy Electron operation and every server-side Go cycle runs through
+ * x86→arm64 translation. Warn the user so they can download the native
+ * Apple Silicon build.
+ *
+ * Apple's documented detection: `sysctl.proc_translated` returns "1" when
+ * the calling process is translated. Key is missing / "0" on Intel-native
+ * or arm64-native runs.
+ */
+const warnOnArchitectureMismatch = () => {
+  if (os.platform() !== 'darwin') return;
+  let translated = '0';
+  try {
+    translated = execFileSync('sysctl', ['-in', 'sysctl.proc_translated'], { encoding: 'utf8' }).trim();
+  } catch {
+    return;
+  }
+  if (translated !== '1') return;
+
+  const choice = dialog.showMessageBoxSync({
+    buttons: ['Download Apple Silicon build', 'Continue anyway'],
+    cancelId: 1,
+    defaultId: 0,
+    detail:
+      'The x64 (Intel) build of DevTools Studio is running under Rosetta 2 on an Apple Silicon Mac. ' +
+      'This makes the window slow to open and the UI sluggish. Install the arm64 (Apple Silicon) build for native performance.',
+    message: 'Wrong architecture installed',
+    type: 'warning',
+  });
+  if (choice === 0) void shell.openExternal('https://dev.tools/download');
+};
 
 // Workaround to allow unlimited concurrent HTTP/1.1 connections
 // https://medium.com/@hnasr/chromes-6-tcp-connections-limit-c199fe550af6
@@ -193,6 +229,10 @@ const worker = pipe(
 
 const onReady = Effect.gen(function* () {
   const path = yield* Path.Path;
+
+  // Warn (and offer a download link) if the x64 build is running under Rosetta
+  // on Apple Silicon — one of the common "why is it so slow?" footguns.
+  yield* Effect.sync(warnOnArchitectureMismatch);
 
   autoUpdater.autoDownload = false;
   autoUpdater.setFeedURL({
