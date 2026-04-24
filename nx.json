@@ -41,7 +41,7 @@
     "changelog": {
       "projectChangelogs": {
         "createRelease": "github",
-        "renderer": "./tools/nx-release/renderer.cjs"
+        "renderer": "{workspaceRoot}/tools/nx-release/renderer.cjs"
       }
     }
   },
