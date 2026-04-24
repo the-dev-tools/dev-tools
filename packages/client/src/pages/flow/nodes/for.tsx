@@ -17,6 +17,8 @@ import { FlowContext } from '../context';
 import { Handle } from '../handle';
 import { NodeSettingsBody, NodeSettingsProps, NodeTitle, SimpleNode } from '../node';
 
+const defaultNodeFor = create(NodeForSchema);
+
 export const ForNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
@@ -50,7 +52,7 @@ export const ForSettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'condition', 'errorHandling', 'iterations'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeForSchema);
+    ).data ?? defaultNodeFor;
 
   const { isReadOnly = false } = use(FlowContext);
 

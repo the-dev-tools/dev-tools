@@ -79,6 +79,19 @@ const useInsertFile = (parentFolderId?: Uint8Array) => {
     });
 };
 
+// Module-level defaults — NEVER replace these with `create(Schema)` inline in render
+// as a `useLiveQuery` fallback. Creating a fresh message per render churns identity,
+// the collection re-keys, and React re-renders in a loop (minified error #185).
+const defaultFile = create(FileSchema);
+const defaultFolder = create(FolderSchema);
+const defaultHttp = create(HttpSchema);
+const defaultHttpDelta = create(HttpDeltaSchema);
+const defaultFlow = create(FlowSchema);
+const defaultGraphQL = create(GraphQLItemSchema);
+const defaultGraphQLDelta = create(GraphQLDeltaSchema);
+const defaultWebSocket = create(WebSocketItemSchema);
+const defaultCredential = create(CredentialSchema);
+
 interface FileCreateMenuProps {
   navigate?: boolean;
   parentFolderId?: Uint8Array;
@@ -364,7 +377,7 @@ const FileItem = ({ id }: FileItemProps) => {
           .select((_) => pick(_.file, 'kind'))
           .findOne(),
       [fileCollection, fileId],
-    ).data ?? create(FileSchema);
+    ).data ?? defaultFile;
 
   return pipe(
     Match.value(kind),
@@ -397,7 +410,7 @@ const FolderFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.folder, 'name'))
           .findOne(),
       [folderCollection, folderId],
-    ).data ?? create(FolderSchema);
+    ).data ?? defaultFolder;
 
   const { data: files } = useLiveQuery(
     (_) => {
@@ -504,7 +517,7 @@ const HttpFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.http, 'name', 'method'))
           .findOne(),
       [httpCollection, httpId],
-    ).data ?? create(HttpSchema);
+    ).data ?? defaultHttp;
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
@@ -689,7 +702,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.item, 'httpId'))
           .findOne(),
       [deltaCollection, deltaHttpId],
-    ).data ?? create(HttpDeltaSchema);
+    ).data ?? defaultHttpDelta;
 
   const deltaOptions = {
     deltaId: deltaHttpId,
@@ -844,7 +857,7 @@ const FlowFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.flow, 'name'))
           .findOne(),
       [flowCollection, flowId],
-    ).data ?? create(FlowSchema);
+    ).data ?? defaultFlow;
 
   const duplicateMutation = useConnectMutation(FlowService.method.flowDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);
@@ -950,7 +963,7 @@ const GraphQLFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.item, 'name'))
           .findOne(),
       [graphqlCollection, graphqlId],
-    ).data ?? create(GraphQLItemSchema);
+    ).data ?? defaultGraphQL;
 
   const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
 
@@ -1138,7 +1151,7 @@ const GraphQLDeltaFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.item, 'graphqlId'))
           .findOne(),
       [deltaCollection, deltaGraphqlId],
-    ).data ?? create(GraphQLDeltaSchema);
+    ).data ?? defaultGraphQLDelta;
 
   const deltaOptions = {
     deltaId: deltaGraphqlId,
@@ -1298,7 +1311,7 @@ const WebSocketFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.item, 'name'))
           .findOne(),
       [websocketCollection, websocketId],
-    ).data ?? create(WebSocketItemSchema);
+    ).data ?? defaultWebSocket;
 
   const exportMutation = useConnectMutation(ExportService.method.export);
 
@@ -1405,7 +1418,7 @@ const CredentialFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.item, 'name', 'kind'))
           .findOne(),
       [credentialCollection, credentialId],
-    ).data ?? create(CredentialSchema);
+    ).data ?? defaultCredential;
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
 

@@ -46,6 +46,10 @@ import { FlowContext } from '../context';
 import { Handle } from '../handle';
 import { NodeSettingsBody, NodeSettingsContainer, NodeSettingsProps, NodeTitle, SimpleNode } from '../node';
 
+const defaultNodeAi = create(NodeAiSchema);
+const defaultNodeAiProvider = create(NodeAiProviderSchema);
+const defaultNodeAiMemory = create(NodeAiMemorySchema);
+
 export const AiNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
@@ -104,7 +108,7 @@ export const AiSettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'prompt', 'maxIterations'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeAiSchema);
+    ).data ?? defaultNodeAi;
 
   const { isReadOnly = false } = use(FlowContext);
 
@@ -277,7 +281,7 @@ export const AiProviderNode = ({ id, selected }: XF.NodeProps) => {
           .select((_) => pick(_.item, 'model'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeAiProviderSchema);
+    ).data ?? defaultNodeAiProvider;
 
   const { icon, title } = HashMap.unsafeGet(modelProviderMap, model);
 
@@ -312,7 +316,7 @@ export const AiProviderSettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'model', 'credentialId', 'maxTokens', 'temperature'))
           .findOne(),
       [providerCollection, nodeId],
-    ).data ?? create(NodeAiProviderSchema);
+    ).data ?? defaultNodeAiProvider;
 
   const { credentialKind, credentialKindTitle, title } = HashMap.unsafeGet(modelProviderMap, data.model);
 
@@ -539,7 +543,7 @@ export const AiMemoryNode = ({ id, selected }: XF.NodeProps) => {
           .select((_) => pick(_.item, 'memoryType'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeAiMemorySchema);
+    ).data ?? defaultNodeAiMemory;
 
   const { icon, title } = HashMap.unsafeGet(memoryProviderMap, memoryType);
 
@@ -568,7 +572,7 @@ export const AiMemorySettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'memoryType', 'windowSize'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeAiMemorySchema);
+    ).data ?? defaultNodeAiMemory;
 
   const { title } = HashMap.unsafeGet(memoryProviderMap, data.memoryType);
 

@@ -16,6 +16,8 @@ import { FlowContext } from '../context';
 import { Handle } from '../handle';
 import { NodeSettingsBody, NodeSettingsProps, SimpleNode } from '../node';
 
+const defaultNodeJs = create(NodeJsSchema);
+
 export const JavaScriptNode = ({ id, selected }: XF.NodeProps) => {
   const nodeId = Ulid.fromCanonical(id).bytes;
 
@@ -49,7 +51,7 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
           .select((_) => pick(_.item, 'code'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeJsSchema);
+    ).data ?? defaultNodeJs;
 
   const { isReadOnly = false } = use(FlowContext);
 

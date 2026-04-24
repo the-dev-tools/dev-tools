@@ -26,6 +26,8 @@ class EdgeClient extends Schema.Class<EdgeClient>('EdgeClient')({
   selected: pipe(Schema.Boolean, Schema.optionalWith({ default: () => false })),
 }) {}
 
+const defaultEdge = create(EdgeSchema);
+
 export const edgeClientCollection = createCollection(
   localOnlyCollectionOptions({
     getKey: (_) => Ulid.construct(_.edgeId).toCanonical(),
@@ -122,7 +124,7 @@ const DefaultEdge = ({ id, sourcePosition, sourceX, sourceY, targetPosition, tar
           .select((_) => pick(_.item, 'state'))
           .findOne(),
       [edgeCollection, id],
-    ).data ?? create(EdgeSchema);
+    ).data ?? defaultEdge;
 
   return (
     <>

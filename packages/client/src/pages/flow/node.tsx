@@ -55,6 +55,9 @@ import { eqStruct, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { FlowContext } from './context';
 
+const defaultNode = create(NodeSchema);
+const defaultNodeExecution = create(NodeExecutionSchema);
+
 class NodeClient extends Schema.Class<NodeClient>('NodeClient')({
   dimensions: pipe(
     Schema.Struct({ height: Schema.Number, width: Schema.Number }),
@@ -251,7 +254,7 @@ export const NodeBody = ({ children, className, icon, nodeId, selected }: NodeBo
           .select((_) => pick(_.item, 'state'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeSchema);
+    ).data ?? defaultNode;
 
   return (
     <div className={nodeBodyStyles({ className, selected, state })}>
@@ -286,7 +289,7 @@ export const NodeStateIndicator = ({ children, nodeId }: NodeStateIndicatorProps
           .select((_) => pick(_.item, 'state', 'info'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeSchema);
+    ).data ?? defaultNode;
 
   let indicator = pipe(
     Match.value(state),
@@ -339,7 +342,7 @@ export const NodeName = ({ className, nodeId }: NodeNameProps) => {
           .select((_) => pick(_.item, 'name'))
           .findOne(),
       [collection, nodeId],
-    ).data ?? create(NodeSchema);
+    ).data ?? defaultNode;
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => collection.utils.update({ name: _, nodeId }),
@@ -425,7 +428,7 @@ export const NodeSettingsContainer = ({
           .select((_) => pick(_.item, 'name'))
           .findOne(),
       [nodeCollection, nodeId],
-    ).data ?? create(NodeSchema);
+    ).data ?? defaultNode;
 
   return (
     <div className={tw`flex h-full flex-col`}>
@@ -644,7 +647,7 @@ const NodeSettingsBasicInput = ({ nodeExecutionId }: NodeSettingsInputProps) => 
           .select((_) => pick(_.item, 'input'))
           .findOne(),
       [collection, nodeExecutionId],
-    ).data ?? create(NodeExecutionSchema);
+    ).data ?? defaultNodeExecution;
 
   return (
     <Tree aria-label='Input values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(input)!}>
@@ -668,7 +671,7 @@ const NodeSettingsBasicOutput = ({ nodeExecutionId }: NodeSettingsOutputProps) =
           .select((_) => pick(_.item, 'output'))
           .findOne(),
       [collection, nodeExecutionId],
-    ).data ?? create(NodeExecutionSchema);
+    ).data ?? defaultNodeExecution;
 
   return (
     <Tree aria-label='Output values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(output)!}>

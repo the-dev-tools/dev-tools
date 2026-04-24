@@ -95,6 +95,8 @@ import { useFlowSelection } from './selection';
 import { useUndoStack } from './undo';
 import { useViewport, VIEWPORT_MAX_ZOOM, VIEWPORT_MIN_ZOOM } from './viewport';
 
+const defaultFlow = create(FlowSchema);
+
 export const nodeTypes: XF.NodeTypes = {
   [NodeKind.AI]: AiNode,
   [NodeKind.AI_MEMORY]: AiMemoryNode,
@@ -185,7 +187,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
           .select((_) => pick(_.item, 'duration'))
           .findOne(),
       [flowCollection, flowId],
-    ).data ?? create(FlowSchema);
+    ).data ?? defaultFlow;
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -608,7 +610,7 @@ export const TopBar = ({ children }: TopBarProps) => {
           .select((_) => pick(_.item, 'error', 'name', 'running'))
           .findOne(),
       [collection, flowId],
-    ).data ?? create(FlowSchema);
+    ).data ?? defaultFlow;
 
   const matchRoute = useMatchRoute();
 
@@ -732,7 +734,7 @@ const ActionBar = () => {
           .select((_) => pick(_.item, 'running'))
           .findOne(),
       [flowCollection, flowId],
-    ).data ?? create(FlowSchema);
+    ).data ?? defaultFlow;
 
   return (
     <XF.Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-inverse p-1 shadow-sm`} position='bottom-center'>

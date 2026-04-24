@@ -10,6 +10,8 @@ import { prettierFormatQueryOptions, useCodeMirrorLanguageExtensions } from '~/f
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
 
+const defaultGraphQLResponse = create(GraphQLResponseSchema);
+
 export interface GraphQLResponseBodyProps {
   graphqlResponseId: Uint8Array;
 }
@@ -26,7 +28,7 @@ export const GraphQLResponseBody = ({ graphqlResponseId }: GraphQLResponseBodyPr
           .select((_) => pick(_.item, 'body'))
           .findOne(),
       [collection, graphqlResponseId],
-    ).data ?? create(GraphQLResponseSchema);
+    ).data ?? defaultGraphQLResponse;
 
   const { data: prettierBody } = useQuery(prettierFormatQueryOptions({ language: 'json', text: body }));
   const extensions = useCodeMirrorLanguageExtensions('json');

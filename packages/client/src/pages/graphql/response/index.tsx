@@ -20,6 +20,8 @@ import { GraphQLAssertTable } from './assert';
 import { GraphQLResponseBody } from './body';
 import { GraphQLResponseHeaderTable } from './header';
 
+const defaultGraphQLResponse = create(GraphQLResponseSchema);
+
 export interface GraphQLResponseInfoProps {
   className?: string;
   graphqlResponseId: Uint8Array;
@@ -36,7 +38,7 @@ export const GraphQLResponseInfo = ({ className, graphqlResponseId }: GraphQLRes
           .select((_) => pick(_.item, 'duration', 'size', 'status'))
           .findOne(),
       [responseCollection, graphqlResponseId],
-    ).data ?? create(GraphQLResponseSchema);
+    ).data ?? defaultGraphQLResponse;
 
   return (
     <div

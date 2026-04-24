@@ -20,6 +20,8 @@ import { AssertTable } from './assert';
 import { BodyPanel } from './body';
 import { HeaderTable } from './header';
 
+const defaultHttpResponse = create(HttpResponseSchema);
+
 interface ResponseInfoProps {
   className?: string;
   httpResponseId: Uint8Array;
@@ -36,7 +38,7 @@ export const ResponseInfo = ({ className, httpResponseId }: ResponseInfoProps) =
           .select((_) => pick(_.item, 'duration', 'size', 'status'))
           .findOne(),
       [responseCollection, httpResponseId],
-    ).data ?? create(HttpResponseSchema);
+    ).data ?? defaultHttpResponse;
 
   return (
     <div

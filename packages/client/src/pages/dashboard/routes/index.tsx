@@ -27,6 +27,8 @@ import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { DashboardLayout } from '~/shared/ui';
 
+const defaultWorkspace = create(WorkspaceSchema);
+
 export const Route = createFileRoute('/(dashboard)/')({
   component: RouteComponent,
 });
@@ -121,7 +123,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
           .select((_) => pick(_.workspace, 'name', 'updated'))
           .findOne(),
       [workspaceCollection, workspaceUlid],
-    ).data ?? create(WorkspaceSchema);
+    ).data ?? defaultWorkspace;
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 

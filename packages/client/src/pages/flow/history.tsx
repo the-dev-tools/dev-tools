@@ -18,6 +18,8 @@ import { routes } from '~/shared/routes';
 import { FlowContext } from './context';
 import { Flow, TopBar, TopBarWithControls } from './edit';
 
+const defaultFlow = create(FlowSchema);
+
 export const FlowHistoryPage = () => {
   const { flowId } = routes.dashboard.workspace.flow.route.useLoaderData();
 
@@ -144,7 +146,7 @@ const Tab = ({ item, state }: TabProps) => {
           .select((_) => pick(_.item, 'error'))
           .findOne(),
       [flowCollection, value?.flowVersionId],
-    ).data ?? create(FlowSchema);
+    ).data ?? defaultFlow;
 
   if (!value) return null;
   return (

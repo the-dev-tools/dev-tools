@@ -27,6 +27,11 @@ import { useApiCollection } from '~/shared/api';
 import { eqStruct, pick } from '~/shared/lib';
 import { openTab } from '~/widgets/tabs';
 
+const defaultCredential = create(CredentialSchema);
+const defaultCredentialOpenAi = create(CredentialOpenAiSchema);
+const defaultCredentialGemini = create(CredentialGeminiSchema);
+const defaultCredentialAnthropic = create(CredentialAnthropicSchema);
+
 /* eslint-disable perfectionist/sort-objects */
 export const Route = createFileRoute(
   '/(dashboard)/(workspace)/workspace/$workspaceIdCan/(credential)/credential/$credentialIdCan/',
@@ -74,7 +79,7 @@ function RouteComponent() {
           .select((_) => pick(_.item, 'kind'))
           .findOne(),
       [collection, credentialId],
-    ).data ?? create(CredentialSchema);
+    ).data ?? defaultCredential;
 
   const content = pipe(
     Match.value(kind),
@@ -96,7 +101,7 @@ const OpenAiCredentials = () => {
     useLiveQuery(
       (_) => _.from({ item: collection }).where(eqStruct({ credentialId })).findOne(),
       [collection, credentialId],
-    ).data ?? create(CredentialOpenAiSchema);
+    ).data ?? defaultCredentialOpenAi;
 
   return (
     <>
@@ -132,7 +137,7 @@ const GeminiCredentials = () => {
     useLiveQuery(
       (_) => _.from({ item: collection }).where(eqStruct({ credentialId })).findOne(),
       [collection, credentialId],
-    ).data ?? create(CredentialGeminiSchema);
+    ).data ?? defaultCredentialGemini;
 
   return (
     <>
@@ -168,7 +173,7 @@ const AnthropicCredentials = () => {
     useLiveQuery(
       (_) => _.from({ item: collection }).where(eqStruct({ credentialId })).findOne(),
       [collection, credentialId],
-    ).data ?? create(CredentialAnthropicSchema);
+    ).data ?? defaultCredentialAnthropic;
 
   return (
     <>

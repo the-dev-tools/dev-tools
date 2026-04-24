@@ -20,6 +20,8 @@ import {
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
 
+const defaultHttpResponse = create(HttpResponseSchema);
+
 export interface BodyPanelProps {
   httpResponseId: Uint8Array;
 }
@@ -35,7 +37,7 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
           .select((_) => pick(_.item, 'body'))
           .findOne(),
       [collection, httpResponseId],
-    ).data ?? create(HttpResponseSchema);
+    ).data ?? defaultHttpResponse;
 
   return (
     <Tabs
