@@ -243,7 +243,7 @@ func (e *UnifiedEnv) buildExprEnv() map[string]any {
 	env["ulid"] = helperULID
 
 	// Add faker namespace for fake-data generators (faker.email(), faker.name(), ...)
-	env["faker"] = fakerNamespace()
+	env["faker"] = fakerNamespaceMap
 
 	return env
 }

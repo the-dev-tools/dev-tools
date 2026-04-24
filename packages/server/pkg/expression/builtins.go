@@ -47,15 +47,21 @@ func helperULID() string {
 	return ulid.Make().String()
 }
 
-// fakerNamespace returns a map of fake-data generators exposed to expressions
-// under the "faker" root identifier.
+// fakerNamespaceMap is the shared faker map built once at package init. It's
+// stateless (every value is a plain wrapper calling the underlying go-faker
+// function), so reusing a single map across all expression evaluations avoids
+// allocating 34 closures + a new map on every call to buildExprEnv.
+var fakerNamespaceMap = buildFakerNamespace()
+
+// buildFakerNamespace returns a map of fake-data generators exposed to
+// expressions under the "faker" root identifier.
 //
 // Usage in expressions: faker.email(), faker.name(), faker.url(), etc.
 //
 // The map values intentionally use fixed signatures (func() string / func() int64)
 // so expr-lang can call them directly — go-faker's native variadic `opts` params
 // are not forwarded, we always use defaults.
-func fakerNamespace() map[string]any {
+func buildFakerNamespace() map[string]any {
 	return map[string]any{
 		// Personal
 		"name":        func() string { return faker.Name() },
