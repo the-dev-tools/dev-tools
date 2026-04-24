@@ -40,7 +40,8 @@
     },
     "changelog": {
       "projectChangelogs": {
-        "createRelease": "github"
+        "createRelease": "github",
+        "renderer": "./tools/nx-release/renderer.cjs"
       }
     }
   },
