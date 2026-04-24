@@ -42,7 +42,9 @@ tasks:
       - task: ensure-dir
         vars:
           DIR: dist
-      - go build -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.BINARY_SUFFIX}} main.go
+      # Use `.` (package target) + `-tags cli` so mode_cli.go is included and runCLI is wired.
+      # Building `main.go` as the target silently drops tagged companion files in the same package.
+      - go build -tags cli -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.BINARY_SUFFIX}} .
 
   clean:
     desc: Clean build artifacts

@@ -25,7 +25,18 @@ func main() {
 			os.Exit(1)
 		}
 		runCLI()
-	case ModeServer, "":
+	case ModeServer:
+		if err := serverrun.Run(); err != nil {
+			log.Fatal(err)
+		}
+	case "":
+		// No explicit mode — prefer CLI when the binary was built with the `cli` tag
+		// (runCLI is wired by mode_cli.go). Server-only builds (no tag) fall back to server
+		// mode so Electron's bundled server binary keeps working without DEVTOOLS_MODE set.
+		if runCLI != nil {
+			runCLI()
+			return
+		}
 		if err := serverrun.Run(); err != nil {
 			log.Fatal(err)
 		}

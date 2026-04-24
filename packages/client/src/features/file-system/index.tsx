@@ -402,15 +402,15 @@ const FolderFile = ({ id }: FileItemProps) => {
 
   const folderCollection = useApiCollection(FolderCollectionSchema);
 
-  const { name } =
-    useLiveQuery(
-      (_) =>
-        _.from({ folder: folderCollection })
-          .where((_) => eq(_.folder.folderId, folderId))
-          .select((_) => pick(_.folder, 'name'))
-          .findOne(),
-      [folderCollection, folderId],
-    ).data ?? defaultFolder;
+  const folderQuery = useLiveQuery(
+    (_) =>
+      _.from({ folder: folderCollection })
+        .where((_) => eq(_.folder.folderId, folderId))
+        .select((_) => pick(_.folder, 'name'))
+        .findOne(),
+    [folderCollection, folderId],
+  );
+  const { name } = folderQuery.data ?? defaultFolder;
 
   const { data: files } = useLiveQuery(
     (_) => {
@@ -431,6 +431,8 @@ const FolderFile = ({ id }: FileItemProps) => {
   });
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  if (!folderQuery.data) return null;
 
   return (
     <TreeItem
@@ -509,15 +511,15 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const httpCollection = useApiCollection(HttpCollectionSchema);
 
-  const { method, name } =
-    useLiveQuery(
-      (_) =>
-        _.from({ http: httpCollection })
-          .where((_) => eq(_.http.httpId, httpId))
-          .select((_) => pick(_.http, 'name', 'method'))
-          .findOne(),
-      [httpCollection, httpId],
-    ).data ?? defaultHttp;
+  const httpQuery = useLiveQuery(
+    (_) =>
+      _.from({ http: httpCollection })
+        .where((_) => eq(_.http.httpId, httpId))
+        .select((_) => pick(_.http, 'name', 'method'))
+        .findOne(),
+    [httpCollection, httpId],
+  );
+  const { method, name } = httpQuery.data ?? defaultHttp;
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
@@ -677,6 +679,9 @@ const HttpFile = ({ id }: FileItemProps) => {
     textValue: name,
   } satisfies TreeItemProps<(typeof files)[number]>;
 
+  // Hide orphan file rows — file exists in FileCollection but detail row hasn't loaded / doesn't exist.
+  if (!httpQuery.data) return null;
+
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
@@ -694,15 +699,15 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
-  const { httpId } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: deltaCollection })
-          .where((_) => eq(_.item.deltaHttpId, deltaHttpId))
-          .select((_) => pick(_.item, 'httpId'))
-          .findOne(),
-      [deltaCollection, deltaHttpId],
-    ).data ?? defaultHttpDelta;
+  const httpDeltaQuery = useLiveQuery(
+    (_) =>
+      _.from({ item: deltaCollection })
+        .where((_) => eq(_.item.deltaHttpId, deltaHttpId))
+        .select((_) => pick(_.item, 'httpId'))
+        .findOne(),
+    [deltaCollection, deltaHttpId],
+  );
+  const { httpId } = httpDeltaQuery.data ?? defaultHttpDelta;
 
   const deltaOptions = {
     deltaId: deltaHttpId,
@@ -834,6 +839,8 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
     textValue: name ?? '',
   } satisfies TreeItemProps<object>;
 
+  if (!httpDeltaQuery.data) return null;
+
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
@@ -849,15 +856,15 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const flowCollection = useApiCollection(FlowCollectionSchema);
 
-  const { name } =
-    useLiveQuery(
-      (_) =>
-        _.from({ flow: flowCollection })
-          .where((_) => eq(_.flow.flowId, flowId))
-          .select((_) => pick(_.flow, 'name'))
-          .findOne(),
-      [flowCollection, flowId],
-    ).data ?? defaultFlow;
+  const flowQuery = useLiveQuery(
+    (_) =>
+      _.from({ flow: flowCollection })
+        .where((_) => eq(_.flow.flowId, flowId))
+        .select((_) => pick(_.flow, 'name'))
+        .findOne(),
+    [flowCollection, flowId],
+  );
+  const { name } = flowQuery.data ?? defaultFlow;
 
   const duplicateMutation = useConnectMutation(FlowService.method.flowDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);
@@ -937,6 +944,8 @@ const FlowFile = ({ id }: FileItemProps) => {
     textValue: name,
   } satisfies TreeItemProps<object>;
 
+  if (!flowQuery.data) return null;
+
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
@@ -955,15 +964,15 @@ const GraphQLFile = ({ id }: FileItemProps) => {
 
   const graphqlCollection = useApiCollection(GraphQLCollectionSchema);
 
-  const { name } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: graphqlCollection })
-          .where((_) => eq(_.item.graphqlId, graphqlId))
-          .select((_) => pick(_.item, 'name'))
-          .findOne(),
-      [graphqlCollection, graphqlId],
-    ).data ?? defaultGraphQL;
+  const graphqlQuery = useLiveQuery(
+    (_) =>
+      _.from({ item: graphqlCollection })
+        .where((_) => eq(_.item.graphqlId, graphqlId))
+        .select((_) => pick(_.item, 'name'))
+        .findOne(),
+    [graphqlCollection, graphqlId],
+  );
+  const { name } = graphqlQuery.data ?? defaultGraphQL;
 
   const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
 
@@ -1126,6 +1135,8 @@ const GraphQLFile = ({ id }: FileItemProps) => {
     textValue: name,
   } satisfies TreeItemProps<(typeof files)[number]>;
 
+  if (!graphqlQuery.data) return null;
+
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
@@ -1143,15 +1154,15 @@ const GraphQLDeltaFile = ({ id }: FileItemProps) => {
 
   const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
 
-  const { graphqlId } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: deltaCollection })
-          .where((_) => eq(_.item.deltaGraphqlId, deltaGraphqlId))
-          .select((_) => pick(_.item, 'graphqlId'))
-          .findOne(),
-      [deltaCollection, deltaGraphqlId],
-    ).data ?? defaultGraphQLDelta;
+  const graphqlDeltaQuery = useLiveQuery(
+    (_) =>
+      _.from({ item: deltaCollection })
+        .where((_) => eq(_.item.deltaGraphqlId, deltaGraphqlId))
+        .select((_) => pick(_.item, 'graphqlId'))
+        .findOne(),
+    [deltaCollection, deltaGraphqlId],
+  );
+  const { graphqlId } = graphqlDeltaQuery.data ?? defaultGraphQLDelta;
 
   const deltaOptions = {
     deltaId: deltaGraphqlId,
@@ -1288,6 +1299,8 @@ const GraphQLDeltaFile = ({ id }: FileItemProps) => {
     textValue: name ?? '',
   } satisfies TreeItemProps<object>;
 
+  if (!graphqlDeltaQuery.data) return null;
+
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
@@ -1303,15 +1316,15 @@ const WebSocketFile = ({ id }: FileItemProps) => {
 
   const websocketCollection = useApiCollection(WebSocketCollectionSchema);
 
-  const { name } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: websocketCollection })
-          .where((_) => eq(_.item.websocketId, websocketId))
-          .select((_) => pick(_.item, 'name'))
-          .findOne(),
-      [websocketCollection, websocketId],
-    ).data ?? defaultWebSocket;
+  const websocketQuery = useLiveQuery(
+    (_) =>
+      _.from({ item: websocketCollection })
+        .where((_) => eq(_.item.websocketId, websocketId))
+        .select((_) => pick(_.item, 'name'))
+        .findOne(),
+    [websocketCollection, websocketId],
+  );
+  const { name } = websocketQuery.data ?? defaultWebSocket;
 
   const exportMutation = useConnectMutation(ExportService.method.export);
 
@@ -1397,6 +1410,8 @@ const WebSocketFile = ({ id }: FileItemProps) => {
     textValue: name,
   } satisfies TreeItemProps<object>;
 
+  if (!websocketQuery.data) return null;
+
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
@@ -1410,15 +1425,15 @@ const CredentialFile = ({ id }: FileItemProps) => {
 
   const credentialCollection = useApiCollection(CredentialCollectionSchema);
 
-  const { kind, name } =
-    useLiveQuery(
-      (_) =>
-        _.from({ item: credentialCollection })
-          .where(eqStruct({ credentialId }))
-          .select((_) => pick(_.item, 'name', 'kind'))
-          .findOne(),
-      [credentialCollection, credentialId],
-    ).data ?? defaultCredential;
+  const credentialQuery = useLiveQuery(
+    (_) =>
+      _.from({ item: credentialCollection })
+        .where(eqStruct({ credentialId }))
+        .select((_) => pick(_.item, 'name', 'kind'))
+        .findOne(),
+    [credentialCollection, credentialId],
+  );
+  const { kind, name } = credentialQuery.data ?? defaultCredential;
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
 
@@ -1490,6 +1505,8 @@ const CredentialFile = ({ id }: FileItemProps) => {
     onContextMenu,
     textValue: name,
   } satisfies TreeItemProps<object>;
+
+  if (!credentialQuery.data) return null;
 
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
