@@ -8,11 +8,12 @@ const DefaultChangelogRenderer = require('nx/release/changelog-renderer').defaul
  * and GitHub release notes.
  */
 class NoBreakingChangelogRenderer extends DefaultChangelogRenderer {
-  preprocessChanges() {
-    for (const change of this.relevantChanges) {
-      change.isBreaking = false;
-    }
-    return super.preprocessChanges();
+  async render() {
+    const contents = await super.render();
+    // Nx's default renderer emits "### ⚠️  Breaking Changes" for major bumps
+    // driven by version plans. Rewrite it to "### 🚀 Features" so the
+    // stability-milestone bump (0.x → 1.0) doesn't falsely signal API breakage.
+    return contents.replace(/^### ⚠️\s+Breaking Changes$/gm, '### 🚀 Features');
   }
 }
 
