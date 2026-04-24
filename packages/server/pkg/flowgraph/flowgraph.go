@@ -99,10 +99,10 @@ func BuildIncomingAdjacency(edges []mflow.Edge) map[idwrap.IDWrap][]idwrap.IDWra
 	return adj
 }
 
-// FindStartNode finds the start node (NODE_KIND_MANUAL_START) in a node slice.
+// FindStartNode finds the start node (NODE_KIND_MANUAL_START or NODE_KIND_SUB_FLOW_TRIGGER) in a node slice.
 func FindStartNode(nodes []mflow.Node) (*mflow.Node, bool) {
 	for i := range nodes {
-		if nodes[i].NodeKind == mflow.NODE_KIND_MANUAL_START {
+		if nodes[i].NodeKind == mflow.NODE_KIND_MANUAL_START || nodes[i].NodeKind == mflow.NODE_KIND_SUB_FLOW_TRIGGER {
 			return &nodes[i], true
 		}
 	}

@@ -25,14 +25,16 @@ type NodeWsConnection struct {
 	Name       string
 	URL        string
 	Headers    map[string]string
+	HTTPClient *http.Client // shared client with cookie jar for upgrade handshake
 }
 
-func New(id idwrap.IDWrap, name string, url string, headers map[string]string) *NodeWsConnection {
+func New(id idwrap.IDWrap, name string, url string, headers map[string]string, httpClient *http.Client) *NodeWsConnection {
 	return &NodeWsConnection{
 		FlowNodeID: id,
 		Name:       name,
 		URL:        url,
 		Headers:    headers,
+		HTTPClient: httpClient,
 	}
 }
 
@@ -72,7 +74,10 @@ func (n *NodeWsConnection) GetOutputVariables() []string {
 	return []string{
 		"url",
 		"connected",
-		"lastMessage",
+		"cookies",
+		"message",
+		"index",
+		"type",
 	}
 }
 
@@ -95,12 +100,22 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 		httpHeaders.Set(k, interpolatedVal)
 	}
 
-	// Dial WebSocket
-	conn, resp, err := websocket.Dial(ctx, url, &websocket.DialOptions{
+	// Dial WebSocket using the shared HTTP client (cookie jar)
+	dialOpts := &websocket.DialOptions{
 		HTTPHeader: httpHeaders,
-	})
-	if resp != nil && resp.Body != nil {
-		_ = resp.Body.Close()
+	}
+	if n.HTTPClient != nil {
+		dialOpts.HTTPClient = n.HTTPClient
+	}
+	conn, resp, err := websocket.Dial(ctx, url, dialOpts)
+
+	// Extract cookies from the upgrade response before closing the body.
+	var cookies []*http.Cookie
+	if resp != nil {
+		cookies = resp.Cookies()
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 	}
 	if err != nil {
 		return node.FlowNodeResult{Err: fmt.Errorf("websocket dial %s: %w", url, err)}
@@ -124,6 +139,15 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 	if err := writeVar("connected", true); err != nil {
 		closeConn()
 		return node.FlowNodeResult{Err: fmt.Errorf("write connected var: %w", err)}
+	}
+	// Store cookies from the upgrade response so downstream nodes can reference them.
+	cookieMap := make(map[string]string, len(cookies))
+	for _, c := range cookies {
+		cookieMap[c.Name] = c.Value
+	}
+	if err := writeVar("cookies", cookieMap); err != nil {
+		closeConn()
+		return node.FlowNodeResult{Err: fmt.Errorf("write cookies var: %w", err)}
 	}
 	// Store the actual connection object (internal, not tracked)
 	if err := node.WriteNodeVar(req, n.Name, "_conn", conn); err != nil {
@@ -151,7 +175,9 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 					return
 				}
 				msgStr := string(msg)
-				_ = node.WriteNodeVar(req, n.Name, "lastMessage", msgStr)
+				_ = node.WriteNodeVar(req, n.Name, "message", msgStr)
+				_ = node.WriteNodeVar(req, n.Name, "index", msgIndex)
+				_ = node.WriteNodeVar(req, n.Name, "type", "received")
 
 				if req.LogPushFunc != nil {
 					executionID := idwrap.NewMonotonic()
@@ -193,7 +219,9 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 			}
 
 			msgStr := string(msg)
-			_ = node.WriteNodeVar(req, n.Name, "lastMessage", msgStr)
+			_ = node.WriteNodeVar(req, n.Name, "message", msgStr)
+			_ = node.WriteNodeVar(req, n.Name, "index", msgIndex)
+			_ = node.WriteNodeVar(req, n.Name, "type", "received")
 
 			executionID := idwrap.NewMonotonic()
 

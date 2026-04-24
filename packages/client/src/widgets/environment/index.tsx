@@ -98,7 +98,7 @@ export const EnvironmentsWidget = () => {
                 >
                   {item.isGlobal ? <VariableIcon /> : item.name[0]}
                 </div>
-                <span className={tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`}>
+                <span className={tw`text-md/5 font-semibold tracking-tight text-on-neutral`}>
                   {item.isGlobal ? 'Global Environment' : item.name}
                 </span>
               </div>
@@ -172,8 +172,8 @@ const EnvironmentModal = () => {
           <div className={tw`flex h-full`}>
             <div className={tw`flex w-64 flex-col border-r border-neutral bg-neutral-lower p-4 tracking-tight`}>
               <div className={tw`mb-4`}>
-                <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-on-neutral`}>Variable Settings</div>
-                <div className={tw`text-xs leading-4 text-on-neutral-low`}>Manage variables & environment</div>
+                <div className={tw`mb-0.5 text-sm/5 font-semibold text-on-neutral`}>Variable Settings</div>
+                <div className={tw`text-xs/4 text-on-neutral-low`}>Manage variables & environment</div>
               </div>
 
               {globalKey && (
@@ -190,12 +190,12 @@ const EnvironmentModal = () => {
                   }}
                 >
                   <VariableIcon className={tw`size-4 text-on-neutral-low`} />
-                  <span className={tw`text-md leading-5 font-semibold`}>Global Variables</span>
+                  <span className={tw`text-md/5 font-semibold`}>Global Variables</span>
                 </ToggleButton>
               )}
 
               <div className={tw`mt-3 mb-1 flex items-center justify-between py-0.5`}>
-                <span className={tw`text-md leading-5 text-neutral-higher`}>Environments</span>
+                <span className={tw`text-md/5 text-neutral-higher`}>Environments</span>
 
                 <TooltipTrigger delay={750}>
                   <Button
@@ -248,13 +248,12 @@ const EnvironmentModal = () => {
                   >
                     <div
                       className={tw`
-                        flex size-4 items-center justify-center rounded-sm bg-neutral-high text-xs leading-3
-                        text-on-neutral-low
+                        flex size-4 items-center justify-center rounded-sm bg-neutral-high text-xs/3 text-on-neutral-low
                       `}
                     >
                       {_.name[0]}
                     </div>
-                    <span className={tw`text-md leading-5 font-semibold`}>{_.name}</span>
+                    <span className={tw`text-md/5 font-semibold`}>{_.name}</span>
                   </AriaListBoxItem>
                 )}
               </AriaListBox>
@@ -316,7 +315,7 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
         ) : (
           <div
             className={tw`
-              flex size-6 items-center justify-center rounded-md bg-neutral-high text-xs leading-3 text-on-neutral-low
+              flex size-6 items-center justify-center rounded-md bg-neutral-high text-xs/3 text-on-neutral-low
             `}
           >
             {name[0]}

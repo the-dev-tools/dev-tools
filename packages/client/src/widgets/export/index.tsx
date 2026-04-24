@@ -42,14 +42,14 @@ export const ExportDialog = () => {
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>
-              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
+              <div className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
 
               <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
                 <FiX className={tw`size-5 text-on-neutral-low`} />
               </Button>
             </div>
 
-            <div className={tw`text-xs leading-5 tracking-tight text-on-neutral-low`}>
+            <div className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>
               Please select the files that you would like to export.
             </div>
 

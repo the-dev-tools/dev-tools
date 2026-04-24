@@ -1,12 +1,13 @@
 import { create } from '@bufbuild/protobuf';
 import { eq, useLiveQuery } from '@tanstack/react-db';
+import { useRouter } from '@tanstack/react-router';
 import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use } from 'react';
-import { FiPlus, FiX } from 'react-icons/fi';
+import { FiExternalLink, FiPlus, FiX } from 'react-icons/fi';
 import { NodeRunSubFlowSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FlowCollectionSchema, NodeRunSubFlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { Button } from '@the-dev-tools/ui/button';
+import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { FieldLabel } from '@the-dev-tools/ui/field';
 import { FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
@@ -56,7 +57,10 @@ export const RunSubFlowNode = ({ id, selected }: XF.NodeProps) => {
 };
 
 export const RunSubFlowSettings = ({ nodeId }: NodeSettingsProps) => {
+  const router = useRouter();
+
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+  const { workspaceIdCan } = routes.dashboard.workspace.route.useParams();
 
   const collection = useApiCollection(NodeRunSubFlowCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
@@ -90,102 +94,121 @@ export const RunSubFlowSettings = ({ nodeId }: NodeSettingsProps) => {
   const selectedFlowKey = data.targetFlowId ? Ulid.construct(data.targetFlowId).toCanonical() : null;
 
   return (
-    <NodeSettingsBody nodeId={nodeId} title='Run Sub-Flow'>
+    <NodeSettingsBody
+      nodeId={nodeId}
+      settingsHeader={
+        data.targetFlowId && (
+          <ButtonAsLink
+            className={tw`-my-4 shrink-0 px-2`}
+            params={{
+              flowIdCan: Ulid.construct(data.targetFlowId).toCanonical(),
+              workspaceIdCan,
+            }}
+            to={router.routesById[routes.dashboard.workspace.flow.route.id].fullPath}
+            variant='ghost'
+          >
+            <FiExternalLink className={tw`size-4 text-on-neutral-low`} />
+            Open Sub-Flow
+          </ButtonAsLink>
+        )
+      }
+      title='Run Sub-Flow'
+    >
       <ReferenceContext value={{ flowNodeId: nodeId, workspaceId }}>
-      <div className={tw`flex flex-col gap-5`}>
-        <Select
-          aria-label='Target flow'
-          isDisabled={isReadOnly}
-          items={flows}
-          label='Target Flow'
-          onChange={(_) => {
-            if (_ === null) return;
-            const flow = flows.find((f) => Ulid.construct(f.flowId).toCanonical() === _);
-            if (!flow) return;
-            collection.utils.updatePaced({
-              nodeId,
-              targetFlowId: flow.flowId,
-              targetFlowName: flow.name,
-            });
-          }}
-          triggerClassName={tw`w-full justify-between`}
-          value={selectedFlowKey}
-        >
-          {(flow) => (
-            <SelectItem id={Ulid.construct(flow.flowId).toCanonical()} textValue={flow.name}>
-              {flow.name}
-            </SelectItem>
-          )}
-        </Select>
+        <div className={tw`flex flex-col gap-5`}>
+          <Select
+            aria-label='Target flow'
+            isDisabled={isReadOnly}
+            items={flows}
+            label='Target Flow'
+            onChange={(_) => {
+              if (_ === null) return;
+              const flow = flows.find((f) => Ulid.construct(f.flowId).toCanonical() === _);
+              if (!flow) return;
+              collection.utils.updatePaced({
+                nodeId,
+                targetFlowId: flow.flowId,
+                targetFlowName: flow.name,
+              });
+            }}
+            triggerClassName={tw`w-full justify-between`}
+            value={selectedFlowKey}
+          >
+            {(flow) => (
+              <SelectItem id={Ulid.construct(flow.flowId).toCanonical()} textValue={flow.name}>
+                {flow.name}
+              </SelectItem>
+            )}
+          </Select>
 
-        <div className={tw`flex flex-col gap-4`}>
-          <FieldLabel>Input Mappings</FieldLabel>
-          <div className={tw`text-xs text-on-neutral-low`}>
-            Map expressions from this flow to the sub-flow&apos;s input parameters.
-          </div>
+          <div className={tw`flex flex-col gap-4`}>
+            <FieldLabel>Input Mappings</FieldLabel>
+            <div className={tw`text-xs text-on-neutral-low`}>
+              Map expressions from this flow to the sub-flow&apos;s input parameters.
+            </div>
 
-          <div className={tw`flex flex-col gap-3`}>
-            {data.inputs.map((input, index) => (
-              <div
-                className={tw`flex items-start gap-2 rounded-lg border border-neutral bg-neutral-lowest p-3`}
-                key={index}
-              >
-                <div className={tw`flex flex-1 flex-col gap-2`}>
-                  <TextInputField
-                    aria-label='Parameter name'
-                    isReadOnly={isReadOnly}
-                    onChange={(paramName) => {
-                      const inputs = [...data.inputs];
-                      inputs[index] = { ...inputs[index]!, paramName };
-                      collection.utils.updatePaced({ inputs, nodeId });
-                    }}
-                    placeholder='Parameter name'
-                    value={input.paramName}
-                  />
+            <div className={tw`flex flex-col gap-3`}>
+              {data.inputs.map((input, index) => (
+                <div
+                  className={tw`flex items-start gap-2 rounded-lg border border-neutral bg-neutral-lowest p-3`}
+                  key={index}
+                >
+                  <div className={tw`flex flex-1 flex-col gap-2`}>
+                    <TextInputField
+                      aria-label='Parameter name'
+                      isReadOnly={isReadOnly}
+                      onChange={(paramName) => {
+                        const inputs = [...data.inputs];
+                        inputs[index] = { ...inputs[index]!, paramName };
+                        collection.utils.updatePaced({ inputs, nodeId });
+                      }}
+                      placeholder='Parameter name'
+                      value={input.paramName}
+                    />
 
-                  <ReferenceField
-                    onChange={(expression) => {
-                      const inputs = [...data.inputs];
-                      inputs[index] = { ...inputs[index]!, expression };
-                      collection.utils.updatePaced({ inputs, nodeId });
-                    }}
-                    placeholder='Expression'
-                    readOnly={isReadOnly}
-                    value={input.expression}
-                  />
+                    <ReferenceField
+                      onChange={(expression) => {
+                        const inputs = [...data.inputs];
+                        inputs[index] = { ...inputs[index]!, expression };
+                        collection.utils.updatePaced({ inputs, nodeId });
+                      }}
+                      placeholder='Expression'
+                      readOnly={isReadOnly}
+                      value={input.expression}
+                    />
+                  </div>
+
+                  {!isReadOnly && (
+                    <Button
+                      className={tw`mt-1 p-1 text-danger`}
+                      onPress={() => {
+                        const inputs = data.inputs.filter((_, i) => i !== index);
+                        collection.utils.updatePaced({ inputs, nodeId });
+                      }}
+                      variant='ghost'
+                    >
+                      <FiX className={tw`size-4`} />
+                    </Button>
+                  )}
                 </div>
+              ))}
+            </div>
 
-                {!isReadOnly && (
-                  <Button
-                    className={tw`mt-1 p-1 text-danger`}
-                    onPress={() => {
-                      const inputs = data.inputs.filter((_, i) => i !== index);
-                      collection.utils.updatePaced({ inputs, nodeId });
-                    }}
-                    variant='ghost'
-                  >
-                    <FiX className={tw`size-4`} />
-                  </Button>
-                )}
-              </div>
-            ))}
+            {!isReadOnly && (
+              <Button
+                className={tw`w-full justify-start`}
+                onPress={() => {
+                  const inputs = [...data.inputs, { expression: '', paramName: '' }];
+                  collection.utils.updatePaced({ inputs, nodeId });
+                }}
+                variant='ghost'
+              >
+                <FiPlus className={tw`size-4 text-on-neutral-low`} />
+                Add input mapping
+              </Button>
+            )}
           </div>
-
-          {!isReadOnly && (
-            <Button
-              className={tw`w-full justify-start`}
-              onPress={() => {
-                const inputs = [...data.inputs, { expression: '', paramName: '' }];
-                collection.utils.updatePaced({ inputs, nodeId });
-              }}
-              variant='ghost'
-            >
-              <FiPlus className={tw`size-4 text-on-neutral-low`} />
-              Add input mapping
-            </Button>
-          )}
         </div>
-      </div>
       </ReferenceContext>
     </NodeSettingsBody>
   );

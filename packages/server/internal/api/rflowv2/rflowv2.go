@@ -545,9 +545,10 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 	)
 
 	// Wire sub-flow executor so RunSubFlow nodes can invoke other flows
-	builder.SubFlowExecutor = flowbuilder.NewSubFlowExecutor(
+	subFlowExec := flowbuilder.NewSubFlowExecutor(
 		builder, deps.Services.Flow, deps.Services.Edge, deps.JsClient, deps.Logger,
 	)
+	builder.SubFlowExecutor = subFlowExec
 
 	// Build snapshot registry for flow version snapshots
 	registry := flowexec.NewSnapshotRegistry()
@@ -587,7 +588,7 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		registry.Register(&flowexec.RunSubFlowSnapshot{Service: deps.Services.NodeRunSubFlow})
 	}
 
-	return &FlowServiceV2RPC{
+	rpc := &FlowServiceV2RPC{
 		DB:                       deps.DB,
 		wsReader:                 deps.Readers.Workspace,
 		fsReader:                 deps.Readers.Flow,
@@ -663,6 +664,15 @@ func New(deps FlowServiceV2Deps) *FlowServiceV2RPC {
 		snapshotRegistry: registry,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}
+
+	// Wire execution tracking into sub-flow executor so sub-flow runs
+	// create flow version history entries and persist node execution records.
+	subFlowExec.NodeExecutionService = deps.Services.NodeExecution
+	subFlowExec.HTTPResponseService = deps.Services.HttpResponse
+	subFlowExec.GraphQLResponseService = deps.Services.GraphQLResponse
+	subFlowExec.EventPublisher = rpc.newExecEventPublisher()
+
+	return rpc
 }
 
 func CreateService(srv *FlowServiceV2RPC, options []connect.HandlerOption) (*api.Service, error) {

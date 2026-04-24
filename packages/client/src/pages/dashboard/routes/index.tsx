@@ -61,10 +61,10 @@ export const WorkspaceListPage = () => {
   return (
     <div className={tw`container mx-auto my-12 grid min-h-0 gap-x-10 gap-y-6`}>
       <div className={tw`col-span-full`}>
-        <span className={tw`mb-1 text-sm leading-5 tracking-tight text-on-neutral-low`}>
+        <span className={tw`mb-1 text-sm/5 tracking-tight text-on-neutral-low`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
         </span>
-        <h1 className={tw`text-2xl leading-8 font-medium tracking-tight text-on-neutral`}>Welcome to DevTools 👋</h1>
+        <h1 className={tw`text-2xl/8 font-medium tracking-tight text-on-neutral`}>Welcome to DevTools 👋</h1>
       </div>
 
       <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-neutral`} ref={containerRef}>
@@ -157,15 +157,11 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
         <div
           className={tw`
-            grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight
-            text-on-neutral-low
+            grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs/5 tracking-tight text-on-neutral-low
           `}
         >
           <div
-            className={twJoin(
-              tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`,
-              isEditing && tw`opacity-0`,
-            )}
+            className={twJoin(tw`text-md/5 font-semibold tracking-tight text-on-neutral`, isEditing && tw`opacity-0`)}
             ref={escapeRef}
           >
             <RouteLink
@@ -219,14 +215,11 @@ const Item = ({ containerRef, id }: ItemProps) => {
                 void deleteModal.onOpenChange(
                   true,
                   <Dialog className={tw`flex flex-col p-5 outline-hidden`}>
-                    <Heading
-                      className={tw`text-base leading-5 font-semibold tracking-tight text-on-neutral`}
-                      slot='title'
-                    >
+                    <Heading className={tw`text-base/5 font-semibold tracking-tight text-on-neutral`} slot='title'>
                       Delete workspace?
                     </Heading>
 
-                    <div className={tw`mt-1 text-sm leading-5 font-medium tracking-tight text-on-neutral-low`}>
+                    <div className={tw`mt-1 text-sm/5 font-medium tracking-tight text-on-neutral-low`}>
                       Are you sure you want to delete <span className={tw`text-on-neutral`}>“{name}”</span>? This action
                       cannot be undone.
                     </div>

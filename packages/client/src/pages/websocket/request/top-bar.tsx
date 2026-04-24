@@ -39,9 +39,7 @@ export const WebSocketTopBar = ({ websocketId }: WebSocketTopBarProps) => {
   return (
     <div className='flex items-center gap-2 border-b border-neutral px-4 py-2.5'>
       <div
-        className={tw`
-          flex min-w-0 flex-1 gap-1 text-md leading-5 font-medium tracking-tight text-neutral-higher select-none
-        `}
+        className={tw`flex min-w-0 flex-1 gap-1 text-md/5 font-medium tracking-tight text-neutral-higher select-none`}
       >
         {isEditing ? (
           <TextInputField

@@ -4,6 +4,7 @@ package flowbuilder
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"log/slog"
@@ -12,12 +13,15 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/ngraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrunsubflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowresult"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sgraphql"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
 )
 
@@ -51,6 +55,14 @@ type SubFlowExecutorImpl struct {
 	EdgeService *sflow.EdgeService
 	JSClient    node_js_executorv1connect.NodeJsExecutorServiceClient
 	Logger      *slog.Logger
+
+	// Optional execution tracking: when set, sub-flow runs create flow version
+	// history entries and persist node execution records. When nil (e.g. CLI),
+	// sub-flows execute without history.
+	NodeExecutionService   *sflow.NodeExecutionService
+	HTTPResponseService    shttp.HttpResponseService
+	GraphQLResponseService sgraphql.GraphQLResponseService
+	EventPublisher         flowresult.EventPublisher
 }
 
 var _ nrunsubflow.SubFlowExecutor = (*SubFlowExecutorImpl)(nil)
@@ -126,33 +138,69 @@ func (e *SubFlowExecutorImpl) ExecuteSubFlow(ctx context.Context, targetFlowID *
 		baseVars[k] = v
 	}
 
-	// Create HTTP client and response channels for the sub-flow
 	httpClient := httpclient.New()
 	bufSize := len(nodes) * 10
 	if bufSize < 10 {
 		bufSize = 10
 	}
 
-	requestRespChan := make(chan nrequest.NodeRequestSideResp, bufSize)
-	gqlRespChan := make(chan ngraphql.NodeGraphQLSideResp, bufSize)
+	// Set up execution tracking if services are available
+	hasTracking := e.NodeExecutionService != nil && e.EventPublisher != nil
+	var proc flowresult.ResultProcessor
+	var version *mflow.Flow
 
-	// Drain response channels
-	go func() {
-		for resp := range requestRespChan {
-			if resp.Done != nil {
-				close(resp.Done)
-			}
+	if hasTracking {
+		// Create flow version for history visibility
+		v, verr := e.FlowService.CreateFlowVersion(ctx, flow)
+		if verr != nil {
+			e.Logger.Error("failed to create sub-flow version", "error", verr)
+		} else {
+			version = &v
 		}
-	}()
-	go func() {
-		for resp := range gqlRespChan {
-			if resp.Done != nil {
-				close(resp.Done)
+
+		proc = flowresult.NewServerResultProcessor(flowresult.ServerResultProcessorOpts{
+			FlowID:                 flow.ID,
+			WorkspaceID:            flow.WorkspaceID,
+			Nodes:                  nodes,
+			Edges:                  edges,
+			NodeIDMapping:          nil,
+			HTTPResponseService:    e.HTTPResponseService,
+			GraphQLResponseService: e.GraphQLResponseService,
+			NodeExecutionService:   e.NodeExecutionService,
+			NodeService:            e.Builder.Node,
+			EdgeService:            e.EdgeService,
+			Publisher:              e.EventPublisher,
+			Logger:                 e.Logger,
+		})
+	}
+
+	// Wire response channels: processor owns them when tracking, otherwise drain manually
+	var requestRespChan chan nrequest.NodeRequestSideResp
+	var gqlRespChan chan ngraphql.NodeGraphQLSideResp
+
+	if proc != nil {
+		requestRespChan = proc.HTTPResponseChan()
+		gqlRespChan = proc.GraphQLResponseChan()
+	} else {
+		requestRespChan = make(chan nrequest.NodeRequestSideResp, bufSize)
+		gqlRespChan = make(chan ngraphql.NodeGraphQLSideResp, bufSize)
+		go func() {
+			for resp := range requestRespChan {
+				if resp.Done != nil {
+					close(resp.Done)
+				}
 			}
-		}
-	}()
-	defer close(requestRespChan)
-	defer close(gqlRespChan)
+		}()
+		go func() {
+			for resp := range gqlRespChan {
+				if resp.Done != nil {
+					close(resp.Done)
+				}
+			}
+		}()
+		defer close(requestRespChan)
+		defer close(gqlRespChan)
+	}
 
 	// Build flow nodes
 	edgeMap := mflow.NewEdgesMap(edges)
@@ -170,7 +218,38 @@ func (e *SubFlowExecutorImpl) ExecuteSubFlow(ctx context.Context, targetFlowID *
 		idwrap.NewMonotonic(), flow.ID, startNodeIDs, flowNodeMap, edgeMap, timeout, e.Logger,
 	)
 
-	runErr := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{}, baseVars)
+	var eventChannels runner.FlowEventChannels
+	if proc != nil {
+		proc.Start()
+		eventChannels = runner.FlowEventChannels{
+			NodeStates: proc.NodeStateChan(),
+		}
+	}
+
+	startTime := time.Now()
+	runErr := flowRunner.RunWithEvents(ctx, eventChannels, baseVars)
+	duration := time.Since(startTime).Milliseconds()
+
+	if proc != nil {
+		proc.Wait()
+	}
+
+	// Update flow version with execution results
+	if version != nil {
+		if runErr != nil {
+			errMsg := runErr.Error()
+			version.Error = &errMsg
+		}
+		if duration > math.MaxInt32 {
+			duration = math.MaxInt32
+		}
+		//nolint:gosec // duration clamped to MaxInt32
+		version.Duration = int32(duration)
+		if uerr := e.FlowService.UpdateFlow(ctx, *version); uerr != nil {
+			e.Logger.Error("failed to update sub-flow version", "error", uerr)
+		}
+	}
+
 	if runErr != nil {
 		return nil, fmt.Errorf("sub-flow execution failed: %w", runErr)
 	}

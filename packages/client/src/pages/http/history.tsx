@@ -48,8 +48,8 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
         <Tabs className={tw`flex h-full`} orientation='vertical'>
           <div className={tw`flex w-64 flex-col border-r border-neutral bg-neutral-lower p-4 tracking-tight`}>
             <div className={tw`mb-4`}>
-              <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-on-neutral`}>Response History</div>
-              <div className={tw`text-xs leading-4 text-on-neutral-low`}>History of your API response</div>
+              <div className={tw`mb-0.5 text-sm/5 font-semibold text-on-neutral`}>Response History</div>
+              <div className={tw`text-xs/4 text-on-neutral-low`}>History of your API response</div>
             </div>
             <div className={tw`grid min-h-0 grid-cols-[auto_1fr] gap-x-0.5`}>
               <div className={tw`flex flex-col items-center gap-0.5`}>
@@ -60,7 +60,7 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
                 <div className={tw`w-px flex-1 bg-neutral`} />
               </div>
 
-              <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-accent`}>Current Version</div>
+              <div className={tw`p-2 text-md/5 font-semibold tracking-tight text-accent`}>Current Version</div>
 
               <div className={tw`flex flex-col items-center gap-0.5`}>
                 <div className={tw`w-px flex-1 bg-neutral`} />
@@ -68,7 +68,7 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
                 <div className={tw`w-px flex-1 bg-neutral`} />
               </div>
 
-              <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-on-neutral`}>
+              <div className={tw`p-2 text-md/5 font-semibold tracking-tight text-on-neutral`}>
                 {versions.length} previous responses
               </div>
 
@@ -80,8 +80,8 @@ export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
                     className={({ isSelected }) =>
                       twJoin(
                         tw`
-                          flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md leading-5
-                          font-semibold text-on-neutral
+                          flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md/5 font-semibold
+                          text-on-neutral
                         `,
                         isSelected && tw`bg-neutral`,
                       )

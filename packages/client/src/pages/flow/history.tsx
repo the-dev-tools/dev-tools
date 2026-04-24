@@ -87,8 +87,8 @@ export const FlowHistoryPage = () => {
         style={{ overflowY: 'auto' }}
       >
         <div className={tw`mb-4`}>
-          <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-on-neutral`}>Flow History</div>
-          <div className={tw`text-xs leading-4 text-on-neutral-low`}>History of your flow responses</div>
+          <div className={tw`mb-0.5 text-sm/5 font-semibold text-on-neutral`}>Flow History</div>
+          <div className={tw`text-xs/4 text-on-neutral-low`}>History of your flow responses</div>
         </div>
         <div className={tw`grid grid-cols-[auto_1fr] gap-x-0.5`}>
           <div className={tw`flex flex-col items-center gap-0.5`}>
@@ -99,7 +99,7 @@ export const FlowHistoryPage = () => {
             <div className={tw`w-px flex-1 bg-neutral`} />
           </div>
 
-          <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-accent`}>Current Version</div>
+          <div className={tw`p-2 text-md/5 font-semibold tracking-tight text-accent`}>Current Version</div>
 
           <div className={tw`flex flex-col items-center gap-0.5`}>
             <div className={tw`w-px flex-1 bg-neutral`} />
@@ -107,7 +107,7 @@ export const FlowHistoryPage = () => {
             <div className={tw`w-px flex-1 bg-neutral`} />
           </div>
 
-          <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-on-neutral`}>
+          <div className={tw`p-2 text-md/5 font-semibold tracking-tight text-on-neutral`}>
             {versions.length} previous responses
           </div>
 
@@ -152,10 +152,7 @@ const Tab = ({ item, state }: TabProps) => {
       {...tabProps}
       className={twJoin(
         tabProps.className,
-        tw`
-          flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md leading-5 font-semibold
-          text-on-neutral
-        `,
+        tw`flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md/5 font-semibold text-on-neutral`,
         isSelected && tw`bg-neutral`,
         error && tw`text-danger`,
       )}

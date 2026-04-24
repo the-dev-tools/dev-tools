@@ -39,7 +39,7 @@ export const StatusBar = () => {
   const bar = (
     <div className={twMerge(tw`flex items-center gap-2 bg-neutral-lower px-2 py-1`, showLogs && tw`bg-neutral-lowest`)}>
       <ButtonAsRouteLink
-        className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-on-neutral`}
+        className={tw`px-2 py-1 text-xs/4 tracking-tight text-on-neutral`}
         search={(_) => ({ ..._, showLogs: showLogs ? undefined : true })}
         to='.'
         variant='ghost'
@@ -55,7 +55,7 @@ export const StatusBar = () => {
       {showLogs && (
         <>
           <Button
-            className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-on-neutral`}
+            className={tw`px-2 py-1 text-xs/4 tracking-tight text-on-neutral`}
             onPress={() => {
               const state = logCollection.utils.state();
               state.begin();

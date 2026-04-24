@@ -55,6 +55,7 @@ func (n *NodeWsSend) GetOutputVariables() []string {
 		"type",
 		"message",
 		"connectionNode",
+		"cookies",
 	}
 }
 
@@ -78,6 +79,15 @@ func (n *NodeWsSend) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 		return node.FlowNodeResult{Err: fmt.Errorf("ws connection from node %q is not a valid WebSocket connection", n.WsConnectionNodeName)}
 	}
 
+	// Read cookies from the connection node (set during the upgrade handshake).
+	var cookies map[string]string
+	cookieRaw, err := node.ReadNodeVar(req, n.WsConnectionNodeName, "cookies")
+	if err == nil {
+		if cm, ok := cookieRaw.(map[string]string); ok {
+			cookies = cm
+		}
+	}
+
 	// Send the message
 	if err := conn.Write(ctx, websocket.MessageText, []byte(interpolated)); err != nil {
 		return node.FlowNodeResult{Err: fmt.Errorf("websocket write: %w", err)}
@@ -98,6 +108,9 @@ func (n *NodeWsSend) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 	}
 	if err := writeVar("connectionNode", n.WsConnectionNodeName); err != nil {
 		return node.FlowNodeResult{Err: fmt.Errorf("write connectionNode var: %w", err)}
+	}
+	if err := writeVar("cookies", cookies); err != nil {
+		return node.FlowNodeResult{Err: fmt.Errorf("write cookies var: %w", err)}
 	}
 
 	nextID := mflow.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, mflow.HandleUnspecified)

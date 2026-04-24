@@ -43,7 +43,10 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/credential';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { GraphQLCollectionSchema, GraphQLDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
+import {
+  GraphQLCollectionSchema,
+  GraphQLDeltaCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/graph_q_l';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { WebSocketCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/web_socket';
 import { Button } from '@the-dev-tools/ui/button';
@@ -616,7 +619,7 @@ const HttpFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
+                                className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}
                                 slot='title'
                               >
                                 cURL export
@@ -778,7 +781,7 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
+                                className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}
                                 slot='title'
                               >
                                 cURL export
@@ -986,7 +989,7 @@ const GraphQLFile = ({ id }: FileItemProps) => {
     <>
       {modal.children && <Modal {...modal} size='sm' />}
 
-      <span className={tw`rounded bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
+      <span className={tw`rounded-sm bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
@@ -1065,7 +1068,7 @@ const GraphQLFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
+                                className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}
                                 slot='title'
                               >
                                 cURL export
@@ -1123,10 +1126,7 @@ const GraphQLDeltaFile = ({ id }: FileItemProps) => {
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 
-  const { fileId: deltaGraphqlId } = useMemo(
-    () => fileCollection.utils.parseKeyUnsafe(id),
-    [fileCollection.utils, id],
-  );
+  const { fileId: deltaGraphqlId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
 
   const deltaCollection = useApiCollection(GraphQLDeltaCollectionSchema);
 
@@ -1181,7 +1181,7 @@ const GraphQLDeltaFile = ({ id }: FileItemProps) => {
     <>
       {modal.children && <Modal {...modal} size='sm' />}
 
-      <span className={tw`rounded bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
+      <span className={tw`rounded-sm bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
@@ -1235,7 +1235,7 @@ const GraphQLDeltaFile = ({ id }: FileItemProps) => {
                           <>
                             <div className={tw`flex items-center justify-between`}>
                               <Heading
-                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`}
+                                className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}
                                 slot='title'
                               >
                                 cURL export
@@ -1423,8 +1423,6 @@ const CredentialFile = ({ id }: FileItemProps) => {
     params: { credentialIdCan: Ulid.construct(credentialId).toCanonical() },
     to: router.routesById[routes.dashboard.workspace.credential.id].fullPath,
   });
-
-
 
   const content = (
     <>

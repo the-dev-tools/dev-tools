@@ -118,7 +118,9 @@ func applyWebSocketTables(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-// updateFilesCheckConstraintWebSocket recreates the files table with WebSocket content_kind support.
+// updateFilesCheckConstraintWebSocket recreates the files table with WebSocket (6)
+// and GraphQL delta (7) content_kind support. This is the canonical files-table
+// recreation — migration 01KK31SQ no longer touches the files table.
 func updateFilesCheckConstraintWebSocket(ctx context.Context, tx *sql.Tx) error {
 	var tableSql string
 	err := tx.QueryRowContext(ctx, `
@@ -127,7 +129,7 @@ func updateFilesCheckConstraintWebSocket(ctx context.Context, tx *sql.Tx) error 
 	if err != nil {
 		return fmt.Errorf("read files table schema: %w", err)
 	}
-	if strings.Contains(tableSql, "5, 6)") {
+	if strings.Contains(tableSql, "6, 7)") {
 		return nil
 	}
 
@@ -143,7 +145,7 @@ func updateFilesCheckConstraintWebSocket(ctx context.Context, tx *sql.Tx) error 
 			path_hash TEXT,
 			updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
 			CHECK (length (id) == 16),
-			CHECK (content_kind IN (0, 1, 2, 3, 4, 5, 6)),
+			CHECK (content_kind IN (0, 1, 2, 3, 4, 5, 6, 7)),
 			CHECK (
 				(content_kind = 0 AND content_id IS NOT NULL) OR
 				(content_kind = 1 AND content_id IS NOT NULL) OR
@@ -152,6 +154,7 @@ func updateFilesCheckConstraintWebSocket(ctx context.Context, tx *sql.Tx) error 
 				(content_kind = 4 AND content_id IS NOT NULL) OR
 				(content_kind = 5 AND content_id IS NOT NULL) OR
 				(content_kind = 6 AND content_id IS NOT NULL) OR
+				(content_kind = 7 AND content_id IS NOT NULL) OR
 				(content_id IS NULL)
 			),
 			FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,

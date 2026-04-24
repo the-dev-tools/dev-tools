@@ -37,7 +37,7 @@ export const WebSocketRequestPanel = ({ connectionState, onSend, websocketId }: 
   const tabClass = ({ isSelected }: { isSelected: boolean }) =>
     twMerge(
       tw`
-        -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
+        -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md/5 font-medium tracking-tight
         text-on-neutral-low transition-colors
       `,
       isSelected && tw`border-b-accent text-on-neutral`,
@@ -63,7 +63,7 @@ export const WebSocketRequestPanel = ({ connectionState, onSend, websocketId }: 
         }
       >
         <TabPanel className={tw`flex flex-1 flex-col gap-3`} id='message'>
-          <MessageComposer connectionState={connectionState} onSend={onSend} />
+          <MessageComposer connectionState={connectionState} onSend={onSend} websocketId={websocketId} />
         </TabPanel>
 
         <TabPanel id='headers'>
@@ -77,12 +77,20 @@ export const WebSocketRequestPanel = ({ connectionState, onSend, websocketId }: 
 interface MessageComposerProps {
   connectionState: ConnectionState;
   onSend: (message: string) => void;
+  websocketId: Uint8Array;
 }
 
-const MessageComposer = ({ connectionState, onSend }: MessageComposerProps) => {
+const MessageComposer = ({ connectionState, onSend, websocketId }: MessageComposerProps) => {
   const { theme } = useTheme();
   const extensions = useCodeMirrorLanguageExtensions('json');
-  const [message, setMessage] = useState('');
+
+  const storageKey = `ws-message:${websocketId.toString()}`;
+  const [message, setMessage] = useState(() => localStorage.getItem(storageKey) ?? '');
+
+  const handleChange = (value: string) => {
+    setMessage(value);
+    localStorage.setItem(storageKey, value);
+  };
 
   const isConnected = connectionState === 'connected';
 
@@ -93,7 +101,7 @@ const MessageComposer = ({ connectionState, onSend }: MessageComposerProps) => {
           extensions={extensions}
           height='100%'
           indentWithTab={false}
-          onChange={setMessage}
+          onChange={handleChange}
           placeholder='Enter message to send...'
           theme={theme}
           value={message}
@@ -101,14 +109,7 @@ const MessageComposer = ({ connectionState, onSend }: MessageComposerProps) => {
       </div>
 
       <div className={tw`flex justify-end`}>
-        <Button
-          isDisabled={!isConnected || !message.trim()}
-          onPress={() => {
-            onSend(message);
-            setMessage('');
-          }}
-          variant='primary'
-        >
+        <Button isDisabled={!isConnected || !message.trim()} onPress={() => void onSend(message)} variant='primary'>
           Send Message
         </Button>
       </div>

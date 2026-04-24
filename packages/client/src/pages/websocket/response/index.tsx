@@ -107,7 +107,7 @@ const MessageRow = ({ message }: MessageRowProps) => {
       </button>
 
       {expanded && (
-        <div className={tw`mt-2 ml-6 overflow-auto rounded border border-neutral-lower`}>
+        <div className={tw`mt-2 ml-6 overflow-auto rounded-sm border border-neutral-lower`}>
           {isJson ? (
             <JsonViewer data={message.data} />
           ) : (

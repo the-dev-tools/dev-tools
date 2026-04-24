@@ -289,7 +289,9 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
             Array.ensure(input),
             Array.map((_) => createDelta(itemSchema, _ as Record<string, unknown>)),
             Array.map((delta) => {
-              params.collection.update(getKey(delta as Item), (draft: Item) => {
+              const key = getKey(delta as Item);
+              if (!params.collection.has(key)) return;
+              params.collection.update(key, (draft: Item) => {
                 draftDelta(draft, delta, UnsetSchema);
               });
             }),
@@ -316,7 +318,9 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
             Array.ensure(input),
             Array.map((_) => createDelta(updateItemSchema, _ as Record<string, unknown>)),
             Array.map((delta) => {
-              params.collection.update(getKey(delta as Item), (draft: Item) => {
+              const key = getKey(delta as Item);
+              if (!params.collection.has(key)) return;
+              params.collection.update(key, (draft: Item) => {
                 draftDelta(draft, delta, UnsetSchema);
               });
             }),

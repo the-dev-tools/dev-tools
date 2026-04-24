@@ -23,7 +23,7 @@ export const WebSocketPage = () => {
 
           <WebSocketUrlBar
             connectionState={ws.state}
-            onConnect={ws.connect}
+            onConnect={(url) => void ws.connect(url, websocketId)}
             onDisconnect={ws.disconnect}
             websocketId={websocketId}
           />

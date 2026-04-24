@@ -22,11 +22,11 @@ export const Route = createFileRoute('/(dashboard)/(workspace)/workspace/$worksp
 function RouteComponent() {
   return (
     <div className={tw`px-4 py-16 text-center`}>
-      <span className={tw`block text-xl leading-6 font-semibold tracking-tight text-on-neutral`}>
+      <span className={tw`block text-xl/6 font-semibold tracking-tight text-on-neutral`}>
         Discover what you can do in DevTools
       </span>
 
-      <span className={tw`block text-xs leading-5 tracking-tight text-on-neutral-low`}>
+      <span className={tw`block text-xs/5 tracking-tight text-on-neutral-low`}>
         Discover the tools to make your workflow easier and faster.
       </span>
 
@@ -57,9 +57,9 @@ const CtaButton = ({ description, icon, onPress, title }: CtaButtonProps) => (
   >
     {icon}
 
-    <span className={tw`mt-3 text-sm leading-5 font-semibold tracking-tight text-on-neutral`}>{title}</span>
+    <span className={tw`mt-3 text-sm/5 font-semibold tracking-tight text-on-neutral`}>{title}</span>
 
-    <span className={tw`text-xs leading-5 tracking-tight text-on-neutral-low`}>{description}</span>
+    <span className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>{description}</span>
   </RAC.Button>
 );
 

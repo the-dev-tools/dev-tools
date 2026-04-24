@@ -11,8 +11,18 @@ import {
 import * as XF from '@xyflow/react';
 import { Array, Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, useCallback, useContext, useRef, useState } from 'react';
-import { Button as AriaButton, Key, Tooltip, TooltipTrigger, Tree } from 'react-aria-components';
+import { ReactNode, Suspense, useCallback, useContext, useRef, useState } from 'react';
+import {
+  Button as AriaButton,
+  Key,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  Tooltip,
+  TooltipTrigger,
+  Tree,
+} from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
@@ -22,6 +32,7 @@ import {
   FlowItemState,
   FlowService,
   NodeExecutionSchema,
+  NodeKind,
   NodeSchema,
 } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import {
@@ -35,8 +46,10 @@ import { SearchEmptyIllustration } from '@the-dev-tools/ui/illustrations';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { ReferenceTree } from '~/features/expression';
 import { request, useApiCollection } from '~/shared/api';
 import { eqStruct, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -85,6 +98,7 @@ export const useNodesState = () => {
         .fn.select(
           (_): XF.Node => ({
             data: {},
+            deletable: _.server.kind !== NodeKind.MANUAL_START && _.server.kind !== NodeKind.SUB_FLOW_TRIGGER,
             id: _.server.nodeId,
             measured: _.client?.dimensions ?? { height: 0, width: 0 },
             origin: [0.5, 0],
@@ -303,10 +317,7 @@ interface NodeTitleProps {
 
 export const NodeTitle = ({ children, className }: NodeTitleProps) => (
   <div
-    className={twMerge(
-      tw`flex items-center gap-1 text-xs leading-4 font-semibold tracking-tight text-on-neutral`,
-      className,
-    )}
+    className={twMerge(tw`flex items-center gap-1 text-xs/4 font-semibold tracking-tight text-on-neutral`, className)}
   >
     {children}
   </div>
@@ -420,8 +431,8 @@ export const NodeSettingsContainer = ({
     <div className={tw`flex h-full flex-col`}>
       <div className={tw`flex items-center gap-4 border-b border-neutral bg-neutral-lowest px-5 py-2`}>
         <div className='min-w-0'>
-          <div className={tw`text-md leading-5 text-neutral-higher`}>{name}</div>
-          <div className={tw`truncate text-sm leading-5 font-medium text-on-neutral`}>{title}</div>
+          <div className={tw`text-md/5 text-neutral-higher`}>{name}</div>
+          <div className={tw`truncate text-sm/5 font-medium text-on-neutral`}>{title}</div>
         </div>
 
         <NodeStateIndicator nodeId={nodeId} />
@@ -515,28 +526,61 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
     >
       <PanelGroup {...nodeSettingsLayout} className={tw`flex-1`} orientation='horizontal'>
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
-          <div
-            className={tw`border-b border-neutral p-5 text-base leading-5 font-semibold tracking-tight text-on-neutral`}
-          >
-            Input
-          </div>
-          <div className={tw`flex-1 overflow-auto p-5`}>
-            {!selectedExecutionId ? (
-              <div className={tw`flex flex-col items-center py-14 text-center`}>
-                <SearchEmptyIllustration />
-                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-on-neutral`}>
-                  No input data yet
+          <Tabs className={tw`flex flex-1 flex-col overflow-hidden`} defaultSelectedKey='browse'>
+            <TabList className={tw`flex gap-3 border-b border-neutral px-5 pt-3`}>
+              <Tab
+                className={({ isSelected }) =>
+                  twMerge(
+                    tw`
+                      -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md/5 font-medium tracking-tight
+                      text-on-neutral-low transition-colors
+                    `,
+                    isSelected && tw`border-b-accent text-on-neutral`,
+                  )
+                }
+                id='evaluated'
+              >
+                Evaluated
+              </Tab>
+              <Tab
+                className={({ isSelected }) =>
+                  twMerge(
+                    tw`
+                      -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md/5 font-medium tracking-tight
+                      text-on-neutral-low transition-colors
+                    `,
+                    isSelected && tw`border-b-accent text-on-neutral`,
+                  )
+                }
+                id='browse'
+              >
+                Browse
+              </Tab>
+            </TabList>
+
+            <TabPanel className={tw`flex-1 overflow-auto p-5`} id='evaluated'>
+              {!selectedExecutionId ? (
+                <div className={tw`flex flex-col items-center py-14 text-center`}>
+                  <SearchEmptyIllustration />
+                  <div className={tw`mt-4 text-sm/5 font-semibold tracking-tight text-on-neutral`}>
+                    No input data yet
+                  </div>
+                  <div className={tw`w-48 text-md/4 tracking-tight text-on-neutral-low`}>
+                    Run the flow to see which variables this node reads. Use the Browse tab to explore all available
+                    data.
+                  </div>
                 </div>
-                <div className={tw`w-48 text-md leading-4 tracking-tight text-on-neutral-low`}>
-                  The executed result from previous nodes will appear here
-                </div>
-              </div>
-            ) : input ? (
-              input(selectedExecutionId)
-            ) : (
-              <NodeSettingsBasicInput nodeExecutionId={selectedExecutionId} />
-            )}
-          </div>
+              ) : input ? (
+                input(selectedExecutionId)
+              ) : (
+                <NodeSettingsBasicInput nodeExecutionId={selectedExecutionId} />
+              )}
+            </TabPanel>
+
+            <TabPanel className={tw`flex-1 overflow-auto`} id='browse'>
+              <NodeSettingsBrowsePanel nodeId={nodeId} />
+            </TabPanel>
+          </Tabs>
         </Panel>
 
         <PanelResizeHandle direction='horizontal' />
@@ -544,8 +588,8 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='40%' maxSize='60%' minSize='10%'>
           <div
             className={tw`
-              flex items-center justify-between border-b border-neutral p-5 text-base leading-5 font-semibold
-              tracking-tight text-on-neutral
+              flex items-center justify-between border-b border-neutral p-5 text-base/5 font-semibold tracking-tight
+              text-on-neutral
             `}
           >
             <span>Settings</span>
@@ -558,9 +602,7 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
         <PanelResizeHandle direction='horizontal' />
 
         <Panel className={tw`flex min-h-0 flex-col`} defaultSize='30%' maxSize='40%' minSize='10%'>
-          <div
-            className={tw`border-b border-neutral p-5 text-base leading-5 font-semibold tracking-tight text-on-neutral`}
-          >
+          <div className={tw`border-b border-neutral p-5 text-base/5 font-semibold tracking-tight text-on-neutral`}>
             Output
           </div>
 
@@ -568,10 +610,10 @@ export const NodeSettingsBody = ({ children, input, nodeId, output, settingsHead
             {!selectedExecutionId ? (
               <div className={tw`flex flex-col items-center py-14 text-center`}>
                 <SearchEmptyIllustration />
-                <div className={tw`mt-4 text-sm leading-5 font-semibold tracking-tight text-on-neutral`}>
+                <div className={tw`mt-4 text-sm/5 font-semibold tracking-tight text-on-neutral`}>
                   No output data yet
                 </div>
-                <div className={tw`w-48 text-md leading-4 tracking-tight text-on-neutral-low`}>
+                <div className={tw`w-48 text-md/4 tracking-tight text-on-neutral-low`}>
                   The executed result from this node will appear here
                 </div>
               </div>
@@ -632,5 +674,159 @@ const NodeSettingsBasicOutput = ({ nodeExecutionId }: NodeSettingsOutputProps) =
     <Tree aria-label='Output values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(output)!}>
       {(_) => <JsonTreeItem {..._} />}
     </Tree>
+  );
+};
+
+interface NodeSettingsBrowsePanelProps {
+  nodeId: Uint8Array;
+}
+
+const browseTabClass = ({ isSelected }: { isSelected: boolean }) =>
+  twMerge(
+    tw`
+      flex-1 cursor-pointer rounded-md px-3 py-1 text-center text-md font-medium tracking-tight text-on-neutral-low
+      transition-colors
+    `,
+    isSelected && tw`bg-neutral-lowest text-on-neutral shadow-sm`,
+  );
+
+const NodeSettingsBrowsePanel = ({ nodeId }: NodeSettingsBrowsePanelProps) => {
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+
+  return (
+    <Tabs className={tw`flex flex-col gap-3 p-5`}>
+      <TabList className={tw`flex gap-1 rounded-lg bg-neutral-low p-0.5`}>
+        <Tab className={browseTabClass} id='schema'>
+          Schema
+        </Tab>
+        <Tab className={browseTabClass} id='last-run'>
+          Last Run
+        </Tab>
+      </TabList>
+
+      <TabPanel id='schema'>
+        <Suspense
+          fallback={
+            <div className={tw`flex items-center justify-center py-8`}>
+              <Spinner size='lg' />
+            </div>
+          }
+        >
+          <ReferenceTree flowNodeId={nodeId} workspaceId={workspaceId} />
+        </Suspense>
+      </TabPanel>
+
+      <TabPanel id='last-run'>
+        <NodeSettingsLastRunPanel nodeId={nodeId} />
+      </TabPanel>
+    </Tabs>
+  );
+};
+
+const NodeSettingsLastRunPanel = ({ nodeId }: NodeSettingsBrowsePanelProps) => {
+  const edgeCollection = useApiCollection(EdgeCollectionSchema);
+  const nodeCollection = useApiCollection(NodeCollectionSchema);
+  const { flowId } = useContext(FlowContext);
+
+  // Find edges targeting this node to get upstream node IDs
+  const { data: upstreamEdges } = useLiveQuery(
+    (_) =>
+      _.from({ item: edgeCollection })
+        .where((_) => eq(_.item.targetId, nodeId))
+        .fn.select((_) => pick(_.item, 'sourceId')),
+    [edgeCollection, nodeId],
+  );
+
+  // Get upstream node names and latest execution outputs
+  const { data: upstreamNodes } = useLiveQuery(
+    (_) => {
+      const nodes = _.from({ item: nodeCollection })
+        .where((_) => eq(_.item.flowId, flowId))
+        .fn.select((_) => pick(_.item, 'nodeId', 'name'));
+
+      return _.from({ node: nodes }).fn.select((_) => ({
+        name: _.node.name,
+        nodeId: _.node.nodeId,
+        nodeIdCan: Ulid.construct(_.node.nodeId).toCanonical(),
+      }));
+    },
+    [flowId, nodeCollection],
+  );
+
+  // Filter to only upstream nodes
+  const upstreamSourceIds = new Set(upstreamEdges.map((_) => Ulid.construct(_.sourceId).toCanonical()));
+  const upstreamNodeList = upstreamNodes.filter((_) => upstreamSourceIds.has(_.nodeIdCan));
+
+  if (upstreamNodeList.length === 0) {
+    return (
+      <div className={tw`flex flex-col items-center py-14 text-center`}>
+        <SearchEmptyIllustration />
+        <div className={tw`mt-4 text-sm/5 font-semibold tracking-tight text-on-neutral`}>No upstream nodes</div>
+        <div className={tw`w-48 text-md/4 tracking-tight text-on-neutral-low`}>
+          Connect nodes upstream to see their execution data here
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={tw`flex flex-col gap-3`}>
+      {upstreamNodeList.map((node) => (
+        <UpstreamNodeOutput key={node.nodeIdCan} node={node} />
+      ))}
+    </div>
+  );
+};
+
+interface UpstreamNodeOutputProps {
+  node: { name: string; nodeId: Uint8Array; nodeIdCan: string };
+}
+
+const UpstreamNodeOutput = ({ node }: UpstreamNodeOutputProps) => {
+  const [expanded, setExpanded] = useState(true);
+  const executionCollection = useApiCollection(NodeExecutionCollectionSchema);
+
+  const { data: executions } = useLiveQuery(
+    (_) => {
+      const item = _.from({ item: executionCollection })
+        .where((_) => eq(_.item.nodeId, node.nodeId))
+        .fn.select((_) => ({
+          ...pick(_.item, 'nodeExecutionId', 'output'),
+          key: Ulid.construct(_.item.nodeExecutionId).toCanonical(),
+        }));
+
+      return _.from({ item }).orderBy((_) => _.item.key, 'desc');
+    },
+    [executionCollection, node.nodeId],
+  );
+
+  const latestExecution = executions[0];
+
+  return (
+    <div className={tw`rounded-lg border border-neutral`}>
+      <AriaButton
+        className={tw`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left`}
+        onPress={() => void setExpanded(!expanded)}
+      >
+        <span className={tw`text-xs text-on-neutral-low`}>{expanded ? '\u25BC' : '\u25B6'}</span>
+        <span className={tw`text-sm font-medium tracking-tight text-on-neutral`}>{node.name}</span>
+      </AriaButton>
+
+      {expanded && (
+        <div className={tw`border-t border-neutral px-3 py-2`}>
+          {latestExecution?.output ? (
+            <Tree
+              aria-label={`${node.name} output`}
+              defaultExpandedKeys={['root']}
+              items={jsonTreeItemProps(latestExecution.output)!}
+            >
+              {(_) => <JsonTreeItem {..._} />}
+            </Tree>
+          ) : (
+            <div className={tw`py-2 text-xs text-on-neutral-low`}>No execution data</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 };

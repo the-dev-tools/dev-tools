@@ -91,11 +91,13 @@ Define the full API surface:
 - **Sub-entities**: Headers, assertions, etc. — each needs its own full CRUD + sync + delta set
 
 After editing `.tsp` files:
+
 ```bash
 pnpm nx run spec:build
 ```
 
 This generates:
+
 - `packages/spec/dist/buf/go/` — Go protobuf + Connect RPC
 - `packages/spec/dist/buf/typescript/` — TypeScript protobuf types
 - `packages/spec/dist/tanstack-db/typescript/` — TanStack DB collection schemas
@@ -111,6 +113,7 @@ This generates:
 **File:** `packages/db/pkg/sqlc/schema/<NN>_<type>.sql`
 
 Typical columns for a request-type node:
+
 ```sql
 CREATE TABLE <type> (
     id              BLOB PRIMARY KEY NOT NULL,
@@ -143,6 +146,7 @@ Also create sub-entity tables (headers, assertions, etc.) with the same delta pa
 **File:** `packages/db/pkg/sqlc/queries/<type>.sql`
 
 Required queries:
+
 - `Create<Type>` — insert
 - `Get<Type>` — by ID
 - `Get<Type>sByWorkspaceID` — list for workspace (filter `is_delta = FALSE AND is_snapshot = FALSE`)
@@ -153,6 +157,7 @@ Required queries:
 - Same pattern for sub-entities (headers, assertions)
 
 After editing `.sql` files:
+
 ```bash
 pnpm nx run db:generate
 ```
@@ -172,6 +177,7 @@ pnpm nx run db:generate
 **File:** `packages/server/pkg/model/m<type>/m<type>.go`
 
 Define pure Go domain structs:
+
 ```go
 type <Type> struct {
     ID          idwrap.IDWrap
@@ -215,6 +221,7 @@ Split into reader and writer following the SQLite deadlock prevention pattern:
 - **Service struct**: Wraps queries, provides `TX(tx)` method to create transactional writer
 
 Pattern:
+
 ```go
 type <Type>Service struct {
     queries *gen.Queries
@@ -259,6 +266,7 @@ func (c *Context) Insert<Type>(ctx context.Context, item <Type>InsertItem) error
 ```
 
 Also register the entity constant in `packages/server/pkg/mutation/mutation.go`:
+
 ```go
 const Entity<Type> = "<type>"
 ```
@@ -326,6 +334,7 @@ func (n *Node<Type>) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 **Expression evaluation:** If the node evaluates user-provided expressions that come from the client's `ReferenceField` UI, use `env.EvalInterpolated()` — NOT `env.Eval()`. The `ReferenceField` stores expressions in `{{ }}` template format (e.g., `{{ http_0.response.body.id }}`). `EvalInterpolated()` handles both `{{ }}` wrapped expressions and raw expressions, while `Eval()` only handles raw expr-lang syntax and will fail on the `{{ }}` format with a cryptic compile error.
 
 **Existing executor packages** (for reference):
+
 - `nrequest` — HTTP requests
 - `ngraphql` — GraphQL queries
 - `nwsconnection` — WebSocket connections
@@ -343,6 +352,7 @@ func (n *Node<Type>) RunSync(ctx context.Context, req *node.FlowNodeRequest) nod
 **Side Response Channel (request-type nodes only):**
 
 HTTP and GraphQL nodes send responses through a side channel for async DB persistence:
+
 ```go
 // The builder passes these channels into node constructors
 respChan chan nrequest.NodeRequestSideResp
@@ -358,6 +368,7 @@ The executor sends the response + request data through this channel after execut
 **Files:** `packages/server/internal/api/r<type>/`
 
 Organize by concern:
+
 - `r<type>.go` — Service struct, constructor, streamers, mutation publisher
 - `r<type>_crud.go` — CRUD operations (Collection, Insert, Update, Delete)
 - `r<type>_crud_<sub>.go` — Sub-entity CRUD (headers, assertions)
@@ -403,6 +414,7 @@ func (p *publisher) publish<Type>(evt mutation.Event) {
 ```
 
 ### All CRUD handlers follow Fetch-Check-Act:
+
 1. **FETCH**: Read data via pool services (outside transaction)
 2. **CHECK**: Validate permissions/rules (pure Go)
 3. **ACT**: Write via mutation context inside transaction, then commit (auto-publishes)
@@ -445,6 +457,7 @@ func (s *FlowServiceV2RPC) streamNode<Type>Sync(ctx context.Context, send func(*
 **Defined in:** The RPC handler file (`r<type>.go`)
 
 Each syncable entity needs:
+
 ```go
 type <Type>Topic struct{ WorkspaceID idwrap.IDWrap }
 type <Type>Event struct {
@@ -465,6 +478,7 @@ Streamers are aggregated in a struct and wired in `serverrun.go`.
 **File:** `packages/server/cmd/serverrun/serverrun.go`
 
 Wire in this order:
+
 1. Create the service (reader/writer)
 2. Create the in-memory sync streamer
 3. Pass service + streamer into the RPC handler constructor
@@ -483,6 +497,7 @@ Wire in this order:
 The flow builder bridges DB models to runtime executor instances. It needs:
 
 1. **Builder struct** — Add the new node service field:
+
 ```go
 type Builder struct {
     Node<Type> *sflow.Node<Type>Service
@@ -496,6 +511,7 @@ type Builder struct {
 2. **Constructor** — Add the service parameter to `New()` and wire it.
 
 3. **`BuildNodes()`** — Add a case in the node kind switch to create the executor:
+
 ```go
 case mflow.NODE_KIND_<TYPE>:
     cfg, err := b.Node<Type>.GetNode<Type>(ctx, nodeModel.ID)
@@ -515,6 +531,7 @@ case mflow.NODE_KIND_<TYPE>:
 The flow runner uses the builder's output (`map[IDWrap]FlowNode`) to execute nodes. No switch statement needed here — the runner calls `node.RunSync()` or `node.RunAsync()` polymorphically.
 
 For request-type nodes, the executor file (`rflowv2_node_<type>_exec.go` or in `pkg/flow/node/n<type>/`) handles:
+
 - Variable resolution and request preparation
 - Sending the request and capturing the response
 - Writing output variables to the flow's VarMap
@@ -550,12 +567,14 @@ case mflow.NODE_KIND_<TYPE>:
 Two functions need updates:
 
 **Copy** (`FlowNodesCopy`): Add case in the switch to fetch type-specific data:
+
 ```go
 case flowv1.NODE_KIND_<TYPE>:
     s.populate<Type>Bundle(ctx, entityID, &bundle)
 ```
 
 **Paste** (`FlowNodesPaste`): Handle:
+
 - ID remapping (old ID -> new ID)
 - Reference resolution (USE_EXISTING vs create new)
 - Variable reference remapping in string fields
@@ -591,6 +610,7 @@ case flowv1.NODE_KIND_<TYPE>:
 **File:** `packages/client/src/pages/flow/nodes/<type>.tsx`
 
 **CRITICAL — Module-level default:** Always create the default node value at module scope:
+
 ```typescript
 const defaultNode<Type> = create(Node<Type>Schema);
 ```
@@ -598,6 +618,7 @@ const defaultNode<Type> = create(Node<Type>Schema);
 NEVER use `create()` inline as a `useLiveQuery` fallback. This causes an infinite re-render loop because `useLiveQuery` → `useDeltaState` subscription sees a new object reference every render.
 
 **Pattern:**
+
 ```typescript
 const data = useLiveQuery(
     (_) => _.from({ item: collection }).where(...).findOne(),
@@ -642,11 +663,13 @@ Add the new node type to the "Add Node" menu so users can drag it onto the canva
 For request-type nodes that have their own page (HTTP, GraphQL, WebSocket), you need route files that open tabs:
 
 **Files:**
+
 - `packages/client/src/pages/<type>/routes/<type>/$<type>IdCan/index.tsx` — main route
 - `packages/client/src/pages/<type>/routes/<type>/$<type>IdCan/route.tsx` — parent route (context)
 - `packages/client/src/pages/<type>/tab.tsx` — tab component + tab ID generator
 
 **CRITICAL — Use both `onEnter` AND `onStay`:** TanStack Router has two lifecycle hooks:
+
 - `onEnter` — fires when a route first matches (navigating FROM a different route template)
 - `onStay` — fires when a route stays matched but params change (navigating between items of the same type, e.g., GraphQL A → GraphQL B)
 
@@ -683,6 +706,7 @@ For request-type nodes, add handling so users can drag an entity from the sideba
 ### Top Bar — Delta-Aware Wiring
 
 The request page top bar must use `useDeltaState` + `DeltaResetButton` for the name field, and use the delta-aware URL component (e.g., `<GraphQLUrl>`) rather than an inline `ReferenceField`. Also wire:
+
 - **Delta collection** for delta-aware delete (`if (deltaId) deltaCollection.delete(...)`)
 - **Delta-aware send** — send with `deltaId ?? originId`, not just `originId`
 - **Transaction flushing** — wait for BOTH base and delta collection transactions before sending
@@ -692,6 +716,7 @@ Without `useDeltaState`, the top bar reads directly from the base collection and
 ### Delta Reset Buttons in Editors
 
 For CodeMirror-based editors (query, variables, raw body), add `DeltaResetButton` in a small toolbar row above the editor:
+
 ```typescript
 <div className={tw`flex h-full flex-col`}>
   {!isReadOnly && (
@@ -708,6 +733,7 @@ The editors may already use `useDeltaState` for reading/writing values but still
 ### Sub-entity Tables
 
 For headers, assertions, etc., create table components following the pattern in `packages/client/src/pages/graphql/request/assert.tsx`:
+
 - Use `useApiCollection(Schema)` to get the collection
 - Use `useLiveQuery` with `eq`/`or` filters on the parent ID
 - Use `DeltaCheckbox`, `DeltaReference`, `ColumnActionDeleteDelta` for delta-aware columns
@@ -789,6 +815,7 @@ Assertions validate response data after execution:
 Add the new node type to the reference service so variables like `{{ NodeName.response.body }}` resolve correctly across flow nodes. Only nodes that write output variables (via `WriteNodeVarBulk`) need a reference service entry. Passive nodes (e.g., Memory) that don't produce output should be skipped — the `default` case handles them correctly.
 
 The reference service has **three switch statements** that all need the new node kind case:
+
 1. **`ReferenceSchema`** (~line 640) — returns the variable schema (type structure) for the node
 2. **`ReferenceCompletion`** (~line 989) — returns autocomplete suggestions when typing `{{ nodeName.` }}
 3. **`ReferenceValue`** (~line 1531) — returns the actual runtime values for variable preview
@@ -808,45 +835,59 @@ Create a migration that adds the new tables. Follow the existing pattern — reg
 ## Common Pitfalls
 
 ### Missing `ToAPINodeKind` Case — Invisible Nodes
+
 If `ToAPINodeKind()` in `converter.go` doesn't have a case for the new `NODE_KIND_<TYPE>`, every sync response serializes the node with `kind = UNSPECIFIED`. The client maps `UNSPECIFIED` to `() => null`, so the node appears briefly (optimistic insert with correct kind) then becomes invisible when the sync response overwrites it with `UNSPECIFIED`. No errors are logged anywhere — completely silent.
 
 ### Sync Events Silently Dropped
+
 The most insidious bug. If a CRUD handler calls `mut.Insert<Type>()` or `mut.Update<Type>()` without a separate `mut.Track(Event{Payload: model})`, the sync event has no payload. The publisher silently drops it (model is nil). The client never receives the update. Data persists in DB but UI doesn't reflect changes until page refresh. Always verify sync works end-to-end.
 
 ### SQLite Deadlocks
+
 All reads MUST happen before opening a transaction. The `notxread` linter catches this, but only for direct reads — be careful with service methods that might read internally.
 
 ### Snapshot/Delta Filtering
+
 Workspace listing queries must filter `is_delta = FALSE AND is_snapshot = FALSE`. Without this, snapshots created during execution appear as base items in the collection.
 
 ### Double Event Tracking
+
 The mutation helpers (`Insert<Type>`, `Update<Type>`) track events internally without payloads. The CRUD handler then adds a second `mut.Track()` with the payload. This is intentional — the first event is silently ignored by the publisher, the second is published. Don't remove either one.
 
 ### Client Re-render Loops
+
 Using `create(Schema)` as an inline fallback in `useLiveQuery` creates a new object reference every render, triggering infinite re-renders through the delta state subscription system. Always hoist to module scope.
 
 ### Variable Reference Remapping
+
 In copy/paste, any string field that can contain `{{var.name}}` variable references must be remapped when pasting. Missing a field causes pasted nodes to reference variables from the source flow.
 
 ### Missing `onStay` in Route Lifecycle
+
 TanStack Router's `onEnter` only fires when a route first enters the matched set. When navigating between items of the same type (e.g., GraphQL A → GraphQL B), the route stays matched — only `onStay` fires. If a route only uses `onEnter` to call `openTab()`, the second item's tab won't appear in the tab bar (though the content renders correctly). Always use both `onEnter` and `onStay`.
 
 ### SQLite CHECK Constraint on `files` Table
+
 The `files` table has `CHECK (content_kind IN (0, 1, 2, ...))` that whitelists allowed content type integers. Adding a new `FileKind` in TypeSpec and `ContentType` in Go is not enough — the DB will reject inserts with a 500 error if the integer isn't in the CHECK list. You must update `03_files.sql` AND create a migration that recreates the table with the expanded constraint (SQLite doesn't support `ALTER CONSTRAINT`). See `01KKFQT8_add_websocket_tables.go` for the table-recreation pattern.
 
 ### Delta Service Layer — `Create` and `UpdateDelta` Gaps
+
 Three common gaps when adding delta support to sub-entities (headers, assertions):
+
 1. **`Create` ignores delta fields** — The service `Create` method only passes base fields to the sqlc `CreateParams`, even though the struct includes delta fields. Delta records get inserted with `is_delta = false` and nil delta values. Fix: populate `IsDelta`, `ParentID`, and all `Delta*` fields in the `Create` call.
 2. **No `UpdateDelta` method** — The service only has a base `Update` that writes base columns. Delta field updates silently do nothing because the `Update` SQL doesn't touch `delta_*` columns. Fix: add an `UpdateDelta` query in sqlc and a corresponding service method.
 3. **Handler calls `Update` instead of `UpdateDelta`** — The delta update RPC handler modifies the model's `Delta*` fields in memory, then calls `Update()` which only persists base fields. The delta changes are discarded. Returns 400 if `is_delta` is checked (since the DB row has `is_delta = false` from gap #1). Fix: call `UpdateDelta` in the handler.
 
 ### Expression Evaluation — `Eval()` vs `EvalInterpolated()`
+
 If the node evaluates expressions that come from the client's `ReferenceField` UI component, you MUST use `env.EvalInterpolated()`, not `env.Eval()`. The `ReferenceField` stores expressions in `{{ }}` template format (e.g., `{{ http_0.response.body }}`). `Eval()` only handles raw expr-lang syntax and fails on `{{ }}` with an error like `expression "{{ foo.bar }}" failed during compile: a map key must be a quoted string`. `EvalInterpolated()` handles both formats. This affects any node that uses `expression.NewUnifiedEnv()` to evaluate user-provided input/output mappings.
 
 ### Reference Service — Missing Switch Cases or Service Wiring
+
 The reference service (`rreference.go`) has **three** switch statements on `NodeKind`: `ReferenceSchema`, `ReferenceCompletion`, and `ReferenceValue`. If ANY of the three is missing a case for the new node kind, autocomplete won't work for that node's variables. The symptoms are subtle — no error, just empty completion suggestions when pressing Ctrl+Space. For parameter-based nodes (like SubFlowTrigger), the service also needs the type-specific node service injected into both `ReferenceServiceRPC` and `ReferenceServiceRPCReaders` (wired in `serverrun.go`).
 
 ### Tab Active State — Parent Route Highlighting on Delta Pages
+
 TanStack Router's link `activeOptions` defaults to `{ exact: false }`. When viewing a delta page (e.g., `/graphql/$id/delta/$deltaId`), the parent route (`/graphql/$id`) also matches as "active". This causes both the original request tab and the delta tab to highlight simultaneously. Fix: add `activeOptions={{ exact: true }}` to tab link components.
 
 ---
@@ -857,66 +898,68 @@ The WebSocket node type (commit `ceb3c505`) is the most complete reference. Here
 
 ### New Files Created
 
-| Layer | File | Purpose |
-|-------|------|---------|
-| DB Schema | `packages/db/pkg/sqlc/schema/10_websocket.sql` | WebSocket + header tables |
-| DB Queries | `packages/db/pkg/sqlc/queries/websocket.sql` | CRUD queries |
-| Model | `packages/server/pkg/model/mwebsocket/mwebsocket.go` | Domain structs |
-| Service | `packages/server/pkg/service/swebsocket/swebsocket.go` | Service + TX |
-| Service | `packages/server/pkg/service/swebsocket/header.go` | Header service |
-| Service | `packages/server/pkg/service/swebsocket/mapper.go` | DB row -> model conversion |
-| RPC Handler | `packages/server/internal/api/rwebsocket/rwebsocket.go` | Full CRUD + sync + publisher |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection.go` | Flow node type record |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection_reader.go` | Reader |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection_writer.go` | Writer |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection_mapper.go` | Mapper |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send.go` | WS Send node type |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send_reader.go` | Reader |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send_writer.go` | Writer |
-| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send_mapper.go` | Mapper |
-| Node Executor | `packages/server/pkg/flow/node/nwsconnection/nwsconnection.go` | WS Connection runtime executor |
-| Node Executor | `packages/server/pkg/flow/node/nwssend/nwssend.go` | WS Send runtime executor |
-| Node Config CRUD | `packages/server/internal/api/rflowv2/rflowv2_node_ws_connection.go` | WS Connection node config CRUD + sync |
-| Node Config CRUD | `packages/server/internal/api/rflowv2/rflowv2_node_ws_send.go` | WS Send node config CRUD + sync |
-| Client Node | `packages/client/src/pages/flow/nodes/ws-connection.tsx` | Flow canvas node UI |
-| Client Node | `packages/client/src/pages/flow/nodes/ws-send.tsx` | Flow canvas node UI |
-| Client Page | `packages/client/src/pages/websocket/page.tsx` | WS request page |
-| Client Page | `packages/client/src/pages/websocket/request/` | Request panel, headers, URL |
-| Client Page | `packages/client/src/pages/websocket/response/` | Response panel |
-| TypeSpec | `packages/spec/api/websocket.tsp` | API contract |
+| Layer             | File                                                                 | Purpose                               |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------- |
+| DB Schema         | `packages/db/pkg/sqlc/schema/10_websocket.sql`                       | WebSocket + header tables             |
+| DB Queries        | `packages/db/pkg/sqlc/queries/websocket.sql`                         | CRUD queries                          |
+| Model             | `packages/server/pkg/model/mwebsocket/mwebsocket.go`                 | Domain structs                        |
+| Service           | `packages/server/pkg/service/swebsocket/swebsocket.go`               | Service + TX                          |
+| Service           | `packages/server/pkg/service/swebsocket/header.go`                   | Header service                        |
+| Service           | `packages/server/pkg/service/swebsocket/mapper.go`                   | DB row -> model conversion            |
+| RPC Handler       | `packages/server/internal/api/rwebsocket/rwebsocket.go`              | Full CRUD + sync + publisher          |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection.go`            | Flow node type record                 |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection_reader.go`     | Reader                                |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection_writer.go`     | Writer                                |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_connection_mapper.go`     | Mapper                                |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send.go`                  | WS Send node type                     |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send_reader.go`           | Reader                                |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send_writer.go`           | Writer                                |
+| Flow Node Service | `packages/server/pkg/service/sflow/node_ws_send_mapper.go`           | Mapper                                |
+| Node Executor     | `packages/server/pkg/flow/node/nwsconnection/nwsconnection.go`       | WS Connection runtime executor        |
+| Node Executor     | `packages/server/pkg/flow/node/nwssend/nwssend.go`                   | WS Send runtime executor              |
+| Node Config CRUD  | `packages/server/internal/api/rflowv2/rflowv2_node_ws_connection.go` | WS Connection node config CRUD + sync |
+| Node Config CRUD  | `packages/server/internal/api/rflowv2/rflowv2_node_ws_send.go`       | WS Send node config CRUD + sync       |
+| Client Node       | `packages/client/src/pages/flow/nodes/ws-connection.tsx`             | Flow canvas node UI                   |
+| Client Node       | `packages/client/src/pages/flow/nodes/ws-send.tsx`                   | Flow canvas node UI                   |
+| Client Page       | `packages/client/src/pages/websocket/page.tsx`                       | WS request page                       |
+| Client Page       | `packages/client/src/pages/websocket/request/`                       | Request panel, headers, URL           |
+| Client Page       | `packages/client/src/pages/websocket/response/`                      | Response panel                        |
+| TypeSpec          | `packages/spec/api/websocket.tsp`                                    | API contract                          |
 
 ### Existing Files Modified
 
-| Layer | File | What Changed |
-|-------|------|-------------|
-| DB Flow Schema | `packages/db/pkg/sqlc/schema/05_flow.sql` | Added `flow_node_ws_connection`, `flow_node_ws_send` tables |
-| DB Flow Queries | `packages/db/pkg/sqlc/queries/flow.sql` | Added CRUD queries for WS node types |
-| Flow Model | `packages/server/pkg/model/mflow/node_types.go` | Added `NodeWsConnection`, `NodeWsSend` structs |
-| Flow Model | `packages/server/pkg/model/mflow/node.go` | Added `NODE_KIND_WS_CONNECTION`, `NODE_KIND_WS_SEND` |
-| Flow Service | `packages/server/pkg/service/sflow/node_mapper.go` | Added WS node kind mapping |
-| Flow Builder | `packages/server/pkg/flow/flowbuilder/builder.go` | Added WS services + `BuildNodes` cases |
-| Flow RPC | `packages/server/internal/api/rflowv2/rflowv2.go` | Added WS services, streamers, node sync cases |
-| Copy/Paste | `packages/server/internal/api/rflowv2/rflowv2_copy_paste.go` | Copy: `populateWebSocketBundle`. Paste: ID remap, var remap, DB create, event publish |
-| YAML Types | `packages/server/pkg/translate/yamlflowsimplev2/types.go` | Added `YamlStepWsConnection`, `YamlStepWsSend`, `YamlStepWrapper` fields |
-| YAML Exporter | `packages/server/pkg/translate/yamlflowsimplev2/exporter.go` | Added WS step export cases |
-| YAML Converter | `packages/server/pkg/translate/yamlflowsimplev2/converter_node.go` | Added WS step processing |
-| YAML Converter | `packages/server/pkg/translate/yamlflowsimplev2/converter_flow.go` | Added WS to `mergeFlowData` |
-| Workspace Bundle | `packages/server/pkg/ioworkspace/types.go` | Added `WebSockets`, `WebSocketHeaders` fields |
-| Workspace Export | `packages/server/pkg/ioworkspace/exporter.go` | Added WS entity fetching |
-| Workspace Import | `packages/server/pkg/ioworkspace/importer.go` | Added WS service + import wiring |
-| Workspace Import | `packages/server/pkg/ioworkspace/importer_flow.go` | Added `importWebSockets` |
-| Server Wiring | `packages/server/cmd/serverrun/serverrun.go` | Added WS service, streamer, handler registration |
-| Client File Tree | `packages/client/src/features/file-system/index.tsx` | Added WS drag-to-flow-canvas |
-| Client Flow | `packages/client/src/pages/flow/node.tsx` | Added WS node rendering case |
-| Client Flow | `packages/client/src/pages/flow/add-node.tsx` | Added WS to "Add Node" menu |
+| Layer            | File                                                               | What Changed                                                                          |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| DB Flow Schema   | `packages/db/pkg/sqlc/schema/05_flow.sql`                          | Added `flow_node_ws_connection`, `flow_node_ws_send` tables                           |
+| DB Flow Queries  | `packages/db/pkg/sqlc/queries/flow.sql`                            | Added CRUD queries for WS node types                                                  |
+| Flow Model       | `packages/server/pkg/model/mflow/node_types.go`                    | Added `NodeWsConnection`, `NodeWsSend` structs                                        |
+| Flow Model       | `packages/server/pkg/model/mflow/node.go`                          | Added `NODE_KIND_WS_CONNECTION`, `NODE_KIND_WS_SEND`                                  |
+| Flow Service     | `packages/server/pkg/service/sflow/node_mapper.go`                 | Added WS node kind mapping                                                            |
+| Flow Builder     | `packages/server/pkg/flow/flowbuilder/builder.go`                  | Added WS services + `BuildNodes` cases                                                |
+| Flow RPC         | `packages/server/internal/api/rflowv2/rflowv2.go`                  | Added WS services, streamers, node sync cases                                         |
+| Copy/Paste       | `packages/server/internal/api/rflowv2/rflowv2_copy_paste.go`       | Copy: `populateWebSocketBundle`. Paste: ID remap, var remap, DB create, event publish |
+| YAML Types       | `packages/server/pkg/translate/yamlflowsimplev2/types.go`          | Added `YamlStepWsConnection`, `YamlStepWsSend`, `YamlStepWrapper` fields              |
+| YAML Exporter    | `packages/server/pkg/translate/yamlflowsimplev2/exporter.go`       | Added WS step export cases                                                            |
+| YAML Converter   | `packages/server/pkg/translate/yamlflowsimplev2/converter_node.go` | Added WS step processing                                                              |
+| YAML Converter   | `packages/server/pkg/translate/yamlflowsimplev2/converter_flow.go` | Added WS to `mergeFlowData`                                                           |
+| Workspace Bundle | `packages/server/pkg/ioworkspace/types.go`                         | Added `WebSockets`, `WebSocketHeaders` fields                                         |
+| Workspace Export | `packages/server/pkg/ioworkspace/exporter.go`                      | Added WS entity fetching                                                              |
+| Workspace Import | `packages/server/pkg/ioworkspace/importer.go`                      | Added WS service + import wiring                                                      |
+| Workspace Import | `packages/server/pkg/ioworkspace/importer_flow.go`                 | Added `importWebSockets`                                                              |
+| Server Wiring    | `packages/server/cmd/serverrun/serverrun.go`                       | Added WS service, streamer, handler registration                                      |
+| Client File Tree | `packages/client/src/features/file-system/index.tsx`               | Added WS drag-to-flow-canvas                                                          |
+| Client Flow      | `packages/client/src/pages/flow/node.tsx`                          | Added WS node rendering case                                                          |
+| Client Flow      | `packages/client/src/pages/flow/add-node.tsx`                      | Added WS to "Add Node" menu                                                           |
 
 ### Key Pattern: WS Connection + WS Send (Two Node Types, One Entity)
 
 WebSocket is unique because it has TWO flow node types that share ONE sidebar entity:
+
 - **WS Connection node** — opens the connection (references a `websocket` entity by ID)
 - **WS Send node** — sends a message on an open connection (references a WS Connection node by name)
 
 This means:
+
 - The `WsSend` node has a `WsConnectionNodeName` field that must be remapped during copy/paste
 - The YAML step for `ws_send` has `ws_connection_node_name` linking to a `ws_connection` step
 - When copying, the WS entity + headers are fetched via `populateWebSocketBundle`
@@ -927,6 +970,7 @@ This means:
 ## Checklist
 
 ### Spec & DB
+
 - [ ] TypeSpec models + service methods defined
 - [ ] `pnpm nx run spec:build` — codegen passes
 - [ ] DB schema created (`schema/<NN>_<type>.sql`)
@@ -936,6 +980,7 @@ This means:
 - [ ] `pnpm nx run db:generate` — sqlc passes
 
 ### Server Model & Service
+
 - [ ] Model structs created (`pkg/model/m<type>/`)
 - [ ] Flow node model added to `pkg/model/mflow/node_types.go`
 - [ ] Node kind constant added to `pkg/model/mflow/node.go`
@@ -945,23 +990,27 @@ This means:
 - [ ] Node kind mapping added to `pkg/service/sflow/node_mapper.go`
 
 ### Mutation & Events
+
 - [ ] Mutation helpers created (`pkg/mutation/insert_<type>.go`, `update_<type>.go`)
 - [ ] Entity constant registered in mutation package
 - [ ] Sync streamers defined and wired
 
 ### Node Executor
+
 - [ ] Executor package created (`pkg/flow/node/n<type>/`)
 - [ ] Implements `FlowNode` interface (`GetID`, `GetName`, `RunSync`, `RunAsync`)
 - [ ] Implements `VariableIntrospector` (optional, for AI integration)
 - [ ] Uses `EvalInterpolated()` (not `Eval()`) for expressions from ReferenceField UI
 
 ### RPC & Wiring
+
 - [ ] RPC handlers created (`internal/api/r<type>/`)
 - [ ] Node config CRUD handlers created (`rflowv2_node_<type>.go`)
 - [ ] Mutation publisher handles the entity type
 - [ ] `serverrun.go` — service, streamer, and RPC handler wired
 
 ### Flow Integration
+
 - [ ] Flow builder — node kind case + service field added (`pkg/flow/flowbuilder/builder.go`)
 - [ ] Flow duplicate — `nodeDetail` case added (`rflowv2_flow.go`)
 - [ ] Copy/paste — copy and paste cases added
@@ -969,6 +1018,7 @@ This means:
 - [ ] Workspace bundle — types, exporter, importer updated
 
 ### Client
+
 - [ ] Flow node component created (with module-level default) (`pages/flow/nodes/<type>.tsx`)
 - [ ] Node registered in `edit.tsx` (nodeTypes + settingsMap)
 - [ ] Added to "Add Node" menu (`add-node.tsx`)
@@ -978,6 +1028,7 @@ This means:
 - [ ] File tree drag-to-canvas (for request-type nodes)
 
 ### Delta Service Layer
+
 - [ ] Sub-entity schemas include delta columns (`parent_*_id`, `is_delta`, `delta_*` fields)
 - [ ] `Create` method passes delta fields to sqlc params (not just base fields)
 - [ ] `UpdateDelta` query + service method exists for each deltable entity/sub-entity
@@ -987,11 +1038,13 @@ This means:
 - [ ] Tab links use `activeOptions={{ exact: true }}` to prevent parent route highlighting
 
 ### Reference Service
+
 - [ ] All three switch statements updated (`ReferenceSchema`, `ReferenceCompletion`, `ReferenceValue`)
 - [ ] Type-specific service injected if node has user-configured parameters
 - [ ] Service wired in `serverrun.go` `ReferenceServiceRPCReaders`
 
 ### Verification
+
 - [ ] CRUD handlers have `mut.Track()` with Payload for sync
 - [ ] All tests pass (`task test`)
 - [ ] Lints pass (`task lint`)

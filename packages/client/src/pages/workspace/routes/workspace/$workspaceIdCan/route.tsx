@@ -75,7 +75,7 @@ function RouteComponent() {
             <Avatar shape='square' size='base'>
               {workspace.name}
             </Avatar>
-            <span className={tw`text-xs leading-5 font-semibold tracking-tight`}>{workspace.name}</span>
+            <span className={tw`text-xs/5 font-semibold tracking-tight`}>{workspace.name}</span>
           </ButtonAsRouteLink>
         </>
       }
@@ -98,12 +98,12 @@ function RouteComponent() {
               variant='ghost'
             >
               <OverviewIcon className={tw`size-5 text-on-neutral-low`} />
-              <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`}>Overview</h2>
+              <h2 className={tw`text-md/5 font-semibold tracking-tight text-on-neutral`}>Overview</h2>
             </ButtonAsRouteLink>
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-on-neutral-low`} />
-              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-on-neutral`}>Files</h2>
+              <h2 className={tw`flex-1 text-md/5 font-semibold tracking-tight text-on-neutral`}>Files</h2>
 
               <MenuTrigger>
                 <TooltipTrigger delay={750}>
@@ -122,7 +122,7 @@ function RouteComponent() {
             <FileTree navigate showControls />
           </div>
 
-          <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-on-neutral`}>
+          <div className={tw`px-2.5 py-1.5 text-md/5 tracking-tight text-on-neutral`}>
             DevTools v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
           </div>
         </Panel>

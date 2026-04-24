@@ -19,7 +19,9 @@ export interface TreeItemProps<T extends object>
   isLoading?: boolean;
   item?: CollectionProps<T>['children'];
   items?: T[];
+  draggable?: boolean;
   onContextMenu?: ComponentProps<'div'>['onContextMenu'];
+  onDragStart?: ComponentProps<'div'>['onDragStart'];
   onExpand?: () => void;
   setIsExpanded?: (value: boolean) => void;
   textValue?: RAC.TreeItemProps['textValue'];
@@ -29,11 +31,13 @@ export const TreeItem = <T extends object>({
   childItems: childItemsProps,
   children,
   className,
+  draggable,
   isExpanded: controlledIsExpanded,
   isLoading,
   item,
   items,
   onContextMenu,
+  onDragStart,
   onExpand,
   ref,
   setIsExpanded: controlledSetIsExpanded,
@@ -114,7 +118,9 @@ export const TreeItem = <T extends object>({
           return (
             <div
               className={tw`relative z-0 flex items-center gap-2`}
+              draggable={draggable}
               onContextMenu={onContextMenu}
+              onDragStart={onDragStart}
               style={{ paddingInlineStart: ((level - 1) * (20 / 16)).toString() + 'rem' }}
             >
               {icon}

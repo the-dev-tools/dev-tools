@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
@@ -365,7 +366,13 @@ func (b *Builder) BuildNodes(
 					}
 				}
 			}
-			wsNode := nwsconnection.New(nodeModel.ID, nodeModel.Name, url, headers)
+			// Pass the shared HTTP client so the WS upgrade shares the cookie jar
+		// with other HTTP/GraphQL requests in this flow execution.
+		var concreteClient *http.Client
+		if hc, ok := httpClient.(*http.Client); ok {
+			concreteClient = hc
+		}
+		wsNode := nwsconnection.New(nodeModel.ID, nodeModel.Name, url, headers, concreteClient)
 			flowNodeMap[nodeModel.ID] = wsNode
 		case mflow.NODE_KIND_WS_SEND:
 			var wsConnName string

@@ -5,14 +5,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/compress"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"golang.org/x/net/html/charset"
 )
 
@@ -22,9 +23,11 @@ type HttpClient interface {
 
 const TimeoutRequest = 60 * time.Second
 
-func New() HttpClient {
+func New() *http.Client {
+	jar, _ := cookiejar.New(nil) // never errors with nil options
 	return &http.Client{
 		Timeout: TimeoutRequest,
+		Jar:     jar,
 	}
 }
 

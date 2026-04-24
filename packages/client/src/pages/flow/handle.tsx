@@ -159,8 +159,7 @@ export const Handle = ({
         >
           <div
             className={tw`
-              mx-4 my-3 rounded-sm bg-neutral-lowest p-1 text-xs leading-4 tracking-tight whitespace-nowrap
-              text-on-neutral-low
+              mx-4 my-3 rounded-sm bg-neutral-lowest p-1 text-xs/4 tracking-tight whitespace-nowrap text-on-neutral-low
             `}
           >
             {label}

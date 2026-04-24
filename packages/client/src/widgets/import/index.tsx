@@ -73,7 +73,7 @@ const InnerDialog = ({ action, children }: InnerDialogProps) => (
       <>
         <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
           <div className={tw`flex items-center justify-between`}>
-            <Heading className={tw`text-xl leading-6 font-semibold tracking-tighter text-on-neutral`} slot='title'>
+            <Heading className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`} slot='title'>
               Import Collections and Flows
             </Heading>
 
@@ -145,7 +145,7 @@ const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
     >
       <div
         className={tw`
-          mt-6 rounded-lg border border-neutral bg-neutral-lower p-4 text-sm leading-4 font-medium tracking-tight
+          mt-6 rounded-lg border border-neutral bg-neutral-lower p-4 text-sm/4 font-medium tracking-tight
           text-on-neutral-low
         `}
       >
@@ -215,7 +215,7 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
         </Button>
       }
     >
-      <div className={tw`text-xs leading-5 tracking-tight text-on-neutral-low`}>
+      <div className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>
         Please deselect the domain names to be excluded in the flow. There might be requests that you may not want to
         import.
       </div>

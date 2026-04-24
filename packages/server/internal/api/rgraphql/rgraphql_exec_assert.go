@@ -273,13 +273,22 @@ func (s *GraphQLServiceRPC) createAssertionEvalContext(resp GraphQLResponseData)
 	// Extract JSON path helpers (for full body navigation)
 	jsonPathHelpers := s.createJSONPathHelpers(bodyMap)
 
+	// Extract GraphQL-specific fields from body
+	var data, errors any
+	if bodyMap != nil {
+		data = bodyMap["data"]
+		errors = bodyMap["errors"]
+	}
+
 	// Create comprehensive evaluation context
-	// Users access GraphQL data via response.body.data or body.data (consistent with HTTP)
+	// Users access GraphQL data via response.data (matching the reference tree)
 	context := map[string]any{
 		// Main response object
 		"response": map[string]any{
 			"status":  resp.StatusCode,
 			"body":    body,
+			"data":    data,
+			"errors":  errors,
 			"headers": headers,
 		},
 
@@ -287,6 +296,8 @@ func (s *GraphQLServiceRPC) createAssertionEvalContext(resp GraphQLResponseData)
 		"status":       resp.StatusCode,
 		"body":         body,
 		"body_string":  bodyString,
+		"data":         data,
+		"errors":       errors,
 		"headers":      headers,
 		"content_type": contentType,
 
@@ -296,6 +307,8 @@ func (s *GraphQLServiceRPC) createAssertionEvalContext(resp GraphQLResponseData)
 		"server_error": resp.StatusCode >= 500 && resp.StatusCode < 600,
 		"is_json":      strings.HasPrefix(contentType, "application/json"),
 		"has_body":     len(resp.Body) > 0,
+		"has_data":     data != nil,
+		"has_errors":   errors != nil,
 
 		// JSON path helpers (for full body)
 		"json": jsonPathHelpers,

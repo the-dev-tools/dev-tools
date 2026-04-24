@@ -40,10 +40,7 @@ export const GraphQLResponseInfo = ({ className, graphqlResponseId }: GraphQLRes
 
   return (
     <div
-      className={twMerge(
-        tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-on-neutral`,
-        className,
-      )}
+      className={twMerge(tw`flex items-center gap-1 text-xs/5 font-medium tracking-tight text-on-neutral`, className)}
     >
       <div className={tw`flex gap-1 p-2`}>
         <span>Status:</span>
@@ -112,7 +109,7 @@ export const GraphQLResponsePanel = ({
             className={({ isSelected }) =>
               twMerge(
                 tw`
-                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md/5 font-medium tracking-tight
                   text-on-neutral-low transition-colors
                 `,
                 isSelected && tw`border-b-accent text-on-neutral`,
@@ -127,7 +124,7 @@ export const GraphQLResponsePanel = ({
             className={({ isSelected }) =>
               twMerge(
                 tw`
-                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md/5 font-medium tracking-tight
                   text-on-neutral-low transition-colors
                 `,
                 isSelected && tw`border-b-accent text-on-neutral`,
@@ -143,7 +140,7 @@ export const GraphQLResponsePanel = ({
             className={({ isSelected }) =>
               twMerge(
                 tw`
-                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md/5 font-medium tracking-tight
                   text-on-neutral-low transition-colors
                 `,
                 isSelected && tw`border-b-accent text-on-neutral`,

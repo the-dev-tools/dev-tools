@@ -9,7 +9,7 @@ import { NodeJsSchema } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeJsCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
-import { useCodeMirrorLanguageExtensions } from '~/features/expression';
+import { referenceDropExtension, useCodeMirrorLanguageExtensions } from '~/features/expression';
 import { useApiCollection } from '~/shared/api';
 import { pick } from '~/shared/lib';
 import { FlowContext } from '../context';
@@ -53,7 +53,8 @@ export const JavaScriptSettings = ({ nodeId }: NodeSettingsProps) => {
 
   const { isReadOnly = false } = use(FlowContext);
 
-  const extensions = useCodeMirrorLanguageExtensions('javascript');
+  const languageExtensions = useCodeMirrorLanguageExtensions('javascript');
+  const extensions = [...languageExtensions, referenceDropExtension('javascript')];
 
   return (
     <NodeSettingsBody nodeId={nodeId} title='JavaScript'>

@@ -44,8 +44,7 @@ export const BodyPanel = ({ httpResponseId }: BodyPanelProps) => {
     >
       <TabList
         className={tw`
-          flex gap-1 self-start rounded-md border border-neutral-lower bg-neutral-lower p-0.5 text-xs leading-5
-          tracking-tight
+          flex gap-1 self-start rounded-md border border-neutral-lower bg-neutral-lower p-0.5 text-xs/5 tracking-tight
         `}
       >
         <Tab

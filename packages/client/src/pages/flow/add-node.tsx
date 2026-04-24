@@ -3,7 +3,17 @@ import * as XF from '@xyflow/react';
 import { Ulid } from 'id128';
 import { ReactNode, use } from 'react';
 import * as RAC from 'react-aria-components';
-import { FiArrowLeft, FiBriefcase, FiChevronRight, FiClock, FiSend, FiTerminal, FiWifi, FiX } from 'react-icons/fi';
+import {
+  FiArrowLeft,
+  FiBriefcase,
+  FiChevronRight,
+  FiClock,
+  FiPlay,
+  FiSend,
+  FiTerminal,
+  FiWifi,
+  FiX,
+} from 'react-icons/fi';
 import { TbRobotFace } from 'react-icons/tb';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
@@ -119,8 +129,8 @@ export const SidebarItem = ({ description, icon, onAction, title }: SidebarItemP
     </div>
 
     <div className={tw`flex-1`}>
-      <div className={tw`text-md leading-5 font-semibold tracking-tight text-on-neutral`}>{title}</div>
-      {description && <div className={tw`text-xs leading-4 tracking-tight text-on-neutral-low`}>{description}</div>}
+      <div className={tw`text-md/5 font-semibold tracking-tight text-on-neutral`}>{title}</div>
+      {description && <div className={tw`text-xs/4 tracking-tight text-on-neutral-low`}>{description}</div>}
     </div>
 
     <FiChevronRight className={tw`m-1 size-4 text-on-neutral-low`} />
@@ -198,6 +208,24 @@ const AddFlowNodeSidebar = ({ handleKind, position, previous, sourceId, targetId
       <SidebarHeader previous={previous} title='Flow' />
 
       <RAC.ListBox aria-label='Node categories' className={tw`mt-3`}>
+        <SidebarItem
+          description='Start flow execution manually'
+          icon={<FiPlay />}
+          onAction={() => {
+            const nodeId = Ulid.generate().bytes;
+            insertNode({
+              handleKind,
+              kind: NodeKind.MANUAL_START,
+              name: 'manual_start',
+              nodeId,
+              position,
+              sourceId,
+              targetId,
+            });
+          }}
+          title='Manual Start'
+        />
+
         <SidebarItem
           description='Route items to different branches'
           icon={<IfIcon />}

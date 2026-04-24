@@ -499,9 +499,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         // Prevent adding the same flow as a sub-flow (recursive)
         if (file.fileId.length === flowId.length && file.fileId.every((b, i) => b === flowId[i])) return;
 
-        const targetFlow = flowCollection.get(
-          flowCollection.utils.getKey({ flowId: file.fileId }),
-        );
+        const targetFlow = flowCollection.get(flowCollection.utils.getKey({ flowId: file.fileId }));
 
         const nodeId = Ulid.generate().bytes;
 
@@ -631,7 +629,7 @@ export const TopBar = ({ children }: TopBarProps) => {
         />
       ) : (
         <AriaButton
-          className={tw`cursor-text text-md leading-5 font-medium tracking-tight text-on-neutral`}
+          className={tw`cursor-text text-md/5 font-medium tracking-tight text-on-neutral`}
           onContextMenu={onContextMenu}
           onPress={() => void edit()}
         >
@@ -702,7 +700,7 @@ export const TopBarWithControls = () => {
         <FiMinus className={tw`size-4 text-on-neutral-low`} />
       </Button>
 
-      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-on-neutral`}>
+      <div className={tw`w-10 text-center text-sm/5 font-medium tracking-tight text-on-neutral`}>
         {Math.floor(zoom * 100)}%
       </div>
 
@@ -796,7 +794,7 @@ const FlowSettings = () => {
   return (
     <>
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-neutral bg-neutral-lowest px-5 py-2`}>
-        <div className={tw`text-sm leading-5 font-medium text-on-neutral`}>Flow variables</div>
+        <div className={tw`text-sm/5 font-medium text-on-neutral`}>Flow variables</div>
 
         <div className={tw`flex-1`} />
 

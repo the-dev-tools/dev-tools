@@ -64,7 +64,7 @@ export const WsConnectionNode = ({ id, selected }: XF.NodeProps) => {
       title='WS Connection'
     >
       <div className={tw`min-w-0 flex-1`}>
-        <span className={tw`rounded bg-indigo-100 px-1 text-[10px] font-semibold text-indigo-600`}>WS</span>
+        <span className={tw`rounded-sm bg-indigo-100 px-1 text-[10px] font-semibold text-indigo-600`}>WS</span>
         <div className={tw`truncate text-xs tracking-tight text-on-neutral-low`}>{url ?? 'No URL'}</div>
       </div>
     </SimpleNode>

@@ -4,7 +4,7 @@ import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
-import { createContext, RefAttributes, use, useContext, useRef } from 'react';
+import { createContext, DragEvent, RefAttributes, use, useContext, useRef } from 'react';
 import { Tree as AriaTree } from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
 import {
@@ -22,6 +22,7 @@ import { useTheme } from '@the-dev-tools/ui/theme';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/shared/api';
 import { useReactRender } from '~/shared/lib';
+import { referenceDropExtension } from './code-mirror/drop-extension';
 import { BaseCodeMirrorExtensionProps, baseCodeMirrorExtensions } from './code-mirror/extensions';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
@@ -87,6 +88,12 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
+  const handleDragStart = (e: DragEvent) => {
+    const keysJson = keys.map((_) => toJson(ReferenceKeySchema, _));
+    e.dataTransfer.setData('application/x-devtools-reference', JSON.stringify(keysJson));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
   const keyText = getGroupText(key);
 
   const items = pipe(
@@ -127,20 +134,20 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
   return (
     <TreeItem
       className={tw`rounded-none py-1`}
+      draggable
       id={id}
       item={(_) => (
         <ReferenceTreeItemView id={makeReferenceTreeId([...keys, _.key!], _.value)} parentKeys={keys} reference={_} />
       )}
       items={items!}
+      onDragStart={handleDragStart}
       textValue={keyText ?? kindIndexTag ?? ''}
     >
       {key.kind === ReferenceKeyKind.GROUP && (
-        <span className={tw`text-xs leading-5 font-semibold tracking-tight text-on-neutral`}>{key.group}</span>
+        <span className={tw`text-xs/5 font-semibold tracking-tight text-on-neutral`}>{key.group}</span>
       )}
 
-      {key.kind === ReferenceKeyKind.KEY && (
-        <span className={tw`font-mono text-xs leading-5 text-danger`}>{key.key}</span>
-      )}
+      {key.kind === ReferenceKeyKind.KEY && <span className={tw`font-mono text-xs/5 text-danger`}>{key.key}</span>}
 
       {tags.map((tag, index) => (
         <span
@@ -151,14 +158,12 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
         </span>
       ))}
 
-      {quantity && (
-        <span className={tw`text-xs leading-5 font-medium tracking-tight text-on-neutral-low`}>{quantity}</span>
-      )}
+      {quantity && <span className={tw`text-xs/5 font-medium tracking-tight text-on-neutral-low`}>{quantity}</span>}
 
       {reference.kind === ReferenceKind.VALUE && (
         <>
-          <span className={tw`font-mono text-xs leading-5 text-on-neutral`}>:</span>
-          <span className={tw`flex-1 font-mono text-xs leading-5 break-all text-info`}>{reference.value}</span>
+          <span className={tw`font-mono text-xs/5 text-on-neutral`}>:</span>
+          <span className={tw`flex-1 font-mono text-xs/5 break-all text-info`}>{reference.value}</span>
         </>
       )}
     </TreeItem>
@@ -221,6 +226,7 @@ export const ReferenceField = ({
       className={fieldStyles({ className, ...variantProps })}
       extensions={[
         ...baseCodeMirrorExtensions({ allowFiles, client, context, kind, reactRender, singleLineMode }),
+        referenceDropExtension(kind === 'StringExpression' ? 'string-expression' : 'full-expression'),
         EditorView.theme({ '.cm-scroller': { overflow: singleLineMode ? 'hidden' : 'auto' } }),
         ...extensions,
       ]}

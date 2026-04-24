@@ -1,3 +1,4 @@
+import { Ulid } from 'id128';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'error';
@@ -13,7 +14,7 @@ const MAX_MESSAGES = 1000;
 
 export interface UseWebSocketReturn {
   clearMessages: () => void;
-  connect: (url: string) => void;
+  connect: (url: string, websocketId?: Uint8Array) => void;
   disconnect: () => void;
   error: string | undefined;
   messages: WsMessage[];
@@ -34,49 +35,67 @@ export const useWebSocket = (): UseWebSocketReturn => {
     }
   }, []);
 
+  const setupWs = useCallback((wsUrl: string) => {
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setState('connected');
+    };
+
+    ws.onclose = () => {
+      setState('disconnected');
+      wsRef.current = null;
+    };
+
+    ws.onerror = () => {
+      setError('Connection failed');
+      setState('error');
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      const msg: WsMessage = {
+        data: typeof event.data === 'string' ? event.data : String(event.data),
+        direction: 'received',
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => (prev.length >= MAX_MESSAGES ? [...prev.slice(1), msg] : [...prev, msg]));
+    };
+  }, []);
+
   const connect = useCallback(
-    (url: string) => {
+    (url: string, websocketId?: Uint8Array) => {
       disconnect();
       setError(undefined);
       setState('connecting');
 
-      let wsUrl = url;
-      if (wsUrl.startsWith('http://')) wsUrl = 'ws://' + wsUrl.slice(7);
-      else if (wsUrl.startsWith('https://')) wsUrl = 'wss://' + wsUrl.slice(8);
+      if (websocketId) {
+        // Connect through server proxy to send custom headers from DB
+        void fetch('server://ws-proxy-info')
+          .then((r) => r.json() as Promise<{ port: number }>)
+          .then(({ port }) => {
+            const wsIdCan = Ulid.construct(websocketId).toCanonical();
+            setupWs(`ws://localhost:${String(port)}/ws-proxy?id=${wsIdCan}`);
+          })
+          .catch(() => {
+            setError('Failed to get proxy info');
+            setState('error');
+          });
+      } else {
+        let wsUrl = url;
+        if (wsUrl.startsWith('http://')) wsUrl = 'ws://' + wsUrl.slice(7);
+        else if (wsUrl.startsWith('https://')) wsUrl = 'wss://' + wsUrl.slice(8);
 
-      try {
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          setState('connected');
-        };
-
-        ws.onclose = () => {
-          setState('disconnected');
-          wsRef.current = null;
-        };
-
-        ws.onerror = () => {
-          setError('Connection failed');
+        try {
+          setupWs(wsUrl);
+        } catch {
+          setError('Invalid WebSocket URL');
           setState('error');
-        };
-
-        ws.onmessage = (event: MessageEvent) => {
-          const msg: WsMessage = {
-            data: typeof event.data === 'string' ? event.data : String(event.data),
-            direction: 'received',
-            id: crypto.randomUUID(),
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => (prev.length >= MAX_MESSAGES ? [...prev.slice(1), msg] : [...prev, msg]));
-        };
-      } catch {
-        setError('Invalid WebSocket URL');
-        setState('error');
+        }
       }
     },
-    [disconnect],
+    [disconnect, setupWs],
   );
 
   const send = useCallback((message: string) => {

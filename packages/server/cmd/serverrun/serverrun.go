@@ -658,6 +658,35 @@ func Run() error {
 	})
 	newServiceManager.addService(rwebsocket.CreateService(wsSrv, optionsAll))
 
+	// WebSocket proxy TCP listener — serves WS proxy on a localhost TCP port
+	// so the browser (which can't connect WebSocket to a Unix domain socket)
+	// can reach the Go server for proxied WebSocket connections with headers.
+	proxyMux := http.NewServeMux()
+	proxyMux.Handle("/ws-proxy", wsSrv.WebSocketProxyHandler())
+
+	wsProxyListener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		slog.Warn("Failed to start WebSocket proxy listener", "error", err)
+	} else {
+		wsProxyPort := wsProxyListener.Addr().(*net.TCPAddr).Port
+		slog.Info("WebSocket proxy listening", "port", wsProxyPort)
+
+		newServiceManager.addService(&api.Service{
+			Path: "/ws-proxy-info",
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"port":%d}`, wsProxyPort)
+			}),
+		}, nil)
+
+		proxySrv := &http.Server{Handler: proxyMux} //nolint:gosec // localhost-only, no timeout needed
+		go func() {
+			if err := proxySrv.Serve(wsProxyListener); err != nil {
+				slog.Error("WebSocket proxy listener error", "error", err)
+			}
+		}()
+	}
+
 	// Start services
 	go func() {
 		err := api.ListenServices(newServiceManager.getServices(), port)

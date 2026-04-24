@@ -55,7 +55,7 @@ export const WebSocketUrlBar = ({ connectionState, onConnect, onDisconnect, webs
   return (
     <div className={tw`flex gap-3 p-6 pb-0`}>
       <div className={tw`flex flex-1 items-center gap-3 rounded-lg border border-neutral px-3 py-2 shadow-xs`}>
-        <span className={tw`shrink-0 rounded bg-accent-lowest px-1.5 py-0.5 text-xs font-semibold text-accent`}>
+        <span className={tw`shrink-0 rounded-sm bg-accent-lowest px-1.5 py-0.5 text-xs font-semibold text-accent`}>
           WS
         </span>
 

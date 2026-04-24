@@ -121,8 +121,8 @@ const TabItem = ({ id }: TabItemProps) => {
       activeOptions={{ exact: true }}
       aria-label='Tab'
       className={tw`
-        relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs
-        leading-4 font-medium tracking-tight text-on-neutral
+        relative -ml-px flex h-11 max-w-60 cursor-pointer items-center justify-between gap-3 border p-2.5 text-xs/4
+        font-medium tracking-tight text-on-neutral
 
         not-route-active:border-b not-route-active:border-transparent not-route-active:border-b-neutral
         not-route-active:opacity-60

@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
-import { type SyntheticEvent, KeyboardEvent, use, useEffect, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent, type SyntheticEvent, use, useEffect, useMemo, useRef, useState } from 'react';
 import { FiArrowUp, FiChevronUp, FiEdit, FiSettings, FiX } from 'react-icons/fi';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -689,29 +689,17 @@ const StreamingIndicator = () => (
     <div className={tw`flex space-x-0.5`}>
       <div
         className={tw`
-          size-1 animate-bounce rounded-full bg-(--text-muted)
-
-          [animation-delay:0ms]
-
-          [animation-duration:1.2s]
+          size-1 animate-bounce rounded-full bg-(--text-muted) animation-duration-[1.2s] [animation-delay:0ms]
         `}
       />
       <div
         className={tw`
-          size-1 animate-bounce rounded-full bg-(--text-muted)
-
-          [animation-delay:150ms]
-
-          [animation-duration:1.2s]
+          size-1 animate-bounce rounded-full bg-(--text-muted) animation-duration-[1.2s] [animation-delay:150ms]
         `}
       />
       <div
         className={tw`
-          size-1 animate-bounce rounded-full bg-(--text-muted)
-
-          [animation-delay:300ms]
-
-          [animation-duration:1.2s]
+          size-1 animate-bounce rounded-full bg-(--text-muted) animation-duration-[1.2s] [animation-delay:300ms]
         `}
       />
     </div>
@@ -767,7 +755,7 @@ const ThinkingBlock = () => {
 };
 
 const StreamingMessage = ({ content }: { content: string }) => (
-  <div className={tw`min-w-0 space-y-1 px-1 [overflow-wrap:anywhere] text-(--text-secondary)`}>
+  <div className={tw`min-w-0 space-y-1 px-1 wrap-anywhere text-(--text-secondary)`}>
     <Markdown
       components={{
         code: ({ children, className }) => {
@@ -784,7 +772,7 @@ const StreamingMessage = ({ content }: { content: string }) => (
           ) : (
             <code
               className={tw`
-                rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em] break-all
+                rounded-sm border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em] break-all
                 text-(--text-primary)
               `}
             >
@@ -793,7 +781,7 @@ const StreamingMessage = ({ content }: { content: string }) => (
           );
         },
         p: ({ children }) => (
-          <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>{children}</p>
+          <p className={tw`mb-1.5 text-sm leading-[1.4] wrap-anywhere text-(--text-primary)`}>{children}</p>
         ),
         pre: ({ children }) => <>{children}</>,
       }}
@@ -845,13 +833,13 @@ const ToolCallItem = ({ isActive, toolCall: tc }: { isActive: boolean; toolCall:
   const fullText = brief ? `${verb} ${label} · ${brief}` : `${verb} ${label}`;
 
   return (
-    <div className={tw`relative w-full overflow-hidden text-sm font-medium text-ellipsis whitespace-nowrap`}>
+    <div className={tw`relative w-full truncate text-sm font-medium`}>
       <span className={tw`text-(--text-primary) dark:text-(--text-tertiary)`}>{verb}</span>{' '}
       <span className={tw`text-(--text-muted)`}>{brief ? `${label} · ${brief}` : label}</span>
       {isActive && (
         <span
           aria-hidden
-          className={tw`pointer-events-none absolute inset-0 overflow-hidden text-ellipsis whitespace-nowrap`}
+          className={tw`pointer-events-none absolute inset-0 truncate`}
           style={{
             animation: 'toolcall-shimmer 1.4s linear infinite',
             background: 'linear-gradient(90deg, transparent 0%, var(--shimmer-highlight) 50%, transparent 100%)',
@@ -883,8 +871,8 @@ const TerminalMessage = ({
         <span className={tw`shrink-0 text-(--brand-tertiary-2)`}>&gt;</span>
         <span
           className={tw`
-            min-w-0 flex-1 overflow-hidden rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-sm
-            font-medium text-ellipsis whitespace-nowrap text-(--text-primary)
+            min-w-0 flex-1 truncate rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-sm
+            font-medium text-(--text-primary)
           `}
           title={message.content}
         >
@@ -902,7 +890,7 @@ const TerminalMessage = ({
     return (
       <div className={tw`space-y-1 px-1`}>
         {message.content && (
-          <div className={tw`min-w-0 [overflow-wrap:anywhere] text-(--text-secondary)`}>
+          <div className={tw`min-w-0 wrap-anywhere text-(--text-secondary)`}>
             <Markdown
               components={{
                 code: ({ children, className }) => {
@@ -919,7 +907,7 @@ const TerminalMessage = ({
                   ) : (
                     <code
                       className={tw`
-                        rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em]
+                        rounded-sm border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em]
                         break-all text-(--text-primary)
                       `}
                     >
@@ -928,9 +916,7 @@ const TerminalMessage = ({
                   );
                 },
                 p: ({ children }) => (
-                  <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>
-                    {children}
-                  </p>
+                  <p className={tw`mb-1.5 text-sm leading-[1.4] wrap-anywhere text-(--text-primary)`}>{children}</p>
                 ),
                 pre: ({ children }) => <>{children}</>,
               }}
@@ -952,7 +938,7 @@ const TerminalMessage = ({
   if (!message.content) return null;
 
   return (
-    <div className={tw`min-w-0 space-y-1 px-1 [overflow-wrap:anywhere] text-(--text-secondary)`}>
+    <div className={tw`min-w-0 space-y-1 px-1 wrap-anywhere text-(--text-secondary)`}>
       <Markdown
         components={{
           a: ({ children, href }) => (
@@ -968,11 +954,7 @@ const TerminalMessage = ({
           blockquote: ({ children }) => (
             <blockquote
               className={tw`
-                my-1 border-l-2 border-(--border-1) bg-(--surface-4) px-2 py-1
-
-                [overflow-wrap:anywhere]
-
-                text-(--text-tertiary)
+                my-1 border-l-2 border-(--border-1) bg-(--surface-4) px-2 py-1 wrap-anywhere text-(--text-tertiary)
               `}
             >
               {children}
@@ -992,7 +974,7 @@ const TerminalMessage = ({
             ) : (
               <code
                 className={tw`
-                  rounded border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em] break-all
+                  rounded-sm border border-(--border-1) bg-(--surface-1) px-1 py-0.5 font-mono text-[0.85em] break-all
                   text-(--text-primary)
                 `}
               >
@@ -1008,13 +990,11 @@ const TerminalMessage = ({
           ),
           h3: ({ children }) => <div className={tw`my-1 text-sm font-semibold text-(--text-primary)`}>{children}</div>,
           li: ({ children }) => (
-            <li className={tw`text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-secondary)`}>{children}</li>
+            <li className={tw`text-sm leading-[1.4] wrap-anywhere text-(--text-secondary)`}>{children}</li>
           ),
           ol: ({ children }) => <ol className={tw`my-1 list-decimal space-y-0.5 pl-5`}>{children}</ol>,
           p: ({ children }) => (
-            <p className={tw`mb-1.5 text-sm leading-[1.4] [overflow-wrap:anywhere] text-(--text-primary)`}>
-              {children}
-            </p>
+            <p className={tw`mb-1.5 text-sm leading-[1.4] wrap-anywhere text-(--text-primary)`}>{children}</p>
           ),
           pre: ({ children }) => <>{children}</>,
           strong: ({ children }) => <strong className={tw`font-semibold text-(--text-primary)`}>{children}</strong>,
@@ -1023,13 +1003,9 @@ const TerminalMessage = ({
               <table className={tw`w-full border-collapse text-sm`}>{children}</table>
             </div>
           ),
-          td: ({ children }) => (
-            <td className={tw`px-2 py-1 [overflow-wrap:anywhere] text-(--text-secondary)`}>{children}</td>
-          ),
+          td: ({ children }) => <td className={tw`px-2 py-1 wrap-anywhere text-(--text-secondary)`}>{children}</td>,
           th: ({ children }) => (
-            <th
-              className={tw`px-2 py-1 text-left text-xs font-semibold [overflow-wrap:anywhere] text-(--text-primary)`}
-            >
+            <th className={tw`px-2 py-1 text-left text-xs font-semibold wrap-anywhere text-(--text-primary)`}>
               {children}
             </th>
           ),

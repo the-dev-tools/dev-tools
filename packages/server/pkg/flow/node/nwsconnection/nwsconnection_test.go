@@ -60,7 +60,7 @@ func TestNodeWsConnection_Connect(t *testing.T) {
 	defer srv.Close()
 
 	nodeID := idwrap.NewNow()
-	n := New(nodeID, "MyWS", wsURL(srv), nil)
+	n := New(nodeID, "MyWS", wsURL(srv), nil, nil)
 
 	req := newReq(mflow.EdgesMap{}, nil)
 
@@ -107,7 +107,7 @@ func TestNodeWsConnection_PassiveMessageLogging(t *testing.T) {
 	defer srv.Close()
 
 	nodeID := idwrap.NewNow()
-	n := New(nodeID, "MyWS", wsURL(srv), nil)
+	n := New(nodeID, "MyWS", wsURL(srv), nil, nil)
 
 	var statuses []runner.FlowNodeStatus
 	var mu sync.Mutex
@@ -139,13 +139,13 @@ func TestNodeWsConnection_PassiveMessageLogging(t *testing.T) {
 	// Wait for the echo to be read and logged
 	time.Sleep(200 * time.Millisecond)
 
-	// Verify lastMessage was set
-	lastMsg, err := node.ReadNodeVar(req, "MyWS", "lastMessage")
+	// Verify message was set
+	lastMsg, err := node.ReadNodeVar(req, "MyWS", "message")
 	if err != nil {
-		t.Fatalf("read lastMessage: %v", err)
+		t.Fatalf("read message: %v", err)
 	}
 	if lastMsg != "hello" {
-		t.Errorf("lastMessage = %v, want hello", lastMsg)
+		t.Errorf("message = %v, want hello", lastMsg)
 	}
 
 	// Verify a status was emitted
@@ -159,9 +159,65 @@ func TestNodeWsConnection_PassiveMessageLogging(t *testing.T) {
 	cancel()
 }
 
+func TestNodeWsConnection_HeadersAndCookies(t *testing.T) {
+	// Server that checks headers and sets a cookie on the upgrade response.
+	var receivedAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuth = r.Header.Get("Authorization")
+		http.SetCookie(w, &http.Cookie{Name: "session", Value: "abc123"})
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Logf("accept error: %v", err)
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+		for {
+			typ, msg, err := conn.Read(r.Context())
+			if err != nil {
+				return
+			}
+			_ = conn.Write(r.Context(), typ, msg)
+		}
+	}))
+	defer srv.Close()
+
+	nodeID := idwrap.NewNow()
+	headers := map[string]string{"Authorization": "Bearer tok"}
+	n := New(nodeID, "MyWS", wsURL(srv), headers, nil)
+
+	req := newReq(mflow.EdgesMap{}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result := n.RunSync(ctx, req)
+	if result.Err != nil {
+		t.Fatalf("RunSync error: %v", result.Err)
+	}
+
+	// Verify header was sent
+	if receivedAuth != "Bearer tok" {
+		t.Errorf("Authorization header = %q, want %q", receivedAuth, "Bearer tok")
+	}
+
+	// Verify cookies were extracted from the upgrade response
+	cookieVal, err := node.ReadNodeVar(req, "MyWS", "cookies")
+	if err != nil {
+		t.Fatalf("read cookies var: %v", err)
+	}
+	cookieMap, ok := cookieVal.(map[string]string)
+	if !ok {
+		t.Fatalf("cookies type = %T, want map[string]string", cookieVal)
+	}
+	if cookieMap["session"] != "abc123" {
+		t.Errorf("cookie session = %q, want %q", cookieMap["session"], "abc123")
+	}
+
+	cancel()
+}
+
 func TestNodeWsConnection_DialError(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	n := New(nodeID, "MyWS", "ws://127.0.0.1:1", nil) // nothing listening
+	n := New(nodeID, "MyWS", "ws://127.0.0.1:1", nil, nil) // nothing listening
 
 	req := newReq(mflow.EdgesMap{}, nil)
 
@@ -179,7 +235,7 @@ func TestNodeWsConnection_URLInterpolation(t *testing.T) {
 	defer srv.Close()
 
 	nodeID := idwrap.NewNow()
-	n := New(nodeID, "MyWS", "{{ baseUrl }}", nil)
+	n := New(nodeID, "MyWS", "{{ baseUrl }}", nil, nil)
 
 	req := newReq(mflow.EdgesMap{}, nil)
 	req.VarMap["baseUrl"] = wsURL(srv)

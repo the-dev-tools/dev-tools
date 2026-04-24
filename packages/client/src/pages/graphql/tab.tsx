@@ -58,7 +58,7 @@ export const GraphQLTab = ({ deltaGraphqlId, graphqlId }: GraphQLTabProps) => {
 
   return (
     <>
-      <span className={tw`rounded bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
+      <span className={tw`rounded-sm bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700`}>GQL</span>
       <span className={tw`min-w-0 flex-1 truncate`}>{name}</span>
     </>
   );

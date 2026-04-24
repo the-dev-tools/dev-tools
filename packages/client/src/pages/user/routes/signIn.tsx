@@ -40,10 +40,8 @@ function RouteComponent() {
       >
         <Logo className={tw`size-20`} />
 
-        <div className={tw`mt-10 text-xl leading-6 font-semibold tracking-tight`}>Welcome to DevTools</div>
-        <div className={tw`mt-1 text-md leading-5 tracking-tight text-on-neutral-low`}>
-          Please enter your account details
-        </div>
+        <div className={tw`mt-10 text-xl/6 font-semibold tracking-tight`}>Welcome to DevTools</div>
+        <div className={tw`mt-1 text-md/5 tracking-tight text-on-neutral-low`}>Please enter your account details</div>
 
         <TextInputField
           className={tw`mt-6 w-full`}
@@ -65,7 +63,7 @@ function RouteComponent() {
           Login
         </Button>
 
-        <div className={tw`mt-4 text-md leading-5 font-medium tracking-tight`}>
+        <div className={tw`mt-4 text-md/5 font-medium tracking-tight`}>
           {"Don't have an account? "}
 
           <RouteLink
