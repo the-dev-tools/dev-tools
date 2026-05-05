@@ -416,6 +416,9 @@ func processForStructStep(step *YamlStepFor, nodeID, flowID idwrap.IDWrap, resul
 		FlowNodeID: nodeID,
 		IterCount:  iterCount,
 	}
+	if step.BreakCondition != "" {
+		forNode.Condition.Comparisons.Expression = step.BreakCondition
+	}
 	result.FlowForNodes = append(result.FlowForNodes, forNode)
 	return nil
 }
@@ -432,6 +435,9 @@ func processForEachStructStep(step *YamlStepForEach, nodeID, flowID idwrap.IDWra
 	forEachNode := mflow.NodeForEach{
 		FlowNodeID:     nodeID,
 		IterExpression: step.Items,
+	}
+	if step.BreakCondition != "" {
+		forEachNode.Condition.Comparisons.Expression = step.BreakCondition
 	}
 	result.FlowForEachNodes = append(result.FlowForEachNodes, forEachNode)
 	return nil

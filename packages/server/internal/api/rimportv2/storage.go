@@ -15,6 +15,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
@@ -44,6 +45,17 @@ type DefaultImporter struct {
 	varService                senv.VariableService
 	harTranslator             *defaultHARTranslator
 	dedup                     *Deduplicator
+	// mutationPublisher fans out post-commit events for real-time UI sync.
+	// Set via SetMutationPublisher; nil-safe (no events fire when unset).
+	mutationPublisher mutation.Publisher
+}
+
+// SetMutationPublisher registers the publisher used to dispatch sync events
+// after a successful import. Wired in serverrun once both the flow and HTTP
+// services have been constructed (their MutationPublisher() methods route to
+// the right streamers).
+func (imp *DefaultImporter) SetMutationPublisher(p mutation.Publisher) {
+	imp.mutationPublisher = p
 }
 
 // NewImporter creates a new DefaultImporter with service dependencies
@@ -710,29 +722,12 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txNodeAIWriter := sflow.NewNodeAIWriter(tx)
 	txFlowVariableWriter := sflow.NewFlowVariableWriter(tx)
 
-	// 2.1 Update IDs and Store HTTP Requests
-	for i := range results.HTTPRequests {
-		req := &results.HTTPRequests[i]
-		oldID := req.ID
-		newID := httpIDMap[oldID]
-		hash := httpContentHashMap[oldID]
-		req.ContentHash = &hash
-
-		if req.ParentHttpID != nil {
-			if mappedParent, ok := httpIDMap[*req.ParentHttpID]; ok {
-				req.ParentHttpID = &mappedParent
-			}
-		}
-
-		if !deduplicatedHttpIDs[newID] {
-			if err := txHttpService.Create(ctx, req); err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to store HTTP request %s: %w", req.Name, err)
-			}
-		}
-		req.ID = newID
-	}
-
-	// 2.2 Update IDs and Store Files
+	// 2.1 Update IDs and store Files first.
+	// File rows must exist before HTTP rows because http.folder_id has a
+	// FOREIGN KEY constraint on files(id). For YAML imports with GenerateFiles=true,
+	// each flow's HTTP requests reference the flow's folder file by ID — if we
+	// inserted HTTP first, SQLite would fire FK 787 (constraint failed) because
+	// the folder row doesn't exist yet.
 	for i := range results.Files {
 		file := &results.Files[i]
 		oldID := file.ID
@@ -757,14 +752,31 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		file.ID = newID
 	}
 
-	// 2.3 Update HTTP FolderIDs
+	// 2.2 Update IDs and Store HTTP Requests
 	for i := range results.HTTPRequests {
 		req := &results.HTTPRequests[i]
+		oldID := req.ID
+		newID := httpIDMap[oldID]
+		hash := httpContentHashMap[oldID]
+		req.ContentHash = &hash
+
+		if req.ParentHttpID != nil {
+			if mappedParent, ok := httpIDMap[*req.ParentHttpID]; ok {
+				req.ParentHttpID = &mappedParent
+			}
+		}
 		if req.FolderID != nil {
 			if newFolderID, ok := fileIDMap[*req.FolderID]; ok {
 				req.FolderID = &newFolderID
 			}
 		}
+
+		if !deduplicatedHttpIDs[newID] {
+			if err := txHttpService.Create(ctx, req); err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to store HTTP request %s: %w", req.Name, err)
+			}
+		}
+		req.ID = newID
 	}
 
 	// 2.4 Update IDs in Child Entities and Store
@@ -971,7 +983,211 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		return nil, nil, nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Publish sync events so the desktop UI's TanStack DB collections refresh
+	// without requiring the user to reopen the workspace. Imports historically
+	// wrote rows but never fired events, leaving e.g. For-node iteration count
+	// and break expression invisible until a manual refresh.
+	if imp.mutationPublisher != nil {
+		if events := buildImportSyncEvents(results); len(events) > 0 {
+			imp.mutationPublisher.PublishAll(events)
+		}
+	}
+
 	return deduplicatedFileIDs, deduplicatedHttpIDs, storedCreatedVars, storedUpdatedVars, nil
+}
+
+// buildImportSyncEvents converts a freshly-stored TranslationResult into the
+// mutation event stream the per-domain publishers (rflowv2, rhttp) understand.
+// IDs in `results` have already been remapped to their final values during the
+// transaction. Only entity types currently routed by an existing publisher are
+// emitted — files/environments/credentials are skipped for now (their pages
+// already poll on focus, so the gap is less visible).
+func buildImportSyncEvents(results *TranslationResult) []mutation.Event {
+	if results == nil {
+		return nil
+	}
+	wsID := results.WorkspaceID
+
+	// Map flow_node_id → flow_id so per-type configs (For, ForEach, JS, …) can
+	// emit with the right ParentID, which the publishers use as their topic key.
+	nodeFlowID := make(map[idwrap.IDWrap]idwrap.IDWrap, len(results.Nodes))
+	for _, n := range results.Nodes {
+		nodeFlowID[n.ID] = n.FlowID
+	}
+
+	events := make([]mutation.Event, 0, 64)
+
+	for _, f := range results.Flows {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlow,
+			Op:          mutation.OpInsert,
+			ID:          f.ID,
+			WorkspaceID: wsID,
+			Payload:     f,
+		})
+	}
+	for _, n := range results.Nodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNode,
+			Op:          mutation.OpInsert,
+			ID:          n.ID,
+			WorkspaceID: wsID,
+			ParentID:    n.FlowID,
+			Payload:     n,
+		})
+	}
+	for _, e := range results.Edges {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowEdge,
+			Op:          mutation.OpInsert,
+			ID:          e.ID,
+			WorkspaceID: wsID,
+			ParentID:    e.FlowID,
+			Payload:     e,
+		})
+	}
+	for _, n := range results.RequestNodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNodeHTTP,
+			Op:          mutation.OpInsert,
+			ID:          n.FlowNodeID,
+			WorkspaceID: wsID,
+			ParentID:    nodeFlowID[n.FlowNodeID],
+			Payload:     n,
+		})
+	}
+	for _, n := range results.ForNodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNodeFor,
+			Op:          mutation.OpInsert,
+			ID:          n.FlowNodeID,
+			WorkspaceID: wsID,
+			ParentID:    nodeFlowID[n.FlowNodeID],
+			Payload:     n,
+		})
+	}
+	for _, n := range results.ForEachNodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNodeForEach,
+			Op:          mutation.OpInsert,
+			ID:          n.FlowNodeID,
+			WorkspaceID: wsID,
+			ParentID:    nodeFlowID[n.FlowNodeID],
+			Payload:     n,
+		})
+	}
+	for _, n := range results.JSNodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNodeJS,
+			Op:          mutation.OpInsert,
+			ID:          n.FlowNodeID,
+			WorkspaceID: wsID,
+			ParentID:    nodeFlowID[n.FlowNodeID],
+			Payload:     n,
+		})
+	}
+	for _, n := range results.ConditionNodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNodeCondition,
+			Op:          mutation.OpInsert,
+			ID:          n.FlowNodeID,
+			WorkspaceID: wsID,
+			ParentID:    nodeFlowID[n.FlowNodeID],
+			Payload:     n,
+		})
+	}
+	for _, n := range results.AINodes {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowNodeAI,
+			Op:          mutation.OpInsert,
+			ID:          n.FlowNodeID,
+			WorkspaceID: wsID,
+			ParentID:    nodeFlowID[n.FlowNodeID],
+			Payload:     n,
+		})
+	}
+	for _, v := range results.FlowVariables {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityFlowVariable,
+			Op:          mutation.OpInsert,
+			ID:          v.ID,
+			WorkspaceID: wsID,
+			ParentID:    v.FlowID,
+			Payload:     v,
+		})
+	}
+
+	for _, h := range results.HTTPRequests {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTP,
+			Op:          mutation.OpInsert,
+			ID:          h.ID,
+			WorkspaceID: wsID,
+			Payload:     h,
+		})
+	}
+	for _, h := range results.Headers {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTPHeader,
+			Op:          mutation.OpInsert,
+			ID:          h.ID,
+			WorkspaceID: wsID,
+			ParentID:    h.HttpID,
+			Payload:     h,
+		})
+	}
+	for _, p := range results.SearchParams {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTPParam,
+			Op:          mutation.OpInsert,
+			ID:          p.ID,
+			WorkspaceID: wsID,
+			ParentID:    p.HttpID,
+			Payload:     p,
+		})
+	}
+	for _, b := range results.BodyForms {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTPBodyForm,
+			Op:          mutation.OpInsert,
+			ID:          b.ID,
+			WorkspaceID: wsID,
+			ParentID:    b.HttpID,
+			Payload:     b,
+		})
+	}
+	for _, b := range results.BodyUrlencoded {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTPBodyURL,
+			Op:          mutation.OpInsert,
+			ID:          b.ID,
+			WorkspaceID: wsID,
+			ParentID:    b.HttpID,
+			Payload:     b,
+		})
+	}
+	for _, b := range results.BodyRaw {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTPBodyRaw,
+			Op:          mutation.OpInsert,
+			ID:          b.ID,
+			WorkspaceID: wsID,
+			ParentID:    b.HttpID,
+			Payload:     b,
+		})
+	}
+	for _, a := range results.Asserts {
+		events = append(events, mutation.Event{
+			Entity:      mutation.EntityHTTPAssert,
+			Op:          mutation.OpInsert,
+			ID:          a.ID,
+			WorkspaceID: wsID,
+			ParentID:    a.HttpID,
+			Payload:     a,
+		})
+	}
+
+	return events
 }
 
 func storeUnifiedChildren(

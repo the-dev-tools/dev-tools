@@ -1,0 +1,27 @@
+workspace_name: Loop Break Smoke Test
+run:
+  - flow: BreakWhenResponseMatches
+  - flow: ToleratesUndefinedIdentifier
+flows:
+  - name: BreakWhenResponseMatches
+    steps:
+      - for:
+          name: BreakLoop
+          iter_count: 10
+          loop: FetchUser
+          break_condition: FetchUser.response.body.username == "Bret"
+      - request:
+          name: FetchUser
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users/1
+  - name: ToleratesUndefinedIdentifier
+    steps:
+      - for:
+          name: ToleranceLoop
+          iter_count: 3
+          loop: FetchPost
+          break_condition: nonexistent.var > 0
+      - request:
+          name: FetchPost
+          method: GET
+          url: https://jsonplaceholder.typicode.com/posts/1

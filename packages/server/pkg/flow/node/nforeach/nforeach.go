@@ -94,6 +94,32 @@ func (nr *NodeForEach) GetOutputVariables() []string {
 	}
 }
 
+// checkBreakCondition evaluates the break condition against the current VarMap
+// and returns true if the loop should exit. It is invoked AFTER each iteration's
+// child nodes finish, so the expression sees outputs produced during that iteration
+// (e.g. {{ http_1.response.body.done }}). Eval errors are treated as "don't break"
+// — see the matching helper in nfor.go for the rationale (loops are bounded by the
+// iterator length, so the worst case is running to completion rather than failing
+// the entire flow on a transient missing identifier).
+func (nr *NodeForEach) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) bool {
+	conditionExpr := nr.Condition.Comparisons.Expression
+	if conditionExpr == "" {
+		return false
+	}
+
+	varMapCopy := node.DeepCopyVarMap(req)
+	env := expression.NewUnifiedEnv(varMapCopy)
+	if req.VariableTracker != nil {
+		env = env.WithTracking(req.VariableTracker)
+	}
+
+	shouldBreak, err := env.EvalBool(ctx, conditionExpr)
+	if err != nil {
+		return false
+	}
+	return shouldBreak
+}
+
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopTargets := mflow.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, mflow.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
@@ -119,29 +145,8 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		}
 	}
 
-	breakExpr := nr.Condition.Comparisons.Expression
-
 	processNode := func(iterationIndex int) node.FlowNodeResult {
 		for _, nextNodeID := range loopTargets {
-			if breakExpr != "" {
-				// Evaluate break condition (pure expr-lang, no {{ }} interpolation)
-				// Re-create env to get fresh variable state for this iteration
-				iterVarMapCopy := node.DeepCopyVarMap(req)
-				iterEnv := expression.NewUnifiedEnv(iterVarMapCopy)
-				if req.VariableTracker != nil {
-					iterEnv = iterEnv.WithTracking(req.VariableTracker)
-				}
-				ok, err := iterEnv.EvalBool(ctx, breakExpr)
-				if err != nil {
-					return node.FlowNodeResult{
-						Err: err,
-					}
-				}
-				if !ok {
-					break
-				}
-			}
-
 			// Create iteration context for child nodes
 			var parentPath []int
 			var parentNodes []idwrap.IDWrap
@@ -315,6 +320,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					goto ExitSeq // Fail entire flow
 				}
 			}
+
+			// Evaluate break condition AFTER child execution so the expression
+			// can reference outputs written during this iteration.
+			if nr.checkBreakCondition(ctx, req) {
+				goto ExitSeq
+			}
 		}
 
 	ExitSeq:
@@ -464,6 +475,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					goto ExitSeq2 // Fail entire flow
 				}
 			}
+
+			// Evaluate break condition AFTER child execution so the expression
+			// can reference outputs written during this iteration.
+			if nr.checkBreakCondition(ctx, req) {
+				goto ExitSeq2
+			}
 		}
 
 	ExitSeq2:
@@ -565,28 +582,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	breakExpr := nr.Condition.Comparisons.Expression
-
 	// Define the function to process the child node(s) within the loop
 	processNode := func(iterationIndex int) node.FlowNodeResult {
 		for _, nextNodeID := range loopTargets {
-			// Evaluate the break condition if it exists
-			if breakExpr != "" {
-				// Re-create env to get fresh variable state for this iteration
-				iterVarMapCopy := node.DeepCopyVarMap(req)
-				iterEnv := expression.NewUnifiedEnv(iterVarMapCopy)
-				if req.VariableTracker != nil {
-					iterEnv = iterEnv.WithTracking(req.VariableTracker)
-				}
-				ok, err := iterEnv.EvalBool(ctx, breakExpr)
-				if err != nil {
-					return node.FlowNodeResult{Err: err}
-				}
-				if !ok {
-					break
-				}
-			}
-
 			// Create iteration context for child nodes
 			var parentPath []int
 			var parentNodes []idwrap.IDWrap
@@ -759,6 +757,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						goto ExitSeqAsync // Exit the loop immediately on error
 					}
 				}
+
+				// Evaluate break condition AFTER child execution so the expression
+				// can reference outputs written during this iteration.
+				if nr.checkBreakCondition(ctx, req) {
+					goto ExitSeqAsync
+				}
 			}
 
 		ExitSeqAsync:
@@ -900,6 +904,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						loopError = loopResult.Err
 						goto ExitSeq2Async
 					}
+				}
+
+				// Evaluate break condition AFTER child execution so the expression
+				// can reference outputs written during this iteration.
+				if nr.checkBreakCondition(ctx, req) {
+					goto ExitSeq2Async
 				}
 			}
 

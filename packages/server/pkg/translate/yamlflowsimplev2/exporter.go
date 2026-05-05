@@ -479,6 +479,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				forStep := &YamlStepFor{
 					YamlStepCommon: common,
 					IterCount:      fmt.Sprintf("%d", forNode.IterCount),
+					BreakCondition: forNode.Condition.Comparisons.Expression,
 				}
 				// Removed legacy loop field
 				stepWrapper.For = forStep
@@ -491,6 +492,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				forEachStep := &YamlStepForEach{
 					YamlStepCommon: common,
 					Items:          forEachNode.IterExpression,
+					BreakCondition: forEachNode.Condition.Comparisons.Expression,
 				}
 				// Removed legacy loop field
 				stepWrapper.ForEach = forEachStep

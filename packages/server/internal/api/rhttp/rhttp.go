@@ -340,6 +340,13 @@ func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Se
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
+// MutationPublisher returns a unified publisher for HTTP-related mutation events.
+// Exported so other services (e.g. the workspace importer) can dispatch HTTP
+// sync events through the same machinery.
+func (s *HttpServiceRPC) MutationPublisher() mutation.Publisher {
+	return s.mutationPublisher()
+}
+
 // mutationPublisher returns a unified publisher for HTTP-related mutation events.
 func (s *HttpServiceRPC) mutationPublisher() mutation.Publisher {
 	return &rhttpPublisher{

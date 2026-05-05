@@ -683,6 +683,13 @@ func CreateService(srv *FlowServiceV2RPC, options []connect.HandlerOption) (*api
 // Ensure FlowServiceV2RPC implements the generated interface.
 var _ flowv1connect.FlowServiceHandler = (*FlowServiceV2RPC)(nil)
 
+// MutationPublisher returns a unified publisher for flow-related mutation events.
+// Exported so other services (e.g. the workspace importer) can dispatch flow
+// node/edge sync events through the same machinery.
+func (s *FlowServiceV2RPC) MutationPublisher() mutation.Publisher {
+	return s.mutationPublisher()
+}
+
 // mutationPublisher returns a unified publisher for flow-related mutation events.
 func (s *FlowServiceV2RPC) mutationPublisher() mutation.Publisher {
 	return &rflowPublisher{

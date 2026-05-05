@@ -131,14 +131,16 @@ type YamlStepIf struct {
 
 type YamlStepFor struct {
 	YamlStepCommon `yaml:",inline"`
-	IterCount      string `yaml:"iter_count"` // Expression or number
-	Loop           string `yaml:"loop,omitempty"`
+	IterCount      string `yaml:"iter_count"`                // Expression or number
+	Loop           string `yaml:"loop,omitempty"`            //
+	BreakCondition string `yaml:"break_condition,omitempty"` // expr-lang expression; loop exits when true (evaluated AFTER each iteration's children)
 }
 
 type YamlStepForEach struct {
 	YamlStepCommon `yaml:",inline"`
 	Items          string `yaml:"items"` // Expression
 	Loop           string `yaml:"loop,omitempty"`
+	BreakCondition string `yaml:"break_condition,omitempty"` // expr-lang expression; loop exits when true (evaluated AFTER each iteration's children)
 }
 
 type YamlStepJS struct {

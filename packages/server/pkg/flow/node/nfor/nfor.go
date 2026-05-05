@@ -84,29 +84,33 @@ func (nr *NodeFor) GetOutputVariables() []string {
 	}
 }
 
-// checkBreakCondition evaluates the break condition and returns (shouldBreak, error)
-func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) (bool, error) {
+// checkBreakCondition evaluates the break condition against the current VarMap
+// and returns true if the loop should exit. It is invoked AFTER each iteration's
+// child nodes finish, so the expression sees outputs produced during that iteration
+// (e.g. {{ http_1.response.body.done }}).
+//
+// Eval errors (e.g. the expression references a variable that isn't in VarMap
+// because an upstream node was skipped or an IGNORE'd child failed before writing
+// its output) are treated as "don't break" rather than fatal. Loops are bounded
+// by IterCount, so the worst case is running to the iteration cap — strictly
+// safer than aborting the entire flow on a transient missing identifier.
+func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) bool {
 	conditionExpr := nr.Condition.Comparisons.Expression
 	if conditionExpr == "" {
-		return false, nil // No condition, don't break
+		return false
 	}
 
-	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-
-	// Build unified environment with optional tracking
 	env := expression.NewUnifiedEnv(varMapCopy)
 	if req.VariableTracker != nil {
 		env = env.WithTracking(req.VariableTracker)
 	}
 
-	// Evaluate the condition expression (pure expr-lang, no {{ }} interpolation)
 	shouldBreak, err := env.EvalBool(ctx, conditionExpr)
 	if err != nil {
-		return false, fmt.Errorf("failed to evaluate break condition '%s': %w", conditionExpr, err)
+		return false
 	}
-
-	return shouldBreak, nil
+	return shouldBreak
 }
 
 func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
@@ -134,18 +138,6 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			return node.FlowNodeResult{
 				Err: err,
 			}
-		}
-
-		// Check break condition AFTER setting index variable, BEFORE executing iteration
-		shouldBreak, err := nr.checkBreakCondition(ctx, req)
-		if err != nil {
-			return node.FlowNodeResult{
-				Err: err,
-			}
-		}
-		if shouldBreak {
-			// Break condition met - exit loop
-			goto Exit
 		}
 
 		// Store execution ID and iteration context for later update
@@ -266,6 +258,12 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				goto Exit // Fail entire flow
 			}
 		}
+
+		// Evaluate break condition AFTER child execution so the expression can
+		// reference outputs written during this iteration (e.g. http_1.response).
+		if nr.checkBreakCondition(ctx, req) {
+			goto Exit
+		}
 	}
 
 Exit:
@@ -325,19 +323,6 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				Err: err,
 			}
 			return
-		}
-
-		// Check break condition AFTER setting index variable, BEFORE executing iteration
-		shouldBreak, err := nr.checkBreakCondition(ctx, req)
-		if err != nil {
-			resultChan <- node.FlowNodeResult{
-				Err: err,
-			}
-			return
-		}
-		if shouldBreak {
-			// Break condition met - exit loop
-			goto Exit
 		}
 
 		// Store execution ID and iteration context for later update
@@ -457,6 +442,12 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				loopError = iterationError
 				goto Exit // Fail entire flow
 			}
+		}
+
+		// Evaluate break condition AFTER child execution so the expression can
+		// reference outputs written during this iteration.
+		if nr.checkBreakCondition(ctx, req) {
+			goto Exit
 		}
 	}
 

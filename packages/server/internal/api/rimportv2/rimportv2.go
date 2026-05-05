@@ -15,6 +15,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rflowv2"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/eventstream"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
@@ -275,6 +276,16 @@ func CreateImportV2Service(srv *ImportV2RPC, options []connect.HandlerOption) (*
 // ImportUnifiedInternal exposes the internal unified import logic for other server components
 func (h *ImportV2RPC) ImportUnifiedInternal(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
 	return h.service.ImportUnified(ctx, req)
+}
+
+// SetMutationPublisher registers the publisher used to dispatch sync events
+// for entities created during an import. Without it, the desktop UI's
+// TanStack DB collections only see the new rows after a manual refresh.
+// Wired in serverrun once both the flow + http services have been built.
+func (h *ImportV2RPC) SetMutationPublisher(p mutation.Publisher) {
+	if di, ok := h.service.importer.(*DefaultImporter); ok {
+		di.SetMutationPublisher(p)
+	}
 }
 
 // Import implements the Import RPC method from the TypeSpec interface

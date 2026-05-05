@@ -536,6 +536,16 @@ func Run() error {
 	})
 	newServiceManager.addService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
+	// Wire workspace-import sync events through the same publishers the
+	// per-entity RPCs use, so the desktop UI's TanStack DB collections refresh
+	// immediately after an import (instead of waiting for a manual reload).
+	// Has to happen after both flowSrvV2 and httpSrv exist — the publishers
+	// are methods on those services.
+	importV2Srv.SetMutationPublisher(mutation.MultiPublisher{
+		flowSrvV2.MutationPublisher(),
+		httpSrv.MutationPublisher(),
+	})
+
 	logSrv := rlog.New(streamers.Log)
 	newServiceManager.addService(rlog.CreateService(logSrv, optionsAll))
 

@@ -290,3 +290,96 @@ func TestForeach_RunSync_TracksIterPath(t *testing.T) {
 	require.Contains(t, readVars, "httpNode.response.items",
 		"Expected 'httpNode.response.items' to be tracked for FOREACH iter path")
 }
+
+// valueWritingNode is a child node for tests: each call writes
+// `<n.name>.value = <runs>` to the parent VarMap (mimicking how a real
+// HTTP/JS node makes its output visible to a loop's break expression).
+type valueWritingNode struct {
+	id   idwrap.IDWrap
+	name string
+	runs *int
+}
+
+func (n valueWritingNode) GetID() idwrap.IDWrap { return n.id }
+func (n valueWritingNode) GetName() string      { return n.name }
+
+func (n valueWritingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
+	if n.runs != nil {
+		*n.runs++
+	}
+	_ = node.WriteNodeVar(req, n.name, "value", *n.runs)
+	next := mflow.GetNextNodeID(req.EdgeSourceMap, n.id, mflow.HandleThen)
+	return node.FlowNodeResult{NextNodeID: next}
+}
+
+func (n valueWritingNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	resultChan <- n.RunSync(ctx, req)
+}
+
+// TestNodeForEachBreakConditionSeesIterationOutputs verifies that the
+// break expression is evaluated AFTER each iteration's children run, so it
+// can reference outputs the children just produced. Also verifies that the
+// "true means break" semantics matches NodeFor (was previously inverted).
+func TestNodeForEachBreakConditionSeesIterationOutputs(t *testing.T) {
+	loopID := idwrap.NewNow()
+	childID := idwrap.NewNow()
+
+	cond := mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "child.value >= 3"}}
+	loop := New(loopID, "ForEachNode", "items", 0, cond, mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+
+	runs := 0
+	child := valueWritingNode{id: childID, name: "child", runs: &runs}
+
+	edgeMap := mflow.EdgesMap{
+		loopID: {mflow.HandleLoop: []idwrap.IDWrap{childID}},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID},
+		map[idwrap.IDWrap]node.FlowNode{loopID: loop, childID: child}, edgeMap, 0, nil)
+
+	statusCh := make(chan runner.FlowNodeStatus, 64)
+	flowCh := make(chan runner.FlowStatus, 4)
+
+	require.NoError(t, flowRunner.Run(context.Background(), statusCh, flowCh, map[string]any{
+		"items": []any{"a", "b", "c", "d", "e", "f"},
+	}))
+	for range statusCh {
+	}
+	for range flowCh {
+	}
+
+	require.Equal(t, 3, runs, "child should run 3 times: iter0 writes 1, iter1 writes 2, iter2 writes 3 → break")
+}
+
+// TestNodeForEachBreakConditionToleratesUndefinedIdentifier verifies that an
+// expression referencing a not-yet-written variable doesn't crash the flow.
+func TestNodeForEachBreakConditionToleratesUndefinedIdentifier(t *testing.T) {
+	loopID := idwrap.NewNow()
+	childID := idwrap.NewNow()
+
+	cond := mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "nonexistent.value > 0"}}
+	loop := New(loopID, "ForEachNode", "items", 0, cond, mflow.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+
+	runs := 0
+	child := valueWritingNode{id: childID, name: "child", runs: &runs}
+
+	edgeMap := mflow.EdgesMap{
+		loopID: {mflow.HandleLoop: []idwrap.IDWrap{childID}},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), []idwrap.IDWrap{loopID},
+		map[idwrap.IDWrap]node.FlowNode{loopID: loop, childID: child}, edgeMap, 0, nil)
+
+	statusCh := make(chan runner.FlowNodeStatus, 64)
+	flowCh := make(chan runner.FlowStatus, 4)
+
+	require.NoError(t, flowRunner.Run(context.Background(), statusCh, flowCh, map[string]any{
+		"items": []any{"a", "b", "c", "d", "e"},
+	}))
+	for range statusCh {
+	}
+	for range flowCh {
+	}
+
+	require.Equal(t, 5, runs, "loop should iterate over all 5 items when break expression references an undefined identifier")
+}
