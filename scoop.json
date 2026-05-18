@@ -3,66 +3,66 @@
         {
             "Name": "main",
             "Source": "https://github.com/ScoopInstaller/Main.git",
-            "Updated": "2026-03-01T20:30:21+00:00",
-            "Manifests": 1449
+            "Updated": "2026-05-17T20:35:39+00:00",
+            "Manifests": 1540
         }
     ],
     "apps": [
         {
             "Info": "",
-            "Name": "7zip",
-            "Updated": "2026-03-02T00:11:42.5461877+00:00",
+            "Version": "26.01",
             "Source": "main",
-            "Version": "26.00"
+            "Updated": "2026-05-11T00:26:23.4093547+00:00",
+            "Name": "7zip"
         },
         {
             "Info": "",
-            "Name": "gcc",
-            "Updated": "2026-03-02T00:11:55.5410061+00:00",
+            "Version": "15.2.0",
             "Source": "main",
-            "Version": "15.2.0"
+            "Updated": "2026-05-11T00:26:39.9068272+00:00",
+            "Name": "gcc"
         },
         {
             "Info": "",
-            "Name": "go",
-            "Updated": "2026-03-02T00:12:48.7592051+00:00",
+            "Version": "1.26.3",
             "Source": "main",
-            "Version": "1.26.0"
+            "Updated": "2026-05-11T00:27:49.2790404+00:00",
+            "Name": "go"
         },
         {
             "Info": "",
-            "Name": "jq",
-            "Updated": "2026-03-02T00:12:49.0700649+00:00",
+            "Version": "1.8.1",
             "Source": "main",
-            "Version": "1.8.1"
+            "Updated": "2026-05-11T00:27:49.6115233+00:00",
+            "Name": "jq"
         },
         {
             "Info": "",
-            "Name": "mingw",
-            "Updated": "2026-03-02T00:13:39.1655567+00:00",
+            "Version": "16.1.0-rt_v14-rev0",
             "Source": "main",
-            "Version": "15.2.0-rt_v13-rev1"
+            "Updated": "2026-05-11T00:28:39.4266263+00:00",
+            "Name": "mingw"
         },
         {
             "Info": "",
-            "Name": "nodejs",
-            "Updated": "2026-03-02T00:13:47.8899354+00:00",
+            "Version": "26.1.0",
             "Source": "main",
-            "Version": "25.7.0"
+            "Updated": "2026-05-11T00:28:48.3353233+00:00",
+            "Name": "nodejs"
         },
         {
             "Info": "",
-            "Name": "pnpm",
-            "Updated": "2026-03-02T00:13:48.5868567+00:00",
+            "Version": "11.1.2",
             "Source": "main",
-            "Version": "10.30.3"
+            "Updated": "2026-05-18T00:30:22.5535884+00:00",
+            "Name": "pnpm"
         },
         {
             "Info": "",
-            "Name": "task",
-            "Updated": "2026-03-02T00:13:49.2456734+00:00",
+            "Version": "3.51.1",
             "Source": "main",
-            "Version": "3.48.0"
+            "Updated": "2026-05-18T00:30:24.0223417+00:00",
+            "Name": "task"
         }
     ]
 }
