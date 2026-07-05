@@ -1,3 +1,15 @@
+## 1.0.3 (2026-07-05)
+
+### 🩹 Fixes
+
+- ### Bug fixes ([9ba98e85](https://github.com/the-dev-tools/dev-tools/commit/9ba98e85))
+
+  - **Windows binaries restored.** A stale `@nx/eslint` patch made dependency installation fail hard on Windows CI, so 1.0.2 shipped without `win32-x64`/`win32-ia32` binaries. The dead patch is removed; this release ships all platforms again. Includes the file `display_order` repair migration from 1.0.2 ([#44](https://github.com/the-dev-tools/dev-tools/issues/44)).
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.0.2 (2026-07-05)
 
 ### 🩹 Fixes
