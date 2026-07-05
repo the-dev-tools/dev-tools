@@ -52,13 +52,6 @@
         },
         {
             "Info": "",
-            "Name": "pnpm",
-            "Updated": "2026-03-02T00:13:48.5868567+00:00",
-            "Source": "main",
-            "Version": "10.30.3"
-        },
-        {
-            "Info": "",
             "Name": "task",
             "Updated": "2026-03-02T00:13:49.2456734+00:00",
             "Source": "main",

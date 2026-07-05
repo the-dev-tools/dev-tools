@@ -18,15 +18,6 @@ runs:
     - shell: powershell
       run: scoop import .\scoop.json
 
-    # Pin pnpm to the same version as the Nix flake used on all other
-    # platforms. `scoop import` ignores the versions recorded in scoop.json
-    # and installs the bucket's latest, which drifts across major versions
-    # (pnpm 11 rejects installs that pnpm 10 accepts).
-    - shell: powershell
-      run: |
-        if (scoop list | Where { $_.Name -eq 'pnpm' }) { scoop uninstall pnpm }
-        scoop install pnpm@10.15.1
-
     # Export additional paths which the setup action does not account for
     #
     # Why in reverse? Appending a directory to $GITHUB_PATH causes that
@@ -40,6 +31,21 @@ runs:
           Where { $_ } |
           &{ [Collections.Stack]@($input) } |
           Out-File -FilePath $env:GITHUB_PATH -Encoding ascii -Force
+
+    # Pin pnpm to the same version as the Nix flake used on all other
+    # platforms. Scoop always installs the bucket's latest, which drifts
+    # across major versions (pnpm 11 rejects installs that pnpm 10 accepts)
+    # and cannot install old versions (the current manifest's artifact
+    # layout does not exist for 10.x releases). Uninstall any pnpm left in
+    # a cached scoop dir so its shim cannot shadow the pinned binary.
+    - shell: powershell
+      run: |
+        if (scoop list | Where { $_.Name -eq 'pnpm' }) { scoop uninstall pnpm }
+        New-Item -ItemType Directory -Force $env:RUNNER_TEMP\pnpm | Out-Null
+        Invoke-WebRequest `
+          https://github.com/pnpm/pnpm/releases/download/v10.15.1/pnpm-win-x64.exe `
+          -OutFile $env:RUNNER_TEMP\pnpm\pnpm.exe
+        echo $env:RUNNER_TEMP\pnpm >> $env:GITHUB_PATH
 
     - shell: powershell
       run: scoop shim add gha-scripts pnpm '--' run --filter="*/gha-scripts" cli
