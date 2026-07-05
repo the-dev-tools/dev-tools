@@ -25,6 +25,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check Apple notarization access
+        if: runner.os == 'macOS'
+        env:
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          for name in APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing Apple notarization secret::${name} is required for macOS release notarization."
+              exit 1
+            fi
+          done
+
+          if ! output=$(xcrun notarytool history \
+            --apple-id "${APPLE_ID}" \
+            --password "${APPLE_APP_SPECIFIC_PASSWORD}" \
+            --team-id "${APPLE_TEAM_ID}" \
+            --output-format json 2>&1); then
+            echo "${output}"
+            echo "::error title=Apple notarization unavailable::notarytool rejected the configured Apple developer account (see output above). A common cause is an expired or unsigned Apple Developer Program agreement. Fix the account state, then rerun the release."
+            exit 1
+          fi
+
       - name: Setup runner environment
         uses: ./.github/actions/setup
 
