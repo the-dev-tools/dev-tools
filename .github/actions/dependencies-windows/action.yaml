@@ -18,6 +18,15 @@ runs:
     - shell: powershell
       run: scoop import .\scoop.json
 
+    # Pin pnpm to the same version as the Nix flake used on all other
+    # platforms. `scoop import` ignores the versions recorded in scoop.json
+    # and installs the bucket's latest, which drifts across major versions
+    # (pnpm 11 rejects installs that pnpm 10 accepts).
+    - shell: powershell
+      run: |
+        if (scoop list | Where { $_.Name -eq 'pnpm' }) { scoop uninstall pnpm }
+        scoop install pnpm@10.15.1
+
     # Export additional paths which the setup action does not account for
     #
     # Why in reverse? Appending a directory to $GITHUB_PATH causes that
