@@ -1,3 +1,15 @@
+## 1.0.2 (2026-07-05)
+
+### 🩹 Fixes
+
+- ### Bug fixes ([#44](https://github.com/the-dev-tools/dev-tools/issues/44))
+
+  - **Startup migration repairs pathological file ordering.** The embedded server now repacks `files.display_order` values that converged to float32 MAX (a bug in desktop order generation) back to small sequential numbers, preserving relative order. Databases shared with a broken desktop workspace recover automatically. ([#44](https://github.com/the-dev-tools/dev-tools/issues/44))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.0.1 (2026-05-05)
 
 ### 🩹 Fixes
