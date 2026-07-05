@@ -674,7 +674,7 @@ func Run() error {
 	proxyMux := http.NewServeMux()
 	proxyMux.Handle("/ws-proxy", wsSrv.WebSocketProxyHandler())
 
-	wsProxyListener, err := net.Listen("tcp", "localhost:0")
+	wsProxyListener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "localhost:0")
 	if err != nil {
 		slog.Warn("Failed to start WebSocket proxy listener", "error", err)
 	} else {
