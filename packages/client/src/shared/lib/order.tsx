@@ -1,7 +1,6 @@
 import { Collection, gt, lt } from '@tanstack/react-db';
 import { Array, Option, pipe, Predicate } from 'effect';
 import { DroppableCollectionReorderEvent } from 'react-aria-components';
-import { MAX_FLOAT } from '../api/protobuf';
 import { queryCollection } from './tanstack-db';
 
 interface OrderableItem {
@@ -31,8 +30,11 @@ export const handleCollectionReorderBasic =
 
     if (!source || !target || source === target) return;
 
+    // Dropping at either end uses a fixed step instead of the midpoint with a
+    // float extreme — midpoints with ±MAX converge to the float32 limit and
+    // overflow the wire type after a few dozen reorders (issue #44)
     if (dropPosition === 'before') {
-      const beforeTargetOrder = pipe(
+      const newOrder = pipe(
         await queryCollection((_) =>
           _.from({ item: collection })
             .where((_) => lt(_.item?.order, target.order))
@@ -43,14 +45,16 @@ export const handleCollectionReorderBasic =
         ),
         Array.head,
         Option.map((_) => _.order as number),
-        Option.getOrElse(() => MAX_FLOAT * -1),
+        Option.match({
+          onNone: () => target.order - 1,
+          onSome: (beforeTargetOrder) => target.order - (target.order - beforeTargetOrder) / 2,
+        }),
       );
-      const newOrder = target.order - (target.order - beforeTargetOrder) / 2;
       callback(source, newOrder);
     }
 
     if (dropPosition === 'after') {
-      const afterTargetOrder = pipe(
+      const newOrder = pipe(
         await queryCollection((_) =>
           _.from({ item: collection })
             .where((_) => gt(_.item?.order, target.order))
@@ -61,9 +65,11 @@ export const handleCollectionReorderBasic =
         ),
         Array.head,
         Option.map((_) => _.order as number),
-        Option.getOrElse(() => MAX_FLOAT),
+        Option.match({
+          onNone: () => target.order + 1,
+          onSome: (afterTargetOrder) => target.order + (afterTargetOrder - target.order) / 2,
+        }),
       );
-      const newOrder = target.order + (afterTargetOrder - target.order) / 2;
       callback(source, newOrder);
     }
   };
@@ -97,5 +103,5 @@ export const getNextOrder = async <T extends OrderableItem>(collection: Collecti
     Option.getOrElse(() => 0),
   );
 
-  return lastOrder + (MAX_FLOAT - lastOrder) / 2;
+  return lastOrder + 1;
 };

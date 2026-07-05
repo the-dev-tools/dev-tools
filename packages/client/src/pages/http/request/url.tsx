@@ -20,7 +20,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { DeltaResetButton, useDeltaState } from '~/features/delta';
 import { ReferenceField } from '~/features/expression';
-import { MAX_FLOAT, useApiCollection } from '~/shared/api';
+import { useApiCollection } from '~/shared/api';
 import { pick, queryCollection } from '~/shared/lib';
 
 export interface HttpUrlProps {
@@ -120,8 +120,6 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
       Option.getOrElse(() => 0),
     );
 
-    const orderSpacing = (MAX_FLOAT - lastOrder) / (MutableHashSet.size(searchParamSet) + 1);
-
     pipe(
       Array.fromIterable(searchParamSet),
       Array.map((_, index): MessageInitShape<typeof HttpSearchParamInsertSchema> => {
@@ -131,7 +129,7 @@ export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProp
           httpId,
           httpSearchParamId: Ulid.generate().bytes,
           key: separator ? _.slice(0, separator) : _,
-          order: lastOrder + orderSpacing * (index + 1),
+          order: lastOrder + index + 1,
           value: separator ? _.slice(separator + 1) : '',
         };
       }),

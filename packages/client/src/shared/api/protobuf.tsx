@@ -15,11 +15,6 @@ import { StandardSchemaV1 } from '@standard-schema/spec';
 import { Array, Option, pipe, Record, Struct } from 'effect';
 import { files } from '@the-dev-tools/spec/buf/files';
 
-// https://protobuf.dev/programming-guides/proto3/#scalar
-// https://stdlib.io/docs/api/latest/@stdlib/constants/float32/max
-export const MAX_FLOAT = 3.4028234663852886e38;
-export const MAX_DOUBLE = Number.MAX_VALUE;
-
 export const registry = createRegistry(...files);
 
 const validator = createValidator({ registry });

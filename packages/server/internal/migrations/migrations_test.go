@@ -361,10 +361,141 @@ func TestGraphQLDeltaColumnsCreated(t *testing.T) {
 // TestMigrationCount ensures no migrations are accidentally omitted.
 func TestMigrationCount(t *testing.T) {
 	migrations := migrate.List()
-	const expectedCount = 10
+	const expectedCount = 11
 	if len(migrations) != expectedCount {
 		t.Errorf("expected %d registered migrations, got %d — update this count if you added/removed a migration", expectedCount, len(migrations))
 	}
+}
+
+// TestFileDisplayOrderRepacked verifies the display_order repack migration
+// rewrites pathological float32-MAX order values to sequential integers while
+// preserving the relative order of siblings (issue #44).
+func TestFileDisplayOrderRepacked(t *testing.T) {
+	ctx := context.Background()
+
+	db, cleanup, err := sqlitemem.NewSQLiteMem(ctx)
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	t.Cleanup(cleanup)
+
+	cfg := Config{
+		DatabasePath: ":memory:",
+		DataDir:      t.TempDir(),
+	}
+
+	// Run everything up to (and including) the WebSocket migration, i.e. the
+	// state a broken v1.0 database would be in before the repack migration.
+	if err := RunTo(ctx, db, cfg, MigrationAddWebSocketTablesID); err != nil {
+		t.Fatalf("RunTo failed: %v", err)
+	}
+
+	const float32Max = 3.4028234663852886e38
+
+	wsID := []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	if _, err := db.ExecContext(ctx, `INSERT INTO workspaces (id, name) VALUES (?, 'broken')`, wsID); err != nil {
+		t.Fatalf("failed to insert workspace: %v", err)
+	}
+
+	fileID := func(last byte) []byte {
+		return []byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, last}
+	}
+
+	// Root-level siblings, including two rows pegged exactly at float32 MAX.
+	folderID := fileID(2)
+	rootFiles := []struct {
+		id    []byte
+		order float64
+	}{
+		{fileID(1), -1.0},
+		{folderID, 2.0},
+		{fileID(3), 10.0},
+		{fileID(4), float32Max},
+		{fileID(5), float32Max},
+	}
+	for _, f := range rootFiles {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO files (id, workspace_id, content_kind, name, display_order) VALUES (?, ?, 0, 'f', ?)`,
+			f.id, wsID, f.order)
+		if err != nil {
+			t.Fatalf("failed to insert root file: %v", err)
+		}
+	}
+
+	// Children of the folder form an independent sibling group.
+	childFiles := []struct {
+		id    []byte
+		order float64
+	}{
+		{fileID(6), 5.0},
+		{fileID(7), float32Max},
+	}
+	for _, f := range childFiles {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO files (id, workspace_id, parent_id, content_kind, name, display_order) VALUES (?, ?, ?, 0, 'c', ?)`,
+			f.id, wsID, folderID, f.order)
+		if err != nil {
+			t.Fatalf("failed to insert child file: %v", err)
+		}
+	}
+
+	// Run the remaining migrations, including the repack.
+	if err := Run(ctx, db, cfg); err != nil {
+		t.Fatalf("failed to run migrations: %v", err)
+	}
+
+	assertGroupRepacked := func(name string, where string, args []any, wantIDs [][]byte) {
+		t.Helper()
+		query := `SELECT id, display_order FROM files WHERE ` + where + ` ORDER BY display_order, id`
+		rows, err := db.QueryContext(ctx, query, args...)
+		if err != nil {
+			t.Fatalf("%s: failed to query files: %v", name, err)
+		}
+		defer rows.Close()
+
+		i := 0
+		for rows.Next() {
+			var id []byte
+			var order float64
+			if err := rows.Scan(&id, &order); err != nil {
+				t.Fatalf("%s: failed to scan row: %v", name, err)
+			}
+			if i >= len(wantIDs) {
+				t.Fatalf("%s: more rows than expected (%d)", name, len(wantIDs))
+			}
+			if !bytesEqual(id, wantIDs[i]) {
+				t.Errorf("%s: position %d: got id %v, want %v", name, i, id, wantIDs[i])
+			}
+			if order != float64(i) {
+				t.Errorf("%s: position %d: got display_order %v, want %d", name, i, order, i)
+			}
+			i++
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatalf("%s: rows error: %v", name, err)
+		}
+		if i != len(wantIDs) {
+			t.Errorf("%s: got %d rows, want %d", name, i, len(wantIDs))
+		}
+	}
+
+	// Relative order preserved; the two pegged rows tie-break by id.
+	assertGroupRepacked("root", `workspace_id = ? AND parent_id IS NULL`, []any{wsID},
+		[][]byte{fileID(1), folderID, fileID(3), fileID(4), fileID(5)})
+	assertGroupRepacked("children", `parent_id = ?`, []any{folderID},
+		[][]byte{fileID(6), fileID(7)})
+}
+
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // TestWebSocketTablesCreated verifies the WebSocket migration creates all tables and indexes.
@@ -765,4 +896,3 @@ func filterAutoIndexes(m map[string]string, extraExclude ...string) map[string]s
 	}
 	return result
 }
-
