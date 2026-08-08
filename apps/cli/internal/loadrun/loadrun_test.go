@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -478,16 +479,55 @@ func TestRunSetupFailureWhenEveryVUFailsFirstIteration(t *testing.T) {
 
 	flow, services := setupFlow(t, twoStepFlowYAML(baseURL), "LoadFlow")
 
-	_, err := Run(t.Context(), Config{
+	const iterations = 4
+	result, err := Run(t.Context(), Config{
 		Flow:          flow,
 		VUs:           2,
-		MaxIterations: 4,
+		MaxIterations: iterations,
 	}, services, nil)
 	if err == nil {
 		t.Fatal("expected an unreachable target to be reported as a setup failure")
 	}
 	if !strings.Contains(err.Error(), "first iteration") {
 		t.Errorf("error %q does not explain that every VU failed its first iteration", err)
+	}
+
+	// The run still has to hand back what it measured: a failing run's numbers
+	// are the ones someone actually needs.
+	if !result.Ran() {
+		t.Fatal("Result.Ran() = false for a scenario that executed")
+	}
+	if result.Summary.Iterations != iterations {
+		t.Errorf("Summary.Iterations = %d, want %d", result.Summary.Iterations, iterations)
+	}
+	if result.Summary.Errors != iterations {
+		t.Errorf("Summary.Errors = %d, want %d", result.Summary.Errors, iterations)
+	}
+	if result.Report.Total.Count == 0 {
+		t.Fatalf("failed run reported no requests; keys: %v", reportKeys(result.Report))
+	}
+	if result.Report.Total.ErrorCount != result.Report.Total.Count {
+		t.Errorf("ErrorCount %d != Count %d for an all-failing run",
+			result.Report.Total.ErrorCount, result.Report.Total.Count)
+	}
+	key := loadmetrics.Key{Step: "StepOne", StatusClass: loadmetrics.StatusClassError}
+	if _, ok := result.Report.PerStep[key]; !ok {
+		t.Errorf("missing %+v in a failed run; got keys %v", key, reportKeys(result.Report))
+	}
+	if _, ok := result.ByStep.PerStep[loadmetrics.Key{Step: "StepOne"}]; !ok {
+		t.Errorf("folded report missing StepOne; got keys %v", reportKeys(result.ByStep))
+	}
+}
+
+// TestRunConfigFailureHasNothingToReport is Ran()'s other side: a run that
+// never started must not offer a report for the caller to print.
+func TestRunConfigFailureHasNothingToReport(t *testing.T) {
+	result, err := Run(context.Background(), Config{VUs: 1, MaxIterations: 1}, runner.RunnerServices{}, nil)
+	if err == nil {
+		t.Fatal("expected a validation error")
+	}
+	if result.Ran() {
+		t.Error("Result.Ran() = true for a run that never started")
 	}
 }
 
@@ -604,14 +644,9 @@ func TestVUWorkersAreIsolated(t *testing.T) {
 
 	seenClients := make(map[any]bool, vus)
 	seenAggs := make(map[*loadmetrics.Aggregator]bool, vus)
-	seenNodeMaps := make(map[any]bool, vus)
 	for _, w := range workers {
 		seenClients[w.httpClient] = true
 		seenAggs[w.agg] = true
-		for id := range w.flowNodeMap {
-			seenNodeMaps[w.flowNodeMap[id]] = true
-			break
-		}
 	}
 	if len(seenClients) != vus {
 		t.Errorf("%d distinct HTTP clients across %d VUs, want %d", len(seenClients), vus, vus)
@@ -619,7 +654,36 @@ func TestVUWorkersAreIsolated(t *testing.T) {
 	if len(seenAggs) != vus {
 		t.Errorf("%d distinct aggregators across %d VUs, want %d", len(seenAggs), vus, vus)
 	}
-	if len(seenNodeMaps) != vus {
-		t.Errorf("%d distinct node instances across %d VUs, want %d", len(seenNodeMaps), vus, vus)
+
+	// Every node, in every pair of VUs, must be a distinct instance. Sampling
+	// one node per VU would not do: a shared graph still yields distinct
+	// samples whenever the (randomly ordered) samples happen to differ, which
+	// is most of the time.
+	nodeIDs := make([]idwrap.IDWrap, 0, len(workers[0].flowNodeMap))
+	for id := range workers[0].flowNodeMap {
+		nodeIDs = append(nodeIDs, id)
+	}
+	sort.Slice(nodeIDs, func(i, j int) bool { return nodeIDs[i].Compare(nodeIDs[j]) < 0 })
+	if len(nodeIDs) == 0 {
+		t.Fatal("worker 0 built an empty node map")
+	}
+
+	for i := range workers {
+		if len(workers[i].flowNodeMap) != len(nodeIDs) {
+			t.Fatalf("VU %d has %d nodes, VU 0 has %d", i, len(workers[i].flowNodeMap), len(nodeIDs))
+		}
+		for j := i + 1; j < len(workers); j++ {
+			for _, id := range nodeIDs {
+				a, okA := workers[i].flowNodeMap[id]
+				b, okB := workers[j].flowNodeMap[id]
+				if !okA || !okB {
+					t.Fatalf("node %s missing from VU %d (%t) or VU %d (%t)", id, i, okA, j, okB)
+				}
+				if a == b {
+					t.Errorf("VUs %d and %d share the same instance of node %q - the node graph was built once instead of per VU",
+						i, j, a.GetName())
+				}
+			}
+		}
 	}
 }
