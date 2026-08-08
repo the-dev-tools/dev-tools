@@ -57,9 +57,13 @@ type Summary struct {
 // canceled, then drains the iterations already in flight before returning, so
 // no worker outlives the call.
 //
-// Run returns ctx.Err() if the context ended the scenario early; the Summary
-// still reports the work completed up to that point. Configuration problems
-// are reported before any iteration runs, alongside a zero Summary.
+// Run returns ctx.Err() if the context is done once the scenario ends, which is
+// normally because cancellation stopped it early; the Summary still reports the
+// work completed up to that point. Configuration problems are reported before
+// any iteration runs, alongside a zero Summary.
+//
+// A panic inside iter is not recovered: it crashes the process, as it would
+// anywhere else in the engine.
 func Run(ctx context.Context, prof RunProfile, iter func(ctx context.Context, vu int, seq int64) error) (Summary, error) {
 	if err := validate(prof, iter); err != nil {
 		return Summary{}, err

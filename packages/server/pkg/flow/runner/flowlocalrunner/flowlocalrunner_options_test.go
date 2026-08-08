@@ -25,6 +25,9 @@ func newTestRunner(t *testing.T, opts ...Option) *FlowLocalRunner {
 func TestCreateFlowRunnerDefaultUnchanged(t *testing.T) {
 	fr := newTestRunner(t)
 
+	if goroutineCount != MaxParallelism() {
+		t.Fatalf("package default = %d, want the CPU-derived %d", goroutineCount, MaxParallelism())
+	}
 	if fr.maxConcurrency != goroutineCount {
 		t.Fatalf("default maxConcurrency = %d, want %d (CPU-derived default)", fr.maxConcurrency, goroutineCount)
 	}
