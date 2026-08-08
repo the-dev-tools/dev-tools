@@ -12,8 +12,16 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 )
 
+// CurrentYamlFlowVersion is the yamlflow schema version this build writes on
+// export and the highest version it accepts on import. An absent `version`
+// key (zero value) is treated as this version for backward compatibility
+// with documents written before the field existed. Bump this when making a
+// breaking change to the YAML flow contract.
+const CurrentYamlFlowVersion = 2
+
 // YamlFlowFormatV2 represents the modern YAML structure for simplified workflows
 type YamlFlowFormatV2 struct {
+	Version           int                         `yaml:"version,omitempty"`
 	WorkspaceName     string                      `yaml:"workspace_name"`
 	ActiveEnvironment string                      `yaml:"active_environment,omitempty"`
 	GlobalEnvironment string                      `yaml:"global_environment,omitempty"`
@@ -558,6 +566,13 @@ func (opts ConvertOptionsV2) Validate() error {
 }
 
 func (yf YamlFlowFormatV2) Validate() error {
+	if yf.Version > CurrentYamlFlowVersion {
+		return NewYamlFlowErrorV2(
+			fmt.Sprintf("unsupported yamlflow version %d (this build supports up to %d)", yf.Version, CurrentYamlFlowVersion),
+			"version", yf.Version,
+		)
+	}
+
 	if yf.WorkspaceName == "" {
 		return NewYamlFlowErrorV2("workspace_name is required", "workspace_name", nil)
 	}

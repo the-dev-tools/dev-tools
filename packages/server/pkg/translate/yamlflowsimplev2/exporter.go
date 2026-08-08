@@ -201,6 +201,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	yamlFormat := YamlFlowFormatV2{
+		Version:       CurrentYamlFlowVersion,
 		WorkspaceName: wsName,
 		Flows:         make([]YamlFlowFlowV2, 0),
 	}
