@@ -211,6 +211,40 @@ func TestAggregatorFlushDrainsAndResets(t *testing.T) {
 	assert.Empty(t, second.Entries)
 }
 
+// TestAggregatorFlushIntervalReflectsElapsedTime drives the real Flush path
+// (not a hand-built Frame, unlike TestMergeRPSMath) and checks Frame.Interval
+// tracks actual elapsed wall-clock time between flushes, not the nominal
+// interval passed to NewAggregator. NewAggregator is given a 5-minute nominal
+// interval specifically so a blind echo of it would be trivially detectable
+// (5m is nowhere near either sleep window below).
+func TestAggregatorFlushIntervalReflectsElapsedTime(t *testing.T) {
+	agg := NewAggregator(5 * time.Minute)
+	k := Key{Step: "step", StatusClass: StatusClass2xx}
+
+	agg.Record(k, time.Millisecond, 0, false)
+	time.Sleep(20 * time.Millisecond)
+	first := agg.Flush(time.Now())
+
+	assert.GreaterOrEqual(t, first.Interval, 20*time.Millisecond, "Interval should be at least the real elapsed sleep")
+	assert.Less(t, first.Interval, 5*time.Second, "Interval should not echo the nominal 5m interval")
+
+	agg.Record(k, time.Millisecond, 0, false)
+	time.Sleep(80 * time.Millisecond)
+	second := agg.Flush(time.Now())
+
+	assert.GreaterOrEqual(t, second.Interval, 80*time.Millisecond)
+	assert.Less(t, second.Interval, 5*time.Second)
+
+	// Different sleep windows must produce different Interval magnitudes -
+	// proves Interval is derived per-flush, not a single constant (nominal or
+	// otherwise) repeated every time.
+	assert.Greater(t, second.Interval, first.Interval, "the second flush slept longer, so its Interval should be larger")
+
+	// Each Flush starts the next interval at `now`, so IntervalStart must
+	// advance between successive flushes.
+	assert.True(t, second.IntervalStart.After(first.IntervalStart), "IntervalStart should advance between successive flushes")
+}
+
 // TestAggregatorRecordConcurrentRace exercises Record from many goroutines
 // concurrently; run with -race to prove there's no data race, and assert the
 // final counts to also catch lost-update bugs.
