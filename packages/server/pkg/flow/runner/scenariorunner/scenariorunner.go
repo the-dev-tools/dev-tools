@@ -112,8 +112,18 @@ func Run(ctx context.Context, prof RunProfile, iter func(ctx context.Context, vu
 }
 
 // claim reserves the next sequence number, or reports that the worker should
-// stop. The stop conditions are checked before the number is reserved so that
-// an iteration bound is never consumed by an iteration that does not run.
+// stop.
+//
+// Cancellation and the duration deadline are checked before the reservation, so
+// no sequence number is burned once either has tripped. The iteration bound is
+// enforced after it instead: an over-limit claim is discarded rather than run.
+// next therefore overruns MaxIterations by up to VUs, which is harmless because
+// Summary counts iterations that executed, not claims that were made.
+//
+// The post-reservation discard is what makes Iterations == MaxIterations exact.
+// Do not drop it on the assumption that a pre-check covers the bound; checking
+// the bound before the atomic add would let several workers read the same value
+// and overshoot.
 func claim(ctx context.Context, next *atomic.Int64, maxIterations int64, deadline time.Time) (int64, bool) {
 	if ctx.Err() != nil {
 		return 0, false
