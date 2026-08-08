@@ -26,6 +26,7 @@ func TestClassifyStatus(t *testing.T) {
 		{"404 not found classifies as 4xx", 404, nil, StatusClass4xx},
 		{"500 server error classifies as 5xx", 500, nil, StatusClass5xx},
 		{"599 upper boundary classifies as 5xx", 599, nil, StatusClass5xx},
+		{"zero code with no error classifies as error", 0, nil, StatusClassError},
 		{"transport error with no status classifies as error", 0, errors.New("connection reset by peer"), StatusClassError},
 		{"context deadline exceeded classifies as timeout", 0, context.DeadlineExceeded, StatusClassTimeout},
 		{"wrapped context deadline exceeded classifies as timeout", 0, fmt.Errorf("dial: %w", context.DeadlineExceeded), StatusClassTimeout},
@@ -39,6 +40,43 @@ func TestClassifyStatus(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// TestAggregatorKeysByStatusClass checks that ClassifyStatus's output, used
+// as the Key.StatusClass for Record, buckets outcomes for the same step into
+// separate Frame entries rather than clobbering a single counter.
+func TestAggregatorKeysByStatusClass(t *testing.T) {
+	agg := NewAggregator(time.Second)
+	const step = "checkout"
+
+	outcomes := []struct {
+		code int
+		err  error
+	}{
+		{200, nil},
+		{200, nil},
+		{404, nil},
+		{500, nil},
+		{500, nil},
+		{500, nil},
+		{0, context.DeadlineExceeded},
+	}
+
+	for _, o := range outcomes {
+		class := ClassifyStatus(o.code, o.err)
+		agg.Record(Key{Step: step, StatusClass: class}, time.Millisecond, 0, o.err != nil || o.code >= 400)
+	}
+
+	frame := agg.Flush(time.Now())
+
+	assert.Equal(t, int64(2), frame.Entries[Key{Step: step, StatusClass: StatusClass2xx}].Count)
+	assert.Equal(t, int64(1), frame.Entries[Key{Step: step, StatusClass: StatusClass4xx}].Count)
+	assert.Equal(t, int64(3), frame.Entries[Key{Step: step, StatusClass: StatusClass5xx}].Count)
+	assert.Equal(t, int64(1), frame.Entries[Key{Step: step, StatusClass: StatusClassTimeout}].Count)
+	assert.Len(t, frame.Entries, 4, "one bucket per distinct status class, not one bucket per step")
+
+	fiveXx := frame.Entries[Key{Step: step, StatusClass: StatusClass5xx}]
+	assert.Equal(t, int64(3), fiveXx.ErrorCount, "5xx outcomes should also count as errors")
 }
 
 // TestAggregatorPercentileCorrectness records a uniform 1..1000ms distribution
@@ -128,9 +166,7 @@ func TestMergeRPSMath(t *testing.T) {
 	k := Key{Step: "load-step", StatusClass: StatusClass2xx}
 
 	hist := newHistogram()
-	for i := 0; i < 100; i++ {
-		require.NoError(t, hist.RecordValue(10_000)) // 10ms, arbitrary
-	}
+	require.NoError(t, hist.RecordValues(10_000, 100)) // 100 samples at 10ms, arbitrary
 
 	frame := Frame{
 		IntervalStart: time.Unix(1_700_000_000, 0),
