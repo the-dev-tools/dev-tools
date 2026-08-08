@@ -8,6 +8,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mload"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mwebsocket"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mworkspace"
 )
@@ -69,6 +70,15 @@ type WorkspaceBundle struct {
 
 	// Credentials (metadata only, secrets are never exported)
 	Credentials []mcredential.Credential
+
+	// LoadScenarios carries the yamlflow `load:` block so it survives the
+	// YAML import -> export round trip.
+	//
+	// Unlike every other field here it is NOT database-backed: Import ignores
+	// it and Export never populates it, because there is no storage for load
+	// scenarios yet (Phase 2). Only the file-to-file path (the CLI and the
+	// yamlflow translator) reads and writes it.
+	LoadScenarios []mload.Scenario
 }
 
 // CountEntities returns a map containing the count of each entity type in the bundle.

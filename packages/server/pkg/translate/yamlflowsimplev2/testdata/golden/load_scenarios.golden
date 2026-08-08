@@ -1,0 +1,64 @@
+version: 2
+workspace_name: Golden Load Scenarios
+run:
+    - flow: Checkout
+    - flow: Browse
+requests:
+    - name: ConfirmOrder
+      method: GET
+      url: https://api.example.com/orders/latest
+    - name: CreateOrder
+      method: POST
+      url: https://api.example.com/orders
+      body: '{"sku":"widget-1"}'
+    - name: ListProducts
+      method: GET
+      url: https://api.example.com/products
+flows:
+    - name: Checkout
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: CreateOrder
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: CreateOrder
+        - request:
+            name: ConfirmOrder
+            depends_on: CreateOrder
+            position_x: 600
+            position_y: 0
+            use_request: ConfirmOrder
+    - name: Browse
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: ListProducts
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: ListProducts
+load:
+    - name: checkout-baseline
+      flow: Checkout
+      executor: constant-vus
+      vus: 10
+      duration: 30s
+    - name: soak-checkout
+      flow: Checkout
+      executor: constant-vus
+      vus: 4
+      duration: 1m30s
+      iterations: 2000
+    - name: browse-smoke
+      flow: Browse
+      executor: constant-vus
+      vus: 1
+      iterations: 25

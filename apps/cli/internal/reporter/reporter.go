@@ -163,13 +163,20 @@ func NewReporterGroup(specs []ReportSpec, opts ReporterOptions) (*ReporterGroup,
 // Internal implementations below...
 
 type jsonReporter struct {
-	path    string
-	mu      sync.Mutex
-	results []model.FlowRunResult
+	path       string
+	mu         sync.Mutex
+	results    []model.FlowRunResult
+	loadReport *LoadReport
 }
 
 func newJSONReporter(path string) Reporter {
 	return &jsonReporter{path: path, results: make([]model.FlowRunResult, 0)}
+}
+
+func (j *jsonReporter) SetLoadReport(report *LoadReport) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.loadReport = report
 }
 
 func (j *jsonReporter) HandleFlowStart(info FlowStartInfo) {}
@@ -194,7 +201,20 @@ func (j *jsonReporter) Flush() error {
 		return fmt.Errorf("creating json report directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(j.results, "", "  ")
+	// Without a load report the document is the bare array of flow results it
+	// has always been. A load run - which no existing consumer can be reading
+	// yet - gets the object form so the additive load_report has somewhere to
+	// live.
+	payload := any(j.results)
+	if j.loadReport != nil {
+		loadReport, err := buildJSONLoadReport(j.loadReport)
+		if err != nil {
+			return err
+		}
+		payload = jsonLoadDocument{Flows: j.results, LoadReport: loadReport}
+	}
+
+	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return fmt.Errorf("serializing json report: %w", err)
 	}
@@ -322,6 +342,7 @@ type consoleReporter struct {
 	mu         sync.Mutex
 	flows      map[string]*consoleFlowState
 	showOutput bool
+	loadReport *LoadReport
 }
 
 type consoleFlowState struct {
@@ -458,7 +479,23 @@ func (c *consoleReporter) HandleFlowResult(result model.FlowRunResult) {
 	fmt.Printf("Flow Duration: %v | Steps: %d/%d Successful\n", result.Duration, state.successCount, state.totalNodes)
 }
 
+func (c *consoleReporter) SetLoadReport(report *LoadReport) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.loadReport = report
+}
+
 func (c *consoleReporter) Flush() error {
+	c.mu.Lock()
+	report := c.loadReport
+	c.mu.Unlock()
+
+	if report == nil {
+		return nil
+	}
+
+	fmt.Print(FormatLoadHeader(report.Meta))
+	fmt.Print(FormatLoadTable(*report))
 	return nil
 }
 

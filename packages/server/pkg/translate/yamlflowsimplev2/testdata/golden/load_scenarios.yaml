@@ -1,0 +1,49 @@
+# Exercises the additive `load:` block: scenarios reference flows by name and
+# are never merged into them. Note the non-canonical `90s` duration in
+# soak-checkout — export normalizes it to Go's `1m30s`, which is what makes
+# re-export a no-op.
+workspace_name: Golden Load Scenarios
+run:
+  - flow: Checkout
+  - flow: Browse
+flows:
+  - name: Checkout
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: CreateOrder
+          depends_on: Start
+          method: POST
+          url: https://api.example.com/orders
+          body:
+            sku: widget-1
+      - request:
+          name: ConfirmOrder
+          depends_on: CreateOrder
+          method: GET
+          url: https://api.example.com/orders/latest
+  - name: Browse
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: ListProducts
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/products
+load:
+  - name: checkout-baseline
+    flow: Checkout
+    executor: constant-vus
+    vus: 10
+    duration: 30s
+  - name: soak-checkout
+    flow: Checkout
+    vus: 4
+    duration: 90s
+    iterations: 2000
+  - name: browse-smoke
+    flow: Browse
+    vus: 1
+    iterations: 25

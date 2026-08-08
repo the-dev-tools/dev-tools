@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/loadrun"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/runner"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
@@ -31,6 +32,7 @@ import (
 var (
 	quietMode  bool
 	showOutput bool
+	loadOpts   loadrun.Options
 )
 
 func init() {
@@ -40,6 +42,21 @@ func init() {
 	yamlflowRunCmd.Flags().StringSliceVar(&reportFormats, "report", []string{"console"}, "Report outputs to produce (format[:path]). Supported formats: console, json, junit.")
 	yamlflowRunCmd.Flags().BoolVarP(&quietMode, "quiet", "q", false, "Suppress non-essential output for CI/CD usage")
 	yamlflowRunCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show node output data (including AI metrics) after each node completes")
+
+	yamlflowRunCmd.Flags().StringVar(&loadOpts.Scenario, "scenario", "",
+		"Run the named entry of the file's load: block as a load test")
+	yamlflowRunCmd.Flags().IntVar(&loadOpts.VUs, "vus", 0,
+		"Run a load test with this many concurrent virtual users (requires --duration and/or --iterations)")
+	yamlflowRunCmd.Flags().DurationVar(&loadOpts.Duration, "duration", 0,
+		"How long a load test keeps starting new iterations, e.g. 60s")
+	yamlflowRunCmd.Flags().Int64Var(&loadOpts.Iterations, "iterations", 0,
+		"Total iterations a load test runs across all virtual users")
+
+	// A scenario already carries a complete profile, so combining it with the
+	// inline profile flags would silently discard one of the two.
+	yamlflowRunCmd.MarkFlagsMutuallyExclusive("scenario", "vus")
+	yamlflowRunCmd.MarkFlagsMutuallyExclusive("scenario", "duration")
+	yamlflowRunCmd.MarkFlagsMutuallyExclusive("scenario", "iterations")
 }
 
 var flowCmd = &cobra.Command{
@@ -54,10 +71,38 @@ var flowCmd = &cobra.Command{
 var yamlflowRunCmd = &cobra.Command{
 	Use:   "run [yamlflow-file] [flow-name]",
 	Short: "Run flow from yamlflow file",
-	Long:  `Running Flow from a yamlflow format file. If flow-name is not provided, executes all flows from the 'run' field in order.`,
-	Args:  cobra.RangeArgs(1, 2),
+	Long: `Running Flow from a yamlflow format file. If flow-name is not provided, executes all flows from the 'run' field in order.
+
+Load mode
+  --scenario <name> runs an entry of the file's load: block; --vus with
+  --duration and/or --iterations describes a profile inline. The two are
+  mutually exclusive, since a scenario already carries a complete profile. A
+  load run drives exactly one flow and reports aggregate latency percentiles,
+  throughput and error rate instead of a per-step table.
+
+  A load run that completes exits 0 even when requests inside it failed;
+  thresholds that turn an error rate into a failing exit code arrive in a
+  later release. Only a run that could not happen - an unknown scenario, an
+  unusable profile, or a target that was never reachable - exits non-zero.
+
+  Only HTTP request steps are measured. GraphQL, WebSocket and sub-flow steps
+  still execute, but they are neither counted in the report nor covered by
+  the lean execution mode that keeps memory flat, so a flow built from them
+  can grow its memory use over a long run.`,
+	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
+
+		// A load flag that was passed with a zero value (--vus 0) is still a
+		// request for load mode, so ask cobra what was set rather than
+		// inferring it from the values.
+		loadOpts.Requested = false
+		for _, name := range []string{"scenario", "vus", "duration", "iterations"} {
+			if cmd.Flags().Changed(name) {
+				loadOpts.Requested = true
+				break
+			}
+		}
 
 		var logLevel slog.Level
 		logLevelStr := os.Getenv("LOG_LEVEL")
@@ -104,7 +149,10 @@ var yamlflowRunCmd = &cobra.Command{
 				}
 			}
 
-			if !runMultiple {
+			// A load run picks its own single flow (from --scenario, from the
+			// positional argument, or from a file with exactly one flow), so
+			// it does not need a run: block.
+			if !runMultiple && !loadOpts.Enabled() {
 				return fmt.Errorf("no flow name provided and no run field found in workflow file")
 			}
 		}
@@ -297,6 +345,10 @@ var yamlflowRunCmd = &cobra.Command{
 			FlowVariableService: c.FlowVariable,
 			Builder:             builder,
 			JSClient:            jsClient,
+		}
+
+		if loadOpts.Enabled() {
+			return runLoad(ctx, loadOpts, resolved.LoadScenarios, flows, flowName, runnerServices, logger, reporters)
 		}
 
 		var runErr error

@@ -32,6 +32,28 @@ type YamlFlowFormatV2 struct {
 	GraphQLRequests   []YamlGraphQLDefV2          `yaml:"graphql_requests,omitempty"`
 	Flows             []YamlFlowFlowV2            `yaml:"flows"`
 	Environments      []YamlEnvironmentV2         `yaml:"environments,omitempty"`
+	Load              []YamlLoadScenario          `yaml:"load,omitempty"`
+}
+
+// YamlLoadScenario is one entry of the additive `load:` block: a named load
+// profile applied to a flow declared in `flows:`. Flows are never edited to be
+// load-tested, so a scenario references its flow by name.
+//
+// Only the constant-vus executor exists in this build; ramping-vus,
+// constant-arrival-rate, stages and thresholds arrive in Phase 2. Unknown keys
+// are ignored by the parser (as everywhere else in this format), so a document
+// written for a later build still imports here.
+type YamlLoadScenario struct {
+	Name string `yaml:"name"`
+	Flow string `yaml:"flow"`
+	// Executor defaults to constant-vus when omitted.
+	Executor string `yaml:"executor,omitempty"`
+	VUs      int    `yaml:"vus"`
+	// Duration is a Go duration string ("30s", "2m"). Exported in Go's
+	// canonical form so re-export is a no-op.
+	Duration string `yaml:"duration,omitempty"`
+	// Iterations caps the total iterations issued across all VUs.
+	Iterations int64 `yaml:"iterations,omitempty"`
 }
 
 // YamlCredentialV2 represents an LLM provider credential
