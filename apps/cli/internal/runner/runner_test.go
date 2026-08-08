@@ -1142,3 +1142,160 @@ flows:
 		t.Errorf("expected RequestB to never be attempted since A failed, but the mock server received %d request(s)", requestCount)
 	}
 }
+
+// The three tests below pin behavior deltas identified in code review as
+// unavoidable, in-scope side effects of moving run: parsing/execution onto
+// the typed yamlflowsimplev2 structs and a pre-flight topological sort (see
+// the "run: execution behavior deltas" section of task-1-report.md). None of
+// these are new production code changes - they lock in what
+// TestRunMultipleFlows_UnknownDependencyError, _CyclicDependencyError, etc.
+// already exercise indirectly, made explicit and named.
+
+// TestRunMultipleFlows_UnknownFlowPreventsAnyExecution pins delta #1: the
+// "flow not found" check now runs as a pre-flight pass over every run:
+// entry before anything executes, rather than being discovered mid-loop.
+// Previously `run: [A, Bogus]` would run A and only then fail on Bogus;
+// now nothing runs. RequestA's hit count on the mock server is the proof.
+func TestRunMultipleFlows_UnknownFlowPreventsAnyExecution(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	requestCount := 0
+	fixture.mockServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	})
+
+	// Import only flow A - a valid, self-contained document. "Bogus" is
+	// intentionally never defined under flows: anywhere.
+	importYAML := fmt.Sprintf(`workspace_name: Unknown Flow Test
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: %s/a
+          depends_on: Start
+`, fixture.mockServer.URL)
+
+	flows := setupMultiFlowFixture(t, fixture, importYAML)
+
+	// Fed directly to RunMultipleFlows (bypassing ConvertSimplifiedYAML,
+	// which would itself reject a run: entry naming an undefined flow) to
+	// isolate exactly the check under test: RunMultipleFlows's own
+	// cross-check of the run: block against the flows it was actually
+	// given.
+	runYAML := []byte(`workspace_name: Unknown Flow Test
+run:
+  - flow: A
+  - flow: Bogus
+`)
+
+	err := runner.RunMultipleFlows(fixture.ctx, runYAML, flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected an error for an unknown flow in the run block, got nil")
+	}
+
+	if requestCount != 0 {
+		t.Errorf("expected A to never execute since Bogus is unknown, but the mock server received %d request(s)", requestCount)
+	}
+}
+
+// TestRunMultipleFlows_SingleFailureMessageShape pins delta #2: the
+// aggregate error format. It used to be exactly `multi-flow execution
+// failed: <err>` (and picked *which* err via unordered map iteration when
+// more than one flow failed). It is now `multi-flow execution failed:
+// <flow>: <err> (<status>)`, built from the deterministic run order. The
+// prefix/suffix produced by RunMultipleFlows are asserted exactly; the
+// infix (the OS-level dial error text from the refused connection) is only
+// asserted to be present, since its exact wording is not something this
+// package controls or should pin.
+func TestRunMultipleFlows_SingleFailureMessageShape(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	// Port 1 is reserved; nothing listens there, so the connection is
+	// refused immediately and deterministically.
+	yamlContent := `workspace_name: Single Failure Message Shape Test
+run:
+  - flow: A
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: http://127.0.0.1:1/unreachable
+          depends_on: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
+	defer cancel()
+
+	err := runner.RunMultipleFlows(ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a non-nil error when the only flow fails, got nil")
+	}
+
+	const wantPrefix = `multi-flow execution failed: A: `
+	const wantSuffix = ` (failed)`
+	got := err.Error()
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Errorf("expected error to start with %q, got: %q", wantPrefix, got)
+	}
+	if !strings.HasSuffix(got, wantSuffix) {
+		t.Errorf("expected error to end with %q, got: %q", wantSuffix, got)
+	}
+	if !strings.Contains(got, "127.0.0.1:1") {
+		t.Errorf("expected error to include the underlying RunFlow error, got: %q", got)
+	}
+}
+
+// TestRunMultipleFlows_MalformedRunEntrySurfacesError pins delta #3: a run:
+// entry that is not a {flow: ...} mapping (a bare scalar here) used to be
+// silently dropped by the old hand-rolled map[string]interface{} parser (a
+// failed type assertion just `continue`d past it, so the workflow quietly
+// ran fewer flows than declared). Parsing run: through the typed
+// yamlflowsimplev2.YamlRunEntryV2 struct means the same document now fails
+// to unmarshal, surfacing the malformed entry as an error instead of
+// silently ignoring it.
+func TestRunMultipleFlows_MalformedRunEntrySurfacesError(t *testing.T) {
+	fixture := newFlowTestFixture(t)
+
+	importYAML := `workspace_name: Malformed Run Entry Test
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, importYAML)
+
+	runYAML := []byte(`workspace_name: Malformed Run Entry Test
+run:
+  - flow: A
+  - just-a-string
+`)
+
+	err := runner.RunMultipleFlows(fixture.ctx, runYAML, flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a YAML unmarshal error for the malformed run: entry, got nil")
+	}
+	if !strings.Contains(err.Error(), "unmarshal") {
+		t.Errorf("expected an unmarshal error naming the parse failure, got: %v", err)
+	}
+}
