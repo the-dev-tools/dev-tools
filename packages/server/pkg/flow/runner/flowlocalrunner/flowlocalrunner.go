@@ -46,6 +46,7 @@ type FlowLocalRunner struct {
 	maxConcurrency int
 	mode           ExecutionMode
 	selectedMode   ExecutionMode
+	leanMode       bool
 
 	enableDataTracking bool
 	logger             *slog.Logger
@@ -53,8 +54,33 @@ type FlowLocalRunner struct {
 
 var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
 
-func CreateFlowRunner(id, flowID idwrap.IDWrap, startNodeIDs []idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
-	return &FlowLocalRunner{
+// Option customises a FlowLocalRunner at construction time. Passing no options
+// yields the historical defaults, so existing call sites are unaffected.
+type Option func(*FlowLocalRunner)
+
+// WithMaxConcurrency caps how many nodes the multi strategy executes in
+// parallel. Values <= 0 are ignored so the CPU-derived default is kept.
+func WithMaxConcurrency(n int) Option {
+	return func(r *FlowLocalRunner) {
+		if n <= 0 {
+			return
+		}
+		r.maxConcurrency = n
+	}
+}
+
+// WithLeanMode enables lean execution: nodes drop response bodies from their
+// flow output once assertions have been evaluated, keeping memory flat across
+// long load runs. Downstream nodes cannot extract from a dropped body, so this
+// is opt-in and off by default.
+func WithLeanMode(enabled bool) Option {
+	return func(r *FlowLocalRunner) {
+		r.leanMode = enabled
+	}
+}
+
+func CreateFlowRunner(id, flowID idwrap.IDWrap, startNodeIDs []idwrap.IDWrap, flowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap mflow.EdgesMap, timeout time.Duration, logger *slog.Logger, opts ...Option) *FlowLocalRunner {
+	r := &FlowLocalRunner{
 		ID:                 id,
 		FlowID:             flowID,
 		FlowNodeMap:        flowNodeMap,
@@ -66,6 +92,13 @@ func CreateFlowRunner(id, flowID idwrap.IDWrap, startNodeIDs []idwrap.IDWrap, fl
 		enableDataTracking: true,
 		logger:             logger,
 	}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(r)
+	}
+	return r
 }
 
 // SetExecutionMode overrides the default Auto mode for the next run.
@@ -183,6 +216,7 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		PendingAtmoicMap: pendingAtmoicMap,
 		PendingMapMu:     pendingMu,
 		Logger:           r.logger,
+		LeanMode:         r.leanMode,
 	}
 
 	mode := r.mode

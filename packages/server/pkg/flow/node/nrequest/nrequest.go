@@ -59,6 +59,11 @@ const (
 	OUTPUT_REQUEST_NAME  = "request"
 )
 
+// LeanBodyPlaceholder stands in for the response body in node output when the
+// flow runs in lean mode, so consumers can tell a dropped body from an empty
+// one.
+const LeanBodyPlaceholder = "[body dropped: lean mode]"
+
 type NodeRequestOutput struct {
 	Request  request.RequestResponseVar `json:"request"`
 	Response httpclient.ResponseVar     `json:"response"`
@@ -84,6 +89,20 @@ func buildNodeRequestOutputMap(output NodeRequestOutput) map[string]any {
 	result[OUTPUT_REQUEST_NAME] = requestMap
 	result[OUTPUT_RESPONSE_NAME] = responseMap
 	return result
+}
+
+// buildResponseVar converts a response into the shape written to the flow's
+// variable map. In lean mode the decoded body is swapped for a placeholder
+// before it can be copied into the flow output, which is what keeps memory flat
+// across long load runs. Assertions are unaffected: they are evaluated against
+// the raw response, not this value.
+func buildResponseVar(resp request.RequestResponse, lean bool) httpclient.ResponseVar {
+	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
+	respVar.Duration = int32(resp.LapTime.Milliseconds()) // nolint:gosec // G115
+	if lean {
+		respVar.Body = LeanBodyPlaceholder
+	}
+	return respVar
 }
 
 func cloneStringMapToAny(src map[string]string) map[string]any {
@@ -186,11 +205,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	// Build output using measured duration
-	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
-	respVar.Duration = int32(resp.LapTime.Milliseconds()) // nolint:gosec // G115
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: respVar,
+		Response: buildResponseVar(*resp, req.LeanMode),
 	}
 
 	respMap := buildNodeRequestOutputMap(output)
@@ -379,11 +396,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 
 	// Build output using measured duration
-	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
-	respVar.Duration = int32(resp.LapTime.Milliseconds()) // nolint:gosec // G115
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: respVar,
+		Response: buildResponseVar(*resp, req.LeanMode),
 	}
 
 	respMap := buildNodeRequestOutputMap(output)

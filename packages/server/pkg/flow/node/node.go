@@ -61,6 +61,13 @@ type FlowNodeRequest struct {
 	IterationContext *runner.IterationContext  // For hierarchical execution naming in loops
 	ExecutionID      idwrap.IDWrap             // Unique ID for this specific execution of the node
 	Logger           *slog.Logger              // Optional structured logger for node diagnostics
+
+	// LeanMode drops response bodies from node output so memory stays flat
+	// across long load runs. Assertions still see the full response because
+	// they are evaluated against it directly rather than through VarMap, but
+	// downstream nodes cannot extract from a body that was not retained.
+	// Off by default.
+	LeanMode bool
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)
