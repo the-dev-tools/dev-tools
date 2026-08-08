@@ -45,6 +45,22 @@ func parseRunEntries(fileData []byte) ([]runEntry, error) {
 		return nil, fmt.Errorf("no run field found in workflow")
 	}
 
+	// Reject a repeated flow name outright, before it ever reaches
+	// topoSortRunEntries. That function's byName/inDegree/declOrder maps are
+	// keyed by name, so a duplicate silently collapses onto the
+	// last-declared entry there; depending on the dependency shape, the
+	// resulting count mismatch can even make findCycle's "remaining" set
+	// land empty, producing a bare "dependency cycle in run block: " error
+	// that names nothing. Naming the duplicate here keeps the topological
+	// sort itself untouched.
+	seen := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if seen[e.flowName] {
+			return nil, fmt.Errorf("duplicate flow %q in run block", e.flowName)
+		}
+		seen[e.flowName] = true
+	}
+
 	return entries, nil
 }
 

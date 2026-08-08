@@ -1265,6 +1265,117 @@ flows:
 	}
 }
 
+// TestRunMultipleFlows_TransitiveSkipCascade verifies two things about the
+// same run in one pass, since they are two observable facets of a single
+// execution: (1) a skip cascades transitively - A fails, B (depends on A) is
+// skipped, and C (depends on B) is skipped too, each carrying its own
+// explicit reason naming its own failed/skipped dependency rather than
+// re-deriving "A failed" for every downstream flow; (2) an unrelated flow D
+// with no dependency on any of them still executes. (2) is what pins the
+// register row 2 continuation semantics: a failed dependency skips only its
+// dependents, the run continues for everything else, where the old code
+// aborted the entire run at the first failure.
+func TestRunMultipleFlows_TransitiveSkipCascade(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	var mu sync.Mutex
+	var requestOrder []string
+	fixture.mockServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestOrder = append(requestOrder, r.URL.Path)
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	})
+
+	// A's request targets an address nothing listens on (port 1 is
+	// reserved), so it fails fast and deterministically - the same seam
+	// TestRunMultipleFlows_FailedDependencySkipsDependent uses. B depends on
+	// A, C depends on B, and D depends on nothing.
+	yamlContent := fmt.Sprintf(`workspace_name: Cascade Test
+run:
+  - flow: A
+  - flow: B
+    depends_on: A
+  - flow: C
+    depends_on: B
+  - flow: D
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: http://127.0.0.1:1/unreachable
+          depends_on: Start
+  - name: B
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestB
+          method: GET
+          url: %s/b
+          depends_on: Start
+  - name: C
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestC
+          method: GET
+          url: %s/c
+          depends_on: Start
+  - name: D
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestD
+          method: GET
+          url: %s/d
+          depends_on: Start
+`, fixture.mockServer.URL, fixture.mockServer.URL, fixture.mockServer.URL)
+
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
+	defer cancel()
+
+	err := runner.RunMultipleFlows(ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a non-nil error when A fails, got nil")
+	}
+
+	// Each skip must name its own dependency, not just propagate "A" to
+	// every downstream flow: B names A (the flow that actually failed), and
+	// C names B (the flow it actually depends on, itself only skipped).
+	if !strings.Contains(err.Error(), `B: dependency "A" failed (skipped)`) {
+		t.Errorf("expected B's reported reason to name A, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), `C: dependency "B" failed (skipped)`) {
+		t.Errorf("expected C's reported reason to name B, got: %v", err)
+	}
+	// D succeeded, so it must not appear in the failure summary at all.
+	if strings.Contains(err.Error(), "D:") {
+		t.Errorf("expected D to be absent from the failure summary (it succeeded), got: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(requestOrder) != 1 || requestOrder[0] != "/d" {
+		t.Errorf("expected only D's request to be attempted (B and C skipped without running), got: %v", requestOrder)
+	}
+}
+
 // TestRunMultipleFlows_MalformedRunEntrySurfacesError pins delta #3: a run:
 // entry that is not a {flow: ...} mapping (a bare scalar here) used to be
 // silently dropped by the old hand-rolled map[string]interface{} parser (a

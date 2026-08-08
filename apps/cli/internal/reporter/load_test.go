@@ -50,7 +50,7 @@ func sampleLoadReport() LoadReport {
 				},
 				{Step: "ConfirmOrder"}: {
 					Count: 512,
-					P50: 70 * time.Millisecond, P95: 200 * time.Millisecond, P99: 300 * time.Millisecond,
+					P50:   70 * time.Millisecond, P95: 200 * time.Millisecond, P99: 300 * time.Millisecond,
 					RPS: 143.1,
 				},
 			},
@@ -72,6 +72,35 @@ func TestFormatLoadTable(t *testing.T) {
 
 	if got != want {
 		t.Errorf("table mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
+// TestFormatLoadTableZeroRequests covers the report shape a GraphQL-only (or
+// WebSocket-only / sub-flow-only) flow produces under load mode: load
+// metrics only count HTTP request steps (see LoadMetricsScope), so a
+// scenario built entirely from other step kinds finishes with zero requests
+// recorded anywhere. The table must still render its header and a TOTAL row
+// - all zeros, no NaN, no panic - rather than coming out empty or divide-by
+// -zero garbage.
+func TestFormatLoadTableZeroRequests(t *testing.T) {
+	report := LoadReport{
+		ByStep: loadmetrics.Report{
+			Total:   loadmetrics.Stats{},
+			PerStep: map[loadmetrics.Key]loadmetrics.Stats{},
+		},
+	}
+
+	got := FormatLoadTable(report)
+
+	want := "" +
+		"Step            p50      p95      p99      RPS     Err%\n" +
+		"TOTAL           0s       0s       0s       0.0     0.0\n"
+
+	if got != want {
+		t.Errorf("table mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+	if strings.Contains(got, "NaN") {
+		t.Errorf("table contains NaN:\n%s", got)
 	}
 }
 
@@ -266,7 +295,7 @@ func TestJSONReporterWithLoadReport(t *testing.T) {
 			WorkerVersion string `json:"worker_version"`
 			Report        struct {
 				Total struct {
-					Count string `json:"count"`
+					Count string  `json:"count"`
 					Rps   float64 `json:"rps"`
 				} `json:"total"`
 				PerStep []struct {

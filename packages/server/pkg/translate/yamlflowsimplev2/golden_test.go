@@ -125,7 +125,12 @@ func diff(want, got []byte) string {
 //  2. No unintentional drift: the stable output matches the committed
 //     .golden snapshot.
 func TestGoldenRoundTrip(t *testing.T) {
-	for _, name := range goldenCases(t) {
+	cases := goldenCases(t)
+	if len(cases) == 0 {
+		t.Fatal("golden corpus is empty (testdata/golden has no *.yaml fixtures): the zero-behavior-change enforcement this test exists for is a no-op until the corpus is restored")
+	}
+
+	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {
 			in := readGoldenFile(t, filepath.Join(goldenDir, name+".yaml"))
 

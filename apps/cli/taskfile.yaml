@@ -44,7 +44,9 @@ tasks:
           DIR: dist
       # Use `.` (package target) + `-tags cli` so mode_cli.go is included and runCLI is wired.
       # Building `main.go` as the target silently drops tagged companion files in the same package.
-      - go build -tags cli -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.BINARY_SUFFIX}} .
+      # -ldflags -X injects the release version into cmd.version so `devtools version`
+      # identifies the build instead of always printing the source placeholder.
+      - go build -tags cli -ldflags "-X github.com/the-dev-tools/dev-tools/apps/cli/cmd.version=v{{.VERSION | default .VERSION_DEFAULT}}" -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.BINARY_SUFFIX}} .
 
   clean:
     desc: Clean build artifacts

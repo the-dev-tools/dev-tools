@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Sets the action's outputs (json-report, junit-report, success) and enforces
 # the fail-on-error input. Runs with `if: always()` in action.yml so outputs
-# are always set, even when the flow run failed.
+# are always set, even when the flow run failed. Deliberately does not use
+# `set -e`: a failure here should degrade gracefully rather than abort the
+# composite action before outputs get set, and the `[[ ... ]] &&` idiom at
+# the success-assignment line below is a `set -e` footgun (a false test
+# exits the whole expression non-zero, which -e treats as fatal).
 #
 # Env in:
 #   REPORT_DIR     - directory containing report.json/junit.xml (inputs.report-dir)

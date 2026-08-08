@@ -88,7 +88,11 @@ Load mode
   Only HTTP request steps are measured. GraphQL, WebSocket and sub-flow steps
   still execute, but they are neither counted in the report nor covered by
   the lean execution mode that keeps memory flat, so a flow built from them
-  can grow its memory use over a long run.`,
+  can grow its memory use over a long run.
+
+  JUnit output carries no load data. Load results go to the console table
+  and the JSON report's additive load_report field only; --report junit
+  during a load run still writes a file, but as an empty test suite.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
