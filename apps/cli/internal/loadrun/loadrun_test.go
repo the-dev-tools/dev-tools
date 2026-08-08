@@ -415,6 +415,55 @@ func TestRunDurationBoundedRunSucceeds(t *testing.T) {
 	}
 }
 
+// TestRunRPSUsesRealElapsedTime pins contract addition #2: the aggregator's
+// constructor interval is documentation, not arithmetic. RPS must come from
+// the wall time the run actually covered.
+//
+// The run is far shorter than the nominal flush interval, so a report that
+// divided by the nominal interval would understate RPS by more than an order
+// of magnitude - which is what the first assertion catches without depending
+// on machine speed.
+func TestRunRPSUsesRealElapsedTime(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping load run in short mode")
+	}
+
+	srv := newCountingServer(t, time.Millisecond, http.StatusOK)
+	flow, services := setupFlow(t, twoStepFlowYAML(srv.URL), "LoadFlow")
+
+	result, err := Run(t.Context(), Config{
+		Flow:     flow,
+		VUs:      2,
+		Duration: 200 * time.Millisecond,
+	}, services, nil)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	total := result.Report.Total
+	if total.Count == 0 {
+		t.Fatal("no requests recorded")
+	}
+
+	nominalRPS := float64(total.Count) / aggregatorFlushInterval.Seconds()
+	if total.RPS < nominalRPS*2 {
+		t.Errorf("RPS %.1f looks like count/%v (%.1f), not count/elapsed",
+			total.RPS, aggregatorFlushInterval, nominalRPS)
+	}
+
+	// The wall time the report implies must be the scenario's, not the
+	// scenario's plus setup.
+	impliedElapsed := time.Duration(float64(total.Count) / total.RPS * float64(time.Second))
+	drift := impliedElapsed - result.Summary.Elapsed
+	if drift < 0 {
+		drift = -drift
+	}
+	if drift > 50*time.Millisecond {
+		t.Errorf("report implies %v of wall time, scheduler measured %v (drift %v)",
+			impliedElapsed, result.Summary.Elapsed, drift)
+	}
+}
+
 // TestRunSetupFailureWhenEveryVUFailsFirstIteration pins contract addition
 // #9's infra-failure case: an unreachable target on every VU's first
 // iteration is a setup failure (exit 1), not a completed run with errors.

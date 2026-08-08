@@ -139,6 +139,16 @@ func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger
 
 	tracker := newFirstIterationTracker(cfg.VUs)
 
+	// An aggregator's interval starts when it is constructed, which was
+	// during setup. Flushing the empty setup frame away restarts every
+	// interval at the same instant the scenario does, so the wall time the
+	// report divides by is the scenario's, not the scenario's plus however
+	// long building VUs took.
+	startedAt := time.Now()
+	for _, w := range workers {
+		w.agg.Flush(startedAt)
+	}
+
 	// Duration is passed through RunProfile only. Deriving it from a context
 	// deadline instead would make scenariorunner.Run return ctx.Err() at the
 	// end of every successful timed run, since it reports the caller's
@@ -488,6 +498,12 @@ func (w *vuWorker) resetBytes() {
 // record aggregates one terminal node status. Only HTTP request nodes are
 // counted: they are the ones lean mode covers, and the ones whose latency the
 // report is about.
+//
+// The latency recorded is the node's run duration, not the bare HTTP lap
+// time. It is slightly wider - it includes building the request, evaluating
+// assertions and handing the response to the side-channel drain - but it has
+// nanosecond resolution, whereas the lap time reaches node output rounded to
+// whole milliseconds, which cannot describe a fast local target at all.
 func (w *vuWorker) record(status flowrunner.FlowNodeStatus) {
 	if status.State == mflow.NODE_STATE_RUNNING {
 		return
