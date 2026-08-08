@@ -1,0 +1,47 @@
+name: Action / run-flows
+
+on:
+  pull_request:
+    paths:
+      - 'actions/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test run-flows (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke flow
+        id: run-flows
+        uses: ./actions/run-flows
+        with:
+          file: actions/run-flows/testdata/smoke.yamlflow.yaml
+          version: latest
+
+      - name: Assert outputs and summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "json-report=${{ steps.run-flows.outputs.json-report }}"
+          echo "junit-report=${{ steps.run-flows.outputs.junit-report }}"
+          echo "success=${{ steps.run-flows.outputs.success }}"
+
+          test -f "${{ steps.run-flows.outputs.json-report }}"
+          test -f "${{ steps.run-flows.outputs.junit-report }}"
+
+          [ "${{ steps.run-flows.outputs.success }}" = "true" ]
+
+          grep -q "DevTools flow run" "$GITHUB_STEP_SUMMARY"
+          grep -q "fetch-user" "$GITHUB_STEP_SUMMARY"
+          grep -q "create-post" "$GITHUB_STEP_SUMMARY"
