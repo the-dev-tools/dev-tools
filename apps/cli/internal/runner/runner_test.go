@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -977,13 +978,37 @@ flows:
 	}
 }
 
-// TestRunMultipleFlows_UnknownDependencyError verifies that a depends_on
-// entry naming a flow that is not part of the run: block produces a specific,
-// actionable error rather than being silently ignored.
-func TestRunMultipleFlows_UnknownDependencyError(t *testing.T) {
+// TestRunMultipleFlows_UnknownDependencyWarns pins the compatibility
+// semantics for a depends_on entry that does not name a flow in the run:
+// block. Such a name has never ordered anything - depends_on relates flows to
+// flows - but shipped example files under apps/cli/test/yamlflow/ list
+// cross-flow *step* names there, a pattern users copied because the
+// pre-topological-sort code silently ignored whatever it did not recognise.
+// Hard-erroring would break every one of those files, so the unknown name
+// keeps its old no-op meaning and gains a warning on stderr. Cycles and
+// duplicate flow names stay hard errors (see the tests below / in
+// run_order_test.go); a run: entry whose flow: value names a nonexistent flow
+// also stays a pre-flight error (TestRunMultipleFlows_UnknownFlowInRunBlock).
+func TestRunMultipleFlows_UnknownDependencyWarns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
 	fixture := newFlowTestFixture(t)
 
-	yamlContent := `workspace_name: Unknown Dep Test
+	var mu sync.Mutex
+	var requestOrder []string
+	fixture.mockServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestOrder = append(requestOrder, r.URL.Path)
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	})
+
+	yamlContent := fmt.Sprintf(`workspace_name: Unknown Dep Test
 run:
   - flow: A
   - flow: B
@@ -993,22 +1018,83 @@ flows:
     steps:
       - manual_start:
           name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: %s/a
+          depends_on: Start
   - name: B
     steps:
       - manual_start:
           name: Start
-`
+      - request:
+          name: RequestB
+          method: GET
+          url: %s/b
+          depends_on: Start
+`, fixture.mockServer.URL, fixture.mockServer.URL)
+
 	flows := setupMultiFlowFixture(t, fixture, yamlContent)
 
-	err := runner.RunMultipleFlows(fixture.ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
-	if err == nil {
-		t.Fatal("expected an error for an unknown dependency, got nil")
+	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
+	defer cancel()
+
+	stderr := captureStderr(t, func() {
+		if err := runner.RunMultipleFlows(ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil); err != nil {
+			t.Errorf("unknown dependency must not abort the run, got error: %v", err)
+		}
+	})
+
+	const wantWarning = `warning: ignoring unknown dependency "Missing" of flow "B" in run block ` +
+		`(known flows: A, B); step-level dependencies are not supported in run: and are ignored`
+	if !strings.Contains(stderr, wantWarning) {
+		t.Errorf("stderr does not contain the expected warning:\n got:  %q\n want: %q", stderr, wantWarning)
 	}
 
-	const want = `unknown dependency "Missing" in run block (known flows: A, B)`
-	if err.Error() != want {
-		t.Errorf("unexpected error message:\n got:  %q\n want: %q", err.Error(), want)
+	// The dropped dependency must not gate B: both flows run, and with no
+	// surviving edges the order is plain declaration order.
+	mu.Lock()
+	defer mu.Unlock()
+	if len(requestOrder) != 2 {
+		t.Fatalf("expected both flows to execute (2 requests), got %d: %v", len(requestOrder), requestOrder)
 	}
+	if requestOrder[0] != "/a" || requestOrder[1] != "/b" {
+		t.Errorf("expected declaration order [/a, /b] once the unknown dep is dropped, got %v", requestOrder)
+	}
+}
+
+// captureStderr redirects os.Stderr through a pipe for the duration of fn and
+// returns everything written to it. The pipe is drained on a goroutine so a
+// writer producing more than the pipe buffer cannot deadlock.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+
+	orig := os.Stderr
+	os.Stderr = w
+
+	done := make(chan string, 1)
+	go func() {
+		var buf strings.Builder
+		_, _ = io.Copy(&buf, r)
+		done <- buf.String()
+	}()
+
+	func() {
+		defer func() {
+			os.Stderr = orig
+			_ = w.Close()
+		}()
+		fn()
+	}()
+
+	out := <-done
+	_ = r.Close()
+	return out
 }
 
 // TestRunMultipleFlows_CyclicDependencyError verifies that a dependency cycle

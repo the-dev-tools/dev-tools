@@ -30,6 +30,13 @@ func TestTopoSortRunEntries(t *testing.T) {
 		// wantErrSubstrs are all required to appear in the returned error;
 		// when non-empty, an error is required and wantOrder is ignored.
 		wantErrSubstrs []string
+		// wantWarnSubstrs are all required to appear in the concatenated
+		// warnings; wantNoWarnings asserts none were produced.
+		wantWarnSubstrs []string
+		wantNoWarnings  bool
+		// wantDependsOn, when non-nil, pins each sorted entry's surviving
+		// dependencies by flow name.
+		wantDependsOn map[string][]string
 	}{
 		{
 			// Kahn's algorithm processes the initial "ready" set (every
@@ -44,7 +51,8 @@ func TestTopoSortRunEntries(t *testing.T) {
 				{flowName: "Alpha"},
 				{flowName: "Bravo"},
 			},
-			wantOrder: []string{"Charlie", "Alpha", "Bravo"},
+			wantOrder:      []string{"Charlie", "Alpha", "Bravo"},
+			wantNoWarnings: true,
 		},
 		{
 			name: "self-dependency is reported as a cycle naming the flow",
@@ -53,11 +61,63 @@ func TestTopoSortRunEntries(t *testing.T) {
 			},
 			wantErrSubstrs: []string{"dependency cycle in run block", "A"},
 		},
+		{
+			// Compatibility case: shipped example files (e.g.
+			// apps/cli/test/yamlflow/simple_run_example.yaml) list a
+			// cross-flow *step* name in a run: block's depends_on. That has
+			// never ordered anything, so it is dropped with a warning
+			// instead of aborting the run, and the surviving flow-to-flow
+			// dependency still orders the sort.
+			name: "unknown dependency is dropped with a warning, not an error",
+			entries: []runEntry{
+				{flowName: "FlowA"},
+				{flowName: "FlowB", dependsOn: []string{"FlowA"}},
+				{flowName: "FlowC", dependsOn: []string{"RequestA", "FlowB"}},
+			},
+			wantOrder: []string{"FlowA", "FlowB", "FlowC"},
+			wantWarnSubstrs: []string{
+				`ignoring unknown dependency "RequestA"`,
+				`of flow "FlowC"`,
+				"known flows: FlowA, FlowB, FlowC",
+				"step-level dependencies are not supported in run: and are ignored",
+			},
+			wantDependsOn: map[string][]string{
+				"FlowA": {},
+				"FlowB": {"FlowA"},
+				"FlowC": {"FlowB"},
+			},
+		},
+		{
+			// Dropping every dependency of a flow must leave it ready
+			// immediately rather than stranding it with a stale in-degree,
+			// which would surface as a bogus "dependency cycle" error.
+			name: "flow whose only dependencies are unknown still runs",
+			entries: []runEntry{
+				{flowName: "A", dependsOn: []string{"StepOne", "StepTwo"}},
+				{flowName: "B"},
+			},
+			wantOrder: []string{"A", "B"},
+			wantWarnSubstrs: []string{
+				`ignoring unknown dependency "StepOne"`,
+				`ignoring unknown dependency "StepTwo"`,
+			},
+			wantDependsOn: map[string][]string{"A": {}, "B": {}},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := topoSortRunEntries(tt.entries)
+			got, warnings, err := topoSortRunEntries(tt.entries)
+			allWarnings := strings.Join(warnings, "\n")
+
+			for _, substr := range tt.wantWarnSubstrs {
+				if !strings.Contains(allWarnings, substr) {
+					t.Errorf("warnings %q do not contain %q", allWarnings, substr)
+				}
+			}
+			if tt.wantNoWarnings && len(warnings) > 0 {
+				t.Errorf("expected no warnings, got %v", warnings)
+			}
 
 			if len(tt.wantErrSubstrs) > 0 {
 				if err == nil {
@@ -82,6 +142,23 @@ func TestTopoSortRunEntries(t *testing.T) {
 				if gotOrder[i] != want {
 					t.Errorf("order = %v, want %v", gotOrder, tt.wantOrder)
 					break
+				}
+			}
+
+			for _, e := range got {
+				want, pinned := tt.wantDependsOn[e.flowName]
+				if !pinned {
+					continue
+				}
+				if len(e.dependsOn) != len(want) {
+					t.Errorf("%s dependsOn = %v, want %v", e.flowName, e.dependsOn, want)
+					continue
+				}
+				for i := range want {
+					if e.dependsOn[i] != want[i] {
+						t.Errorf("%s dependsOn = %v, want %v", e.flowName, e.dependsOn, want)
+						break
+					}
 				}
 			}
 		})

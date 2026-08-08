@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -61,7 +62,15 @@ func RunMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 		}
 	}
 
-	sorted, err := topoSortRunEntries(entries)
+	// Unknown depends_on names are dropped with a warning rather than
+	// aborting the run: they were silently ignored before the run: block
+	// gained a topological sort, and shipped example files rely on that.
+	// Cycles and duplicate flow names are still hard errors.
+	sorted, warnings, err := topoSortRunEntries(entries)
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, w)
+		logger.Warn(w)
+	}
 	if err != nil {
 		return err
 	}

@@ -64,15 +64,52 @@ func parseRunEntries(fileData []byte) ([]runEntry, error) {
 	return entries, nil
 }
 
+// dropUnknownDependencies removes depends_on entries that do not name a flow
+// declared in the same run: block, returning the cleaned entries plus one
+// human-readable warning per dropped dependency.
+//
+// A run: block's depends_on has only ever ordered *flows* against each other.
+// Shipped example files (apps/cli/test/yamlflow/simple_run_example.yaml and
+// friends) nonetheless list cross-flow *step* names there, a pattern users
+// have copied because the pre-topological-sort code silently ignored anything
+// it did not recognise. Hard-erroring on those names would break every such
+// file at once, so an unknown name keeps its old no-op meaning and merely
+// becomes visible. Structurally invalid graphs - cycles, duplicate flow names
+// - remain hard errors; they are bugs, not a compatibility surface.
+func dropUnknownDependencies(entries []runEntry, byName map[string]runEntry, names []string) ([]runEntry, []string) {
+	var warnings []string
+	cleaned := make([]runEntry, 0, len(entries))
+
+	for _, e := range entries {
+		kept := make([]string, 0, len(e.dependsOn))
+		for _, dep := range e.dependsOn {
+			if _, ok := byName[dep]; ok {
+				kept = append(kept, dep)
+				continue
+			}
+			warnings = append(warnings, fmt.Sprintf(
+				"warning: ignoring unknown dependency %q of flow %q in run block (known flows: %s); step-level dependencies are not supported in run: and are ignored",
+				dep, e.flowName, strings.Join(names, ", "),
+			))
+		}
+		e.dependsOn = kept
+		cleaned = append(cleaned, e)
+	}
+
+	return cleaned, warnings
+}
+
 // topoSortRunEntries orders run: block entries so that every flow appears
 // after all of its dependencies, using Kahn's algorithm. Ties (multiple
 // flows simultaneously ready to run) are broken by original run: block
 // order, so the result is deterministic for a given file.
 //
-// Returns an error naming the offending dependency if depends_on references
-// a flow that is not itself part of the run: block, or naming an example
-// cycle if the dependency graph is not a DAG.
-func topoSortRunEntries(entries []runEntry) ([]runEntry, error) {
+// depends_on names that do not match a flow in the run: block are dropped
+// with a warning (see dropUnknownDependencies) and the returned entries carry
+// only the surviving dependencies, so execution proceeds exactly as if the
+// unknown name had not been written. Returns an error naming an example cycle
+// if the remaining dependency graph is not a DAG.
+func topoSortRunEntries(entries []runEntry) ([]runEntry, []string, error) {
 	byName := make(map[string]runEntry, len(entries))
 	declOrder := make(map[string]int, len(entries))
 	names := make([]string, 0, len(entries))
@@ -82,12 +119,12 @@ func topoSortRunEntries(entries []runEntry) ([]runEntry, error) {
 		names = append(names, e.flowName)
 	}
 
+	entries, warnings := dropUnknownDependencies(entries, byName, names)
+	// byName was populated from the pre-clean entries, so its values still
+	// carry the dropped dependencies. Re-point it at the cleaned ones: both
+	// the sorted output and findCycle read dependsOn through this map.
 	for _, e := range entries {
-		for _, dep := range e.dependsOn {
-			if _, ok := byName[dep]; !ok {
-				return nil, fmt.Errorf("unknown dependency %q in run block (known flows: %s)", dep, strings.Join(names, ", "))
-			}
-		}
+		byName[e.flowName] = e
 	}
 
 	// dependents[X] = flows that declare a dependency on X.
@@ -137,10 +174,10 @@ func topoSortRunEntries(entries []runEntry) ([]runEntry, error) {
 			}
 		}
 		cycle := findCycle(byName, remaining)
-		return nil, fmt.Errorf("dependency cycle in run block: %s", strings.Join(cycle, " → "))
+		return nil, warnings, fmt.Errorf("dependency cycle in run block: %s", strings.Join(cycle, " → "))
 	}
 
-	return sorted, nil
+	return sorted, warnings, nil
 }
 
 // findCycle returns one dependency cycle among the given remaining flows, as
