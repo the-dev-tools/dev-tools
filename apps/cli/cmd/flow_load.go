@@ -40,26 +40,33 @@ func runLoad(
 		log.Printf("Load run: flow %q with %d VUs", cfg.Flow.Name, cfg.VUs)
 	}
 
-	result, err := loadrun.Run(ctx, cfg, services, logger)
-	if err != nil {
-		return err
+	result, runErr := loadrun.Run(ctx, cfg, services, logger)
+
+	// A run that executed gets reported even when it also failed - the table
+	// and the JSON are how anyone works out what went wrong. The failure still
+	// decides the exit code, below.
+	var flushErr error
+	if result.Ran() {
+		reporters.SetLoadReport(&reporter.LoadReport{
+			Meta: reporter.LoadRunMeta{
+				ScenarioName:  result.Config.ScenarioName,
+				FlowName:      cfg.Flow.Name,
+				VUs:           result.Config.VUs,
+				Duration:      result.Config.Duration,
+				MaxIterations: result.Config.MaxIterations,
+				Iterations:    result.Summary.Iterations,
+				Errors:        result.Summary.Errors,
+				Elapsed:       result.Summary.Elapsed,
+				WorkerVersion: version,
+			},
+			Report: result.Report,
+			ByStep: result.ByStep,
+		})
+		flushErr = reporters.Flush()
 	}
 
-	reporters.SetLoadReport(&reporter.LoadReport{
-		Meta: reporter.LoadRunMeta{
-			ScenarioName:  result.Config.ScenarioName,
-			FlowName:      cfg.Flow.Name,
-			VUs:           result.Config.VUs,
-			Duration:      result.Config.Duration,
-			MaxIterations: result.Config.MaxIterations,
-			Iterations:    result.Summary.Iterations,
-			Errors:        result.Summary.Errors,
-			Elapsed:       result.Summary.Elapsed,
-			WorkerVersion: version,
-		},
-		Report: result.Report,
-		ByStep: result.ByStep,
-	})
-
-	return reporters.Flush()
+	if runErr != nil {
+		return runErr
+	}
+	return flushErr
 }

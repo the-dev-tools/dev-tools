@@ -118,6 +118,19 @@ type Result struct {
 	ByStep loadmetrics.Report
 }
 
+// Ran reports whether the scenario got as far as executing, and therefore
+// whether this Result is worth reporting.
+//
+// It is true even for runs that ended in an error, because those are exactly
+// the runs whose numbers matter most: a soak that failed its first iteration
+// per VU and then ran cleanly for half an hour still exits non-zero, but
+// throwing its report away would be the worst possible response to it. It is
+// false only when Run failed before any iteration could start - invalid
+// configuration, or a flow graph that would not build.
+func (r Result) Ran() bool {
+	return r.Config.Flow != nil
+}
+
 // Run executes cfg and returns the merged report.
 //
 // A completed run is a success even when individual requests failed: request
@@ -153,7 +166,7 @@ func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger
 	// deadline instead would make scenariorunner.Run return ctx.Err() at the
 	// end of every successful timed run, since it reports the caller's
 	// context state on the way out.
-	summary, err := scenariorunner.Run(ctx, scenariorunner.RunProfile{
+	summary, runErr := scenariorunner.Run(ctx, scenariorunner.RunProfile{
 		VUs:           cfg.VUs,
 		Duration:      cfg.Duration,
 		MaxIterations: cfg.MaxIterations,
@@ -162,26 +175,30 @@ func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger
 		tracker.observe(vu, iterErr)
 		return iterErr
 	})
-	if err != nil {
-		return Result{}, fmt.Errorf("load run: %w", err)
-	}
 
-	if err := tracker.setupFailure(); err != nil {
-		return Result{}, err
-	}
-
+	// The report is assembled before any error is returned, and returned
+	// alongside it. Everything below this point describes a run that happened;
+	// discarding what it measured because it also ended badly would throw away
+	// precisely the numbers someone needs to understand why.
 	flushedAt := time.Now()
 	frames := make([]loadmetrics.Frame, 0, len(workers))
 	for _, w := range workers {
 		frames = append(frames, w.agg.Flush(flushedAt))
 	}
-
-	return Result{
+	result := Result{
 		Config:  cfg,
 		Summary: summary,
 		Report:  loadmetrics.Merge(frames),
 		ByStep:  loadmetrics.Merge(foldByStep(frames)),
-	}, nil
+	}
+
+	if runErr != nil {
+		return result, fmt.Errorf("load run: %w", runErr)
+	}
+	if err := tracker.setupFailure(); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // foldByStep rewrites frames so every entry's status class is dropped,
