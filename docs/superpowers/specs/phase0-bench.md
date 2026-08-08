@@ -22,15 +22,15 @@ capacity math must stay under, not a floor it can plan against.
 
 ## Environment
 
-| | |
-|---|---|
-| Date | 2026-08-08 |
-| Machine | Apple M2 Max, 12 logical CPUs (`runtime.NumCPU()`), 32 GB RAM |
-| OS/Arch | darwin/arm64 (`GOOS`/`GOARCH`) |
-| Go | go1.25.5 (`runtime.Version()`) |
-| Lean mode | on (always on for load runs - see `loadrun.go` package doc) |
-| Target | local, in-process `httptest.NewServer`, loopback only, fixed 5ms handler latency (`time.Sleep(5*time.Millisecond)`), no external network dependency of any kind |
-| Engine | `apps/cli/internal/loadrun.Run`, driven in-process exactly as `apps/cli/internal/loadrun/loadrun_test.go`'s `setupFlow` helper does (yamlflow import → in-memory SQLite workspace → `flowbuilder` → `loadrun.Run`) |
+|           |                                                                                                                                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Date      | 2026-08-08                                                                                                                                                                                                         |
+| Machine   | Apple M2 Max, 12 logical CPUs (`runtime.NumCPU()`), 32 GB RAM                                                                                                                                                      |
+| OS/Arch   | darwin/arm64 (`GOOS`/`GOARCH`)                                                                                                                                                                                     |
+| Go        | go1.25.5 (`runtime.Version()`)                                                                                                                                                                                     |
+| Lean mode | on (always on for load runs - see `loadrun.go` package doc)                                                                                                                                                        |
+| Target    | local, in-process `httptest.NewServer`, loopback only, fixed 5ms handler latency (`time.Sleep(5*time.Millisecond)`), no external network dependency of any kind                                                    |
+| Engine    | `apps/cli/internal/loadrun.Run`, driven in-process exactly as `apps/cli/internal/loadrun/loadrun_test.go`'s `setupFlow` helper does (yamlflow import → in-memory SQLite workspace → `flowbuilder` → `loadrun.Run`) |
 
 ## Methodology
 
@@ -66,14 +66,14 @@ capacity math must stay under, not a floor it can plan against.
   below for why that isolation turned out to matter.
 - **What "RPS" means here**: `loadmetrics.Report.Total.RPS` is
   `(requests recorded)/(wall time covered)`, and a request is recorded whether it
-  succeeded or failed (see `vuWorker.record` in `loadrun.go`) - so it is an *attempt*
+  succeeded or failed (see `vuWorker.record` in `loadrun.go`) - so it is an _attempt_
   rate, not a success rate. At VUs=1 and VUs=10 every attempt succeeded, so the
   distinction is moot there. At VUs=50 it is not; see below.
 - **Why a header, not the body, carries the chained value**: load runs always run in
   lean mode, which replaces the entire decoded response body with a fixed placeholder
   string once assertions run (`nrequest.LeanBodyPlaceholder`) - a flow that tried to
   chain via `response.body.someField` would silently chain the placeholder, not a real
-  per-response value. Response *headers* are untouched by lean mode, so the target
+  per-response value. Response _headers_ are untouched by lean mode, so the target
   returns its issued token via a `Chaintoken` response header instead. (It has no
   hyphen: `{{ }}` interpolation runs through `expr-lang`, which parses a hyphenated
   segment as subtraction between two identifiers rather than as a map key.)
@@ -84,17 +84,17 @@ RPS is requests/sec (attempts, per above). P50/P95/P99 are per-request latency
 (HDR histogram, includes both successes and failures - a fast-failing dial attempt at
 VUs=50 pulls percentiles in a different direction than a slow one, see below).
 
-| Config | VUs | Requests | Iterations | Elapsed | RPS | Error % | P50 | P95 | P99 | Max |
-|---|---|---|---|---|---|---|---|---|---|---|
-| single-get | 1 | 1,554 | 1,554 | 10.005s | 155.3 | 0.0% | 6.503ms | 6.835ms | 7.091ms | 8.343ms |
-| chained-5-step | 1 | 1,560 | 312 | 10.029s | 155.5 | 0.0% | 6.515ms | 6.875ms | 7.071ms | 8.543ms |
-| single-get | 10 | 12,516 | 12,516 | 8.002s | 1,564.1 | 0.0% | 6.323ms | 6.687ms | 7.327ms | 18.927ms |
-| chained-5-step | 10 | 12,600 | 2,520 | 8.026s | 1,569.8 | 0.0% | 6.359ms | 6.651ms | 7.215ms | 14.975ms |
-| single-get | 50 | 25,544 | 25,544 | 6.014s | 4,247.6 | 12.9% | 5.879ms | 11.375ms | 156.927ms | 860.159ms |
-| chained-5-step | 50 | 26,807 | 7,778 | 6.055s | 4,427.0 | 42.0%\* | 5.907ms | 7.355ms | 195.199ms | 350.207ms |
+| Config         | VUs | Requests | Iterations | Elapsed | RPS     | Error % | P50     | P95      | P99       | Max       |
+| -------------- | --- | -------- | ---------- | ------- | ------- | ------- | ------- | -------- | --------- | --------- |
+| single-get     | 1   | 1,554    | 1,554      | 10.005s | 155.3   | 0.0%    | 6.503ms | 6.835ms  | 7.091ms   | 8.343ms   |
+| chained-5-step | 1   | 1,560    | 312        | 10.029s | 155.5   | 0.0%    | 6.515ms | 6.875ms  | 7.071ms   | 8.543ms   |
+| single-get     | 10  | 12,516   | 12,516     | 8.002s  | 1,564.1 | 0.0%    | 6.323ms | 6.687ms  | 7.327ms   | 18.927ms  |
+| chained-5-step | 10  | 12,600   | 2,520      | 8.026s  | 1,569.8 | 0.0%    | 6.359ms | 6.651ms  | 7.215ms   | 14.975ms  |
+| single-get     | 50  | 25,544   | 25,544     | 6.014s  | 4,247.6 | 12.9%   | 5.879ms | 11.375ms | 156.927ms | 860.159ms |
+| chained-5-step | 50  | 26,807   | 7,778      | 6.055s  | 4,427.0 | 42.0%\* | 5.907ms | 7.355ms  | 195.199ms | 350.207ms |
 
 \* Iteration error rate. The chain aborts a step's dependents once that step fails
-(`depends_on` never satisfies), so per-*iteration* failure overstates per-*request*
+(`depends_on` never satisfies), so per-_iteration_ failure overstates per-_request_
 failure for the chained config: 3,266 of 26,807 individual requests failed (12.2%),
 concentrated at Step1 (2,633 of 7,778 attempts, 33.9%) and falling steeply at each
 later hop (Step2 8.0%, Step3 2.9%, Step4 1.0%, Step5 0.9%) as fewer iterations survive
@@ -128,7 +128,7 @@ below) - the curve is real.
 ## Anomaly investigated: VUs=50 request failures
 
 The first full-matrix run showed VUs=50 failing 30-98% of iterations depending on
-ordering, with a p99 in the *seconds*. That is exactly the "if it doesn't [scale],
+ordering, with a p99 in the _seconds_. That is exactly the "if it doesn't [scale],
 investigate before writing the doc" case this task calls out, so before anything below
 was accepted as real, it was root-caused rather than reported as-is.
 
@@ -151,7 +151,7 @@ textbook ephemeral port exhaustion, not a flow-engine or flake.
 version of this harness ran all six cells back-to-back with only a 2s gap and no
 resource teardown between them. A VUs=10 cell alone opens ~12,500 short-lived
 connections; with a 30s `TIME_WAIT`, a 2s gap starts the next cell with most of the
-ephemeral range still occupied by the *previous* cell's sockets - so the reported
+ephemeral range still occupied by the _previous_ cell's sockets - so the reported
 "VUs=50" failure rate was really measuring leftover port pressure from VUs=10, not
 VUs=50 itself, and got worse the more cells had already run. Fixed by: running cells
 VUs-major so nothing runs after a VUs=50 cell, wrapping every cell in its own `t.Run`
@@ -172,13 +172,13 @@ local ephemeral ports on this class of machine** without an explicit
 `MaxIdleConnsPerHost`/`MaxConnsPerHost` tuned for the expected VU count. Two mitigating
 factors for how much this matters in practice:
 
-1. It is a *rate* problem, not strictly a *VUs* problem - it happens because 50 VUs
+1. It is a _rate_ problem, not strictly a _VUs_ problem - it happens because 50 VUs
    against a 5ms target reach ~4,200-4,500 req/s. A real target with realistic latency
    (tens to hundreds of ms) would let the same 50 VUs reach only a fraction of that
    rate, buying comparable headroom before hitting the same wall. This benchmark's
    target is deliberately unrealistically fast (that is the point - it isolates engine
    overhead), and that is exactly what makes it also the case most likely to trip this.
-2. Effective *successful* throughput at VUs=50 was still far above VUs=10, not flat:
+2. Effective _successful_ throughput at VUs=50 was still far above VUs=10, not flat:
    in the reported run, single-get did 22,240 successful requests in 6.014s (3,698.0
    successful req/s); chained-5-step did 23,541 successful individual requests in the
    same window (3,887.9 successful req/s), or 4,512 fully-completed 5-step iterations
@@ -193,10 +193,10 @@ code (see "Files changed" for the no-op lint diff between them) produced consist
 VUs=1/VUs=10 numbers (RPS within 1% of each other, both runs zero errors, both scaled
 ~x10.0-10.1) but noticeably different VUs=50 error rates:
 
-| Run | single-get VUs=50 error% | chained-5-step VUs=50 error% |
-|---|---|---|
-| Pre lint-fix (same logic, cosmetic diff only) | 14.1% | 37.7% |
-| Post lint-fix - **this is the run reported in the Results table above** | 12.9% | 42.0% |
+| Run                                                                     | single-get VUs=50 error% | chained-5-step VUs=50 error% |
+| ----------------------------------------------------------------------- | ------------------------ | ---------------------------- |
+| Pre lint-fix (same logic, cosmetic diff only)                           | 14.1%                    | 37.7%                        |
+| Post lint-fix - **this is the run reported in the Results table above** | 12.9%                    | 42.0%                        |
 
 This is expected, not a measurement bug: ephemeral port availability at the moment a
 cell starts depends on exactly how much of the previous cooldown's `TIME_WAIT` backlog
@@ -224,7 +224,7 @@ artifact or something that also shows up in production.
   folding the result into `loadmetrics` costs about that much per request on this
   hardware. That overhead is flat with VU count and with chain position (all 5 steps of
   the chained flow show essentially the same P50), which is the shape you want: it
-  means the *engine* isn't the bottleneck at these VU levels, whatever else is.
+  means the _engine_ isn't the bottleneck at these VU levels, whatever else is.
 - **Does not tell you**: what a Fly shared-cpu machine can sustain (not yet measured -
   the explicit gap this doc flags), what a realistic-latency target changes about the
   VUs=50 picture (not yet measured), or where the true per-worker VU ceiling sits once
