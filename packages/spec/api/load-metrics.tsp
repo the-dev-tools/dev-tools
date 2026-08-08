@@ -56,10 +56,32 @@ model LoadRunStepStats {
   ...LoadStats;
 }
 
+@doc("Verdict of evaluating one threshold (e.g. \"p95(CreateOrder) < 300ms\") against a completed run. Shape is frozen in Phase 0; nothing populates this until threshold evaluation ships in Phase 2.")
+model LoadThresholdVerdict {
+  @doc("The threshold expression as configured") expression: string;
+  success: boolean;
+
+  @doc("The observed value that was checked against the expression, stringified since thresholds may target durations, rates, or counts")
+  observedValue?: string;
+}
+
+@doc("Identifies the environment a run executed in, for baseline comparability across runs. Shape is frozen in Phase 0; nothing populates this until the Stresseur cloud worker fleet ships in Phase 2 (a local/desktop run has no region or machine class).")
+model LoadEnvironmentFingerprint {
+  workerVersion?: string;
+  region?: string;
+  machineClass?: string;
+}
+
 @doc("Fully-merged report for a completed (or in-progress) load-test run.")
 model LoadRunReport {
   total: LoadStats;
   perStep: LoadRunStepStats[];
+
+  @doc("Threshold pass/fail verdicts for this run. Absent for exploratory runs with no configured thresholds; shape frozen in Phase 0, populated starting Phase 2.")
+  thresholds?: LoadThresholdVerdict[];
+
+  @doc("Fingerprint of the environment this run executed in, for baseline comparability. Shape frozen in Phase 0, populated starting Phase 2.")
+  environment?: LoadEnvironmentFingerprint;
 }
 
 model LoadFailureHeader {
