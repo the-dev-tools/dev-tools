@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
@@ -63,11 +64,17 @@ type ImportResult struct {
 
 // Import imports a WorkspaceBundle into the database using the provided options.
 // This operation should be performed within a transaction for atomicity.
+//
+// Load scenarios are the one part of a bundle Import does not store: there is
+// no schema for them yet. Rather than lose them quietly, an import that
+// carries any says so - see warnUnstoredLoadScenarios.
 func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *WorkspaceBundle, opts ImportOptions) (*ImportResult, error) {
 	// Validate options
 	if err := opts.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid import options: %w", err)
 	}
+
+	s.warnUnstoredLoadScenarios(ctx, bundle)
 
 	// Initialize result
 	result := &ImportResult{
@@ -336,6 +343,35 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	}
 
 	return result, nil
+}
+
+// LoadScenariosNotStoredMessage is logged when an imported bundle carries load
+// scenarios. It is a constant so tests can assert on the warning without
+// pinning the surrounding log format.
+const LoadScenariosNotStoredMessage = "Load scenarios were not stored: this version keeps the load: block in the workflow file only, so exporting this workspace will not reproduce it"
+
+// warnUnstoredLoadScenarios reports load scenarios that this version cannot
+// persist.
+//
+// WorkspaceBundle.LoadScenarios exists so the file-to-file YAML round trip
+// preserves the load: block; there is no table behind it. Importing a document
+// that has one therefore drops it, and an export of the resulting workspace
+// will not bring it back. That is a real (if temporary) data loss, so it is
+// stated out loud rather than left for someone to discover from a diff.
+func (s *IOWorkspaceService) warnUnstoredLoadScenarios(ctx context.Context, bundle *WorkspaceBundle) {
+	if bundle == nil || len(bundle.LoadScenarios) == 0 {
+		return
+	}
+
+	names := make([]string, 0, len(bundle.LoadScenarios))
+	for _, scenario := range bundle.LoadScenarios {
+		names = append(names, scenario.Name)
+	}
+
+	s.logger.WarnContext(ctx, LoadScenariosNotStoredMessage,
+		"count", len(bundle.LoadScenarios),
+		"scenarios", strings.Join(names, ", "),
+	)
 }
 
 // Flow import functions have been moved to importer_flow.go
