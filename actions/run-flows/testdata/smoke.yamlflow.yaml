@@ -1,0 +1,38 @@
+workspace_name: run-flows action smoke test
+# Minimal fixture for actions/run-flows CI validation (action-test.yaml).
+# Plain HTTP requests only (no js/websocket nodes) so it needs nothing but
+# network access to https://jsonplaceholder.typicode.com. Uses the CLI's
+# real interpolation syntax: {{ node_name.field }} — see docs/cli.md and
+# apps/cli/test/yamlflow/ws_run_example.yaml. Do NOT copy the ${var} syntax
+# used by other fixtures under apps/cli/test/yamlflow/ — it is stale and not
+# implemented by the current interpolation engine (packages/server/pkg/expression).
+run:
+  - flow: fetch-user
+  - flow: create-post
+    depends_on: fetch-user
+flows:
+  - name: fetch-user
+    steps:
+      - request:
+          name: get_user
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users/1
+      - request:
+          name: get_user_posts
+          method: GET
+          url: https://jsonplaceholder.typicode.com/posts
+          query_params:
+            userId: '{{ get_user.response.body.id }}'
+          depends_on: get_user
+  - name: create-post
+    steps:
+      - request:
+          name: create_post
+          method: POST
+          url: https://jsonplaceholder.typicode.com/posts
+          headers:
+            Content-Type: application/json
+          body:
+            title: 'run-flows smoke test'
+            body: 'Created by actions/run-flows/testdata/smoke.yamlflow.yaml'
+            userId: 1

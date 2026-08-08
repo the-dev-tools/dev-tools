@@ -1,0 +1,78 @@
+name: 'DevTools Run Flows'
+description: 'Run a DevTools YAML flow with the released devtoolscli CLI and publish JSON/JUnit reports plus a job summary.'
+author: 'the-dev-tools'
+
+inputs:
+  file:
+    description: 'Path to the .yamlflow.yaml file to run.'
+    required: true
+  flow:
+    description: "Single flow name to run. Defaults to the file's top-level run: block."
+    required: false
+  version:
+    description: "devtoolscli release to install: 'latest' or a release tag, e.g. cli@1.0.3."
+    required: false
+    default: 'latest'
+  report-dir:
+    description: 'Directory to write the JSON and JUnit reports into.'
+    required: false
+    default: '.devtools-reports'
+  fail-on-error:
+    description: "Fail this step if any flow fails. Set to 'false' to always exit 0 and inspect the success output instead."
+    required: false
+    default: 'true'
+
+outputs:
+  json-report:
+    description: 'Path to the JSON report (empty string if none was produced).'
+    value: ${{ steps.finalize.outputs.json-report }}
+  junit-report:
+    description: 'Path to the JUnit XML report (empty string if none was produced).'
+    value: ${{ steps.finalize.outputs.junit-report }}
+  success:
+    description: "'true' if every flow in the run succeeded, 'false' otherwise."
+    value: ${{ steps.finalize.outputs.success }}
+
+runs:
+  using: composite
+  steps:
+    # linux/macOS only — devtoolscli release-go.yaml does not publish a
+    # Windows-friendly layout for this action to consume; see README.md.
+    - name: Download devtoolscli
+      id: download
+      shell: bash
+      run: '"$GITHUB_ACTION_PATH/scripts/download-cli.sh"'
+      env:
+        VERSION: ${{ inputs.version }}
+
+    # continue-on-error: a failing flow run must not skip the summary/output
+    # steps below — they need to run via if: always() regardless.
+    - name: Run flow
+      id: run
+      shell: bash
+      continue-on-error: true
+      run: '"$GITHUB_ACTION_PATH/scripts/run-flow.sh"'
+      env:
+        CLI_BIN: ${{ steps.download.outputs.bin }}
+        FILE: ${{ inputs.file }}
+        FLOW: ${{ inputs.flow }}
+        REPORT_DIR: ${{ inputs.report-dir }}
+
+    - name: Write job summary
+      id: summary
+      if: always()
+      shell: bash
+      run: '"$GITHUB_ACTION_PATH/scripts/write-summary.sh"'
+      env:
+        REPORT_DIR: ${{ inputs.report-dir }}
+        RUN_OUTCOME: ${{ steps.run.outcome }}
+
+    - name: Set outputs
+      id: finalize
+      if: always()
+      shell: bash
+      run: '"$GITHUB_ACTION_PATH/scripts/finalize.sh"'
+      env:
+        REPORT_DIR: ${{ inputs.report-dir }}
+        RUN_OUTCOME: ${{ steps.run.outcome }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
