@@ -69,7 +69,7 @@ _State reflects branch base `36d63065`; Phase 0 (this branch) retires the ❌ ro
 | `flow.timeout` / `flow.metadata` parsed but never read                      | Dead schema fields                                                                                   | `types.go:67-73`                                                                                    |
 | GraphQL-only / WS-only exports use ad-hoc shapes that cannot be re-imported | Round-trip broken for those exports                                                                  | `rexportv2/export.go:257-342`                                                                       |
 | CLI JS nodes broken on Windows                                              | Go dials `unix`; worker binds named pipe on win32                                                    | `jsrunner.go:63` vs `worker-js/src/main.ts:32-36`                                                   |
-| `devtools version` prints v0.1.0 (package is 1.0.3)                         | Cosmetic; breaks support triage                                                                      | `apps/cli/cmd/version.go:13`                                                                        |
+| `devtools version` prints v0.1.0 (package is 1.0.3)                         | **Fixed by Phase 0** (ldflags injection in `build:release`)                                          | `apps/cli/cmd/version.go:13`                                                                        |
 
 ## 3. Target architecture
 
