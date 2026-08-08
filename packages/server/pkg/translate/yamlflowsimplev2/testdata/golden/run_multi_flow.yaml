@@ -1,0 +1,37 @@
+workspace_name: Golden Run Multi Flow
+run:
+  - flow: FlowC
+    depends_on:
+      - FlowA
+      - FlowB
+  - flow: FlowA
+  - flow: FlowB
+    depends_on: FlowA
+flows:
+  - name: FlowA
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/a
+  - name: FlowB
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestB
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/b
+  - name: FlowC
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestC
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/c

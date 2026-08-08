@@ -1,0 +1,41 @@
+workspace_name: Golden Sub Flows
+flows:
+  - name: MainFlow
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: FetchUser
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/users/1
+      - run_sub_flow:
+          name: CallGreeter
+          depends_on: FetchUser
+          flow: GreeterFlow
+          inputs:
+            userName: '{{ FetchUser.response.body.name }}'
+      - js:
+          name: UseGreeting
+          depends_on: CallGreeter
+          code: |
+            export default function(context) {
+              return { greeting: context.CallGreeter };
+            }
+  - name: GreeterFlow
+    steps:
+      - manual_start:
+          name: Start
+      - js:
+          name: BuildGreeting
+          depends_on: Start
+          code: |
+            export default function(context) {
+              return { greeting: "Hello " + context.userName };
+            }
+      - sub_flow_return:
+          name: Return
+          depends_on: BuildGreeting
+          outputs:
+            - name: greeting
+              expression: BuildGreeting.greeting

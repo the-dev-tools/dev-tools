@@ -1,0 +1,62 @@
+workspace_name: Golden Request Corpus
+requests:
+  - name: BaseRequest
+    method: GET
+    url: https://api.example.com/base
+    headers:
+      Accept: application/json
+      X-Client: golden-corpus
+    assertions:
+      - response.status == 200
+flows:
+  - name: RequestFlow
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: MapFormRequest
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/map
+          headers:
+            Accept: application/json
+            X-Trace-Id: golden-trace
+          query_params:
+            page: '1'
+            limit: '20'
+          assertions:
+            - response.status == 200
+            - response.body.ok == true
+      - request:
+          name: ListFormRequest
+          depends_on: MapFormRequest
+          method: POST
+          url: https://api.example.com/list
+          headers:
+            - name: Accept
+              value: application/json
+              enabled: true
+            - name: X-Trace-Id
+              value: '{{ MapFormRequest.response.body.traceId }}'
+              description: propagated trace id
+              enabled: true
+            - name: X-Debug
+              value: 'true'
+              enabled: false
+          body:
+            type: json
+            json:
+              note: created by ListFormRequest
+          assertions:
+            - expression: response.status == 201
+              enabled: true
+            - expression: response.body.legacyField == null
+              enabled: false
+      - request:
+          name: TemplatedRequest
+          depends_on: ListFormRequest
+          use_request: BaseRequest
+          headers:
+            X-Extra: template-override
+          assertions:
+            - response.body.id != nil

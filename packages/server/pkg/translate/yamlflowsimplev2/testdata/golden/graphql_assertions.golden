@@ -1,0 +1,55 @@
+workspace_name: Golden GraphQL
+run:
+    - flow: GraphQLFlow
+graphql_requests:
+    - name: InlineQuery
+      url: https://api.example.com/graphql
+      query: |-
+        query Widget($id: ID!) {
+          widget(id: $id) {
+            id
+            name
+          }
+        }
+      variables: '{"id": "1"}'
+      headers:
+        Accept: application/json
+      assertions:
+        - expression: response.status == 200
+          enabled: true
+        - expression: response.body.data.widget.id != nil
+          enabled: false
+    - name: Widgets
+      url: https://api.example.com/graphql
+      query: |-
+        query {
+          widgets {
+            id
+            name
+          }
+        }
+      variables: '{}'
+      headers:
+        Accept: application/json
+      assertions:
+        - response.status == 200
+        - response.body.data.widgets != nil
+flows:
+    - name: GraphQLFlow
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - graphql:
+            name: Widgets
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: Widgets
+        - graphql:
+            name: InlineQuery
+            depends_on: Widgets
+            position_x: 600
+            position_y: 0
+            use_request: InlineQuery
