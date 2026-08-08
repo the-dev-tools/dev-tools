@@ -46,6 +46,7 @@ type FlowLocalRunner struct {
 	maxConcurrency int
 	mode           ExecutionMode
 	selectedMode   ExecutionMode
+	leanMode       bool
 
 	enableDataTracking bool
 	logger             *slog.Logger
@@ -65,6 +66,16 @@ func WithMaxConcurrency(n int) Option {
 			return
 		}
 		r.maxConcurrency = n
+	}
+}
+
+// WithLeanMode enables lean execution: nodes drop response bodies from their
+// flow output once assertions have been evaluated, keeping memory flat across
+// long load runs. Downstream nodes cannot extract from a dropped body, so this
+// is opt-in and off by default.
+func WithLeanMode(enabled bool) Option {
+	return func(r *FlowLocalRunner) {
+		r.leanMode = enabled
 	}
 }
 
@@ -205,6 +216,7 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		PendingAtmoicMap: pendingAtmoicMap,
 		PendingMapMu:     pendingMu,
 		Logger:           r.logger,
+		LeanMode:         r.leanMode,
 	}
 
 	mode := r.mode
