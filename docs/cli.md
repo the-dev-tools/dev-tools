@@ -77,7 +77,13 @@ You can specify the flag multiple times. When writing JSON or JUnit reports, the
 3. If your flows depend on external APIs, run them against staging environments or mock servers to keep CI stable.
 4. Consider adding `devtoolscli version` to your pipeline logs so you can diagnose regressions quickly.
 
-A minimal GitHub Actions job looks like:
+### GitHub Actions
+
+The bundled composite action downloads a released `devtoolscli` binary for
+the runner's OS/arch, runs the flow, and publishes a job summary plus
+JSON/JUnit reports as outputs — no repo checkout of DevTools itself or Nix/pnpm
+toolchain needed. See [`actions/run-flows/README.md`](../actions/run-flows/README.md)
+for the full inputs/outputs reference:
 
 ```yaml
 jobs:
@@ -85,12 +91,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: the-dev-tools/dev-tools/actions/run-flows@main
         with:
-          version: 9
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm nx run cli:build
-      - run: ./apps/cli/dist/devtoolscli flow run flows.yamlflow.yaml
+          file: flows.yamlflow.yaml
+        env:
+          LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
+```
+
+#### Manual alternative
+
+Windows runners, air-gapped environments, or anything else the action doesn't
+cover can install the CLI directly (see [Installation](#installation) above)
+and call `flow run` themselves. Note the installed binary is named `devtools`,
+not `devtoolscli`:
+
+```yaml
+jobs:
+  flow-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
+      - run: devtools flow run flows.yamlflow.yaml --report console --report junit:report.xml
         env:
           LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
