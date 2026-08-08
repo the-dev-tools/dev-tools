@@ -1,0 +1,53 @@
+version: 2
+workspace_name: Golden Run Deps Lost On Export
+run:
+    - flow: C
+    - flow: B
+    - flow: A
+requests:
+    - name: RequestA
+      method: GET
+      url: https://api.example.com/a
+    - name: RequestB
+      method: GET
+      url: https://api.example.com/b
+    - name: RequestC
+      method: GET
+      url: https://api.example.com/c
+flows:
+    - name: C
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: RequestC
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: RequestC
+    - name: B
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: RequestB
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: RequestB
+    - name: A
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: RequestA
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: RequestA

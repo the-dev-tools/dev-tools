@@ -1,3 +1,14 @@
+# Pre-existing gap (not fixed by this task, see task-1-report.md Concerns):
+# sub_flow_trigger is not exercised anywhere in this corpus because it does
+# not survive export. processSteps overwrites the flow node's ID with the
+# flow's start-node ID (converter_node.go:235) so the trigger acts as the
+# flow's entry point, but NodeSubFlowTrigger.FlowNodeID keeps the original,
+# pre-overwrite ID (converter_node.go:788). The exporter's lookup map is
+# keyed by that original FlowNodeID (exporter.go:145) but probed with the
+# node's actual (overwritten) ID (exporter.go:661), so the lookup always
+# misses and the sub_flow_trigger step is silently dropped from the
+# exported YAML - which then fails to re-import, since other steps still
+# depend on it by name. GreeterFlow below uses a plain manual_start instead.
 workspace_name: Golden Sub Flows
 flows:
   - name: MainFlow
