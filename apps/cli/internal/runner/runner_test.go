@@ -10,9 +10,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/runner"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
@@ -30,7 +32,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sworkspace"
 	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
-	"github.com/coder/websocket"
 )
 
 // flowTestFixture provides a common test environment for flow execution tests
@@ -883,5 +884,418 @@ flows:
 	}
 	if !foundSend {
 		t.Error("WS send node 'SendHello' was not executed")
+	}
+}
+
+// setupMultiFlowFixture converts, imports, and returns the flows for a
+// run:-block test. It is a thin helper shared by the RunMultipleFlows
+// ordering/validation tests below.
+func setupMultiFlowFixture(t *testing.T, fixture *flowTestFixture, yamlContent string) []mflow.Flow {
+	t.Helper()
+
+	fileData := []byte(yamlContent)
+	resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML(fileData, yamlflowsimplev2.ConvertOptionsV2{
+		WorkspaceID: fixture.workspaceID,
+	})
+	if err != nil {
+		t.Fatalf("failed to convert YAML: %v", err)
+	}
+
+	fixture.importWorkspaceBundle(resolved)
+
+	flows, err := fixture.services.Flow.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	if err != nil {
+		t.Fatalf("failed to get flows: %v", err)
+	}
+	return flows
+}
+
+// TestRunMultipleFlows_ExecutesInDependencyOrder verifies that RunMultipleFlows
+// executes flows in dependency order rather than run: block declaration
+// order. The run: block deliberately lists B (which depends on A) before A.
+func TestRunMultipleFlows_ExecutesInDependencyOrder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	var mu sync.Mutex
+	var requestOrder []string
+	fixture.mockServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestOrder = append(requestOrder, r.URL.Path)
+		mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	})
+
+	yamlContent := fmt.Sprintf(`workspace_name: Order Test
+run:
+  - flow: B
+    depends_on: A
+  - flow: A
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: %s/a
+          depends_on: Start
+  - name: B
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestB
+          method: GET
+          url: %s/b
+          depends_on: Start
+`, fixture.mockServer.URL, fixture.mockServer.URL)
+
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
+	defer cancel()
+
+	if err := runner.RunMultipleFlows(ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil); err != nil {
+		t.Fatalf("multi-flow execution failed: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(requestOrder) != 2 {
+		t.Fatalf("expected 2 requests, got %d: %v", len(requestOrder), requestOrder)
+	}
+	if requestOrder[0] != "/a" || requestOrder[1] != "/b" {
+		t.Errorf("expected requests in dependency order [/a, /b] (A before B), got %v", requestOrder)
+	}
+}
+
+// TestRunMultipleFlows_UnknownDependencyError verifies that a depends_on
+// entry naming a flow that is not part of the run: block produces a specific,
+// actionable error rather than being silently ignored.
+func TestRunMultipleFlows_UnknownDependencyError(t *testing.T) {
+	fixture := newFlowTestFixture(t)
+
+	yamlContent := `workspace_name: Unknown Dep Test
+run:
+  - flow: A
+  - flow: B
+    depends_on: Missing
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+  - name: B
+    steps:
+      - manual_start:
+          name: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	err := runner.RunMultipleFlows(fixture.ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected an error for an unknown dependency, got nil")
+	}
+
+	const want = `unknown dependency "Missing" in run block (known flows: A, B)`
+	if err.Error() != want {
+		t.Errorf("unexpected error message:\n got:  %q\n want: %q", err.Error(), want)
+	}
+}
+
+// TestRunMultipleFlows_CyclicDependencyError verifies that a dependency cycle
+// in the run: block is rejected with a message naming the cycle, instead of
+// hanging or silently running flows in an arbitrary order.
+func TestRunMultipleFlows_CyclicDependencyError(t *testing.T) {
+	fixture := newFlowTestFixture(t)
+
+	yamlContent := `workspace_name: Cycle Test
+run:
+  - flow: A
+    depends_on: B
+  - flow: B
+    depends_on: A
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+  - name: B
+    steps:
+      - manual_start:
+          name: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	err := runner.RunMultipleFlows(fixture.ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a dependency cycle error, got nil")
+	}
+	if !strings.Contains(err.Error(), "dependency cycle in run block") {
+		t.Errorf("expected a dependency cycle error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "A") || !strings.Contains(err.Error(), "B") {
+		t.Errorf("expected the cycle description to name both A and B, got: %v", err)
+	}
+}
+
+// TestRunMultipleFlows_EmptyRunBlockErrors verifies the pre-existing behavior
+// (unchanged by dependency-ordering support) that an empty run: block is
+// rejected rather than silently doing nothing.
+func TestRunMultipleFlows_EmptyRunBlockErrors(t *testing.T) {
+	fixture := newFlowTestFixture(t)
+
+	yamlContent := `workspace_name: Empty Run Test
+run: []
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	err := runner.RunMultipleFlows(fixture.ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected an error for an empty run block, got nil")
+	}
+}
+
+// TestRunMultipleFlows_FailedDependencySkipsDependent verifies that when a
+// flow fails, flows that depend on it are reported as skipped (with a reason
+// naming the failed dependency) instead of being attempted, and the overall
+// call still returns a non-nil error. This preserves today's failure-gate
+// semantics (a dependent never runs after its dependency fails) while
+// replacing the old silent early-return with an explicit, reported skip.
+func TestRunMultipleFlows_FailedDependencySkipsDependent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	requestCount := 0
+	fixture.mockServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	})
+
+	// A's request targets an address nothing listens on (port 1 is reserved),
+	// so the connection is refused and the flow fails fast. B depends on A
+	// and must never reach the mock server.
+	yamlContent := fmt.Sprintf(`workspace_name: Failure Gate Test
+run:
+  - flow: A
+  - flow: B
+    depends_on: A
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: http://127.0.0.1:1/unreachable
+          depends_on: Start
+  - name: B
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestB
+          method: GET
+          url: %s/b
+          depends_on: Start
+`, fixture.mockServer.URL)
+
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
+	defer cancel()
+
+	err := runner.RunMultipleFlows(ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a non-nil error when a dependency fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "B") {
+		t.Errorf("expected the error to mention flow B, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "skipped") {
+		t.Errorf("expected the error to report B as skipped, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), `"A"`) {
+		t.Errorf("expected the error to name A as the failed dependency, got: %v", err)
+	}
+
+	if requestCount != 0 {
+		t.Errorf("expected RequestB to never be attempted since A failed, but the mock server received %d request(s)", requestCount)
+	}
+}
+
+// The three tests below pin behavior deltas identified in code review as
+// unavoidable, in-scope side effects of moving run: parsing/execution onto
+// the typed yamlflowsimplev2 structs and a pre-flight topological sort (see
+// the "run: execution behavior deltas" section of task-1-report.md). None of
+// these are new production code changes - they lock in what
+// TestRunMultipleFlows_UnknownDependencyError, _CyclicDependencyError, etc.
+// already exercise indirectly, made explicit and named.
+
+// TestRunMultipleFlows_UnknownFlowPreventsAnyExecution pins delta #1: the
+// "flow not found" check now runs as a pre-flight pass over every run:
+// entry before anything executes, rather than being discovered mid-loop.
+// Previously `run: [A, Bogus]` would run A and only then fail on Bogus;
+// now nothing runs. RequestA's hit count on the mock server is the proof.
+func TestRunMultipleFlows_UnknownFlowPreventsAnyExecution(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	requestCount := 0
+	fixture.mockServer.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	})
+
+	// Import only flow A - a valid, self-contained document. "Bogus" is
+	// intentionally never defined under flows: anywhere.
+	importYAML := fmt.Sprintf(`workspace_name: Unknown Flow Test
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: %s/a
+          depends_on: Start
+`, fixture.mockServer.URL)
+
+	flows := setupMultiFlowFixture(t, fixture, importYAML)
+
+	// Fed directly to RunMultipleFlows (bypassing ConvertSimplifiedYAML,
+	// which would itself reject a run: entry naming an undefined flow) to
+	// isolate exactly the check under test: RunMultipleFlows's own
+	// cross-check of the run: block against the flows it was actually
+	// given.
+	runYAML := []byte(`workspace_name: Unknown Flow Test
+run:
+  - flow: A
+  - flow: Bogus
+`)
+
+	err := runner.RunMultipleFlows(fixture.ctx, runYAML, flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected an error for an unknown flow in the run block, got nil")
+	}
+
+	if requestCount != 0 {
+		t.Errorf("expected A to never execute since Bogus is unknown, but the mock server received %d request(s)", requestCount)
+	}
+}
+
+// TestRunMultipleFlows_SingleFailureMessageShape pins delta #2: the
+// aggregate error format. It used to be exactly `multi-flow execution
+// failed: <err>` (and picked *which* err via unordered map iteration when
+// more than one flow failed). It is now `multi-flow execution failed:
+// <flow>: <err> (<status>)`, built from the deterministic run order. The
+// prefix/suffix produced by RunMultipleFlows are asserted exactly; the
+// infix (the OS-level dial error text from the refused connection) is only
+// asserted to be present, since its exact wording is not something this
+// package controls or should pin.
+func TestRunMultipleFlows_SingleFailureMessageShape(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	fixture := newFlowTestFixture(t)
+
+	// Port 1 is reserved; nothing listens there, so the connection is
+	// refused immediately and deterministically.
+	yamlContent := `workspace_name: Single Failure Message Shape Test
+run:
+  - flow: A
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          method: GET
+          url: http://127.0.0.1:1/unreachable
+          depends_on: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, yamlContent)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
+	defer cancel()
+
+	err := runner.RunMultipleFlows(ctx, []byte(yamlContent), flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a non-nil error when the only flow fails, got nil")
+	}
+
+	const wantPrefix = `multi-flow execution failed: A: `
+	const wantSuffix = ` (failed)`
+	got := err.Error()
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Errorf("expected error to start with %q, got: %q", wantPrefix, got)
+	}
+	if !strings.HasSuffix(got, wantSuffix) {
+		t.Errorf("expected error to end with %q, got: %q", wantSuffix, got)
+	}
+	if !strings.Contains(got, "127.0.0.1:1") {
+		t.Errorf("expected error to include the underlying RunFlow error, got: %q", got)
+	}
+}
+
+// TestRunMultipleFlows_MalformedRunEntrySurfacesError pins delta #3: a run:
+// entry that is not a {flow: ...} mapping (a bare scalar here) used to be
+// silently dropped by the old hand-rolled map[string]interface{} parser (a
+// failed type assertion just `continue`d past it, so the workflow quietly
+// ran fewer flows than declared). Parsing run: through the typed
+// yamlflowsimplev2.YamlRunEntryV2 struct means the same document now fails
+// to unmarshal, surfacing the malformed entry as an error instead of
+// silently ignoring it.
+func TestRunMultipleFlows_MalformedRunEntrySurfacesError(t *testing.T) {
+	fixture := newFlowTestFixture(t)
+
+	importYAML := `workspace_name: Malformed Run Entry Test
+flows:
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+`
+	flows := setupMultiFlowFixture(t, fixture, importYAML)
+
+	runYAML := []byte(`workspace_name: Malformed Run Entry Test
+run:
+  - flow: A
+  - just-a-string
+`)
+
+	err := runner.RunMultipleFlows(fixture.ctx, runYAML, flows, fixture.getRunnerServices(nil), fixture.services.Logger, nil)
+	if err == nil {
+		t.Fatal("expected a YAML unmarshal error for the malformed run: entry, got nil")
+	}
+	if !strings.Contains(err.Error(), "unmarshal") {
+		t.Errorf("expected an unmarshal error naming the parse failure, got: %v", err)
 	}
 }

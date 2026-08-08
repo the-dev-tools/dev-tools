@@ -129,6 +129,7 @@ type HTTPAssociatedData struct {
 	BodyRaw        mhttp.HTTPBodyRaw
 	BodyForms      []mhttp.HTTPBodyForm
 	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
+	Asserts        []mhttp.HTTPAssert
 	FlowNode       *mflow.Node
 	RequestNode    *mflow.NodeRequest
 }
@@ -296,6 +297,7 @@ func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssocia
 	}
 	result.HTTPBodyForms = append(result.HTTPBodyForms, assoc.BodyForms...)
 	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, assoc.BodyUrlencoded...)
+	result.HTTPAsserts = append(result.HTTPAsserts, assoc.Asserts...)
 
 	if assoc.FlowNode != nil {
 		result.FlowNodes = append(result.FlowNodes, *assoc.FlowNode)

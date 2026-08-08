@@ -1,0 +1,49 @@
+workspace_name: Golden Control Flow
+flows:
+  - name: ControlFlow
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: FetchStatus
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/status
+      - if:
+          name: CheckStatus
+          depends_on: FetchStatus
+          condition: FetchStatus.response.status == 200
+      - js:
+          name: OnFailure
+          depends_on: CheckStatus.else
+          code: |
+            export default function(context) {
+              return { ok: false };
+            }
+      - js:
+          name: OnSuccess
+          depends_on: CheckStatus.then
+          code: |
+            export default function(context) {
+              return { ok: true };
+            }
+      - for:
+          name: RetryLoop
+          depends_on: OnFailure
+          iter_count: '3'
+      - for_each:
+          name: EachItem
+          depends_on: OnSuccess
+          items: '[1, 2, 3]'
+      - js:
+          name: RetryAttempt
+          depends_on: RetryLoop.loop
+          code: |
+            export default function(context) {
+              return { attempt: true };
+            }
+      - request:
+          name: ProcessItem
+          depends_on: EachItem.loop
+          method: GET
+          url: https://api.example.com/items

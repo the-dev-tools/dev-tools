@@ -1,0 +1,24 @@
+workspace_name: Golden JS Wait
+flows:
+  - name: JsWaitFlow
+    steps:
+      - manual_start:
+          name: Start
+      - js:
+          name: ComputeDelay
+          depends_on: Start
+          code: |
+            export default function(context) {
+              return { delayMs: 250 };
+            }
+      - wait:
+          name: PauseBriefly
+          depends_on: ComputeDelay
+          duration_ms: '250'
+      - js:
+          name: AfterWait
+          depends_on: PauseBriefly
+          code: |
+            export default function(context) {
+              return { done: true };
+            }
