@@ -792,6 +792,10 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		}
 	}
 
+	// 7. Load scenarios, in declaration order (the bundle carries them
+	// verbatim; nothing here reorders or synthesizes them).
+	yamlFormat.Load = buildLoadScenarios(data.LoadScenarios)
+
 	return yaml.Marshal(yamlFormat)
 }
 
