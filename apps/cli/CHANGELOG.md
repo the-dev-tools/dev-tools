@@ -1,3 +1,13 @@
+## 1.1.0 (2026-08-08)
+
+### 🚀 Features
+
+- Load testing foundations: local load mode (`flow run --vus/--duration` and `load:` scenarios with percentile tables + `load_report` JSON), versioned yamlflow schema (`version: 2`), HTTP assertions in yamlflow files now enforced on import (previously silently dropped), `run:` blocks execute in dependency order with strict failure modes (failed dependencies skip-and-continue instead of aborting the run), `run-flows` GitHub Action for CI, and real build-version reporting in `devtools version`. ([9a3152a3](https://github.com/the-dev-tools/dev-tools/commit/9a3152a3))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.0.3 (2026-07-05)
 
 ### 🩹 Fixes
