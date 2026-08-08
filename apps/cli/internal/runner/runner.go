@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
 
 	"connectrpc.com/connect"
-	"gopkg.in/yaml.v3"
 )
 
 type RunnerServices struct {
@@ -38,93 +38,81 @@ type RunnerServices struct {
 	JSClient            node_js_executorv1connect.NodeJsExecutorServiceClient
 }
 
-// RunMultipleFlows executes multiple flows based on the run field configuration
+// RunMultipleFlows executes multiple flows based on the run field configuration.
+// Flows run sequentially in dependency order (a topological sort of the
+// run: block, ties broken by original list order) rather than run: block
+// declaration order. A flow whose dependency failed, or was itself skipped,
+// is reported as skipped instead of attempted; flows with no such gate still
+// run even if an unrelated earlier flow failed.
 func RunMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, services RunnerServices, logger *slog.Logger, reporters *reporter.ReporterGroup) error {
-	// Parse the run field to get flow order and dependencies
-	var rawYAML map[string]interface{}
-	if err := yaml.Unmarshal(fileData, &rawYAML); err != nil {
-		return fmt.Errorf("failed to unmarshal YAML: %w", err)
+	entries, err := parseRunEntries(fileData)
+	if err != nil {
+		return err
 	}
 
-	runField, ok := rawYAML["run"].([]interface{})
-	if !ok || len(runField) == 0 {
-		return fmt.Errorf("no run field found in workflow")
-	}
-
-	// Parse run entries
-	type runEntry struct {
-		flowName  string
-		dependsOn []string
-	}
-
-	var runEntries []runEntry
-	for _, entry := range runField {
-		entryMap, ok := entry.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		flowName, ok := entryMap["flow"].(string)
-		if !ok || flowName == "" {
-			continue
-		}
-
-		re := runEntry{flowName: flowName}
-
-		// Parse dependencies
-		if deps, ok := entryMap["depends_on"]; ok {
-			switch v := deps.(type) {
-			case string:
-				re.dependsOn = []string{v}
-			case []interface{}:
-				for _, dep := range v {
-					if depStr, ok := dep.(string); ok {
-						re.dependsOn = append(re.dependsOn, depStr)
-					}
-				}
-			}
-		}
-
-		runEntries = append(runEntries, re)
-	}
-
-	// Create flow map for easy lookup
-	flowMap := make(map[string]*mflow.Flow)
+	// Create flow map for easy lookup, and fail fast if the run: block names
+	// a flow that does not exist, before running anything.
+	flowMap := make(map[string]*mflow.Flow, len(allFlows))
 	for i := range allFlows {
 		flowMap[allFlows[i].Name] = &allFlows[i]
 	}
+	for _, entry := range entries {
+		if _, exists := flowMap[entry.flowName]; !exists {
+			return fmt.Errorf("flow '%s' not found in workflow", entry.flowName)
+		}
+	}
+
+	// Unknown depends_on names are dropped with a warning rather than
+	// aborting the run: they were silently ignored before the run: block
+	// gained a topological sort, and shipped example files rely on that.
+	// Cycles and duplicate flow names are still hard errors.
+	sorted, warnings, err := topoSortRunEntries(entries)
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, w)
+		logger.Warn(w)
+	}
+	if err != nil {
+		return err
+	}
 
 	// Track execution results
-	executionResults := make(map[string]model.FlowRunResult)
+	executionResults := make(map[string]model.FlowRunResult, len(sorted))
+	statusByFlow := make(map[string]string, len(sorted))
 	consoleEnabled := reporters != nil && reporters.HasConsole()
 
-	// Execute flows in order
+	// Execute flows in dependency order
 	if consoleEnabled {
 		fmt.Println("\n=== Multi-Flow Execution Starting ===")
-		fmt.Printf("Flows to execute: %d\n", len(runEntries))
+		fmt.Printf("Flows to execute: %d\n", len(sorted))
 	}
 
 	overallStartTime := time.Now()
 
-	for i, entry := range runEntries {
-		flow, exists := flowMap[entry.flowName]
-		if !exists {
-			return fmt.Errorf("flow '%s' not found in workflow", entry.flowName)
+	for i, entry := range sorted {
+		if failedDep, gated := firstUnsuccessfulDependency(entry, statusByFlow); gated {
+			reason := fmt.Sprintf("dependency %q failed", failedDep)
+			result := model.FlowRunResult{
+				FlowName: entry.flowName,
+				Status:   "skipped",
+				Error:    reason,
+			}
+			executionResults[entry.flowName] = result
+			statusByFlow[entry.flowName] = result.Status
+
+			logger.Warn("flow skipped", "flow", entry.flowName, "reason", reason)
+			if reporters != nil {
+				reporters.HandleFlowResult(result)
+			}
+			if consoleEnabled {
+				fmt.Printf("\n[%d/%d] Skipping flow: %s (%s)\n", i+1, len(sorted), entry.flowName, reason)
+			}
+			continue
 		}
 
-		// Check dependencies
-		for _, dep := range entry.dependsOn {
-			// Check if dependency is a flow
-			if depResult, ok := executionResults[dep]; ok {
-				if !strings.EqualFold(depResult.Status, "success") {
-					return fmt.Errorf("flow '%s' depends on '%s' which failed", entry.flowName, dep)
-				}
-			}
-			// Note: We could also check for node dependencies here in the future
-		}
+		flow := flowMap[entry.flowName]
 
 		if consoleEnabled {
-			fmt.Printf("\n[%d/%d] Executing flow: %s\n", i+1, len(runEntries), entry.flowName)
+			fmt.Printf("\n[%d/%d] Executing flow: %s\n", i+1, len(sorted), entry.flowName)
 			if len(entry.dependsOn) > 0 {
 				fmt.Printf("   Dependencies: %v\n", entry.dependsOn)
 			}
@@ -132,6 +120,7 @@ func RunMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 
 		result, err := RunFlow(ctx, flow, services, reporters)
 		executionResults[entry.flowName] = result
+		statusByFlow[entry.flowName] = result.Status
 
 		if err != nil {
 			if consoleEnabled {
@@ -150,27 +139,36 @@ func RunMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 		fmt.Println("\nFlow Results:")
 
 		successCount := 0
-		for _, entry := range runEntries {
+		for _, entry := range sorted {
 			result := executionResults[entry.flowName]
-			status := "✅ Success"
-			if !strings.EqualFold(result.Status, "success") {
-				status = "❌ Failed"
-			} else {
+			status := "❌ Failed"
+			switch {
+			case strings.EqualFold(result.Status, "success"):
+				status = "✅ Success"
 				successCount++
+			case strings.EqualFold(result.Status, "skipped"):
+				status = "⏭️  Skipped"
 			}
-			fmt.Printf("  %-20s %s (Duration: %s)\n", result.FlowName, status, reporter.FormatDuration(result.Duration))
+			fmt.Printf("  %-20s %s (Duration: %s)\n", entry.flowName, status, reporter.FormatDuration(result.Duration))
 		}
 
-		fmt.Printf("\nFlows completed: %d/%d\n", successCount, len(runEntries))
+		fmt.Printf("\nFlows completed: %d/%d\n", successCount, len(sorted))
 	}
 
-	for _, result := range executionResults {
-		if !strings.EqualFold(result.Status, "success") {
-			if result.Error != "" {
-				return fmt.Errorf("multi-flow execution failed: %s", result.Error)
-			}
-			return fmt.Errorf("multi-flow execution failed: one or more flows failed")
+	var problems []string
+	for _, entry := range sorted {
+		result := executionResults[entry.flowName]
+		if strings.EqualFold(result.Status, "success") {
+			continue
 		}
+		detail := result.Error
+		if detail == "" {
+			detail = "no result recorded"
+		}
+		problems = append(problems, fmt.Sprintf("%s: %s (%s)", entry.flowName, detail, result.Status))
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("multi-flow execution failed: %s", strings.Join(problems, "; "))
 	}
 
 	return nil

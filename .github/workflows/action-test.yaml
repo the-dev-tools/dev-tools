@@ -1,0 +1,65 @@
+name: Action / run-flows
+
+on:
+  pull_request:
+    paths:
+      - 'actions/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test run-flows (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke flow
+        id: run-flows
+        uses: ./actions/run-flows
+        with:
+          file: actions/run-flows/testdata/smoke.yamlflow.yaml
+          version: latest
+
+      # Do NOT assert on $GITHUB_STEP_SUMMARY here: GitHub gives every step its
+      # own summary file, so what the action appended inside its own step is
+      # invisible to this one (it would read its own empty file and always
+      # fail). Assert on report.json instead — write-summary.sh renders its
+      # table from exactly the fields checked below, so the summary's data is
+      # covered transitively; its formatting is covered by the script's tests.
+      - name: Assert outputs and report contents
+        shell: bash
+        env:
+          JSON_REPORT: ${{ steps.run-flows.outputs.json-report }}
+          JUNIT_REPORT: ${{ steps.run-flows.outputs.junit-report }}
+          SUCCESS: ${{ steps.run-flows.outputs.success }}
+        run: |
+          set -euo pipefail
+
+          echo "json-report=$JSON_REPORT"
+          echo "junit-report=$JUNIT_REPORT"
+          echo "success=$SUCCESS"
+
+          test -f "$JSON_REPORT"
+          test -f "$JUNIT_REPORT"
+
+          [ "$SUCCESS" = "true" ]
+
+          echo "report contents:"
+          jq -c '[.[] | {flow_name, status, duration}]' "$JSON_REPORT"
+
+          # Both flows from testdata/smoke.yamlflow.yaml ran, succeeded, and
+          # recorded a non-zero duration (nanoseconds).
+          jq -e 'length == 2' "$JSON_REPORT" > /dev/null
+          for flow in fetch-user create-post; do
+            jq -e --arg flow "$flow" \
+              'any(.[]; .flow_name == $flow and .status == "success" and .duration > 0)' \
+              "$JSON_REPORT" > /dev/null
+          done

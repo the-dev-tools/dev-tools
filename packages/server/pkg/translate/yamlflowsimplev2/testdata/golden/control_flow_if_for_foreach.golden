@@ -1,0 +1,75 @@
+version: 2
+workspace_name: Golden Control Flow
+run:
+    - flow: ControlFlow
+requests:
+    - name: FetchStatus
+      method: GET
+      url: https://api.example.com/status
+    - name: ProcessItem
+      method: GET
+      url: https://api.example.com/items
+flows:
+    - name: ControlFlow
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: FetchStatus
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: FetchStatus
+        - if:
+            name: CheckStatus
+            depends_on: FetchStatus
+            position_x: 600
+            position_y: 0
+            condition: FetchStatus.response.status == 200
+        - js:
+            name: OnFailure
+            depends_on: CheckStatus.else
+            position_x: 900
+            position_y: -75
+            code: |-
+                export default function(context) {
+                  return { ok: false };
+                }
+        - js:
+            name: OnSuccess
+            depends_on: CheckStatus.then
+            position_x: 900
+            position_y: 75
+            code: |-
+                export default function(context) {
+                  return { ok: true };
+                }
+        - for:
+            name: RetryLoop
+            depends_on: OnFailure
+            position_x: 1200
+            position_y: -75
+            iter_count: "3"
+        - for_each:
+            name: EachItem
+            depends_on: OnSuccess
+            position_x: 1200
+            position_y: 75
+            items: '[1, 2, 3]'
+        - js:
+            name: RetryAttempt
+            depends_on: RetryLoop.loop
+            position_x: 1500
+            position_y: -75
+            code: |-
+                export default function(context) {
+                  return { attempt: true };
+                }
+        - request:
+            name: ProcessItem
+            depends_on: EachItem.loop
+            position_x: 1500
+            position_y: 75
+            use_request: ProcessItem

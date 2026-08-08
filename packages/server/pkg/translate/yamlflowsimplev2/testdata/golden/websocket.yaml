@@ -1,0 +1,26 @@
+workspace_name: Golden WebSocket
+flows:
+  - name: WebSocketFlow
+    steps:
+      - manual_start:
+          name: Start
+      - ws_connection:
+          name: Conn
+          depends_on: Start
+          url: wss://echo.example.com/socket
+          headers:
+            Authorization: Bearer token123
+      - ws_send:
+          name: SendPing
+          depends_on: Conn
+          ws_connection_node_name: Conn
+          message: '{"type":"ping"}'
+      - wait:
+          name: WaitForPong
+          depends_on: SendPing
+          duration_ms: '500'
+      - ws_send:
+          name: SendClose
+          depends_on: WaitForPong
+          ws_connection_node_name: Conn
+          message: '{"type":"close"}'

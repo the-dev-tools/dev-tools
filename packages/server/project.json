@@ -47,6 +47,17 @@
         "command": "go test -p 8 ./... -timeout 30s"
       }
     },
+    "test:race": {
+      "dependsOn": ["db:generate", "spec:build"],
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go test -race -count=3 ./pkg/flow/runner/scenariorunner/ ./pkg/loadmetrics/ -timeout 120s",
+        "env": {
+          "CGO_ENABLED": "1"
+        }
+      }
+    },
     "test:ci": {
       "dependsOn": ["db:generate-ci", "spec:build"],
       "executor": "nx:run-commands",

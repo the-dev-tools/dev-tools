@@ -36,12 +36,20 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		return nil, fmt.Errorf("invalid YAML semantics: %w", err)
 	}
 
+	// Decode the load: block before any flow work, so a malformed load
+	// profile fails fast rather than after the whole workspace is built.
+	loadScenarios, err := convertLoadScenarios(yamlFormat)
+	if err != nil {
+		return nil, fmt.Errorf("invalid load block: %w", err)
+	}
+
 	// Initialize resolved data structure with workspace metadata
 	result := &ioworkspace.WorkspaceBundle{
 		Workspace: mworkspace.Workspace{
 			ID:   opts.WorkspaceID,
 			Name: yamlFormat.WorkspaceName,
 		},
+		LoadScenarios: loadScenarios,
 	}
 
 	// Prepare request templates map from both Sources

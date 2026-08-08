@@ -12,8 +12,16 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 )
 
+// CurrentYamlFlowVersion is the yamlflow schema version this build writes on
+// export and the highest version it accepts on import. An absent `version`
+// key (zero value) is treated as this version for backward compatibility
+// with documents written before the field existed. Bump this when making a
+// breaking change to the YAML flow contract.
+const CurrentYamlFlowVersion = 2
+
 // YamlFlowFormatV2 represents the modern YAML structure for simplified workflows
 type YamlFlowFormatV2 struct {
+	Version           int                         `yaml:"version,omitempty"`
 	WorkspaceName     string                      `yaml:"workspace_name"`
 	ActiveEnvironment string                      `yaml:"active_environment,omitempty"`
 	GlobalEnvironment string                      `yaml:"global_environment,omitempty"`
@@ -24,6 +32,28 @@ type YamlFlowFormatV2 struct {
 	GraphQLRequests   []YamlGraphQLDefV2          `yaml:"graphql_requests,omitempty"`
 	Flows             []YamlFlowFlowV2            `yaml:"flows"`
 	Environments      []YamlEnvironmentV2         `yaml:"environments,omitempty"`
+	Load              []YamlLoadScenario          `yaml:"load,omitempty"`
+}
+
+// YamlLoadScenario is one entry of the additive `load:` block: a named load
+// profile applied to a flow declared in `flows:`. Flows are never edited to be
+// load-tested, so a scenario references its flow by name.
+//
+// Only the constant-vus executor exists in this build; ramping-vus,
+// constant-arrival-rate, stages and thresholds arrive in Phase 2. Unknown keys
+// are ignored by the parser (as everywhere else in this format), so a document
+// written for a later build still imports here.
+type YamlLoadScenario struct {
+	Name string `yaml:"name"`
+	Flow string `yaml:"flow"`
+	// Executor defaults to constant-vus when omitted.
+	Executor string `yaml:"executor,omitempty"`
+	VUs      int    `yaml:"vus"`
+	// Duration is a Go duration string ("30s", "2m"). Exported in Go's
+	// canonical form so re-export is a no-op.
+	Duration string `yaml:"duration,omitempty"`
+	// Iterations caps the total iterations issued across all VUs.
+	Iterations int64 `yaml:"iterations,omitempty"`
 }
 
 // YamlCredentialV2 represents an LLM provider credential
@@ -558,6 +588,13 @@ func (opts ConvertOptionsV2) Validate() error {
 }
 
 func (yf YamlFlowFormatV2) Validate() error {
+	if yf.Version > CurrentYamlFlowVersion {
+		return NewYamlFlowErrorV2(
+			fmt.Sprintf("unsupported yamlflow version %d (this build supports up to %d)", yf.Version, CurrentYamlFlowVersion),
+			"version", yf.Version,
+		)
+	}
+
 	if yf.WorkspaceName == "" {
 		return NewYamlFlowErrorV2("workspace_name is required", "workspace_name", nil)
 	}

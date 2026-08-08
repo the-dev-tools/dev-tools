@@ -12,6 +12,7 @@ import "./graphql.tsp";
 import "./health.tsp";
 import "./http.tsp";
 import "./import.tsp";
+import "./load-metrics.tsp";
 import "./private/auth-adapter.tsp";
 import "./private/node-js-executor.tsp";
 import "./log.tsp";

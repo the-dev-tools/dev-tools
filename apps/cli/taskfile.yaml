@@ -29,8 +29,6 @@ tasks:
 
   build:release:
     desc: Build release binary with version and platform
-    env:
-      CGO_ENABLED: 0
     vars:
       VERSION_DEFAULT:
         sh: node -e "console.log(require('./package.json').version)"
@@ -38,13 +36,42 @@ tasks:
         sh: go env GOOS
       GOARCH_DEFAULT:
         sh: go env GOARCH
+      # PLATFORM arrives from release-go.yaml's build matrix as "<os>-<arch>"
+      # in Node/Electron naming: darwin-x64, darwin-arm64, linux-x64,
+      # linux-arm64, win32-x64, win32-ia32.
+      #
+      # It used to be interpolated into the output *filename* only, so a
+      # matrix row always built for whatever architecture its runner happened
+      # to be and merely named the result after the platform it claimed. Both
+      # cross-compiled rows share a runner with their x64 sibling, so
+      # cli@1.0.3 published linux-arm64 and win32-ia32 assets that were
+      # byte-identical x86-64 binaries. Translate PLATFORM into GOOS/GOARCH so
+      # the binary matches the name it ships under. The CLI is pure Go with
+      # CGO_ENABLED=0, so every one of these targets cross-compiles.
+      #
+      # With no PLATFORM (local dev), both fall back to the host toolchain's
+      # own values and the build is byte-for-byte what it was before.
+      PLATFORM_OS: '{{if .PLATFORM}}{{splitList "-" .PLATFORM | first}}{{end}}'
+      PLATFORM_ARCH: '{{if .PLATFORM}}{{splitList "-" .PLATFORM | last}}{{end}}'
+      GOOS_TARGET: '{{if .PLATFORM_OS}}{{if eq .PLATFORM_OS "win32"}}windows{{else}}{{.PLATFORM_OS}}{{end}}{{else}}{{.GOOS_DEFAULT}}{{end}}'
+      GOARCH_TARGET: '{{if .PLATFORM_ARCH}}{{if eq .PLATFORM_ARCH "x64"}}amd64{{else if eq .PLATFORM_ARCH "ia32"}}386{{else}}{{.PLATFORM_ARCH}}{{end}}{{else}}{{.GOARCH_DEFAULT}}{{end}}'
+      # Windows assets need .exe or they publish as extensionless PE files
+      # that Windows refuses to execute until renamed. release-go.yaml never
+      # sets BINARY_SUFFIX, so derive it; an explicitly passed value wins.
+      SUFFIX: '{{if .BINARY_SUFFIX}}{{.BINARY_SUFFIX}}{{else if eq .GOOS_TARGET "windows"}}.exe{{end}}'
+    env:
+      CGO_ENABLED: 0
+      GOOS: '{{.GOOS_TARGET}}'
+      GOARCH: '{{.GOARCH_TARGET}}'
     cmds:
       - task: ensure-dir
         vars:
           DIR: dist
       # Use `.` (package target) + `-tags cli` so mode_cli.go is included and runCLI is wired.
       # Building `main.go` as the target silently drops tagged companion files in the same package.
-      - go build -tags cli -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.BINARY_SUFFIX}} .
+      # -ldflags -X injects the release version into cmd.version so `devtools version`
+      # identifies the build instead of always printing the source placeholder.
+      - go build -tags cli -ldflags "-X github.com/the-dev-tools/dev-tools/apps/cli/cmd.version=v{{.VERSION | default .VERSION_DEFAULT}}" -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.SUFFIX}} .
 
   clean:
     desc: Clean build artifacts

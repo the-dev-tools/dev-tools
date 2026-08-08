@@ -10,7 +10,12 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 }
 
-const version = "v0.1.0"
+// version is overwritten at build time via -ldflags -X (see
+// apps/cli/taskfile.yaml's build:release task). The literal below is only
+// what a plain `go build` without that flag produces (e.g. local dev
+// builds), so it intentionally stays a placeholder rather than tracking the
+// package version.
+var version = "v0.1.0"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",

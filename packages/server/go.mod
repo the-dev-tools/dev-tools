@@ -4,10 +4,12 @@ go 1.25
 
 require (
 	connectrpc.com/connect v1.19.1
+	github.com/HdrHistogram/hdrhistogram-go v1.3.0
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/andybalholm/brotli v1.2.0
 	github.com/coder/websocket v1.8.14
 	github.com/expr-lang/expr v1.17.7
+	github.com/go-faker/faker/v4 v4.7.0
 	github.com/goccy/go-json v0.10.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
@@ -44,7 +46,6 @@ require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/go-faker/faker/v4 v4.7.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/generative-ai-go v0.20.1 // indirect
@@ -57,7 +58,6 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect

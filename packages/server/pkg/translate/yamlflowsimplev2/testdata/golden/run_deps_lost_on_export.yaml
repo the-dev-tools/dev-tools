@@ -1,0 +1,44 @@
+# Pre-existing gap (not fixed by this task, see task-1-report.md Concerns):
+# MarshalSimplifiedYAML synthesizes the run: block purely from flows: order
+# ("Generate default Run configuration" in exporter.go) and never reads
+# depends_on at all, so every dependency declared below is silently lost on
+# export - an exported-then-rerun file degrades to plain declaration order.
+# flows: is deliberately declared C, B, A (the reverse of the correct
+# topological order A, B, C for the depends_on chain C->B->A) so the golden
+# below visibly reproduces that same wrong order in its flat run: block,
+# rather than passing to look correct by accidental alphabetical luck.
+workspace_name: Golden Run Deps Lost On Export
+run:
+  - flow: C
+    depends_on: B
+  - flow: B
+    depends_on: A
+  - flow: A
+flows:
+  - name: C
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestC
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/c
+  - name: B
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestB
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/b
+  - name: A
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: RequestA
+          depends_on: Start
+          method: GET
+          url: https://api.example.com/a

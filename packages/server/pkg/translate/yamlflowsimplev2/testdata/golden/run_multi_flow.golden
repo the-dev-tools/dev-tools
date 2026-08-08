@@ -1,0 +1,53 @@
+version: 2
+workspace_name: Golden Run Multi Flow
+run:
+    - flow: FlowA
+    - flow: FlowB
+    - flow: FlowC
+requests:
+    - name: RequestA
+      method: GET
+      url: https://api.example.com/a
+    - name: RequestB
+      method: GET
+      url: https://api.example.com/b
+    - name: RequestC
+      method: GET
+      url: https://api.example.com/c
+flows:
+    - name: FlowA
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: RequestA
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: RequestA
+    - name: FlowB
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: RequestB
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: RequestB
+    - name: FlowC
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: RequestC
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: RequestC

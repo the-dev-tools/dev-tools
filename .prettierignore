@@ -1,5 +1,7 @@
 .ai/
+.context/
 .golangci.yml
+.superpowers/
 *.har
 AGENTS.md
 CHANGELOG.md
