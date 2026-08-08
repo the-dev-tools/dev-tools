@@ -90,7 +90,10 @@ model LoadFailureArtifact {
   @doc("Absent when the failure occurred before a response was received (e.g. transport error, timeout)")
   response?: LoadFailureResponse;
 
-  @doc("Variable values resolved into the request at the time it was built") resolvedVariables: Protobuf.Map<string, string>;
+  @doc("Variable values resolved into the request at the time it was built") resolvedVariables: Protobuf.Map<
+    string,
+    string
+  >;
   error: string;
   capturedAt: Protobuf.WellKnown.Timestamp;
 }
