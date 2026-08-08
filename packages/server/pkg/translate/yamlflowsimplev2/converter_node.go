@@ -357,6 +357,7 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, step *Yam
 	associated := &HTTPAssociatedData{
 		Headers:      convertToHTTPHeaders(finalReq.Headers, httpID),
 		SearchParams: convertToHTTPSearchParams(finalReq.QueryParams, httpID),
+		Asserts:      convertToHTTPAsserts(finalReq.Assertions, httpID, now),
 		FlowNode:     &flowNode,
 		RequestNode:  &requestNode,
 	}

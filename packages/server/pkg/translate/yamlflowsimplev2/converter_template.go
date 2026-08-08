@@ -67,6 +67,25 @@ func convertToHTTPSearchParams(yamlParams []YamlNameValuePairV2, httpID idwrap.I
 	return params
 }
 
+// convertToHTTPAsserts converts parsed YAML assertions into mhttp.HTTPAssert
+// records bound to httpID. Mirrors the GraphQL assertion conversion in
+// processGraphQLStructStep (converter_node.go).
+func convertToHTTPAsserts(yamlAssertions []YamlAssertionV2, httpID idwrap.IDWrap, now int64) []mhttp.HTTPAssert {
+	var asserts []mhttp.HTTPAssert
+	for i, a := range yamlAssertions {
+		asserts = append(asserts, mhttp.HTTPAssert{
+			ID:           idwrap.NewNow(),
+			HttpID:       httpID,
+			Value:        a.Expression,
+			Enabled:      a.Enabled,
+			DisplayOrder: float32(i),
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		})
+	}
+	return asserts
+}
+
 func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOptionsV2) (mhttp.HTTPBodyRaw, []mhttp.HTTPBodyForm, []mhttp.HTTPBodyUrlencoded, mhttp.HttpBodyKind) {
 	bodyRaw := mhttp.HTTPBodyRaw{
 		ID:     idwrap.NewNow(),

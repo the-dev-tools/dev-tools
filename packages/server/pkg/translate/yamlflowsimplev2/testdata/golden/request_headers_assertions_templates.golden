@@ -17,6 +17,11 @@ requests:
           value: "true"
           enabled: false
       body: '{"note":"created by ListFormRequest"}'
+      assertions:
+        - expression: response.status == 201
+          enabled: true
+        - expression: response.body.legacyField == null
+          enabled: false
     - name: MapFormRequest
       method: GET
       url: https://api.example.com/map
@@ -26,6 +31,9 @@ requests:
       query_params:
         limit: "20"
         page: "1"
+      assertions:
+        - response.status == 200
+        - response.body.ok == true
     - name: TemplatedRequest
       method: GET
       url: https://api.example.com/base
@@ -33,6 +41,9 @@ requests:
         Accept: application/json
         X-Client: golden-corpus
         X-Extra: template-override
+      assertions:
+        - response.status == 200
+        - response.body.id != nil
 flows:
     - name: RequestFlow
       steps:
