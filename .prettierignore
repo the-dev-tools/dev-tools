@@ -1,4 +1,5 @@
 .ai/
+.context/
 .golangci.yml
 .superpowers/
 *.har
