@@ -1,5 +1,5 @@
 name: Setup Unix dependencies
-description: ''
+description: Install the Nix toolchain and expose the flake devshell to later steps.
 
 runs:
   using: composite

@@ -10,7 +10,7 @@ jobs:
     name: SQL Vet
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: sqlc-dev/setup-sqlc@v4
         with:
           sqlc-version: '1.30.0'

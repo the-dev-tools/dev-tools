@@ -1,5 +1,5 @@
 name: Setup Windows dependencies
-description: ''
+description: Install the Scoop build toolchain and AzureSignTool, and pin pnpm to the version the Nix flake uses elsewhere.
 
 runs:
   using: composite

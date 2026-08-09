@@ -23,7 +23,21 @@
     },
 
     "lint": {
-      "dependsOn": ["^pre-lint", "pre-lint"]
+      "dependsOn": ["^pre-lint", "pre-lint"],
+
+      // eslint-plugin-better-tailwindcss resolves the Tailwind design system in a
+      // synckit worker and blocks on Atomics.wait(). Building that context for
+      // packages/ui/src/styles/index.css is a cold, CPU-bound compile that the
+      // plugin caps at 30s. On a 4-vCPU CI runner with several lint targets in
+      // flight it overran the cap and ESLint died with
+      //   Internal error: Atomics.wait() failed: timed-out
+      // failing main at random. Raise the ceiling; it is a deadline, not a budget,
+      // so a healthy run never waits any longer than it does today.
+      "options": {
+        "env": {
+          "SYNCKIT_TIMEOUT": "120000"
+        }
+      }
     },
 
     "test": {

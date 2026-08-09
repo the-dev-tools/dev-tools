@@ -6,8 +6,12 @@ on:
 jobs:
   build:
     name: Build
-    continue-on-error: true
+    # See release-go.yaml for the full rationale. Same defect, same fix: a
+    # masked failure here silently ships a desktop release missing an installer
+    # for whichever platform broke. fail-fast: false keeps the rows independent
+    # so one failure cannot cancel the others (notarization alone runs long).
     strategy:
+      fail-fast: false
       matrix:
         runner:
           - macos-15-intel # x64

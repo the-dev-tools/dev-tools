@@ -250,8 +250,8 @@ catalogs:
       specifier: 4.4.4
       version: 4.4.4
     eslint-plugin-better-tailwindcss:
-      specifier: 4.3.2
-      version: 4.3.2
+      specifier: 4.4.0
+      version: 4.4.0
     eslint-plugin-import-x:
       specifier: 4.16.1
       version: 4.16.1
@@ -1071,7 +1071,7 @@ importers:
         version: 4.4.4(eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.56.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-better-tailwindcss:
         specifier: 'catalog:'
-        version: 4.3.2(eslint@9.39.2(jiti@2.6.1))(tailwindcss@4.2.1)(typescript@5.9.3)
+        version: 4.4.0(eslint@9.39.2(jiti@2.6.1))(tailwindcss@4.2.1)(typescript@5.9.3)
       eslint-plugin-import-x:
         specifier: 'catalog:'
         version: 4.16.1(@typescript-eslint/utils@8.56.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1))
@@ -2650,9 +2650,9 @@ packages:
     resolution: {integrity: sha512-/nr9K9wkr3P1EzFTdFdMoLuo1PmIxjmwvPozwoSodjNBdefGujXQUF93u1DDZpEaTuDvMsIQddsd35BwtrW9Xw==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
-  '@eslint/css-tree@3.6.9':
-    resolution: {integrity: sha512-3D5/OHibNEGk+wKwNwMbz63NMf367EoR4mVNNpxddCHKEb2Nez7z62J2U6YjtErSsZDoY0CsccmoUpdEbkogNA==}
-    engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
+  '@eslint/css-tree@4.0.5':
+    resolution: {integrity: sha512-iPmijIAq4hlIJB86PYmY/fcZORHtjphSqICDbwuw32A/JmkhZQ/K/6TjHE03zqf3n5yABpVcbRAMG8Mi9ojy8g==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
   '@eslint/eslintrc@3.3.4':
     resolution: {integrity: sha512-4h4MVF8pmBsncB60r0wSJiIeUKTSD4m7FmTFThG8RHlsg9ajqckLm9OraguFGZE4vVdpiI1Q4+hFnisopmG6gQ==}
@@ -5443,10 +5443,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@valibot/to-json-schema@1.5.0':
-    resolution: {integrity: sha512-GE7DmSr1C2UCWPiV0upRH6mv0cCPsqYGs819fb6srCS1tWhyXrkGGe+zxUiwzn/L1BOfADH4sNjY/YHCuP8phQ==}
+  '@valibot/to-json-schema@1.7.1':
+    resolution: {integrity: sha512-3qkmU6KXWh8GIThEAW3kuRHPQBMjWkKy+Ppz3WkUucx53DTpOa6siMn4xDGSOhlVyMrDaJTCTMLYPZVAIk1P0A==}
     peerDependencies:
-      valibot: ^1.2.0
+      valibot: ^1.4.0
 
   '@vitejs/plugin-react@5.1.4':
     resolution: {integrity: sha512-VIcFLdRi/VYRU8OL/puL7QXMYafHmqOnwTZY50U1JPlCNj30PxCMx65c494b1K9be9hX83KVt0+gTEwTWLqToA==}
@@ -6981,6 +6981,10 @@ packages:
     resolution: {integrity: sha512-/ce7+jQ1PQ6rVXwe+jKEg5hW5ciicHwIQUagZkp6IufBoY3YDgdTTY1azVs0qoRgVmvsNB+rbjLJxDAeHHtwsQ==}
     engines: {node: '>=10.13.0'}
 
+  enhanced-resolve@5.24.5:
+    resolution: {integrity: sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A==}
+    engines: {node: '>=10.13.0'}
+
   enquirer@2.3.6:
     resolution: {integrity: sha512-yjNnPr315/FjS4zIsUxYguYUPP2e1NK4d7E7ZOLiyYCcbFBiTMyID+2wvm2w6+pZ/odMA7cRkjhsPbltwBOrLg==}
     engines: {node: '>=8.6'}
@@ -7105,8 +7109,8 @@ packages:
       eslint-plugin-import-x:
         optional: true
 
-  eslint-plugin-better-tailwindcss@4.3.2:
-    resolution: {integrity: sha512-1DLX2QmHmOj3u667f8vEI0zKoRc0Y1qJt33tfIeIkpTyzWaz9b2GzWBLD4bR+WJ/kxzC0Skcbx7cMerRWQ6OYg==}
+  eslint-plugin-better-tailwindcss@4.4.0:
+    resolution: {integrity: sha512-OVFcRnyFOMJR7dFhlfNbIBlM7D4o1g1yBGDCWvsJWliXFE4c4U06CEZ0pcFatHa5g7PAwiDRAd57gxxJT/7EIQ==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23.0.0}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0
@@ -8491,8 +8495,8 @@ packages:
   mdn-data@2.0.30:
     resolution: {integrity: sha512-GaqWWShW4kv/G9IEucWScBx9G1/vsFZZJUO+tD26M8J8z3Kw5RDQjaoZe03YAClgeS/SWPOcb4nkFBTEi5DUEA==}
 
-  mdn-data@2.23.0:
-    resolution: {integrity: sha512-786vq1+4079JSeu2XdcDjrhi/Ry7BWtjDl9WtGPWLiIHb2T66GvIVflZTBoSNZ5JqTtJGYEVMuFA/lbQlMOyDQ==}
+  mdn-data@2.29.0:
+    resolution: {integrity: sha512-pVxQFCcaYUEAH853+v7yoI/qzhxXSq1bTb9obMYGYAN1c3Hen+XDCEvr296XhstrwlSTNgOR7mCSD4JPjbJe5A==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -10171,9 +10175,14 @@ packages:
     engines: {node: '>=18.18.0'}
     hasBin: true
 
-  tailwind-csstree@0.1.4:
-    resolution: {integrity: sha512-FzD187HuFIZEyeR7Xy6sJbJll2d4SybS90satC8SKIuaNRC05CxMvdzN7BUsfDQffcnabckRM5OIcfArjsZ0mg==}
+  tailwind-csstree@0.3.3:
+    resolution: {integrity: sha512-je9J5UYRsTJqAjYrIBMMlge8T/rreRd44pJxgG5Zx/zeo4kAC/liUKqzztRZrGlYRJLvIf2Cb1DVJMTXSzEShA==}
     engines: {node: '>=18.18'}
+    peerDependencies:
+      '@eslint/css': '>=1.0.0'
+    peerDependenciesMeta:
+      '@eslint/css':
+        optional: true
 
   tailwind-merge@3.5.0:
     resolution: {integrity: sha512-I8K9wewnVDkL1NTGoqWmVEIlUcB9gFriAEkXkfCjX5ib8ezGxtR3xD7iZIxrfArjEsH7F1CHD4RFUtxefdqV/A==}
@@ -10198,6 +10207,10 @@ packages:
 
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
+    engines: {node: '>=6'}
+
+  tapable@2.3.3:
+    resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
 
   tar-fs@2.1.4:
@@ -10647,6 +10660,14 @@ packages:
 
   valibot@1.2.0:
     resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  valibot@1.4.2:
+    resolution: {integrity: sha512-gjdCvJ6d3RyHAneqxMYMW9QMCwYMb3jpOO0IyHZV1bnRHFBHrX3VkIILt5XYR0WhwHiH7Mty8ovuPZ/O3gamrg==}
     peerDependencies:
       typescript: '>=5'
     peerDependenciesMeta:
@@ -12770,9 +12791,9 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@eslint/css-tree@3.6.9':
+  '@eslint/css-tree@4.0.5':
     dependencies:
-      mdn-data: 2.23.0
+      mdn-data: 2.29.0
       source-map-js: 1.2.1
 
   '@eslint/eslintrc@3.3.4':
@@ -16446,9 +16467,9 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
-  '@valibot/to-json-schema@1.5.0(valibot@1.2.0(typescript@5.9.3))':
+  '@valibot/to-json-schema@1.7.1(valibot@1.4.2(typescript@5.9.3))':
     dependencies:
-      valibot: 1.2.0(typescript@5.9.3)
+      valibot: 1.4.2(typescript@5.9.3)
 
   '@vitejs/plugin-react@5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
@@ -18127,6 +18148,11 @@ snapshots:
       graceful-fs: 4.2.11
       tapable: 2.3.0
 
+  enhanced-resolve@5.24.5:
+    dependencies:
+      graceful-fs: 4.2.11
+      tapable: 2.3.3
+
   enquirer@2.3.6:
     dependencies:
       ansi-colors: 4.1.3
@@ -18350,20 +18376,21 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-better-tailwindcss@4.3.2(eslint@9.39.2(jiti@2.6.1))(tailwindcss@4.2.1)(typescript@5.9.3):
+  eslint-plugin-better-tailwindcss@4.4.0(eslint@9.39.2(jiti@2.6.1))(tailwindcss@4.2.1)(typescript@5.9.3):
     dependencies:
-      '@eslint/css-tree': 3.6.9
-      '@valibot/to-json-schema': 1.5.0(valibot@1.2.0(typescript@5.9.3))
-      enhanced-resolve: 5.20.0
+      '@eslint/css-tree': 4.0.5
+      '@valibot/to-json-schema': 1.7.1(valibot@1.4.2(typescript@5.9.3))
+      enhanced-resolve: 5.24.5
       jiti: 2.6.1
       synckit: 0.11.12
-      tailwind-csstree: 0.1.4
+      tailwind-csstree: 0.3.3
       tailwindcss: 4.2.1
       tsconfig-paths-webpack-plugin: 4.2.0
-      valibot: 1.2.0(typescript@5.9.3)
+      valibot: 1.4.2(typescript@5.9.3)
     optionalDependencies:
       eslint: 9.39.2(jiti@2.6.1)
     transitivePeerDependencies:
+      - '@eslint/css'
       - typescript
 
   eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.56.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)):
@@ -19987,7 +20014,7 @@ snapshots:
 
   mdn-data@2.0.30: {}
 
-  mdn-data@2.23.0: {}
+  mdn-data@2.29.0: {}
 
   media-typer@0.3.0: {}
 
@@ -22116,7 +22143,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  tailwind-csstree@0.1.4: {}
+  tailwind-csstree@0.3.3: {}
 
   tailwind-merge@3.5.0: {}
 
@@ -22133,6 +22160,8 @@ snapshots:
   tailwindcss@4.2.1: {}
 
   tapable@2.3.0: {}
+
+  tapable@2.3.3: {}
 
   tar-fs@2.1.4:
     dependencies:
@@ -22340,7 +22369,7 @@ snapshots:
   tsconfig-paths-webpack-plugin@4.2.0:
     dependencies:
       chalk: 4.1.2
-      enhanced-resolve: 5.20.0
+      enhanced-resolve: 5.24.5
       tapable: 2.3.0
       tsconfig-paths: 4.2.0
 
@@ -22639,6 +22668,11 @@ snapshots:
   v8-compile-cache-lib@3.0.1: {}
 
   valibot@1.2.0(typescript@5.9.3):
+    optionalDependencies:
+      typescript: 5.9.3
+    optional: true
+
+  valibot@1.4.2(typescript@5.9.3):
     optionalDependencies:
       typescript: 5.9.3
 

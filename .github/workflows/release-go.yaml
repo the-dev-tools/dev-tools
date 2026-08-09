@@ -6,8 +6,18 @@ on:
 jobs:
   build:
     name: Build Go Binary
-    continue-on-error: true
+    # Deliberately no `continue-on-error: true`. It used to be set here, which
+    # forced every row's conclusion to success even when the build died, so
+    # cli@1.1.0 published 4 of its 6 assets behind a green check and the two
+    # broken Windows rows went unnoticed until someone opened the logs by hand.
+    # A release that cannot produce an asset must fail the run that publishes it.
+    #
+    # fail-fast: false preserves the one useful thing continue-on-error was
+    # doing by accident: rows stay independent. Without it, the first failing
+    # target would cancel the five healthy ones still in flight — including the
+    # ~20 minute darwin-x64 build — and strand the release half-published.
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: macos-15-intel
