@@ -187,6 +187,12 @@ jobs:
     name: Post Results Comment
     runs-on: ubuntu-latest
     needs: benchmark
+    # This job never actually ran until the `github.event_name` guard below was
+    # repaired, so it never needed a token that could write. The repository
+    # default is read-only, which would now turn every benchmarked PR into a 403
+    # on issues.createComment. The job only reads and writes PR comments.
+    permissions:
+      pull-requests: write
     if: |
       always() && 
       needs.benchmark.result == 'success' && 
