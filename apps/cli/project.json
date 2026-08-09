@@ -35,7 +35,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "command": "task build:release VERSION=${VERSION} PLATFORM=${PLATFORM} BINARY_SUFFIX=${BINARY_SUFFIX}"
+        "command": "task build:release"
       },
       "dependsOn": ["copy-worker"]
     },

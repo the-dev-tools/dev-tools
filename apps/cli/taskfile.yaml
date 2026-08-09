@@ -3,7 +3,6 @@ version: '3'
 
 vars:
   APP_NAME: cli
-  VERSION: v1.0.0
   BIN_DIR: dist
   SOURCE_PATH: main.go
 
@@ -36,6 +35,31 @@ tasks:
         sh: go env GOOS
       GOARCH_DEFAULT:
         sh: go env GOARCH
+      # VERSION / PLATFORM / BINARY_SUFFIX resolve in this order:
+      #   1. an explicit Task CLI argument (task build:release PLATFORM=linux-arm64)
+      #   2. the process environment       (release-go.yaml exports both on the step)
+      #   3. the native default            (package.json version, host GOOS/GOARCH)
+      #
+      # Step 2 is what makes this work on every runner. Nx spawns a POSIX shell
+      # on Linux/macOS but cmd.exe on Windows, and cmd.exe does not expand
+      # "${VAR}", so a target command written as `task build:release
+      # VERSION=${VERSION}` handed go-task the *literal* string "${PLATFORM}" on
+      # the two Windows rows. That used to be survivable by accident: PLATFORM
+      # only ever reached a command line, where go-task's embedded POSIX
+      # interpreter re-expanded it from the environment. Once PLATFORM started
+      # driving GOOS/GOARCH at template level the literal went straight into the
+      # toolchain and every Windows release job died with
+      #   go: unsupported GOOS/GOARCH pair ${PLATFORM}/${PLATFORM}
+      # project.json therefore passes no inline arguments at all, and a CLI value
+      # that still contains "${" is treated as an unexpanded leak and ignored in
+      # favour of the environment. The preconditions below fail the build loudly
+      # if a literal survives even that, so it can never reach GOOS again.
+      VERSION_ARG: '{{.VERSION | default ""}}'
+      PLATFORM_ARG: '{{.PLATFORM | default ""}}'
+      SUFFIX_ARG: '{{.BINARY_SUFFIX | default ""}}'
+      VERSION_RESOLVED: '{{if and .VERSION_ARG (not (contains "${" .VERSION_ARG))}}{{.VERSION_ARG}}{{else if env "VERSION"}}{{env "VERSION"}}{{else}}{{.VERSION_DEFAULT}}{{end}}'
+      PLATFORM_RESOLVED: '{{if and .PLATFORM_ARG (not (contains "${" .PLATFORM_ARG))}}{{.PLATFORM_ARG}}{{else}}{{env "PLATFORM"}}{{end}}'
+      SUFFIX_RESOLVED: '{{if and .SUFFIX_ARG (not (contains "${" .SUFFIX_ARG))}}{{.SUFFIX_ARG}}{{else}}{{env "BINARY_SUFFIX"}}{{end}}'
       # PLATFORM arrives from release-go.yaml's build matrix as "<os>-<arch>"
       # in Node/Electron naming: darwin-x64, darwin-arm64, linux-x64,
       # linux-arm64, win32-x64, win32-ia32.
@@ -51,14 +75,26 @@ tasks:
       #
       # With no PLATFORM (local dev), both fall back to the host toolchain's
       # own values and the build is byte-for-byte what it was before.
-      PLATFORM_OS: '{{if .PLATFORM}}{{splitList "-" .PLATFORM | first}}{{end}}'
-      PLATFORM_ARCH: '{{if .PLATFORM}}{{splitList "-" .PLATFORM | last}}{{end}}'
+      PLATFORM_OS: '{{if .PLATFORM_RESOLVED}}{{splitList "-" .PLATFORM_RESOLVED | first}}{{end}}'
+      PLATFORM_ARCH: '{{if .PLATFORM_RESOLVED}}{{splitList "-" .PLATFORM_RESOLVED | last}}{{end}}'
       GOOS_TARGET: '{{if .PLATFORM_OS}}{{if eq .PLATFORM_OS "win32"}}windows{{else}}{{.PLATFORM_OS}}{{end}}{{else}}{{.GOOS_DEFAULT}}{{end}}'
       GOARCH_TARGET: '{{if .PLATFORM_ARCH}}{{if eq .PLATFORM_ARCH "x64"}}amd64{{else if eq .PLATFORM_ARCH "ia32"}}386{{else}}{{.PLATFORM_ARCH}}{{end}}{{else}}{{.GOARCH_DEFAULT}}{{end}}'
       # Windows assets need .exe or they publish as extensionless PE files
       # that Windows refuses to execute until renamed. release-go.yaml never
       # sets BINARY_SUFFIX, so derive it; an explicitly passed value wins.
-      SUFFIX: '{{if .BINARY_SUFFIX}}{{.BINARY_SUFFIX}}{{else if eq .GOOS_TARGET "windows"}}.exe{{end}}'
+      SUFFIX: '{{if .SUFFIX_RESOLVED}}{{.SUFFIX_RESOLVED}}{{else if eq .GOOS_TARGET "windows"}}.exe{{end}}'
+      OUTPUT_PLATFORM: '{{.PLATFORM_RESOLVED | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}'
+    preconditions:
+      # Last line of defence: never hand an unexpanded "${...}" to the toolchain
+      # or into an asset filename. Fail with the offending values named.
+      - sh: '{{if or (contains "${" .VERSION_RESOLVED) (contains "${" .PLATFORM_RESOLVED) (contains "${" .SUFFIX)}}exit 1{{else}}exit 0{{end}}'
+        msg: 'Unexpanded shell literal in release variables (VERSION="{{.VERSION_RESOLVED}}" PLATFORM="{{.PLATFORM_RESOLVED}}" BINARY_SUFFIX="{{.SUFFIX}}"). Export VERSION/PLATFORM in the environment instead of passing "${VAR}" as a Task argument.'
+      # A literal PLATFORM argument with nothing in the environment to recover
+      # from must not quietly degrade to a host-native build: that is how a
+      # release row ends up publishing an asset for a platform it never built.
+      # VERSION has a correct fallback (package.json), PLATFORM does not.
+      - sh: '{{if and (contains "${" .PLATFORM_ARG) (not .PLATFORM_RESOLVED)}}exit 1{{else}}exit 0{{end}}'
+        msg: 'PLATFORM was passed as the unexpanded literal "{{.PLATFORM_ARG}}" and no PLATFORM environment variable is set to fall back to. Refusing to build a host-native binary for a cross-platform release.'
     env:
       CGO_ENABLED: 0
       GOOS: '{{.GOOS_TARGET}}'
@@ -71,7 +107,7 @@ tasks:
       # Building `main.go` as the target silently drops tagged companion files in the same package.
       # -ldflags -X injects the release version into cmd.version so `devtools version`
       # identifies the build instead of always printing the source placeholder.
-      - go build -tags cli -ldflags "-X github.com/the-dev-tools/dev-tools/apps/cli/cmd.version=v{{.VERSION | default .VERSION_DEFAULT}}" -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.SUFFIX}} .
+      - go build -tags cli -ldflags "-X github.com/the-dev-tools/dev-tools/apps/cli/cmd.version=v{{.VERSION_RESOLVED}}" -o {{.BIN_DIR}}/devtools-cli-{{.VERSION_RESOLVED}}-{{.OUTPUT_PLATFORM}}{{.SUFFIX}} .
 
   clean:
     desc: Clean build artifacts
