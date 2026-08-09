@@ -1,5 +1,5 @@
 name: Setup runner
-description: ''
+description: Install the platform toolchain, Node and Go, then restore workspace and Go tool dependencies.
 
 inputs:
   shell:

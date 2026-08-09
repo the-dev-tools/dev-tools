@@ -191,7 +191,7 @@ jobs:
       always() && 
       needs.benchmark.result == 'success' && 
       needs.benchmark.outputs.has-changes == 'true' &&
-      github.com.event_name == 'pull_request'
+      github.event_name == 'pull_request'
     steps:
       - name: Find and update PR comment
         uses: actions/github-script@v7
