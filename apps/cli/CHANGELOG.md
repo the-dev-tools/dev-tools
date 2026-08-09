@@ -1,3 +1,13 @@
+## 1.1.1 (2026-08-09)
+
+### 🩹 Fixes
+
+- Fix Windows release builds: platform variables now resolve shell-agnostically, so win32-x64 and win32-ia32 binaries build and cross-compile correctly. Republishes all six CLI platform binaries. ([ad36e8dc](https://github.com/the-dev-tools/dev-tools/commit/ad36e8dc))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.1.0 (2026-08-08)
 
 ### 🚀 Features
