@@ -3,59 +3,59 @@
         {
             "Name": "main",
             "Source": "https://github.com/ScoopInstaller/Main.git",
-            "Updated": "2026-03-01T20:30:21+00:00",
-            "Manifests": 1449
+            "Updated": "2026-08-16T20:40:45+00:00",
+            "Manifests": 1629
         }
     ],
     "apps": [
         {
-            "Info": "",
             "Name": "7zip",
-            "Updated": "2026-03-02T00:11:42.5461877+00:00",
             "Source": "main",
-            "Version": "26.00"
+            "Info": "",
+            "Version": "26.02",
+            "Updated": "2026-07-06T00:28:24.7480638+00:00"
         },
         {
-            "Info": "",
             "Name": "gcc",
-            "Updated": "2026-03-02T00:11:55.5410061+00:00",
             "Source": "main",
-            "Version": "15.2.0"
+            "Info": "",
+            "Version": "15.2.0",
+            "Updated": "2026-07-06T00:28:36.7059896+00:00"
         },
         {
-            "Info": "",
             "Name": "go",
-            "Updated": "2026-03-02T00:12:48.7592051+00:00",
             "Source": "main",
-            "Version": "1.26.0"
+            "Info": "",
+            "Version": "1.26.6",
+            "Updated": "2026-08-17T00:44:59.9787674+00:00"
         },
         {
-            "Info": "",
             "Name": "jq",
-            "Updated": "2026-03-02T00:12:49.0700649+00:00",
             "Source": "main",
-            "Version": "1.8.1"
+            "Info": "",
+            "Version": "1.8.2",
+            "Updated": "2026-07-06T00:29:23.5876019+00:00"
         },
         {
-            "Info": "",
             "Name": "mingw",
-            "Updated": "2026-03-02T00:13:39.1655567+00:00",
             "Source": "main",
-            "Version": "15.2.0-rt_v13-rev1"
+            "Info": "",
+            "Version": "16.2.0-rt_v14-rev1",
+            "Updated": "2026-08-17T00:45:48.9267909+00:00"
         },
         {
-            "Info": "",
             "Name": "nodejs",
-            "Updated": "2026-03-02T00:13:47.8899354+00:00",
             "Source": "main",
-            "Version": "25.7.0"
+            "Info": "",
+            "Version": "26.7.0",
+            "Updated": "2026-08-17T00:45:57.8998864+00:00"
         },
         {
-            "Info": "",
             "Name": "task",
-            "Updated": "2026-03-02T00:13:49.2456734+00:00",
             "Source": "main",
-            "Version": "3.48.0"
+            "Info": "",
+            "Version": "3.52.0",
+            "Updated": "2026-07-06T00:30:21.1640161+00:00"
         }
     ]
 }
