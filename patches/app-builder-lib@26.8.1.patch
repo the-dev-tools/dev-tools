@@ -1,0 +1,27 @@
+diff --git a/out/codeSign/macCodeSign.js b/out/codeSign/macCodeSign.js
+index 17e0c1e7be271b7bce8a7671bfe9d0760a0c9f9a..0d0bbc20f5dc8984fc217c4b2dc1620752a5a9ae 100644
+--- a/out/codeSign/macCodeSign.js
++++ b/out/codeSign/macCodeSign.js
+@@ -157,16 +157,19 @@ async function createKeychain({ tmpDir, cscLink, cscKeyPassword, cscILink, cscIK
+     if (cscIKeyPassword != null) {
+         cscPasswords.push(cscIKeyPassword);
+     }
+-    return await importCerts(keychainFile, certPaths, cscPasswords);
++    return await importCerts(keychainFile, certPaths, cscPasswords, keychainPassword);
+ }
+-async function importCerts(keychainFile, paths, keyPasswords) {
++async function importCerts(keychainFile, paths, keyPasswords, keychainPassword) {
+     var _a;
+     for (let i = 0; i < paths.length; i++) {
+         const password = (_a = keyPasswords[i]) !== null && _a !== void 0 ? _a : "";
+         await (0, builder_util_1.exec)("/usr/bin/security", ["import", paths[i], "-k", keychainFile, "-T", "/usr/bin/codesign", "-T", "/usr/bin/productbuild", "-P", password]);
+         // https://stackoverflow.com/questions/39868578/security-codesign-in-sierra-keychain-ignores-access-control-settings-and-ui-p
+         // https://github.com/electron-userland/electron-packager/issues/701#issuecomment-322315996
+-        await (0, builder_util_1.exec)("/usr/bin/security", ["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainFile]);
++        // Patched: -k is the keychain password, not the p12 password. macOS 26.6+
++        // `security` rejects the wrong one (older releases ignored it for an
++        // already-unlocked keychain). Upstream still passes the p12 password.
++        await (0, builder_util_1.exec)("/usr/bin/security", ["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", keychainPassword, keychainFile]);
+     }
+     return {
+         keychainFile,

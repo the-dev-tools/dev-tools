@@ -174,5 +174,6 @@ overrides:
 patchedDependencies:
   '@effect/platform-node-shared': patches/@effect__platform-node-shared.patch
   '@react-stately/table': patches/@react-stately__table.patch
+  app-builder-lib@26.8.1: patches/app-builder-lib@26.8.1.patch
 
 savePrefix: ''

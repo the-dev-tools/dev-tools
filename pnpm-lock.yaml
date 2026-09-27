@@ -395,6 +395,9 @@ patchedDependencies:
   '@react-stately/table':
     hash: 5ac384399a7b8e18c4e19f25e434b2f2f27fbd45e7a91cdeb30408330b7243b4
     path: patches/@react-stately__table.patch
+  app-builder-lib@26.8.1:
+    hash: 2cf8817f2c094758155d2daf6cdbb7adfea9078c6233272f4cb56105071f0c53
+    path: patches/app-builder-lib@26.8.1.patch
 
 importers:
 
@@ -16801,7 +16804,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  app-builder-lib@26.8.1(dmg-builder@26.8.1)(electron-builder-squirrel-windows@26.4.0):
+  app-builder-lib@26.8.1(patch_hash=2cf8817f2c094758155d2daf6cdbb7adfea9078c6233272f4cb56105071f0c53)(dmg-builder@26.8.1)(electron-builder-squirrel-windows@26.4.0):
     dependencies:
       '@develar/schema-utils': 2.6.5
       '@electron/asar': 3.4.1
@@ -17915,7 +17918,7 @@ snapshots:
 
   dmg-builder@26.8.1(electron-builder-squirrel-windows@26.4.0):
     dependencies:
-      app-builder-lib: 26.8.1(dmg-builder@26.8.1)(electron-builder-squirrel-windows@26.4.0)
+      app-builder-lib: 26.8.1(patch_hash=2cf8817f2c094758155d2daf6cdbb7adfea9078c6233272f4cb56105071f0c53)(dmg-builder@26.8.1)(electron-builder-squirrel-windows@26.4.0)
       builder-util: 26.8.1
       fs-extra: 10.1.0
       iconv-lite: 0.6.3
@@ -18032,7 +18035,7 @@ snapshots:
 
   electron-builder@26.8.1(electron-builder-squirrel-windows@26.4.0):
     dependencies:
-      app-builder-lib: 26.8.1(dmg-builder@26.8.1)(electron-builder-squirrel-windows@26.4.0)
+      app-builder-lib: 26.8.1(patch_hash=2cf8817f2c094758155d2daf6cdbb7adfea9078c6233272f4cb56105071f0c53)(dmg-builder@26.8.1)(electron-builder-squirrel-windows@26.4.0)
       builder-util: 26.8.1
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
