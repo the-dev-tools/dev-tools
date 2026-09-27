@@ -74,6 +74,18 @@ detect_platform() {
     echo "${os}-${arch}"
 }
 
+# Prints the newest stable version (no "-" pre-release suffix) among the
+# repository's cli@ tags, or nothing if none can be found.
+latest_stable_version() {
+    local refs_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/matching-refs/tags/cli@"
+    curl -s "$refs_url" \
+        | grep -o '"ref": *"refs/tags/cli@[^"]*"' \
+        | sed -E 's#.*refs/tags/cli@([^"]*)".*#\1#' \
+        | grep -v -e '-' \
+        | sort -V \
+        | tail -n1
+}
+
 get_version() {
     local requested_version=$1
     
@@ -97,7 +109,22 @@ get_version() {
             print_error "Failed to fetch latest version from package.json"
             exit 1
         fi
-        
+
+        # A pre-release version (X.Y.Z-<pre>) must never be installed by
+        # default. main should only ever carry stable versions, but if a
+        # pre-release bump lands there by mistake, fall back to the newest
+        # stable cli@ release instead. Pre-releases stay installable with -v.
+        case "$version" in
+            *-*)
+                local stable_version=$(latest_stable_version)
+                if [ -z "$stable_version" ]; then
+                    print_error "Latest version ${version} is a pre-release and no stable release was found."
+                    exit 1
+                fi
+                version="$stable_version"
+                ;;
+        esac
+
         # Verify the release exists
         local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${version}"
         local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
@@ -273,6 +300,11 @@ main() {
     
     # Get version (latest or specified)
     local version=$(get_version "$requested_version")
+    # get_version runs in a subshell, so its `exit 1` cannot stop the script;
+    # it has already printed the reason, so just stop here.
+    if [ -z "$version" ]; then
+        exit 1
+    fi
     if [ -n "$requested_version" ]; then
         print_info "Installing version: $version"
     else

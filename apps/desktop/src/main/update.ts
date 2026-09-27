@@ -20,7 +20,11 @@ declare module 'builder-util-runtime' {
   }
 }
 
-const getUpdateInfo = Effect.fn(function* (options: UpdateOptions) {
+// Semver pre-release: a "-" in the version before any "+build" metadata,
+// e.g. 1.2.0-0 or 1.2.0-rc.1.
+const isPrereleaseVersion = (version: string) => version.split('+')[0]?.includes('-') ?? false;
+
+const getUpdateInfo = Effect.fn(function* (options: UpdateOptions, allowPrerelease: boolean) {
   const client = pipe(yield* HttpClient.HttpClient, HttpClient.followRedirects(3));
 
   const { version } = yield* pipe(
@@ -30,7 +34,7 @@ const getUpdateInfo = Effect.fn(function* (options: UpdateOptions) {
     Effect.flatMap(HttpClientResponse.schemaBodyJson(Schema.Struct({ version: Schema.String }))),
   );
 
-  const { assets } = yield* pipe(
+  const { assets, prerelease } = yield* pipe(
     client.get(`https://api.github.com/repos/${options.repo}/releases/tags/${options.project.name}@${version}`),
     Effect.flatMap(
       HttpClientResponse.schemaBodyJson(
@@ -41,10 +45,20 @@ const getUpdateInfo = Effect.fn(function* (options: UpdateOptions) {
               name: Schema.String,
             }),
           ),
+          prerelease: Schema.optional(Schema.Boolean),
         }),
       ),
     ),
   );
+
+  // Never offer a pre-release to a stable install. electron-updater only
+  // applies `allowPrerelease` in its built-in GitHub provider, not in this
+  // custom one, so enforce it here. It defaults to true only when the running
+  // app is itself a pre-release build. Failing here resolves to "no update"
+  // in getLatestVersion below.
+  if (!allowPrerelease && (prerelease === true || isPrereleaseVersion(version))) {
+    return yield* Effect.fail(new Error(`Skipping pre-release ${options.project.name}@${version}`));
+  }
 
   const updateInfoAsset = yield* Array.findFirst(
     assets,
@@ -73,7 +87,10 @@ export class CustomUpdateProvider extends UpdateProvider<UpdateInfo> {
   }
 
   async getLatestVersion() {
-    const result = await pipe(getUpdateInfo(this.updateOptions), Runtime.runPromiseExit(this.updateOptions.runtime));
+    const result = await pipe(
+      getUpdateInfo(this.updateOptions, this.updater.allowPrerelease),
+      Runtime.runPromiseExit(this.updateOptions.runtime),
+    );
 
     return Exit.match(result, {
       onFailure: (): UpdateInfo => ({
