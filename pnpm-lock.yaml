@@ -576,6 +576,9 @@ importers:
       react-markdown:
         specifier: 'catalog:'
         version: 10.1.0(@types/react@19.2.14)(react@19.2.4)
+      remark-gfm:
+        specifier: 'catalog:'
+        version: 4.0.1
       tailwindcss:
         specifier: 'catalog:'
         version: 4.2.1

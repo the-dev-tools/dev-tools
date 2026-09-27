@@ -43,6 +43,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-markdown": "catalog:",
+    "remark-gfm": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "undici": "catalog:",
