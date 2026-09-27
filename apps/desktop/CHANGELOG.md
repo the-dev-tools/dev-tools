@@ -1,3 +1,13 @@
+## 1.1.3 (2026-09-27)
+
+### 🩹 Fixes
+
+- Links on the update screen now open in your browser. ([d2539656](https://github.com/the-dev-tools/dev-tools/commit/d2539656))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.1.2 (2026-09-27)
 
 ### 🩹 Fixes
