@@ -86,6 +86,13 @@ const createWindow = Effect.gen(function* () {
     return { action: 'deny' };
   });
 
+  // Never navigate the app window to a web page; open it in the browser
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!/^https?:/.test(url) || url.startsWith(process.env.ELECTRON_RENDERER_URL ?? '\0')) return;
+    event.preventDefault();
+    void shell.openExternal(url);
+  });
+
   // Run cleanup in window
   let canClose = false;
   mainWindow.on('close', (event) => {

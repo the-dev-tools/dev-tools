@@ -4,6 +4,7 @@ import { Cause, Effect, Layer, pipe, Schema } from 'effect';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { addGlobalLayer, App as Client, configProviderFromMetaEnv, runtimeAtom } from '@the-dev-tools/client';
 import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
@@ -70,7 +71,20 @@ const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
 
       {/* eslint-disable-next-line better-tailwindcss/no-unknown-classes */}
       <div className={tw`prose dark:prose-invert flex-1 overflow-auto`}>
-        <Markdown>{children}</Markdown>
+        <Markdown
+          components={{
+            // Open links in the browser: target=_blank goes through the main
+            // process window open handler instead of navigating the app window.
+            a: ({ children: text, href }) => (
+              <a href={href} rel='noreferrer' target='_blank'>
+                {text}
+              </a>
+            ),
+          }}
+          remarkPlugins={[remarkGfm]}
+        >
+          {children}
+        </Markdown>
       </div>
 
       {state === 'init' && (
