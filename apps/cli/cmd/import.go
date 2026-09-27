@@ -43,7 +43,7 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import data from various formats",
 	Long: `Import data from various formats like curl commands, Postman collections,
-and HAR files into your DevTools workspace using modern v2 translation services.`,
+and HAR files into your Stresseur workspace using modern v2 translation services.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
