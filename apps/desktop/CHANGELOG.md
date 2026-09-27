@@ -1,3 +1,14 @@
+## 1.1.1 (2026-09-27)
+
+### 🩹 Fixes
+
+- Heads up: on October 13, 2026, DevTools Studio becomes Stresseur Studio. It's the same app with the same flows, and it's still free, open source and local. You don't need to do anything. ([993431ca](https://github.com/the-dev-tools/dev-tools/commit/993431ca))
+
+### ❤️ Thank You
+
+- Claude Opus 5.5 (1M context)
+- moosebay
+
 ## 1.1.0 (2026-08-08)
 
 ### 🚀 Features
