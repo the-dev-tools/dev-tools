@@ -53,10 +53,10 @@ runs:
       continue-on-error: true
       run: '"$GITHUB_ACTION_PATH/scripts/run-flow.sh"'
       env:
+        # download-cli.sh installs the binary as "stresseur", so the CLI runs
+        # under its new name: no rename notice, and unaffected by the planned
+        # retirement of the legacy names.
         CLI_BIN: ${{ steps.download.outputs.bin }}
-        # The action invokes the binary as devtoolscli itself, so the CLI's
-        # "devtools is now stresseur" notice is not actionable for its users.
-        STRESSEUR_NO_RENAME_NOTICE: '1'
         FILE: ${{ inputs.file }}
         FLOW: ${{ inputs.flow }}
         REPORT_DIR: ${{ inputs.report-dir }}
