@@ -68,6 +68,12 @@ const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
         <div className={tw`mt-2 text-2xl`}>Update available!</div>
       </div>
 
+      {/* HEADS-UP-RENAME */}
+      <div className={tw`max-w-xl text-center text-on-neutral-low`}>
+        Heads up: on October 13, 2026, DevTools Studio becomes Stresseur Studio. It&apos;s the same app with the same
+        flows, and it&apos;s still free, open source and local. You don&apos;t need to do anything.
+      </div>
+
       {/* eslint-disable-next-line better-tailwindcss/no-unknown-classes */}
       <div className={tw`prose dark:prose-invert flex-1 overflow-auto`}>
         <Markdown>{children}</Markdown>
