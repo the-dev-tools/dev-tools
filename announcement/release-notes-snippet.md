@@ -1,11 +1,5 @@
-[//]: # 'HEADS-UP-RENAME: marker uses Markdown link-reference syntax, which renders nothing on GitHub or in the Studio update screen; an HTML comment would show as literal text in the app.'
+[//]: # 'HEADS-UP-RENAME: GitHub release body for desktop releases before the rename. Studio shows it on its update screen, which renders Markdown without autolinks or code styling, so keep it short and plain.'
 
-On October 13, 2026, DevTools Studio becomes **Stresseur Studio**, and the CLI gets a second name, `stresseur`.
+Heads up: on October 13, 2026, DevTools Studio becomes Stresseur Studio. It's the same app with the same flows, and it's still free, open source and local. You don't need to do anything.
 
-**What changes:** the name in the app, the docs, the README and the API Recorder extension.
-
-**What doesn't:** your workspaces, flows, environments and secrets. Your current CLI command, your CI pipelines and the GitHub Action keep working as they are.
-
-**Why:** we're building Stresseur, an AI test engineer for APIs, on top of this engine. Studio stays free and open source. Stresseur adds AI test generation and a GitHub bot that keeps your tests current on every PR. Early access is at https://stresseur.com
-
-DevTools is still the team behind it, at https://dev.tools.
+Details: https://dev.tools/blog/devtools-studio-becomes-stresseur-studio/
