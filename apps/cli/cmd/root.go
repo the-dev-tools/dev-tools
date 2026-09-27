@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -11,8 +12,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "devtoolscli",
-	Short: "DevTools is a powerful API testing tool",
-	Long: `DevTools is a powerful API testing tool that records your browser interactions,
+	Short: "Stresseur CLI (formerly DevTools CLI) is a powerful API testing tool",
+	Long: `Stresseur CLI (formerly DevTools CLI) is a powerful API testing tool that records your browser interactions,
 automatically generates requests, and seamlessly chains them for functional testing.
 With built-in CI integration, it streamlines API validation from development to deployment.
   `,
@@ -45,6 +46,17 @@ func init() {
 }
 
 func Execute() {
+	if invokedAsStresseur(os.Args[0]) {
+		// Usage lines and `completion` scripts should use the name the user typed.
+		// Legacy names keep the original "devtoolscli".
+		rootCmd.Use = stresseurName
+	}
+	if renameNoticeEnabled(os.Args, os.LookupEnv) {
+		// stderr only: stdout, JSON/JUnit reports and exit codes stay identical.
+		fmt.Fprintln(os.Stderr, renameNotice)
+		// Planned later phase (~Jan 2027): legacy names stop here. It is this one line:
+		// os.Exit(0)
+	}
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("error executing root command: %s", err)
 	}

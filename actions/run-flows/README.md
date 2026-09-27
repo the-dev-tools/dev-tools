@@ -1,8 +1,16 @@
 # run-flows
 
-Composite GitHub Action that runs a DevTools `.yamlflow.yaml` file with the
-released `devtoolscli` binary, publishes a job summary, and produces JSON /
-JUnit reports as step outputs.
+Composite GitHub Action that runs a Stresseur (formerly DevTools) `.yamlflow.yaml`
+file with the released Stresseur CLI binary (`devtoolscli`), publishes a job
+summary, and produces JSON / JUnit reports as step outputs.
+
+> **Naming:** Stresseur CLI is the new name of DevTools CLI. This action's path,
+> inputs, outputs, defaults (including `.devtools-reports`) and the release
+> asset it downloads are unchanged, so existing workflows keep working as they
+> are. The action installs the binary as `stresseur` and runs it under that
+> name, so it is unaffected when the legacy `devtools`/`devtoolscli` names are
+> retired. A `devtoolscli` symlink is also put on `PATH` for later steps that
+> still call it.
 
 It downloads the `devtoolscli` release binary for the runner's OS/arch itself
 — the consuming workflow only needs to check out its own repo (the one
@@ -105,11 +113,12 @@ way as in the manual CLI usage documented in
 
 1. Resolves `version` to a release tag (`cli@<version>`) and downloads the
    matching `devtools-cli-<version>-<os>-<arch>` asset from this repo's
-   GitHub Releases into `$RUNNER_TEMP/devtools/bin`. `latest` resolves to the
+   GitHub Releases into `$RUNNER_TEMP/devtools/bin/stresseur` (plus a
+   `devtoolscli` symlink), and adds that directory to `PATH`. `latest` resolves to the
    highest `cli@*` tag via `git ls-remote` (the repo also cuts `desktop@`/
    `web@`/etc. releases, so a plain "latest release" API lookup would not be
    specific enough).
-2. Runs `devtoolscli flow run <file> [flow] --report console --report json:<report-dir>/report.json --report junit:<report-dir>/junit.xml`.
+2. Runs `stresseur flow run <file> [flow] --report console --report json:<report-dir>/report.json --report junit:<report-dir>/junit.xml`.
 3. Publishes a job summary table from the JSON report, whether or not the run
    succeeded.
 4. Sets the `json-report` / `junit-report` / `success` outputs, then fails

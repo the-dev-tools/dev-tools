@@ -23,7 +23,7 @@ function RouteComponent() {
   return (
     <div className={tw`px-4 py-16 text-center`}>
       <span className={tw`block text-xl/6 font-semibold tracking-tight text-on-neutral`}>
-        Discover what you can do in DevTools
+        Discover what you can do in Stresseur Studio
       </span>
 
       <span className={tw`block text-xs/5 tracking-tight text-on-neutral-low`}>

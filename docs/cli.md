@@ -1,8 +1,10 @@
-# DevTools CLI Guide
+# Stresseur CLI Guide
+
+_Formerly DevTools CLI._
 
 ## Overview
 
-The DevTools CLI (`devtoolscli`) is the command-line companion to the desktop application. It lets you execute exported workspaces, validate flows in continuous integration pipelines, and produce machine-readable reports. The CLI runs everything locally against an in-memory SQLite database, mirroring the behaviour of the server so you can rely on consistent results between manual testing and automated checks.
+The Stresseur CLI (`stresseur`, formerly DevTools CLI) is the command-line companion to the desktop application, Stresseur Studio. It lets you execute exported workspaces, validate flows in continuous integration pipelines, and produce machine-readable reports. The CLI runs everything locally against an in-memory SQLite database, mirroring the behaviour of the server so you can rely on consistent results between manual testing and automated checks.
 
 ## Installation
 
@@ -12,16 +14,18 @@ The preferred installation method is the published release bundle. On macOS and 
 curl -fsSL https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
 ```
 
-By default the script installs the binary to `/usr/local/bin`. Set `INSTALL_DIR` if you need another location. The CLI is cross-platform; Windows users can download the corresponding `.exe` from the releases page and place it somewhere on the `PATH`.
+By default the script installs the binary to `/usr/local/bin`. Set `INSTALL_DIR` if you need another location. The binary is installed as `devtools`, with a `stresseur` symlink next to it. The CLI is cross-platform; Windows users can download the corresponding `.exe` from the releases page and place it somewhere on the `PATH`.
 
-If you are hacking locally, run `pnpm install` and then `pnpm nx run cli:build` from the repo root. The compiled binary will appear under `apps/cli/dist`. Regardless of how you install, you can confirm your version with `devtoolscli version`.
+If you are hacking locally, run `pnpm install` and then `pnpm nx run cli:build` from the repo root. The compiled binary will appear under `apps/cli/dist`. Regardless of how you install, you can confirm your version with `stresseur version`.
+
+> **The old names still work.** `stresseur`, `devtools` and `devtoolscli` are the same binary and behave identically: same commands, flags, reports and exit codes. Existing scripts and CI pipelines don't need to change. When run as `devtools` or `devtoolscli`, the CLI prints one line on stderr suggesting the new name (stdout and reports are unaffected); set `STRESSEUR_NO_RENAME_NOTICE=1` (or `DEVTOOLS_NO_RENAME_NOTICE=1`) to hide it. `version` prints `Stresseur CLI vX (formerly DevTools CLI)` when run as `stresseur` and the unchanged `DevToolsCLI vX` under the old names. `DEVTOOLS_MODE` keeps working; `STRESSEUR_MODE` is accepted too and wins when both are set.
 
 ## Running Flows from YAML
 
 Export your workspace from the desktop app to produce a `.yamlflow.yaml` file. The CLI consumes that file with:
 
 ```
-devtoolscli flow run path/to/workspace.yamlflow.yaml FlowName
+stresseur flow run path/to/workspace.yamlflow.yaml FlowName
 ```
 
 If you omit the flow name the CLI reads the `run:` section and executes each entry in order, honouring `depends_on`. You can also point it at a simplified YAML using the same command; the importer handles both the legacy and the new structure transparently.
@@ -50,7 +54,7 @@ The importer normalises `${{ secrets.MY_SECRET }}` (and other `$` forms) to `#en
 
 ```yaml
 steps:
-  - run: devtoolscli flow run workspace.yamlflow.yaml FlowA
+  - run: stresseur flow run workspace.yamlflow.yaml FlowA
     env:
       LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
       LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
@@ -63,9 +67,9 @@ Inside the flow you continue to reference `{{ env.LOGIN_EMAIL }}` exactly as you
 By default the CLI prints a console report showing node order, duration, and status. You can request additional outputs with `--report format[:path]`. Supported formats are `console`, `json`, and `junit`. Examples:
 
 ```
-devtoolscli flow run workspace.yamlflow.yaml FlowA --report json:flow.json
+stresseur flow run workspace.yamlflow.yaml FlowA --report json:flow.json
 
-devtoolscli flow run workspace.yamlflow.yaml FlowA --report console --report junit:flow.xml
+stresseur flow run workspace.yamlflow.yaml FlowA --report console --report junit:flow.xml
 ```
 
 You can specify the flag multiple times. When writing JSON or JUnit reports, the CLI appends flow results after each run and flushes them on exit. This is useful for CI systems that collect test artifacts.
@@ -75,13 +79,13 @@ You can specify the flag multiple times. When writing JSON or JUnit reports, the
 1. Check in your YAML flows and run them on every pull request. Combine `--report junit:…` with the CI system’s test report collector.
 2. Use the `env:` block together with project secrets to avoid storing plaintext credentials in the repository.
 3. If your flows depend on external APIs, run them against staging environments or mock servers to keep CI stable.
-4. Consider adding `devtoolscli version` to your pipeline logs so you can diagnose regressions quickly.
+4. Consider adding `stresseur version` to your pipeline logs so you can diagnose regressions quickly.
 
 ### GitHub Actions
 
-The bundled composite action downloads a released `devtoolscli` binary for
-the runner's OS/arch, runs the flow, and publishes a job summary plus
-JSON/JUnit reports as outputs — no repo checkout of DevTools itself or Nix/pnpm
+The bundled composite action downloads a released CLI binary (installed there as
+`devtoolscli`) for the runner's OS/arch, runs the flow, and publishes a job summary plus
+JSON/JUnit reports as outputs — no repo checkout of this repository or Nix/pnpm
 toolchain needed. See [`actions/run-flows/README.md`](../actions/run-flows/README.md)
 for the full inputs/outputs reference:
 
@@ -103,8 +107,8 @@ jobs:
 
 Windows runners, air-gapped environments, or anything else the action doesn't
 cover can install the CLI directly (see [Installation](#installation) above)
-and call `flow run` themselves. Note the installed binary is named `devtools`,
-not `devtoolscli`:
+and call `flow run` themselves. The installer adds both `stresseur` and `devtools`
+(the Action's `devtoolscli` name is not installed by the script):
 
 ```yaml
 jobs:
@@ -113,7 +117,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: curl -fsSL https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
-      - run: devtools flow run flows.yamlflow.yaml --report console --report junit:report.xml
+      - run: stresseur flow run flows.yamlflow.yaml --report console --report junit:report.xml
         env:
           LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
@@ -121,7 +125,7 @@ jobs:
 
 ## Unified Binary & CLI Mode
 
-The binary is primarily a **server**. It can optionally act as a CLI when the `cli` build tag is included and the `DEVTOOLS_MODE` environment variable is set.
+The binary is primarily a **server**. It can optionally act as a CLI when the `cli` build tag is included and the `STRESSEUR_MODE` (or `DEVTOOLS_MODE`) environment variable is set.
 
 ### Build Variants
 
@@ -134,7 +138,7 @@ The server-only build excludes CLI dependencies (Cobra, Viper, config management
 
 ### Runtime Mode Selection
 
-Set the `DEVTOOLS_MODE` environment variable to switch modes:
+Set the `STRESSEUR_MODE` environment variable to switch modes. `DEVTOOLS_MODE` is still accepted; if both are set to a non-empty value, `STRESSEUR_MODE` wins:
 
 | Value     | Behaviour                                             |
 | --------- | ----------------------------------------------------- |
@@ -145,21 +149,24 @@ Set the `DEVTOOLS_MODE` environment variable to switch modes:
 Any other value is rejected with an error.
 
 ```bash
-# Run as server (default, DEVTOOLS_MODE unset)
+# Run as server (default, STRESSEUR_MODE unset)
 ./devtools
 
 # Run as server (explicit)
-DEVTOOLS_MODE=server ./devtools
+STRESSEUR_MODE=server ./devtools
 
 # Run as CLI
+STRESSEUR_MODE=cli ./devtools flow run workspace.yamlflow.yaml FlowA
+
+# The old variable still works
 DEVTOOLS_MODE=cli ./devtools flow run workspace.yamlflow.yaml FlowA
 ```
 
-If `DEVTOOLS_MODE=cli` is set on a server-only build (compiled without `-tags cli`), the binary prints an error and exits.
+If `STRESSEUR_MODE=cli` (or `DEVTOOLS_MODE=cli`) is set on a server-only build (compiled without `-tags cli`), the binary prints an error and exits.
 
 ### Desktop App Integration
 
-The desktop Electron app spawns the binary as its backend. No `DEVTOOLS_MODE` is needed since server is the default:
+The desktop Electron app spawns the binary as its backend. No `STRESSEUR_MODE`/`DEVTOOLS_MODE` is needed since server is the default:
 
 ```typescript
 Command.env({
@@ -175,17 +182,18 @@ The server requires the same environment variables as before (`DB_MODE`, `DB_NAM
 
 ### Source Layout
 
-- `apps/cli/main.go` — Entry point with mode switch and constants (`EnvDevToolsMode`, `ModeServer`, `ModeCLI`)
+- `apps/cli/main.go` — Entry point with mode switch and constants (`EnvDevToolsMode`, `EnvStresseurMode`, `ModeServer`, `ModeCLI`)
+- `apps/cli/cmd/invoked_name.go` — Detects which name the binary was run as (`stresseur` vs the legacy names) and the legacy-name notice
 - `apps/cli/mode_cli.go` — Build-tagged file (`//go:build cli`) that wires the CLI commands
 - `packages/server/cmd/serverrun/serverrun.go` — Extracted server startup logic, importable from any module in the workspace
 
 ## Debugging and Troubleshooting
 
-- **Flow not found**: Ensure the `run` entry or flow name matches the exported data exactly (case-sensitive). Use `devtoolscli flow run workspace.yamlflow.yaml` without a name to list flows.
+- **Flow not found**: Ensure the `run` entry or flow name matches the exported data exactly (case-sensitive). Use `stresseur flow run workspace.yamlflow.yaml` without a name to list flows.
 - **Missing environment variable**: When a `#env:NAME` override cannot resolve, the CLI logs the placeholder but continues with the stored value. Set the value explicitly in your CI environment or provide a literal fallback in the YAML.
 - **Node failures**: The console report shows the first error encountered. Re-run with `LOG_LEVEL=DEBUG` to see detailed HTTP preparation and assertion logs.
 - **External dependencies**: The CLI does not stub network calls. If you need deterministic runs, point your environment variables at mock servers or wrap the flows with conditionals.
 
 ## Getting Help
 
-For bugs or feature requests file an issue on GitHub with the CLI version (`devtoolscli version`), the flow snippet that fails, and the console report. Pull requests are welcome; consult `docs/CONTRIBUTING.md` for coding standards and testing expectations. The CLI lives under `apps/cli/`; tests are in `apps/cli/cmd` and sample flows in `apps/cli/test/yamlflow/`.
+For bugs or feature requests file an issue on GitHub with the CLI version (`stresseur version`), the flow snippet that fails, and the console report. Pull requests are welcome; consult `docs/CONTRIBUTING.md` for coding standards and testing expectations. The CLI lives under `apps/cli/`; tests are in `apps/cli/cmd` and sample flows in `apps/cli/test/yamlflow/`.

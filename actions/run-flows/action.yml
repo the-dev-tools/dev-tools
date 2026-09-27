@@ -1,5 +1,5 @@
-name: 'DevTools Run Flows'
-description: 'Run a DevTools YAML flow with the released devtoolscli CLI and publish JSON/JUnit reports plus a job summary.'
+name: 'Stresseur Run Flows (formerly DevTools Run Flows)'
+description: 'Run a Stresseur (formerly DevTools) YAML flow with the released Stresseur CLI (the devtoolscli binary) and publish JSON/JUnit reports plus a job summary.'
 author: 'the-dev-tools'
 
 inputs:
@@ -10,7 +10,7 @@ inputs:
     description: "Single flow name to run. Defaults to the file's top-level run: block."
     required: false
   version:
-    description: "devtoolscli release to install: 'latest' or a release tag, e.g. cli@1.0.3."
+    description: "Stresseur CLI (devtoolscli) release to install: 'latest' or a release tag, e.g. cli@1.0.3."
     required: false
     default: 'latest'
   report-dir:
@@ -53,6 +53,9 @@ runs:
       continue-on-error: true
       run: '"$GITHUB_ACTION_PATH/scripts/run-flow.sh"'
       env:
+        # download-cli.sh installs the binary as "stresseur", so the CLI runs
+        # under its new name: no rename notice, and unaffected by the planned
+        # retirement of the legacy names.
         CLI_BIN: ${{ steps.download.outputs.bin }}
         FILE: ${{ inputs.file }}
         FLOW: ${{ inputs.flow }}

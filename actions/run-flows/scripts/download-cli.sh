@@ -2,6 +2,12 @@
 # Resolves the devtoolscli release for this runner's OS/arch and downloads it
 # into $RUNNER_TEMP/devtools/bin. Reused by actions/run-flows/action.yml.
 #
+# The binary is saved as "stresseur", the CLI's new name, so the action never
+# runs it under a legacy name (those print a rename notice today and are
+# planned to stop around Jan 2027). A "devtoolscli" symlink sits next to it so
+# later workflow steps that call devtoolscli from PATH keep working. The
+# release asset name (devtools-cli-<version>-<os>-<arch>) is unchanged.
+#
 # Env in:
 #   VERSION        - "latest" or a release tag, e.g. "cli@1.0.3" (also accepts a
 #                    bare version like "1.0.3")
@@ -12,7 +18,7 @@
 #   GITHUB_OUTPUT   - GitHub Actions output file (appended to)
 #
 # Outputs (via $GITHUB_OUTPUT):
-#   bin     - absolute path to the installed devtoolscli binary
+#   bin     - absolute path to the installed binary (<bin dir>/stresseur)
 #   version - resolved version number (without the "cli@" prefix)
 set -euo pipefail
 
@@ -76,7 +82,8 @@ if ! curl -fsSI -o /dev/null "$download_url"; then
 fi
 
 bin_dir="${RUNNER_TEMP:-/tmp}/devtools/bin"
-bin_path="${bin_dir}/devtoolscli"
+bin_path="${bin_dir}/stresseur"
+legacy_link="${bin_dir}/devtoolscli"
 mkdir -p "$bin_dir"
 
 if ! curl -fsSL -o "$bin_path" "$download_url"; then
@@ -84,8 +91,9 @@ if ! curl -fsSL -o "$bin_path" "$download_url"; then
   exit 1
 fi
 chmod +x "$bin_path"
+ln -sfn stresseur "$legacy_link"
 
-echo "Installed devtoolscli ${version_number} -> ${bin_path}"
+echo "Installed devtoolscli ${version_number} -> ${bin_path} (also on PATH as devtoolscli)"
 "$bin_path" version
 
 echo "$bin_dir" >> "$GITHUB_PATH"

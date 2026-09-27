@@ -13,3 +13,6 @@ LICENSE
 pnpm-lock.yaml
 route-tree.gen.ts
 scoop.json
+
+# Reviewed Step 0 rename inventory, kept byte-for-byte as approved.
+rename-inventory.md

@@ -27,6 +27,12 @@ jobs:
         shell: bash
         run: bash actions/run-flows/test/select-latest-cli-tag.test.sh
 
+      # The action must install and run the CLI as `stresseur`, so it is never
+      # affected by the planned retirement of the legacy command names.
+      - name: Run cli-name tests
+        shell: bash
+        run: bash actions/run-flows/test/cli-name.test.sh
+
   test:
     name: Test run-flows (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -67,6 +73,10 @@ jobs:
           test -f "$JUNIT_REPORT"
 
           [ "$SUCCESS" = "true" ]
+
+          # The CLI is on PATH under its new name, with the legacy name kept.
+          command -v stresseur
+          command -v devtoolscli
 
           echo "report contents:"
           jq -c '[.[] | {flow_name, status, duration}]' "$JSON_REPORT"
