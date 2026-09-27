@@ -8,9 +8,6 @@
 
 <p align="center"><em>Formerly DevTools Studio</em></p>
 
-<!-- HEADS-UP-RENAME -->
-<p align="center">Heads up: on October 13, 2026, DevTools Studio becomes Stresseur Studio. It's the same app with the same flows, and it's still free, open source and local. You don't need to do anything.</p>
-
 <p align="center">
 A free, open-source Postman-style API tester you run locally. Record browser requests, auto-generate chained tests, and ship them straight to your CI—no sign-ups, no cloud, just code.
 </p>
