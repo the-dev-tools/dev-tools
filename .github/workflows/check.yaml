@@ -52,6 +52,29 @@ jobs:
           path: '*/*/dist/go-test.json'
           retention-days: 1
 
+  # main's apps/*/package.json versions are what installed desktop apps and
+  # install.sh treat as "the latest release". A pre-release version there
+  # (e.g. from merging a pre-release branch) would reach every user, including
+  # apps already installed whose updater predates any client-side guard.
+  stable-versions:
+    name: Stable versions on main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse pre-release versions in apps/*/package.json
+        run: |
+          set -euo pipefail
+          status=0
+          for manifest in apps/*/package.json; do
+            version=$(jq -r '.version // empty' "$manifest")
+            if [[ "${version%%+*}" == *-* ]]; then
+              echo "::error file=${manifest},title=Pre-release version on main::${manifest} has version ${version}. Pre-releases must stay on their own branch (see docs/release/prerelease.md)."
+              status=1
+            fi
+          done
+          exit "$status"
+
   cli-integration:
     name: CLI Integration Tests
     runs-on: ubuntu-latest

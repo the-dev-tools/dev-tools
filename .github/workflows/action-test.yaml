@@ -11,6 +11,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # `version: latest` must never resolve to a pre-release tag. Runs on both
+  # GNU (ubuntu) and BSD (macos) sort, since the resolver relies on sort -V.
+  select-latest-tag:
+    name: Test latest-tag selection (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run select-latest-cli-tag tests
+        shell: bash
+        run: bash actions/run-flows/test/select-latest-cli-tag.test.sh
+
   test:
     name: Test run-flows (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
