@@ -1,3 +1,15 @@
+## 1.1.2 (2026-09-27)
+
+### 🩹 Fixes
+
+- Heads up: on October 13, 2026, DevTools Studio becomes Stresseur Studio. It's the same app with the same flows, and it's still free, open source and local. You don't need to do anything. ([e9ce8163](https://github.com/the-dev-tools/dev-tools/commit/e9ce8163))
+
+  Also fixes macOS Apple Silicon builds, which were missing from 1.1.1.
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.1.1 (2026-09-27)
 
 ### 🩹 Fixes
