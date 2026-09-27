@@ -183,8 +183,8 @@ const RenameNotice = () => {
       role='status'
     >
       <div>
-        DevTools Studio is now Stresseur Studio. It&apos;s the same app with the same flows, and it&apos;s still free, open
-        source and local. Your data moved over automatically.
+        DevTools Studio is now Stresseur Studio. It&apos;s the same app with the same flows, and it&apos;s still free,
+        open source and local. Your data moved over automatically.
       </div>
 
       <div className={tw`flex items-center justify-end gap-3`}>
