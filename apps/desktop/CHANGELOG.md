@@ -6,7 +6,6 @@
 
 ### ❤️ Thank You
 
-- Claude Opus 5.5 (1M context)
 - moosebay
 
 ## 1.1.0 (2026-08-08)
@@ -132,7 +131,6 @@
 
 ### ❤️ Thank You
 
-- Claude Opus 4.6
 - moosebay
 
 ## 0.3.0 (2026-02-26)
