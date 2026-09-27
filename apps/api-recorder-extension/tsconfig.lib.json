@@ -1,12 +1,13 @@
 {
-  "extends": ["plasmo/templates/tsconfig.base.json", "./tsconfig.json"],
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
     "jsx": "react-jsx",
+    "types": ["chrome", "node", "vite/client"],
     "paths": { "~*": ["./src/*"] }
   },
-  "include": [".plasmo/index.d.ts", "."],
-  "exclude": [".plasmo", "dist", "node_modules"],
+  "include": [".", "package.json"],
+  "exclude": ["node_modules", "dist"],
   "references": [
     {
       "path": "../../packages/ui/tsconfig.lib.json"

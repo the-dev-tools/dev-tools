@@ -1,0 +1,60 @@
+{
+  "name": "@the-dev-tools/api-recorder-extension",
+  "displayName": "API Recorder",
+  "author": "dev.tools",
+  "version": "0.4.10",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "magic-sdk": "catalog:",
+    "react": "catalog:",
+    "react-aria-components": "catalog:",
+    "react-dom": "catalog:",
+    "react-icons": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwind-variants": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@the-dev-tools/eslint-config": "workspace:^",
+    "@the-dev-tools/ui": "workspace:^",
+    "@types/chrome": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "devtools-protocol": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "manifest": {
+    "host_permissions": [
+      "https://*/*"
+    ],
+    "permissions": [
+      "storage",
+      "debugger",
+      "tabs",
+      "unlimitedStorage"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "tabs/auth-callback.html"
+        ],
+        "matches": [
+          "*://*.magic.link/*"
+        ]
+      }
+    ]
+  }
+}

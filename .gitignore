@@ -41,3 +41,6 @@ packages/server/server
 packages/server/authadapter-testserver
 tools/collect_go_failures.py
 /server
+
+# Chrome Web Store upload copied from apps/api-recorder-extension/dist
+dist-upload/

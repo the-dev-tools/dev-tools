@@ -1,5 +1,3 @@
-import '~styles.css';
-
 import type { IconType } from 'react-icons';
 
 import { Effect, Match, Option, pipe, Tuple } from 'effect';
