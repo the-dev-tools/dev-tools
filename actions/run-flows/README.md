@@ -1,8 +1,13 @@
 # run-flows
 
-Composite GitHub Action that runs a DevTools `.yamlflow.yaml` file with the
-released `devtoolscli` binary, publishes a job summary, and produces JSON /
-JUnit reports as step outputs.
+Composite GitHub Action that runs a Stresseur (formerly DevTools) `.yamlflow.yaml`
+file with the released Stresseur CLI binary (`devtoolscli`), publishes a job
+summary, and produces JSON / JUnit reports as step outputs.
+
+> **Naming:** Stresseur CLI is the new name of DevTools CLI. This action's path,
+> inputs, outputs, defaults (including `.devtools-reports`) and the
+> `devtoolscli` binary it installs are unchanged, so existing workflows keep
+> working as they are.
 
 It downloads the `devtoolscli` release binary for the runner's OS/arch itself
 — the consuming workflow only needs to check out its own repo (the one

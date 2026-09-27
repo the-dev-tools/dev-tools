@@ -2,16 +2,64 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, nativeTheme, protocol, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Dialog,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  protocol,
+  shell,
+} from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync } from 'node:fs';
 import fs from 'node:fs';
 import os from 'node:os';
 import nodePath from 'node:path';
 import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
+import { legacyDataDirs, migrateDataDir, type MigrationResult } from './migrate-data-dir';
+import { dismissRenameNotice, initRenameNotice, RENAME_NOTICE_FILE } from './rename-notice';
 import { CustomUpdateProvider, UpdateOptions } from './update';
+
+// TODO(rename): replace build/icon.* with the Stresseur Studio icon once it exists. Keep the current icon until then.
+
+/** Display name. Identifiers (appId, executable, user-data legacy names, sockets) keep their devtools names on purpose. */
+const PRODUCT_NAME = 'Stresseur Studio';
+
+/** Links to Stresseur carry UTM tags, since a desktop app sends no referrer. */
+const stresseurUrl = (campaign: string) =>
+  `https://stresseur.com/?utm_source=studio&utm_medium=app&utm_campaign=${campaign}`;
+
+/**
+ * Bring user data over from the pre-rename folder ("DevTools-Studio", and older).
+ *
+ * This must stay at the top of the main process: it runs before Chromium writes
+ * into the user-data folder, before the Go server opens `state.db`, and before
+ * anything else reads or writes files there. Dev builds (unpackaged) use their
+ * own folder and never touch an installed app's data.
+ */
+const userDataMigration: MigrationResult = app.isPackaged
+  ? migrateDataDir({
+      carryFiles: [RENAME_NOTICE_FILE],
+      legacyDirs: legacyDataDirs(app.getPath('appData')),
+      log: (_) => void console.log(_),
+      userDataDir: app.getPath('userData'),
+    })
+  : { kind: 'current' };
+
+// If the migration could not complete, keep using the intact legacy folder for
+// this session so the user still sees their data; the next launch retries.
+if (userDataMigration.kind === 'failed') {
+  app.setPath('userData', userDataMigration.from);
+  app.setPath('sessionData', userDataMigration.from);
+}
+
+const showRenameNotice = initRenameNotice(app.getPath('userData'), userDataMigration);
 
 /**
  * On macOS, detect whether the current process is running under Rosetta 2
@@ -40,7 +88,7 @@ const warnOnArchitectureMismatch = () => {
     cancelId: 1,
     defaultId: 0,
     detail:
-      'The x64 (Intel) build of DevTools Studio is running under Rosetta 2 on an Apple Silicon Mac. ' +
+      `The x64 (Intel) build of ${PRODUCT_NAME} is running under Rosetta 2 on an Apple Silicon Mac. ` +
       'This makes the window slow to open and the UI sluggish. Install the arm64 (Apple Silicon) build for native performance.',
     message: 'Wrong architecture installed',
     type: 'warning',
@@ -73,7 +121,7 @@ const createWindow = Effect.gen(function* () {
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#18181b' : 'white',
     height: 600,
     icon,
-    title: 'DevTools Studio',
+    title: PRODUCT_NAME,
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
     },
@@ -144,43 +192,9 @@ const createWindow = Effect.gen(function* () {
   return mainWindow;
 });
 
-/** Migrate database from old data directories if needed. */
-const migrateDataDir = () => {
-  const newDir = app.getPath('userData');
-  const newDb = nodePath.join(newDir, 'state.db');
-
-  // If the current data directory already has a database, nothing to do.
-  if (existsSync(newDb)) return;
-
-  const appData = app.getPath('appData');
-  // Check old directories in reverse-chronological order (prefer most recent data).
-  // 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
-  const oldDirs = [nodePath.join(appData, 'DevTools Studio'), nodePath.join(appData, 'DevTools')];
-
-  const sourceDir = oldDirs.find((dir) => existsSync(nodePath.join(dir, 'state.db')));
-  if (!sourceDir) return;
-
-  console.log(`Migrating database from ${sourceDir} to ${newDir}`);
-  mkdirSync(newDir, { recursive: true });
-
-  for (const suffix of ['', '-wal', '-shm']) {
-    const src = nodePath.join(sourceDir, `state.db${suffix}`);
-    const dst = nodePath.join(newDir, `state.db${suffix}`);
-    try {
-      copyFileSync(src, dst);
-      console.log(`Copied state.db${suffix}`);
-    } catch {
-      // WAL/SHM may not exist, safe to ignore
-    }
-  }
-  console.log('Data directory migration complete');
-};
-
 const server = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;
-
-    yield* Effect.sync(migrateDataDir);
 
     const dist = yield* pipe(
       import.meta.resolve('@the-dev-tools/server'),
@@ -234,6 +248,35 @@ const worker = pipe(
   Effect.ensuring(Console.log('Worker exited')),
 );
 
+/**
+ * macOS application menu: Electron's default menu, with an About panel and a
+ * Help menu for the new name. Windows and Linux hide the menu bar in
+ * production (`setMenu(null)`), so they get the same links in the app itself.
+ */
+const createMacMenu = () => {
+  app.setAboutPanelOptions({
+    applicationName: PRODUCT_NAME,
+    applicationVersion: app.getVersion(),
+    credits: 'Formerly DevTools Studio\nhttps://dev.tools',
+  });
+
+  return Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        { click: () => void shell.openExternal(stresseurUrl('help_menu')), label: 'Stresseur: AI test engineer' },
+        { type: 'separator' },
+        { click: () => void shell.openExternal('https://dev.tools'), label: 'DevTools (dev.tools)' },
+      ],
+    },
+  ]);
+};
+
 const onReady = Effect.gen(function* () {
   const path = yield* Path.Path;
 
@@ -272,6 +315,8 @@ const onReady = Effect.gen(function* () {
     return fetch(request).catch(() => new Response(null, { status: 503 }));
   });
 
+  if (os.platform() === 'darwin') Menu.setApplicationMenu(createMacMenu());
+
   const mainWindow = yield* createWindow;
 
   ipcMain.handle('dialog', <T extends keyof Dialog>(_event: unknown, method: T, ...options: Parameters<Dialog[T]>) => {
@@ -285,6 +330,9 @@ const onReady = Effect.gen(function* () {
   ipcMain.on('update:start', () => void autoUpdater.downloadUpdate());
   autoUpdater.on('download-progress', (_) => void mainWindow.webContents.send('update:progress', _));
   autoUpdater.on('update-downloaded', () => void autoUpdater.quitAndInstall());
+
+  ipcMain.handle('rename-notice:get', () => showRenameNotice);
+  ipcMain.on('rename-notice:dismiss', () => void dismissRenameNotice(app.getPath('userData')));
 
   ipcMain.handle('server:wipe-and-restart', () => {
     const dbDir = app.getPath('userData');

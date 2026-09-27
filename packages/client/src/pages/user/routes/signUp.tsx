@@ -40,7 +40,7 @@ function RouteComponent() {
       >
         <Logo className={tw`size-20`} />
 
-        <div className={tw`mt-10 text-xl/6 font-semibold tracking-tight`}>Sign Up to DevTools</div>
+        <div className={tw`mt-10 text-xl/6 font-semibold tracking-tight`}>Sign Up to Stresseur Studio</div>
         <div className={tw`mt-1 text-md/5 tracking-tight text-on-neutral-low`}>Fill your account details</div>
 
         <TextInputField className={tw`mt-6 w-full`} label='Name' name='name' placeholder='Enter name...' />

@@ -56,14 +56,15 @@ interface UpdateAvailableProps {
 const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
   const [state, setState] = useState<'init' | 'skip' | 'update'>('init');
 
-  if (state === 'skip') return <Client renderError={renderError} />;
+  if (state === 'skip') return <ClientWithNotice />;
 
   return (
     <div className={tw`flex h-full flex-col items-center gap-8 p-16`}>
       <div className={tw`text-center`}>
         <div className={tw`flex items-center gap-4 text-4xl font-semibold`}>
+          {/* TODO(rename): swap in the Stresseur Studio logo once it exists. */}
           <Logo className={tw`size-10`} />
-          DevTools Studio
+          Stresseur Studio
         </div>
 
         <div className={tw`mt-2 text-2xl`}>Update available!</div>
@@ -123,7 +124,7 @@ const UpdateProgress = () => {
 const LoadingScreen = () => (
   <div className={tw`flex h-full flex-col items-center justify-center gap-4`}>
     <Logo className={tw`size-10 animate-pulse`} />
-    <div className={tw`text-on-neutral-low`}>Starting DevTools Studio...</div>
+    <div className={tw`text-on-neutral-low`}>Starting Stresseur Studio...</div>
   </div>
 );
 
@@ -159,6 +160,60 @@ const StartupError = () => {
 
 const renderError = () => <StartupError />;
 
+/**
+ * One-time notice for users upgrading from DevTools Studio. The main process
+ * decides whether to show it (upgraded users only, never on a fresh install)
+ * and remembers the dismissal, so it is never shown twice.
+ */
+const RenameNotice = () => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    void window.electron.renameNotice.get().then(setIsVisible);
+  }, []);
+
+  if (!isVisible) return null;
+
+  return (
+    <div
+      className={tw`
+        fixed right-4 bottom-4 z-50 flex max-w-sm flex-col gap-3 rounded-lg border border-neutral bg-neutral-lowest p-4
+        text-sm text-on-neutral shadow-lg
+      `}
+      role='status'
+    >
+      <div>DevTools Studio is now Stresseur Studio. Same app, same flows, still open source and local.</div>
+
+      <div className={tw`flex items-center justify-end gap-3`}>
+        <a
+          className={tw`text-on-neutral-low underline`}
+          href={`https://github.com/the-dev-tools/dev-tools/releases/tag/desktop@${packageJson.version}`}
+          rel='noreferrer'
+          target='_blank'
+        >
+          What&apos;s new
+        </a>
+
+        <Button
+          onPress={() => {
+            window.electron.renameNotice.dismiss();
+            setIsVisible(false);
+          }}
+        >
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const ClientWithNotice = () => (
+  <>
+    <Client renderError={renderError} />
+    <RenameNotice />
+  </>
+);
+
 const finalizerAtom = Atom.make((_) => void _.addFinalizer(() => void window.electron.onCloseDone()));
 
 const App = () => {
@@ -167,7 +222,7 @@ const App = () => {
   const updateCheck = useAtomValue(updateCheckAtom);
 
   return Result.match(updateCheck, {
-    onFailure: () => <Client renderError={renderError} />,
+    onFailure: () => <ClientWithNotice />,
     onInitial: () => <LoadingScreen />,
     onSuccess: (_) => <UpdateAvailable>{_.value}</UpdateAvailable>,
   });
