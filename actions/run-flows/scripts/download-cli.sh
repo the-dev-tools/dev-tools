@@ -46,12 +46,15 @@ platform="${os}-${arch}"
 # for the CLI are tagged "cli@<version>" (see tools/gha-scripts/src/cli.ts and
 # .github/workflows/release-go.yaml); the repo also cuts desktop@/web@ releases
 # on the same tracker, so "latest release" APIs can't be used as-is.
+# "latest" means the highest *stable* cli@ tag: pre-release tags
+# (cli@X.Y.Z-<pre>) are skipped by select-latest-cli-tag.sh so a pre-release
+# can only be installed by asking for it explicitly via `version:`.
 if [[ "$version_input" == 'latest' ]]; then
   set +e
-  tag=$(git ls-remote --tags --refs "${REPO_URL}.git" 'cli@*' 2>/dev/null | sed 's#.*refs/tags/##' | sort -V | tail -n1)
+  tag=$(git ls-remote --tags --refs "${REPO_URL}.git" 'cli@*' 2>/dev/null | sed 's#.*refs/tags/##' | "$(dirname "${BASH_SOURCE[0]}")/select-latest-cli-tag.sh")
   set -e
   if [[ -z "$tag" ]]; then
-    echo "::error::Could not resolve the latest devtoolscli release: no cli@* tags found on ${REPO_URL} (or the network request failed)." >&2
+    echo "::error::Could not resolve the latest devtoolscli release: no stable cli@* tags found on ${REPO_URL} (or the network request failed)." >&2
     exit 1
   fi
 elif [[ "$version_input" == cli@* ]]; then

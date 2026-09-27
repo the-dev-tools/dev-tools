@@ -37,6 +37,10 @@ instead.
 | `report-dir`    | no       | `.devtools-reports` | Directory to write the JSON and JUnit reports into.                                                         |
 | `fail-on-error` | no       | `true`              | Fail this step if any flow fails. Set to `'false'` to always exit 0 and check the `success` output instead. |
 
+`version: latest` resolves to the newest **stable** `cli@` release. Pre-release
+tags (anything with a `-` suffix, e.g. `cli@1.2.0-rc.1`) are skipped; install
+one only by naming it explicitly, e.g. `version: cli@1.2.0-rc.1`.
+
 ## Outputs
 
 | Name           | Description                                                       |
