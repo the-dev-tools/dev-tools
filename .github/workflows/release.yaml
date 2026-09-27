@@ -32,6 +32,21 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
+      # Pre-releases must never be cut from main: installed desktop apps and
+      # install.sh read the version straight from main's apps/*/package.json,
+      # so a pre-release bump pushed to main reaches every user. Cut them from
+      # a separate branch instead (docs/release/prerelease.md).
+      - name: Refuse pre-release version plans on main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          plans=(.nx/version-plans/*.md)
+          if [ ${#plans[@]} -gt 0 ] && grep -HnE '^[[:space:]]*[^[:space:]:]+:[[:space:]]*pre(major|minor|patch|release)[[:space:]]*$' "${plans[@]}"; then
+            echo "::error title=Pre-release on main::The version plans above request a pre-release bump. Run the Release workflow from a non-main branch for pre-releases (see docs/release/prerelease.md)."
+            exit 1
+          fi
+
       - name: Version projects and trigger specialized release workflows
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
