@@ -1,61 +1,61 @@
 {
+    "apps": [
+        {
+            "Name": "7zip",
+            "Info": "",
+            "Updated": "2026-09-14T02:28:51.0271656+00:00",
+            "Version": "26.03",
+            "Source": "main"
+        },
+        {
+            "Name": "gcc",
+            "Info": "",
+            "Updated": "2026-09-14T02:29:06.919142+00:00",
+            "Version": "15.2.0",
+            "Source": "main"
+        },
+        {
+            "Name": "go",
+            "Info": "",
+            "Updated": "2026-09-14T02:29:58.1159213+00:00",
+            "Version": "1.27.1",
+            "Source": "main"
+        },
+        {
+            "Name": "jq",
+            "Info": "",
+            "Updated": "2026-09-14T02:29:58.4949443+00:00",
+            "Version": "1.8.2",
+            "Source": "main"
+        },
+        {
+            "Name": "mingw",
+            "Info": "",
+            "Updated": "2026-09-14T02:30:49.1961789+00:00",
+            "Version": "16.2.0-rt_v14-rev1",
+            "Source": "main"
+        },
+        {
+            "Name": "nodejs",
+            "Info": "",
+            "Updated": "2026-09-28T02:43:04.9530759+00:00",
+            "Version": "26.10.0",
+            "Source": "main"
+        },
+        {
+            "Name": "task",
+            "Info": "",
+            "Updated": "2026-09-14T02:30:58.8451369+00:00",
+            "Version": "3.53.1",
+            "Source": "main"
+        }
+    ],
     "buckets": [
         {
             "Name": "main",
             "Source": "https://github.com/ScoopInstaller/Main.git",
-            "Updated": "2026-03-01T20:30:21+00:00",
-            "Manifests": 1449
-        }
-    ],
-    "apps": [
-        {
-            "Info": "",
-            "Name": "7zip",
-            "Updated": "2026-03-02T00:11:42.5461877+00:00",
-            "Source": "main",
-            "Version": "26.00"
-        },
-        {
-            "Info": "",
-            "Name": "gcc",
-            "Updated": "2026-03-02T00:11:55.5410061+00:00",
-            "Source": "main",
-            "Version": "15.2.0"
-        },
-        {
-            "Info": "",
-            "Name": "go",
-            "Updated": "2026-03-02T00:12:48.7592051+00:00",
-            "Source": "main",
-            "Version": "1.26.0"
-        },
-        {
-            "Info": "",
-            "Name": "jq",
-            "Updated": "2026-03-02T00:12:49.0700649+00:00",
-            "Source": "main",
-            "Version": "1.8.1"
-        },
-        {
-            "Info": "",
-            "Name": "mingw",
-            "Updated": "2026-03-02T00:13:39.1655567+00:00",
-            "Source": "main",
-            "Version": "15.2.0-rt_v13-rev1"
-        },
-        {
-            "Info": "",
-            "Name": "nodejs",
-            "Updated": "2026-03-02T00:13:47.8899354+00:00",
-            "Source": "main",
-            "Version": "25.7.0"
-        },
-        {
-            "Info": "",
-            "Name": "task",
-            "Updated": "2026-03-02T00:13:49.2456734+00:00",
-            "Source": "main",
-            "Version": "3.48.0"
+            "Updated": "2026-09-28T01:12:12+00:00",
+            "Manifests": 1657
         }
     ]
 }
