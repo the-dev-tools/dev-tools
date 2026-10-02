@@ -42,7 +42,9 @@ detect_platform() {
             os="darwin"
             ;;
         msys*|mingw*|cygwin*)
-            os="windows"
+            # Windows release assets are named win32-<arch>.exe, like Node's
+            # process.platform (see .github/workflows/release-go.yaml).
+            os="win32"
             ;;
         *)
             print_error "Unsupported operating system: $os"
@@ -58,7 +60,7 @@ detect_platform() {
             arch="arm64"
             ;;
         i386|i686)
-            if [ "$os" = "windows" ]; then
+            if [ "$os" = "win32" ]; then
                 arch="ia32"
             else
                 print_error "32-bit architecture not supported on $os"
@@ -143,7 +145,7 @@ download_binary() {
     local platform=$2
     local binary_suffix=""
     
-    if [[ "$platform" == "windows"* ]]; then
+    if [[ "$platform" == "win32-"* ]]; then
         binary_suffix=".exe"
     fi
     
@@ -171,34 +173,58 @@ download_binary() {
     echo "$temp_file"
 }
 
+# Verifies the downloaded binary against the release's checksums.txt
+# ("<sha256>  <asset name>" per line, published since cli@1.2.0). Older releases
+# have no checksums.txt; for those, and when no SHA-256 tool is available, the
+# check is skipped with a note. A mismatch always stops the install.
 verify_checksum() {
     local binary_file=$1
     local version=$2
-    local platform=$3
+    local asset_name
+    asset_name=$(basename "$binary_file")
     local checksum_url="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/cli@${version}/checksums.txt"
-    local temp_checksum="/tmp/devtools-checksums.txt"
+    local temp_checksum="/tmp/devtools-checksums-$$.txt"
     
     print_info "Verifying checksum..."
     
+    local fetched=1
     if command -v curl &> /dev/null; then
-        curl -sL -o "$temp_checksum" "$checksum_url" 2>/dev/null || return 0
+        curl -fsSL -o "$temp_checksum" "$checksum_url" 2>/dev/null || fetched=0
     elif command -v wget &> /dev/null; then
-        wget -q -O "$temp_checksum" "$checksum_url" 2>/dev/null || return 0
+        wget -q -O "$temp_checksum" "$checksum_url" 2>/dev/null || fetched=0
+    else
+        fetched=0
+    fi
+    if [ "$fetched" != 1 ]; then
+        rm -f "$temp_checksum"
+        print_info "No checksums.txt published for cli@${version}; skipping checksum verification."
+        return 0
     fi
     
-    if [ -f "$temp_checksum" ] && command -v sha256sum &> /dev/null; then
-        local expected_checksum=$(grep "$(basename "$binary_file")" "$temp_checksum" | awk '{print $1}')
-        if [ -n "$expected_checksum" ]; then
-            local actual_checksum=$(sha256sum "$binary_file" | awk '{print $1}')
-            if [ "$expected_checksum" != "$actual_checksum" ]; then
-                print_error "Checksum verification failed"
-                rm -f "$temp_checksum"
-                exit 1
-            fi
-            print_success "Checksum verified"
-        fi
-        rm -f "$temp_checksum"
+    local expected_checksum
+    expected_checksum=$(awk -v f="$asset_name" '$2 == f || $2 == "*" f { print $1; exit }' "$temp_checksum")
+    rm -f "$temp_checksum"
+    if [ -z "$expected_checksum" ]; then
+        print_info "checksums.txt has no entry for ${asset_name}; skipping checksum verification."
+        return 0
     fi
+    
+    local actual_checksum
+    if command -v sha256sum &> /dev/null; then
+        actual_checksum=$(sha256sum "$binary_file" | awk '{print $1}')
+    elif command -v shasum &> /dev/null; then
+        actual_checksum=$(shasum -a 256 "$binary_file" | awk '{print $1}')
+    else
+        print_info "Neither sha256sum nor shasum found; skipping checksum verification."
+        return 0
+    fi
+    
+    if [ "$expected_checksum" != "$actual_checksum" ]; then
+        rm -f "$binary_file"
+        print_error "Checksum verification failed for ${asset_name} (expected ${expected_checksum}, got ${actual_checksum})"
+        exit 1
+    fi
+    print_success "Checksum verified"
 }
 
 install_binary() {

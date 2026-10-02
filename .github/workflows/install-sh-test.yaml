@@ -1,0 +1,30 @@
+name: Test / install.sh
+
+# apps/cli/install.sh is served live from main (sh.dev.tools/install.sh
+# redirects to it), so changes to it are tested before they merge.
+on:
+  pull_request:
+    paths:
+      - 'apps/cli/install.sh'
+      - 'apps/cli/scripts/**'
+      - '.github/workflows/install-sh-test.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test install.sh (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run install.sh tests
+        shell: bash
+        run: bash apps/cli/scripts/install.test.sh
