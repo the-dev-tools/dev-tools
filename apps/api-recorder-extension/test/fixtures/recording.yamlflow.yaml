@@ -1,0 +1,81 @@
+version: 2
+workspace_name: API Recorder
+run:
+  - flow: Recorded flow
+requests:
+  - name: get_v1_users
+    method: GET
+    url: https://api.example.com/v1/users
+    headers:
+      Accept: application/json
+      Authorization: Bearer demo-token
+    query_params:
+      page: '1'
+      limit: '20'
+    assertions:
+      - response.status == 200
+  - name: post_v1_users
+    method: POST
+    url: https://api.example.com/v1/users
+    headers:
+      Accept: application/json
+      Authorization: Bearer demo-token
+      Content-Type: application/json
+    body: '{"name":"Ada Lovelace","email":"ada@example.com"}'
+    assertions:
+      - response.status == 201
+  - name: get_v1_users_42
+    method: GET
+    url: https://api.example.com/v1/users/42
+    headers:
+      Accept: application/json
+  - name: get_v1_search
+    method: GET
+    url: https://api.example.com/v1/search
+    headers:
+      Accept: application/json
+    query_params:
+      - name: tag
+        value: a
+        enabled: true
+      - name: tag
+        value: b
+        enabled: true
+    assertions:
+      - response.status == 200
+  - name: get_v1_users_2
+    method: GET
+    url: https://api.example.com/v1/users
+    headers:
+      Accept: application/json
+      Authorization: Bearer demo-token
+    query_params:
+      page: '2'
+      limit: '20'
+    assertions:
+      - response.status == 200
+flows:
+  - name: Recorded flow
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: get_v1_users
+          depends_on: Start
+          use_request: get_v1_users
+      - request:
+          name: post_v1_users
+          depends_on: get_v1_users
+          use_request: post_v1_users
+      - request:
+          name: get_v1_users_42
+          depends_on: post_v1_users
+          use_request: get_v1_users_42
+      - request:
+          name: get_v1_search
+          depends_on: get_v1_users_42
+          use_request: get_v1_search
+      - request:
+          name: get_v1_users_2
+          depends_on: get_v1_search
+          use_request: get_v1_users_2

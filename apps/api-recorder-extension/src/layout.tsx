@@ -1,5 +1,6 @@
-import backgroundImage from 'data-base64:~/../assets/background.png';
 import { twMerge } from 'tailwind-merge';
+
+import backgroundImage from '../assets/background.png';
 
 export interface LayoutProps extends React.ComponentPropsWithoutRef<'div'> {
   innerClassName?: string;

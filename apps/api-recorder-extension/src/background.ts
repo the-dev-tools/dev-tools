@@ -6,18 +6,24 @@ import { Array, Effect, flow, Option, Predicate, String, Struct } from 'effect';
 import * as Recorder from '~recorder';
 import { Runtime } from '~runtime';
 
-// PlasmoHQ implements a workaround to keep the background service worker alive
-// in Chrome Extension Manifest V3, so doing it manually is not needed (for now)
-// https://github.com/PlasmoHQ/plasmo/tree/main/api/persistent
-// https://stackoverflow.com/questions/66618136/persistent-service-worker-in-chrome-extension
+// Since Chrome 118, an attached `chrome.debugger` session keeps the extension
+// service worker alive, so no keep-alive workaround is needed while recording.
+// When the worker does restart, the collection is reloaded from storage below.
+// https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle
 
 const sendDebuggerCommand = <Command extends keyof ProtocolMapping.Commands>(
   target: chrome.debugger.Debuggee,
   method: Command,
   ...commandParams: ProtocolMapping.Commands[Command]['paramsType']
 ) =>
-  Effect.tryPromise<ProtocolMapping.Commands[Command]['returnType']>(() =>
-    chrome.debugger.sendCommand(target, method, ...commandParams),
+  Effect.tryPromise(
+    async () =>
+      (await chrome.debugger.sendCommand(
+        target,
+        method,
+        // CDP param types are closed interfaces; `@types/chrome` wants an index signature
+        commandParams[0] as Record<string, unknown> | undefined,
+      )) as ProtocolMapping.Commands[Command]['returnType'],
   );
 
 const isDebuggerEvent = <Method extends keyof ProtocolMapping.Events>(

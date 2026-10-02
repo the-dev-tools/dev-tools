@@ -1,5 +1,3 @@
-import '~styles.css';
-
 import {
   Array,
   Clock,
@@ -23,13 +21,16 @@ import { focusVisibleRingStyles } from '@the-dev-tools/ui/focus-ring';
 import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { Button } from '~/ui/button';
+import { StudioCallout } from '~/ui/studio-callout';
 import * as Auth from '~auth';
+import * as Hooks from '~hooks';
 import { Layout as BaseLayout, type LayoutProps } from '~layout';
 import * as Postman from '~postman';
 import * as Recorder from '~recorder';
 import { Runtime } from '~runtime';
 import * as Storage from '~storage';
-import { keyValue } from './utils';
+import { keyValue } from '~utils';
+import * as YamlFlow from '~yamlflow';
 
 const Layout = (props: Omit<LayoutProps, 'className'>) => (
   <BaseLayout {...props} className='h-[600px] w-[800px] overflow-hidden border border-slate-300' />
@@ -59,7 +60,7 @@ const LoginPage = () => {
           }).pipe(Runtime.runPromise)
         }
       >
-        <Logo className='mb-2 h-16 w-auto' />
+        <Logo className='mb-2 size-16' />
         <h1 className='mb-1 text-center text-4xl font-semibold uppercase leading-tight'>DevTools</h1>
         <h2 className='mb-10 w-64 text-center text-sm leading-snug'>
           Create your account and get your APIs call in seconds
@@ -95,7 +96,7 @@ interface RecorderLayoutProps {
 const RecorderLayout = ({ children, headerSlot }: RecorderLayoutProps) => (
   <Layout innerClassName='flex flex-col divide-y divide-slate-300'>
     <div className='flex items-center gap-2 p-4'>
-      <Logo className='h-6 w-auto' />
+      <Logo className='size-6' />
       <h1 className='text-xl font-medium uppercase leading-tight'>DevTools</h1>
       <div className='h-9 flex-1' />
       {headerSlot}
@@ -114,14 +115,17 @@ const IntroPage = () => (
       </div>
       <Button onPress={() => void Recorder.start.pipe(Effect.ignoreLogged, Runtime.runPromise)}>Start Recording</Button>
     </div>
+    <StudioCallout />
   </RecorderLayout>
 );
 
 const SelectionSchema = Schema.Union(Schema.Literal('all'), Schema.Set(Schema.Union(Schema.String, Schema.Number)));
 
 const RecorderPage = () => {
-  const collection = Recorder.useCollection();
-  const tabId = Recorder.useTabId();
+  const collection = Hooks.useCollection();
+  const tabId = Hooks.useTabId();
+
+  const [exportedFile, setExportedFile] = React.useState<string>();
 
   const [searchTerm, setSearchTerm] = React.useState('');
 
@@ -168,7 +172,7 @@ const RecorderPage = () => {
     };
   }, [collection.item]);
 
-  const [hostsSelectionMaybe, setHostsSelection] = Storage.useState(Storage.Local, 'HostsSelection', SelectionSchema);
+  const [hostsSelectionMaybe, setHostsSelection] = Hooks.useState(Storage.Local, 'HostsSelection', SelectionSchema);
   const hostsSelection = Option.getOrElse(hostsSelectionMaybe, () => new Set<number | string>());
 
   const selectedHost = pipe(
@@ -193,7 +197,7 @@ const RecorderPage = () => {
     Option.getOrElse(() => []),
   );
 
-  const [requestsSelectionMaybe, setRequestsSelection] = Storage.useState(
+  const [requestsSelectionMaybe, setRequestsSelection] = Hooks.useState(
     Storage.Local,
     'RequestsSelection',
     SelectionSchema,
@@ -264,18 +268,26 @@ const RecorderPage = () => {
     );
   };
 
-  const exportCollection = Effect.gen(function* () {
-    const file = yield* pipe(
-      selectedCollection(),
-      Schema.encode(Postman.Collection),
-      Effect.map(JSON.stringify),
-      Effect.map((_) => new Blob([_], { type: 'text/json' })),
-    );
+  // With nothing selected, export everything that was recorded
+  const exportedCollection = () =>
+    requestsSelection === 'all' || requestsSelection.size === 0 ? collection : selectedCollection();
+
+  const download = (content: string, type: string, fileName: string) => {
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(file);
-    link.download = `postman-collection.json`;
+    link.href = URL.createObjectURL(new Blob([content], { type }));
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(link.href);
+    setExportedFile(fileName);
+  };
+
+  const exportPostman = Effect.gen(function* () {
+    const content = yield* pipe(exportedCollection(), Schema.encode(Postman.Collection), Effect.map(JSON.stringify));
+    download(content, 'application/json', 'postman-collection.json');
+  });
+
+  const exportYamlFlow = Effect.sync(() => {
+    download(YamlFlow.toYamlFlow(exportedCollection()), 'application/yaml', 'api-recorder-flow.yaml');
   });
 
   const currentTimeMillis = pipe(Clock.currentTimeMillis, Runtime.runSync);
@@ -503,6 +515,8 @@ const RecorderPage = () => {
         </div>
       </div>
 
+      <StudioCallout exportedFile={exportedFile} />
+
       <div className='flex items-center gap-3 bg-white p-4'>
         {Option.match(tabId, {
           onNone: () => (
@@ -553,8 +567,16 @@ const RecorderPage = () => {
           ),
         })}
 
-        <Button onPress={() => void exportCollection.pipe(Effect.ignoreLogged, Runtime.runPromise)} variant='primary'>
-          Export
+        <Button
+          onPress={() => void exportPostman.pipe(Effect.ignoreLogged, Runtime.runPromise)}
+          variant='secondary gray'
+        >
+          Postman
+        </Button>
+
+        <Button onPress={() => void exportYamlFlow.pipe(Effect.ignoreLogged, Runtime.runPromise)} variant='primary'>
+          <FeatherIcons.FiDownload />
+          Export YAML
         </Button>
       </div>
     </RecorderLayout>

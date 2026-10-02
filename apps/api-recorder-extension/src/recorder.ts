@@ -1,14 +1,12 @@
-import * as PlasmoStorage from '@plasmohq/storage/hook';
-import * as Devtools from 'devtools-protocol';
+import type * as Devtools from 'devtools-protocol';
+
 import { Array, Effect, flow, MutableHashMap, Option, pipe, Record, Schema, Struct } from 'effect';
-import * as React from 'react';
-import * as Uuid from 'uuid';
 
 import * as Postman from '~postman';
 import { Runtime } from '~runtime';
 import * as Storage from '~storage';
 
-const CollectionTag = 'Collection';
+export const CollectionTag = 'Collection';
 
 export const getCollection = pipe(
   Effect.tryPromise(() => Storage.Local.get<typeof Postman.Collection.Encoded>(CollectionTag)),
@@ -30,27 +28,6 @@ export const setCollection = (collection: Postman.Collection) =>
     Effect.flatMap((_) => Effect.tryPromise(() => Storage.Local.set(CollectionTag, _))),
   );
 
-export const useCollection = () => {
-  const [collection, setCollection] = React.useState(new Postman.Collection());
-
-  const [collectionEncoded] = PlasmoStorage.useStorage<typeof Postman.Collection.Encoded>({
-    instance: Storage.Local,
-    key: CollectionTag,
-  });
-
-  React.useEffect(
-    () =>
-      void Effect.gen(function* () {
-        if (!collectionEncoded) return;
-        const collection = yield* Schema.decode(Postman.Collection)(collectionEncoded);
-        setCollection(collection);
-      }).pipe(Effect.ignore, Runtime.runPromise),
-    [collectionEncoded],
-  );
-
-  return collection;
-};
-
 export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.Tab) =>
   Effect.gen(function* () {
     if (!tab.url) return collection;
@@ -60,14 +37,14 @@ export const addNavigation = (collection: Postman.Collection, tab: chrome.tabs.T
 
     let host = Array.head(newCollection.item).pipe(Option.getOrUndefined);
     if (host?.name !== url.host) {
-      host = Postman.Item.make({ id: Uuid.v4(), item: [], name: url.host });
+      host = Postman.Item.make({ id: crypto.randomUUID(), item: [], name: url.host });
     } else {
       newCollection = Struct.evolve(newCollection, { item: (_) => Array.drop(_, 1) });
     }
 
     let pathname = Array.head(host.item ?? []).pipe(Option.getOrUndefined);
     if (pathname?.name !== url.pathname) {
-      pathname = Postman.Item.make({ id: Uuid.v4(), item: [], name: url.pathname });
+      pathname = Postman.Item.make({ id: crypto.randomUUID(), item: [], name: url.pathname });
     } else {
       host = Struct.evolve(host, { item: (_) => Array.drop(_ ?? [], 1) });
     }
@@ -115,7 +92,7 @@ export const addRequest = (
     });
 
     const requestItem = new Postman.Item({
-      id: Uuid.v4(),
+      id: crypto.randomUUID(),
       name: request.url,
       request: new Postman.RequestClass({
         body: Option.getOrNull(postBody),
@@ -193,23 +170,14 @@ export const addResponse = (
     return newCollection;
   });
 
-const TabIdTag = 'TabId';
-const TabId = Schema.Option(Schema.Number);
+export const TabIdTag = 'TabId';
+export const TabId = Schema.Option(Schema.Number);
 
 export const getTabId = Effect.gen(function* () {
   const tabId = yield* Effect.tryPromise(() => Storage.Local.get<typeof TabId.Encoded>(TabIdTag));
   if (!tabId) return Option.none();
   return yield* Schema.decode(TabId)(tabId);
 });
-
-export const useTabId = () => {
-  const [tabIdEncoded] = PlasmoStorage.useStorage<typeof TabId.Encoded>({
-    instance: Storage.Local,
-    key: TabIdTag,
-  });
-  if (!tabIdEncoded) return Option.none();
-  return Schema.decodeSync(TabId)(tabIdEncoded);
-};
 
 export const start = Effect.gen(function* () {
   const tabs = yield* Effect.tryPromise(() => chrome.tabs.query({ active: true, currentWindow: true }));

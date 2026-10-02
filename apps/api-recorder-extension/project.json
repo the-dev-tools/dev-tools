@@ -1,0 +1,38 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+
+  "name": "api-recorder-extension",
+  "projectType": "application",
+
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "node build.ts"
+      },
+      "inputs": ["default", "^default"],
+      "outputs": ["{projectRoot}/dist"],
+      "metadata": {
+        "description": "Builds the unpacked extension into dist/chrome-mv3-prod and the Chrome Web Store upload into dist/chrome-mv3-prod.zip."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "vitest run"
+      }
+    },
+    "test:ci": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "vitest run"
+      },
+      "metadata": {
+        "description": "Checks the YAML export against test/fixtures, which the server's yamlflow Go test imports."
+      }
+    }
+  }
+}
