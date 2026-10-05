@@ -66,7 +66,7 @@ export const WorkspaceListPage = () => {
         <span className={tw`mb-1 text-sm/5 tracking-tight text-on-neutral-low`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
         </span>
-        <h1 className={tw`text-2xl/8 font-medium tracking-tight text-on-neutral`}>Welcome to DevTools 👋</h1>
+        <h1 className={tw`text-2xl/8 font-medium tracking-tight text-on-neutral`}>Welcome to Stresseur Studio 👋</h1>
       </div>
 
       <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-neutral`} ref={containerRef}>

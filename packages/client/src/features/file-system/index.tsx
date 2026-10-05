@@ -844,6 +844,13 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
   return toNavigate ? <TreeItemRouteLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
+/** Quote a shell argument only when needed; single quotes are literal in POSIX shells and PowerShell. */
+const quoteShellArg = (arg: string) => (/^[\w./-]+$/.test(arg) ? arg : `'${arg.replaceAll("'", `'\\''`)}'`);
+
+/** The terminal / coding-agent command that runs one flow from an exported YAML file. */
+const flowRunCommand = (cli: 'devtools' | 'stresseur', file: string, flow: string) =>
+  `${cli} flow run ${quoteShellArg(file)} ${quoteShellArg(flow)}`;
+
 const FlowFile = ({ id }: FileItemProps) => {
   const router = useRouter();
   const matchRoute = useMatchRoute();
@@ -922,6 +929,19 @@ const FlowFile = ({ id }: FileItemProps) => {
               }}
             >
               Export YAML (DevTools)
+            </MenuItem>
+
+            <MenuItem
+              onAction={async () => {
+                // Ask for the same file name "Export YAML" saves, so the command runs next to the exported file.
+                const { name: file } = await exportMutation.mutateAsync({ fileIds: [flowId], workspaceId });
+                await navigator.clipboard.writeText(flowRunCommand('stresseur', file, name));
+              }}
+              textValue='Copy CLI command'
+            >
+              <span title={`Older CLI installs: ${flowRunCommand('devtools', '<exported file>.yaml', name)}`}>
+                Copy CLI command
+              </span>
             </MenuItem>
 
             <MenuItem
