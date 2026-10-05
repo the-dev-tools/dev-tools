@@ -3,7 +3,7 @@ import { pipe, Record, Schema } from 'effect';
 import { useTransition } from 'react';
 import { Form } from 'react-aria-components';
 import { Button } from '@the-dev-tools/ui/button';
-import { Logo } from '@the-dev-tools/ui/illustrations';
+import { StresseurLogo } from '@the-dev-tools/ui/illustrations';
 import { RouteLink } from '@the-dev-tools/ui/link';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
@@ -38,7 +38,7 @@ function RouteComponent() {
           })
         }
       >
-        <Logo className={tw`size-20`} />
+        <StresseurLogo className={tw`size-20`} />
 
         <div className={tw`mt-10 text-xl/6 font-semibold tracking-tight`}>Welcome to Stresseur Studio</div>
         <div className={tw`mt-1 text-md/5 tracking-tight text-on-neutral-low`}>Please enter your account details</div>
