@@ -82,6 +82,7 @@ Stresseur Studio (formerly DevTools Studio) is a local-first, open-source API te
 - **Internal identifiers keep their devtools names on purpose. Do not rename them**, even when it looks like leftover cleanup. Renaming any of these breaks existing installs, CI pipelines or saved data:
   - appId `com.electron.devtools-studio`, `extraMetadata.name` `DevTools-Studio`, `executableName`, and release asset names (`DevTools-Studio-*`, `devtools-cli-*`) in `apps/desktop/build.ts` / `apps/cli/taskfile.yaml`
   - legacy user-data folder names in `apps/desktop/src/main/migrate-data-dir.ts` (only ever add new ones)
+  - the `migrateDataDir` + rename-notice call at desktop startup: keep it in every future release. Users skip updates, so someone on 1.1.x (or 0.2.x) can jump straight to any later version and still needs the move
   - package names (`@the-dev-tools/*`), Go module paths (`github.com/the-dev-tools/dev-tools/...`), the `devtoolsdb` package, the TypeSpec `DevTools` namespace
   - the `devtools` / `devtoolscli` CLI names, `DEVTOOLS_*` env vars, `.devtools.yaml`, `.devtools-reports`, and every `actions/run-flows` input and output
   - socket/pipe names (`the-dev-tools`), virtual hosts (`the-dev-tools:0`, `devtools-cli:0`), the JWT issuer/audience `devtools-server`, MIME keys like `application/x-devtools-reference`
