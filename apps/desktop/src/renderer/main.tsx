@@ -7,7 +7,6 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { addGlobalLayer, App as Client, configProviderFromMetaEnv, runtimeAtom } from '@the-dev-tools/client';
 import { Button } from '@the-dev-tools/ui/button';
-import { Logo } from '@the-dev-tools/ui/illustrations';
 import { ProgressBar } from '@the-dev-tools/ui/progress-bar';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { setTheme } from '@the-dev-tools/ui/theme';
@@ -49,6 +48,28 @@ const updateCheckAtom = runtimeAtom.atom(
   }),
 );
 
+/** The stresseur.com mark: a load spike on a dark tile. */
+const StresseurLogo = ({ className }: { className?: string }) => (
+  <svg aria-hidden className={className} viewBox='0 0 32 32'>
+    <defs>
+      <linearGradient id='stresseur-spike' x1='0' x2='1' y1='0' y2='0'>
+        <stop offset='0' stopColor='#ffb347' />
+        <stop offset='0.5' stopColor='#ff6a3d' />
+        <stop offset='1' stopColor='#ff3d5a' />
+      </linearGradient>
+    </defs>
+    <rect fill='#0c0e11' height='31' rx='7' stroke='#2a3138' width='31' x='0.5' y='0.5' />
+    <polyline
+      fill='none'
+      points='5,20 10,20 13,11 17,25 20,14 22.5,20 27,20'
+      stroke='url(#stresseur-spike)'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth='2.2'
+    />
+  </svg>
+);
+
 interface UpdateAvailableProps {
   children: string;
 }
@@ -62,8 +83,7 @@ const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
     <div className={tw`flex h-full flex-col items-center gap-8 p-16`}>
       <div className={tw`text-center`}>
         <div className={tw`flex items-center gap-4 text-4xl font-semibold`}>
-          {/* TODO(rename): swap in the Stresseur Studio logo once it exists. */}
-          <Logo className={tw`size-10`} />
+          <StresseurLogo className={tw`size-10`} />
           Stresseur Studio
         </div>
 
@@ -123,7 +143,7 @@ const UpdateProgress = () => {
 
 const LoadingScreen = () => (
   <div className={tw`flex h-full flex-col items-center justify-center gap-4`}>
-    <Logo className={tw`size-10 animate-pulse`} />
+    <StresseurLogo className={tw`size-10 animate-pulse`} />
     <div className={tw`text-on-neutral-low`}>Starting Stresseur Studio...</div>
   </div>
 );
@@ -133,7 +153,7 @@ const StartupError = () => {
 
   return (
     <div className={tw`flex h-full flex-col items-center justify-center gap-6 p-16`}>
-      <Logo className={tw`size-10`} />
+      <StresseurLogo className={tw`size-10`} />
 
       <div className={tw`text-center`}>
         <div className={tw`text-xl font-medium text-on-neutral`}>Failed to connect to the server</div>

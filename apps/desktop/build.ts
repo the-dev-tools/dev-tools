@@ -24,8 +24,6 @@ const libFiles = (lib: string) => [`node_modules/${lib}/package.json`, `node_mod
  * - extraMetadata.productName: the display name. Electron derives the
  *   user-data folder from it, which is why `migrateDataDir` (src/main)
  *   moves "DevTools-Studio" into "Stresseur Studio" at startup.
- *
- * TODO(rename): new icon (build/icon.*) once it exists; keep the current one until then.
  */
 const config: Configuration = {
   appId: 'com.electron.devtools-studio',

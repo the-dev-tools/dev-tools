@@ -26,8 +26,6 @@ import { legacyDataDirs, migrateDataDir, type MigrationResult } from './migrate-
 import { dismissRenameNotice, initRenameNotice, RENAME_NOTICE_FILE } from './rename-notice';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
-// TODO(rename): replace build/icon.* with the Stresseur Studio icon once it exists. Keep the current icon until then.
-
 /** Display name. Identifiers (appId, executable, user-data legacy names, sockets) keep their devtools names on purpose. */
 const PRODUCT_NAME = 'Stresseur Studio';
 
