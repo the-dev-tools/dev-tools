@@ -29,13 +29,14 @@ instead.
 
 ## Inputs
 
-| Name            | Required | Default             | Description                                                                                                 |
-| --------------- | -------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `file`          | yes      | —                   | Path to the `.yamlflow.yaml` file to run.                                                                   |
-| `flow`          | no       | _(unset)_           | Single flow name to run. Defaults to the file's top-level `run:` block.                                     |
-| `version`       | no       | `latest`            | `devtoolscli` release to install: `latest`, a release tag (`cli@1.0.3`), or a bare version (`1.0.3`).       |
-| `report-dir`    | no       | `.devtools-reports` | Directory to write the JSON and JUnit reports into.                                                         |
-| `fail-on-error` | no       | `true`              | Fail this step if any flow fails. Set to `'false'` to always exit 0 and check the `success` output instead. |
+| Name            | Required | Default             | Description                                                                                                                                               |
+| --------------- | -------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `file`          | yes      | —                   | Path to the `.yamlflow.yaml` file to run.                                                                                                                 |
+| `flow`          | no       | _(unset)_           | Single flow name to run. Defaults to the file's top-level `run:` block.                                                                                   |
+| `version`       | no       | `latest`            | `devtoolscli` release to install: `latest`, a release tag (`cli@1.0.3`), or a bare version (`1.0.3`).                                                     |
+| `report-dir`    | no       | `.devtools-reports` | Directory to write the JSON and JUnit reports into.                                                                                                       |
+| `fail-on-error` | no       | `true`              | Fail this step if any flow fails. Set to `'false'` to always exit 0 and check the `success` output instead.                                               |
+| `upgrade-line`  | no       | `true`              | End the job summary with a one-line pointer to Stresseur cloud. Set to `'false'` when you run this action once per flow and print the line once yourself. |
 
 `version: latest` resolves to the newest **stable** `cli@` release. Pre-release
 tags (anything with a `-` suffix, e.g. `cli@1.2.0-rc.1`) are skipped; install

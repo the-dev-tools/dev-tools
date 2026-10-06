@@ -17,6 +17,10 @@ inputs:
     description: 'Directory to write the JSON and JUnit reports into.'
     required: false
     default: '.devtools-reports'
+  upgrade-line:
+    description: "End the job summary with a one-line pointer to Stresseur cloud. Set to 'false' when a workflow runs this action once per flow and prints the line once itself."
+    required: false
+    default: 'true'
   fail-on-error:
     description: "Fail this step if any flow fails. Set to 'false' to always exit 0 and inspect the success output instead."
     required: false
@@ -66,6 +70,7 @@ runs:
       env:
         REPORT_DIR: ${{ inputs.report-dir }}
         RUN_OUTCOME: ${{ steps.run.outcome }}
+        UPGRADE_LINE: ${{ inputs.upgrade-line }}
 
     - name: Set outputs
       id: finalize

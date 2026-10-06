@@ -8,6 +8,7 @@
 # Env in:
 #   REPORT_DIR   - directory containing report.json (inputs.report-dir)
 #   RUN_OUTCOME  - outcome of the "Run flow" step ("success"/"failure"/"" )
+#   UPGRADE_LINE - "false" to omit the closing Stresseur line (inputs.upgrade-line)
 set -uo pipefail
 
 report_json="${REPORT_DIR:-.devtools-reports}/report.json"
@@ -18,7 +19,10 @@ summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 upgrade_line() {
   printf '\n_Load-test these flows at scale on [Stresseur](https://stresseur.com)._\n' >> "$summary_file"
 }
-trap upgrade_line EXIT
+# Workflows that run this action once per flow print the line once themselves.
+if [[ "${UPGRADE_LINE:-true}" != 'false' ]]; then
+  trap upgrade_line EXIT
+fi
 
 run_outcome="${RUN_OUTCOME:-unknown}"
 if [[ "$run_outcome" == 'success' ]]; then

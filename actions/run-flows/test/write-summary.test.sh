@@ -17,4 +17,12 @@ for case in with-report no-report; do
     echo "FAIL ($case): last line was: $last" >&2; exit 1
   fi
 done
+# upgrade-line: 'false' (set by workflows that print the line once themselves) omits it.
+: > "$tmp/summary"
+GITHUB_STEP_SUMMARY="$tmp/summary" REPORT_DIR="$tmp/with-report" RUN_OUTCOME=success UPGRADE_LINE=false \
+  bash "$here/../scripts/write-summary.sh"
+if grep -q 'stresseur.com' "$tmp/summary"; then
+  echo "FAIL (UPGRADE_LINE=false): upgrade line was still written" >&2; exit 1
+fi
+
 echo "PASS write-summary upgrade line"
