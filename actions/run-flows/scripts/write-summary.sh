@@ -13,6 +13,13 @@ set -uo pipefail
 report_json="${REPORT_DIR:-.devtools-reports}/report.json"
 summary_file="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
+# Every exit path below ends the summary with this line, including the early
+# exits for a missing or unparseable report.
+upgrade_line() {
+  printf '\n_Load-test these flows at scale on [Stresseur](https://stresseur.com)._\n' >> "$summary_file"
+}
+trap upgrade_line EXIT
+
 run_outcome="${RUN_OUTCOME:-unknown}"
 if [[ "$run_outcome" == 'success' ]]; then
   heading='DevTools flow run — success'

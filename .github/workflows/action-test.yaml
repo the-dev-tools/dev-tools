@@ -27,6 +27,10 @@ jobs:
         shell: bash
         run: bash actions/run-flows/test/select-latest-cli-tag.test.sh
 
+      - name: Run write-summary tests
+        shell: bash
+        run: bash actions/run-flows/test/write-summary.test.sh
+
   test:
     name: Test run-flows (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
