@@ -413,6 +413,7 @@ func newVUWorker(
 		return nil, fmt.Errorf("load run: build nodes for flow %q: %w", cfg.Flow.Name, err)
 	}
 
+	markLeanBodies(flowNodeMap)
 	w.flowNodeMap = flowNodeMap
 	w.requestNodes = make(map[idwrap.IDWrap]bool, len(flowNodeMap))
 	for id, n := range flowNodeMap {
