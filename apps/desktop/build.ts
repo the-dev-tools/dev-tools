@@ -34,7 +34,7 @@ const config: Configuration = {
       sign: (configuration) =>
         pipe(
           Effect.gen(function* () {
-            yield* pipe(
+            const exitCode = yield* pipe(
               Command.make(
                 'azuresigntool',
                 'sign',
@@ -56,6 +56,14 @@ const config: Configuration = {
               Command.stderr('inherit'),
               Command.exitCode,
             );
+            // azuresigntool reports failures (e.g. an expired Key Vault client
+            // secret) through its exit code only; without this check the build
+            // shipped unsigned Windows installers from 1.0.0 to 1.1.3.
+            if (exitCode !== 0) {
+              return yield* Effect.fail(
+                new Error(`azuresigntool exited with code ${exitCode} while signing ${configuration.path}`),
+              );
+            }
           }),
           Effect.provide(NodeContext.layer),
           Effect.runPromise,
