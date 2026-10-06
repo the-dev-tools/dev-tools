@@ -1,3 +1,13 @@
+## 1.2.0-0 (2026-10-06)
+
+### 🚀 Features
+
+- Pre-release build for internal testing. ([5a7cf173](https://github.com/the-dev-tools/dev-tools/commit/5a7cf173))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.1.3 (2026-09-27)
 
 ### 🩹 Fixes
