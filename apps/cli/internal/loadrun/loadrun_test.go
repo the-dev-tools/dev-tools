@@ -18,6 +18,8 @@ import (
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/runner"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/njs"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nrequest"
 	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/http/resolver"
@@ -25,6 +27,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/loadmetrics"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mload"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	yamlflowsimplev2 "github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/yamlflowsimplev2"
@@ -325,26 +328,28 @@ func TestRunRecordsResponseBytes(t *testing.T) {
 // TestRunUsesLeanMode proves lean mode reaches the request nodes end to end:
 // StepTwo interpolates StepOne's response body into a header, and what the
 // server receives is the lean placeholder rather than the decoded body.
-func TestRunUsesLeanMode(t *testing.T) {
+// TestRunKeepsBodiesLaterStepsUse pins the fix for chained flows under load:
+// lean mode used to replace every response body with a placeholder, so a step
+// reading an earlier step's body (a login token, an id) failed on every
+// iteration and the run reported the target as unreachable.
+func TestRunKeepsBodiesLaterStepsUse(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping load run in short mode")
 	}
 
 	var (
-		mu       sync.Mutex
-		echoed   []string
-		observed = func(v string) {
-			mu.Lock()
-			defer mu.Unlock()
-			echoed = append(echoed, v)
-		}
+		mu    sync.Mutex
+		auths []string
 	)
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if v := r.Header.Get("X-Echo-Body"); v != "" {
-			observed(v)
-		}
 		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/login" {
+			_, _ = w.Write([]byte(`{"token":"tok-1"}`))
+			return
+		}
+		mu.Lock()
+		auths = append(auths, r.Header.Get("Authorization"))
+		mu.Unlock()
 		_, _ = w.Write([]byte(testPayload))
 	}))
 	t.Cleanup(srv.Close)
@@ -352,39 +357,93 @@ func TestRunUsesLeanMode(t *testing.T) {
 	yamlDoc := fmt.Sprintf(`
 workspace_name: Lean Mode Workspace
 flows:
-  - name: LeanFlow
+  - name: ChainedFlow
     steps:
       - manual_start:
           name: Start
       - request:
-          name: StepOne
+          name: Login
           depends_on: Start
-          method: GET
-          url: %s/one
+          method: POST
+          url: %s/login
       - request:
-          name: StepTwo
-          depends_on: StepOne
+          name: Items
+          depends_on: Login
           method: GET
-          url: %s/two
+          url: %s/items
           headers:
-            X-Echo-Body: '{{ StepOne.response.body }}'
+            Authorization: 'Bearer {{ Login.response.body.token }}'
 `, srv.URL, srv.URL)
 
-	flow, services := setupFlow(t, yamlDoc, "LeanFlow")
+	flow, services := setupFlow(t, yamlDoc, "ChainedFlow")
 
-	if _, err := Run(t.Context(), Config{Flow: flow, VUs: 1, MaxIterations: 2}, services, nil); err != nil {
+	result, err := Run(t.Context(), Config{Flow: flow, VUs: 1, MaxIterations: 3}, services, nil)
+	if err != nil {
 		t.Fatalf("Run failed: %v", err)
+	}
+	if result.Summary.Errors != 0 {
+		t.Errorf("Summary.Errors = %d, want 0", result.Summary.Errors)
 	}
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(echoed) == 0 {
-		t.Fatal("StepTwo never sent the echo header")
+	if len(auths) != 3 {
+		t.Fatalf("Items ran %d times, want 3", len(auths))
 	}
-	for _, v := range echoed {
-		if v != nrequest.LeanBodyPlaceholder {
-			t.Errorf("echoed body = %q, want lean placeholder %q", v, nrequest.LeanBodyPlaceholder)
+	for _, a := range auths {
+		if a != "Bearer tok-1" {
+			t.Errorf("Authorization = %q, want %q", a, "Bearer tok-1")
 		}
+	}
+}
+
+// TestLeanBodiesKeptOnlyWhenReferenced pins the other half: bodies no later
+// node reads are still dropped, which is what keeps memory flat under load.
+func TestLeanBodiesKeptOnlyWhenReferenced(t *testing.T) {
+	login := &nrequest.NodeRequest{FlownNodeID: idwrap.NewNow(), Name: "Login"}
+	items := &nrequest.NodeRequest{
+		FlownNodeID: idwrap.NewNow(),
+		Name:        "Items",
+		Headers:     []mhttp.HTTPHeader{{Key: "Authorization", Value: "Bearer {{ Login.response.body.token }}"}},
+	}
+	audit := &nrequest.NodeRequest{FlownNodeID: idwrap.NewNow(), Name: "Audit"}
+	script := njs.New(idwrap.NewNow(), "Check", "return ctx.Audit.response.status === 200", nil)
+
+	nodes := map[idwrap.IDWrap]node.FlowNode{
+		login.FlownNodeID: login, items.FlownNodeID: items, audit.FlownNodeID: audit, script.GetID(): script,
+	}
+	markLeanBodies(nodes)
+
+	if !login.KeepBodyInLean {
+		t.Error("Login: body referenced by Items' header, want kept")
+	}
+	if items.KeepBodyInLean {
+		t.Error("Items: nobody references it, want dropped")
+	}
+	if !audit.KeepBodyInLean {
+		t.Error("Audit: referenced from JS code, want kept")
+	}
+}
+
+// TestLeanBodiesFindsRawBodyAndValueNodes covers the two shapes the reflection
+// walk must handle without panicking: a []byte raw body, and a node stored by
+// value (whose byte-array IDs aren't addressable).
+func TestLeanBodiesFindsRawBodyAndValueNodes(t *testing.T) {
+	login := &nrequest.NodeRequest{FlownNodeID: idwrap.NewNow(), Name: "Login"}
+	order := &nrequest.NodeRequest{
+		FlownNodeID: idwrap.NewNow(),
+		Name:        "Order",
+		RawBody:     &mhttp.HTTPBodyRaw{RawData: []byte(`{"user": "{{ Login.response.body.id }}"}`)},
+	}
+	byValue := *njs.New(idwrap.NewNow(), "Noop", "return 1", nil)
+
+	nodes := map[idwrap.IDWrap]node.FlowNode{
+		login.FlownNodeID: login, order.FlownNodeID: order, byValue.GetID(): byValue,
+	}
+	markLeanBodies(nodes)
+
+	if !login.KeepBodyInLean {
+		t.Error("Login: referenced from Order's raw body, want kept")
 	}
 }
 

@@ -17,6 +17,11 @@ import (
 )
 
 type NodeRequest struct {
+	// KeepBodyInLean keeps this node's response body in lean mode because a
+	// later node reads it (e.g. {{ Login.response.body.token }}). Set by the
+	// load runner; ignored outside lean mode.
+	KeepBodyInLean bool
+
 	FlownNodeID idwrap.IDWrap
 	Name        string
 
@@ -207,7 +212,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	// Build output using measured duration
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: buildResponseVar(*resp, req.LeanMode),
+		Response: buildResponseVar(*resp, req.LeanMode && !nr.KeepBodyInLean),
 	}
 
 	respMap := buildNodeRequestOutputMap(output)
@@ -398,7 +403,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	// Build output using measured duration
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: buildResponseVar(*resp, req.LeanMode),
+		Response: buildResponseVar(*resp, req.LeanMode && !nr.KeepBodyInLean),
 	}
 
 	respMap := buildNodeRequestOutputMap(output)
