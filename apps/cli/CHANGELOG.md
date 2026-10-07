@@ -1,3 +1,14 @@
+## 1.1.2 (2026-10-07)
+
+### 🩹 Fixes
+
+- Load runs now work for flows whose steps use an earlier step's response, such as a login token passed to the next request. Lean mode used to drop every response body, so those steps failed on every iteration and the run reported the target as unreachable. Bodies a later step reads are now kept; the rest are still dropped to keep memory flat. ([83a2a5b4](https://github.com/the-dev-tools/dev-tools/commit/83a2a5b4))
+- Assertions and conditions can now compare numbers from JSON responses: `response.body.qty == 3`, `response.body.price > 100` and arithmetic work. Response numbers used to compare as text, so equality was always false and `>`/`<` failed with a type error. Values copied into later requests with `{{ }}` keep their exact original text, as before. ([3cd2d960](https://github.com/the-dev-tools/dev-tools/commit/3cd2d960))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.1.1 (2026-08-09)
 
 ### 🩹 Fixes
