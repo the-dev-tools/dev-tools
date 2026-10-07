@@ -57,13 +57,43 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gha-scripts upload-go-release-assets
 
+  # The Go source of the CLI and the modules it imports, generated code included, for programs
+  # that embed the CLI as a library (Stresseur's `stress`) and pin it by release version.
+  go-source:
+    name: Publish Go source bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - id: info
+        name: Get project information
+        run: gha-scripts export-project-info
+
+      - name: Generate code that isn't in git
+        run: |
+          pnpm nx run spec:build
+          pnpm nx run cli:copy-worker
+
+      - name: Write the bundle
+        run: apps/cli/scripts/go-source-bundle.sh "$RUNNER_TEMP/devtools-go-src-${{ steps.info.outputs.VERSION }}.tar.gz"
+
+      - name: Upload the bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/devtools-go-src-${{ steps.info.outputs.VERSION }}.tar.gz" --repo "$GITHUB_REPOSITORY" --clobber
+
   # checksums.txt covers every asset, so it is written once, after all rows
   # above have uploaded their binary. It is skipped if any row failed (the run
   # fails anyway). install.sh verifies downloads against it and still works for
   # older releases that have none.
   checksums:
     name: Publish checksums.txt
-    needs: build
+    needs: [build, go-source]
     runs-on: ubuntu-latest
     permissions:
       contents: write
