@@ -1,3 +1,13 @@
+## 1.2.1 (2026-10-07)
+
+### 🩹 Fixes
+
+- The CLI can be embedded in another Go program: `cmd.Root()` returns its root command, and each release publishes `devtools-go-src-<version>.tar.gz`, the Go source of the CLI and the modules it imports with the generated code included, to build against. ([03382c8b](https://github.com/the-dev-tools/dev-tools/commit/03382c8b))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.2.0 (2026-10-07)
 
 ### 🚀 Features
