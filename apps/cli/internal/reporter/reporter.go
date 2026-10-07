@@ -27,6 +27,23 @@ type NodeStatusEvent struct {
 	FlowID   string
 	FlowName string
 	Status   runner.FlowNodeStatus
+	// Cleanup marks a step from the flow's cleanup: block.
+	Cleanup bool
+	// SkipReason is set when the step did not run; Status.State is then not
+	// meaningful.
+	SkipReason string
+}
+
+// CleanupStepPrefix is prepended to cleanup step names in the console table
+// and JUnit test case names.
+const CleanupStepPrefix = "[cleanup] "
+
+// DisplayStepName is the name reporters show for a step.
+func DisplayStepName(name string, cleanup bool) string {
+	if cleanup {
+		return CleanupStepPrefix + name
+	}
+	return name
 }
 
 type Reporter interface {
@@ -256,6 +273,7 @@ type junitTestSuite struct {
 	Name     string          `xml:"name,attr"`
 	Tests    int             `xml:"tests,attr"`
 	Failures int             `xml:"failures,attr"`
+	Skipped  int             `xml:"skipped,attr,omitempty"`
 	Time     string          `xml:"time,attr"`
 	Cases    []junitTestCase `xml:"testcase"`
 }
@@ -265,6 +283,11 @@ type junitTestCase struct {
 	Name    string        `xml:"name,attr"`
 	Time    string        `xml:"time,attr"`
 	Failure *junitFailure `xml:"failure,omitempty"`
+	Skipped *junitSkipped `xml:"skipped,omitempty"`
+}
+
+type junitSkipped struct {
+	Message string `xml:"message,attr,omitempty"`
 }
 
 type junitFailure struct {
@@ -293,13 +316,17 @@ func (j *junitReporter) Flush() error {
 
 		for _, node := range result.Nodes {
 			testCase := junitTestCase{
-				Name: node.Name,
+				Name: DisplayStepName(node.Name, node.Cleanup),
 				Time: fmt.Sprintf("%.6f", node.Duration.Seconds()),
 			}
 
-			if strings.EqualFold(node.State, mflow.StringNodeState(mflow.NODE_STATE_SUCCESS)) {
+			switch {
+			case strings.EqualFold(node.State, mflow.StringNodeState(mflow.NODE_STATE_SUCCESS)):
 				// no failure
-			} else {
+			case node.State == model.NodeStateSkipped:
+				testCase.Skipped = &junitSkipped{Message: node.SkipReason}
+				suite.Skipped++
+			default:
 				failureType := node.State
 				if failureType == "" {
 					failureType = "Failure"
@@ -440,9 +467,12 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	statusStr := mflow.StringNodeStateWithIcons(event.Status.State)
+	if event.SkipReason != "" {
+		statusStr = "⏭️ Skipped"
+	}
 
 	// Truncate step name if it exceeds column width
-	stepName := event.Status.Name
+	stepName := DisplayStepName(event.Status.Name, event.Cleanup)
 	if len(stepName) > state.maxStepNameLen {
 		stepName = stepName[:state.maxStepNameLen-3] + "..."
 	}
@@ -452,6 +482,11 @@ func (c *consoleReporter) HandleNodeStatus(event NodeStatusEvent) {
 	// Show output data if enabled and present
 	if showOutput && event.Status.OutputData != nil {
 		c.printOutputData(event.Status.OutputData, event.Status.Name)
+	}
+
+	if event.SkipReason != "" {
+		fmt.Printf("  skipped: %s\n", event.SkipReason)
+		return
 	}
 
 	if event.Status.State == mflow.NODE_STATE_SUCCESS {

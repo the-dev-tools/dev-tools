@@ -95,32 +95,35 @@ type YamlGraphQLDefV2 struct {
 
 // YamlFlowFlowV2 represents a flow in the modern YAML format
 type YamlFlowFlowV2 struct {
-	Name      string                 `yaml:"name"`
-	Variables []YamlFlowVariableV2   `yaml:"variables,omitempty"`
-	Steps     []YamlStepWrapper      `yaml:"steps,omitempty"`
-	Timeout   *int                   `yaml:"timeout,omitempty"`  // Flow timeout in seconds
-	Metadata  map[string]interface{} `yaml:"metadata,omitempty"` // Additional flow metadata
+	Name      string               `yaml:"name"`
+	Variables []YamlFlowVariableV2 `yaml:"variables,omitempty"`
+	Steps     []YamlStepWrapper    `yaml:"steps,omitempty"`
+	// Cleanup steps run after Steps reach a terminal state, whether the flow
+	// passed or failed (CLI only; see ioworkspace.FlowCleanup).
+	Cleanup  []YamlStepWrapper      `yaml:"cleanup,omitempty"`
+	Timeout  *int                   `yaml:"timeout,omitempty"`  // Flow timeout in seconds
+	Metadata map[string]interface{} `yaml:"metadata,omitempty"` // Additional flow metadata
 }
 
 // YamlStepWrapper handles the polymorphic step list
 // A step is a map with a single key that identifies the type
 type YamlStepWrapper struct {
-	Request     *YamlStepRequest    `yaml:"request,omitempty"`
-	GraphQL     *YamlStepGraphQL    `yaml:"graphql,omitempty"`
-	If          *YamlStepIf         `yaml:"if,omitempty"`
-	For         *YamlStepFor        `yaml:"for,omitempty"`
-	ForEach     *YamlStepForEach    `yaml:"for_each,omitempty"`
-	JS          *YamlStepJS         `yaml:"js,omitempty"`
-	AI          *YamlStepAI         `yaml:"ai,omitempty"`
-	AIProvider  *YamlStepAIProvider `yaml:"ai_provider,omitempty"`
-	AIMemory       *YamlStepAIMemory      `yaml:"ai_memory,omitempty"`
-	WsConnection   *YamlStepWsConnection  `yaml:"ws_connection,omitempty"`
-	WsSend         *YamlStepWsSend        `yaml:"ws_send,omitempty"`
-	Wait              *YamlStepWait             `yaml:"wait,omitempty"`
-	ManualStart       *YamlStepCommon           `yaml:"manual_start,omitempty"`
-	SubFlowTrigger    *YamlStepSubFlowTrigger   `yaml:"sub_flow_trigger,omitempty"`
-	SubFlowReturn     *YamlStepSubFlowReturn    `yaml:"sub_flow_return,omitempty"`
-	RunSubFlow        *YamlStepRunSubFlow       `yaml:"run_sub_flow,omitempty"`
+	Request        *YamlStepRequest        `yaml:"request,omitempty"`
+	GraphQL        *YamlStepGraphQL        `yaml:"graphql,omitempty"`
+	If             *YamlStepIf             `yaml:"if,omitempty"`
+	For            *YamlStepFor            `yaml:"for,omitempty"`
+	ForEach        *YamlStepForEach        `yaml:"for_each,omitempty"`
+	JS             *YamlStepJS             `yaml:"js,omitempty"`
+	AI             *YamlStepAI             `yaml:"ai,omitempty"`
+	AIProvider     *YamlStepAIProvider     `yaml:"ai_provider,omitempty"`
+	AIMemory       *YamlStepAIMemory       `yaml:"ai_memory,omitempty"`
+	WsConnection   *YamlStepWsConnection   `yaml:"ws_connection,omitempty"`
+	WsSend         *YamlStepWsSend         `yaml:"ws_send,omitempty"`
+	Wait           *YamlStepWait           `yaml:"wait,omitempty"`
+	ManualStart    *YamlStepCommon         `yaml:"manual_start,omitempty"`
+	SubFlowTrigger *YamlStepSubFlowTrigger `yaml:"sub_flow_trigger,omitempty"`
+	SubFlowReturn  *YamlStepSubFlowReturn  `yaml:"sub_flow_return,omitempty"`
+	RunSubFlow     *YamlStepRunSubFlow     `yaml:"run_sub_flow,omitempty"`
 }
 
 // Common fields for all step types
@@ -190,11 +193,11 @@ type YamlStepAI struct {
 // YamlStepAIProvider represents an AI Provider node (LLM executor)
 type YamlStepAIProvider struct {
 	YamlStepCommon `yaml:",inline"`
-	Credential     string   `yaml:"credential"`               // Reference to credential name
-	Model          string   `yaml:"model"`                    // Model name (gpt-4o, claude-opus-4.5, etc.)
-	CustomModel    string   `yaml:"custom_model,omitempty"`   // For custom model selection
-	Temperature    *float64 `yaml:"temperature,omitempty"`    // LLM temperature (0.0-2.0)
-	MaxTokens      *int32   `yaml:"max_tokens,omitempty"`     // Max output tokens
+	Credential     string   `yaml:"credential"`             // Reference to credential name
+	Model          string   `yaml:"model"`                  // Model name (gpt-4o, claude-opus-4.5, etc.)
+	CustomModel    string   `yaml:"custom_model,omitempty"` // For custom model selection
+	Temperature    *float64 `yaml:"temperature,omitempty"`  // LLM temperature (0.0-2.0)
+	MaxTokens      *int32   `yaml:"max_tokens,omitempty"`   // Max output tokens
 }
 
 // YamlStepAIMemory represents an AI Memory node (conversation history)
@@ -493,21 +496,21 @@ type YamlFlowDataV2 struct {
 	GraphQLHeaders  []mgraphql.GraphQLHeader
 
 	// Flow node implementations
-	RequestNodes     []mflow.NodeRequest
-	ConditionNodes   []mflow.NodeIf
-	ForNodes         []mflow.NodeFor
-	ForEachNodes     []mflow.NodeForEach
-	JSNodes          []mflow.NodeJS
-	AINodes          []mflow.NodeAI
-	AIProviderNodes  []mflow.NodeAiProvider
-	AIMemoryNodes    []mflow.NodeMemory
+	RequestNodes        []mflow.NodeRequest
+	ConditionNodes      []mflow.NodeIf
+	ForNodes            []mflow.NodeFor
+	ForEachNodes        []mflow.NodeForEach
+	JSNodes             []mflow.NodeJS
+	AINodes             []mflow.NodeAI
+	AIProviderNodes     []mflow.NodeAiProvider
+	AIMemoryNodes       []mflow.NodeMemory
 	GraphQLNodes        []mflow.NodeGraphQL
-	WsConnectionNodes      []mflow.NodeWsConnection
-	WsSendNodes            []mflow.NodeWsSend
-	WaitNodes              []mflow.NodeWait
-	SubFlowTriggerNodes    []mflow.NodeSubFlowTrigger
-	SubFlowReturnNodes     []mflow.NodeSubFlowReturn
-	RunSubFlowNodes        []mflow.NodeRunSubFlow
+	WsConnectionNodes   []mflow.NodeWsConnection
+	WsSendNodes         []mflow.NodeWsSend
+	WaitNodes           []mflow.NodeWait
+	SubFlowTriggerNodes []mflow.NodeSubFlowTrigger
+	SubFlowReturnNodes  []mflow.NodeSubFlowReturn
+	RunSubFlowNodes     []mflow.NodeRunSubFlow
 }
 
 // YamlVariableV2 represents a variable during parsing

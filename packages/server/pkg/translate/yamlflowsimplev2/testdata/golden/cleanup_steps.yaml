@@ -1,0 +1,38 @@
+# Exercises the flow-level `cleanup:` block: steps that run after the normal
+# steps finish, pass or fail. Cleanup requests are hoisted into the shared
+# requests: section like normal ones, depends_on between cleanup steps
+# survives, and cleanup steps carry no canvas position.
+workspace_name: Golden Cleanup Steps
+flows:
+  - name: Catalog
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: PostCategory
+          depends_on: Start
+          method: POST
+          url: https://api.example.com/categories
+          body:
+            name: golden
+      - request:
+          name: PostProduct
+          depends_on: PostCategory
+          method: POST
+          url: https://api.example.com/products
+          body:
+            category: '{{ PostCategory.response.body.id }}'
+    cleanup:
+      - request:
+          name: DeleteProduct
+          method: DELETE
+          url: 'https://api.example.com/products/{{ PostProduct.response.body.id }}'
+      - request:
+          name: DeleteCategory
+          method: DELETE
+          url: 'https://api.example.com/categories/{{ PostCategory.response.body.id }}'
+          depends_on: DeleteProduct
+      - graphql:
+          name: PurgeCache
+          url: https://api.example.com/graphql
+          query: 'mutation { purge }'

@@ -40,10 +40,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/runner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/ngraphql"
@@ -289,8 +291,11 @@ type vuWorker struct {
 	flowNodeMap  map[idwrap.IDWrap]node.FlowNode
 	requestNodes map[idwrap.IDWrap]bool
 	runnerInst   *flowlocalrunner.FlowLocalRunner
-	agg          *loadmetrics.Aggregator
-	baseVars     map[string]any
+	// cleanup runs the flow's cleanup: steps after every iteration. It is
+	// nil when the flow has none. Its steps are not measured.
+	cleanup  *runner.Cleanup
+	agg      *loadmetrics.Aggregator
+	baseVars map[string]any
 
 	// respChan and gqlChan are written once at construction and never
 	// reassigned; closeOnce makes teardown idempotent so the drain
@@ -413,7 +418,24 @@ func newVUWorker(
 		return nil, fmt.Errorf("load run: build nodes for flow %q: %w", cfg.Flow.Name, err)
 	}
 
-	markLeanBodies(flowNodeMap)
+	cleanup, err := runner.BuildCleanup(ctx, *cfg.Flow, services, runner.CleanupBuildDeps{
+		Timeout:     nodeTimeout,
+		HTTPClient:  w.httpClient,
+		RespChan:    w.respChan,
+		GQLRespChan: w.gqlChan,
+	})
+	if err != nil {
+		w.close()
+		return nil, fmt.Errorf("load run: build cleanup steps for flow %q: %w", cfg.Flow.Name, err)
+	}
+	w.cleanup = cleanup
+
+	// Cleanup steps read the iteration's outputs too, so lean mode must keep
+	// the bodies they reference.
+	leanScope := make(map[idwrap.IDWrap]node.FlowNode, len(flowNodeMap)+cleanup.Size())
+	maps.Copy(leanScope, flowNodeMap)
+	maps.Copy(leanScope, cleanup.Nodes())
+	markLeanBodies(leanScope)
 	w.flowNodeMap = flowNodeMap
 	w.requestNodes = make(map[idwrap.IDWrap]bool, len(flowNodeMap))
 	for id, n := range flowNodeMap {
@@ -494,6 +516,10 @@ func (w *vuWorker) iterate(ctx context.Context) error {
 	}
 	<-done
 
+	// Cleanup runs pass or fail, like a functional run. Its requests share
+	// the side-channel but are never recorded: the report measures the flow.
+	_, cleanupErr := w.cleanup.Run(ctx, vars, func(reporter.NodeStatusEvent) {})
+
 	// Anything left behind belongs to a request whose node never reported;
 	// dropping it keeps the map bounded across a long run.
 	w.resetBytes()
@@ -504,7 +530,7 @@ func (w *vuWorker) iterate(ctx context.Context) error {
 	if final != flowrunner.FlowStatusSuccess {
 		return fmt.Errorf("flow %q finished with status %s", w.flowName, flowrunner.FlowStatusString(final))
 	}
-	return nil
+	return cleanupErr
 }
 
 func (w *vuWorker) resetBytes() {

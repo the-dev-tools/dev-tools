@@ -116,6 +116,7 @@ func setupFlow(t *testing.T, yamlDoc, flowName string) (*mflow.Flow, runner.Runn
 	}
 	importOpts := ioworkspace.GetDefaultImportOptions(workspaceID)
 	importOpts.PreserveIDs = true
+	importOpts.ImportFlowCleanups = true
 	if _, err := ioworkspace.New(services.Queries, logger).Import(ctx, tx, bundle, importOpts); err != nil {
 		_ = tx.Rollback()
 		t.Fatalf("import bundle: %v", err)
@@ -144,6 +145,7 @@ func setupFlow(t *testing.T, yamlDoc, flowName string) (*mflow.Flow, runner.Runn
 		EdgeService:         services.FlowEdge,
 		FlowVariableService: services.FlowVariable,
 		Builder:             builder,
+		Cleanups:            bundle.CleanupsByFlowID(),
 	}
 }
 

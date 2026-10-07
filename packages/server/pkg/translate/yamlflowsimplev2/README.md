@@ -76,6 +76,39 @@ steps:
       depends_on: [Loop.loop] # Runs for each iteration
 ```
 
+## Cleanup Steps
+
+A flow's optional `cleanup:` list runs after its `steps:` reach a terminal
+state, whether they passed or failed, so data a run creates is removed even
+when a step in the middle fails:
+
+```yaml
+flows:
+  - name: Catalog
+    steps:
+      - request:
+          name: PostProducts
+          method: POST
+          url: '{{ baseUrl }}/products'
+    cleanup:
+      - request:
+          name: DeleteProduct
+          method: DELETE
+          url: '{{ baseUrl }}/products/{{ PostProducts.response.body.id }}'
+```
+
+- Only `request` and `graphql` steps are allowed in `cleanup:`.
+- Cleanup steps run one at a time in listed order; `depends_on` may name only
+  other cleanup steps and reorders them. Every step is attempted, even after
+  another cleanup step fails.
+- A cleanup step whose templates read a step that produced no output (it never
+  ran) is skipped, as is one whose cleanup dependency did not succeed.
+- A failing cleanup step fails a flow that otherwise passed. When the flow
+  already failed, the original failure stays the reported error.
+- Cleanup steps run in the CLI (`flow run`, per iteration in load runs). They
+  do not run when Ctrl-C interrupts a run, when the flow runs as a sub-flow,
+  or in the desktop app, which does not store them yet.
+
 ## Supported Steps
 
 - `manual_start`: Entry point for flow execution.

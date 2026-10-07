@@ -18,40 +18,40 @@ import (
 // ImportResult contains statistics and mappings from the import operation.
 type ImportResult struct {
 	// Entity counts
-	HTTPRequestsCreated       int
-	HTTPSearchParamsCreated   int
-	HTTPHeadersCreated        int
-	HTTPBodyFormsCreated      int
-	HTTPBodyUrlencodedCreated int
-	HTTPBodyRawCreated        int
-	HTTPAssertsCreated        int
-	FilesCreated              int
-	FlowsCreated              int
-	FlowVariablesCreated      int
-	FlowNodesCreated          int
-	FlowEdgesCreated          int
-	FlowRequestNodesCreated   int
-	FlowConditionNodesCreated int
-	FlowForNodesCreated       int
-	FlowForEachNodesCreated   int
-	FlowJSNodesCreated          int
-	FlowAINodesCreated          int
-	FlowAIProviderNodesCreated  int
-	FlowAIMemoryNodesCreated    int
+	HTTPRequestsCreated            int
+	HTTPSearchParamsCreated        int
+	HTTPHeadersCreated             int
+	HTTPBodyFormsCreated           int
+	HTTPBodyUrlencodedCreated      int
+	HTTPBodyRawCreated             int
+	HTTPAssertsCreated             int
+	FilesCreated                   int
+	FlowsCreated                   int
+	FlowVariablesCreated           int
+	FlowNodesCreated               int
+	FlowEdgesCreated               int
+	FlowRequestNodesCreated        int
+	FlowConditionNodesCreated      int
+	FlowForNodesCreated            int
+	FlowForEachNodesCreated        int
+	FlowJSNodesCreated             int
+	FlowAINodesCreated             int
+	FlowAIProviderNodesCreated     int
+	FlowAIMemoryNodesCreated       int
 	FlowGraphQLNodesCreated        int
 	FlowWsConnectionNodesCreated   int
 	FlowWsSendNodesCreated         int
-	FlowWaitNodesCreated               int
-	FlowSubFlowTriggerNodesCreated     int
-	FlowSubFlowReturnNodesCreated      int
-	FlowRunSubFlowNodesCreated         int
+	FlowWaitNodesCreated           int
+	FlowSubFlowTriggerNodesCreated int
+	FlowSubFlowReturnNodesCreated  int
+	FlowRunSubFlowNodesCreated     int
 	WebSocketsCreated              int
 	WebSocketHeadersCreated        int
 	GraphQLRequestsCreated         int
-	GraphQLHeadersCreated       int
-	GraphQLAssertsCreated       int
-	EnvironmentsCreated         int
-	EnvironmentVarsCreated    int
+	GraphQLHeadersCreated          int
+	GraphQLAssertsCreated          int
+	EnvironmentsCreated            int
+	EnvironmentVarsCreated         int
 
 	// ID mappings for reference (old ID -> new ID)
 	HTTPIDMap        map[idwrap.IDWrap]idwrap.IDWrap
@@ -75,6 +75,9 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	}
 
 	s.warnUnstoredLoadScenarios(ctx, bundle)
+	if !opts.ImportFlowCleanups {
+		s.warnUnstoredFlowCleanups(ctx, bundle)
+	}
 
 	// Initialize result
 	result := &ImportResult{
@@ -342,7 +345,65 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		}
 	}
 
+	if opts.ImportFlowCleanups {
+		if err := s.importFlowCleanups(ctx, tx, bundle, opts, result); err != nil {
+			return nil, err
+		}
+	}
+
 	return result, nil
+}
+
+// importFlowCleanups stores each cleanup block's hidden flow and entities by
+// importing its sub-bundle. A sub-bundle carries no cleanups of its own.
+func (s *IOWorkspaceService) importFlowCleanups(ctx context.Context, tx *sql.Tx, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	subOpts := opts
+	subOpts.CreateFiles = false
+	subOpts.ImportEnvironments = false
+	subOpts.ImportFlowCleanups = false
+
+	for _, cleanup := range bundle.FlowCleanups {
+		if cleanup.Bundle == nil {
+			continue
+		}
+		sub, err := s.Import(ctx, tx, cleanup.Bundle, subOpts)
+		if err != nil {
+			return fmt.Errorf("failed to import cleanup steps: %w", err)
+		}
+		result.FlowsCreated += sub.FlowsCreated
+		result.FlowNodesCreated += sub.FlowNodesCreated
+		result.FlowEdgesCreated += sub.FlowEdgesCreated
+		result.HTTPRequestsCreated += sub.HTTPRequestsCreated
+		result.GraphQLRequestsCreated += sub.GraphQLRequestsCreated
+	}
+	return nil
+}
+
+// FlowCleanupsNotStoredMessage is logged when a bundle with cleanup blocks is
+// imported without ImportOptions.ImportFlowCleanups.
+const FlowCleanupsNotStoredMessage = "Flow cleanup steps were not stored: this version runs the cleanup: block from the workflow file in the CLI only, so exporting this workspace will not reproduce it"
+
+// warnUnstoredFlowCleanups reports cleanup blocks a regular (desktop) import
+// drops, for the same reason warnUnstoredLoadScenarios exists: losing them
+// silently would be discovered only from a diff.
+func (s *IOWorkspaceService) warnUnstoredFlowCleanups(ctx context.Context, bundle *WorkspaceBundle) {
+	if bundle == nil || len(bundle.FlowCleanups) == 0 {
+		return
+	}
+
+	flowNames := make(map[idwrap.IDWrap]string, len(bundle.Flows))
+	for _, f := range bundle.Flows {
+		flowNames[f.ID] = f.Name
+	}
+	names := make([]string, 0, len(bundle.FlowCleanups))
+	for _, c := range bundle.FlowCleanups {
+		names = append(names, flowNames[c.FlowID])
+	}
+
+	s.logger.WarnContext(ctx, FlowCleanupsNotStoredMessage,
+		"count", len(bundle.FlowCleanups),
+		"flows", strings.Join(names, ", "),
+	)
 }
 
 // LoadScenariosNotStoredMessage is logged when an imported bundle carries load

@@ -21,7 +21,7 @@ type WorkspaceBundle struct {
 	Workspace mworkspace.Workspace
 
 	// HTTP requests and associated data structures
-	HTTPRequests []mhttp.HTTP
+	HTTPRequests       []mhttp.HTTP
 	HTTPSearchParams   []mhttp.HTTPSearchParam
 	HTTPHeaders        []mhttp.HTTPHeader
 	HTTPBodyForms      []mhttp.HTTPBodyForm
@@ -48,21 +48,21 @@ type WorkspaceBundle struct {
 	FlowEdges     []mflow.Edge
 
 	// Flow node implementations by type
-	FlowRequestNodes    []mflow.NodeRequest
-	FlowConditionNodes  []mflow.NodeIf
-	FlowForNodes        []mflow.NodeFor
-	FlowForEachNodes    []mflow.NodeForEach
-	FlowJSNodes         []mflow.NodeJS
-	FlowAINodes         []mflow.NodeAI
-	FlowAIProviderNodes []mflow.NodeAiProvider
-	FlowAIMemoryNodes   []mflow.NodeMemory
+	FlowRequestNodes        []mflow.NodeRequest
+	FlowConditionNodes      []mflow.NodeIf
+	FlowForNodes            []mflow.NodeFor
+	FlowForEachNodes        []mflow.NodeForEach
+	FlowJSNodes             []mflow.NodeJS
+	FlowAINodes             []mflow.NodeAI
+	FlowAIProviderNodes     []mflow.NodeAiProvider
+	FlowAIMemoryNodes       []mflow.NodeMemory
 	FlowGraphQLNodes        []mflow.NodeGraphQL
 	FlowWsConnectionNodes   []mflow.NodeWsConnection
 	FlowWsSendNodes         []mflow.NodeWsSend
-	FlowWaitNodes              []mflow.NodeWait
-	FlowSubFlowTriggerNodes    []mflow.NodeSubFlowTrigger
-	FlowSubFlowReturnNodes     []mflow.NodeSubFlowReturn
-	FlowRunSubFlowNodes        []mflow.NodeRunSubFlow
+	FlowWaitNodes           []mflow.NodeWait
+	FlowSubFlowTriggerNodes []mflow.NodeSubFlowTrigger
+	FlowSubFlowReturnNodes  []mflow.NodeSubFlowReturn
+	FlowRunSubFlowNodes     []mflow.NodeRunSubFlow
 
 	// Environments and variables
 	Environments    []menv.Env
@@ -79,47 +79,108 @@ type WorkspaceBundle struct {
 	// scenarios yet (Phase 2). Only the file-to-file path (the CLI and the
 	// yamlflow translator) reads and writes it.
 	LoadScenarios []mload.Scenario
+
+	// FlowCleanups carries each flow's yamlflow `cleanup:` steps: steps that
+	// run after the flow's normal steps finish, whether they passed or failed.
+	//
+	// Like LoadScenarios it is file-only: the cleanup entities live in each
+	// FlowCleanup's own Bundle rather than in the slices above, so a regular
+	// Import does not store them (and says so) and Export never populates
+	// this field. Import stores them only when ImportOptions.ImportFlowCleanups
+	// is set, which the CLI does so it can execute them.
+	FlowCleanups []FlowCleanup
+}
+
+// FlowCleanup is the `cleanup:` block of one flow.
+//
+// The cleanup steps are converted into nodes of a separate, hidden flow
+// (CleanupFlowID) with no start node and no edges between them, so they can
+// never run as part of the owning flow's graph. A runner executes them one by
+// one, in Steps order, after the owning flow reaches a terminal state, reusing
+// the owning flow's variable map so they can read step outputs.
+type FlowCleanup struct {
+	// FlowID is the flow that owns the cleanup block.
+	FlowID idwrap.IDWrap
+	// CleanupFlowID is the hidden flow holding the cleanup nodes. It is
+	// Bundle.Flows[0].ID.
+	CleanupFlowID idwrap.IDWrap
+	// Steps lists the cleanup steps in execution order.
+	Steps []FlowCleanupStep
+	// Bundle holds the cleanup flow and every entity its nodes need (nodes,
+	// HTTP and GraphQL requests and their children).
+	Bundle *WorkspaceBundle
+}
+
+// FlowCleanupStep is one cleanup step, in execution order.
+type FlowCleanupStep struct {
+	NodeID idwrap.IDWrap
+	Name   string
+	// DependsOn names other cleanup steps of the same block. A step whose
+	// dependency did not succeed is skipped.
+	DependsOn []string
+	// References names the steps (normal or cleanup) whose output this step's
+	// templates read. A step referencing a step that produced no output (it
+	// never ran) is skipped instead of being sent with an unresolved template.
+	References []string
+}
+
+// CleanupFlowIDs returns the IDs of every hidden cleanup flow in the bundle.
+func (wb *WorkspaceBundle) CleanupFlowIDs() map[idwrap.IDWrap]bool {
+	ids := make(map[idwrap.IDWrap]bool, len(wb.FlowCleanups))
+	for _, c := range wb.FlowCleanups {
+		ids[c.CleanupFlowID] = true
+	}
+	return ids
+}
+
+// CleanupsByFlowID indexes the bundle's cleanup blocks by owning flow ID.
+func (wb *WorkspaceBundle) CleanupsByFlowID() map[idwrap.IDWrap]FlowCleanup {
+	byFlow := make(map[idwrap.IDWrap]FlowCleanup, len(wb.FlowCleanups))
+	for _, c := range wb.FlowCleanups {
+		byFlow[c.FlowID] = c
+	}
+	return byFlow
 }
 
 // CountEntities returns a map containing the count of each entity type in the bundle.
 // Useful for logging, debugging, and displaying import/export statistics.
 func (wb *WorkspaceBundle) CountEntities() map[string]int {
 	return map[string]int{
-		"http_requests":        len(wb.HTTPRequests),
-		"http_search_params":   len(wb.HTTPSearchParams),
-		"http_headers":         len(wb.HTTPHeaders),
-		"http_body_forms":      len(wb.HTTPBodyForms),
-		"http_body_urlencoded": len(wb.HTTPBodyUrlencoded),
-		"http_body_raw":        len(wb.HTTPBodyRaw),
-		"http_asserts":         len(wb.HTTPAsserts),
-		"graphql_requests":     len(wb.GraphQLRequests),
-		"graphql_headers":      len(wb.GraphQLHeaders),
-		"graphql_asserts":      len(wb.GraphQLAsserts),
-		"websockets":           len(wb.WebSockets),
-		"websocket_headers":    len(wb.WebSocketHeaders),
-		"files":                len(wb.Files),
-		"flows":                len(wb.Flows),
-		"flow_variables":       len(wb.FlowVariables),
-		"flow_nodes":           len(wb.FlowNodes),
-		"flow_edges":           len(wb.FlowEdges),
-		"flow_request_nodes":   len(wb.FlowRequestNodes),
-		"flow_condition_nodes": len(wb.FlowConditionNodes),
-		"flow_for_nodes":       len(wb.FlowForNodes),
-		"flow_foreach_nodes":   len(wb.FlowForEachNodes),
-		"flow_js_nodes":          len(wb.FlowJSNodes),
-		"flow_ai_nodes":          len(wb.FlowAINodes),
-		"flow_ai_provider_nodes": len(wb.FlowAIProviderNodes),
-		"flow_ai_memory_nodes":   len(wb.FlowAIMemoryNodes),
-		"flow_graphql_nodes":        len(wb.FlowGraphQLNodes),
-		"flow_ws_connection_nodes":  len(wb.FlowWsConnectionNodes),
-		"flow_ws_send_nodes":        len(wb.FlowWsSendNodes),
-		"flow_wait_nodes":                len(wb.FlowWaitNodes),
-		"flow_sub_flow_trigger_nodes":    len(wb.FlowSubFlowTriggerNodes),
-		"flow_sub_flow_return_nodes":     len(wb.FlowSubFlowReturnNodes),
-		"flow_run_sub_flow_nodes":        len(wb.FlowRunSubFlowNodes),
-		"environments":              len(wb.Environments),
-		"environment_vars":     len(wb.EnvironmentVars),
-		"credentials":          len(wb.Credentials),
+		"http_requests":               len(wb.HTTPRequests),
+		"http_search_params":          len(wb.HTTPSearchParams),
+		"http_headers":                len(wb.HTTPHeaders),
+		"http_body_forms":             len(wb.HTTPBodyForms),
+		"http_body_urlencoded":        len(wb.HTTPBodyUrlencoded),
+		"http_body_raw":               len(wb.HTTPBodyRaw),
+		"http_asserts":                len(wb.HTTPAsserts),
+		"graphql_requests":            len(wb.GraphQLRequests),
+		"graphql_headers":             len(wb.GraphQLHeaders),
+		"graphql_asserts":             len(wb.GraphQLAsserts),
+		"websockets":                  len(wb.WebSockets),
+		"websocket_headers":           len(wb.WebSocketHeaders),
+		"files":                       len(wb.Files),
+		"flows":                       len(wb.Flows),
+		"flow_variables":              len(wb.FlowVariables),
+		"flow_nodes":                  len(wb.FlowNodes),
+		"flow_edges":                  len(wb.FlowEdges),
+		"flow_request_nodes":          len(wb.FlowRequestNodes),
+		"flow_condition_nodes":        len(wb.FlowConditionNodes),
+		"flow_for_nodes":              len(wb.FlowForNodes),
+		"flow_foreach_nodes":          len(wb.FlowForEachNodes),
+		"flow_js_nodes":               len(wb.FlowJSNodes),
+		"flow_ai_nodes":               len(wb.FlowAINodes),
+		"flow_ai_provider_nodes":      len(wb.FlowAIProviderNodes),
+		"flow_ai_memory_nodes":        len(wb.FlowAIMemoryNodes),
+		"flow_graphql_nodes":          len(wb.FlowGraphQLNodes),
+		"flow_ws_connection_nodes":    len(wb.FlowWsConnectionNodes),
+		"flow_ws_send_nodes":          len(wb.FlowWsSendNodes),
+		"flow_wait_nodes":             len(wb.FlowWaitNodes),
+		"flow_sub_flow_trigger_nodes": len(wb.FlowSubFlowTriggerNodes),
+		"flow_sub_flow_return_nodes":  len(wb.FlowSubFlowReturnNodes),
+		"flow_run_sub_flow_nodes":     len(wb.FlowRunSubFlowNodes),
+		"environments":                len(wb.Environments),
+		"environment_vars":            len(wb.EnvironmentVars),
+		"credentials":                 len(wb.Credentials),
 	}
 }
 
@@ -254,6 +315,13 @@ type ImportOptions struct {
 
 	// StartOrder is the starting order value for imported files
 	StartOrder float64
+
+	// ImportFlowCleanups stores each FlowCleanup's hidden cleanup flow and its
+	// entities, so a runner can build and execute the cleanup nodes. It
+	// requires PreserveIDs, because FlowCleanup refers to nodes and flows by
+	// their bundle IDs. When false (the desktop import path), cleanup blocks
+	// are dropped with a warning.
+	ImportFlowCleanups bool
 }
 
 // ExportOptions contains configuration options for workspace export operations.
@@ -300,6 +368,10 @@ func (opts ImportOptions) Validate() error {
 
 	if opts.MergeMode != "" && !validMergeModes[opts.MergeMode] {
 		return ErrInvalidMergeMode
+	}
+
+	if opts.ImportFlowCleanups && !opts.PreserveIDs {
+		return ErrFlowCleanupsNeedPreservedIDs
 	}
 
 	return nil

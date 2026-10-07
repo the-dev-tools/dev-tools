@@ -20,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/runner/flowlocalrunner"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
 
@@ -36,6 +37,9 @@ type RunnerServices struct {
 	FlowVariableService sflow.FlowVariableService
 	Builder             *flowbuilder.Builder
 	JSClient            node_js_executorv1connect.NodeJsExecutorServiceClient
+	// Cleanups holds each flow's cleanup: block, keyed by owning flow ID. The
+	// hidden cleanup flows must have been imported (ImportFlowCleanups).
+	Cleanups map[idwrap.IDWrap]ioworkspace.FlowCleanup
 }
 
 // RunMultipleFlows executes multiple flows based on the run field configuration.
@@ -276,6 +280,18 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 		return markFailure(err)
 	}
 
+	// Build the cleanup nodes before anything runs, so a broken cleanup block
+	// fails the flow before it creates data it could not remove.
+	cleanup, err := BuildCleanup(ctx, *flowPtr, services, CleanupBuildDeps{
+		Timeout:     nodeTimeout,
+		HTTPClient:  httpClient,
+		RespChan:    requestRespChan,
+		GQLRespChan: gqlRespChan,
+	})
+	if err != nil {
+		return markFailure(err)
+	}
+
 	// Use the same timeout for the flow runner
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeIDs, flowNodeMap, edgeMap, nodeTimeout, nil)
 
@@ -286,16 +302,17 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	nodeNames := make([]string, 0, len(flowNodeMap))
+	nodeNames := make([]string, 0, len(flowNodeMap)+cleanup.Size())
 	for _, node := range flowNodeMap {
 		nodeNames = append(nodeNames, node.GetName())
 	}
+	nodeNames = append(nodeNames, cleanup.DisplayNames()...)
 
 	if reporters != nil {
 		reporters.HandleFlowStart(reporter.FlowStartInfo{
 			FlowID:     result.FlowID,
 			FlowName:   flowPtr.Name,
-			TotalNodes: len(flowNodeMap),
+			TotalNodes: len(flowNodeMap) + cleanup.Size(),
 			NodeNames:  nodeNames,
 		})
 	}
@@ -312,6 +329,24 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	nodeResults := make([]model.NodeRunResult, 0)
 	var finalStatus runner.FlowStatus
 
+	handleNodeStatus := func(nodeStatus runner.FlowNodeStatus) {
+		if reporters != nil {
+			reporters.HandleNodeStatus(reporter.NodeStatusEvent{
+				FlowID:   result.FlowID,
+				FlowName: flowPtr.Name,
+				Status:   nodeStatus,
+			})
+		}
+		if nodeStatus.State != mflow.NODE_STATE_RUNNING {
+			// Hack: Fix for unintended file system artifacts (like .git folder) being picked up as nodes
+			// This usually happens when implicit file scanning interacts with the flow execution
+			if nodeStatus.Name == ".git" || strings.HasPrefix(nodeStatus.Name, ".git/") || strings.HasPrefix(nodeStatus.Name, ".git\\") {
+				return
+			}
+			nodeResults = append(nodeResults, buildNodeRunResult(nodeStatus))
+		}
+	}
+
 	// Wait for completion
 	for {
 		select {
@@ -320,21 +355,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 				flowNodeStatusChan = nil
 				continue
 			}
-			if reporters != nil {
-				reporters.HandleNodeStatus(reporter.NodeStatusEvent{
-					FlowID:   result.FlowID,
-					FlowName: flowPtr.Name,
-					Status:   nodeStatus,
-				})
-			}
-			if nodeStatus.State != mflow.NODE_STATE_RUNNING {
-				// Hack: Fix for unintended file system artifacts (like .git folder) being picked up as nodes
-				// This usually happens when implicit file scanning interacts with the flow execution
-				if nodeStatus.Name == ".git" || strings.HasPrefix(nodeStatus.Name, ".git/") || strings.HasPrefix(nodeStatus.Name, ".git\\") {
-					continue
-				}
-				nodeResults = append(nodeResults, buildNodeRunResult(nodeStatus))
-			}
+			handleNodeStatus(nodeStatus)
 
 		case flowStatus, ok := <-flowStatusChan:
 			if !ok {
@@ -352,8 +373,15 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	}
 
 Done:
-	result.Duration = time.Since(result.Started)
-	result.Nodes = nodeResults
+	// The runner closes the node status channel when it returns. Draining it
+	// collects statuses still buffered behind the final flow status, and
+	// guarantees no node is still writing to flowVarsMap, which the cleanup
+	// steps read next.
+	if flowNodeStatusChan != nil {
+		for nodeStatus := range flowNodeStatusChan {
+			handleNodeStatus(nodeStatus)
+		}
+	}
 
 	if finalStatus == runner.FlowStatusSuccess {
 		result.Status = "success"
@@ -371,11 +399,29 @@ Done:
 		}
 	}
 
+	// Cleanup steps run whether the normal steps passed or failed. A cleanup
+	// failure fails a passing flow; a failing flow keeps its original error.
+	cleanupResults, cleanupErr := cleanup.Run(ctx, flowVarsMap, func(event reporter.NodeStatusEvent) {
+		if reporters != nil {
+			event.FlowID = result.FlowID
+			event.FlowName = flowPtr.Name
+			reporters.HandleNodeStatus(event)
+		}
+	})
+	nodeResults = append(nodeResults, cleanupResults...)
+	if cleanupErr != nil && result.Status == "success" {
+		result.Status = "failed"
+		result.Error = cleanupErr.Error()
+	}
+
+	result.Duration = time.Since(result.Started)
+	result.Nodes = nodeResults
+
 	if reporters != nil {
 		reporters.HandleFlowResult(result)
 	}
 
-	if finalStatus != runner.FlowStatusSuccess {
+	if result.Status != "success" {
 		return result, errors.New(result.Error)
 	}
 
