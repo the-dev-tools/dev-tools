@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"strings"
 	"time"
@@ -24,10 +23,9 @@ type HttpClient interface {
 const TimeoutRequest = 60 * time.Second
 
 func New() *http.Client {
-	jar, _ := cookiejar.New(nil) // never errors with nil options
 	return &http.Client{
 		Timeout: TimeoutRequest,
-		Jar:     jar,
+		Jar:     newRecordingJar(),
 	}
 }
 
