@@ -64,6 +64,9 @@ type compileMode uint8
 const (
 	compileModeAny compileMode = iota
 	compileModeBool
+	// compileModeInterpolate is for {{ }} templating: values are copied as-is, so JSON
+	// numbers keep their exact text (1.0 stays 1.0, large ids stay exact).
+	compileModeInterpolate
 )
 
 type expressionPhase uint8
@@ -268,6 +271,9 @@ func compileProgram(expression string, mode compileMode, env map[string]any) (*v
 	}
 
 	options := []expr.Option{expr.Env(compileEnv)}
+	if mode != compileModeInterpolate {
+		options = append(options, jsonNumberOptions()...)
+	}
 	switch mode {
 	case compileModeBool:
 		options = append(options, expr.AsBool())

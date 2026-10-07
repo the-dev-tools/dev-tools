@@ -200,7 +200,7 @@ func (e *UnifiedEnv) resolveExprVar(varRef string, readVars map[string]any) (any
 	env := e.buildExprEnv()
 
 	// Compile and run with expr-lang
-	program, err := e.compileExpr(varRef, compileModeAny, env)
+	program, err := e.compileExpr(varRef, compileModeInterpolate, env)
 	if err != nil {
 		return nil, err
 	}

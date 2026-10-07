@@ -274,6 +274,9 @@ func (e *UnifiedEnv) compileExpr(exprStr string, mode compileMode, env map[strin
 
 	// Compile options
 	options := []expr.Option{expr.Env(env)}
+	if mode != compileModeInterpolate {
+		options = append(options, jsonNumberOptions()...)
+	}
 	switch mode {
 	case compileModeBool:
 		options = append(options, expr.AsBool())
