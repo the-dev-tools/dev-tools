@@ -303,7 +303,8 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	// Start the runner
 	go func() {
 		if err := runnerInst.Run(subCtx, flowNodeStatusChan, flowStatusChan, flowVarsMap); err != nil {
-			slog.Error("flow runner failed", "error", err)
+			// The failure reaches the caller through the flow status; this is a trace only.
+			slog.Debug("flow runner failed", "error", err)
 		}
 	}()
 

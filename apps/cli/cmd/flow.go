@@ -95,6 +95,9 @@ Load mode
   during a load run still writes a file, but as an empty test suite.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Arguments are valid by now: a failing flow is not a usage mistake, so don't print the
+		// flag reference under it.
+		cmd.SilenceUsage = true
 		ctx := cmd.Context()
 
 		// A load flag that was passed with a zero value (--vus 0) is still a
@@ -377,10 +380,6 @@ Load mode
 				log.Println("found flow", flowPtr.Name)
 			}
 			_, runErr = runner.RunFlow(ctx, flowPtr, runnerServices, reporters)
-
-			if runErr != nil {
-				logger.Error(runErr.Error())
-			}
 		}
 
 		flushErr := reporters.Flush()

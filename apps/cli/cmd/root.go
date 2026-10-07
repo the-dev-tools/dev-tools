@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -19,6 +20,8 @@ With built-in CI integration, it streamlines API validation from development to 
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
+	// Execute prints the error once; cobra would print it a second time.
+	SilenceErrors: true,
 }
 
 var (
@@ -46,7 +49,8 @@ func init() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatalf("error executing root command: %s", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
 	}
 }
 
