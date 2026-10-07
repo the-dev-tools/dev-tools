@@ -94,6 +94,7 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 	}
 
 	varMapCopy := node.DeepCopyVarMap(req)
+	node.WithCookies(varMapCopy, n.HttpClient)
 
 	// Build unified environment for interpolation
 	env := expression.NewUnifiedEnv(varMapCopy)

@@ -170,6 +170,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
+	node.WithCookies(varMapCopy, nr.HttpClient)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
 		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
@@ -363,6 +364,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
+	node.WithCookies(varMapCopy, nr.HttpClient)
 
 	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
 		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMapCopy)
