@@ -21,6 +21,10 @@ var (
 	// ErrImportFailed is returned when an import operation fails
 	ErrImportFailed = errors.New("import operation failed")
 
+	// ErrFlowCleanupsNeedPreservedIDs is returned when ImportFlowCleanups is
+	// set without PreserveIDs: FlowCleanup refers to nodes by bundle ID.
+	ErrFlowCleanupsNeedPreservedIDs = errors.New("importing flow cleanups requires PreserveIDs")
+
 	// ErrExportFailed is returned when an export operation fails
 	ErrExportFailed = errors.New("export operation failed")
 )

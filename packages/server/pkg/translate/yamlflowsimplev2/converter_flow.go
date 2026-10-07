@@ -83,6 +83,14 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, template
 		return nil, fmt.Errorf("failed to create edges: %w", err)
 	}
 
+	if len(flowEntry.Cleanup) > 0 {
+		cleanup, err := processCleanup(flowEntry, processRes.NodeInfoMap, templates, graphqlTemplates, flowID, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process cleanup steps: %w", err)
+		}
+		result.FlowCleanups = append(result.FlowCleanups, *cleanup)
+	}
+
 	return result, nil
 }
 
@@ -284,6 +292,7 @@ func mergeFlowData(result *ioworkspace.WorkspaceBundle, flowData *ioworkspace.Wo
 	result.FlowRunSubFlowNodes = append(result.FlowRunSubFlowNodes, flowData.FlowRunSubFlowNodes...)
 	result.WebSockets = append(result.WebSockets, flowData.WebSockets...)
 	result.WebSocketHeaders = append(result.WebSocketHeaders, flowData.WebSocketHeaders...)
+	result.FlowCleanups = append(result.FlowCleanups, flowData.FlowCleanups...)
 }
 
 func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, assoc *HTTPAssociatedData) {

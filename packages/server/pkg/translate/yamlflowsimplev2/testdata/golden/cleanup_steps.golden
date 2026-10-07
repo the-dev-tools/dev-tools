@@ -1,0 +1,53 @@
+version: 2
+workspace_name: Golden Cleanup Steps
+run:
+    - flow: Catalog
+requests:
+    - name: DeleteCategory
+      method: DELETE
+      url: https://api.example.com/categories/{{ PostCategory.response.body.id }}
+    - name: DeleteProduct
+      method: DELETE
+      url: https://api.example.com/products/{{ PostProduct.response.body.id }}
+    - name: PostCategory
+      method: POST
+      url: https://api.example.com/categories
+      body: '{"name":"golden"}'
+    - name: PostProduct
+      method: POST
+      url: https://api.example.com/products
+      body: '{"category":"{{ PostCategory.response.body.id }}"}'
+graphql_requests:
+    - name: PurgeCache
+      url: https://api.example.com/graphql
+      query: mutation { purge }
+flows:
+    - name: Catalog
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: PostCategory
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: PostCategory
+        - request:
+            name: PostProduct
+            depends_on: PostCategory
+            position_x: 600
+            position_y: 0
+            use_request: PostProduct
+      cleanup:
+        - request:
+            name: DeleteProduct
+            use_request: DeleteProduct
+        - request:
+            name: DeleteCategory
+            depends_on: DeleteProduct
+            use_request: DeleteCategory
+        - graphql:
+            name: PurgeCache
+            use_request: PurgeCache

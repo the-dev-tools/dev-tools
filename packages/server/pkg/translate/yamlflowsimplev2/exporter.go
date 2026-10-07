@@ -4,6 +4,7 @@ package yamlflowsimplev2
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -24,6 +25,13 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	if data == nil {
 		return nil, fmt.Errorf("input data is nil")
 	}
+
+	// Cleanup steps live in their own sub-bundles. Export from a merged view so
+	// their requests share the requests: section (and its unique naming) with
+	// normal steps; the hidden cleanup flows themselves are not exported as
+	// flows but folded back into their owning flow's cleanup: list.
+	cleanupFlowIDs := data.CleanupFlowIDs()
+	data = withCleanupEntities(data)
 
 	// Build maps for efficient lookup
 	nodeMap := make(map[idwrap.IDWrap]mflow.Node)
@@ -345,9 +353,352 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		yamlFormat.GraphQLRequests = graphqlRequests
 	}
 
+	// buildStep renders one node as a YAML step. ok is false for nodes that
+	// have no step form (or whose configuration is missing).
+	buildStep := func(node mflow.Node, startNodeID idwrap.IDWrap) (YamlStepWrapper, bool) {
+		var stepWrapper YamlStepWrapper
+
+		// Implicit deps
+		var explicitDeps []string
+		incoming := edgesByTarget[node.ID]
+		for _, e := range incoming {
+			sourceNode, ok := nodeMap[e.SourceID]
+			if !ok {
+				continue
+			}
+
+			depStr := sourceNode.Name
+			switch e.SourceHandler {
+			case mflow.HandleThen:
+				depStr += DependsSuffixThen
+			case mflow.HandleElse:
+				depStr += DependsSuffixElse
+			case mflow.HandleLoop:
+				depStr += DependsSuffixLoop
+			case mflow.HandleWsMessage:
+				depStr += DependsSuffixWsMessage
+			case mflow.HandleUnspecified:
+				// Do nothing, just the name
+			default:
+				// Unknown handler, default to name
+			}
+
+			explicitDeps = append(explicitDeps, depStr)
+		}
+		sort.Strings(explicitDeps)
+
+		// Common struct logic — round positions to 2 decimal places
+		posX := math.Round(node.PositionX*100) / 100
+		posY := math.Round(node.PositionY*100) / 100
+		common := YamlStepCommon{
+			Name:      node.Name,
+			DependsOn: StringOrSlice(explicitDeps),
+			PositionX: &posX,
+			PositionY: &posY,
+		}
+
+		switch node.NodeKind {
+		case mflow.NODE_KIND_REQUEST:
+			reqNode, ok := reqNodeMap[node.ID]
+			if !ok || reqNode.HttpID == nil {
+				return YamlStepWrapper{}, false
+			}
+			httpReq, ok := httpMap[*reqNode.HttpID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+
+			reqStep := &YamlStepRequest{
+				YamlStepCommon: common,
+			}
+
+			if reqName, exists := httpIDToRequestName[httpReq.ID]; exists {
+				reqStep.UseRequest = reqName
+			} else {
+				reqStep.Method = httpReq.Method
+				reqStep.URL = httpReq.Url
+			}
+			stepWrapper.Request = reqStep
+
+		case mflow.NODE_KIND_CONDITION:
+			ifNode, ok := ifNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			ifStep := &YamlStepIf{
+				YamlStepCommon: common,
+				Condition:      ifNode.Condition.Comparisons.Expression,
+			}
+			// Removed legacy then/else fields
+			stepWrapper.If = ifStep
+
+		case mflow.NODE_KIND_FOR:
+			forNode, ok := forNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			forStep := &YamlStepFor{
+				YamlStepCommon: common,
+				IterCount:      fmt.Sprintf("%d", forNode.IterCount),
+				BreakCondition: forNode.Condition.Comparisons.Expression,
+			}
+			// Removed legacy loop field
+			stepWrapper.For = forStep
+
+		case mflow.NODE_KIND_FOR_EACH:
+			forEachNode, ok := forEachNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			forEachStep := &YamlStepForEach{
+				YamlStepCommon: common,
+				Items:          forEachNode.IterExpression,
+				BreakCondition: forEachNode.Condition.Comparisons.Expression,
+			}
+			// Removed legacy loop field
+			stepWrapper.ForEach = forEachStep
+
+		case mflow.NODE_KIND_JS:
+			jsNode, ok := jsNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			jsStep := &YamlStepJS{
+				YamlStepCommon: common,
+				Code:           string(jsNode.Code),
+			}
+			stepWrapper.JS = jsStep
+
+		case mflow.NODE_KIND_AI:
+			aiNode, ok := aiNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			aiStep := &YamlStepAI{
+				YamlStepCommon: common,
+				Prompt:         aiNode.Prompt,
+				MaxIterations:  int(aiNode.MaxIterations),
+			}
+
+			// Resolve provider, memory, and tools references from edges
+			for _, edge := range edgesBySource[node.ID] {
+				targetNode, ok := nodeMap[edge.TargetID]
+				if !ok {
+					continue
+				}
+				switch edge.SourceHandler {
+				case mflow.HandleAiProvider:
+					aiStep.Provider = targetNode.Name
+				case mflow.HandleAiMemory:
+					aiStep.Memory = targetNode.Name
+				case mflow.HandleAiTools:
+					aiStep.Tools = append(aiStep.Tools, targetNode.Name)
+				}
+			}
+
+			stepWrapper.AI = aiStep
+
+		case mflow.NODE_KIND_AI_PROVIDER:
+			providerNode, ok := aiProviderNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			providerStep := &YamlStepAIProvider{
+				YamlStepCommon: common,
+				Model:          providerNode.Model.ModelString(),
+			}
+
+			// Use real credential name if available, otherwise generate placeholder
+			if providerNode.CredentialID != nil {
+				if cred, ok := credentialMap[*providerNode.CredentialID]; ok {
+					providerStep.Credential = cred.Name
+				} else {
+					providerStep.Credential = fmt.Sprintf("%s-credential", node.Name)
+				}
+			}
+
+			if providerNode.Temperature != nil {
+				temp := float64(*providerNode.Temperature)
+				providerStep.Temperature = &temp
+			}
+			if providerNode.MaxTokens != nil {
+				providerStep.MaxTokens = providerNode.MaxTokens
+			}
+			stepWrapper.AIProvider = providerStep
+
+		case mflow.NODE_KIND_AI_MEMORY:
+			memoryNode, ok := aiMemoryNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			memoryStep := &YamlStepAIMemory{
+				YamlStepCommon: common,
+				WindowSize:     int(memoryNode.WindowSize),
+			}
+			// Map memory type to string
+			switch memoryNode.MemoryType {
+			case mflow.AiMemoryTypeWindowBuffer:
+				memoryStep.Type = MemoryTypeWindowBuffer
+			default:
+				memoryStep.Type = MemoryTypeWindowBuffer
+			}
+			stepWrapper.AIMemory = memoryStep
+
+		case mflow.NODE_KIND_GRAPHQL:
+			gqlNode, ok := graphqlNodeMap[node.ID]
+			if !ok || gqlNode.GraphQLID == nil {
+				return YamlStepWrapper{}, false
+			}
+			gqlReq, ok := graphqlMap[*gqlNode.GraphQLID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+
+			gqlStep := &YamlStepGraphQL{
+				YamlStepCommon: common,
+			}
+
+			if gqlName, exists := graphqlIDToRequestName[gqlReq.ID]; exists {
+				gqlStep.UseRequest = gqlName
+			} else {
+				gqlStep.URL = gqlReq.Url
+				gqlStep.Query = gqlReq.Query
+				gqlStep.Variables = gqlReq.Variables
+				gqlStep.Headers = buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlReq.ID])
+				gqlStep.Assertions = buildGraphQLAssertions(graphqlAssertsMap[gqlReq.ID])
+			}
+			stepWrapper.GraphQL = gqlStep
+
+		case mflow.NODE_KIND_WS_CONNECTION:
+			wsConnNode, ok := wsConnectionNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			wsStep := &YamlStepWsConnection{
+				YamlStepCommon: common,
+			}
+			if wsConnNode.WebSocketID != nil {
+				if wsEntity, ok := wsEntityMap[*wsConnNode.WebSocketID]; ok {
+					wsStep.URL = wsEntity.Url
+				}
+				if headers, ok := wsHeaderMap[*wsConnNode.WebSocketID]; ok {
+					for _, h := range headers {
+						if h.Enabled {
+							wsStep.Headers = append(wsStep.Headers, YamlNameValuePairV2{
+								Name:    h.Key,
+								Value:   h.Value,
+								Enabled: true,
+							})
+						}
+					}
+				}
+			}
+			stepWrapper.WsConnection = wsStep
+
+		case mflow.NODE_KIND_WS_SEND:
+			wsSendNode, ok := wsSendNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			wsStep := &YamlStepWsSend{
+				YamlStepCommon:       common,
+				WsConnectionNodeName: wsSendNode.WsConnectionNodeName,
+				Message:              wsSendNode.Message,
+			}
+			stepWrapper.WsSend = wsStep
+
+		case mflow.NODE_KIND_WAIT:
+			waitNode, ok := waitNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			stepWrapper.Wait = &YamlStepWait{
+				YamlStepCommon: common,
+				DurationMs:     strconv.FormatInt(waitNode.DurationMs, 10),
+			}
+
+		case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
+			triggerNode, ok := subFlowTriggerNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			triggerStep := &YamlStepSubFlowTrigger{
+				YamlStepCommon: common,
+			}
+			for _, p := range triggerNode.Params {
+				triggerStep.Params = append(triggerStep.Params, YamlSubFlowParam{
+					Name:         p.Name,
+					Type:         p.Type,
+					DefaultValue: p.DefaultValue,
+					Required:     p.Required,
+				})
+			}
+			stepWrapper.SubFlowTrigger = triggerStep
+
+		case mflow.NODE_KIND_SUB_FLOW_RETURN:
+			returnNode, ok := subFlowReturnNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			returnStep := &YamlStepSubFlowReturn{
+				YamlStepCommon: common,
+			}
+			for _, o := range returnNode.Outputs {
+				returnStep.Outputs = append(returnStep.Outputs, YamlSubFlowOutput{
+					Name:       o.Name,
+					Expression: o.Expression,
+				})
+			}
+			stepWrapper.SubFlowReturn = returnStep
+
+		case mflow.NODE_KIND_RUN_SUB_FLOW:
+			runNode, ok := runSubFlowNodeMap[node.ID]
+			if !ok {
+				return YamlStepWrapper{}, false
+			}
+			inputs := make(map[string]string, len(runNode.Inputs))
+			for _, input := range runNode.Inputs {
+				inputs[input.ParamName] = input.Expression
+			}
+			runStep := &YamlStepRunSubFlow{
+				YamlStepCommon: common,
+				Flow:           runNode.TargetFlowName,
+			}
+			if len(inputs) > 0 {
+				runStep.Inputs = inputs
+			}
+			stepWrapper.RunSubFlow = runStep
+
+		case mflow.NODE_KIND_MANUAL_START:
+			if node.ID == startNodeID {
+				stepWrapper.ManualStart = &common
+			} else {
+				return YamlStepWrapper{}, false
+			}
+
+		case mflow.NODE_KIND_WEBHOOK_TRIGGER:
+			// Not yet implemented
+			return YamlStepWrapper{}, false
+		}
+
+		// Add to flow
+		// Because stepWrapper has pointer fields, "empty" fields are nil
+		// Checking if any field is set (simplified check, assume one set if we got here)
+		isValid := stepWrapper.Request != nil || stepWrapper.GraphQL != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
+			stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil ||
+			stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.WsConnection != nil ||
+			stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil ||
+			stepWrapper.SubFlowTrigger != nil || stepWrapper.SubFlowReturn != nil || stepWrapper.RunSubFlow != nil
+		return stepWrapper, isValid
+	}
+
 	// 3. Process each Flow
 	flowNameUsed := make(map[string]bool)
+	flowIndex := make(map[idwrap.IDWrap]int, len(data.Flows))
 	for _, flow := range data.Flows {
+		if cleanupFlowIDs[flow.ID] {
+			continue
+		}
 		flowName := flow.Name
 		if flowName == "" {
 			flowName = DefaultFlowName
@@ -396,345 +747,36 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		orderedNodes := flowgraph.LinearizeNodes(startNodeID, flowNodes, flowEdges)
 
 		for _, node := range orderedNodes {
-			var stepWrapper YamlStepWrapper
-
-			// Implicit deps
-			var explicitDeps []string
-			incoming := edgesByTarget[node.ID]
-			for _, e := range incoming {
-				sourceNode, ok := nodeMap[e.SourceID]
-				if !ok {
-					continue
-				}
-
-				depStr := sourceNode.Name
-				switch e.SourceHandler {
-				case mflow.HandleThen:
-					depStr += DependsSuffixThen
-				case mflow.HandleElse:
-					depStr += DependsSuffixElse
-				case mflow.HandleLoop:
-					depStr += DependsSuffixLoop
-				case mflow.HandleWsMessage:
-					depStr += DependsSuffixWsMessage
-				case mflow.HandleUnspecified:
-					// Do nothing, just the name
-				default:
-					// Unknown handler, default to name
-				}
-
-				explicitDeps = append(explicitDeps, depStr)
-			}
-			sort.Strings(explicitDeps)
-
-			// Common struct logic — round positions to 2 decimal places
-			posX := math.Round(node.PositionX*100) / 100
-			posY := math.Round(node.PositionY*100) / 100
-			common := YamlStepCommon{
-				Name:      node.Name,
-				DependsOn: StringOrSlice(explicitDeps),
-				PositionX: &posX,
-				PositionY: &posY,
-			}
-
-			switch node.NodeKind {
-			case mflow.NODE_KIND_REQUEST:
-				reqNode, ok := reqNodeMap[node.ID]
-				if !ok || reqNode.HttpID == nil {
-					continue
-				}
-				httpReq, ok := httpMap[*reqNode.HttpID]
-				if !ok {
-					continue
-				}
-
-				reqStep := &YamlStepRequest{
-					YamlStepCommon: common,
-				}
-
-				if reqName, exists := httpIDToRequestName[httpReq.ID]; exists {
-					reqStep.UseRequest = reqName
-				} else {
-					reqStep.Method = httpReq.Method
-					reqStep.URL = httpReq.Url
-				}
-				stepWrapper.Request = reqStep
-
-			case mflow.NODE_KIND_CONDITION:
-				ifNode, ok := ifNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				ifStep := &YamlStepIf{
-					YamlStepCommon: common,
-					Condition:      ifNode.Condition.Comparisons.Expression,
-				}
-				// Removed legacy then/else fields
-				stepWrapper.If = ifStep
-
-			case mflow.NODE_KIND_FOR:
-				forNode, ok := forNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				forStep := &YamlStepFor{
-					YamlStepCommon: common,
-					IterCount:      fmt.Sprintf("%d", forNode.IterCount),
-					BreakCondition: forNode.Condition.Comparisons.Expression,
-				}
-				// Removed legacy loop field
-				stepWrapper.For = forStep
-
-			case mflow.NODE_KIND_FOR_EACH:
-				forEachNode, ok := forEachNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				forEachStep := &YamlStepForEach{
-					YamlStepCommon: common,
-					Items:          forEachNode.IterExpression,
-					BreakCondition: forEachNode.Condition.Comparisons.Expression,
-				}
-				// Removed legacy loop field
-				stepWrapper.ForEach = forEachStep
-
-			case mflow.NODE_KIND_JS:
-				jsNode, ok := jsNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				jsStep := &YamlStepJS{
-					YamlStepCommon: common,
-					Code:           string(jsNode.Code),
-				}
-				stepWrapper.JS = jsStep
-
-			case mflow.NODE_KIND_AI:
-				aiNode, ok := aiNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				aiStep := &YamlStepAI{
-					YamlStepCommon: common,
-					Prompt:         aiNode.Prompt,
-					MaxIterations:  int(aiNode.MaxIterations),
-				}
-
-				// Resolve provider, memory, and tools references from edges
-				for _, edge := range edgesBySource[node.ID] {
-					targetNode, ok := nodeMap[edge.TargetID]
-					if !ok {
-						continue
-					}
-					switch edge.SourceHandler {
-					case mflow.HandleAiProvider:
-						aiStep.Provider = targetNode.Name
-					case mflow.HandleAiMemory:
-						aiStep.Memory = targetNode.Name
-					case mflow.HandleAiTools:
-						aiStep.Tools = append(aiStep.Tools, targetNode.Name)
-					}
-				}
-
-				stepWrapper.AI = aiStep
-
-			case mflow.NODE_KIND_AI_PROVIDER:
-				providerNode, ok := aiProviderNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				providerStep := &YamlStepAIProvider{
-					YamlStepCommon: common,
-					Model:          providerNode.Model.ModelString(),
-				}
-
-				// Use real credential name if available, otherwise generate placeholder
-				if providerNode.CredentialID != nil {
-					if cred, ok := credentialMap[*providerNode.CredentialID]; ok {
-						providerStep.Credential = cred.Name
-					} else {
-						providerStep.Credential = fmt.Sprintf("%s-credential", node.Name)
-					}
-				}
-
-				if providerNode.Temperature != nil {
-					temp := float64(*providerNode.Temperature)
-					providerStep.Temperature = &temp
-				}
-				if providerNode.MaxTokens != nil {
-					providerStep.MaxTokens = providerNode.MaxTokens
-				}
-				stepWrapper.AIProvider = providerStep
-
-			case mflow.NODE_KIND_AI_MEMORY:
-				memoryNode, ok := aiMemoryNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				memoryStep := &YamlStepAIMemory{
-					YamlStepCommon: common,
-					WindowSize:     int(memoryNode.WindowSize),
-				}
-				// Map memory type to string
-				switch memoryNode.MemoryType {
-				case mflow.AiMemoryTypeWindowBuffer:
-					memoryStep.Type = MemoryTypeWindowBuffer
-				default:
-					memoryStep.Type = MemoryTypeWindowBuffer
-				}
-				stepWrapper.AIMemory = memoryStep
-
-			case mflow.NODE_KIND_GRAPHQL:
-				gqlNode, ok := graphqlNodeMap[node.ID]
-				if !ok || gqlNode.GraphQLID == nil {
-					continue
-				}
-				gqlReq, ok := graphqlMap[*gqlNode.GraphQLID]
-				if !ok {
-					continue
-				}
-
-				gqlStep := &YamlStepGraphQL{
-					YamlStepCommon: common,
-				}
-
-				if gqlName, exists := graphqlIDToRequestName[gqlReq.ID]; exists {
-					gqlStep.UseRequest = gqlName
-				} else {
-					gqlStep.URL = gqlReq.Url
-					gqlStep.Query = gqlReq.Query
-					gqlStep.Variables = gqlReq.Variables
-					gqlStep.Headers = buildGraphQLHeaderMapOrSlice(graphqlHeadersMap[gqlReq.ID])
-					gqlStep.Assertions = buildGraphQLAssertions(graphqlAssertsMap[gqlReq.ID])
-				}
-				stepWrapper.GraphQL = gqlStep
-
-			case mflow.NODE_KIND_WS_CONNECTION:
-				wsConnNode, ok := wsConnectionNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				wsStep := &YamlStepWsConnection{
-					YamlStepCommon: common,
-				}
-				if wsConnNode.WebSocketID != nil {
-					if wsEntity, ok := wsEntityMap[*wsConnNode.WebSocketID]; ok {
-						wsStep.URL = wsEntity.Url
-					}
-					if headers, ok := wsHeaderMap[*wsConnNode.WebSocketID]; ok {
-						for _, h := range headers {
-							if h.Enabled {
-								wsStep.Headers = append(wsStep.Headers, YamlNameValuePairV2{
-									Name:    h.Key,
-									Value:   h.Value,
-									Enabled: true,
-								})
-							}
-						}
-					}
-				}
-				stepWrapper.WsConnection = wsStep
-
-			case mflow.NODE_KIND_WS_SEND:
-				wsSendNode, ok := wsSendNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				wsStep := &YamlStepWsSend{
-					YamlStepCommon:       common,
-					WsConnectionNodeName: wsSendNode.WsConnectionNodeName,
-					Message:              wsSendNode.Message,
-				}
-				stepWrapper.WsSend = wsStep
-
-			case mflow.NODE_KIND_WAIT:
-				waitNode, ok := waitNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				stepWrapper.Wait = &YamlStepWait{
-					YamlStepCommon: common,
-					DurationMs:     strconv.FormatInt(waitNode.DurationMs, 10),
-				}
-
-			case mflow.NODE_KIND_SUB_FLOW_TRIGGER:
-				triggerNode, ok := subFlowTriggerNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				triggerStep := &YamlStepSubFlowTrigger{
-					YamlStepCommon: common,
-				}
-				for _, p := range triggerNode.Params {
-					triggerStep.Params = append(triggerStep.Params, YamlSubFlowParam{
-						Name:         p.Name,
-						Type:         p.Type,
-						DefaultValue: p.DefaultValue,
-						Required:     p.Required,
-					})
-				}
-				stepWrapper.SubFlowTrigger = triggerStep
-
-			case mflow.NODE_KIND_SUB_FLOW_RETURN:
-				returnNode, ok := subFlowReturnNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				returnStep := &YamlStepSubFlowReturn{
-					YamlStepCommon: common,
-				}
-				for _, o := range returnNode.Outputs {
-					returnStep.Outputs = append(returnStep.Outputs, YamlSubFlowOutput{
-						Name:       o.Name,
-						Expression: o.Expression,
-					})
-				}
-				stepWrapper.SubFlowReturn = returnStep
-
-			case mflow.NODE_KIND_RUN_SUB_FLOW:
-				runNode, ok := runSubFlowNodeMap[node.ID]
-				if !ok {
-					continue
-				}
-				inputs := make(map[string]string, len(runNode.Inputs))
-				for _, input := range runNode.Inputs {
-					inputs[input.ParamName] = input.Expression
-				}
-				runStep := &YamlStepRunSubFlow{
-					YamlStepCommon: common,
-					Flow:           runNode.TargetFlowName,
-				}
-				if len(inputs) > 0 {
-					runStep.Inputs = inputs
-				}
-				stepWrapper.RunSubFlow = runStep
-
-			case mflow.NODE_KIND_MANUAL_START:
-				if node.ID == startNodeID {
-					stepWrapper.ManualStart = &common
-				} else {
-					continue
-				}
-
-			case mflow.NODE_KIND_WEBHOOK_TRIGGER:
-				// Not yet implemented
-				continue
-			}
-
-			// Add to flow
-			// Because stepWrapper has pointer fields, "empty" fields are nil
-			// Checking if any field is set (simplified check, assume one set if we got here)
-			isValid := stepWrapper.Request != nil || stepWrapper.GraphQL != nil || stepWrapper.If != nil || stepWrapper.For != nil ||
-				stepWrapper.ForEach != nil || stepWrapper.JS != nil || stepWrapper.AI != nil ||
-				stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.WsConnection != nil ||
-				stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil ||
-				stepWrapper.SubFlowTrigger != nil || stepWrapper.SubFlowReturn != nil || stepWrapper.RunSubFlow != nil
-			if isValid {
+			if stepWrapper, ok := buildStep(node, startNodeID); ok {
 				flowYaml.Steps = append(flowYaml.Steps, stepWrapper)
 			}
 		}
 
+		flowIndex[flow.ID] = len(yamlFormat.Flows)
 		yamlFormat.Flows = append(yamlFormat.Flows, flowYaml)
+	}
+
+	// 3b. Fold each cleanup block back into its owning flow, in run order.
+	for _, cleanup := range data.FlowCleanups {
+		idx, ok := flowIndex[cleanup.FlowID]
+		if !ok {
+			continue
+		}
+		for _, step := range cleanup.Steps {
+			node, ok := nodeMap[step.NodeID]
+			if !ok {
+				continue
+			}
+			stepWrapper, ok := buildStep(node, idwrap.IDWrap{})
+			if !ok {
+				continue
+			}
+			// Cleanup steps are not drawn on the canvas.
+			if common := getStepCommon(stepWrapper); common != nil {
+				common.PositionX, common.PositionY = nil, nil
+			}
+			yamlFormat.Flows[idx].Cleanup = append(yamlFormat.Flows[idx].Cleanup, stepWrapper)
+		}
 	}
 
 	// 4. Export credentials from bundle (metadata only, secrets use env placeholders)
@@ -1180,4 +1222,20 @@ func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *
 		return nil
 	}
 	return AssertionsOrSlice(result)
+}
+
+// withCleanupEntities returns a shallow copy of data whose entity slices also
+// hold every cleanup sub-bundle's entities. data itself is not modified.
+func withCleanupEntities(data *ioworkspace.WorkspaceBundle) *ioworkspace.WorkspaceBundle {
+	if len(data.FlowCleanups) == 0 {
+		return data
+	}
+	merged := *data
+	merged.FlowCleanups = slices.Clone(data.FlowCleanups)
+	for _, cleanup := range data.FlowCleanups {
+		if cleanup.Bundle != nil {
+			mergeFlowData(&merged, cleanup.Bundle, ConvertOptionsV2{})
+		}
+	}
+	return &merged
 }
