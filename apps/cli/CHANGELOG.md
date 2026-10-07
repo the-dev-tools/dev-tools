@@ -1,3 +1,14 @@
+## 1.2.0 (2026-10-07)
+
+### 🚀 Features
+
+- Flows can now declare `cleanup:` steps that always run after the flow's normal steps, whether they passed or failed, so data a test creates is deleted even when a step in the middle fails and the next run starts from the same state. Cleanup steps are `request` or `graphql` steps that can read earlier outputs (`{{ PostProducts.response.body.id }}`); they run in listed order (`depends_on` may reorder them among themselves), a step that reads a step which never ran is reported as skipped, and a failing cleanup step fails an otherwise passing flow while an earlier failure stays the reported error. Cleanup steps appear after the normal steps in the console table and in JSON and JUnit reports, and run after every iteration in load runs without being measured. ([f204ce9e](https://github.com/the-dev-tools/dev-tools/commit/f204ce9e))
+- Flows can read the cookies they've received: `{{ cookies.csrftoken }}`, or `{{ cookies["XSRF-TOKEN"] }}` for names that aren't identifiers. This makes double-submit CSRF protection (Django, Laravel, Angular, many Express apps) testable: copy the CSRF cookie into the header the server checks. Values are URL-decoded the way client code reads them, the latest value of each cookie wins, and a flow variable named `cookies` takes precedence. ([60054c5f](https://github.com/the-dev-tools/dev-tools/commit/60054c5f))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.1.3 (2026-10-07)
 
 ### 🩹 Fixes
