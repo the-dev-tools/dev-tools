@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,5 +173,42 @@ func TestJUnitReporterFlush(t *testing.T) {
 	}
 	if suite.Cases[1].Failure.Data != "fail" {
 		t.Fatalf("expected failure message 'fail', got %q", suite.Cases[1].Failure.Data)
+	}
+}
+
+func TestJUnitReporterCleanupSteps(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "report.xml")
+	group, err := NewReporterGroup([]ReportSpec{{Format: ReportFormatJUnit, Path: outputPath}}, ReporterOptions{})
+	if err != nil {
+		t.Fatalf("failed to create reporter group: %v", err)
+	}
+
+	group.HandleFlowResult(model.FlowRunResult{
+		FlowName: "Catalog",
+		Status:   "failed",
+		Nodes: []model.NodeRunResult{
+			{Name: "PostProducts", State: mflow.StringNodeState(mflow.NODE_STATE_FAILURE), Error: "assertion failed"},
+			{Name: "UntagProduct", State: model.NodeStateSkipped, Cleanup: true, SkipReason: "'TagProduct' produced no output (it never ran)"},
+			{Name: "DeleteCategory", State: mflow.StringNodeState(mflow.NODE_STATE_SUCCESS), Cleanup: true},
+		},
+	})
+	if err := group.Flush(); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	report := string(data)
+	for _, want := range []string{
+		`failures="1" skipped="1"`,
+		`<testcase name="[cleanup] UntagProduct"`,
+		`<skipped message="&#39;TagProduct&#39; produced no output (it never ran)"></skipped>`,
+		`<testcase name="[cleanup] DeleteCategory"`,
+	} {
+		if !strings.Contains(report, want) {
+			t.Errorf("junit report missing %q:\n%s", want, report)
+		}
 	}
 }

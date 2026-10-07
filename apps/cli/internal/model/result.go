@@ -10,6 +10,11 @@ type IterationContextResult struct {
 	ParentNodes    []string `json:"parent_nodes,omitempty"`
 }
 
+// NodeStateSkipped is the State of a cleanup step that did not run, because a
+// step it reads or depends on produced no output. It has no mflow.NodeState
+// counterpart: only the CLI's cleanup runner skips steps.
+const NodeStateSkipped = "Skipped"
+
 type NodeRunResult struct {
 	NodeID           string                  `json:"node_id"`
 	ExecutionID      string                  `json:"execution_id"`
@@ -19,6 +24,10 @@ type NodeRunResult struct {
 	Error            string                  `json:"error,omitempty"`
 	IterationContext *IterationContextResult `json:"iteration_context,omitempty"`
 	OutputData       any                     `json:"output_data,omitempty"`
+	// Cleanup marks a step from the flow's cleanup: block.
+	Cleanup bool `json:"cleanup,omitempty"`
+	// SkipReason says why a skipped step did not run (State NodeStateSkipped).
+	SkipReason string `json:"skip_reason,omitempty"`
 }
 
 type FlowRunResult struct {
