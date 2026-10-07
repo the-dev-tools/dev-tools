@@ -47,6 +47,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFilePath, "config", cfgFilePath, "config file (default is $HOME/.devtools.yaml)")
 }
 
+// Root returns the CLI's root command, so another program can embed every DevTools command
+// (flow run, import, …) in its own binary — Stresseur's `stress` does — instead of running
+// this binary as a subprocess. The caller may rename it and add commands before executing it.
+func Root() *cobra.Command {
+	return rootCmd
+}
+
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
