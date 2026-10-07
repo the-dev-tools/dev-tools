@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -73,20 +74,14 @@ func initConfig() {
 	viper.AddConfigPath(home)
 	viper.AddConfigPath(cfgFilePath)
 	viper.SetConfigName(".devtools")
+	// A missing config file is the normal case: nothing requires one. The CLI used to announce
+	// "Config file not found" on stdout and write a default ~/.devtools.yaml on every first
+	// run, which ended up in the output of programs embedding it (Stresseur's stress).
 	err = viper.ReadInConfig()
 	if err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			fmt.Println("Config file not found, creating default config file")
-
-			// Create default config file if it doesn't exist
-			home, _ := homedir.Dir()
-			defaultConfigFile := home + "/.devtools.yaml"
-			err = viper.SafeWriteConfigAs(defaultConfigFile)
-			if err != nil {
-				fmt.Printf("Error creating default config file: %s\n", err)
-			}
-		} else {
-			fmt.Printf("error reading config file: %s\n", err)
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
+			fmt.Fprintf(os.Stderr, "error reading config file: %s\n", err)
 		}
 	}
 }
