@@ -23,7 +23,7 @@ PR itself) or on a third-party dashboard this checkout cannot see is marked
 ## Pre-flight: find what "stable" means right now
 
 Before touching anything, capture the versions and commit you are rolling
-back *to*. Do this first — every section below refers back to it.
+back _to_. Do this first — every section below refers back to it.
 
 ```bash
 # The commit that bumped versions for the rename release is titled "Version
@@ -55,7 +55,7 @@ day, in case another patch release lands between now and Oct 13.
    - Fetches `apps/desktop/package.json` straight from `main` via
      `raw.githubusercontent.com` (`update.ts:30-35`) to get a version string.
    - Fetches `https://api.github.com/repos/<repo>/releases/tags/desktop@<that
-     version>` (`update.ts:37-52`).
+version>` (`update.ts:37-52`).
    - If that second call fails for any reason (including a 404), the whole
      `Effect` fails, and `getLatestVersion`'s `onFailure` branch returns
      `{ ..., version: this.updater.currentVersion.raw }` — i.e. "no update"
@@ -77,7 +77,7 @@ day, in case another patch release lands between now and Oct 13.
 
 **Does reverting the version-bump commit on `main` also matter?** Yes, for a
 different reason than stopping the update: as long as `apps/desktop/package.json`
-on `main` still says the new (broken) version, every *future* patch you ship
+on `main` still says the new (broken) version, every _future_ patch you ship
 has to version itself above that number, and the "Latest release" GitHub
 badge / `releases/latest` API (used by the `dev.tools` download page outside
 this repo — **UNVERIFIED**, that page's code is not in this repository) may
@@ -146,7 +146,7 @@ caching layer of its own.
   comment at `install.sh:329-330` is correct: the subshell's `exit 1` cannot
   stop the parent script by itself, but `get_version` echoes nothing before
   it, so `version` comes back empty and `main()`'s own `if [ -z "$version"
-  ]; then exit 1; fi` (`install.sh:331-333`) stops the install right after,
+]; then exit 1; fi` (`install.sh:331-333`) stops the install right after,
   with the error already printed.
 
 **Conclusion: drafting the release is not sufficient here — it breaks the
@@ -260,7 +260,7 @@ workflows), and isn't needed anyway: `download-cli.sh` and
 ## 4. Studio data folder migration (`DevTools-Studio` → `Stresseur Studio`)
 
 **What exists in this checkout today (verified):** `apps/desktop/src/main/index.ts:147-177`,
-`migrateDataDir()`. On startup, if the *current* `userData` directory
+`migrateDataDir()`. On startup, if the _current_ `userData` directory
 (named after `extraMetadata.name` in `apps/desktop/build.ts:10`, currently
 `DevTools-Studio`) has no `state.db` yet, it looks for one in older
 directories (today: `DevTools Studio` with a space, then `DevTools`) and
@@ -278,7 +278,7 @@ whatever the new folder is named) has not landed on `main` as of Oct 9, 2026
 `announcement/pinned-issue.md`, `announcement/release-notes-snippet.md`,
 `apps/desktop/src/renderer/main.tsx`). Everything below assumes the rename
 PR reuses this exact `migrateDataDir` pattern (copy-only, skip-if-destination-exists);
-if it instead *moves* or *deletes* the old folder, every claim in this
+if it instead _moves_ or _deletes_ the old folder, every claim in this
 section is wrong and must be re-checked against that PR's actual diff before
 telling any user anything.
 
@@ -290,7 +290,7 @@ telling any user anything.
   new one — it never writes back). Reinstalling the old `1.1.x` DevTools
   Studio build will find that original file waiting for it, exactly as it
   was at the moment they upgraded.
-- **What they lose:** anything they did *while running* Stresseur Studio —
+- **What they lose:** anything they did _while running_ Stresseur Studio —
   new requests, flows, environment edits — since that only ever got written
   to the new folder, which the old build never reads. There is no merge; it
   is an all-or-nothing point-in-time split.
@@ -309,14 +309,14 @@ telling any user anything.
 > We've rolled Stresseur Studio back to DevTools Studio 1.1.x while we fix an
 > issue. Reinstalling 1.1.x restores exactly what you had before you
 > upgraded — nothing from before the upgrade was touched or deleted. Anything
-> you created or changed *after* upgrading to Stresseur Studio won't appear
+> you created or changed _after_ upgrading to Stresseur Studio won't appear
 > until we ship the fix and you upgrade again; please don't delete or move
 > anything in your Stresseur Studio data folder in the meantime, in case we
 > need it to recover that work.
 
 **Rollback step for this surface specifically:** reinstalling the old
 installer is enough (per the desktop section above) — there is no database
-or folder command to run. The point of this section is the *message*, not an
+or folder command to run. The point of this section is the _message_, not an
 action against GitHub.
 
 ---
@@ -325,8 +325,8 @@ action against GitHub.
 
 **Important scope correction:** per `apps/api-recorder-extension/src/brand.ts:1-9`,
 the rename does **not** rename this extension's own Chrome Web Store
-listing — its comment is explicit: *"the extension's own name ('API
-Recorder') stays as is"*; the only change is the `STUDIO_NAME` string it
+listing — its comment is explicit: _"the extension's own name ('API
+Recorder') stays as is"_; the only change is the `STUDIO_NAME` string it
 displays (`'DevTools Studio'` → presumably `'Stresseur Studio'`) and the
 `manifest.json`'s `name`/`version`/`author` are generated from
 `package.json` at build time (`apps/api-recorder-extension/build.ts:79-88`).
@@ -349,7 +349,8 @@ This repository has no code for the Web Store dashboard — it is a Google
 product surface this checkout cannot inspect. Best current public
 understanding (not verified against the dashboard itself, flagged here
 rather than stated as fact):
-- The Web Store serves installed users the latest *published* version via
+
+- The Web Store serves installed users the latest _published_ version via
   its own update ping; there is no self-service "revert users to an older
   version" button for a listing that has already finished rolling out to
   100%.
@@ -364,7 +365,7 @@ rather than stated as fact):
   identity isn't changing, that "fix" can be a plain revert of whatever
   commit changed `STUDIO_NAME` (or whatever else broke), bumped and released
   the same way as any other patch.
-- Unpublishing the item (dashboard: set to "Unlisted"/"Draft") stops *new*
+- Unpublishing the item (dashboard: set to "Unlisted"/"Draft") stops _new_
   installs from the Web Store listing page but, per the same caveat, does
   not downgrade anyone already on the bad version — **UNVERIFIED**, confirm
   in the dashboard; stated here by analogy with how Chrome extension updates
@@ -373,6 +374,7 @@ rather than stated as fact):
 
 **What the owner must do by hand (not executable from this repo or by this
 session):**
+
 1. Open the Chrome Web Store Developer Dashboard for this item.
 2. Check whether the bad version is still in staged rollout; if so, consider
    pausing/lowering it there.
@@ -382,7 +384,7 @@ session):**
    every other extension release goes out — there is no "rollback" button to
    press that's different from "ship a fix," per the owner's own rule.
 
-**Repo-side commands for the fix release** (this *will* touch a workflow run
+**Repo-side commands for the fix release** (this _will_ touch a workflow run
 and a release if actually executed — flagging that it is the owner's call,
 not something this session or this PR performs):
 
@@ -409,14 +411,14 @@ client-initiated on their own interval, not push).
 
 ## Quick reference
 
-| Surface | Does `--draft=true` alone stop it? | Also required | Verified against |
-|---|---|---|---|
-| Desktop auto-update | Yes | Revert `apps/desktop/package.json` on `main` (hygiene, not strictly required to stop the offer) | `update.ts:30-104` |
-| `install.sh` | No — breaks the installer outright | **Required:** revert `apps/cli/package.json` on `main` | `install.sh:106-137,328-333` |
-| `actions/run-flows` `version: latest` | No — tags survive draft | **Required:** `gh release delete --cleanup-tag` or delete the tag directly | `download-cli.sh:48-50`, `select-latest-cli-tag.sh:17` |
-| Already-updated desktop users | N/A | Tell them to reinstall the stable build; no auto-downgrade exists | `update.ts:89-105`, `docs/release/prerelease.md` "If a pre-release reaches main by mistake" |
-| Studio data folder | N/A | Nothing to run — the copy-only migration (if it follows the existing pattern) already protects old data; see messaging above | `index.ts:147-177` (current code; rename-day version is **UNVERIFIED**) |
-| Chrome extension (API Recorder) | **UNVERIFIED** (dashboard, not this repo) | Ship a reverted patch version through the normal pipeline | `release-chrome-extension.yaml`, `brand.ts:1-9` |
+| Surface                               | Does `--draft=true` alone stop it?        | Also required                                                                                                                | Verified against                                                                            |
+| ------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Desktop auto-update                   | Yes                                       | Revert `apps/desktop/package.json` on `main` (hygiene, not strictly required to stop the offer)                              | `update.ts:30-104`                                                                          |
+| `install.sh`                          | No — breaks the installer outright        | **Required:** revert `apps/cli/package.json` on `main`                                                                       | `install.sh:106-137,328-333`                                                                |
+| `actions/run-flows` `version: latest` | No — tags survive draft                   | **Required:** `gh release delete --cleanup-tag` or delete the tag directly                                                   | `download-cli.sh:48-50`, `select-latest-cli-tag.sh:17`                                      |
+| Already-updated desktop users         | N/A                                       | Tell them to reinstall the stable build; no auto-downgrade exists                                                            | `update.ts:89-105`, `docs/release/prerelease.md` "If a pre-release reaches main by mistake" |
+| Studio data folder                    | N/A                                       | Nothing to run — the copy-only migration (if it follows the existing pattern) already protects old data; see messaging above | `index.ts:147-177` (current code; rename-day version is **UNVERIFIED**)                     |
+| Chrome extension (API Recorder)       | **UNVERIFIED** (dashboard, not this repo) | Ship a reverted patch version through the normal pipeline                                                                    | `release-chrome-extension.yaml`, `brand.ts:1-9`                                             |
 
 ## Hard limits on this runbook itself
 
