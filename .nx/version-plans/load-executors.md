@@ -1,0 +1,5 @@
+---
+cli: minor
+---
+
+Load mode grows from constant-vus to four executors: `ramping-vus` (stages with graceful ramp-down), and the open-model `constant-arrival-rate` and `ramping-arrival-rate`, which start iterations on schedule whatever the response time and report dropped iterations once `max_vus` are busy. A `load:` entry can add `think_time`, `thresholds` (e.g. `p95: <300ms`, `errors: <1%`, per step under `steps:`), checked at the end and failing the run with exit code 99, and `abort` rules evaluated every metrics frame that stop a run early with exit code 108. `--report frames:<url>` streams every metrics frame, with per-step HDR histograms, and the final report to an HTTP endpoint (bearer token from `DEVTOOLS_FRAMES_TOKEN`, retried in the background, and the run stops if the endpoint is unreachable for 60s); `--vus-scale`/`--rate-scale` split one profile across machines, `--load-file` reads scenarios from a separate file with the same schema, and the summary now shows the request count it is based on.

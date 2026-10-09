@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/common"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/loadrun"
@@ -30,16 +31,23 @@ import (
 )
 
 var (
-	quietMode  bool
-	showOutput bool
-	loadOpts   loadrun.Options
+	quietMode     bool
+	showOutput    bool
+	loadOpts      loadrun.Options
+	loadFile      string
+	frameInterval time.Duration
 )
+
+// loadFlags are the flags whose presence asks for a load run, even with a
+// zero value.
+var loadFlags = []string{"scenario", "vus", "duration", "iterations", "vus-scale", "rate-scale", "load-file", "frame-interval"}
 
 func init() {
 	rootCmd.AddCommand(flowCmd)
 	// Add yamlflowRunCmd directly to flowCmd since we only have one run command now
 	flowCmd.AddCommand(yamlflowRunCmd)
-	yamlflowRunCmd.Flags().StringSliceVar(&reportFormats, "report", []string{"console"}, "Report outputs to produce (format[:path]). Supported formats: console, json, junit.")
+	yamlflowRunCmd.Flags().StringSliceVar(&reportFormats, "report", []string{"console"},
+		"Report outputs to produce (format[:path]). Supported formats: console, json, junit, and for load runs frames:<url>.")
 	yamlflowRunCmd.Flags().BoolVarP(&quietMode, "quiet", "q", false, "Suppress non-essential output for CI/CD usage")
 	yamlflowRunCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show node output data (including AI metrics) after each node completes")
 
@@ -51,6 +59,14 @@ func init() {
 		"How long a load test keeps starting new iterations, e.g. 60s")
 	yamlflowRunCmd.Flags().Int64Var(&loadOpts.Iterations, "iterations", 0,
 		"Total iterations a load test runs across all virtual users")
+	yamlflowRunCmd.Flags().Float64Var(&loadOpts.VUsScale, "vus-scale", 1,
+		"Multiply the load profile's VU counts (and constant-vus iterations) by this factor, to split one profile across machines")
+	yamlflowRunCmd.Flags().Float64Var(&loadOpts.RateScale, "rate-scale", 1,
+		"Multiply the load profile's arrival rates by this factor, to split one profile across machines")
+	yamlflowRunCmd.Flags().StringVar(&loadFile, "load-file", "",
+		"Read additional load scenarios from this file (a load: block, or a list of its entries)")
+	yamlflowRunCmd.Flags().DurationVar(&frameInterval, "frame-interval", loadrun.DefaultFrameInterval,
+		"How often a load test cuts a metrics frame: the frames reporter's cadence and the abort rules' evaluation interval")
 
 	// A scenario already carries a complete profile, so combining it with the
 	// inline profile flags would silently discard one of the two.
@@ -80,10 +96,22 @@ Load mode
   load run drives exactly one flow and reports aggregate latency percentiles,
   throughput and error rate instead of a per-step table.
 
-  A load run that completes exits 0 even when requests inside it failed;
-  thresholds that turn an error rate into a failing exit code arrive in a
-  later release. Only a run that could not happen - an unknown scenario, an
-  unusable profile, or a target that was never reachable - exits non-zero.
+  Executors: constant-vus (the default, and what --vus describes),
+  ramping-vus, constant-arrival-rate and ramping-arrival-rate; ramping and
+  arrival-rate profiles are written in the load: block. --load-file adds
+  scenarios kept in a separate file with the same schema. --vus-scale and
+  --rate-scale size a profile for one of several machines sharing it.
+
+  A load run that completes exits 0 even when requests inside it failed,
+  unless the scenario's thresholds fail (exit 99) or an abort rule stops it
+  early (exit 108). Only a run that could not happen - an unknown scenario,
+  an unusable profile, or a target that was never reachable - exits 1.
+
+  --report frames:<url> POSTs every metrics frame (per-step HDR histograms
+  included) to <url> as it is cut, then the final report, with
+  Authorization: Bearer $DEVTOOLS_FRAMES_TOKEN. Delivery is retried and
+  never slows the run; if <url> accepts nothing for 60s the run ramps down
+  and stops (exit 108), so an orphaned generator cannot keep hitting a target.
 
   Only HTTP request steps are measured. GraphQL, WebSocket and sub-flow steps
   still execute, but they are neither counted in the report nor covered by
@@ -107,11 +135,21 @@ Load mode
 		// request for load mode, so ask cobra what was set rather than
 		// inferring it from the values.
 		loadOpts.Requested = false
-		for _, name := range []string{"scenario", "vus", "duration", "iterations"} {
+		for _, name := range loadFlags {
 			if cmd.Flags().Changed(name) {
 				loadOpts.Requested = true
 				break
 			}
+		}
+		for _, name := range []string{"vus-scale", "rate-scale"} {
+			if flag := cmd.Flags().Lookup(name); flag != nil && flag.Changed {
+				if value, err := cmd.Flags().GetFloat64(name); err != nil || value <= 0 {
+					return fmt.Errorf("--%s must be > 0, got %s", name, flag.Value.String())
+				}
+			}
+		}
+		if cmd.Flags().Changed("frame-interval") && frameInterval <= 0 {
+			return fmt.Errorf("--frame-interval must be positive, got %s", frameInterval)
 		}
 
 		var logLevel slog.Level
@@ -368,7 +406,16 @@ Load mode
 		}
 
 		if loadOpts.Enabled() {
-			return runLoad(ctx, loadOpts, resolved.LoadScenarios, flows, flowName, runnerServices, logger, reporters)
+			scenarios, err := loadFileScenarios(loadFile, resolved.LoadScenarios, flows)
+			if err != nil {
+				releaseFrameSink(reporters)
+				return err
+			}
+			return runLoad(ctx, loadOpts, frameInterval, scenarios, flows, flowName, runnerServices, logger, reporters)
+		}
+		if reporters.FrameSink() != nil {
+			releaseFrameSink(reporters)
+			return fmt.Errorf("--report frames:<url> streams load-test metrics; it needs a load run (--scenario or --vus)")
 		}
 
 		var runErr error

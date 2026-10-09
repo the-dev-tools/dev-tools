@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -507,10 +508,10 @@ func TestRunRPSUsesRealElapsedTime(t *testing.T) {
 		t.Fatal("no requests recorded")
 	}
 
-	nominalRPS := float64(total.Count) / aggregatorFlushInterval.Seconds()
+	nominalRPS := float64(total.Count) / DefaultFrameInterval.Seconds()
 	if total.RPS < nominalRPS*2 {
 		t.Errorf("RPS %.1f looks like count/%v (%.1f), not count/elapsed",
-			total.RPS, aggregatorFlushInterval, nominalRPS)
+			total.RPS, DefaultFrameInterval, nominalRPS)
 	}
 
 	// The wall time the report implies must be the scenario's, not the
@@ -671,11 +672,12 @@ func TestConfigFromScenario(t *testing.T) {
 	want := Config{
 		ScenarioName:  "checkout-baseline",
 		Flow:          flow,
+		Executor:      mload.ExecutorConstantVUs,
 		VUs:           7,
 		Duration:      45 * time.Second,
 		MaxIterations: 900,
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("ConfigFromScenario() = %+v, want %+v", got, want)
 	}
 }
@@ -693,11 +695,12 @@ func TestVUWorkersAreIsolated(t *testing.T) {
 	flow, services := setupFlow(t, twoStepFlowYAML(srv.URL), "LoadFlow")
 
 	const vus = 3
-	workers, release, err := newWorkers(t.Context(), Config{Flow: flow, VUs: vus, MaxIterations: 1}, services, nil)
+	pool, err := newWorkerPool(t.Context(), Config{Flow: flow, VUs: vus, MaxIterations: 1}, services, nil)
 	if err != nil {
-		t.Fatalf("newWorkers failed: %v", err)
+		t.Fatalf("newWorkerPool failed: %v", err)
 	}
-	defer release()
+	defer pool.release()
+	workers := pool.built()
 
 	if len(workers) != vus {
 		t.Fatalf("got %d workers, want %d", len(workers), vus)

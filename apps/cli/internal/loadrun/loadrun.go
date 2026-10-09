@@ -41,8 +41,10 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"math/rand/v2"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
@@ -64,20 +66,88 @@ import (
 // would time out in a normal run times out the same way under load.
 const defaultNodeTimeout = 60 * time.Second
 
-// Config is a resolved load profile: what to run, how many virtual users, and
-// when to stop.
+// DefaultFrameInterval is how often a load run flushes its metrics into an
+// interval frame: the cadence frames are streamed at and abort rules are
+// evaluated at.
+const DefaultFrameInterval = 5 * time.Second
+
+// Errors a run that executed can end with. Both arrive alongside a complete
+// Result, so the report is still written.
+var (
+	// ErrThresholdsFailed means the run completed but at least one
+	// threshold did not hold.
+	ErrThresholdsFailed = errors.New("load run: thresholds failed")
+	// ErrAborted means the run was stopped early, by an abort rule or by a
+	// Stopper (for example the frame reporter's dead-man switch).
+	ErrAborted = errors.New("load run: aborted")
+)
+
+// Config is a resolved load profile: what to run, how it is scheduled, what
+// it must achieve, and the hooks that observe it while it runs.
 type Config struct {
 	// ScenarioName is the `load:` block entry this profile came from, or ""
 	// when the profile was assembled from --vus/--duration/--iterations.
 	ScenarioName string
 	// Flow is the already-imported flow to drive.
 	Flow *mflow.Flow
-	// VUs is the number of concurrent virtual users. Must be >= 1.
+	// Executor is the scheduling strategy. "" means constant-vus.
+	Executor mload.Executor
+	// VUs is the number of concurrent virtual users (constant-vus).
 	VUs int
-	// Duration bounds the window during which new iterations start.
+	// Duration bounds the window during which new iterations start
+	// (constant-vus and constant-arrival-rate).
 	Duration time.Duration
-	// MaxIterations bounds the total iterations issued across all VUs.
+	// MaxIterations bounds the total iterations issued (constant-vus).
 	MaxIterations int64
+
+	// StartVUs, Stages and GracefulRampDown drive ramping-vus; Stages also
+	// drives ramping-arrival-rate.
+	StartVUs         int
+	Stages           []mload.Stage
+	GracefulRampDown time.Duration
+	// Rate, StartRate, TimeUnit, PreAllocatedVUs and MaxVUs drive the
+	// arrival-rate executors.
+	Rate            float64
+	StartRate       float64
+	TimeUnit        time.Duration
+	PreAllocatedVUs int
+	MaxVUs          int
+	// GracefulStop bounds in-flight iterations once a ramping or
+	// arrival-rate schedule ends.
+	GracefulStop time.Duration
+	// ThinkTime is the pause each VU takes after an iteration.
+	ThinkTime mload.ThinkTime
+
+	// Thresholds are evaluated once, against the final report.
+	Thresholds []mload.Condition
+	// Abort rules are evaluated every FrameInterval.
+	Abort []mload.AbortRule
+
+	// FrameInterval is how often metrics are flushed into an interval
+	// frame. Zero means DefaultFrameInterval.
+	FrameInterval time.Duration
+	// OnFrame, when set, receives every interval frame, including the final
+	// partial one. It is called from the run's metrics goroutine and must
+	// not block.
+	OnFrame func(IntervalFrame)
+	// Stopper, when set, lets a caller end the run early; Run creates its
+	// own otherwise. Either way abort rules stop the run through it.
+	Stopper *Stopper
+}
+
+// IntervalFrame is one interval's metrics, combined across every VU. Its
+// Frame keeps a histogram per (step, status class), so frames from several
+// machines can be combined losslessly.
+type IntervalFrame struct {
+	// Seq numbers frames from zero, contiguously.
+	Seq   int64
+	Frame loadmetrics.Frame
+	// ActiveVUs is the number of VUs mid-iteration when the frame was cut.
+	ActiveVUs int64
+	// Dropped is the cumulative count of dropped arrival-rate iterations.
+	Dropped int64
+	// Final marks the last frame of the run.
+	Final bool
 }
 
 // ConfigFromScenario adapts a `load:` block scenario to a runnable Config.
@@ -85,25 +155,158 @@ type Config struct {
 // caller's job, since only it knows the imported workspace.
 func ConfigFromScenario(scenario mload.Scenario, flow *mflow.Flow) Config {
 	return Config{
-		ScenarioName:  scenario.Name,
-		Flow:          flow,
-		VUs:           scenario.VUs,
-		Duration:      scenario.Duration,
-		MaxIterations: scenario.MaxIterations,
+		ScenarioName:     scenario.Name,
+		Flow:             flow,
+		Executor:         scenario.Executor,
+		VUs:              scenario.VUs,
+		Duration:         scenario.Duration,
+		MaxIterations:    scenario.MaxIterations,
+		StartVUs:         scenario.StartVUs,
+		Stages:           scenario.Stages,
+		GracefulRampDown: scenario.GracefulRampDown,
+		Rate:             scenario.Rate,
+		StartRate:        scenario.StartRate,
+		TimeUnit:         scenario.TimeUnit,
+		PreAllocatedVUs:  scenario.PreAllocatedVUs,
+		MaxVUs:           scenario.MaxVUs,
+		GracefulStop:     scenario.GracefulStop,
+		ThinkTime:        scenario.ThinkTime,
+		Thresholds:       scenario.Thresholds,
+		Abort:            scenario.Abort,
 	}
+}
+
+// executor returns the configured executor, defaulting to constant-vus.
+func (c Config) executor() mload.Executor {
+	if c.Executor == "" {
+		return mload.ExecutorConstantVUs
+	}
+	return c.Executor
 }
 
 func (c Config) validate() error {
 	if c.Flow == nil {
 		return errors.New("load run: flow is required")
 	}
-	if c.VUs < 1 {
-		return fmt.Errorf("load run: vus must be >= 1, got %d", c.VUs)
+	switch c.executor() {
+	case mload.ExecutorConstantVUs:
+		if c.VUs < 1 {
+			return fmt.Errorf("load run: vus must be >= 1, got %d", c.VUs)
+		}
+		if c.Duration <= 0 && c.MaxIterations <= 0 {
+			return errors.New("load run: needs a stop condition, set duration or iterations")
+		}
+	case mload.ExecutorRampingVUs:
+		if len(c.Stages) == 0 {
+			return errors.New("load run: ramping-vus needs stages")
+		}
+		if c.PoolSize() < 1 {
+			return errors.New("load run: ramping-vus never reaches a VU")
+		}
+	case mload.ExecutorConstantArrivalRate, mload.ExecutorRampingArrivalRate:
+		if c.PreAllocatedVUs < 1 {
+			return fmt.Errorf("load run: pre_allocated_vus must be >= 1, got %d", c.PreAllocatedVUs)
+		}
+		if c.executor() == mload.ExecutorConstantArrivalRate && (c.Rate <= 0 || c.Duration <= 0) {
+			return errors.New("load run: constant-arrival-rate needs a positive rate and duration")
+		}
+		if c.executor() == mload.ExecutorRampingArrivalRate && len(c.Stages) == 0 {
+			return errors.New("load run: ramping-arrival-rate needs stages")
+		}
+	default:
+		return fmt.Errorf("load run: unsupported executor %q", c.Executor)
 	}
-	if c.Duration <= 0 && c.MaxIterations <= 0 {
-		return errors.New("load run: needs a stop condition, set duration or iterations")
+	if c.ThinkTime.Min < 0 || c.ThinkTime.Max < c.ThinkTime.Min {
+		return fmt.Errorf("load run: invalid think time %v..%v", c.ThinkTime.Min, c.ThinkTime.Max)
 	}
 	return nil
+}
+
+// PoolSize is the most VUs the profile can use at once, i.e. how many VU
+// workers it may need.
+func (c Config) PoolSize() int {
+	switch c.executor() {
+	case mload.ExecutorRampingVUs:
+		return c.rampingProfile(nil, nil).MaxVUs()
+	case mload.ExecutorConstantArrivalRate, mload.ExecutorRampingArrivalRate:
+		return max(c.MaxVUs, c.PreAllocatedVUs)
+	default:
+		return c.VUs
+	}
+}
+
+// preBuilt is how many VU workers are built before the run starts. Arrival
+// rate scenarios build their pre-allocated VUs up front and the rest of the
+// pool on demand; the closed-model executors build their whole pool.
+func (c Config) preBuilt() int {
+	if c.executor().IsArrivalRate() {
+		return c.PreAllocatedVUs
+	}
+	return c.PoolSize()
+}
+
+func toRunnerStages(stages []mload.Stage) []scenariorunner.Stage {
+	out := make([]scenariorunner.Stage, 0, len(stages))
+	for _, s := range stages {
+		out = append(out, scenariorunner.Stage{Duration: s.Duration, Target: s.Target})
+	}
+	return out
+}
+
+func (c Config) rampingProfile(stop <-chan struct{}, live *scenariorunner.Live) scenariorunner.RampingVUsProfile {
+	return scenariorunner.RampingVUsProfile{
+		StartVUs:         c.StartVUs,
+		Stages:           toRunnerStages(c.Stages),
+		GracefulRampDown: c.GracefulRampDown,
+		GracefulStop:     c.GracefulStop,
+		Stop:             stop,
+		Live:             live,
+	}
+}
+
+func (c Config) arrivalProfile(stop <-chan struct{}, live *scenariorunner.Live) scenariorunner.ArrivalRateProfile {
+	startRate, stages := c.StartRate, toRunnerStages(c.Stages)
+	if c.executor() == mload.ExecutorConstantArrivalRate {
+		startRate = c.Rate
+		stages = []scenariorunner.Stage{{Duration: c.Duration, Target: c.Rate}}
+	}
+	return scenariorunner.ArrivalRateProfile{
+		StartRate:       startRate,
+		Stages:          stages,
+		TimeUnit:        c.TimeUnit,
+		PreAllocatedVUs: c.PreAllocatedVUs,
+		MaxVUs:          c.MaxVUs,
+		GracefulStop:    c.GracefulStop,
+		Stop:            stop,
+		Live:            live,
+	}
+}
+
+// schedule runs iter under the configured executor.
+func (c Config) schedule(
+	ctx context.Context,
+	stop <-chan struct{},
+	live *scenariorunner.Live,
+	iter func(ctx context.Context, vu int, seq int64) error,
+) (scenariorunner.Summary, error) {
+	switch c.executor() {
+	case mload.ExecutorRampingVUs:
+		return scenariorunner.RunRampingVUs(ctx, c.rampingProfile(stop, live), iter)
+	case mload.ExecutorConstantArrivalRate, mload.ExecutorRampingArrivalRate:
+		return scenariorunner.RunArrivalRate(ctx, c.arrivalProfile(stop, live), iter)
+	default:
+		// Duration is passed through RunProfile only. Deriving it from a
+		// context deadline instead would make scenariorunner.Run return
+		// ctx.Err() at the end of every successful timed run, since it
+		// reports the caller's context state on the way out.
+		return scenariorunner.Run(ctx, scenariorunner.RunProfile{
+			VUs:           c.VUs,
+			Duration:      c.Duration,
+			MaxIterations: c.MaxIterations,
+			Stop:          stop,
+			Live:          live,
+		}, iter)
+	}
 }
 
 // Result is everything a completed load run produced.
@@ -111,13 +314,31 @@ type Result struct {
 	// Config is the profile that was executed.
 	Config Config
 	// Summary is the scheduler's view: iterations completed, iterations that
-	// returned an error, wall time.
+	// returned an error, interrupted and dropped iterations, wall time.
 	Summary scenariorunner.Summary
 	// Report is the merged metrics report keyed by (step, status class).
 	Report loadmetrics.Report
 	// ByStep is the same data folded across status classes, so each step has
 	// exactly one row. This is what the console table renders.
 	ByStep loadmetrics.Report
+	// Thresholds holds one verdict per configured threshold, in order.
+	Thresholds []ThresholdResult
+	// AbortReason says why the run stopped early, or is "" when it ran its
+	// course.
+	AbortReason string
+	// Frames is how many interval frames the run produced.
+	Frames int64
+}
+
+// ThresholdsPassed reports whether every threshold held. It is true when
+// none were configured.
+func (r Result) ThresholdsPassed() bool {
+	for _, t := range r.Thresholds {
+		if !t.Passed {
+			return false
+		}
+	}
+	return true
 }
 
 // Ran reports whether the scenario got as far as executing, and therefore
@@ -137,22 +358,29 @@ func (r Result) Ran() bool {
 //
 // A completed run is a success even when individual requests failed: request
 // errors are data, reported in Summary.Errors and in the report's error
-// counts. Run returns an error only when the run could not meaningfully
-// happen - invalid configuration, a failure setting up the flow graph, or
-// every virtual user failing its very first iteration (which means the target
-// was never reachable, not that the system under test is slow).
+// counts. Run returns an error when the run could not meaningfully happen -
+// invalid configuration, a failure setting up the flow graph, or every
+// virtual user failing its very first iteration (which means the target was
+// never reachable, not that the system under test is slow). A run that
+// executed can also end with ErrAborted (an abort rule or the Stopper ended
+// it early) and/or ErrThresholdsFailed, alongside its complete Result.
 func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger *slog.Logger) (Result, error) {
 	if err := cfg.validate(); err != nil {
 		return Result{}, err
 	}
 
-	workers, release, err := newWorkers(ctx, cfg, services, logger)
+	pool, err := newWorkerPool(ctx, cfg, services, logger)
 	if err != nil {
 		return Result{}, err
 	}
-	defer release()
+	defer pool.release()
 
-	tracker := newFirstIterationTracker(cfg.VUs)
+	stopper := cfg.Stopper
+	if stopper == nil {
+		stopper = NewStopper()
+	}
+	live := &scenariorunner.Live{}
+	tracker := newFirstIterationTracker(cfg.PoolSize())
 
 	// An aggregator's interval starts when it is constructed, which was
 	// during setup. Flushing the empty setup frame away restarts every
@@ -160,21 +388,28 @@ func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger
 	// report divides by is the scenario's, not the scenario's plus however
 	// long building VUs took.
 	startedAt := time.Now()
-	for _, w := range workers {
+	for _, w := range pool.built() {
 		w.agg.Flush(startedAt)
 	}
 
-	// Duration is passed through RunProfile only. Deriving it from a context
-	// deadline instead would make scenariorunner.Run return ctx.Err() at the
-	// end of every successful timed run, since it reports the caller's
-	// context state on the way out.
-	summary, runErr := scenariorunner.Run(ctx, scenariorunner.RunProfile{
-		VUs:           cfg.VUs,
-		Duration:      cfg.Duration,
-		MaxIterations: cfg.MaxIterations,
-	}, func(ctx context.Context, vu int, _ int64) error {
-		iterErr := workers[vu].iterate(ctx)
-		tracker.observe(vu, iterErr)
+	metrics := newIntervalMetrics(cfg, pool, live, stopper, startedAt)
+	metrics.start()
+
+	summary, runErr := cfg.schedule(ctx, stopper.Done(), live, func(ctx context.Context, vu int, _ int64) error {
+		w, err := pool.get(vu)
+		if err != nil {
+			tracker.observe(vu, err)
+			return err
+		}
+		iterErr := w.iterate(ctx)
+		// An iteration the scheduler cut short says nothing about whether
+		// the target is reachable.
+		if ctx.Err() == nil {
+			tracker.observe(vu, iterErr)
+		}
+		if iterErr == nil {
+			w.think(ctx, cfg.ThinkTime, stopper.Done())
+		}
 		return iterErr
 	})
 
@@ -182,17 +417,16 @@ func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger
 	// alongside it. Everything below this point describes a run that happened;
 	// discarding what it measured because it also ended badly would throw away
 	// precisely the numbers someone needs to understand why.
-	flushedAt := time.Now()
-	frames := make([]loadmetrics.Frame, 0, len(workers))
-	for _, w := range workers {
-		frames = append(frames, w.agg.Flush(flushedAt))
-	}
+	cumulative, frames := metrics.finish(time.Now())
 	result := Result{
-		Config:  cfg,
-		Summary: summary,
-		Report:  loadmetrics.Merge(frames),
-		ByStep:  loadmetrics.Merge(foldByStep(frames)),
+		Config:      cfg,
+		Summary:     summary,
+		Report:      loadmetrics.Merge([]loadmetrics.Frame{cumulative}),
+		ByStep:      loadmetrics.Merge(foldByStep([]loadmetrics.Frame{cumulative})),
+		AbortReason: stopper.Reason(),
+		Frames:      frames,
 	}
+	result.Thresholds = EvaluateThresholds(cfg.Thresholds, result.ByStep)
 
 	if runErr != nil {
 		return result, fmt.Errorf("load run: %w", runErr)
@@ -200,7 +434,15 @@ func Run(ctx context.Context, cfg Config, services runner.RunnerServices, logger
 	if err := tracker.setupFailure(); err != nil {
 		return result, err
 	}
-	return result, nil
+
+	var outcome []error
+	if result.AbortReason != "" {
+		outcome = append(outcome, fmt.Errorf("%w: %s", ErrAborted, result.AbortReason))
+	}
+	if failed := failedThresholds(result.Thresholds); failed != "" {
+		outcome = append(outcome, fmt.Errorf("%w: %s", ErrThresholdsFailed, failed))
+	}
+	return result, errors.Join(outcome...)
 }
 
 // foldByStep rewrites frames so every entry's status class is dropped,
@@ -313,54 +555,111 @@ type vuWorker struct {
 	bytesByExecution map[idwrap.IDWrap]int64
 }
 
-// aggregatorFlushInterval documents the cadence the aggregator was built for.
-// Load runs flush once at the end today; streaming interval frames is Phase 2.
-const aggregatorFlushInterval = 5 * time.Second
+// workerPool owns one vuWorker per VU index. Workers below preBuilt are
+// built before the run starts; the rest (an arrival-rate scenario's headroom
+// up to max_vus) are built the first time the scheduler hands their index
+// out, so a generous max_vus costs nothing unless the target slows down
+// enough to need it.
+type workerPool struct {
+	ctx         context.Context
+	cfg         Config
+	services    runner.RunnerServices
+	nodes       []mflow.Node
+	edgeMap     mflow.EdgesMap
+	baseVars    map[string]any
+	nodeTimeout time.Duration
+	logger      *slog.Logger
 
-// newWorkers reads the flow's topology once, then builds one isolated worker
-// per VU. The returned release function tears every worker down.
-func newWorkers(ctx context.Context, cfg Config, services runner.RunnerServices, logger *slog.Logger) ([]*vuWorker, func(), error) {
+	slots []workerSlot
+}
+
+type workerSlot struct {
+	once   sync.Once
+	worker atomic.Pointer[vuWorker]
+	err    error
+}
+
+// newWorkerPool reads the flow's topology once, then builds the pre-built
+// share of the pool. Call release to tear every built worker down.
+func newWorkerPool(ctx context.Context, cfg Config, services runner.RunnerServices, logger *slog.Logger) (*workerPool, error) {
 	if err := cfg.validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	nodes, err := services.NodeService.GetNodesByFlowID(ctx, cfg.Flow.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load run: get nodes for flow %q: %w", cfg.Flow.Name, err)
+		return nil, fmt.Errorf("load run: get nodes for flow %q: %w", cfg.Flow.Name, err)
 	}
 	edges, err := services.EdgeService.GetEdgesByFlowID(ctx, cfg.Flow.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load run: get edges for flow %q: %w", cfg.Flow.Name, err)
+		return nil, fmt.Errorf("load run: get edges for flow %q: %w", cfg.Flow.Name, err)
 	}
-	edgeMap := mflow.NewEdgesMap(edges)
 
 	flowVars, err := services.FlowVariableService.GetFlowVariablesByFlowID(ctx, cfg.Flow.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load run: get variables for flow %q: %w", cfg.Flow.Name, err)
+		return nil, fmt.Errorf("load run: get variables for flow %q: %w", cfg.Flow.Name, err)
 	}
 	baseVars, err := services.Builder.BuildVariables(ctx, cfg.Flow.WorkspaceID, flowVars)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load run: build variables for flow %q: %w", cfg.Flow.Name, err)
+		return nil, fmt.Errorf("load run: build variables for flow %q: %w", cfg.Flow.Name, err)
 	}
-	nodeTimeout := resolveNodeTimeout(baseVars)
 
-	workers := make([]*vuWorker, 0, cfg.VUs)
-	release := func() {
-		for _, w := range workers {
-			w.close()
+	pool := &workerPool{
+		ctx:         ctx,
+		cfg:         cfg,
+		services:    services,
+		nodes:       nodes,
+		edgeMap:     mflow.NewEdgesMap(edges),
+		baseVars:    baseVars,
+		nodeTimeout: resolveNodeTimeout(baseVars),
+		logger:      logger,
+		slots:       make([]workerSlot, cfg.PoolSize()),
+	}
+
+	for vu := range cfg.preBuilt() {
+		if _, err := pool.get(vu); err != nil {
+			pool.release()
+			return nil, err
 		}
 	}
+	return pool, nil
+}
 
-	for range cfg.VUs {
-		w, err := newVUWorker(ctx, cfg, services, nodes, edgeMap, baseVars, nodeTimeout, logger)
+// get returns VU vu's worker, building it on first use.
+func (p *workerPool) get(vu int) (*vuWorker, error) {
+	if vu < 0 || vu >= len(p.slots) {
+		return nil, fmt.Errorf("load run: VU %d is outside the pool of %d", vu, len(p.slots))
+	}
+	slot := &p.slots[vu]
+	slot.once.Do(func() {
+		w, err := newVUWorker(p.ctx, p.cfg, p.services, p.nodes, p.edgeMap, p.baseVars, p.nodeTimeout, p.logger)
 		if err != nil {
-			release()
-			return nil, nil, err
+			slot.err = err
+			return
 		}
-		workers = append(workers, w)
+		slot.worker.Store(w)
+	})
+	if w := slot.worker.Load(); w != nil {
+		return w, nil
 	}
+	return nil, slot.err
+}
 
-	return workers, release, nil
+// built returns every worker built so far.
+func (p *workerPool) built() []*vuWorker {
+	workers := make([]*vuWorker, 0, len(p.slots))
+	for i := range p.slots {
+		if w := p.slots[i].worker.Load(); w != nil {
+			workers = append(workers, w)
+		}
+	}
+	return workers
+}
+
+func (p *workerPool) release() {
+	for _, w := range p.built() {
+		w.close()
+	}
 }
 
 func newVUWorker(
@@ -377,7 +676,7 @@ func newVUWorker(
 		flowID:           cfg.Flow.ID,
 		flowName:         cfg.Flow.Name,
 		httpClient:       httpclient.New(),
-		agg:              loadmetrics.NewAggregator(aggregatorFlushInterval),
+		agg:              loadmetrics.NewAggregator(DefaultFrameInterval),
 		baseVars:         baseVars,
 		bytesByExecution: make(map[idwrap.IDWrap]int64),
 	}
@@ -505,7 +804,7 @@ func (w *vuWorker) iterate(ctx context.Context) error {
 				statusChan = nil
 				continue
 			}
-			w.record(status)
+			w.record(ctx, status)
 		case status, ok := <-flowChan:
 			if !ok {
 				flowChan = nil
@@ -533,6 +832,30 @@ func (w *vuWorker) iterate(ctx context.Context) error {
 	return cleanupErr
 }
 
+// think pauses after an iteration for the configured think time: a fixed
+// pause, or one drawn uniformly from [Min, Max]. It returns early when the
+// iteration's context ends or the run is stopping, so think time never
+// delays a ramp-down or the end of the run.
+func (w *vuWorker) think(ctx context.Context, think mload.ThinkTime, stop <-chan struct{}) {
+	if think.IsZero() {
+		return
+	}
+	pause := think.Min
+	if spread := think.Max - think.Min; spread > 0 {
+		pause += time.Duration(rand.Int64N(int64(spread) + 1))
+	}
+	if pause <= 0 {
+		return
+	}
+	timer := time.NewTimer(pause)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+	case <-stop:
+	}
+}
+
 func (w *vuWorker) resetBytes() {
 	w.bytesMu.Lock()
 	defer w.bytesMu.Unlock()
@@ -548,11 +871,18 @@ func (w *vuWorker) resetBytes() {
 // assertions and handing the response to the side-channel drain - but it has
 // nanosecond resolution, whereas the lap time reaches node output rounded to
 // whole milliseconds, which cannot describe a fast local target at all.
-func (w *vuWorker) record(status flowrunner.FlowNodeStatus) {
+//
+// A request the scheduler canceled (an iteration interrupted by a graceful
+// ramp-down or stop) is not recorded: it measures the load generator giving
+// up, not the target failing.
+func (w *vuWorker) record(ctx context.Context, status flowrunner.FlowNodeStatus) {
 	if status.State == mflow.NODE_STATE_RUNNING {
 		return
 	}
 	if !w.requestNodes[status.NodeID] {
+		return
+	}
+	if ctx.Err() != nil && (status.State == mflow.NODE_STATE_CANCELED || errors.Is(status.Error, context.Canceled)) {
 		return
 	}
 

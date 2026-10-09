@@ -58,7 +58,7 @@ func Root() *cobra.Command {
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
-		os.Exit(1)
+		os.Exit(ExitCode(err))
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,6 +100,9 @@ const (
 	ReportFormatConsole = "console"
 	ReportFormatJSON    = "json"
 	ReportFormatJUnit   = "junit"
+	// ReportFormatFrames streams a load run's interval frames, and posts its
+	// final report, to an HTTP endpoint: --report frames:<url>.
+	ReportFormatFrames = "frames"
 )
 
 func ParseReportSpecs(values []string) ([]ReportSpec, error) {
@@ -130,6 +134,10 @@ func ParseReportSpecs(values []string) ([]ReportSpec, error) {
 		case ReportFormatJSON, ReportFormatJUnit:
 			if path == "" {
 				return nil, fmt.Errorf("%s reporter requires a file path", format)
+			}
+		case ReportFormatFrames:
+			if err := validateFramesURL(path); err != nil {
+				return nil, err
 			}
 		default:
 			return nil, fmt.Errorf("unsupported report format %q", format)
@@ -164,6 +172,12 @@ func NewReporterGroup(specs []ReportSpec, opts ReporterOptions) (*ReporterGroup,
 			reporter = newJSONReporter(spec.Path)
 		case ReportFormatJUnit:
 			reporter = newJUnitReporter(spec.Path)
+		case ReportFormatFrames:
+			reporter = NewFrameSink(FrameSinkOptions{
+				URL:      spec.Path,
+				Token:    os.Getenv(EnvFramesToken),
+				WorkerID: defaultWorkerID(),
+			})
 		default:
 			return nil, fmt.Errorf("unsupported reporter format %q", spec.Format)
 		}
@@ -175,6 +189,30 @@ func NewReporterGroup(specs []ReportSpec, opts ReporterOptions) (*ReporterGroup,
 		reporters:      reporters,
 		consoleEnabled: hasConsole,
 	}, nil
+}
+
+// FrameSink returns the group's frames reporter, or nil when --report has
+// no frames target. The load runner feeds it interval frames directly.
+func (g *ReporterGroup) FrameSink() *FrameSink {
+	for _, reporter := range g.reporters {
+		if sink, ok := reporter.(*FrameSink); ok {
+			return sink
+		}
+	}
+	return nil
+}
+
+// validateFramesURL accepts only absolute http(s) URLs: a frames target is
+// an endpoint, never a file.
+func validateFramesURL(raw string) error {
+	if raw == "" {
+		return fmt.Errorf("frames reporter requires an endpoint URL, e.g. frames:https://example.com/frames")
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("frames reporter needs an http(s) URL, got %q", raw)
+	}
+	return nil
 }
 
 // Internal implementations below...
@@ -531,6 +569,7 @@ func (c *consoleReporter) Flush() error {
 
 	fmt.Print(FormatLoadHeader(report.Meta))
 	fmt.Print(FormatLoadTable(*report))
+	fmt.Print(FormatLoadVerdicts(report.Meta))
 	return nil
 }
 

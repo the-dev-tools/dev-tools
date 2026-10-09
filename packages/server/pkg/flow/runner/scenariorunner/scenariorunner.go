@@ -1,11 +1,19 @@
 // Package scenariorunner schedules repeated executions of an arbitrary
-// callback across a fixed pool of virtual users (VUs), the way a load
-// generator does.
+// callback across a pool of virtual users (VUs), the way a load generator
+// does.
 //
 // It is deliberately engine-agnostic: it knows nothing about flows, HTTP or
 // the rest of the runner packages. Callers supply an iteration function and a
-// RunProfile; the scheduler guarantees at most RunProfile.VUs iterations are
-// in flight at once and stops issuing new ones once a bound is reached.
+// profile, and pick an executor:
+//
+//   - Run: a constant number of VUs, each looping (constant-vus).
+//   - RunRampingVUs: a VU count that follows stages (ramping-vus).
+//   - RunArrivalRate: iterations started on a rate schedule, constant or
+//     staged, whatever their duration (the arrival-rate executors).
+//
+// Each guarantees no more iterations are in flight than its VU pool allows,
+// and stops issuing new ones once its schedule, a bound, Stop or the context
+// ends.
 package scenariorunner
 
 import (
@@ -33,6 +41,12 @@ type RunProfile struct {
 	// MaxIterations bounds the total number of iterations issued. Values <= 0
 	// mean unbounded, in which case Duration must be set.
 	MaxIterations int64
+	// Stop, when closed, ends the scenario early: no new iteration starts
+	// and in-flight ones drain, exactly as when Duration runs out. Nil
+	// means never.
+	Stop <-chan struct{}
+	// Live, when set, is kept up to date while the scenario runs.
+	Live *Live
 }
 
 // Summary reports what a scenario actually did.
@@ -41,6 +55,15 @@ type Summary struct {
 	Iterations int64
 	// Errors is how many of those iterations returned a non-nil error.
 	Errors int64
+	// Interrupted counts iterations the scheduler canceled before they
+	// finished - after a graceful ramp-down or graceful stop expired. They
+	// are in neither Iterations nor Errors. Always zero for Run, which never
+	// interrupts an iteration.
+	Interrupted int64
+	// Dropped counts arrival-rate iterations that were due to start but
+	// found every VU busy and the pool at its maximum. Always zero for the
+	// closed-model executors.
+	Dropped int64
 	// Elapsed is the wall-clock time from start until the last worker exited.
 	Elapsed time.Duration
 }
@@ -90,11 +113,14 @@ func Run(ctx context.Context, prof RunProfile, iter func(ctx context.Context, vu
 		go func() {
 			defer wg.Done()
 			for {
-				seq, ok := claim(ctx, &next, prof.MaxIterations, deadline)
+				seq, ok := claim(ctx, prof.Stop, &next, prof.MaxIterations, deadline)
 				if !ok {
 					return
 				}
-				if err := iter(ctx, vu, seq); err != nil {
+				prof.Live.enter()
+				err := iter(ctx, vu, seq)
+				prof.Live.leave()
+				if err != nil {
 					errCount.Add(1)
 				}
 				iterations.Add(1)
@@ -114,7 +140,7 @@ func Run(ctx context.Context, prof RunProfile, iter func(ctx context.Context, vu
 // claim reserves the next sequence number, or reports that the worker should
 // stop.
 //
-// Cancellation and the duration deadline are checked before the reservation, so
+// Cancellation, Stop and the duration deadline are checked before the reservation, so
 // no sequence number is burned once either has tripped. The iteration bound is
 // enforced after it instead: an over-limit claim is discarded rather than run.
 // next therefore overruns MaxIterations by up to VUs, which is harmless because
@@ -124,8 +150,8 @@ func Run(ctx context.Context, prof RunProfile, iter func(ctx context.Context, vu
 // Do not drop it on the assumption that a pre-check covers the bound; checking
 // the bound before the atomic add would let several workers read the same value
 // and overshoot.
-func claim(ctx context.Context, next *atomic.Int64, maxIterations int64, deadline time.Time) (int64, bool) {
-	if ctx.Err() != nil {
+func claim(ctx context.Context, stop <-chan struct{}, next *atomic.Int64, maxIterations int64, deadline time.Time) (int64, bool) {
+	if ctx.Err() != nil || stopped(stop) {
 		return 0, false
 	}
 	if !deadline.IsZero() && !time.Now().Before(deadline) {
