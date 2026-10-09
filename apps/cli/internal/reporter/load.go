@@ -29,9 +29,59 @@ type LoadRunMeta struct {
 	Iterations int64
 	Errors     int64
 	Elapsed    time.Duration
+	// Requests is how many HTTP requests the report counts. Only request
+	// steps are counted - never the manual_start node or other non-request
+	// nodes (see LoadMetricsScope).
+	Requests int64
+	// Interrupted counts iterations cut short by a graceful ramp-down or
+	// stop; Dropped counts arrival-rate iterations that found no free VU.
+	Interrupted int64
+	Dropped     int64
 	// WorkerVersion identifies the binary that produced the numbers, so
 	// baselines from different builds are not silently compared.
 	WorkerVersion string
+
+	// Executor is the scheduling strategy; "" means constant-vus.
+	Executor string
+	// Profile describes a non-constant-vus schedule in one line, e.g.
+	// "0->20 VUs over 3 stages (2m0s)". Unused for constant-vus, whose VUs
+	// and stop conditions have their own fields.
+	Profile string
+	// Thresholds are the run's threshold verdicts, in configuration order.
+	Thresholds []LoadThresholdResult
+	// AbortReason says why the run stopped early, or is "".
+	AbortReason string
+}
+
+// LoadThresholdResult is one threshold's verdict, ready to print.
+type LoadThresholdResult struct {
+	// Expression is the threshold in its canonical form, e.g. p95<300ms.
+	Expression string
+	Passed     bool
+	// Observed is the measured value as text, or "no data".
+	Observed string
+}
+
+// executorConstantVUs mirrors mload.ExecutorConstantVUs; the reporter keeps
+// no dependency on the scenario model.
+const executorConstantVUs = "constant-vus"
+
+func (m LoadRunMeta) executor() string {
+	if m.Executor == "" {
+		return executorConstantVUs
+	}
+	return m.Executor
+}
+
+// ThresholdsPassed reports whether every threshold held; true when there
+// are none.
+func (m LoadRunMeta) ThresholdsPassed() bool {
+	for _, t := range m.Thresholds {
+		if !t.Passed {
+			return false
+		}
+	}
+	return true
 }
 
 // LoadReport is a completed load run in the shape the reporters need:
@@ -136,13 +186,48 @@ func FormatLoadHeader(meta LoadRunMeta) string {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "\n=== %s ===\n", title)
-	fmt.Fprintf(&b, "Flow: %s | VUs: %d", meta.FlowName, meta.VUs)
-	for _, s := range stop {
-		fmt.Fprintf(&b, " | %s", s)
+	if meta.executor() == executorConstantVUs {
+		fmt.Fprintf(&b, "Flow: %s | VUs: %d", meta.FlowName, meta.VUs)
+		for _, s := range stop {
+			fmt.Fprintf(&b, " | %s", s)
+		}
+	} else {
+		fmt.Fprintf(&b, "Flow: %s | Executor: %s", meta.FlowName, meta.executor())
+		if meta.Profile != "" {
+			fmt.Fprintf(&b, " | %s", meta.Profile)
+		}
 	}
-	fmt.Fprintf(&b, "\nIterations: %d | Iteration errors: %d | Elapsed: %s\n",
-		meta.Iterations, meta.Errors, formatLoadDuration(meta.Elapsed))
+	fmt.Fprintf(&b, "\nIterations: %d | Iteration errors: %d | Requests: %d",
+		meta.Iterations, meta.Errors, meta.Requests)
+	if meta.Dropped > 0 {
+		fmt.Fprintf(&b, " | Dropped iterations: %d", meta.Dropped)
+	}
+	if meta.Interrupted > 0 {
+		fmt.Fprintf(&b, " | Interrupted: %d", meta.Interrupted)
+	}
+	fmt.Fprintf(&b, " | Elapsed: %s\n", formatLoadDuration(meta.Elapsed))
 	fmt.Fprintf(&b, "%s\n\n", LoadMetricsScope)
+	return b.String()
+}
+
+// FormatLoadVerdicts renders what is printed below the table: each
+// threshold's verdict and, for a run stopped early, why. It is empty for an
+// exploratory run that ran its course.
+func FormatLoadVerdicts(meta LoadRunMeta) string {
+	var b strings.Builder
+	if len(meta.Thresholds) > 0 {
+		b.WriteString("\nThresholds:\n")
+		for _, t := range meta.Thresholds {
+			verdict := "PASS"
+			if !t.Passed {
+				verdict = "FAIL"
+			}
+			fmt.Fprintf(&b, "  %s  %s (observed %s)\n", verdict, t.Expression, t.Observed)
+		}
+	}
+	if meta.AbortReason != "" {
+		fmt.Fprintf(&b, "\nAborted: %s\n", meta.AbortReason)
+	}
 	return b.String()
 }
 
@@ -201,7 +286,11 @@ func LoadStatusClassFromProto(class load_metricsv1.LoadStatusClass) loadmetrics.
 // jsonLoadReport is the additive `load_report` object of the JSON report. The
 // run's metrics ride in Report as the spec's LoadRunReport, serialized with
 // protojson so the CLI's report really is the N=1 case of the same message
-// the Phase 2 wire protocol carries.
+// the frames reporter carries (see FrameSink).
+//
+// Fields added after the first release are additive: the counters only
+// appear when non-zero, and the threshold/abort fields only when the run
+// had thresholds or stopped early.
 type jsonLoadReport struct {
 	Scenario      string          `json:"scenario,omitempty"`
 	Flow          string          `json:"flow"`
@@ -214,6 +303,14 @@ type jsonLoadReport struct {
 	WorkerVersion string          `json:"worker_version"`
 	MetricsScope  string          `json:"metrics_scope"`
 	Report        json.RawMessage `json:"report"`
+
+	Executor              string `json:"executor"`
+	Profile               string `json:"profile,omitempty"`
+	Requests              int64  `json:"requests"`
+	DroppedIterations     int64  `json:"dropped_iterations,omitempty"`
+	InterruptedIterations int64  `json:"interrupted_iterations,omitempty"`
+	ThresholdsPassed      *bool  `json:"thresholds_passed,omitempty"`
+	Aborted               string `json:"aborted,omitempty"`
 }
 
 // jsonLoadDocument is what the JSON reporter writes when a load report is
@@ -252,6 +349,17 @@ func buildJSONLoadReport(report *LoadReport) (*jsonLoadReport, error) {
 		WorkerVersion: report.Meta.WorkerVersion,
 		MetricsScope:  LoadMetricsScope,
 		Report:        compact,
+
+		Executor:              report.Meta.executor(),
+		Profile:               report.Meta.Profile,
+		Requests:              report.Meta.Requests,
+		DroppedIterations:     report.Meta.Dropped,
+		InterruptedIterations: report.Meta.Interrupted,
+		Aborted:               report.Meta.AbortReason,
+	}
+	if len(report.Meta.Thresholds) > 0 {
+		passed := report.Meta.ThresholdsPassed()
+		out.ThresholdsPassed = &passed
 	}
 	if report.Meta.Duration > 0 {
 		out.Duration = report.Meta.Duration.String()
@@ -263,8 +371,9 @@ func buildJSONLoadReport(report *LoadReport) (*jsonLoadReport, error) {
 // LoadRunReport. Per-step rows are sorted by (step, status class) so the
 // serialized report never depends on Go's map iteration order.
 //
-// Thresholds and the environment fingerprint are left unset: their shapes are
-// frozen in Phase 0 but nothing evaluates or collects them until Phase 2.
+// Thresholds carry the run's verdicts in configuration order, and are absent
+// for a run without any. The environment fingerprint is left unset: nothing
+// collects it yet.
 func loadRunReportProto(report *LoadReport) *load_metricsv1.LoadRunReport {
 	keys := make([]loadmetrics.Key, 0, len(report.Report.PerStep))
 	for key := range report.Report.PerStep {
@@ -295,10 +404,19 @@ func loadRunReportProto(report *LoadReport) *load_metricsv1.LoadRunReport {
 		})
 	}
 
-	return &load_metricsv1.LoadRunReport{
+	out := &load_metricsv1.LoadRunReport{
 		Total:   loadStatsProto(report.Report.Total),
 		PerStep: perStep,
 	}
+	for _, t := range report.Meta.Thresholds {
+		observed := t.Observed
+		out.Thresholds = append(out.Thresholds, &load_metricsv1.LoadThresholdVerdict{
+			Expression:    t.Expression,
+			Success:       t.Passed,
+			ObservedValue: &observed,
+		})
+	}
+	return out
 }
 
 func loadStatsProto(stats loadmetrics.Stats) *load_metricsv1.LoadStats {

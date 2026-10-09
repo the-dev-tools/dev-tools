@@ -109,6 +109,113 @@ flows:
   do not run when Ctrl-C interrupts a run, when the flow runs as a sub-flow,
   or in the desktop app, which does not store them yet.
 
+## Load Scenarios
+
+The optional top-level `load:` block describes load profiles for flows that
+already exist in `flows:`. A flow is never edited to be load-tested; a scenario
+names its flow and adds a schedule, and `devtoolscli flow run <file>
+--scenario <name>` runs it. The same entries can live in a separate file (a
+`load:` block, or a bare list of entries) passed with `--load-file`.
+
+```yaml
+load:
+  - name: checkout-ramp
+    flow: Checkout
+    executor: ramping-vus
+    start_vus: 0
+    stages:
+      - { duration: 30s, target: 50 }
+      - { duration: 5m, target: 50 }
+      - { duration: 30s, target: 0 }
+    think_time: { min: 1s, max: 3s }
+    thresholds:
+      p95: <300ms
+      errors: <1%
+      steps:
+        PostLogin:
+          p95: <500ms
+    abort:
+      - errors>20%
+      - when: p95>2s
+        window: 1m
+        delay: 30s
+```
+
+### Executors
+
+`executor` defaults to `constant-vus`. A key that does not apply to the chosen
+executor is rejected rather than ignored.
+
+| Executor                | Model  | Keys                                                                                          |
+| ----------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| `constant-vus`          | closed | `vus`, plus `duration` and/or `iterations`                                                    |
+| `ramping-vus`           | closed | `stages`, `start_vus` (0), `graceful_ramp_down` (30s), `graceful_stop` (30s)                  |
+| `constant-arrival-rate` | open   | `rate`, `duration`, `pre_allocated_vus`, `time_unit` (1s), `max_vus`, `graceful_stop` (30s)   |
+| `ramping-arrival-rate`  | open   | `stages`, `pre_allocated_vus`, `start_rate` (0), `time_unit` (1s), `max_vus`, `graceful_stop` |
+
+- **Closed models** loop each VU: a VU starts its next iteration when the
+  previous one ends, so a slower target means fewer iterations.
+- **`ramping-vus`** moves the number of looping VUs linearly through
+  `stages` (`target` is a whole number of VUs). A VU that is ramped away may
+  finish its iteration for up to `graceful_ramp_down`; after that, and after
+  `graceful_stop` once the last stage ends, the iteration is interrupted.
+  Interrupted iterations and their canceled requests are reported separately,
+  never as errors.
+- **Open models** start iterations on schedule regardless of response time:
+  `rate` iterations per `time_unit`, or a rate that moves linearly through
+  `stages` (`target` is a rate). Each start takes an idle VU, growing the pool
+  from `pre_allocated_vus` up to `max_vus` (default: `pre_allocated_vus`).
+  When every VU is busy and the pool is full the start is **dropped** and
+  counted as a dropped iteration in the report.
+- `think_time` pauses a VU after each iteration: a duration (`think_time: 1s`)
+  or a uniform range (`think_time: { min: 1s, max: 3s }`). It applies to every
+  executor.
+- Durations are Go durations (`500ms`, `30s`, `2m`, `1h30m`) and are exported
+  in canonical form (`2m0s`).
+
+### Thresholds
+
+`thresholds` are pass/fail conditions checked once the run ends. Any failure
+makes `flow run` exit with code 99, and every verdict is printed under the
+results table and written to the JSON report. Two spellings are accepted, and
+export always uses the map form:
+
+```yaml
+# map form
+thresholds:
+  p95: <300ms # whole run
+  errors: <1%
+  steps:
+    PostLogin: # one request step
+      p95: <500ms
+```
+
+```yaml
+# list form
+thresholds:
+  - p95<300ms
+  - p95(PostLogin)<500ms
+  - errors<1%
+```
+
+- Metrics: `p50`, `p90`, `p95`, `p99`, `max` (compared with a duration),
+  `errors` (alias `error_rate`; a percentage like `1%` or a ratio like `0.01`)
+  and `rps` (requests per second).
+- Operators: `<`, `<=`, `>`, `>=`. Quote a value that starts with `>`
+  (`rps: '>100'`), since YAML reads a bare `>` as a block scalar.
+- A threshold on a step that recorded no requests fails with `no data`.
+
+### Abort rules
+
+`abort` rules are evaluated on every metrics frame (every 5s by default, see
+`--frame-interval`) over a trailing `window` (default 30s), ignoring the first
+`delay`. The first rule whose condition holds stops the run: no new iterations
+start, in-flight ones get the executor's graceful stop, the report is still
+written, and `flow run` exits with code 108. A rule uses the threshold grammar,
+but it fires when the condition is true: `errors>20%` aborts once more than 20%
+of requests in the window failed. The shorthand `- errors>20%` is a rule with
+the default window and no delay.
+
 ## Supported Steps
 
 - `manual_start`: Entry point for flow execution.

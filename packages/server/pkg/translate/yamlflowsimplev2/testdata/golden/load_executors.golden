@@ -1,0 +1,83 @@
+version: 2
+workspace_name: Golden Load Executors
+run:
+    - flow: Checkout
+requests:
+    - name: CreateOrder
+      method: POST
+      url: https://api.example.com/orders
+    - name: PostLogin
+      method: POST
+      url: https://api.example.com/login
+flows:
+    - name: Checkout
+      steps:
+        - manual_start:
+            name: Start
+            position_x: 0
+            position_y: 0
+        - request:
+            name: PostLogin
+            depends_on: Start
+            position_x: 300
+            position_y: 0
+            use_request: PostLogin
+        - request:
+            name: CreateOrder
+            depends_on: PostLogin
+            position_x: 600
+            position_y: 0
+            use_request: CreateOrder
+load:
+    - name: ramp-checkout
+      flow: Checkout
+      executor: ramping-vus
+      stages:
+        - duration: 30s
+          target: 20
+        - duration: 2m0s
+          target: 20
+        - duration: 30s
+          target: 0
+      graceful_ramp_down: 10s
+      think_time:
+        min: 1s
+        max: 3s
+      thresholds:
+        p95: <300ms
+        errors: <1%
+        steps:
+            PostLogin:
+                p95: <500ms
+      abort:
+        - errors>20%
+        - when: p95>2s
+          window: 1m0s
+          delay: 30s
+    - name: steady-checkout
+      flow: Checkout
+      executor: constant-arrival-rate
+      duration: 5m0s
+      rate: 50
+      time_unit: 1s
+      pre_allocated_vus: 20
+      max_vus: 200
+      think_time: 500ms
+      thresholds:
+        p99: <1s
+        steps:
+            CreateOrder:
+                errors: <0.5%
+    - name: spike-checkout
+      flow: Checkout
+      executor: ramping-arrival-rate
+      stages:
+        - duration: 1m0s
+          target: 600
+        - duration: 1m0s
+          target: 0
+      start_rate: 10
+      time_unit: 1m0s
+      pre_allocated_vus: 10
+      max_vus: 100
+      graceful_stop: 15s

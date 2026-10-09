@@ -39,21 +39,49 @@ type YamlFlowFormatV2 struct {
 // profile applied to a flow declared in `flows:`. Flows are never edited to be
 // load-tested, so a scenario references its flow by name.
 //
-// Only the constant-vus executor exists in this build; ramping-vus,
-// constant-arrival-rate, stages and thresholds arrive in Phase 2. Unknown keys
-// are ignored by the parser (as everywhere else in this format), so a document
+// The same entry shape is accepted from a standalone load file (see
+// ParseLoadScenarios), so a scenario can live in the flow file or beside it.
+//
+// Which fields apply depends on the executor (see the package README's "Load
+// Scenarios" section); a field that does not apply to the chosen executor is
+// rejected rather than silently ignored. Keys this build does not know are
+// ignored by the parser (as everywhere else in this format), so a document
 // written for a later build still imports here.
 type YamlLoadScenario struct {
 	Name string `yaml:"name"`
 	Flow string `yaml:"flow"`
 	// Executor defaults to constant-vus when omitted.
 	Executor string `yaml:"executor,omitempty"`
-	VUs      int    `yaml:"vus"`
-	// Duration is a Go duration string ("30s", "2m"). Exported in Go's
-	// canonical form so re-export is a no-op.
+	// VUs is the constant-vus population.
+	VUs int `yaml:"vus,omitempty"`
+	// Duration is a Go duration string ("30s", "2m"), for constant-vus and
+	// constant-arrival-rate. Exported in Go's canonical form so re-export is
+	// a no-op.
 	Duration string `yaml:"duration,omitempty"`
-	// Iterations caps the total iterations issued across all VUs.
+	// Iterations caps the total iterations issued across all VUs
+	// (constant-vus only).
 	Iterations int64 `yaml:"iterations,omitempty"`
+
+	// StartVUs and Stages drive ramping-vus; Stages also drives
+	// ramping-arrival-rate.
+	StartVUs         int             `yaml:"start_vus,omitempty"`
+	Stages           []YamlLoadStage `yaml:"stages,omitempty"`
+	GracefulRampDown string          `yaml:"graceful_ramp_down,omitempty"`
+
+	// Rate, StartRate, TimeUnit, PreAllocatedVUs and MaxVUs drive the
+	// arrival-rate executors.
+	Rate            float64 `yaml:"rate,omitempty"`
+	StartRate       float64 `yaml:"start_rate,omitempty"`
+	TimeUnit        string  `yaml:"time_unit,omitempty"`
+	PreAllocatedVUs int     `yaml:"pre_allocated_vus,omitempty"`
+	MaxVUs          int     `yaml:"max_vus,omitempty"`
+
+	// GracefulStop applies to every executor but constant-vus.
+	GracefulStop string `yaml:"graceful_stop,omitempty"`
+	// ThinkTime, Thresholds and Abort apply to every executor.
+	ThinkTime  *YamlThinkTime      `yaml:"think_time,omitempty"`
+	Thresholds *YamlLoadThresholds `yaml:"thresholds,omitempty"`
+	Abort      []YamlAbortRule     `yaml:"abort,omitempty"`
 }
 
 // YamlCredentialV2 represents an LLM provider credential

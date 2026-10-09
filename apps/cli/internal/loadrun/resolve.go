@@ -25,6 +25,26 @@ type Options struct {
 	VUs        int
 	Duration   time.Duration
 	Iterations int64
+	// VUsScale and RateScale size the profile for one machine of a run
+	// split across several: VU counts are multiplied by VUsScale and
+	// arrival rates by RateScale (see mload.Scenario.Scaled). Zero means 1.
+	VUsScale  float64
+	RateScale float64
+}
+
+// scales returns the effective scales, rejecting negative ones.
+func (o Options) scales() (float64, float64, error) {
+	vus, rate := o.VUsScale, o.RateScale
+	if vus < 0 || rate < 0 {
+		return 0, 0, fmt.Errorf("--vus-scale and --rate-scale must be > 0, got %v and %v", vus, rate)
+	}
+	if vus == 0 {
+		vus = 1
+	}
+	if rate == 0 {
+		rate = 1
+	}
+	return vus, rate, nil
 }
 
 // Enabled reports whether the user asked for a load run at all. Everything
@@ -47,15 +67,29 @@ func (o Options) Enabled() bool {
 // The returned Config points into flows, so callers keep the identity of the
 // flow they passed in.
 func ResolveConfig(opts Options, scenarios []mload.Scenario, flows []mflow.Flow, flowNameArg string) (Config, error) {
-	if opts.Scenario != "" {
-		return resolveScenarioConfig(opts.Scenario, scenarios, flows)
+	vusScale, rateScale, err := opts.scales()
+	if err != nil {
+		return Config{}, err
 	}
-	return resolveFlagConfig(opts, flows, flowNameArg)
+
+	var (
+		scenario mload.Scenario
+		flow     *mflow.Flow
+	)
+	if opts.Scenario != "" {
+		scenario, flow, err = resolveScenario(opts.Scenario, scenarios, flows)
+	} else {
+		scenario, flow, err = resolveFlagScenario(opts, flows, flowNameArg)
+	}
+	if err != nil {
+		return Config{}, err
+	}
+	return ConfigFromScenario(scenario.Scaled(vusScale, rateScale), flow), nil
 }
 
-func resolveScenarioConfig(name string, scenarios []mload.Scenario, flows []mflow.Flow) (Config, error) {
+func resolveScenario(name string, scenarios []mload.Scenario, flows []mflow.Flow) (mload.Scenario, *mflow.Flow, error) {
 	if len(scenarios) == 0 {
-		return Config{}, fmt.Errorf(
+		return mload.Scenario{}, nil, fmt.Errorf(
 			"unknown load scenario %q: this workflow file has no load: block", name)
 	}
 
@@ -70,44 +104,47 @@ func resolveScenarioConfig(name string, scenarios []mload.Scenario, flows []mflo
 		}
 		flow := findFlow(flows, scenario.FlowName)
 		if flow == nil {
-			return Config{}, fmt.Errorf(
+			return mload.Scenario{}, nil, fmt.Errorf(
 				"load scenario %q targets flow %q, which is not in this workflow file (flows: %s)",
 				name, scenario.FlowName, flowNames(flows))
 		}
-		return ConfigFromScenario(scenario, flow), nil
+		return scenario, flow, nil
 	}
 
-	return Config{}, fmt.Errorf(
+	return mload.Scenario{}, nil, fmt.Errorf(
 		"unknown load scenario %q (scenarios in this file: %s)", name, strings.Join(names, ", "))
 }
 
-func resolveFlagConfig(opts Options, flows []mflow.Flow, flowNameArg string) (Config, error) {
+// resolveFlagScenario assembles a constant-vus scenario from the inline
+// profile flags.
+func resolveFlagScenario(opts Options, flows []mflow.Flow, flowNameArg string) (mload.Scenario, *mflow.Flow, error) {
 	if opts.VUs == 0 {
-		return Config{}, fmt.Errorf(
+		return mload.Scenario{}, nil, fmt.Errorf(
 			"a load run needs virtual users: pass --vus N, or --scenario NAME to run an entry of the file's load: block")
 	}
 	if opts.VUs < 0 {
-		return Config{}, fmt.Errorf("--vus must be >= 1, got %d", opts.VUs)
+		return mload.Scenario{}, nil, fmt.Errorf("--vus must be >= 1, got %d", opts.VUs)
 	}
 	if opts.Duration <= 0 && opts.Iterations <= 0 {
-		return Config{}, fmt.Errorf(
+		return mload.Scenario{}, nil, fmt.Errorf(
 			"a load run needs a stop condition: pass --duration (e.g. --duration 60s), --iterations, or both")
 	}
 	if opts.Iterations < 0 {
-		return Config{}, fmt.Errorf("--iterations must be >= 0, got %d", opts.Iterations)
+		return mload.Scenario{}, nil, fmt.Errorf("--iterations must be >= 0, got %d", opts.Iterations)
 	}
 
 	flow, err := selectFlow(flows, flowNameArg)
 	if err != nil {
-		return Config{}, err
+		return mload.Scenario{}, nil, err
 	}
 
-	return Config{
-		Flow:          flow,
+	return mload.Scenario{
+		FlowName:      flow.Name,
+		Executor:      mload.ExecutorConstantVUs,
 		VUs:           opts.VUs,
 		Duration:      opts.Duration,
 		MaxIterations: opts.Iterations,
-	}, nil
+	}, flow, nil
 }
 
 // selectFlow picks the flow a flag-driven load run should drive. A load run

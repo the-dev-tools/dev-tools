@@ -22,6 +22,7 @@ func sampleLoadReport() LoadReport {
 			Duration:      30 * time.Second,
 			Iterations:    512,
 			Errors:        3,
+			Requests:      1024,
 			Elapsed:       30 * time.Second,
 			WorkerVersion: "v9.9.9",
 		},
@@ -136,7 +137,7 @@ func TestFormatLoadHeader(t *testing.T) {
 	want := "" +
 		"\n=== Load Run: checkout-baseline ===\n" +
 		"Flow: Checkout | VUs: 4 | Duration: 30s\n" +
-		"Iterations: 512 | Iteration errors: 3 | Elapsed: 30.00s\n" +
+		"Iterations: 512 | Iteration errors: 3 | Requests: 1024 | Elapsed: 30.00s\n" +
 		LoadMetricsScope + "\n\n"
 
 	if got != want {
@@ -145,12 +146,12 @@ func TestFormatLoadHeader(t *testing.T) {
 }
 
 func TestFormatLoadHeaderWithoutScenario(t *testing.T) {
-	got := FormatLoadHeader(LoadRunMeta{FlowName: "Solo", VUs: 2, MaxIterations: 50, Iterations: 50})
+	got := FormatLoadHeader(LoadRunMeta{FlowName: "Solo", VUs: 2, MaxIterations: 50, Iterations: 50, Requests: 100})
 
 	want := "" +
 		"\n=== Load Run ===\n" +
 		"Flow: Solo | VUs: 2 | Max iterations: 50\n" +
-		"Iterations: 50 | Iteration errors: 0 | Elapsed: 0s\n" +
+		"Iterations: 50 | Iteration errors: 0 | Requests: 100 | Elapsed: 0s\n" +
 		LoadMetricsScope + "\n\n"
 
 	if got != want {

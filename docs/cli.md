@@ -60,7 +60,7 @@ Inside the flow you continue to reference `{{ env.LOGIN_EMAIL }}` exactly as you
 
 ## Reports
 
-By default the CLI prints a console report showing node order, duration, and status. You can request additional outputs with `--report format[:path]`. Supported formats are `console`, `json`, and `junit`. Examples:
+By default the CLI prints a console report showing node order, duration, and status. You can request additional outputs with `--report format[:path]`. Supported formats are `console`, `json`, and `junit`, plus `frames:<url>` for load runs (see [Streaming frames](#streaming-frames)). Examples:
 
 ```
 devtoolscli flow run workspace.yamlflow.yaml FlowA --report json:flow.json
@@ -69,6 +69,43 @@ devtoolscli flow run workspace.yamlflow.yaml FlowA --report console --report jun
 ```
 
 You can specify the flag multiple times. When writing JSON or JUnit reports, the CLI appends flow results after each run and flushes them on exit. This is useful for CI systems that collect test artifacts.
+
+## Load Testing
+
+The same flows run as load tests. Either describe a constant-VU profile inline, or run a named entry of the file's `load:` block:
+
+```
+devtoolscli flow run shop.yaml Checkout --vus 20 --duration 60s
+devtoolscli flow run shop.yaml --scenario checkout-ramp
+devtoolscli flow run shop.yaml --scenario checkout-ramp --load-file stresseur.load.yaml
+```
+
+A `load:` entry picks one of four executors - `constant-vus`, `ramping-vus`, `constant-arrival-rate` (start iterations at a fixed rate whatever the response time, and count dropped iterations once `max_vus` are busy) and `ramping-arrival-rate` - and may add `think_time`, `thresholds` and `abort` rules. The schema is documented in the [YAML format README](../packages/server/pkg/translate/yamlflowsimplev2/README.md#load-scenarios). `--load-file` reads extra entries with the identical schema from a separate file.
+
+A load run prints aggregate latency percentiles, throughput and error rate per request step. Only HTTP request steps are counted - not the `manual_start` node or other non-request nodes - and the JSON report carries the same data in its additive `load_report` field (`executor`, `requests`, `dropped_iterations`, `interrupted_iterations`, `thresholds_passed`, `aborted` and the per-threshold verdicts under `report.thresholds`).
+
+| Flag                                  | Meaning                                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `--scenario <name>`                   | Run that entry of the `load:` block (or of `--load-file`).                                         |
+| `--vus`, `--duration`, `--iterations` | Inline constant-VU profile; mutually exclusive with `--scenario`.                                  |
+| `--load-file <path>`                  | Add load scenarios from a separate file.                                                           |
+| `--vus-scale <f>`                     | Multiply VU counts (and constant-vus iteration budgets) by `f`, e.g. `0.25` on each of 4 machines. |
+| `--rate-scale <f>`                    | Multiply arrival rates by `f`.                                                                     |
+| `--frame-interval <d>`                | How often metrics frames are cut (default `5s`): the streaming cadence and abort-rule interval.    |
+| `--report frames:<url>`               | Stream every metrics frame to `<url>`, then the final report (see below).                          |
+
+Exit codes: `0` for a completed run (even with failed requests), `99` when a threshold fails, `108` when an abort rule or the frames dead-man switch stopped the run, `1` when the run could not happen (unknown scenario, invalid profile, unreachable target).
+
+### Streaming frames
+
+`--report frames:<url>` POSTs a JSON envelope per metrics frame to `<url>` with `Authorization: Bearer $DEVTOOLS_FRAMES_TOKEN`:
+
+```
+{"kind":"frame","worker":"<DEVTOOLS_WORKER_ID or hostname>","scenario":"checkout-ramp","flow":"Checkout",
+ "seq":0,"final":false,"active_vus":20,"dropped_iterations":0,"frame":{"intervalStart":"…","intervalMs":"5000","entries":[…]}}
+```
+
+`frame` is the `LoadMetricFrame` message (protobuf JSON) with one entry per request step and status class, each carrying its compressed HDR histogram, so frames from several machines merge without loss. After the run a final `{"kind":"report", …, "load_report": {…}}` envelope carries the same object as the JSON report. Delivery is retried with exponential backoff on network errors, 408, 429 and 5xx, and never slows the run: frames queue in the background and are dropped (and counted) if the queue fills. If the endpoint accepts nothing for 60 seconds the run ramps down and stops with exit code 108, so a load generator whose controller has gone away cannot keep hitting the target.
 
 ## Continuous Integration Tips
 

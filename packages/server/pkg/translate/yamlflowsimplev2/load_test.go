@@ -1,6 +1,7 @@
 package yamlflowsimplev2
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -59,7 +60,7 @@ load:
 		Duration:      30 * time.Second,
 		MaxIterations: 500,
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("scenario mismatch:\n got: %+v\nwant: %+v", got, want)
 	}
 }
@@ -86,10 +87,10 @@ load:
 }
 
 // TestLoadBlockRejectsUnsupportedExecutor holds the error message to the
-// contract: it must name the offending value, the executors this build
-// accepts, and where the rest are coming from.
+// contract: it must name the offending value and every executor this build
+// accepts.
 func TestLoadBlockRejectsUnsupportedExecutor(t *testing.T) {
-	for _, executor := range []string{"ramping-vus", "constant-arrival-rate", "nonsense"} {
+	for _, executor := range []string{"nonsense", "per-vu-iterations"} {
 		t.Run(executor, func(t *testing.T) {
 			yamlDoc := loadTestFlows + `
 load:
@@ -104,7 +105,9 @@ load:
 			if err == nil {
 				t.Fatalf("expected executor %q to be rejected", executor)
 			}
-			for _, want := range []string{executor, "constant-vus", "Phase 2"} {
+			for _, want := range []string{
+				executor, "constant-vus", "ramping-vus", "constant-arrival-rate", "ramping-arrival-rate",
+			} {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("error %q does not mention %q", err, want)
 				}
