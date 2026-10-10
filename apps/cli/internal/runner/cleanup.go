@@ -85,6 +85,7 @@ func BuildCleanup(ctx context.Context, flow mflow.Flow, services RunnerServices,
 		}
 		stepNodes[step.NodeID] = n
 	}
+	ApplyStreams(stepNodes, services.Streams)
 
 	return &Cleanup{
 		flowID:  block.CleanupFlowID,

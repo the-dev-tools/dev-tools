@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/reporter"
 	"github.com/the-dev-tools/dev-tools/apps/cli/internal/runner"
 	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlitemem"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/aicheck"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/flowbuilder"
 	gqlresolver "github.com/the-dev-tools/dev-tools/packages/server/pkg/graphql/resolver"
@@ -31,8 +33,9 @@ import (
 )
 
 var (
-	quietMode     bool
-	showOutput    bool
+	quietMode      bool
+	showOutput     bool
+	judgeCachePath string
 	loadOpts      loadrun.Options
 	loadFile      string
 	frameInterval time.Duration
@@ -50,6 +53,8 @@ func init() {
 		"Report outputs to produce (format[:path]). Supported formats: console, json, junit, and for load runs frames:<url>.")
 	yamlflowRunCmd.Flags().BoolVarP(&quietMode, "quiet", "q", false, "Suppress non-essential output for CI/CD usage")
 	yamlflowRunCmd.Flags().BoolVar(&showOutput, "show-output", false, "Show node output data (including AI metrics) after each node completes")
+	yamlflowRunCmd.Flags().StringVar(&judgeCachePath, "judge-cache", aicheck.DefaultCachePath,
+		"File that caches AI check judge verdicts (keyed on judge, rubric and output); \"off\" disables it")
 
 	yamlflowRunCmd.Flags().StringVar(&loadOpts.Scenario, "scenario", "",
 		"Run the named entry of the file's load: block as a load test")
@@ -123,7 +128,18 @@ Load mode
 
   JUnit output carries no load data. Load results go to the console table
   and the JSON report's additive load_report field only; --report junit
-  during a load run still writes a file, but as an empty test suite.`,
+  during a load run still writes a file, but as an empty test suite.
+
+AI checks
+  A request step's expect: block (schema, max_latency_ms, max_ttft_ms, token
+  budgets, judge) is evaluated after the flow's steps finish, so it never
+  counts in step timings. Results are printed under the flow's table and
+  written to the JSON report as each step's checks[]. Judge calls run in
+  parallel and are cached in --judge-cache. The judge key comes from
+  api_key_env, else STRESSEUR_JUDGE_API_KEY, else ANTHROPIC_API_KEY or
+  OPENAI_API_KEY (the environment or ./.env); without one, judge checks are
+  skipped. Failed checks fail the flow only with quality: { fail_below: ... }.
+  Load runs do not evaluate expect:.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Arguments are valid by now: a failing flow is not a usage mistake, so don't print the
@@ -245,9 +261,23 @@ Load mode
 		resolved, err := yamlflowsimplev2.ConvertSimplifiedYAML(fileData, yamlflowsimplev2.ConvertOptionsV2{
 			WorkspaceID:   workspaceID,
 			CredentialMap: credentialMap,
+			BaseDir:       filepath.Dir(yamlflowFilePath),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to convert YAML using v2: %w", err)
+		}
+
+		cachePath := judgeCachePath
+		if strings.EqualFold(cachePath, "off") {
+			cachePath = ""
+		}
+		checks, err := runner.NewChecks(resolved, runner.ChecksOptions{
+			Dir:       filepath.Dir(yamlflowFilePath),
+			CachePath: cachePath,
+			Env:       aicheck.KeyEnvironment(".env"),
+		})
+		if err != nil {
+			return fmt.Errorf("invalid AI checks: %w", err)
 		}
 
 		httpResolver := resolver.NewStandardResolver(
@@ -403,6 +433,7 @@ Load mode
 			Builder:             builder,
 			JSClient:            jsClient,
 			Cleanups:            resolved.CleanupsByFlowID(),
+			Streams:             resolved.AllRequestStreams(),
 		}
 
 		if loadOpts.Enabled() {
@@ -417,6 +448,17 @@ Load mode
 			releaseFrameSink(reporters)
 			return fmt.Errorf("--report frames:<url> streams load-test metrics; it needs a load run (--scenario or --vus)")
 		}
+
+		// Load runs do not evaluate expect:; flow runs do, after each flow.
+		runnerServices.Checks = checks
+		defer func() {
+			for _, notice := range checks.Notices() {
+				fmt.Fprintln(os.Stderr, notice)
+			}
+			if err := checks.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "could not save the judge cache: %v\n", err)
+			}
+		}()
 
 		var runErr error
 		if runMultiple {

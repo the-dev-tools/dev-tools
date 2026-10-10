@@ -75,6 +75,7 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	}
 
 	s.warnUnstoredLoadScenarios(ctx, bundle)
+	s.warnUnstoredAIChecks(ctx, bundle)
 	if !opts.ImportFlowCleanups {
 		s.warnUnstoredFlowCleanups(ctx, bundle)
 	}
@@ -433,6 +434,23 @@ func (s *IOWorkspaceService) warnUnstoredLoadScenarios(ctx context.Context, bund
 		"count", len(bundle.LoadScenarios),
 		"scenarios", strings.Join(names, ", "),
 	)
+}
+
+// AIChecksNotStoredMessage is logged when an imported bundle carries AI checks
+// or stream settings, which have no storage yet.
+const AIChecksNotStoredMessage = "AI checks and stream settings were not stored: this version keeps expect:, judge:, quality: and stream: in the workflow file only, so exporting this workspace will not reproduce them"
+
+// warnUnstoredAIChecks reports AI checks and stream settings this version cannot
+// persist, for the same reason warnUnstoredLoadScenarios exists.
+func (s *IOWorkspaceService) warnUnstoredAIChecks(ctx context.Context, bundle *WorkspaceBundle) {
+	if bundle == nil {
+		return
+	}
+	expects, streams := len(bundle.StepExpects()), len(bundle.AllRequestStreams())
+	if bundle.AIChecks.IsEmpty() && expects == 0 && streams == 0 {
+		return
+	}
+	s.logger.WarnContext(ctx, AIChecksNotStoredMessage, "expect_blocks", expects, "streams", streams)
 }
 
 // Flow import functions have been moved to importer_flow.go

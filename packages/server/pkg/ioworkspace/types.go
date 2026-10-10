@@ -1,9 +1,11 @@
 package ioworkspace
 
 import (
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
@@ -89,6 +91,51 @@ type WorkspaceBundle struct {
 	// this field. Import stores them only when ImportOptions.ImportFlowCleanups
 	// is set, which the CLI does so it can execute them.
 	FlowCleanups []FlowCleanup
+
+	// AIChecks carries the yamlflow AI checks: the file's and flows' judge:,
+	// quality: and iterations:, and each step's expect: block (by flow node ID).
+	//
+	// File-only, like LoadScenarios: Import does not store it (and says so) and
+	// Export never populates it. The CLI evaluates it after each flow run.
+	// Expect blocks of cleanup steps live in the cleanup's own Bundle.
+	AIChecks *mexpect.Checks
+
+	// RequestStreams carries request steps' stream: settings, by flow node ID.
+	// File-only, like AIChecks; the CLI applies them to the built nodes.
+	RequestStreams map[idwrap.IDWrap]httpclient.StreamOptions
+}
+
+// StepExpects returns every step's expect: block, cleanup steps included, by flow node ID.
+func (wb *WorkspaceBundle) StepExpects() map[idwrap.IDWrap]mexpect.Expect {
+	out := map[idwrap.IDWrap]mexpect.Expect{}
+	add := func(b *WorkspaceBundle) {
+		if b != nil && b.AIChecks != nil {
+			for id, e := range b.AIChecks.Steps {
+				out[id] = e
+			}
+		}
+	}
+	add(wb)
+	for _, c := range wb.FlowCleanups {
+		add(c.Bundle)
+	}
+	return out
+}
+
+// AllRequestStreams returns every request step's stream: settings, cleanup steps included.
+func (wb *WorkspaceBundle) AllRequestStreams() map[idwrap.IDWrap]httpclient.StreamOptions {
+	out := map[idwrap.IDWrap]httpclient.StreamOptions{}
+	for id, s := range wb.RequestStreams {
+		out[id] = s
+	}
+	for _, c := range wb.FlowCleanups {
+		if c.Bundle != nil {
+			for id, s := range c.Bundle.RequestStreams {
+				out[id] = s
+			}
+		}
+	}
+	return out
 }
 
 // FlowCleanup is the `cleanup:` block of one flow.

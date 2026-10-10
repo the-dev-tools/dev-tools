@@ -17,6 +17,7 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/rs/cors v1.11.1
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/stretchr/testify v1.11.1
 	github.com/the-dev-tools/dev-tools/packages/auth-lib v0.0.0-00010101000000-000000000000
 	github.com/the-dev-tools/dev-tools/packages/db v0.0.0-20260109155745-2a4ef8569d93

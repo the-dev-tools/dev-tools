@@ -550,6 +550,21 @@ func (c *consoleReporter) HandleFlowResult(result model.FlowRunResult) {
 
 	fmt.Println(state.topBorder)
 	fmt.Printf("Flow Duration: %v | Steps: %d/%d Successful\n", result.Duration, state.successCount, state.totalNodes)
+	printCheckLines(result)
+}
+
+// printCheckLines prints a flow's AI check lines after its table.
+func printCheckLines(result model.FlowRunResult) {
+	if len(result.CheckLines) == 0 {
+		return
+	}
+	fmt.Println("Checks")
+	for _, line := range result.CheckLines {
+		fmt.Println("  " + line)
+	}
+	if result.JudgeLine != "" {
+		fmt.Println(result.JudgeLine)
+	}
 }
 
 func (c *consoleReporter) SetLoadReport(report *LoadReport) {

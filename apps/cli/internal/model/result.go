@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/aicheck"
 )
 
 type IterationContextResult struct {
@@ -28,6 +30,18 @@ type NodeRunResult struct {
 	Cleanup bool `json:"cleanup,omitempty"`
 	// SkipReason says why a skipped step did not run (State NodeStateSkipped).
 	SkipReason string `json:"skip_reason,omitempty"`
+	// Checks are the step's AI checks (its expect: block), evaluated after the flow's steps
+	// finished. Only the step's last execution carries them.
+	Checks []aicheck.Result `json:"checks,omitempty"`
+}
+
+// JudgeStats is the judge's work for one flow.
+type JudgeStats struct {
+	Calls        int   `json:"calls"`
+	Cached       int   `json:"cached"`
+	InputTokens  int   `json:"input_tokens"`
+	OutputTokens int   `json:"output_tokens"`
+	ElapsedMS    int64 `json:"elapsed_ms"`
 }
 
 type FlowRunResult struct {
@@ -38,4 +52,12 @@ type FlowRunResult struct {
 	Status   string          `json:"status"`
 	Error    string          `json:"error,omitempty"`
 	Nodes    []NodeRunResult `json:"nodes"`
+	// ChecksStatus is the worst AI check status: passed, skipped, warn or failed. Empty
+	// when the flow has no expect: blocks.
+	ChecksStatus string `json:"checks_status,omitempty"`
+	// Judge is the judge's work for this flow, when a step has a judge check.
+	Judge *JudgeStats `json:"judge,omitempty"`
+	// CheckLines and JudgeLine are the console's check lines.
+	CheckLines []string `json:"-"`
+	JudgeLine  string   `json:"-"`
 }

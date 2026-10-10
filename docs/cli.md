@@ -70,6 +70,26 @@ devtoolscli flow run workspace.yamlflow.yaml FlowA --report console --report jun
 
 You can specify the flag multiple times. When writing JSON or JUnit reports, the CLI appends flow results after each run and flushes them on exit. This is useful for CI systems that collect test artifacts.
 
+## AI Checks
+
+A request step's `expect:` block checks AI output after the flow's steps finish, so it never counts in step timings. It can check a JSON schema, latency, time to first token, token budgets, and a G-Eval judge scored 1–5 by Anthropic or any OpenAI-compatible model. The syntax is in the [YAML format README](../packages/server/pkg/translate/yamlflowsimplev2/README.md#ai-checks-expect).
+
+```
+Checks
+  ✓ AskAssistant schema
+  ✓ AskAssistant latency 59 ms ≤ 4 s
+  ✗ AskAssistant judge 2 (min 4): Answer omits where to cancel.
+Judge: 1 call, 1.3 s
+```
+
+The JSON report adds `checks[]` to each step (`kind`, `passed`, `score`, `reason`, `judge_model`, `cached`, `value`, `limit`, plus `skipped` and the judge's calls and tokens). It also adds `checks_status` and `judge` to each flow.
+
+- **Judge key:** `api_key_env`, else `STRESSEUR_JUDGE_API_KEY`, else `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, from the environment or `./.env`. Without one, judge checks are skipped and a notice says which variable to set.
+- **Cache:** verdicts are cached in `--judge-cache <path>` (default `.devtools/judge-cache.json`; `off` disables it). Keep the file between CI jobs so unchanged outputs are never judged twice.
+- **Exit code:** failed checks fail the flow only when the file or flow sets `quality: { fail_below: 90% }`; otherwise they only report.
+
+Responses with `Content-Type: text/event-stream`, or from steps with `stream: openai | anthropic | vercel-ai | sse`, are read as they arrive. Assertions and `expect:` can then read `response.text`, `response.events`, `response.event_count` and `response.ttft_ms`. A stream still open after `stream_timeout_ms` (default 30000) fails the step.
+
 ## Load Testing
 
 The same flows run as load tests. Either describe a constant-VU profile inline, or run a named entry of the file's `load:` block:

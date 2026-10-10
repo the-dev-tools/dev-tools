@@ -40,6 +40,10 @@ type RunnerServices struct {
 	// Cleanups holds each flow's cleanup: block, keyed by owning flow ID. The
 	// hidden cleanup flows must have been imported (ImportFlowCleanups).
 	Cleanups map[idwrap.IDWrap]ioworkspace.FlowCleanup
+	// Streams holds request steps' stream: options, by flow node ID.
+	Streams map[idwrap.IDWrap]httpclient.StreamOptions
+	// Checks evaluates the flows' AI checks after each run; nil when the file has none.
+	Checks *Checks
 }
 
 // RunMultipleFlows executes multiple flows based on the run field configuration.
@@ -279,6 +283,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	if err != nil {
 		return markFailure(err)
 	}
+	ApplyStreams(flowNodeMap, services.Streams)
 
 	// Build the cleanup nodes before anything runs, so a broken cleanup block
 	// fails the flow before it creates data it could not remove.
@@ -416,6 +421,13 @@ Done:
 
 	result.Duration = time.Since(result.Started)
 	result.Nodes = nodeResults
+
+	// AI checks run after the steps and the cleanup, so judge time never counts in step or
+	// flow durations.
+	if err := services.Checks.evaluate(ctx, flowPtr.ID, &result); err != nil && result.Status == "success" {
+		result.Status = "failed"
+		result.Error = err.Error()
+	}
 
 	if reporters != nil {
 		reporters.HandleFlowResult(result)

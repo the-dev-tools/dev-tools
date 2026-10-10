@@ -1195,8 +1195,14 @@ func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpcl
 }
 
 func SendRequestWithContext(ctx context.Context, req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
+	return SendRequestStream(ctx, req, exampleID, client, nil)
+}
+
+// SendRequestStream sends a request, reading the response as a stream when stream is set or
+// the response is text/event-stream (see httpclient.SendRequestAndConvertStream).
+func SendRequestStream(ctx context.Context, req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient, stream *httpclient.StreamOptions) (*RequestResponse, error) {
 	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, req, exampleID)
+	respHttp, err := httpclient.SendRequestAndConvertStream(ctx, client, req, exampleID, stream)
 	lapse := time.Since(now)
 	if err != nil {
 		// Preserve context cancellation/timeout classification and annotate with request data
