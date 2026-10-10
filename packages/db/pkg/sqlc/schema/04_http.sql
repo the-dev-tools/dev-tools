@@ -380,3 +380,12 @@ CREATE TABLE http_response_assert (
 -- Performance indexes for HttpResponseAssert
 CREATE INDEX http_response_assert_response_idx ON http_response_assert (response_id);
 CREATE INDEX http_response_assert_success_idx ON http_response_assert (response_id, success);
+
+-- Stream settings of an HTTP request: the yamlflow `stream:` preset and
+-- `stream_timeout_ms` (0 = the engine default). See docs/specs/AI_CHECKS.md.
+CREATE TABLE http_stream (
+  http_id BLOB NOT NULL PRIMARY KEY,
+  preset TEXT NOT NULL,
+  timeout_ms BIGINT NOT NULL DEFAULT 0,
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+);

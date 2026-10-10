@@ -144,7 +144,9 @@ func runNodesMultiEventDriven(ctx context.Context, startNodeID idwrap.IDWrap, re
 			nodeCtx := flowCtx
 			var cancelNode context.CancelFunc
 			if cfg.Timeout > 0 {
-				if _, isLoop := currentNode.(node.LoopCoordinator); !isLoop {
+				_, isLoop := currentNode.(node.LoopCoordinator)
+				_, isBackground := currentNode.(node.BackgroundNode)
+				if !isLoop && !isBackground {
 					nodeCtx, cancelNode = context.WithTimeout(flowCtx, cfg.Timeout)
 				}
 			}

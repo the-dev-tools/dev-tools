@@ -979,6 +979,24 @@ sql:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### http_stream table
+          - column: 'http_stream.http_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_node_expect table
+          - column: 'flow_node_expect.flow_node_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### flow_ai_checks table
+          - column: 'flow_ai_checks.flow_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### flow_node_wait table
           - column: 'flow_node_wait.flow_node_id'
             go_type:

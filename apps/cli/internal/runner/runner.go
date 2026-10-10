@@ -22,6 +22,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
 
 	// Service interfaces
@@ -40,8 +41,8 @@ type RunnerServices struct {
 	// Cleanups holds each flow's cleanup: block, keyed by owning flow ID. The
 	// hidden cleanup flows must have been imported (ImportFlowCleanups).
 	Cleanups map[idwrap.IDWrap]ioworkspace.FlowCleanup
-	// Streams holds request steps' stream: options, by flow node ID.
-	Streams map[idwrap.IDWrap]httpclient.StreamOptions
+	// Streams holds request steps' stream: settings, by HTTP request ID.
+	Streams map[idwrap.IDWrap]mhttp.HTTPStream
 	// Checks evaluates the flows' AI checks after each run; nil when the file has none.
 	Checks *Checks
 }

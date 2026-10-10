@@ -1,7 +1,6 @@
 package ioworkspace
 
 import (
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
@@ -94,15 +93,13 @@ type WorkspaceBundle struct {
 
 	// AIChecks carries the yamlflow AI checks: the file's and flows' judge:,
 	// quality: and iterations:, and each step's expect: block (by flow node ID).
-	//
-	// File-only, like LoadScenarios: Import does not store it (and says so) and
-	// Export never populates it. The CLI evaluates it after each flow run.
-	// Expect blocks of cleanup steps live in the cleanup's own Bundle.
+	// Import stores the flows' settings (with the file's folded in) and the
+	// steps' blocks; Export reads them back as flow settings and steps. Expect
+	// blocks of cleanup steps live in the cleanup's own Bundle.
 	AIChecks *mexpect.Checks
 
-	// RequestStreams carries request steps' stream: settings, by flow node ID.
-	// File-only, like AIChecks; the CLI applies them to the built nodes.
-	RequestStreams map[idwrap.IDWrap]httpclient.StreamOptions
+	// HTTPStreams carries request steps' stream: settings, by HTTP request.
+	HTTPStreams []mhttp.HTTPStream
 }
 
 // StepExpects returns every step's expect: block, cleanup steps included, by flow node ID.
@@ -122,16 +119,17 @@ func (wb *WorkspaceBundle) StepExpects() map[idwrap.IDWrap]mexpect.Expect {
 	return out
 }
 
-// AllRequestStreams returns every request step's stream: settings, cleanup steps included.
-func (wb *WorkspaceBundle) AllRequestStreams() map[idwrap.IDWrap]httpclient.StreamOptions {
-	out := map[idwrap.IDWrap]httpclient.StreamOptions{}
-	for id, s := range wb.RequestStreams {
-		out[id] = s
+// AllHTTPStreams returns every HTTP request's stream: settings, cleanup steps included, by
+// HTTP request ID.
+func (wb *WorkspaceBundle) AllHTTPStreams() map[idwrap.IDWrap]mhttp.HTTPStream {
+	out := map[idwrap.IDWrap]mhttp.HTTPStream{}
+	for _, s := range wb.HTTPStreams {
+		out[s.HttpID] = s
 	}
 	for _, c := range wb.FlowCleanups {
 		if c.Bundle != nil {
-			for id, s := range c.Bundle.RequestStreams {
-				out[id] = s
+			for _, s := range c.Bundle.HTTPStreams {
+				out[s.HttpID] = s
 			}
 		}
 	}

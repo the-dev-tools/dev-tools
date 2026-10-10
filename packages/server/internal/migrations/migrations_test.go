@@ -361,7 +361,7 @@ func TestGraphQLDeltaColumnsCreated(t *testing.T) {
 // TestMigrationCount ensures no migrations are accidentally omitted.
 func TestMigrationCount(t *testing.T) {
 	migrations := migrate.List()
-	const expectedCount = 11
+	const expectedCount = 12
 	if len(migrations) != expectedCount {
 		t.Errorf("expected %d registered migrations, got %d — update this count if you added/removed a migration", expectedCount, len(migrations))
 	}
@@ -552,6 +552,23 @@ func TestWaitNodeTableCreated(t *testing.T) {
 
 	assertTableExists(t, ctx, db, "flow_node_wait")
 	assertColumnExists(t, ctx, db, "flow_node_wait", "duration_ms")
+}
+
+// TestAIChecksTablesCreated verifies the stream:/expect: storage migration.
+func TestAIChecksTablesCreated(t *testing.T) {
+	ctx := context.Background()
+	db := runAllMigrations(t, ctx)
+
+	for table, columns := range map[string][]string{
+		"http_stream":      {"http_id", "preset", "timeout_ms"},
+		"flow_node_expect": {"flow_node_id", "expect"},
+		"flow_ai_checks":   {"flow_id", "settings"},
+	} {
+		assertTableExists(t, ctx, db, table)
+		for _, col := range columns {
+			assertColumnExists(t, ctx, db, table, col)
+		}
+	}
 }
 
 // TestFlowErrorColumnsCreated verifies flow error/node_id_mapping columns.

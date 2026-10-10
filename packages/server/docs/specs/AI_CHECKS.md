@@ -50,14 +50,48 @@ keeps `iterations:` for the round trip and otherwise ignores it.
 
 ## Storage
 
-The settings travel in `WorkspaceBundle`, file-only like `LoadScenarios` and `FlowCleanups`:
+The settings travel in `WorkspaceBundle`:
 
 - `AIChecks` (`mexpect.Checks`) holds the file and flow settings and each step's `expect:`, keyed
   by flow node ID.
-- `RequestStreams` holds each request node's stream settings.
+- `HTTPStreams` (`mhttp.HTTPStream`) holds `stream:` and `stream_timeout_ms` per HTTP request.
 
-The import ignores them (and logs it), so the desktop app does not store them yet. The YAML
-round trip (`ConvertSimplifiedYAML` → `MarshalSimplifiedYAML`) keeps them.
+Both are stored in the workspace database (migration `01M4JSNG`), so the desktop app keeps them:
+
+| Table              | Key            | Holds                                                     |
+| ------------------ | -------------- | --------------------------------------------------------- |
+| `http_stream`      | `http_id`      | `preset`, `timeout_ms` (0 = default)                      |
+| `flow_node_expect` | `flow_node_id` | the step's `expect:` block as JSON                        |
+| `flow_ai_checks`   | `flow_id`      | the flow's `judge:`, `quality:` and `iterations:` as JSON |
+
+All three cascade on delete. File-level `judge:`/`quality:`/`iterations:` are folded into each
+flow on import (`aicheck.FoldFileSettings`), so an export writes them on the flows.
+
+What keeps them:
+
+- **YAML import and export**, in the CLI (`ioworkspace.Import`/`Export`) and the desktop app
+  (`rimportv2` → `rexportv2`).
+- **HAR import:** see below.
+- **Copy and paste of flow nodes:** the pasted nodes keep their `expect:`; requests the paste
+  creates keep `stream:` (a pasted node that reuses an existing request keeps that request's).
+- **Duplicating a request or a flow.**
+
+## HAR import
+
+An entry whose response is `text/event-stream` (the content's `mimeType` or the `Content-Type`
+header) imports as a streaming request. The preset comes from the first recorded event, with
+the Stresseur generator's rules, so a HAR import and a Stresseur recording agree:
+
+- `openai`: a JSON payload with `choices`, `object: chat.completion.chunk`, or a `type` starting
+  with `response.`.
+- `anthropic`: an `event:` or `type` of `message_start`, `content_block_delta`, `ping`, etc.
+- `vercel-ai`: a `type` of `start`, `text-delta`, `finish`, etc., or v4 data-stream lines
+  (`0:"text"`).
+- `sse`: anything else.
+
+Bodies can be plain text, base64 (`encoding: base64`, as Firefox stores them) or missing (as
+Chrome often does). Without a body, or if it doesn't decode, the preset is `sse`. Exporting the
+imported workspace writes `stream: <preset>` on those steps.
 
 ## Evaluation (`pkg/aicheck`)
 
@@ -149,8 +183,10 @@ Judge: 1 call, 1.3 s
 ## Desktop
 
 The desktop app's request runs get SSE reading and the `response.text`, `response.events` and
-`response.ttft_ms` bindings in assertions through the same HTTP client. Showing check results
-in the app would need DB storage for `expect:` and new RPC fields, which is out of scope here.
+`response.ttft_ms` bindings in assertions through the same HTTP client. It stores `stream:` and
+`expect:` (see Storage) so they survive import, export, copy/paste and duplicates, but it doesn't
+show them, run the checks, or apply a stored preset: a text/event-stream response is read with
+the raw `sse` preset. Showing them would need new RPC fields.
 
 ## Tests
 
@@ -159,6 +195,8 @@ in the app would need DB storage for `expect:` and new RPC fields, which is out 
   cache bound, evaluation with cache and dedupe, no-key skip, never judging an unfilled
   template.
 - **YAML:** round trip and strict errors.
+- **Storage:** CLI and desktop YAML import → DB → export, HAR import → export (one fixture per
+  preset plus base64 and empty bodies), copy/paste, request and flow duplicates, the migration.
 - **SSE:** a local test server per preset (openai, anthropic, vercel-ai SSE and v4 lines, raw
   sse), TTFT, the event cap, and a stream that never closes (timeout).
 - **CLI end to end:** `flow run` with `expect:` against a local app and a fake judge: console

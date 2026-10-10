@@ -125,6 +125,11 @@ type Flow struct {
 	NodeIDMapping   []byte
 }
 
+type FlowAiCheck struct {
+	FlowID   idwrap.IDWrap
+	Settings string
+}
+
 type FlowEdge struct {
 	ID           idwrap.IDWrap
 	FlowID       idwrap.IDWrap
@@ -161,6 +166,11 @@ type FlowNodeAiProvider struct {
 type FlowNodeCondition struct {
 	FlowNodeID idwrap.IDWrap
 	Expression string
+}
+
+type FlowNodeExpect struct {
+	FlowNodeID idwrap.IDWrap
+	Expect     string
 }
 
 type FlowNodeFor struct {
@@ -499,6 +509,12 @@ type HttpSearchParam struct {
 	DeltaDisplayOrder       sql.NullFloat64
 	CreatedAt               int64
 	UpdatedAt               int64
+}
+
+type HttpStream struct {
+	HttpID    idwrap.IDWrap
+	Preset    string
+	TimeoutMs int64
 }
 
 type HttpVersion struct {

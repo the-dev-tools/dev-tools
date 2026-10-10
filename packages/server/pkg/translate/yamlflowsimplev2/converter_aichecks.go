@@ -12,20 +12,29 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
 // aiChecksConverter collects a file's AI checks and stream settings while its flows convert.
+// Cleanup steps' settings go into their cleanup's own bundle, next to their nodes.
 type aiChecksConverter struct {
 	checks  *mexpect.Checks
-	streams map[idwrap.IDWrap]httpclient.StreamOptions
+	streams []mhttp.HTTPStream
 	baseDir string
+}
+
+// stepTarget is where a step's node lives: its node and HTTP IDs, and the cleanup bundle
+// that holds it (nil for a normal step).
+type stepTarget struct {
+	nodeID  idwrap.IDWrap
+	httpID  *idwrap.IDWrap
+	cleanup *ioworkspace.WorkspaceBundle
 }
 
 // newAIChecksConverter decodes and validates the file-level judge: and quality:.
 func newAIChecksConverter(yf *YamlFlowFormatV2, baseDir string) (*aiChecksConverter, error) {
 	c := &aiChecksConverter{
 		checks:  &mexpect.Checks{Flows: map[idwrap.IDWrap]mexpect.FlowSettings{}, Steps: map[idwrap.IDWrap]mexpect.Expect{}},
-		streams: map[idwrap.IDWrap]httpclient.StreamOptions{},
 		baseDir: baseDir,
 	}
 	if aicheck.Present(yf.Judge) {
@@ -74,19 +83,26 @@ func (c *aiChecksConverter) addFlow(entry YamlFlowFlowV2, flowData *ioworkspace.
 		c.checks.Flows[flowID] = settings
 	}
 
-	nodeIDs := map[string]idwrap.IDWrap{}
-	for _, n := range flowData.FlowNodes {
-		nodeIDs[n.Name] = n.ID
+	targets := map[string]stepTarget{}
+	addTargets := func(b *ioworkspace.WorkspaceBundle, cleanup *ioworkspace.WorkspaceBundle) {
+		httpIDs := map[idwrap.IDWrap]*idwrap.IDWrap{}
+		for _, rn := range b.FlowRequestNodes {
+			httpIDs[rn.FlowNodeID] = rn.HttpID
+		}
+		for _, n := range b.FlowNodes {
+			targets[n.Name] = stepTarget{nodeID: n.ID, httpID: httpIDs[n.ID], cleanup: cleanup}
+		}
 	}
-	for _, cleanup := range flowData.FlowCleanups {
-		for _, s := range cleanup.Steps {
-			nodeIDs[s.Name] = s.NodeID
+	addTargets(flowData, nil)
+	for _, cl := range flowData.FlowCleanups {
+		if cl.Bundle != nil {
+			addTargets(cl.Bundle, cl.Bundle)
 		}
 	}
 
 	for _, list := range [][]YamlStepWrapper{entry.Steps, entry.Cleanup} {
 		for _, sw := range list {
-			if err := c.addStep(entry.Name, sw, nodeIDs); err != nil {
+			if err := c.addStep(entry.Name, sw, targets); err != nil {
 				return err
 			}
 		}
@@ -94,12 +110,12 @@ func (c *aiChecksConverter) addFlow(entry YamlFlowFlowV2, flowData *ioworkspace.
 	return nil
 }
 
-func (c *aiChecksConverter) addStep(flowName string, sw YamlStepWrapper, nodeIDs map[string]idwrap.IDWrap) error {
+func (c *aiChecksConverter) addStep(flowName string, sw YamlStepWrapper, targets map[string]stepTarget) error {
 	common := getStepCommon(sw)
 	if common == nil {
 		return nil
 	}
-	nodeID, known := nodeIDs[common.Name]
+	target, known := targets[common.Name]
 	if aicheck.Present(common.Expect) {
 		where := fmt.Sprintf("flow %s, step %s: expect:", flowName, common.Name)
 		if sw.Request == nil && sw.GraphQL == nil {
@@ -113,7 +129,14 @@ func (c *aiChecksConverter) addStep(flowName string, sw YamlStepWrapper, nodeIDs
 			return fmt.Errorf("%s %w", where, err)
 		}
 		if known {
-			c.checks.Steps[nodeID] = e
+			if target.cleanup != nil {
+				if target.cleanup.AIChecks == nil {
+					target.cleanup.AIChecks = &mexpect.Checks{Steps: map[idwrap.IDWrap]mexpect.Expect{}}
+				}
+				target.cleanup.AIChecks.Steps[target.nodeID] = e
+			} else {
+				c.checks.Steps[target.nodeID] = e
+			}
 		}
 	}
 	if r := sw.Request; r != nil && (r.Stream != "" || r.StreamTimeoutMS != nil) {
@@ -121,8 +144,13 @@ func (c *aiChecksConverter) addStep(flowName string, sw YamlStepWrapper, nodeIDs
 		if err != nil {
 			return fmt.Errorf("flow %s, step %s: %w", flowName, common.Name, err)
 		}
-		if known {
-			c.streams[nodeID] = opts
+		if known && target.httpID != nil {
+			st := mhttp.HTTPStream{HttpID: *target.httpID, Preset: opts.Preset, TimeoutMs: opts.Timeout.Milliseconds()}
+			if target.cleanup != nil {
+				target.cleanup.HTTPStreams = append(target.cleanup.HTTPStreams, st)
+			} else {
+				c.streams = append(c.streams, st)
+			}
 		}
 	}
 	return nil
@@ -159,7 +187,7 @@ func (c *aiChecksConverter) apply(result *ioworkspace.WorkspaceBundle) {
 		result.AIChecks = c.checks
 	}
 	if len(c.streams) > 0 {
-		result.RequestStreams = c.streams
+		result.HTTPStreams = c.streams
 	}
 }
 
@@ -172,8 +200,9 @@ func encodeNode(v any) (*yaml.Node, error) {
 	return n, nil
 }
 
-// exportStepAIChecks writes a step's expect: and stream: back into its YAML.
-func exportStepAIChecks(expects map[idwrap.IDWrap]mexpect.Expect, streams map[idwrap.IDWrap]httpclient.StreamOptions, nodeID idwrap.IDWrap, sw *YamlStepWrapper) error {
+// exportStepAIChecks writes a step's expect: and stream: back into its YAML. httpID is the
+// request step's HTTP request (nil for other steps).
+func exportStepAIChecks(expects map[idwrap.IDWrap]mexpect.Expect, streams map[idwrap.IDWrap]mhttp.HTTPStream, nodeID idwrap.IDWrap, httpID *idwrap.IDWrap, sw *YamlStepWrapper) error {
 	if sw.Request == nil && sw.GraphQL == nil {
 		return nil
 	}
@@ -188,10 +217,13 @@ func exportStepAIChecks(expects map[idwrap.IDWrap]mexpect.Expect, streams map[id
 			sw.GraphQL.Expect = *n
 		}
 	}
-	if s, ok := streams[nodeID]; ok && sw.Request != nil {
+	if httpID == nil || sw.Request == nil {
+		return nil
+	}
+	if s, ok := streams[*httpID]; ok {
 		sw.Request.Stream = s.Preset
-		if s.Timeout > 0 {
-			ms := s.Timeout.Milliseconds()
+		if s.TimeoutMs > 0 {
+			ms := s.TimeoutMs
 			sw.Request.StreamTimeoutMS = &ms
 		}
 	}

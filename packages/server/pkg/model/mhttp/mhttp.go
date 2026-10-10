@@ -199,3 +199,11 @@ type HttpVersion struct {
 	CreatedAt          int64          `json:"created_at"`
 	CreatedBy          *idwrap.IDWrap `json:"created_by,omitempty"`
 }
+
+// HTTPStream is an HTTP request's stream settings: the yamlflow stream: preset (openai,
+// anthropic, vercel-ai or sse) and stream_timeout_ms (0 = the engine default).
+type HTTPStream struct {
+	HttpID    idwrap.IDWrap
+	Preset    string
+	TimeoutMs int64
+}

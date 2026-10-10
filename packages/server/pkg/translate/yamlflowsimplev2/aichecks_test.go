@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
 // aiChecksYAML uses the Stresseur AI checks spec's syntax unchanged, plus the engine's stream:.
@@ -92,6 +92,21 @@ func nodeIDByName(t *testing.T, b *ioworkspace.WorkspaceBundle, name string) idw
 	return idwrap.IDWrap{}
 }
 
+func httpIDByNode(t *testing.T, b *ioworkspace.WorkspaceBundle, nodeID idwrap.IDWrap) idwrap.IDWrap {
+	t.Helper()
+	nodes := append([]mflow.NodeRequest{}, b.FlowRequestNodes...)
+	for _, c := range b.FlowCleanups {
+		nodes = append(nodes, c.Bundle.FlowRequestNodes...)
+	}
+	for _, rn := range nodes {
+		if rn.FlowNodeID == nodeID && rn.HttpID != nil {
+			return *rn.HttpID
+		}
+	}
+	t.Fatalf("no request node %s", nodeID)
+	return idwrap.IDWrap{}
+}
+
 func TestAIChecksImport(t *testing.T) {
 	b, err := ConvertSimplifiedYAML([]byte(aiChecksYAML), GetDefaultOptions(idwrap.NewNow()))
 	require.NoError(t, err)
@@ -117,8 +132,8 @@ func TestAIChecksImport(t *testing.T) {
 	require.NotContains(t, b.AIChecks.Steps, nodeIDByName(t, b, "Login"))
 	require.Contains(t, b.StepExpects(), nodeIDByName(t, b, "Logout"))
 
-	require.Equal(t, httpclient.StreamOptions{Preset: "openai", Timeout: 20 * time.Second},
-		b.RequestStreams[nodeIDByName(t, b, "AskAssistant")])
+	askHTTP := httpIDByNode(t, b, nodeIDByName(t, b, "AskAssistant"))
+	require.Equal(t, []mhttp.HTTPStream{{HttpID: askHTTP, Preset: "openai", TimeoutMs: 20000}}, b.HTTPStreams)
 }
 
 func TestAIChecksRoundTrip(t *testing.T) {
@@ -141,7 +156,9 @@ func TestAIChecksRoundTrip(t *testing.T) {
 	for _, name := range []string{"AskAssistant", "Plans", "Logout"} {
 		require.Equal(t, b.StepExpects()[nodeIDByName(t, b, name)], again.StepExpects()[nodeIDByName(t, again, name)], name)
 	}
-	require.Equal(t, b.RequestStreams[nodeIDByName(t, b, "AskAssistant")], again.RequestStreams[nodeIDByName(t, again, "AskAssistant")])
+	st := again.AllHTTPStreams()[httpIDByNode(t, again, nodeIDByName(t, again, "AskAssistant"))]
+	require.Equal(t, "openai", st.Preset)
+	require.Equal(t, int64(20000), st.TimeoutMs)
 }
 
 func TestFlowWithoutAIChecksHasNone(t *testing.T) {
@@ -149,7 +166,7 @@ func TestFlowWithoutAIChecksHasNone(t *testing.T) {
 		GetDefaultOptions(idwrap.NewNow()))
 	require.NoError(t, err)
 	require.True(t, b.AIChecks.IsEmpty())
-	require.Empty(t, b.RequestStreams)
+	require.Empty(t, b.HTTPStreams)
 	out, err := MarshalSimplifiedYAML(b)
 	require.NoError(t, err)
 	require.NotContains(t, string(out), "expect:")

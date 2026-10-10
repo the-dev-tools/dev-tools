@@ -59,7 +59,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 
 		nodeCtx := ctx
 		cancelNodeCtx := func() {}
-		if cfg.Timeout > 0 {
+		if _, isBackground := currentNode.(node.BackgroundNode); cfg.Timeout > 0 && !isBackground {
 			nodeCtx, cancelNodeCtx = context.WithTimeout(ctx, cfg.Timeout)
 		}
 		startTime := time.Now()

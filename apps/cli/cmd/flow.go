@@ -433,7 +433,7 @@ AI checks
 			Builder:             builder,
 			JSClient:            jsClient,
 			Cleanups:            resolved.CleanupsByFlowID(),
-			Streams:             resolved.AllRequestStreams(),
+			Streams:             resolved.AllHTTPStreams(),
 		}
 
 		if loadOpts.Enabled() {

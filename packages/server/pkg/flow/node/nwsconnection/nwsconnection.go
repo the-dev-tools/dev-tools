@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/expression"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node"
@@ -81,6 +82,14 @@ func (n *NodeWsConnection) GetOutputVariables() []string {
 	}
 }
 
+// DialTimeout bounds the WebSocket handshake. The node runs without the runner's per-node
+// timeout (see RunsInBackground), so it bounds its own start-up.
+const DialTimeout = 30 * time.Second
+
+// RunsInBackground keeps the connection open for the whole flow: it reads messages after the
+// node returns, and later ws_send nodes write to it.
+func (n *NodeWsConnection) RunsInBackground() bool { return true }
+
 func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	// Interpolate URL with variables
 	varMapCopy := node.DeepCopyVarMap(req)
@@ -107,7 +116,9 @@ func (n *NodeWsConnection) RunSync(ctx context.Context, req *node.FlowNodeReques
 	if n.HTTPClient != nil {
 		dialOpts.HTTPClient = n.HTTPClient
 	}
-	conn, resp, err := websocket.Dial(ctx, url, dialOpts)
+	dialCtx, cancelDial := context.WithTimeout(ctx, DialTimeout)
+	conn, resp, err := websocket.Dial(dialCtx, url, dialOpts)
+	cancelDial()
 
 	// Extract cookies from the upgrade response before closing the body.
 	var cookies []*http.Cookie
