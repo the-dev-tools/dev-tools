@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,9 +18,13 @@ import (
 )
 
 const (
+	// jsWorkerStartupTimeout bounds how long Start waits for the worker to answer.
 	jsWorkerStartupTimeout = 30 * time.Second
-	jsWorkerHealthInterval = 1 * time.Second
-	jsWorkerInitialWait    = 2 * time.Second
+	// jsWorkerPollInterval is how often Start probes the worker's socket. A probe before the
+	// socket exists is a failed local dial, so polling this often is cheap.
+	jsWorkerPollInterval = 25 * time.Millisecond
+	// jsWorkerProbeTimeout bounds one readiness probe (dial plus a trivial RPC).
+	jsWorkerProbeTimeout = 2 * time.Second
 )
 
 // JSRunner manages the lifecycle of the Node.js worker process
@@ -29,6 +34,8 @@ type JSRunner struct {
 	tempFile   string
 	socketPath string
 	httpClient *http.Client
+	// exited is closed once the worker process has exited.
+	exited chan struct{}
 }
 
 // NewJSRunner checks if Node.js is available and returns a runner instance
@@ -88,64 +95,57 @@ func NewJSRunner() (*JSRunner, error) {
 	return runner, nil
 }
 
-// Start starts the JS worker process and waits for it to be healthy
+// Start starts the JS worker process and returns as soon as it answers an RPC, polling
+// every jsWorkerPollInterval for up to jsWorkerStartupTimeout.
 func (r *JSRunner) Start(ctx context.Context) error {
-	// Start the worker process
 	r.cmd.Stdout = os.Stdout
 	r.cmd.Stderr = os.Stderr
 
 	if err := r.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start JS worker: %w", err)
 	}
+	r.exited = make(chan struct{})
+	go func() {
+		_ = r.cmd.Wait()
+		close(r.exited)
+	}()
 
-	// Wait initial 2 seconds for process to spin up
-	select {
-	case <-ctx.Done():
-		r.Stop()
-		return ctx.Err()
-	case <-time.After(jsWorkerInitialWait):
-	}
-
-	// Health check loop - try every second for up to 10 seconds total
-	deadline := time.Now().Add(jsWorkerStartupTimeout - jsWorkerInitialWait)
-	ticker := time.NewTicker(jsWorkerHealthInterval)
+	timeout := time.NewTimer(jsWorkerStartupTimeout)
+	defer timeout.Stop()
+	ticker := time.NewTicker(jsWorkerPollInterval)
 	defer ticker.Stop()
 
 	for {
+		if r.isHealthy(ctx) {
+			return nil
+		}
 		select {
 		case <-ctx.Done():
 			r.Stop()
 			return ctx.Err()
+		case <-r.exited:
+			r.Stop()
+			return errors.New("JS worker process exited unexpectedly")
+		case <-timeout.C:
+			r.Stop()
+			return fmt.Errorf("JS worker failed to become healthy within %v", jsWorkerStartupTimeout)
 		case <-ticker.C:
-			if r.isHealthy() {
-				return nil
-			}
-
-			// Check if process has exited
-			if r.cmd.ProcessState != nil && r.cmd.ProcessState.Exited() {
-				return fmt.Errorf("JS worker process exited unexpectedly")
-			}
-
-			if time.Now().After(deadline) {
-				r.Stop()
-				return fmt.Errorf("JS worker failed to become healthy within %v", jsWorkerStartupTimeout)
-			}
 		}
 	}
 }
 
 // isHealthy checks if the worker is responding
-func (r *JSRunner) isHealthy() bool {
+func (r *JSRunner) isHealthy(parent context.Context) bool {
+	ctx, cancel := context.WithTimeout(parent, jsWorkerProbeTimeout)
+	defer cancel()
+
 	// Try Unix socket connection to verify the server is listening
-	conn, err := net.DialTimeout("unix", r.socketPath, time.Second)
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "unix", r.socketPath)
 	if err != nil {
 		return false
 	}
 	_ = conn.Close()
-
-	// Verify RPC is working with a simple call
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	// Try a simple execution to verify the service is working
 	_, err = r.client.NodeJsExecutorRun(ctx, connect.NewRequest(&node_js_executorv1.NodeJsExecutorRunRequest{
@@ -156,7 +156,8 @@ func (r *JSRunner) isHealthy() bool {
 	// Connect errors or timeouts indicate the server isn't ready
 	if err != nil {
 		// Check if it's a connect error (server not ready) vs a business logic error
-		if connectErr, ok := err.(*connect.Error); ok {
+		var connectErr *connect.Error
+		if errors.As(err, &connectErr) {
 			// Server responded with an error, but it's running
 			// Only CodeUnavailable or connection errors mean not ready
 			return connectErr.Code() != connect.CodeUnavailable
@@ -176,7 +177,12 @@ func (r *JSRunner) Client() node_js_executorv1connect.NodeJsExecutorServiceClien
 func (r *JSRunner) Stop() {
 	if r.cmd != nil && r.cmd.Process != nil {
 		_ = r.cmd.Process.Kill()
-		_ = r.cmd.Wait()
+		if r.exited != nil {
+			// Start's goroutine owns cmd.Wait; wait for it to reap the process.
+			<-r.exited
+		} else {
+			_ = r.cmd.Wait()
+		}
 	}
 
 	if r.tempFile != "" {

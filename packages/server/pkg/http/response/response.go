@@ -33,6 +33,9 @@ type ResponseCreateHTTPOutput struct {
 	HTTPResponse    mhttp.HTTPResponse
 	ResponseHeaders []mhttp.HTTPResponseHeader
 	ResponseAsserts []mhttp.HTTPResponseAssert
+	// FailedAssertValues holds, per failed assertion result ID, each variable path the
+	// assertion read with its value (e.g. `response.duration = 5120`).
+	FailedAssertValues map[idwrap.IDWrap][]string
 }
 
 type AssertCouple struct {
@@ -76,12 +79,13 @@ func ResponseCreateHTTP(
 	}
 
 	responseAsserts := make([]mhttp.HTTPResponseAssert, 0)
+	var failedValues map[idwrap.IDWrap][]string
 	responseVar := httpclient.ConvertResponseToVar(respHttp)
 	responseBinding := map[string]any{
 		"status":   responseVar.StatusCode,
 		"body":     responseVar.Body,
 		"headers":  responseVar.Headers,
-		"duration": responseVar.Duration,
+		"duration": lapse.Milliseconds(),
 	}
 
 	// Build unified environment with flowVars and response binding
@@ -111,23 +115,31 @@ func ResponseCreateHTTP(
 			ok, err := env.EvalBool(ctx, evaluatedExpr)
 			if err != nil {
 				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", evaluatedExpr, annotatedErr))
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed%s: %w", evaluatedExpr, nonJSONBodyHint(evaluatedExpr, respHttp, responseVar.Body), annotatedErr))
 			}
 
-			responseAsserts = append(responseAsserts, mhttp.HTTPResponseAssert{
+			assertRes := mhttp.HTTPResponseAssert{
 				ID:         idwrap.NewNow(),
 				ResponseID: responseID,
 				Value:      evaluatedExpr,
 				Success:    ok,
 				CreatedAt:  now,
-			})
+			}
+			responseAsserts = append(responseAsserts, assertRes)
+			if !ok {
+				if failedValues == nil {
+					failedValues = make(map[idwrap.IDWrap][]string)
+				}
+				failedValues[assertRes.ID] = env.DescribeValues(evaluatedExpr)
+			}
 		}
 	}
 
 	return &ResponseCreateHTTPOutput{
-		HTTPResponse:    httpResponse,
-		ResponseHeaders: responseHeaders,
-		ResponseAsserts: responseAsserts,
+		HTTPResponse:       httpResponse,
+		ResponseHeaders:    responseHeaders,
+		ResponseAsserts:    responseAsserts,
+		FailedAssertValues: failedValues,
 	}, nil
 }
 
@@ -211,7 +223,7 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 		"status":   responseVar.StatusCode,
 		"body":     responseVar.Body,
 		"headers":  responseVar.Headers,
-		"duration": responseVar.Duration,
+		"duration": lapse.Milliseconds(),
 	}
 	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
 	env := expression.NewUnifiedEnv(evalEnvMap)
@@ -239,7 +251,7 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 			ok, err := env.EvalBool(ctx, evaluatedExpr)
 			if err != nil {
 				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", evaluatedExpr, annotatedErr))
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed%s: %w", evaluatedExpr, nonJSONBodyHint(evaluatedExpr, respHttp, responseVar.Body), annotatedErr))
 			}
 			res := mhttp.HTTPResponseAssert{
 				ID:         idwrap.NewNow(),
@@ -259,6 +271,23 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 	ResponseCreateOutput.AssertCouples = resultArr
 
 	return &ResponseCreateOutput, nil
+}
+
+// nonJSONBodyHint explains an evaluation error on an expression that reads a field of
+// response.body when the body is not JSON (an HTML error page, plain text): the real cause
+// is the status and content type, not the type mismatch expr-lang reports.
+func nonJSONBodyHint(expr string, resp httpclient.Response, body any) string {
+	if _, isText := body.(string); !isText || !strings.Contains(expr, "response.body.") {
+		return ""
+	}
+	contentType := "no content type"
+	for _, h := range resp.Headers {
+		if strings.EqualFold(h.HeaderKey, "Content-Type") {
+			contentType = h.Value
+			break
+		}
+	}
+	return fmt.Sprintf(" (the response was %d %s, not JSON, so response.body is text and has no fields)", resp.StatusCode, contentType)
 }
 
 func buildAssertionEnv(flowVars map[string]any, responseBinding map[string]any) map[string]any {

@@ -19,6 +19,9 @@ type ResponseCreateGraphQLOutput struct {
 	GraphQLResponse mgraphql.GraphQLResponse
 	ResponseHeaders []mgraphql.GraphQLResponseHeader
 	ResponseAsserts []mgraphql.GraphQLResponseAssert
+	// FailedAssertValues holds, per failed assertion result ID, each variable path the
+	// assertion read with its value (e.g. `response.duration = 5120`).
+	FailedAssertValues map[idwrap.IDWrap][]string
 }
 
 func ResponseCreateGraphQL(
@@ -74,6 +77,7 @@ func ResponseCreateGraphQL(
 	env := expression.NewUnifiedEnv(evalEnvMap)
 
 	responseAsserts := make([]mgraphql.GraphQLResponseAssert, 0)
+	var failedValues map[idwrap.IDWrap][]string
 
 	// Evaluate assertions (SAME pattern as HTTP)
 	for _, assertion := range assertions {
@@ -102,20 +106,28 @@ func ResponseCreateGraphQL(
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", evaluatedExpr, annotatedErr))
 			}
 
-			responseAsserts = append(responseAsserts, mgraphql.GraphQLResponseAssert{
+			assertRes := mgraphql.GraphQLResponseAssert{
 				ID:         idwrap.NewNow(),
 				ResponseID: responseID,
 				Value:      evaluatedExpr,
 				Success:    ok,
 				CreatedAt:  now,
-			})
+			}
+			responseAsserts = append(responseAsserts, assertRes)
+			if !ok {
+				if failedValues == nil {
+					failedValues = make(map[idwrap.IDWrap][]string)
+				}
+				failedValues[assertRes.ID] = env.DescribeValues(evaluatedExpr)
+			}
 		}
 	}
 
 	return &ResponseCreateGraphQLOutput{
-		GraphQLResponse: graphqlResponse,
-		ResponseHeaders: responseHeaders,
-		ResponseAsserts: responseAsserts,
+		GraphQLResponse:    graphqlResponse,
+		ResponseHeaders:    responseHeaders,
+		ResponseAsserts:    responseAsserts,
+		FailedAssertValues: failedValues,
 	}, nil
 }
 

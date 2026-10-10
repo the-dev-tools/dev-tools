@@ -254,7 +254,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	// Check if any assertions failed
 	for _, assertRes := range respCreate.ResponseAsserts {
 		if !assertRes.Success {
-			result.Err = node.AssertionError(assertRes.Value, resp.HttpResp.StatusCode, resp.HttpResp.Body)
+			result.Err = node.AssertionError(assertRes.Value, respCreate.FailedAssertValues[assertRes.ID], resp.HttpResp.StatusCode, resp.HttpResp.Body)
 
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
@@ -435,7 +435,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	// Check if any assertions failed
 	for _, assertRes := range respCreate.ResponseAsserts {
 		if !assertRes.Success {
-			result.Err = node.AssertionError(assertRes.Value, resp.HttpResp.StatusCode, resp.HttpResp.Body)
+			result.Err = node.AssertionError(assertRes.Value, respCreate.FailedAssertValues[assertRes.ID], resp.HttpResp.StatusCode, resp.HttpResp.Body)
 
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 				ExecutionID: req.ExecutionID,

@@ -83,6 +83,10 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []YamlRunEntryV2, template
 		return nil, fmt.Errorf("failed to create edges: %w", err)
 	}
 
+	if err := validateStepReferences(flowEntry.Steps, templates, graphqlTemplates, flowEntry.Variables, processRes.NodeList, startNodeID, result.FlowEdges); err != nil {
+		return nil, fmt.Errorf("flow '%s': %w", flowEntry.Name, err)
+	}
+
 	if len(flowEntry.Cleanup) > 0 {
 		cleanup, err := processCleanup(flowEntry, processRes.NodeInfoMap, templates, graphqlTemplates, flowID, opts)
 		if err != nil {

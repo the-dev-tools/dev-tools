@@ -9,20 +9,36 @@ import (
 // stack trace doesn't flood the console.
 const maxBodyExcerpt = 200
 
-// AssertionError reports a failed assertion with what the server actually answered: the
-// status always, and for a non-2xx response a one-line excerpt of the body ("Invalid
-// credentials"). A 2xx body is left out because it can carry tokens and this error is
-// printed to CI logs.
-func AssertionError(expr string, status int, body []byte) error {
+// AssertionError reports a failed assertion with what it checked and what the server
+// answered. values are the variable paths the expression read with their actual values
+// (`response.duration = 5120`). For a 2xx response only the values are shown: the body is
+// left out because it can carry tokens and this error is printed to CI logs. For any other
+// status the status and a one-line excerpt of the body come first ("got 401: Invalid
+// credentials"), then the values, minus response.status, which the status already says.
+func AssertionError(expr string, values []string, status int, body []byte) error {
 	if status >= 200 && status < 300 {
-		return fmt.Errorf("assertion failed: %s (got %d)", expr, status)
+		if len(values) == 0 {
+			return fmt.Errorf("assertion failed: %s (got %d)", expr, status)
+		}
+		return fmt.Errorf("assertion failed: %s (got %s)", expr, strings.Join(values, ", "))
 	}
+
+	got := fmt.Sprint(status)
 	excerpt := strings.Join(strings.Fields(string(body)), " ")
-	if excerpt == "" {
-		return fmt.Errorf("assertion failed: %s (got %d)", expr, status)
+	if excerpt != "" {
+		if runes := []rune(excerpt); len(runes) > maxBodyExcerpt {
+			excerpt = string(runes[:maxBodyExcerpt]) + "…"
+		}
+		got += ": " + excerpt
 	}
-	if runes := []rune(excerpt); len(runes) > maxBodyExcerpt {
-		excerpt = string(runes[:maxBodyExcerpt]) + "…"
+	extra := make([]string, 0, len(values))
+	for _, v := range values {
+		if !strings.HasPrefix(v, "response.status = ") {
+			extra = append(extra, v)
+		}
 	}
-	return fmt.Errorf("assertion failed: %s (got %d: %s)", expr, status, excerpt)
+	if len(extra) > 0 {
+		got += "; " + strings.Join(extra, ", ")
+	}
+	return fmt.Errorf("assertion failed: %s (got %s)", expr, got)
 }

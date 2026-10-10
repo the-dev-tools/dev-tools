@@ -307,7 +307,7 @@ func (n *NodeGraphQL) RunSync(ctx context.Context, req *node.FlowNodeRequest) no
 	done := make(chan struct{})
 	for _, assertRes := range respCreate.ResponseAsserts {
 		if !assertRes.Success {
-			result.Err = node.AssertionError(assertRes.Value, httpResp.StatusCode, respBody)
+			result.Err = node.AssertionError(assertRes.Value, respCreate.FailedAssertValues[assertRes.ID], httpResp.StatusCode, respBody)
 
 			// Still send the response data even though we're failing
 			n.SideRespChan <- NodeGraphQLSideResp{

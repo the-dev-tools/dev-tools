@@ -42,6 +42,26 @@ steps:
       depends_on: [A]
 ```
 
+### Reading another step's output requires depending on it
+
+A step that reads another step's output, such as `{{ Login.response.body.token }}` in a
+field or `Login.response.status` in an assertion or condition, must depend on that step,
+directly or through steps in between. Otherwise the import fails with an error that names
+the step and the missing `depends_on`. Without this check the step would run in parallel
+with the step it reads, see the reference unfilled, and the flow could still pass.
+
+The converter rejects the flow instead of adding the edge itself. `depends_on` is the
+explicit ordering contract: it decides what runs in parallel, and with an explicit
+`manual_start` a step that has no `depends_on` intentionally never runs. Inferring edges
+would silently change both, along with the graph that is exported back.
+
+These are exempt from the check:
+
+- steps that never run;
+- a loop's `break_condition`, which is evaluated after each iteration and so may read
+  the loop body;
+- JS `code`, which reads steps through its context argument rather than templates.
+
 ## Control Flow
 
 Control flow nodes (`if`, `for`) emit signals (handles) that other nodes listen to.
