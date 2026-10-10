@@ -26,16 +26,20 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 
 	msgCh := make(chan *httpv1.HttpHeaderSyncResponse, 10)
 	errCh := make(chan error, 1)
+	readyCh := make(chan struct{})
 
 	// Start streaming HttpHeaderSync to verify event payload
 	go func() {
-		err := f.handler.streamHttpHeaderSync(ctx, f.userID, func(resp *httpv1.HttpHeaderSyncResponse) error {
+		err := f.handler.streamHttpHeaderSyncWithOptions(ctx, f.userID, func(resp *httpv1.HttpHeaderSyncResponse) error {
 			msgCh <- resp
 			return nil
-		})
+		}, &eventstream.BulkOptions{Ready: readyCh})
 		errCh <- err
 		close(msgCh)
 	}()
+
+	// Wait for the subscription, so the event below is not published before it
+	<-readyCh
 
 	// Generate a specific ID for the new header
 	clientGeneratedID := idwrap.NewNow()
@@ -321,15 +325,19 @@ func TestHttpHeaderOrderRoundTrip(t *testing.T) {
 	// Test 2: Verify order via Sync stream
 	msgCh := make(chan *httpv1.HttpHeaderSyncResponse, 10)
 	errCh := make(chan error, 1)
+	readyCh := make(chan struct{})
 
 	go func() {
-		err := f.handler.streamHttpHeaderSync(ctx, f.userID, func(resp *httpv1.HttpHeaderSyncResponse) error {
+		err := f.handler.streamHttpHeaderSyncWithOptions(ctx, f.userID, func(resp *httpv1.HttpHeaderSyncResponse) error {
 			msgCh <- resp
 			return nil
-		})
+		}, &eventstream.BulkOptions{Ready: readyCh})
 		errCh <- err
 		close(msgCh)
 	}()
+
+	// Wait for the subscription, so the event below is not published before it
+	<-readyCh
 
 	// Update the header to trigger a sync event
 	newOrder := float32(99.9)
@@ -422,15 +430,19 @@ func TestHttpBodyFormDataOrderRoundTrip(t *testing.T) {
 	// Test 2: Verify order via Sync stream
 	msgCh := make(chan *httpv1.HttpBodyFormDataSyncResponse, 10)
 	errCh := make(chan error, 1)
+	readyCh := make(chan struct{})
 
 	go func() {
-		err := f.handler.streamHttpBodyFormSync(ctx, f.userID, func(resp *httpv1.HttpBodyFormDataSyncResponse) error {
+		err := f.handler.streamHttpBodyFormSyncWithOptions(ctx, f.userID, func(resp *httpv1.HttpBodyFormDataSyncResponse) error {
 			msgCh <- resp
 			return nil
-		})
+		}, &eventstream.BulkOptions{Ready: readyCh})
 		errCh <- err
 		close(msgCh)
 	}()
+
+	// Wait for the subscription, so the event below is not published before it
+	<-readyCh
 
 	// Update the form entry to trigger a sync event
 	newOrder := float32(77.7)

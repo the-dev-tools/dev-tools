@@ -327,6 +327,15 @@ The presets assemble the text as follows:
 - `sse`: every data payload except `[DONE]`. This is the default for a text/event-stream
   response without `stream:`.
 
+A HAR import sets `stream:` on each request whose recorded response is text/event-stream,
+picking the preset from the first event (`sse` when the browser didn't keep the body), so
+exporting the imported workspace writes it.
+
+`stream:`, `stream_timeout_ms`, `expect:` and the flow's `judge:`, `quality:` and `iterations:`
+are stored with the workspace, so they survive importing into the desktop app and exporting
+again, copying and pasting nodes, and duplicating requests or flows. File-level settings are
+written back on each flow. The desktop app keeps them but doesn't show or run them yet.
+
 ## Supported Steps
 
 - `manual_start`: Entry point for flow execution.

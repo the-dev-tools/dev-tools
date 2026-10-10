@@ -16,6 +16,8 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/translate/tpostmanv2"
 
 	"github.com/spf13/cobra"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/shttp"
 )
 
 var (
@@ -224,8 +226,19 @@ into flows based on request dependencies.`,
 				}
 			}
 
+			// Event-stream responses keep their stream: preset on the request.
+			streams := shttp.NewHTTPStreamService(services.Queries)
+			for _, st := range resolved.HTTPStreams {
+				if err := streams.Upsert(ctx, st); err != nil {
+					return fmt.Errorf("failed to save stream settings: %w", err)
+				}
+			}
+
 			fmt.Printf("✅ Successfully imported HAR file\n")
 			fmt.Printf("   Imported %d HTTP requests\n", len(resolved.HTTPRequests))
+			if len(resolved.HTTPStreams) > 0 {
+				fmt.Printf("   Streaming requests: %d (%s)\n", len(resolved.HTTPStreams), streamPresetSummary(resolved.HTTPStreams))
+			}
 			fmt.Printf("   Workspace: %s\n", wsID.String())
 			if folderIDPtr != nil {
 				fmt.Printf("   Folder: %s\n", folderIDPtr.String())
@@ -233,4 +246,21 @@ into flows based on request dependencies.`,
 			return nil
 		})
 	},
+}
+
+// streamPresetSummary counts streaming requests by preset: "openai 2, sse 1".
+func streamPresetSummary(streams []mhttp.HTTPStream) string {
+	counts := map[string]int{}
+	var order []string
+	for _, s := range streams {
+		if counts[s.Preset] == 0 {
+			order = append(order, s.Preset)
+		}
+		counts[s.Preset]++
+	}
+	parts := make([]string, 0, len(order))
+	for _, p := range order {
+		parts = append(parts, fmt.Sprintf("%s %d", p, counts[p]))
+	}
+	return strings.Join(parts, ", ")
 }

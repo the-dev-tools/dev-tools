@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
@@ -111,6 +112,7 @@ func (s *IOWorkspaceService) exportFiles(ctx context.Context, opts ExportOptions
 
 // exportHTTP exports HTTP requests and all associated data
 func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions, bundle *WorkspaceBundle) error {
+	httpStreamSvc := shttp.NewHTTPStreamService(s.queries)
 	httpService := shttp.New(s.queries, s.logger)
 	httpHeaderService := shttp.NewHttpHeaderService(s.queries)
 	httpSearchParamSvc := shttp.NewHttpSearchParamService(s.queries)
@@ -201,6 +203,15 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 			return fmt.Errorf("failed to get asserts for HTTP %s: %w", httpID.String(), err)
 		}
 		bundle.HTTPAsserts = append(bundle.HTTPAsserts, asserts...)
+
+		// Export stream settings (the stream: option)
+		stream, err := httpStreamSvc.Get(ctx, httpID)
+		if err != nil {
+			return fmt.Errorf("failed to get stream settings for HTTP %s: %w", httpID.String(), err)
+		}
+		if stream != nil {
+			bundle.HTTPStreams = append(bundle.HTTPStreams, *stream)
+		}
 	}
 
 	s.logger.DebugContext(ctx, "Exported HTTP details",
@@ -237,6 +248,7 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 	nodeRunSubFlowService := sflow.NewNodeRunSubFlowService(s.queries)
 	websocketService := swebsocket.New(s.queries, s.logger)
 	websocketHeaderService := swebsocket.NewWebSocketHeaderService(s.queries)
+	aiChecksService := sflow.NewAIChecksService(s.queries)
 
 	var flowIDs []idwrap.IDWrap
 
@@ -287,6 +299,11 @@ func (s *IOWorkspaceService) exportFlows(ctx context.Context, opts ExportOptions
 			return fmt.Errorf("failed to get edges for flow %s: %w", flowID.String(), err)
 		}
 		bundle.FlowEdges = append(bundle.FlowEdges, edges...)
+
+		// Export AI checks: the flow's settings and its nodes' expect: blocks
+		if err := exportFlowAIChecks(ctx, aiChecksService, flowID, bundle); err != nil {
+			return err
+		}
 
 		// Export node implementations based on node types
 		for _, node := range nodes {
@@ -574,5 +591,36 @@ func (s *IOWorkspaceService) exportEnvironments(ctx context.Context, opts Export
 
 	s.logger.DebugContext(ctx, "Exported environment variables", "count", len(bundle.EnvironmentVars))
 
+	return nil
+}
+
+// exportFlowAIChecks reads a flow's AI check settings and its nodes' expect: blocks into the bundle.
+func exportFlowAIChecks(ctx context.Context, svc sflow.AIChecksService, flowID idwrap.IDWrap, bundle *WorkspaceBundle) error {
+	settings, err := svc.GetFlowAIChecks(ctx, flowID)
+	if err != nil {
+		return fmt.Errorf("failed to get AI check settings for flow %s: %w", flowID.String(), err)
+	}
+	expects, err := svc.GetNodeExpectsByFlowID(ctx, flowID)
+	if err != nil {
+		return fmt.Errorf("failed to get expect blocks for flow %s: %w", flowID.String(), err)
+	}
+	if settings == nil && len(expects) == 0 {
+		return nil
+	}
+	if bundle.AIChecks == nil {
+		bundle.AIChecks = &mexpect.Checks{}
+	}
+	if settings != nil {
+		if bundle.AIChecks.Flows == nil {
+			bundle.AIChecks.Flows = map[idwrap.IDWrap]mexpect.FlowSettings{}
+		}
+		bundle.AIChecks.Flows[flowID] = settings.Settings
+	}
+	for _, e := range expects {
+		if bundle.AIChecks.Steps == nil {
+			bundle.AIChecks.Steps = map[idwrap.IDWrap]mexpect.Expect{}
+		}
+		bundle.AIChecks.Steps[e.FlowNodeID] = e.Expect
+	}
 	return nil
 }

@@ -1088,6 +1088,16 @@ func (q *Queries) DeleteFlow(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const deleteFlowAIChecks = `-- name: DeleteFlowAIChecks :exec
+DELETE FROM flow_ai_checks
+WHERE flow_id = ?
+`
+
+func (q *Queries) DeleteFlowAIChecks(ctx context.Context, flowID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowAIChecksStmt, deleteFlowAIChecks, flowID)
+	return err
+}
+
 const deleteFlowEdge = `-- name: DeleteFlowEdge :exec
 DELETE FROM
   flow_edge
@@ -1119,6 +1129,16 @@ WHERE
 
 func (q *Queries) DeleteFlowNodeCondition(ctx context.Context, flowNodeID idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeConditionStmt, deleteFlowNodeCondition, flowNodeID)
+	return err
+}
+
+const deleteFlowNodeExpect = `-- name: DeleteFlowNodeExpect :exec
+DELETE FROM flow_node_expect
+WHERE flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeExpect(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeExpectStmt, deleteFlowNodeExpect, flowNodeID)
 	return err
 }
 
@@ -1367,6 +1387,20 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 		&i.Error,
 		&i.NodeIDMapping,
 	)
+	return i, err
+}
+
+const getFlowAIChecks = `-- name: GetFlowAIChecks :one
+SELECT flow_id, settings
+FROM flow_ai_checks
+WHERE flow_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowAIChecks(ctx context.Context, flowID idwrap.IDWrap) (FlowAiCheck, error) {
+	row := q.queryRow(ctx, q.getFlowAIChecksStmt, getFlowAIChecks, flowID)
+	var i FlowAiCheck
+	err := row.Scan(&i.FlowID, &i.Settings)
 	return i, err
 }
 
@@ -1629,6 +1663,50 @@ func (q *Queries) GetFlowNodeCondition(ctx context.Context, flowNodeID idwrap.ID
 	var i FlowNodeCondition
 	err := row.Scan(&i.FlowNodeID, &i.Expression)
 	return i, err
+}
+
+const getFlowNodeExpect = `-- name: GetFlowNodeExpect :one
+SELECT flow_node_id, expect
+FROM flow_node_expect
+WHERE flow_node_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowNodeExpect(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeExpect, error) {
+	row := q.queryRow(ctx, q.getFlowNodeExpectStmt, getFlowNodeExpect, flowNodeID)
+	var i FlowNodeExpect
+	err := row.Scan(&i.FlowNodeID, &i.Expect)
+	return i, err
+}
+
+const getFlowNodeExpectsByFlowID = `-- name: GetFlowNodeExpectsByFlowID :many
+SELECT e.flow_node_id, e.expect
+FROM flow_node_expect e
+JOIN flow_node n ON n.id = e.flow_node_id
+WHERE n.flow_id = ?
+`
+
+func (q *Queries) GetFlowNodeExpectsByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]FlowNodeExpect, error) {
+	rows, err := q.query(ctx, q.getFlowNodeExpectsByFlowIDStmt, getFlowNodeExpectsByFlowID, flowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FlowNodeExpect{}
+	for rows.Next() {
+		var i FlowNodeExpect
+		if err := rows.Scan(&i.FlowNodeID, &i.Expect); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getFlowNodeFor = `-- name: GetFlowNodeFor :one
@@ -3126,6 +3204,40 @@ type UpdateTagParams struct {
 
 func (q *Queries) UpdateTag(ctx context.Context, arg UpdateTagParams) error {
 	_, err := q.exec(ctx, q.updateTagStmt, updateTag, arg.Name, arg.Color, arg.ID)
+	return err
+}
+
+const upsertFlowAIChecks = `-- name: UpsertFlowAIChecks :exec
+INSERT INTO flow_ai_checks (flow_id, settings)
+VALUES (?, ?)
+ON CONFLICT (flow_id) DO UPDATE SET
+  settings = excluded.settings
+`
+
+type UpsertFlowAIChecksParams struct {
+	FlowID   idwrap.IDWrap
+	Settings string
+}
+
+func (q *Queries) UpsertFlowAIChecks(ctx context.Context, arg UpsertFlowAIChecksParams) error {
+	_, err := q.exec(ctx, q.upsertFlowAIChecksStmt, upsertFlowAIChecks, arg.FlowID, arg.Settings)
+	return err
+}
+
+const upsertFlowNodeExpect = `-- name: UpsertFlowNodeExpect :exec
+INSERT INTO flow_node_expect (flow_node_id, expect)
+VALUES (?, ?)
+ON CONFLICT (flow_node_id) DO UPDATE SET
+  expect = excluded.expect
+`
+
+type UpsertFlowNodeExpectParams struct {
+	FlowNodeID idwrap.IDWrap
+	Expect     string
+}
+
+func (q *Queries) UpsertFlowNodeExpect(ctx context.Context, arg UpsertFlowNodeExpectParams) error {
+	_, err := q.exec(ctx, q.upsertFlowNodeExpectStmt, upsertFlowNodeExpect, arg.FlowNodeID, arg.Expect)
 	return err
 }
 

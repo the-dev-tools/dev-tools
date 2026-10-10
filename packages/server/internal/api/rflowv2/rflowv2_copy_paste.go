@@ -10,7 +10,9 @@ import (
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
 
+	"database/sql"
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rhttp"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rwebsocket"
@@ -18,6 +20,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mgraphql"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
@@ -217,6 +220,11 @@ func (s *FlowServiceV2RPC) FlowNodesCopy(
 		}
 	}
 
+	// stream: settings of the copied requests and expect: blocks of the copied nodes
+	if err := s.populateAIChecksBundle(ctx, bundle); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Fetch edges — keep only edges where both source and target are in the selected set
 	allEdges, err := s.es.GetEdgesByFlowID(ctx, flowID)
 	if err != nil {
@@ -260,6 +268,69 @@ func (s *FlowServiceV2RPC) populateHTTPBundle(ctx context.Context, httpID idwrap
 	if asserts, err := s.hs.GetAssertsByHttpID(ctx, httpID); err == nil {
 		bundle.HTTPAsserts = append(bundle.HTTPAsserts, asserts...)
 	}
+}
+
+// populateAIChecksBundle adds the stream: settings of the bundle's request nodes' HTTP requests
+// and the expect: blocks of its nodes, so a copy keeps them.
+func (s *FlowServiceV2RPC) populateAIChecksBundle(ctx context.Context, bundle *ioworkspace.WorkspaceBundle) error {
+	if s.DB == nil {
+		return nil
+	}
+	streams := shttp.NewHTTPStreamService(gen.New(s.DB))
+	for _, rn := range bundle.FlowRequestNodes {
+		if rn.HttpID == nil {
+			continue
+		}
+		st, err := streams.Get(ctx, *rn.HttpID)
+		if err != nil {
+			return fmt.Errorf("read stream settings: %w", err)
+		}
+		if st != nil {
+			bundle.HTTPStreams = append(bundle.HTTPStreams, *st)
+		}
+	}
+	checks := sflow.NewAIChecksService(gen.New(s.DB))
+	for _, n := range bundle.FlowNodes {
+		e, err := checks.GetNodeExpect(ctx, n.ID)
+		if err != nil {
+			return fmt.Errorf("read expect block: %w", err)
+		}
+		if e == nil {
+			continue
+		}
+		if bundle.AIChecks == nil {
+			bundle.AIChecks = &mexpect.Checks{Steps: map[idwrap.IDWrap]mexpect.Expect{}}
+		}
+		bundle.AIChecks.Steps[n.ID] = e.Expect
+	}
+	return nil
+}
+
+// pasteAIChecks stores the pasted nodes' expect: blocks and the stream: settings of the
+// requests the paste creates, under their new IDs.
+func pasteAIChecks(ctx context.Context, tx *sql.Tx, parsed *ioworkspace.WorkspaceBundle, nodeIDMapping, httpIDMapping map[idwrap.IDWrap]idwrap.IDWrap, httpIDsToCreate map[idwrap.IDWrap]bool) error {
+	streams := shttp.NewHTTPStreamService(gen.New(tx))
+	for _, st := range parsed.HTTPStreams {
+		newID, ok := httpIDMapping[st.HttpID]
+		if !ok || !httpIDsToCreate[newID] {
+			continue // an existing request keeps its own settings
+		}
+		st.HttpID = newID
+		if err := streams.Upsert(ctx, st); err != nil {
+			return fmt.Errorf("failed to store stream settings: %w", err)
+		}
+	}
+	checks := sflow.NewAIChecksService(gen.New(tx))
+	for oldID, e := range parsed.StepExpects() {
+		newID, ok := nodeIDMapping[oldID]
+		if !ok {
+			continue
+		}
+		if err := checks.UpsertNodeExpect(ctx, mflow.NodeExpect{FlowNodeID: newID, Expect: e}); err != nil {
+			return fmt.Errorf("failed to store expect block: %w", err)
+		}
+	}
+	return nil
 }
 
 // populateGraphQLBundle fetches headers and assertions for a GraphQL request and adds them to the bundle.
@@ -1003,6 +1074,10 @@ func (s *FlowServiceV2RPC) FlowNodesPaste(
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create run sub-flow node: %w", err))
 			}
 		}
+	}
+
+	if err := pasteAIChecks(ctx, tx, parsed, nodeIDMapping, httpIDMapping, httpIDsToCreate); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Create edges

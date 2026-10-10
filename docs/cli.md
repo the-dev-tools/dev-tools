@@ -90,6 +90,10 @@ The JSON report adds `checks[]` to each step (`kind`, `passed`, `score`, `reason
 
 Responses with `Content-Type: text/event-stream`, or from steps with `stream: openai | anthropic | vercel-ai | sse`, are read as they arrive. Assertions and `expect:` can then read `response.text`, `response.events`, `response.event_count` and `response.ttft_ms`. A stream still open after `stream_timeout_ms` (default 30000) fails the step.
 
+### Streams in HAR imports
+
+`devtools import har` marks every entry whose response is `text/event-stream` as a streaming request and picks its `stream:` preset from the first recorded event, the same way Stresseur recordings do: `openai`, `anthropic`, `vercel-ai`, or `sse` for anything else. Plain-text and base64 bodies are both read; an entry recorded without a body gets `sse`. The import prints a summary such as `Streaming requests: 3 (openai 1, anthropic 1, sse 1)`, and exporting the workspace to YAML writes `stream: <preset>` on those steps.
+
 ## Load Testing
 
 The same flows run as load tests. Either describe a constant-VU profile inline, or run a named entry of the file's `load:` block:

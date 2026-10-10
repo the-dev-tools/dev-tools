@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/aicheck"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
@@ -50,6 +52,12 @@ type TranslationResult struct {
 	ForEachNodes   []mflow.NodeForEach
 	AINodes        []mflow.NodeAI
 	FlowVariables  []mflow.FlowVariable
+
+	// Streaming and AI checks: request steps' stream: settings (by HTTP request), nodes'
+	// expect: blocks and flows' judge:/quality:/iterations: (file-level settings folded in).
+	HTTPStreams  []mhttp.HTTPStream
+	NodeExpects  []mflow.NodeExpect
+	FlowAIChecks []mflow.FlowAIChecks
 
 	// Variables (collection or environment level)
 	Variables []menv.Variable
@@ -206,6 +214,7 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		Nodes:          resolved.Nodes,
 		RequestNodes:   resolved.RequestNodes,
 		Edges:          resolved.Edges,
+		HTTPStreams:    resolved.HTTPStreams,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
@@ -276,8 +285,10 @@ func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 		ForEachNodes:   resolved.FlowForEachNodes,
 		AINodes:        resolved.FlowAINodes,
 		FlowVariables:  resolved.FlowVariables,
+		HTTPStreams:    resolved.HTTPStreams,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
+	result.NodeExpects, result.FlowAIChecks = aiChecksOf(resolved)
 
 	// YAML imports don't need domain extraction - they typically already use
 	// template variables like {{baseUrl}}. Domain extraction is only for HAR
@@ -565,4 +576,25 @@ func (opts *TranslationOptions) MergeWithDefaults(workspaceID idwrap.IDWrap) *Tr
 	}
 
 	return &result
+}
+
+// aiChecksOf flattens a converted YAML file's AI checks into the rows the workspace keeps: the
+// expect: blocks of its flows' nodes, and each flow's settings with the file's folded in.
+func aiChecksOf(b *ioworkspace.WorkspaceBundle) ([]mflow.NodeExpect, []mflow.FlowAIChecks) {
+	if b.AIChecks.IsEmpty() {
+		return nil, nil
+	}
+	var expects []mflow.NodeExpect
+	for _, n := range b.FlowNodes {
+		if e, ok := b.AIChecks.Steps[n.ID]; ok {
+			expects = append(expects, mflow.NodeExpect{FlowNodeID: n.ID, Expect: e})
+		}
+	}
+	var flows []mflow.FlowAIChecks
+	for _, f := range b.Flows {
+		if s, ok := aicheck.FoldFileSettings(b.AIChecks, f.ID); ok {
+			flows = append(flows, mflow.FlowAIChecks{FlowID: f.ID, Settings: s})
+		}
+	}
+	return expects, flows
 }

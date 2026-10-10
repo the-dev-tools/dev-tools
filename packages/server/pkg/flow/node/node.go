@@ -48,6 +48,14 @@ type LoopCoordinator interface {
 	IsLoopCoordinator() bool
 }
 
+// BackgroundNode marks nodes that keep working after they return, such as a WebSocket
+// connection that keeps reading messages. The runner hands them the flow's context instead of
+// a per-node timeout, which would end that work as soon as the node returns. They bound their
+// own start-up instead.
+type BackgroundNode interface {
+	RunsInBackground() bool
+}
+
 type FlowNodeRequest struct {
 	VarMap           map[string]any
 	ReadWriteLock    *sync.RWMutex

@@ -14,6 +14,7 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	devtoolsdb "github.com/the-dev-tools/dev-tools/packages/db"
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/converter"
@@ -542,23 +543,23 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 	// Collect node details outside TX
 	type nodeDetail struct {
-		node             mflow.Node
-		request          *mflow.NodeRequest
-		http             *mhttp.HTTP
-		forNode          *mflow.NodeFor
-		forEach          *mflow.NodeForEach
-		ifNode           *mflow.NodeIf
-		jsNode           *mflow.NodeJS
-		aiNode           *mflow.NodeAI
-		aiProvider       *mflow.NodeAiProvider
-		memoryNode       *mflow.NodeMemory
-		graphqlNode      *mflow.NodeGraphQL
-		wsConnectionNode     *mflow.NodeWsConnection
-		wsSendNode           *mflow.NodeWsSend
-		waitNode             *mflow.NodeWait
-		subFlowTriggerNode   *mflow.NodeSubFlowTrigger
-		subFlowReturnNode    *mflow.NodeSubFlowReturn
-		runSubFlowNode       *mflow.NodeRunSubFlow
+		node               mflow.Node
+		request            *mflow.NodeRequest
+		http               *mhttp.HTTP
+		forNode            *mflow.NodeFor
+		forEach            *mflow.NodeForEach
+		ifNode             *mflow.NodeIf
+		jsNode             *mflow.NodeJS
+		aiNode             *mflow.NodeAI
+		aiProvider         *mflow.NodeAiProvider
+		memoryNode         *mflow.NodeMemory
+		graphqlNode        *mflow.NodeGraphQL
+		wsConnectionNode   *mflow.NodeWsConnection
+		wsSendNode         *mflow.NodeWsSend
+		waitNode           *mflow.NodeWait
+		subFlowTriggerNode *mflow.NodeSubFlowTrigger
+		subFlowReturnNode  *mflow.NodeSubFlowReturn
+		runSubFlowNode     *mflow.NodeRunSubFlow
 	}
 	details := make([]nodeDetail, 0, len(sourceNodes))
 	for _, n := range sourceNodes {
@@ -664,6 +665,17 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 	sourceVariables, err := s.fvs.GetFlowVariablesByFlowID(ctx, sourceFlowID)
 	if err != nil && !errors.Is(err, sflow.ErrNoFlowVariableFound) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// AI checks: the flow's judge:/quality:/iterations: and its nodes' expect: blocks.
+	aiChecksReader := sflow.NewAIChecksService(gen.New(s.DB))
+	sourceAIChecks, err := aiChecksReader.GetFlowAIChecks(ctx, sourceFlowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	sourceExpects, err := aiChecksReader.GetNodeExpectsByFlowID(ctx, sourceFlowID)
+	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -840,6 +852,22 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			if err := writer.CreateNodeRunSubFlow(ctx, node); err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+		}
+	}
+
+	aiChecksWriter := sflow.NewAIChecksService(gen.New(tx))
+	if sourceAIChecks != nil {
+		if err := aiChecksWriter.UpsertFlowAIChecks(ctx, mflow.FlowAIChecks{FlowID: newFlowID, Settings: sourceAIChecks.Settings}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	for _, e := range sourceExpects {
+		newNodeID, ok := nodeIDMapping[e.FlowNodeID.String()]
+		if !ok {
+			continue
+		}
+		if err := aiChecksWriter.UpsertNodeExpect(ctx, mflow.NodeExpect{FlowNodeID: newNodeID, Expect: e.Expect}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 

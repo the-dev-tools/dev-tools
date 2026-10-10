@@ -91,6 +91,8 @@ type Content struct {
 	Size     int    `json:"size"`
 	MimeType string `json:"mimeType"`
 	Text     string `json:"text"`
+	// Encoding is "base64" when Text is base64-encoded.
+	Encoding string `json:"encoding,omitempty"`
 }
 
 // Constants for processing behavior
@@ -122,6 +124,10 @@ type HarResolved struct {
 	Nodes        []mflow.Node        `json:"nodes"`
 	RequestNodes []mflow.NodeRequest `json:"request_nodes"`
 	Edges        []mflow.Edge        `json:"edges"`
+
+	// HTTPStreams are the stream: settings of requests whose response was an event stream,
+	// by base HTTP request.
+	HTTPStreams []mhttp.HTTPStream `json:"http_streams,omitempty"`
 }
 
 // Helper functions for request processing
@@ -373,6 +379,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 			HttpID:      &baseReq.ID,
 			DeltaHttpID: &deltaReq.ID,
 		}
+		addEntryStream(result, entry, baseReq.ID)
 
 		// 5. Add to Result
 		result.Nodes = append(result.Nodes, node)
@@ -770,6 +777,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 			HttpID:      &baseRequest.ID,
 			DeltaHttpID: &deltaReq.ID,
 		}
+		addEntryStream(result, entry, baseRequest.ID)
 
 		// Append to result
 		result.Nodes = append(result.Nodes, node)

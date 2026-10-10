@@ -15,6 +15,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 
+	"github.com/the-dev-tools/dev-tools/packages/db/pkg/sqlc/gen"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
@@ -960,6 +961,9 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			}
 		}
 	}
+	if err := storeUnifiedAIChecks(ctx, tx, results, httpIDMap); err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	// 2.6 Update and Store Variables
 	// NOTE: targetEnvID was pre-fetched in PHASE 1 to avoid SQLite deadlock
@@ -1405,5 +1409,36 @@ func storeUnifiedChildren(
 		}
 	}
 
+	return nil
+}
+
+// storeUnifiedAIChecks stores request steps' stream: settings (on the HTTP request each one was
+// stored or deduplicated as), nodes' expect: blocks and flows' AI check settings.
+func storeUnifiedAIChecks(ctx context.Context, tx *sql.Tx, results *TranslationResult, httpIDMap map[idwrap.IDWrap]idwrap.IDWrap) error {
+	if len(results.HTTPStreams) > 0 {
+		streams := shttp.NewHTTPStreamService(gen.New(tx))
+		for _, st := range results.HTTPStreams {
+			if newID, ok := httpIDMap[st.HttpID]; ok {
+				st.HttpID = newID
+			}
+			if err := streams.Upsert(ctx, st); err != nil {
+				return fmt.Errorf("failed to store stream settings: %w", err)
+			}
+		}
+	}
+	if len(results.NodeExpects) == 0 && len(results.FlowAIChecks) == 0 {
+		return nil
+	}
+	checks := sflow.NewAIChecksService(gen.New(tx))
+	for _, e := range results.NodeExpects {
+		if err := checks.UpsertNodeExpect(ctx, e); err != nil {
+			return fmt.Errorf("failed to store expect block: %w", err)
+		}
+	}
+	for _, f := range results.FlowAIChecks {
+		if err := checks.UpsertFlowAIChecks(ctx, f); err != nil {
+			return fmt.Errorf("failed to store AI check settings: %w", err)
+		}
+	}
 	return nil
 }

@@ -872,3 +872,41 @@ WHERE id = ?;
 UPDATE node_execution
 SET node_id = ?
 WHERE id = ?;
+
+-- name: GetFlowNodeExpect :one
+SELECT flow_node_id, expect
+FROM flow_node_expect
+WHERE flow_node_id = ?
+LIMIT 1;
+
+-- name: GetFlowNodeExpectsByFlowID :many
+SELECT e.flow_node_id, e.expect
+FROM flow_node_expect e
+JOIN flow_node n ON n.id = e.flow_node_id
+WHERE n.flow_id = ?;
+
+-- name: UpsertFlowNodeExpect :exec
+INSERT INTO flow_node_expect (flow_node_id, expect)
+VALUES (?, ?)
+ON CONFLICT (flow_node_id) DO UPDATE SET
+  expect = excluded.expect;
+
+-- name: DeleteFlowNodeExpect :exec
+DELETE FROM flow_node_expect
+WHERE flow_node_id = ?;
+
+-- name: GetFlowAIChecks :one
+SELECT flow_id, settings
+FROM flow_ai_checks
+WHERE flow_id = ?
+LIMIT 1;
+
+-- name: UpsertFlowAIChecks :exec
+INSERT INTO flow_ai_checks (flow_id, settings)
+VALUES (?, ?)
+ON CONFLICT (flow_id) DO UPDATE SET
+  settings = excluded.settings;
+
+-- name: DeleteFlowAIChecks :exec
+DELETE FROM flow_ai_checks
+WHERE flow_id = ?;

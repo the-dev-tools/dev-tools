@@ -1491,3 +1491,26 @@ WHERE workspace_id = ?
 GROUP BY DATE(updated_at, 'unixepoch')
 ORDER BY activity_date DESC
 LIMIT 30;
+
+-- name: GetHTTPStream :one
+SELECT http_id, preset, timeout_ms
+FROM http_stream
+WHERE http_id = ?
+LIMIT 1;
+
+-- name: GetHTTPStreamsByWorkspaceID :many
+SELECT s.http_id, s.preset, s.timeout_ms
+FROM http_stream s
+JOIN http h ON h.id = s.http_id
+WHERE h.workspace_id = ?;
+
+-- name: UpsertHTTPStream :exec
+INSERT INTO http_stream (http_id, preset, timeout_ms)
+VALUES (?, ?, ?)
+ON CONFLICT (http_id) DO UPDATE SET
+  preset = excluded.preset,
+  timeout_ms = excluded.timeout_ms;
+
+-- name: DeleteHTTPStream :exec
+DELETE FROM http_stream
+WHERE http_id = ?;

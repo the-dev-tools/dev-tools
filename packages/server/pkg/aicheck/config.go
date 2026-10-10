@@ -16,6 +16,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
 )
 
@@ -87,6 +88,32 @@ func MergeJudge(base JudgeConfig, over JudgeConfig) JudgeConfig {
 		base.Samples = over.Samples
 	}
 	return base
+}
+
+// FoldFileSettings is a flow's settings with the file's judge: and quality: folded in, as a
+// workspace keeps them per flow: the judge merged key by key, the flow's quality: over the
+// file's. ok is false when there is nothing to keep.
+func FoldFileSettings(c *mexpect.Checks, flowID idwrap.IDWrap) (mexpect.FlowSettings, bool) {
+	if c == nil {
+		return mexpect.FlowSettings{}, false
+	}
+	s := c.Flows[flowID]
+	if c.Judge != nil || s.Judge != nil {
+		var base, over JudgeConfig
+		if c.Judge != nil {
+			base = *c.Judge
+		}
+		if s.Judge != nil {
+			over = *s.Judge
+		}
+		j := MergeJudge(base, over)
+		s.Judge = &j
+	}
+	if (s.Quality == nil || strings.TrimSpace(s.Quality.FailBelow) == "") && c.Quality != nil {
+		q := *c.Quality
+		s.Quality = &q
+	}
+	return s, s.Iterations != nil || s.Judge != nil || s.Quality != nil
 }
 
 // JudgeDefaults fills the provider's defaults.

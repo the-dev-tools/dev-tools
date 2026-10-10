@@ -369,6 +369,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteFlowStmt, err = db.PrepareContext(ctx, deleteFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlow: %w", err)
 	}
+	if q.deleteFlowAIChecksStmt, err = db.PrepareContext(ctx, deleteFlowAIChecks); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowAIChecks: %w", err)
+	}
 	if q.deleteFlowEdgeStmt, err = db.PrepareContext(ctx, deleteFlowEdge); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowEdge: %w", err)
 	}
@@ -383,6 +386,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteFlowNodeConditionStmt, err = db.PrepareContext(ctx, deleteFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeCondition: %w", err)
+	}
+	if q.deleteFlowNodeExpectStmt, err = db.PrepareContext(ctx, deleteFlowNodeExpect); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFlowNodeExpect: %w", err)
 	}
 	if q.deleteFlowNodeForStmt, err = db.PrepareContext(ctx, deleteFlowNodeFor); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlowNodeFor: %w", err)
@@ -470,6 +476,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteHTTPSearchParamStmt, err = db.PrepareContext(ctx, deleteHTTPSearchParam); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPSearchParam: %w", err)
+	}
+	if q.deleteHTTPStreamStmt, err = db.PrepareContext(ctx, deleteHTTPStream); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteHTTPStream: %w", err)
 	}
 	if q.deleteMigrationStmt, err = db.PrepareContext(ctx, deleteMigration); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteMigration: %w", err)
@@ -576,6 +585,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
 	}
+	if q.getFlowAIChecksStmt, err = db.PrepareContext(ctx, getFlowAIChecks); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowAIChecks: %w", err)
+	}
 	if q.getFlowContentStmt, err = db.PrepareContext(ctx, getFlowContent); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowContent: %w", err)
 	}
@@ -605,6 +617,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowNodeConditionStmt, err = db.PrepareContext(ctx, getFlowNodeCondition); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeCondition: %w", err)
+	}
+	if q.getFlowNodeExpectStmt, err = db.PrepareContext(ctx, getFlowNodeExpect); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeExpect: %w", err)
+	}
+	if q.getFlowNodeExpectsByFlowIDStmt, err = db.PrepareContext(ctx, getFlowNodeExpectsByFlowID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowNodeExpectsByFlowID: %w", err)
 	}
 	if q.getFlowNodeForStmt, err = db.PrepareContext(ctx, getFlowNodeFor); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowNodeFor: %w", err)
@@ -879,8 +897,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPSnapshotsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPSnapshotsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotsByWorkspaceID: %w", err)
 	}
+	if q.getHTTPStreamStmt, err = db.PrepareContext(ctx, getHTTPStream); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPStream: %w", err)
+	}
 	if q.getHTTPStreamingMetricsStmt, err = db.PrepareContext(ctx, getHTTPStreamingMetrics); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPStreamingMetrics: %w", err)
+	}
+	if q.getHTTPStreamsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPStreamsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPStreamsByWorkspaceID: %w", err)
 	}
 	if q.getHTTPWorkspaceActivityStmt, err = db.PrepareContext(ctx, getHTTPWorkspaceActivity); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPWorkspaceActivity: %w", err)
@@ -1202,6 +1226,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateWorkspaceUserStmt, err = db.PrepareContext(ctx, updateWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUser: %w", err)
+	}
+	if q.upsertFlowAIChecksStmt, err = db.PrepareContext(ctx, upsertFlowAIChecks); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertFlowAIChecks: %w", err)
+	}
+	if q.upsertFlowNodeExpectStmt, err = db.PrepareContext(ctx, upsertFlowNodeExpect); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertFlowNodeExpect: %w", err)
+	}
+	if q.upsertHTTPStreamStmt, err = db.PrepareContext(ctx, upsertHTTPStream); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertHTTPStream: %w", err)
 	}
 	if q.upsertNodeExecutionStmt, err = db.PrepareContext(ctx, upsertNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query UpsertNodeExecution: %w", err)
@@ -1789,6 +1822,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteFlowStmt: %w", cerr)
 		}
 	}
+	if q.deleteFlowAIChecksStmt != nil {
+		if cerr := q.deleteFlowAIChecksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowAIChecksStmt: %w", cerr)
+		}
+	}
 	if q.deleteFlowEdgeStmt != nil {
 		if cerr := q.deleteFlowEdgeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowEdgeStmt: %w", cerr)
@@ -1812,6 +1850,11 @@ func (q *Queries) Close() error {
 	if q.deleteFlowNodeConditionStmt != nil {
 		if cerr := q.deleteFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteFlowNodeConditionStmt: %w", cerr)
+		}
+	}
+	if q.deleteFlowNodeExpectStmt != nil {
+		if cerr := q.deleteFlowNodeExpectStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFlowNodeExpectStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowNodeForStmt != nil {
@@ -1957,6 +2000,11 @@ func (q *Queries) Close() error {
 	if q.deleteHTTPSearchParamStmt != nil {
 		if cerr := q.deleteHTTPSearchParamStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteHTTPSearchParamStmt: %w", cerr)
+		}
+	}
+	if q.deleteHTTPStreamStmt != nil {
+		if cerr := q.deleteHTTPStreamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteHTTPStreamStmt: %w", cerr)
 		}
 	}
 	if q.deleteMigrationStmt != nil {
@@ -2134,6 +2182,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowStmt: %w", cerr)
 		}
 	}
+	if q.getFlowAIChecksStmt != nil {
+		if cerr := q.getFlowAIChecksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowAIChecksStmt: %w", cerr)
+		}
+	}
 	if q.getFlowContentStmt != nil {
 		if cerr := q.getFlowContentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowContentStmt: %w", cerr)
@@ -2182,6 +2235,16 @@ func (q *Queries) Close() error {
 	if q.getFlowNodeConditionStmt != nil {
 		if cerr := q.getFlowNodeConditionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowNodeConditionStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeExpectStmt != nil {
+		if cerr := q.getFlowNodeExpectStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeExpectStmt: %w", cerr)
+		}
+	}
+	if q.getFlowNodeExpectsByFlowIDStmt != nil {
+		if cerr := q.getFlowNodeExpectsByFlowIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowNodeExpectsByFlowIDStmt: %w", cerr)
 		}
 	}
 	if q.getFlowNodeForStmt != nil {
@@ -2639,9 +2702,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPSnapshotsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPStreamStmt != nil {
+		if cerr := q.getHTTPStreamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPStreamStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPStreamingMetricsStmt != nil {
 		if cerr := q.getHTTPStreamingMetricsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPStreamingMetricsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPStreamsByWorkspaceIDStmt != nil {
+		if cerr := q.getHTTPStreamsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPStreamsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPWorkspaceActivityStmt != nil {
@@ -3179,6 +3252,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.upsertFlowAIChecksStmt != nil {
+		if cerr := q.upsertFlowAIChecksStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertFlowAIChecksStmt: %w", cerr)
+		}
+	}
+	if q.upsertFlowNodeExpectStmt != nil {
+		if cerr := q.upsertFlowNodeExpectStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertFlowNodeExpectStmt: %w", cerr)
+		}
+	}
+	if q.upsertHTTPStreamStmt != nil {
+		if cerr := q.upsertHTTPStreamStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertHTTPStreamStmt: %w", cerr)
+		}
+	}
 	if q.upsertNodeExecutionStmt != nil {
 		if cerr := q.upsertNodeExecutionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing upsertNodeExecutionStmt: %w", cerr)
@@ -3343,11 +3431,13 @@ type Queries struct {
 	deleteEnvironmentStmt                      *sql.Stmt
 	deleteFileStmt                             *sql.Stmt
 	deleteFlowStmt                             *sql.Stmt
+	deleteFlowAIChecksStmt                     *sql.Stmt
 	deleteFlowEdgeStmt                         *sql.Stmt
 	deleteFlowNodeStmt                         *sql.Stmt
 	deleteFlowNodeAIStmt                       *sql.Stmt
 	deleteFlowNodeAiProviderStmt               *sql.Stmt
 	deleteFlowNodeConditionStmt                *sql.Stmt
+	deleteFlowNodeExpectStmt                   *sql.Stmt
 	deleteFlowNodeForStmt                      *sql.Stmt
 	deleteFlowNodeForEachStmt                  *sql.Stmt
 	deleteFlowNodeGraphQLStmt                  *sql.Stmt
@@ -3377,6 +3467,7 @@ type Queries struct {
 	deleteHTTPResponseAssertStmt               *sql.Stmt
 	deleteHTTPResponseHeaderStmt               *sql.Stmt
 	deleteHTTPSearchParamStmt                  *sql.Stmt
+	deleteHTTPStreamStmt                       *sql.Stmt
 	deleteMigrationStmt                        *sql.Stmt
 	deleteNodeExecutionsByNodeIDStmt           *sql.Stmt
 	deleteNodeExecutionsByNodeIDsStmt          *sql.Stmt
@@ -3412,6 +3503,7 @@ type Queries struct {
 	getFilesByWorkspaceIDStmt                  *sql.Stmt
 	getFilesByWorkspaceIDOrderedStmt           *sql.Stmt
 	getFlowStmt                                *sql.Stmt
+	getFlowAIChecksStmt                        *sql.Stmt
 	getFlowContentStmt                         *sql.Stmt
 	getFlowEdgeStmt                            *sql.Stmt
 	getFlowEdgesByFlowIDStmt                   *sql.Stmt
@@ -3422,6 +3514,8 @@ type Queries struct {
 	getFlowNodeAIStmt                          *sql.Stmt
 	getFlowNodeAiProviderStmt                  *sql.Stmt
 	getFlowNodeConditionStmt                   *sql.Stmt
+	getFlowNodeExpectStmt                      *sql.Stmt
+	getFlowNodeExpectsByFlowIDStmt             *sql.Stmt
 	getFlowNodeForStmt                         *sql.Stmt
 	getFlowNodeForEachStmt                     *sql.Stmt
 	getFlowNodeGraphQLStmt                     *sql.Stmt
@@ -3513,7 +3607,9 @@ type Queries struct {
 	getHTTPSnapshotCountStmt                   *sql.Stmt
 	getHTTPSnapshotPageStmt                    *sql.Stmt
 	getHTTPSnapshotsByWorkspaceIDStmt          *sql.Stmt
+	getHTTPStreamStmt                          *sql.Stmt
 	getHTTPStreamingMetricsStmt                *sql.Stmt
+	getHTTPStreamsByWorkspaceIDStmt            *sql.Stmt
 	getHTTPWorkspaceActivityStmt               *sql.Stmt
 	getHTTPWorkspaceIDStmt                     *sql.Stmt
 	getHTTPsByFolderIDStmt                     *sql.Stmt
@@ -3621,6 +3717,9 @@ type Queries struct {
 	updateWorkspaceStmt                        *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt             *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
+	upsertFlowAIChecksStmt                     *sql.Stmt
+	upsertFlowNodeExpectStmt                   *sql.Stmt
+	upsertHTTPStreamStmt                       *sql.Stmt
 	upsertNodeExecutionStmt                    *sql.Stmt
 	upsertVariableStmt                         *sql.Stmt
 }
@@ -3744,11 +3843,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
 		deleteFileStmt:                             q.deleteFileStmt,
 		deleteFlowStmt:                             q.deleteFlowStmt,
+		deleteFlowAIChecksStmt:                     q.deleteFlowAIChecksStmt,
 		deleteFlowEdgeStmt:                         q.deleteFlowEdgeStmt,
 		deleteFlowNodeStmt:                         q.deleteFlowNodeStmt,
 		deleteFlowNodeAIStmt:                       q.deleteFlowNodeAIStmt,
 		deleteFlowNodeAiProviderStmt:               q.deleteFlowNodeAiProviderStmt,
 		deleteFlowNodeConditionStmt:                q.deleteFlowNodeConditionStmt,
+		deleteFlowNodeExpectStmt:                   q.deleteFlowNodeExpectStmt,
 		deleteFlowNodeForStmt:                      q.deleteFlowNodeForStmt,
 		deleteFlowNodeForEachStmt:                  q.deleteFlowNodeForEachStmt,
 		deleteFlowNodeGraphQLStmt:                  q.deleteFlowNodeGraphQLStmt,
@@ -3778,6 +3879,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteHTTPResponseAssertStmt:               q.deleteHTTPResponseAssertStmt,
 		deleteHTTPResponseHeaderStmt:               q.deleteHTTPResponseHeaderStmt,
 		deleteHTTPSearchParamStmt:                  q.deleteHTTPSearchParamStmt,
+		deleteHTTPStreamStmt:                       q.deleteHTTPStreamStmt,
 		deleteMigrationStmt:                        q.deleteMigrationStmt,
 		deleteNodeExecutionsByNodeIDStmt:           q.deleteNodeExecutionsByNodeIDStmt,
 		deleteNodeExecutionsByNodeIDsStmt:          q.deleteNodeExecutionsByNodeIDsStmt,
@@ -3813,6 +3915,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFilesByWorkspaceIDStmt:                  q.getFilesByWorkspaceIDStmt,
 		getFilesByWorkspaceIDOrderedStmt:           q.getFilesByWorkspaceIDOrderedStmt,
 		getFlowStmt:                                q.getFlowStmt,
+		getFlowAIChecksStmt:                        q.getFlowAIChecksStmt,
 		getFlowContentStmt:                         q.getFlowContentStmt,
 		getFlowEdgeStmt:                            q.getFlowEdgeStmt,
 		getFlowEdgesByFlowIDStmt:                   q.getFlowEdgesByFlowIDStmt,
@@ -3823,6 +3926,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowNodeAIStmt:                          q.getFlowNodeAIStmt,
 		getFlowNodeAiProviderStmt:                  q.getFlowNodeAiProviderStmt,
 		getFlowNodeConditionStmt:                   q.getFlowNodeConditionStmt,
+		getFlowNodeExpectStmt:                      q.getFlowNodeExpectStmt,
+		getFlowNodeExpectsByFlowIDStmt:             q.getFlowNodeExpectsByFlowIDStmt,
 		getFlowNodeForStmt:                         q.getFlowNodeForStmt,
 		getFlowNodeForEachStmt:                     q.getFlowNodeForEachStmt,
 		getFlowNodeGraphQLStmt:                     q.getFlowNodeGraphQLStmt,
@@ -3914,7 +4019,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPSnapshotCountStmt:                   q.getHTTPSnapshotCountStmt,
 		getHTTPSnapshotPageStmt:                    q.getHTTPSnapshotPageStmt,
 		getHTTPSnapshotsByWorkspaceIDStmt:          q.getHTTPSnapshotsByWorkspaceIDStmt,
+		getHTTPStreamStmt:                          q.getHTTPStreamStmt,
 		getHTTPStreamingMetricsStmt:                q.getHTTPStreamingMetricsStmt,
+		getHTTPStreamsByWorkspaceIDStmt:            q.getHTTPStreamsByWorkspaceIDStmt,
 		getHTTPWorkspaceActivityStmt:               q.getHTTPWorkspaceActivityStmt,
 		getHTTPWorkspaceIDStmt:                     q.getHTTPWorkspaceIDStmt,
 		getHTTPsByFolderIDStmt:                     q.getHTTPsByFolderIDStmt,
@@ -4022,6 +4129,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
 		updateWorkspaceUpdatedTimeStmt:             q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
+		upsertFlowAIChecksStmt:                     q.upsertFlowAIChecksStmt,
+		upsertFlowNodeExpectStmt:                   q.upsertFlowNodeExpectStmt,
+		upsertHTTPStreamStmt:                       q.upsertHTTPStreamStmt,
 		upsertNodeExecutionStmt:                    q.upsertNodeExecutionStmt,
 		upsertVariableStmt:                         q.upsertVariableStmt,
 	}

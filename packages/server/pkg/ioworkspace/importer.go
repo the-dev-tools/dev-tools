@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/aicheck"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
@@ -75,7 +77,6 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	}
 
 	s.warnUnstoredLoadScenarios(ctx, bundle)
-	s.warnUnstoredAIChecks(ctx, bundle)
 	if !opts.ImportFlowCleanups {
 		s.warnUnstoredFlowCleanups(ctx, bundle)
 	}
@@ -346,6 +347,10 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 		}
 	}
 
+	if err := s.importAIChecks(ctx, tx, bundle, opts, result); err != nil {
+		return nil, err
+	}
+
 	if opts.ImportFlowCleanups {
 		if err := s.importFlowCleanups(ctx, tx, bundle, opts, result); err != nil {
 			return nil, err
@@ -353,6 +358,63 @@ func (s *IOWorkspaceService) Import(ctx context.Context, tx *sql.Tx, bundle *Wor
 	}
 
 	return result, nil
+}
+
+// importAIChecks stores the bundle's stream: settings (by HTTP request), its flows' AI check
+// settings with the file's judge: and quality: folded in, and its nodes' expect: blocks.
+// Only entities this bundle created are written to; a cleanup's settings are in its own bundle.
+func (s *IOWorkspaceService) importAIChecks(ctx context.Context, tx *sql.Tx, bundle *WorkspaceBundle, opts ImportOptions, result *ImportResult) error {
+	if opts.ImportHTTP && len(bundle.HTTPStreams) > 0 {
+		created := make(map[idwrap.IDWrap]bool, len(bundle.HTTPRequests))
+		for _, h := range bundle.HTTPRequests {
+			created[h.ID] = true
+		}
+		streams := shttp.NewHTTPStreamService(s.queries).TX(tx)
+		for _, st := range bundle.HTTPStreams {
+			if !created[st.HttpID] {
+				continue
+			}
+			if newID, ok := result.HTTPIDMap[st.HttpID]; ok {
+				st.HttpID = newID
+			}
+			if err := streams.Upsert(ctx, st); err != nil {
+				return fmt.Errorf("failed to store stream settings: %w", err)
+			}
+		}
+	}
+	if !opts.ImportFlows || bundle.AIChecks.IsEmpty() {
+		return nil
+	}
+	checks := sflow.NewAIChecksService(s.queries).TX(tx)
+	for _, f := range bundle.Flows {
+		settings, ok := aicheck.FoldFileSettings(bundle.AIChecks, f.ID)
+		if !ok {
+			continue
+		}
+		flowID := f.ID
+		if newID, ok := result.FlowIDMap[flowID]; ok {
+			flowID = newID
+		}
+		if err := checks.UpsertFlowAIChecks(ctx, mflow.FlowAIChecks{FlowID: flowID, Settings: settings}); err != nil {
+			return fmt.Errorf("failed to store AI check settings of flow %s: %w", f.Name, err)
+		}
+	}
+	nodes := make(map[idwrap.IDWrap]bool, len(bundle.FlowNodes))
+	for _, n := range bundle.FlowNodes {
+		nodes[n.ID] = true
+	}
+	for nodeID, e := range bundle.AIChecks.Steps {
+		if !nodes[nodeID] {
+			continue
+		}
+		if newID, ok := result.NodeIDMap[nodeID]; ok {
+			nodeID = newID
+		}
+		if err := checks.UpsertNodeExpect(ctx, mflow.NodeExpect{FlowNodeID: nodeID, Expect: e}); err != nil {
+			return fmt.Errorf("failed to store expect block: %w", err)
+		}
+	}
+	return nil
 }
 
 // importFlowCleanups stores each cleanup block's hidden flow and entities by
@@ -434,23 +496,6 @@ func (s *IOWorkspaceService) warnUnstoredLoadScenarios(ctx context.Context, bund
 		"count", len(bundle.LoadScenarios),
 		"scenarios", strings.Join(names, ", "),
 	)
-}
-
-// AIChecksNotStoredMessage is logged when an imported bundle carries AI checks
-// or stream settings, which have no storage yet.
-const AIChecksNotStoredMessage = "AI checks and stream settings were not stored: this version keeps expect:, judge:, quality: and stream: in the workflow file only, so exporting this workspace will not reproduce them"
-
-// warnUnstoredAIChecks reports AI checks and stream settings this version cannot
-// persist, for the same reason warnUnstoredLoadScenarios exists.
-func (s *IOWorkspaceService) warnUnstoredAIChecks(ctx context.Context, bundle *WorkspaceBundle) {
-	if bundle == nil {
-		return
-	}
-	expects, streams := len(bundle.StepExpects()), len(bundle.AllRequestStreams())
-	if bundle.AIChecks.IsEmpty() && expects == 0 && streams == 0 {
-		return
-	}
-	s.logger.WarnContext(ctx, AIChecksNotStoredMessage, "expect_blocks", expects, "streams", streams)
 }
 
 // Flow import functions have been moved to importer_flow.go

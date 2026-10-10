@@ -163,3 +163,17 @@ CREATE TABLE node_execution (
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);
 CREATE INDEX node_execution_idx2 ON node_execution (completed_at DESC);
 CREATE INDEX node_execution_idx3 ON node_execution (state);
+
+-- A flow node's `expect:` block (AI checks), stored as JSON.
+CREATE TABLE flow_node_expect (
+  flow_node_id BLOB NOT NULL PRIMARY KEY,
+  expect TEXT NOT NULL,
+  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+);
+
+-- A flow's AI check settings (judge:, quality:, iterations:), stored as JSON.
+CREATE TABLE flow_ai_checks (
+  flow_id BLOB NOT NULL PRIMARY KEY,
+  settings TEXT NOT NULL,
+  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
+);

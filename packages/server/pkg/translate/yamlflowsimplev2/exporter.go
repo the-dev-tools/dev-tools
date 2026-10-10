@@ -35,7 +35,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 
 	// AI checks and stream settings ride along file-only, by flow node ID.
 	stepExpects := data.StepExpects()
-	requestStreams := data.AllRequestStreams()
+	httpStreams := data.AllHTTPStreams()
 	var aiChecksErr error
 
 	// Build maps for efficient lookup
@@ -695,7 +695,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil ||
 			stepWrapper.SubFlowTrigger != nil || stepWrapper.SubFlowReturn != nil || stepWrapper.RunSubFlow != nil
 		if isValid {
-			if err := exportStepAIChecks(stepExpects, requestStreams, node.ID, &stepWrapper); err != nil && aiChecksErr == nil {
+			var httpID *idwrap.IDWrap
+			if rn, ok := reqNodeMap[node.ID]; ok {
+				httpID = rn.HttpID
+			}
+			if err := exportStepAIChecks(stepExpects, httpStreams, node.ID, httpID, &stepWrapper); err != nil && aiChecksErr == nil {
 				aiChecksErr = err
 			}
 		}

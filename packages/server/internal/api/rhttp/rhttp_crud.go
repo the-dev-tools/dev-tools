@@ -372,6 +372,11 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	stream, err := shttp.NewHTTPStreamService(gen.New(h.DB)).Get(ctx, httpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Start transaction for consistent duplication
 	mut := mutation.New(h.DB, mutation.WithPublisher(h.mutationPublisher()))
 	if err := mut.Begin(ctx); err != nil {
@@ -647,6 +652,14 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	}
 	if err := sfile.NewWriter(mut.TX(), nil).CreateFile(ctx, &newHttpFile); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// The copy keeps the source's stream: settings.
+	if stream != nil {
+		stream.HttpID = newHttpID
+		if err := shttp.NewHTTPStreamService(gen.New(mut.TX())).Upsert(ctx, *stream); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	if err := mut.Commit(ctx); err != nil {

@@ -1668,6 +1668,16 @@ func (q *Queries) DeleteHTTPSearchParam(ctx context.Context, id idwrap.IDWrap) e
 	return err
 }
 
+const deleteHTTPStream = `-- name: DeleteHTTPStream :exec
+DELETE FROM http_stream
+WHERE http_id = ?
+`
+
+func (q *Queries) DeleteHTTPStream(ctx context.Context, httpID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPStreamStmt, deleteHTTPStream, httpID)
+	return err
+}
+
 const findHTTPByContentHash = `-- name: FindHTTPByContentHash :one
 SELECT id
 FROM http
@@ -4566,6 +4576,20 @@ func (q *Queries) GetHTTPSnapshotsByWorkspaceID(ctx context.Context, workspaceID
 	return items, nil
 }
 
+const getHTTPStream = `-- name: GetHTTPStream :one
+SELECT http_id, preset, timeout_ms
+FROM http_stream
+WHERE http_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPStream(ctx context.Context, httpID idwrap.IDWrap) (HttpStream, error) {
+	row := q.queryRow(ctx, q.getHTTPStreamStmt, getHTTPStream, httpID)
+	var i HttpStream
+	err := row.Scan(&i.HttpID, &i.Preset, &i.TimeoutMs)
+	return i, err
+}
+
 const getHTTPStreamingMetrics = `-- name: GetHTTPStreamingMetrics :one
 SELECT
   COUNT(*) as total_http_records,
@@ -4606,6 +4630,36 @@ func (q *Queries) GetHTTPStreamingMetrics(ctx context.Context, arg GetHTTPStream
 		&i.RecentChanges,
 	)
 	return i, err
+}
+
+const getHTTPStreamsByWorkspaceID = `-- name: GetHTTPStreamsByWorkspaceID :many
+SELECT s.http_id, s.preset, s.timeout_ms
+FROM http_stream s
+JOIN http h ON h.id = s.http_id
+WHERE h.workspace_id = ?
+`
+
+func (q *Queries) GetHTTPStreamsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]HttpStream, error) {
+	rows, err := q.query(ctx, q.getHTTPStreamsByWorkspaceIDStmt, getHTTPStreamsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpStream{}
+	for rows.Next() {
+		var i HttpStream
+		if err := rows.Scan(&i.HttpID, &i.Preset, &i.TimeoutMs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getHTTPWorkspaceActivity = `-- name: GetHTTPWorkspaceActivity :many
@@ -5708,5 +5762,24 @@ type UpdateHTTPSearchParamOrderParams struct {
 
 func (q *Queries) UpdateHTTPSearchParamOrder(ctx context.Context, arg UpdateHTTPSearchParamOrderParams) error {
 	_, err := q.exec(ctx, q.updateHTTPSearchParamOrderStmt, updateHTTPSearchParamOrder, arg.DisplayOrder, arg.ID, arg.HttpID)
+	return err
+}
+
+const upsertHTTPStream = `-- name: UpsertHTTPStream :exec
+INSERT INTO http_stream (http_id, preset, timeout_ms)
+VALUES (?, ?, ?)
+ON CONFLICT (http_id) DO UPDATE SET
+  preset = excluded.preset,
+  timeout_ms = excluded.timeout_ms
+`
+
+type UpsertHTTPStreamParams struct {
+	HttpID    idwrap.IDWrap
+	Preset    string
+	TimeoutMs int64
+}
+
+func (q *Queries) UpsertHTTPStream(ctx context.Context, arg UpsertHTTPStreamParams) error {
+	_, err := q.exec(ctx, q.upsertHTTPStreamStmt, upsertHTTPStream, arg.HttpID, arg.Preset, arg.TimeoutMs)
 	return err
 }
