@@ -33,6 +33,10 @@ type YamlFlowFormatV2 struct {
 	Flows             []YamlFlowFlowV2            `yaml:"flows"`
 	Environments      []YamlEnvironmentV2         `yaml:"environments,omitempty"`
 	Load              []YamlLoadScenario          `yaml:"load,omitempty"`
+	// Judge and Quality are the AI checks' file-level settings (see docs/specs/AI_CHECKS.md).
+	// They are kept as nodes and decoded strictly by the converter, which names the flow.
+	Judge   yaml.Node `yaml:"judge,omitempty"`
+	Quality yaml.Node `yaml:"quality,omitempty"`
 }
 
 // YamlLoadScenario is one entry of the additive `load:` block: a named load
@@ -131,6 +135,11 @@ type YamlFlowFlowV2 struct {
 	Cleanup  []YamlStepWrapper      `yaml:"cleanup,omitempty"`
 	Timeout  *int                   `yaml:"timeout,omitempty"`  // Flow timeout in seconds
 	Metadata map[string]interface{} `yaml:"metadata,omitempty"` // Additional flow metadata
+	// Iterations, Judge and Quality are the AI checks' flow-level settings. Iterations is
+	// read by `stress ci`; the engine keeps it for the round trip.
+	Iterations *int       `yaml:"iterations,omitempty"`
+	Judge      yaml.Node  `yaml:"judge,omitempty"`
+	Quality    yaml.Node  `yaml:"quality,omitempty"`
 }
 
 // YamlStepWrapper handles the polymorphic step list
@@ -160,6 +169,10 @@ type YamlStepCommon struct {
 	DependsOn StringOrSlice `yaml:"depends_on,omitempty"`
 	PositionX *float64      `yaml:"position_x,omitempty"`
 	PositionY *float64      `yaml:"position_y,omitempty"`
+	// Expect is the step's AI checks (request and graphql steps only), evaluated after the
+	// flow's steps finish. Parsed on every step kind so a misplaced block is an error, not
+	// silently ignored; decoded strictly by the converter.
+	Expect yaml.Node `yaml:"expect,omitempty"`
 }
 
 type YamlStepRequest struct {
@@ -171,6 +184,11 @@ type YamlStepRequest struct {
 	QueryParams    HeaderMapOrSlice  `yaml:"query_params,omitempty"`
 	Body           *YamlBodyUnion    `yaml:"body,omitempty"`
 	Assertions     AssertionsOrSlice `yaml:"assertions,omitempty"`
+	// Stream reads the response as a stream and assembles its text with this preset
+	// (openai, anthropic, vercel-ai or sse). A text/event-stream response streams anyway.
+	Stream string `yaml:"stream,omitempty"`
+	// StreamTimeoutMS is the longest the stream may stay open (default 30000).
+	StreamTimeoutMS *int64 `yaml:"stream_timeout_ms,omitempty"`
 }
 
 type YamlStepGraphQL struct {
@@ -507,6 +525,10 @@ type ConvertOptionsV2 struct {
 	// CredentialMap maps credential names to their IDs for AI node resolution.
 	// If nil, credential_id in YAML must be a valid ID string.
 	CredentialMap map[string]idwrap.IDWrap
+
+	// BaseDir is the flow file's directory: expect: schema paths are relative to it. When
+	// empty, schema files are not read during conversion (they are when the flow runs).
+	BaseDir string
 }
 
 // YamlFlowDataV2 contains the intermediate data structure during YAML parsing

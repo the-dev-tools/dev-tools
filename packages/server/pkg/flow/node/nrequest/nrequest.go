@@ -21,6 +21,10 @@ type NodeRequest struct {
 	// load runner; ignored outside lean mode.
 	KeepBodyInLean bool
 
+	// Stream reads the response as a stream with this preset and timeout (the step's
+	// stream: option). Nil still streams a text/event-stream response, as raw sse.
+	Stream *httpclient.StreamOptions
+
 	FlownNodeID idwrap.IDWrap
 	Name        string
 
@@ -89,6 +93,9 @@ func buildNodeRequestOutputMap(output NodeRequestOutput) map[string]any {
 		"headers":  cloneStringMapToAny(output.Response.Headers),
 		"duration": float64(output.Response.Duration),
 	}
+	for k, v := range output.Response.StreamFields() {
+		responseMap[k] = v
+	}
 
 	result[OUTPUT_REQUEST_NAME] = requestMap
 	result[OUTPUT_RESPONSE_NAME] = responseMap
@@ -105,6 +112,12 @@ func buildResponseVar(resp request.RequestResponse, lean bool) httpclient.Respon
 	respVar.Duration = int32(resp.LapTime.Milliseconds()) // nolint:gosec // G115
 	if lean {
 		respVar.Body = LeanBodyPlaceholder
+		if respVar.Stream != nil {
+			// Keep the assembled text and counts; a long run must not hold every event.
+			s := *respVar.Stream
+			s.Events = nil
+			respVar.Stream = &s
+		}
 	}
 	return respVar
 }
@@ -199,7 +212,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	// SendRequest expects exampleID for logging/metrics?
 	// It's used in `httpclient.SendRequestAndConvert`.
 	// I'll pass nr.HttpReq.ID.
-	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient)
+	resp, err := request.SendRequestStream(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient, nr.Stream)
 	if err != nil {
 		result.Err = err
 		return result
@@ -390,7 +403,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient)
+	resp, err := request.SendRequestStream(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient, nr.Stream)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

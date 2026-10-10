@@ -51,6 +51,8 @@ type Response struct {
 	StatusCode int      `json:"statusCode"`
 	Body       []byte   `json:"body"`
 	Headers    []Header `json:"headers"`
+	// Stream is set when the response was read as a stream (see SendRequestAndConvertStream).
+	Stream *StreamResult `json:"stream,omitempty"`
 }
 
 type ResponseVar struct {
@@ -58,6 +60,37 @@ type ResponseVar struct {
 	Body       any               `json:"body"`
 	Headers    map[string]string `json:"headers"`
 	Duration   int32             `json:"duration"`
+	// Stream is the streamed response's result; StreamFields exposes it to expressions.
+	Stream *StreamResult `json:"-"`
+}
+
+// StreamFields are the response fields a streamed response adds: text, events, event_count,
+// ttft_ms (when a token arrived) and usage (when the stream reported it). Nil when the
+// response was not streamed.
+func (r ResponseVar) StreamFields() map[string]any {
+	s := r.Stream
+	if s == nil {
+		return nil
+	}
+	events := make([]any, 0, len(s.Events))
+	for _, e := range s.Events {
+		ev := map[string]any{"data": e.Data}
+		if e.Event != "" {
+			ev["event"] = e.Event
+		}
+		if e.ID != "" {
+			ev["id"] = e.ID
+		}
+		events = append(events, ev)
+	}
+	out := map[string]any{"text": s.Text, "events": events, "event_count": s.EventCount}
+	if s.TTFT != nil {
+		out["ttft_ms"] = float64(s.TTFT.Microseconds()) / 1000
+	}
+	if s.Usage != nil {
+		out["usage"] = s.Usage
+	}
+	return out
 }
 
 func ConvertResponseToVar(r Response) ResponseVar {
@@ -85,6 +118,7 @@ func ConvertResponseToVar(r Response) ResponseVar {
 		StatusCode: r.StatusCode,
 		Body:       body,
 		Headers:    headersMaps,
+		Stream:     r.Stream,
 	}
 }
 
@@ -146,12 +180,15 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 	}, nil
 }
 
+// SendRequestAndConvertWithContext sends a request and converts the response. A
+// text/event-stream response is read as a raw SSE stream (see SendRequestAndConvertStream).
 func SendRequestAndConvertWithContext(ctx context.Context, client HttpClient, req *Request, exampleID idwrap.IDWrap) (Response, error) {
-	resp, err := SendRequestWithContext(ctx, client, req)
-	if err != nil {
-		return Response{}, err
-	}
+	return SendRequestAndConvertStream(ctx, client, req, exampleID, nil)
+}
 
+// convertResponse reads a whole response body, decompressed and converted to UTF-8.
+func convertResponse(resp *http.Response) (Response, error) {
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return Response{}, err
@@ -177,10 +214,6 @@ func SendRequestAndConvertWithContext(ctx context.Context, client HttpClient, re
 		}
 	}
 
-	err = resp.Body.Close()
-	if err != nil {
-		return Response{}, err
-	}
 	return Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,

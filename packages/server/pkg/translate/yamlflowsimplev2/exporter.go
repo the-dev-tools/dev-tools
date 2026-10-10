@@ -33,6 +33,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	cleanupFlowIDs := data.CleanupFlowIDs()
 	data = withCleanupEntities(data)
 
+	// AI checks and stream settings ride along file-only, by flow node ID.
+	stepExpects := data.StepExpects()
+	requestStreams := data.AllRequestStreams()
+	var aiChecksErr error
+
 	// Build maps for efficient lookup
 	nodeMap := make(map[idwrap.IDWrap]mflow.Node)
 	for _, n := range data.FlowNodes {
@@ -689,6 +694,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			stepWrapper.AIProvider != nil || stepWrapper.AIMemory != nil || stepWrapper.WsConnection != nil ||
 			stepWrapper.WsSend != nil || stepWrapper.Wait != nil || stepWrapper.ManualStart != nil ||
 			stepWrapper.SubFlowTrigger != nil || stepWrapper.SubFlowReturn != nil || stepWrapper.RunSubFlow != nil
+		if isValid {
+			if err := exportStepAIChecks(stepExpects, requestStreams, node.ID, &stepWrapper); err != nil && aiChecksErr == nil {
+				aiChecksErr = err
+			}
+		}
 		return stepWrapper, isValid
 	}
 
@@ -716,6 +726,9 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			Name:      flowName,
 			Variables: make([]YamlFlowVariableV2, 0),
 			Steps:     make([]YamlStepWrapper, 0),
+		}
+		if err := exportFlowAIChecks(data, flow.ID, &flowYaml); err != nil {
+			return nil, err
 		}
 
 		for _, fv := range data.FlowVariables {
@@ -837,6 +850,14 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// 7. Load scenarios, in declaration order (the bundle carries them
 	// verbatim; nothing here reorders or synthesizes them).
 	yamlFormat.Load = buildLoadScenarios(data.LoadScenarios)
+
+	// 8. AI checks: the file's judge: and quality:.
+	if aiChecksErr != nil {
+		return nil, aiChecksErr
+	}
+	if err := exportFileAIChecks(data, &yamlFormat); err != nil {
+		return nil, err
+	}
 
 	return yaml.Marshal(yamlFormat)
 }

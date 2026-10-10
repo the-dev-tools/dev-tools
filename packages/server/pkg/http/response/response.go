@@ -87,6 +87,9 @@ func ResponseCreateHTTP(
 		"headers":  responseVar.Headers,
 		"duration": lapse.Milliseconds(),
 	}
+	for k, v := range responseVar.StreamFields() {
+		responseBinding[k] = v
+	}
 
 	// Build unified environment with flowVars and response binding
 	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
@@ -224,6 +227,9 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 		"body":     responseVar.Body,
 		"headers":  responseVar.Headers,
 		"duration": lapse.Milliseconds(),
+	}
+	for k, v := range responseVar.StreamFields() {
+		responseBinding[k] = v
 	}
 	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
 	env := expression.NewUnifiedEnv(evalEnvMap)

@@ -716,6 +716,7 @@ func newVUWorker(
 		w.close()
 		return nil, fmt.Errorf("load run: build nodes for flow %q: %w", cfg.Flow.Name, err)
 	}
+	runner.ApplyStreams(flowNodeMap, services.Streams)
 
 	cleanup, err := runner.BuildCleanup(ctx, *cfg.Flow, services, runner.CleanupBuildDeps{
 		Timeout:     nodeTimeout,

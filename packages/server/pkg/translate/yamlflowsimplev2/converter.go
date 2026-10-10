@@ -52,6 +52,11 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		LoadScenarios: loadScenarios,
 	}
 
+	aiChecks, err := newAIChecksConverter(yamlFormat, opts.BaseDir)
+	if err != nil {
+		return nil, fmt.Errorf("invalid AI checks: %w", err)
+	}
+
 	// Prepare request templates map from both Sources
 	requestTemplates := make(map[string]YamlRequestDefV2)
 	for k, v := range yamlFormat.RequestTemplates {
@@ -78,9 +83,14 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 			return nil, fmt.Errorf("failed to process flow '%s': %w", flowEntry.Name, err)
 		}
 
+		if err := aiChecks.addFlow(flowEntry, flowData); err != nil {
+			return nil, fmt.Errorf("invalid AI checks: %w", err)
+		}
+
 		// Merge flow data into result
 		mergeFlowData(result, flowData, opts)
 	}
+	aiChecks.apply(result)
 
 	// Resolve RunSubFlow TargetFlowName → TargetFlowID references
 	if len(result.FlowRunSubFlowNodes) > 0 {
