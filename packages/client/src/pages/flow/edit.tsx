@@ -50,6 +50,7 @@ import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, Tab
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useTheme } from '@the-dev-tools/ui/theme';
+import { CloudFlowControls, useRunLocally } from '~/features/cloud';
 import { ReferenceContext, ReferenceField } from '~/features/expression';
 import { ColumnActionDelete } from '~/features/form-table';
 import { request, useApiCollection } from '~/shared/api';
@@ -650,6 +651,8 @@ export const TopBar = ({ children }: TopBarProps) => {
 
       <div className={tw`flex-1`} />
 
+      <CloudFlowControls />
+
       {children}
 
       <ButtonAsRouteLink
@@ -725,6 +728,7 @@ const ActionBar = () => {
   const { transport } = routes.root.useRouteContext();
 
   const flowCollection = useApiCollection(FlowCollectionSchema);
+  const runLocally = useRunLocally(flowId);
 
   const { running } =
     useLiveQuery(
@@ -738,6 +742,8 @@ const ActionBar = () => {
 
   return (
     <XF.Panel className={tw`mb-4 flex items-center gap-2 rounded-lg bg-inverse p-1 shadow-sm`} position='bottom-center'>
+      {runLocally.render}
+
       <Button className={tw`px-1.5 py-1`} onPress={() => void setSidebar?.(<AddNodeSidebar />)} variant='ghost dark'>
         <FiPlus className={tw`size-5 text-on-inverse-low`} />
         Add Node
@@ -761,12 +767,9 @@ const ActionBar = () => {
           Stop
         </Button>
       ) : (
-        <Button
-          onPress={() => request({ input: { flowId }, method: FlowService.method.flowRun, transport })}
-          variant='primary'
-        >
+        <Button onPress={() => void runLocally.run()} variant='primary'>
           <PlayCircleIcon className={tw`size-4`} />
-          Run
+          {runLocally.isLinked ? 'Run locally' : 'Run'}
         </Button>
       )}
     </XF.Panel>

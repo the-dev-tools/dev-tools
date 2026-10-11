@@ -9,6 +9,17 @@ interface Umami {
   track(event: string, data?: object): void;
 }
 
+let instance: Umami | undefined;
+
+/** Sends an event when Umami is loaded; a no-op otherwise. */
+export const track = (event: string, data?: Record<string, boolean | number | string>) => {
+  try {
+    instance?.track(event, data);
+  } catch {
+    // Telemetry never breaks the app.
+  }
+};
+
 export const initUmami = Effect.gen(function* () {
   const configNamespace = Config.nested('PUBLIC_UMAMI');
 
@@ -60,4 +71,5 @@ export const initUmami = Effect.gen(function* () {
 
   umami.identify(sessionId);
   umami.track('init');
+  instance = umami;
 });

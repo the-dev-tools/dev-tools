@@ -57,7 +57,13 @@ export const AccountButton = () => {
           <MenuItem isDisabled>{state.account.user.email}</MenuItem>
           <MenuItem onAction={() => void api.open()}>Open Stresseur Cloud</MenuItem>
           <MenuItem
-            onAction={() => void api.signOut().then(() => void setState({ kind: 'signed-out' }))}
+            onAction={() =>
+              void api.signOut().then(() => {
+                setState({ kind: 'signed-out' });
+                // Lets the Cloud section follow (features/cloud listens for it).
+                window.dispatchEvent(new Event('stresseur-account-changed'));
+              })
+            }
             variant='danger'
           >
             Sign out

@@ -60,6 +60,7 @@ import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-fie
 import { useTheme } from '@the-dev-tools/ui/theme';
 import { TreeItem, TreeItemProps, TreeItemRouteLink } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
+import { useHiddenCloudFileIds } from '~/features/cloud';
 import { useDeltaState } from '~/features/delta';
 import { useApiCollection, useConnectMutation } from '~/shared/api';
 import { eqStruct, getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
@@ -278,7 +279,7 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 
-  const { data: files } = useLiveQuery(
+  const { data: allFiles } = useLiveQuery(
     (_) => {
       let query = _.from({ file: fileCollection }).where((_) =>
         and(eq(_.file.workspaceId, workspaceId), isUndefined(_.file.parentId)),
@@ -289,6 +290,16 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
       return query.orderBy((_) => _.file.order).select((_) => pick(_.file, 'fileId', 'order'));
     },
     [fileCollection, kind, workspaceId],
+  );
+
+  // Repo folders from Stresseur Cloud live in the Cloud section; their children go with them.
+  const hiddenFileIds = useHiddenCloudFileIds();
+  const files = useMemo(
+    () =>
+      hiddenFileIds.size === 0
+        ? allFiles
+        : allFiles.filter((_) => !hiddenFileIds.has(Ulid.construct(_.fileId).toCanonical())),
+    [allFiles, hiddenFileIds],
   );
 
   const ref = useRef<HTMLDivElement>(null);
