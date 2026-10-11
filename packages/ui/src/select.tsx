@@ -39,13 +39,15 @@ export const Select = <T extends object>({
       className={composeTailwindRenderProps(triggerClassName, tw`min-w-0 justify-between gap-2 text-left`)}
       variant={triggerVariant}
     >
-      <RAC.SelectValue className={tw`
+      <RAC.SelectValue
+        className={tw`
         min-w-0 truncate text-left
 
         placeholder-shown:text-on-neutral-low
 
         **:data-select-check:hidden
-      `}>
+      `}
+      >
         {renderValue}
       </RAC.SelectValue>
       <FiChevronDown

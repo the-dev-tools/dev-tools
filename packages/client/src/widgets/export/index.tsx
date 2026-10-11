@@ -37,58 +37,59 @@ export const ExportDialog = ({ isOpen: controlledIsOpen, onOpenChange: controlle
   const exportMutation = useConnectMutation(ExportService.method.export);
 
   const modal = (
-      <Modal
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
-        <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
-          <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
-            <div className={tw`flex items-center justify-between`}>
-              <div className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}
+    >
+      <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
+        <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
+          <div className={tw`flex items-center justify-between`}>
+            <div className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
 
-              <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
-                <FiX className={tw`size-5 text-on-neutral-low`} />
-              </Button>
-            </div>
-
-            <div className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>
-              Please select the files that you would like to export.
-            </div>
-
-            <div className={tw`flex-1 overflow-auto py-1.5`}>
-              <FileTree
-                onSelectionChange={(selection) => {
-                  if (selection === 'all') return;
-                  setFileKeys(selection);
-                }}
-                selectedKeys={fileKeys}
-                selectionMode='multiple'
-              />
-            </div>
-          </div>
-
-          <div className={tw`flex justify-end gap-2 border-t border-neutral px-6 py-3`}>
-            <Button onPress={() => void onOpenChange(false)}>Cancel</Button>
-
-            <Button
-              isDisabled={fileKeys.size === 0}
-              onPress={async () => {
-                const fileIds = pipe(
-                  Array.fromIterable(fileKeys),
-                  Array.map((_) => fileCollection.utils.parseKeyUnsafe(_.toString()).fileId),
-                );
-
-                const { data, name } = await exportMutation.mutateAsync({ fileIds, workspaceId });
-                saveFile({ blobParts: [data], name });
-                onOpenChange(false);
-              }}
-              variant='primary'
-            >
-              Export
+            <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
+              <FiX className={tw`size-5 text-on-neutral-low`} />
             </Button>
           </div>
-        </Dialog>
-      </Modal>
+
+          <div className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>
+            Please select the files that you would like to export.
+          </div>
+
+          <div className={tw`flex-1 overflow-auto py-1.5`}>
+            <FileTree
+              onSelectionChange={(selection) => {
+                if (selection === 'all') return;
+                setFileKeys(selection);
+              }}
+              selectedKeys={fileKeys}
+              selectionMode='multiple'
+            />
+          </div>
+        </div>
+
+        <div className={tw`flex justify-end gap-2 border-t border-neutral px-6 py-3`}>
+          <Button onPress={() => void onOpenChange(false)}>Cancel</Button>
+
+          <Button
+            isDisabled={fileKeys.size === 0}
+            onPress={async () => {
+              const fileIds = pipe(
+                Array.fromIterable(fileKeys),
+                Array.map((_) => fileCollection.utils.parseKeyUnsafe(_.toString()).fileId),
+              );
+
+              const { data, name } = await exportMutation.mutateAsync({ fileIds, workspaceId });
+              saveFile({ blobParts: [data], name });
+              onOpenChange(false);
+            }}
+            variant='primary'
+          >
+            Export
+          </Button>
+        </div>
+      </Dialog>
+    </Modal>
   );
 
   if (controlledOnOpenChange) return modal;

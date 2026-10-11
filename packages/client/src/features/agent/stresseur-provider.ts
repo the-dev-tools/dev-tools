@@ -134,7 +134,7 @@ export const toStresseurRequest = (messages: OpenAIMessage[], tools: ChatComplet
 export interface StreamedTurn {
   message: {
     content: null | string;
-    tool_calls?: { function: { arguments: string; name: string }; id: string; type: 'function' }[] | undefined;
+    tool_calls?: undefined | { function: { arguments: string; name: string }; id: string; type: 'function' }[];
   };
   meta: { finishReason: null | string | undefined; usage: unknown };
 }

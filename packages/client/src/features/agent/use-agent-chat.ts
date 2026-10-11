@@ -46,16 +46,15 @@ import {
   useFlowContext,
 } from './context-builder';
 import { defaultHorizontalConfig, layoutNodes } from './layout';
-import { type Collections, executeToolCall, type ToolExecutorContext } from './tool-executor';
 import {
+  type StreamedTurn,
+  streamStresseurTurn,
   STRESSEUR_MODEL,
   StresseurCloudRequestError,
-  streamStresseurTurn,
-  type StreamedTurn,
   toStresseurRequest,
 } from './stresseur-provider';
+import { type Collections, executeToolCall, type ToolExecutorContext } from './tool-executor';
 import { allToolSchemas } from './tool-schemas';
-import { refreshAgentCredits } from './use-agent-credits';
 import {
   type AgentChatState,
   formatToolAsOpenAI,
@@ -65,6 +64,7 @@ import {
   type ToolResult,
   type ToolSchema,
 } from './types';
+import { refreshAgentCredits } from './use-agent-credits';
 
 const DEFAULT_MODELS: Record<OwnKeyProvider, string> = {
   anthropic: 'claude-sonnet-4-6',
@@ -1097,6 +1097,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
       apiKey,
       provider,
       flowId,
+      flowIdKey,
       transport,
       nodeCollection,
       edgeCollection,

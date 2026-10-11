@@ -697,15 +697,15 @@ const AgentSettingsPopover = ({
                 <>
                   <input
                     className={tw`
-                    flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-xs
-                    text-(--text-primary)
+                      flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-xs
+                      text-(--text-primary)
 
-                    placeholder:text-(--text-muted)
+                      placeholder:text-(--text-muted)
 
-                    focus:border-(--brand-secondary) focus:outline-none
+                      focus:border-(--brand-secondary) focus:outline-none
 
-                    disabled:text-(--text-subtle)
-                  `}
+                      disabled:text-(--text-subtle)
+                    `}
                     disabled={isLoading}
                     onChange={(e) => void setValue(e.target.value)}
                     onKeyDown={(e) => {
@@ -726,13 +726,13 @@ const AgentSettingsPopover = ({
                   />
                   <button
                     className={tw`
-                    rounded-[4px] bg-(--text-primary) px-2 py-1 text-xs font-medium text-(--text-inverse)
-                    transition-colors
+                      rounded-[4px] bg-(--text-primary) px-2 py-1 text-xs font-medium text-(--text-inverse)
+                      transition-colors
 
-                    hover:bg-(--text-secondary)
+                      hover:bg-(--text-secondary)
 
-                    disabled:bg-(--text-muted)
-                  `}
+                      disabled:bg-(--text-muted)
+                    `}
                     disabled={isLoading || !value.trim()}
                     onClick={handleSubmit}
                     type='button'

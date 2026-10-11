@@ -127,7 +127,9 @@ export const EnvironmentsWidget = () => {
           <Button aria-label='More' className={tw`p-1`} variant='ghost'>
             <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
-          <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Import, export, variables</Tooltip>
+          <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>
+            Import, export, variables
+          </Tooltip>
         </TooltipTrigger>
 
         <Menu>
@@ -179,7 +181,10 @@ const EnvironmentPeek = ({ environments, onEdit, selectedEnvironmentIdCan }: Env
         <Dialog aria-label='Variables in use' className={tw`flex max-h-96 flex-col outline-hidden`}>
           <div className={tw`flex min-h-0 flex-col gap-3 overflow-auto p-3`}>
             {shown.map((environment) => (
-              <EnvironmentPeekSection environment={environment} key={Ulid.construct(environment.environmentId).toCanonical()} />
+              <EnvironmentPeekSection
+                environment={environment}
+                key={Ulid.construct(environment.environmentId).toCanonical()}
+              />
             ))}
           </div>
 
@@ -228,9 +233,10 @@ const EnvironmentPeekSection = ({
 
       {variables.map((_) => (
         <div
-          className={twJoin(tw`grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 text-sm/5`, !_.enabled && tw`
-            opacity-50
-          `)}
+          className={twJoin(
+            tw`grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 text-sm/5`,
+            !_.enabled && tw`opacity-50`,
+          )}
           key={Ulid.construct(_.environmentVariableId).toCanonical()}
         >
           <span className={tw`truncate font-mono text-on-neutral`}>{_.key}</span>
