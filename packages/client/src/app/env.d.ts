@@ -95,19 +95,71 @@ declare global {
 
   type StresseurLocalResult<T> = { data: T; ok: true } | { message: string; ok: false };
 
-  /** NDJSON events from `stresseur record --json`, plus Studio's own `generating`. */
-  type StresseurRecordEvent =
-    | { calls: number; endpoints: number; sessions: number; type: 'progress' }
-    | { calls: number; endpoints?: number; sessions: number; type: 'stopped' }
-    | { message: string; type: 'error' }
-    | { proxy_url: string; type: 'started' }
-    | { type: 'generating' };
+  interface StresseurInitFailure {
+    flow: string;
+    hint?: string;
+    reason: string;
+    step: string;
+  }
+
+  interface StresseurInitFile {
+    flows: string[];
+    /** Absolute. */
+    path: string;
+    steps: number;
+  }
 
   interface StresseurGeneratedFile {
     flows: string[];
-    /** Relative to the generated api-tests folder, e.g. "checkout.yamlflow.yaml". */
+    /** Relative to the generated api-tests folder, e.g. "shop/checkout.yamlflow.yaml". */
     path: string;
     text: string;
+  }
+
+  /** NDJSON events from `stresseur init --json`, plus Studio's own `finished`. */
+  type StresseurRecordEvent =
+    | { browser: string; proxy_url: string; type: 'recording' }
+    | { calls: number; endpoints: number; type: 'progress' }
+    | { calls: number; sessions: number; type: 'recorded' }
+    | {
+        code: null | number;
+        dir: string;
+        env: Record<string, string>;
+        files: StresseurGeneratedFile[];
+        temporary: boolean;
+        type: 'finished';
+      }
+    | { command: string; type: 'starting_app' }
+    | { command?: string; source: string; type: 'detected'; url: string }
+    | { commands?: string[]; type: 'pr'; url?: string }
+    | { env?: { names: string[]; path: string }; files: StresseurInitFile[]; type: 'generated' }
+    | { failures: StresseurInitFailure[]; passed: number; run: number; total: number; type: 'verified' }
+    | { green: boolean; type: 'done' }
+    | { hint?: string; message: string; type: 'error' }
+    | { path: string; type: 'ci'; warnings: string[] }
+    | { prompt: string; type: 'fix_prompt' }
+    | { type: 'app_ready'; url: string };
+
+  interface StresseurDevServer {
+    port: number;
+    status: number;
+    title?: string;
+    url: string;
+  }
+
+  type StresseurStepState = 'active' | 'done' | 'pending';
+
+  interface StresseurRepoProgress {
+    checks?: { flows: number; green: boolean; passed: number; passedFlows: number; total: number; verifiedAt: string };
+    flowFiles: string[];
+    pr?: { number?: number; state?: string; url: string };
+    recording?: { active: boolean; updatedAt: number };
+  }
+
+  interface StresseurRepoProgressEvent {
+    dir: string;
+    progress: StresseurRepoProgress;
+    steps: Record<'checks' | 'generated' | 'pr' | 'recording', StresseurStepState>;
   }
 
   interface Window {
@@ -149,6 +201,19 @@ declare global {
         ) => Promise<StresseurCloudResult<{ run_id: string; url: string }>>;
       };
       dialog: <T extends keyof Dialog>(method: T, ...options: Parameters<Dialog[T]>) => Promise<ReturnType<Dialog[T]>>;
+      /** First-run launchpad. Repo commands take folders picked with `pickFolder` only. */
+      launchpad?: {
+        addCi: (dir: string) => Promise<StresseurLocalResult<{ output: string }>>;
+        detect: () => Promise<StresseurDevServer[]>;
+        installSkill: (dir: string) => Promise<StresseurLocalResult<{ agents: string[]; files: string[] }>>;
+        onProgress: (callback: (event: StresseurRepoProgressEvent) => void) => () => void;
+        /** Opens Claude Code or Cursor with the prompt typed in; false when it does not fit a link. */
+        openAgent: (agent: 'claude' | 'cursor', dir: string, prompt: string) => Promise<boolean>;
+        openPr: (dir: string) => Promise<StresseurLocalResult<{ commands?: string[]; url?: string }>>;
+        pickFolder: (title?: string) => Promise<null | string>;
+        unwatch: () => Promise<void>;
+        watch: (dir: string) => Promise<boolean>;
+      };
       /** Linked local clones, keyed by repo slug. Writes only <clone>/api-tests/**\/*.yamlflow.yaml. */
       localClone?: {
         /** Values from the clone's .env for the given names only. Never written. */
@@ -162,13 +227,17 @@ declare global {
         unlink: (repo: string) => Promise<void>;
         write: (repo: string, path: string, text: string) => Promise<StresseurLocalResult<null>>;
       };
-      /** Bundled `stresseur record` / `generate`. */
+      /** Bundled `stresseur init --json`. */
       record?: {
         cancel: () => Promise<void>;
         onEvent: (callback: (event: StresseurRecordEvent) => void) => () => void;
-        start: (url: string) => Promise<StresseurLocalResult<null>>;
-        /** Stops recording and generates flows. */
-        stop: () => Promise<StresseurLocalResult<StresseurGeneratedFile[]>>;
+        start: (options: {
+          demo?: boolean;
+          dir?: string;
+          url?: string;
+        }) => Promise<StresseurLocalResult<{ args: string[]; dir: string }>>;
+        /** Ends the recording; generating and verifying follow as events. */
+        stop: () => Promise<StresseurLocalResult<null>>;
       };
     };
   }

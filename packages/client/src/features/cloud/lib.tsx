@@ -16,6 +16,7 @@ export const cloudApi = () => electron()?.cloud;
 export const accountApi = () => electron()?.account;
 export const localCloneApi = () => electron()?.localClone;
 export const recordApi = () => electron()?.record;
+export const launchpadApi = () => electron()?.launchpad;
 
 // Account
 
