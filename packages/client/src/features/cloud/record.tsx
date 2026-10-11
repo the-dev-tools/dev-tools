@@ -10,6 +10,7 @@ import {
   EnvironmentVariableCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/environment';
 import { Button } from '@the-dev-tools/ui/button';
+import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -34,9 +35,20 @@ import {
 
 // Recording state, module-level so it survives the header remounting.
 
-type Destination =
-  | { apiUrl: string; kind: 'repo'; repo: StresseurCloudRepo; workspaceSlug: string }
-  | { appUrl: string; kind: 'files' };
+interface RepoTarget {
+  apiUrl: string;
+  repo: StresseurCloudRepo;
+  workspaceSlug: string;
+}
+
+/** Where recorded flows go: Files, a cloud repo, or both. */
+interface Destination {
+  appUrl: string;
+  files: boolean;
+  repo?: RepoTarget;
+}
+
+const destinationKind = ({ files, repo }: Destination) => (files && repo ? 'both' : repo ? 'repo' : 'files');
 
 type RecordState =
   | { calls: number; destination: Destination; endpoints: number; kind: 'recording' }
@@ -158,6 +170,9 @@ export const RecordControl = () => {
 
 const lastUrlKey = (workspaceId: Uint8Array) => `stresseur.record.url.${Ulid.construct(workspaceId).toCanonical()}`;
 
+/** Last cloud repo slug, or empty when cloud was off. */
+const lastRepoKey = (workspaceId: Uint8Array) => `stresseur.record.repo.${Ulid.construct(workspaceId).toCanonical()}`;
+
 const RecordDialog = ({ close }: { close: () => void }) => {
   const account = useCloudAccount();
   const repos = useCloudRepos();
@@ -165,23 +180,29 @@ const RecordDialog = ({ close }: { close: () => void }) => {
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
   const [url, setUrl] = useState(() => readStored(lastUrlKey(workspaceId)) ?? 'http://localhost:3000');
-  const [destination, setDestination] = useState('files');
+  const [lastRepo] = useState(() => readStored(lastRepoKey(workspaceId)) ?? '');
+  const [toFiles, setToFiles] = useState(true);
+  const [toCloud, setToCloud] = useState(lastRepo !== '');
+  const [repoSlug, setRepoSlug] = useState(lastRepo);
   const [error, setError] = useState<string>();
   const [isPending, setIsPending] = useState(false);
 
-  // Signed out or no repos: always local, no picker.
+  // Signed out or no repos: Files only, no options.
   const cloud = account.kind === 'signed-in' && repos.data?.ok ? repos.data.data : undefined;
   const choices = cloud && apiUrl ? cloud.repos : [];
+  const repo = choices.find((_) => _.slug === repoSlug) ?? choices[0];
+  const cloudOn = toCloud && repo !== undefined;
+  const filesOn = toFiles || choices.length === 0;
 
   const start = async () => {
     const api = recordApi();
     if (!api) return;
 
-    const repo = choices.find((_) => _.slug === destination);
-    const target: Destination =
-      repo && cloud && apiUrl
-        ? { apiUrl, kind: 'repo', repo, workspaceSlug: cloud.workspace.slug }
-        : { appUrl: url.trim(), kind: 'files' };
+    const target: Destination = {
+      appUrl: url.trim(),
+      files: filesOn,
+      ...(cloudOn && cloud && apiUrl && { repo: { apiUrl, repo, workspaceSlug: cloud.workspace.slug } }),
+    };
 
     setIsPending(true);
     const result = await api.start(url.trim());
@@ -194,7 +215,8 @@ const RecordDialog = ({ close }: { close: () => void }) => {
     }
 
     writeStored(lastUrlKey(workspaceId), url.trim());
-    track('record_start', { destination: target.kind });
+    if (choices.length > 0) writeStored(lastRepoKey(workspaceId), target.repo?.repo.slug ?? '');
+    track('record_start', { destination: destinationKind(target) });
     setRecordState({ calls: 0, destination: target, endpoints: 0, kind: 'recording' });
     close();
   };
@@ -204,7 +226,9 @@ const RecordDialog = ({ close }: { close: () => void }) => {
       actions={
         <>
           <Button onPress={close}>Cancel</Button>
-          <Button isDisabled={!url.trim()} isPending={isPending} onPress={() => void start()} variant='primary'>
+          <Button
+            isDisabled={!url.trim() || (!filesOn && !cloudOn)}
+            isPending={isPending} onPress={() => void start()} variant='primary'>
             Record
           </Button>
         </>
@@ -215,18 +239,35 @@ const RecordDialog = ({ close }: { close: () => void }) => {
       <TextInputField label='App URL' onChange={setUrl} value={url} />
 
       {choices.length > 0 && (
-        <Select
-          items={[{ id: 'files', name: 'Files' }, ...choices.map((_) => ({ id: _.slug, name: _.full_name }))]}
-          label='Save flows to'
-          onChange={(key) => void (typeof key === 'string' && setDestination(key))}
-          value={destination}
-        >
-          {(_) => (
-            <SelectItem id={_.id} textValue={_.name}>
-              {_.name}
-            </SelectItem>
-          )}
-        </Select>
+        <div className={tw`flex flex-col gap-2`}>
+          <span className={tw`text-sm/5 font-medium text-on-neutral`}>Save flows to</span>
+
+          <Checkbox isSelected={toFiles} onChange={setToFiles}>
+            Files (this computer)
+          </Checkbox>
+
+          <div className={tw`flex items-center gap-3`}>
+            <Checkbox className={tw`shrink-0`} isSelected={toCloud} onChange={setToCloud}>
+              Cloud repo
+            </Checkbox>
+
+            {toCloud && repo && (
+              <Select
+                aria-label='Cloud repo'
+                className={tw`min-w-0 flex-1`}
+                items={choices.map((_) => ({ id: _.slug, name: _.full_name }))}
+                onChange={(key) => void (typeof key === 'string' && setRepoSlug(key))}
+                value={repo.slug}
+              >
+                {(_) => (
+                  <SelectItem id={_.id} textValue={_.name}>
+                    {_.name}
+                  </SelectItem>
+                )}
+              </Select>
+            )}
+          </div>
+        </div>
       )}
 
       {error && <p className={tw`text-danger`}>{error}</p>}
@@ -290,7 +331,7 @@ const useStopRecording = () => {
     return first;
   };
 
-  const importRepo = async (destination: Extract<Destination, { kind: 'repo' }>, files: StresseurGeneratedFile[]) => {
+  const importRepo = async (destination: RepoTarget, files: StresseurGeneratedFile[]) => {
     let first: Uint8Array | undefined;
     for (const file of files) {
       const result = await upsertFlowFile(transport, workspaceId, {
@@ -327,7 +368,7 @@ const useStopRecording = () => {
 
     const files = result.data;
     const flows = files.reduce((sum, _) => sum + _.flows.length, 0);
-    track('record_generated', { destination: destination.kind, files: files.length, flows });
+    track('record_generated', { destination: destinationKind(destination), files: files.length, flows });
 
     if (files.length === 0) {
       setRecordState({ kind: 'error', message: 'No flows recorded' });
@@ -337,10 +378,17 @@ const useStopRecording = () => {
     setRecordState({ destination, kind: 'importing' });
 
     try {
-      const flowId = destination.kind === 'repo' ? await importRepo(destination, files) : await importLocal(files);
-      if (destination.kind === 'files') await ensureAppUrl(destination.appUrl);
+      // Files first: when both are on, open the Files copy.
+      const localFlowId = destination.files ? await importLocal(files) : undefined;
+      if (destination.files) await ensureAppUrl(destination.appUrl);
+      const repoFlowId = destination.repo ? await importRepo(destination.repo, files) : undefined;
       setRecordState({ kind: 'idle' });
-      toastQueue.add({ title: flows === 1 ? '1 flow recorded' : `${flows} flows recorded` }, { timeout: 5000 });
+
+      const where = [destination.files && 'Files', destination.repo?.repo.full_name].filter(Boolean).join(' and ');
+      const count = flows === 1 ? '1 flow recorded' : `${flows} flows recorded`;
+      toastQueue.add({ title: `${count} · ${where}` }, { timeout: 5000 });
+
+      const flowId = localFlowId ?? repoFlowId;
       if (flowId) await navigateToFlow(flowId);
     } catch (error) {
       track('record_failed');
