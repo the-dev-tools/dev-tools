@@ -156,6 +156,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.cleanupOrphanedNodeExecutionsStmt, err = db.PrepareContext(ctx, cleanupOrphanedNodeExecutions); err != nil {
 		return nil, fmt.Errorf("error preparing query CleanupOrphanedNodeExecutions: %w", err)
 	}
+	if q.createCloudLinkStmt, err = db.PrepareContext(ctx, createCloudLink); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCloudLink: %w", err)
+	}
 	if q.createCredentialStmt, err = db.PrepareContext(ctx, createCredential); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateCredential: %w", err)
 	}
@@ -348,6 +351,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createWorkspaceUserStmt, err = db.PrepareContext(ctx, createWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspaceUser: %w", err)
 	}
+	if q.deleteCloudLinkStmt, err = db.PrepareContext(ctx, deleteCloudLink); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCloudLink: %w", err)
+	}
 	if q.deleteCredentialStmt, err = db.PrepareContext(ctx, deleteCredential); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCredential: %w", err)
 	}
@@ -527,6 +533,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getAllWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getAllWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllWorkspacesByUserID: %w", err)
+	}
+	if q.getCloudLinkStmt, err = db.PrepareContext(ctx, getCloudLink); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCloudLink: %w", err)
+	}
+	if q.getCloudLinkByTargetStmt, err = db.PrepareContext(ctx, getCloudLinkByTarget); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCloudLinkByTarget: %w", err)
+	}
+	if q.getCloudLinksByRepoStmt, err = db.PrepareContext(ctx, getCloudLinksByRepo); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCloudLinksByRepo: %w", err)
+	}
+	if q.getCloudLinksByWorkspaceIDStmt, err = db.PrepareContext(ctx, getCloudLinksByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCloudLinksByWorkspaceID: %w", err)
 	}
 	if q.getCredentialStmt, err = db.PrepareContext(ctx, getCredential); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCredential: %w", err)
@@ -1032,6 +1050,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.resolveHTTPWithDeltasStmt, err = db.PrepareContext(ctx, resolveHTTPWithDeltas); err != nil {
 		return nil, fmt.Errorf("error preparing query ResolveHTTPWithDeltas: %w", err)
 	}
+	if q.updateCloudLinkContentStmt, err = db.PrepareContext(ctx, updateCloudLinkContent); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCloudLinkContent: %w", err)
+	}
+	if q.updateCloudLinkLocalDirStmt, err = db.PrepareContext(ctx, updateCloudLinkLocalDir); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCloudLinkLocalDir: %w", err)
+	}
 	if q.updateCredentialStmt, err = db.PrepareContext(ctx, updateCredential); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCredential: %w", err)
 	}
@@ -1467,6 +1491,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing cleanupOrphanedNodeExecutionsStmt: %w", cerr)
 		}
 	}
+	if q.createCloudLinkStmt != nil {
+		if cerr := q.createCloudLinkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCloudLinkStmt: %w", cerr)
+		}
+	}
 	if q.createCredentialStmt != nil {
 		if cerr := q.createCredentialStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createCredentialStmt: %w", cerr)
@@ -1787,6 +1816,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.deleteCloudLinkStmt != nil {
+		if cerr := q.deleteCloudLinkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCloudLinkStmt: %w", cerr)
+		}
+	}
 	if q.deleteCredentialStmt != nil {
 		if cerr := q.deleteCredentialStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteCredentialStmt: %w", cerr)
@@ -2085,6 +2119,26 @@ func (q *Queries) Close() error {
 	if q.getAllWorkspacesByUserIDStmt != nil {
 		if cerr := q.getAllWorkspacesByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllWorkspacesByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.getCloudLinkStmt != nil {
+		if cerr := q.getCloudLinkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCloudLinkStmt: %w", cerr)
+		}
+	}
+	if q.getCloudLinkByTargetStmt != nil {
+		if cerr := q.getCloudLinkByTargetStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCloudLinkByTargetStmt: %w", cerr)
+		}
+	}
+	if q.getCloudLinksByRepoStmt != nil {
+		if cerr := q.getCloudLinksByRepoStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCloudLinksByRepoStmt: %w", cerr)
+		}
+	}
+	if q.getCloudLinksByWorkspaceIDStmt != nil {
+		if cerr := q.getCloudLinksByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCloudLinksByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getCredentialStmt != nil {
@@ -2927,6 +2981,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing resolveHTTPWithDeltasStmt: %w", cerr)
 		}
 	}
+	if q.updateCloudLinkContentStmt != nil {
+		if cerr := q.updateCloudLinkContentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCloudLinkContentStmt: %w", cerr)
+		}
+	}
+	if q.updateCloudLinkLocalDirStmt != nil {
+		if cerr := q.updateCloudLinkLocalDirStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCloudLinkLocalDirStmt: %w", cerr)
+		}
+	}
 	if q.updateCredentialStmt != nil {
 		if cerr := q.updateCredentialStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCredentialStmt: %w", cerr)
@@ -3360,6 +3424,7 @@ type Queries struct {
 	cleanupOrphanedFlowNodeSubFlowTriggerStmt  *sql.Stmt
 	cleanupOrphanedFlowNodeWaitStmt            *sql.Stmt
 	cleanupOrphanedNodeExecutionsStmt          *sql.Stmt
+	createCloudLinkStmt                        *sql.Stmt
 	createCredentialStmt                       *sql.Stmt
 	createCredentialAnthropicStmt              *sql.Stmt
 	createCredentialGeminiStmt                 *sql.Stmt
@@ -3424,6 +3489,7 @@ type Queries struct {
 	createWebSocketHeaderStmt                  *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
+	deleteCloudLinkStmt                        *sql.Stmt
 	deleteCredentialStmt                       *sql.Stmt
 	deleteCredentialAnthropicStmt              *sql.Stmt
 	deleteCredentialGeminiStmt                 *sql.Stmt
@@ -3484,6 +3550,10 @@ type Queries struct {
 	findHTTPByURLAndMethodStmt                 *sql.Stmt
 	getAllFlowsByWorkspaceIDStmt               *sql.Stmt
 	getAllWorkspacesByUserIDStmt               *sql.Stmt
+	getCloudLinkStmt                           *sql.Stmt
+	getCloudLinkByTargetStmt                   *sql.Stmt
+	getCloudLinksByRepoStmt                    *sql.Stmt
+	getCloudLinksByWorkspaceIDStmt             *sql.Stmt
 	getCredentialStmt                          *sql.Stmt
 	getCredentialAnthropicStmt                 *sql.Stmt
 	getCredentialGeminiStmt                    *sql.Stmt
@@ -3652,6 +3722,8 @@ type Queries struct {
 	listNodeExecutionsByStateStmt              *sql.Stmt
 	resetHTTPBodyFormDeltaStmt                 *sql.Stmt
 	resolveHTTPWithDeltasStmt                  *sql.Stmt
+	updateCloudLinkContentStmt                 *sql.Stmt
+	updateCloudLinkLocalDirStmt                *sql.Stmt
 	updateCredentialStmt                       *sql.Stmt
 	updateCredentialAnthropicStmt              *sql.Stmt
 	updateCredentialGeminiStmt                 *sql.Stmt
@@ -3772,6 +3844,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		cleanupOrphanedFlowNodeSubFlowTriggerStmt:  q.cleanupOrphanedFlowNodeSubFlowTriggerStmt,
 		cleanupOrphanedFlowNodeWaitStmt:            q.cleanupOrphanedFlowNodeWaitStmt,
 		cleanupOrphanedNodeExecutionsStmt:          q.cleanupOrphanedNodeExecutionsStmt,
+		createCloudLinkStmt:                        q.createCloudLinkStmt,
 		createCredentialStmt:                       q.createCredentialStmt,
 		createCredentialAnthropicStmt:              q.createCredentialAnthropicStmt,
 		createCredentialGeminiStmt:                 q.createCredentialGeminiStmt,
@@ -3836,6 +3909,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createWebSocketHeaderStmt:                  q.createWebSocketHeaderStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
+		deleteCloudLinkStmt:                        q.deleteCloudLinkStmt,
 		deleteCredentialStmt:                       q.deleteCredentialStmt,
 		deleteCredentialAnthropicStmt:              q.deleteCredentialAnthropicStmt,
 		deleteCredentialGeminiStmt:                 q.deleteCredentialGeminiStmt,
@@ -3896,6 +3970,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		findHTTPByURLAndMethodStmt:                 q.findHTTPByURLAndMethodStmt,
 		getAllFlowsByWorkspaceIDStmt:               q.getAllFlowsByWorkspaceIDStmt,
 		getAllWorkspacesByUserIDStmt:               q.getAllWorkspacesByUserIDStmt,
+		getCloudLinkStmt:                           q.getCloudLinkStmt,
+		getCloudLinkByTargetStmt:                   q.getCloudLinkByTargetStmt,
+		getCloudLinksByRepoStmt:                    q.getCloudLinksByRepoStmt,
+		getCloudLinksByWorkspaceIDStmt:             q.getCloudLinksByWorkspaceIDStmt,
 		getCredentialStmt:                          q.getCredentialStmt,
 		getCredentialAnthropicStmt:                 q.getCredentialAnthropicStmt,
 		getCredentialGeminiStmt:                    q.getCredentialGeminiStmt,
@@ -4064,6 +4142,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNodeExecutionsByStateStmt:              q.listNodeExecutionsByStateStmt,
 		resetHTTPBodyFormDeltaStmt:                 q.resetHTTPBodyFormDeltaStmt,
 		resolveHTTPWithDeltasStmt:                  q.resolveHTTPWithDeltasStmt,
+		updateCloudLinkContentStmt:                 q.updateCloudLinkContentStmt,
+		updateCloudLinkLocalDirStmt:                q.updateCloudLinkLocalDirStmt,
 		updateCredentialStmt:                       q.updateCredentialStmt,
 		updateCredentialAnthropicStmt:              q.updateCredentialAnthropicStmt,
 		updateCredentialGeminiStmt:                 q.updateCredentialGeminiStmt,

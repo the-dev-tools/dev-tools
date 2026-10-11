@@ -3,6 +3,7 @@ import "@the-dev-tools/spec-lib/protobuf";
 import "@the-dev-tools/spec-lib/tanstack-db";
 import "@the-dev-tools/spec-lib/ai-tools";
 
+import "./cloud-link.tsp";
 import "./credential.tsp";
 import "./environment.tsp";
 import "./export.tsp";
