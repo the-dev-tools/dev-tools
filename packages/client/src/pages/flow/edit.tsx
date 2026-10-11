@@ -15,7 +15,17 @@ import {
   useDragAndDrop,
 } from 'react-aria-components';
 import { createPortal } from 'react-dom';
-import { FiAlertTriangle, FiChevronDown, FiClock, FiCpu, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
+import {
+  FiAlertTriangle,
+  FiChevronDown,
+  FiClock,
+  FiCpu,
+  FiMinus,
+  FiMoreHorizontal,
+  FiPlus,
+  FiStopCircle,
+  FiX,
+} from 'react-icons/fi';
 import { Group as PanelGroup, Panel as ResizablePanel } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
@@ -125,39 +135,108 @@ export const FlowEditPage = () => {
   const [agentPanelOpen, setAgentPanelOpen] = useState(false);
   const undoStack = useUndoStack(flowId);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'i') return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      e.preventDefault();
+      setAgentPanelOpen((_) => !_);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => void document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <FlowContext.Provider value={{ agentPanelOpen, flowId, setAgentPanelOpen, setSidebar, undoStack }}>
       <XF.ReactFlowProvider>
         <div className={tw`flex h-full flex-col`}>
           <TopBarWithControls />
-          <PanelGroup orientation='horizontal'>
-            <ResizablePanel>
-              <Flow key={Ulid.construct(flowId).toCanonical()}>
-                <ActionBar />
+          <div className={tw`flex min-h-0 flex-1`}>
+            <PanelGroup className={tw`min-w-0 flex-1`} orientation='horizontal'>
+              <ResizablePanel>
+                <Flow key={Ulid.construct(flowId).toCanonical()}>
+                  <ActionBar />
 
-                {sidebar && (
-                  <XF.Panel
-                    className={tw`inset-y-0 w-80 border-l border-neutral bg-neutral-lowest`}
-                    position='top-right'
-                  >
-                    {sidebar}
-                  </XF.Panel>
-                )}
-              </Flow>
-            </ResizablePanel>
+                  {sidebar && (
+                    <XF.Panel
+                      className={tw`inset-y-0 w-80 border-l border-neutral bg-neutral-lowest`}
+                      position='top-right'
+                    >
+                      {sidebar}
+                    </XF.Panel>
+                  )}
+                </Flow>
+              </ResizablePanel>
 
-            {agentPanelOpen && (
-              <>
-                <PanelResizeHandle direction='horizontal' />
-                <ResizablePanel defaultSize='30%' maxSize='60%' minSize='15%'>
-                  <AgentPanel />
-                </ResizablePanel>
-              </>
-            )}
-          </PanelGroup>
+              {agentPanelOpen && (
+                <>
+                  <PanelResizeHandle direction='horizontal' />
+                  <ResizablePanel defaultSize='30%' maxSize='60%' minSize='15%'>
+                    <AgentPanel />
+                  </ResizablePanel>
+                </>
+              )}
+            </PanelGroup>
+
+            <FlowRail />
+          </div>
         </div>
       </XF.ReactFlowProvider>
     </FlowContext.Provider>
+  );
+};
+
+const railTooltip = tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`;
+
+const railButton = (isActive: boolean) =>
+  twJoin(tw`size-8 justify-center p-0 text-on-neutral-low`, isActive && tw`bg-neutral text-on-neutral`);
+
+const isMac = typeof navigator !== 'undefined' && navigator.userAgent.includes('Mac');
+
+/** Right-hand icon rail: AI Agent and Flows History. */
+const FlowRail = () => {
+  const router = useRouter();
+  const matchRoute = useMatchRoute();
+  const { agentPanelOpen = false, setAgentPanelOpen } = use(FlowContext);
+  const { flowIdCan, workspaceIdCan } = routes.dashboard.workspace.flow.route.useParams();
+
+  const historyPath = router.routesById[routes.dashboard.workspace.flow.history.id].fullPath;
+  const isHistory = !!matchRoute({ to: historyPath });
+
+  return (
+    <div className={tw`flex w-10 flex-none flex-col items-center gap-1 border-l border-neutral bg-neutral-lowest py-2`}>
+      <TooltipTrigger delay={300}>
+        <Button
+          aria-label='AI Agent'
+          aria-pressed={agentPanelOpen}
+          className={railButton(agentPanelOpen)}
+          onPress={() => void setAgentPanelOpen?.((_) => !_)}
+          variant='ghost'
+        >
+          <FiCpu className={tw`size-4`} />
+        </Button>
+        <Tooltip className={railTooltip} placement='left'>
+          AI Agent ({isMac ? '⌘' : 'Ctrl+'}I)
+        </Tooltip>
+      </TooltipTrigger>
+
+      <TooltipTrigger delay={300}>
+        <ButtonAsRouteLink
+          aria-label='Flows History'
+          className={railButton(isHistory)}
+          params={{ flowIdCan, workspaceIdCan }}
+          to={isHistory ? router.routesById[routes.dashboard.workspace.flow.route.id].fullPath : historyPath}
+          variant='ghost'
+        >
+          <FiClock className={tw`size-4`} />
+        </ButtonAsRouteLink>
+        <Tooltip className={railTooltip} placement='left'>
+          Flows History
+        </Tooltip>
+      </TooltipTrigger>
+    </div>
   );
 };
 
@@ -614,6 +693,7 @@ export const TopBar = ({ children }: TopBarProps) => {
     ).data ?? defaultFlow;
 
   const matchRoute = useMatchRoute();
+  const isHistory = !!matchRoute({ to: router.routesById[routes.dashboard.workspace.flow.history.id].fullPath });
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -655,21 +735,17 @@ export const TopBar = ({ children }: TopBarProps) => {
 
       {children}
 
-      <ButtonAsRouteLink
-        className={twJoin(
-          tw`px-1 py-0 text-on-neutral`,
-          matchRoute({ to: router.routesById[routes.dashboard.workspace.flow.history.id].fullPath }) && tw`bg-neutral`,
-        )}
-        params={{ flowIdCan, workspaceIdCan }}
-        to={
-          matchRoute({ to: router.routesById[routes.dashboard.workspace.flow.history.id].fullPath })
-            ? router.routesById[routes.dashboard.workspace.flow.route.id].fullPath
-            : router.routesById[routes.dashboard.workspace.flow.history.id].fullPath
-        }
-        variant='ghost'
-      >
-        <FiClock className={tw`size-4 text-on-neutral-low`} /> Flows History
-      </ButtonAsRouteLink>
+      {/* The editor has Flows History in its right rail; the history page links back here. */}
+      {isHistory && (
+        <ButtonAsRouteLink
+          className={tw`bg-neutral px-1 py-0 text-on-neutral`}
+          params={{ flowIdCan, workspaceIdCan }}
+          to={router.routesById[routes.dashboard.workspace.flow.route.id].fullPath}
+          variant='ghost'
+        >
+          <FiClock className={tw`size-4 text-on-neutral-low`} /> Flows History
+        </ButtonAsRouteLink>
+      )}
 
       <MenuTrigger {...menuTriggerProps}>
         <Button className={tw`bg-neutral p-0.5`} variant='ghost'>
@@ -724,7 +800,7 @@ export const TopBarWithControls = () => {
 };
 
 const ActionBar = () => {
-  const { flowId, setAgentPanelOpen, setSidebar } = use(FlowContext);
+  const { flowId, setSidebar } = use(FlowContext);
   const { transport } = routes.root.useRouteContext();
 
   const flowCollection = useApiCollection(FlowCollectionSchema);
@@ -747,15 +823,6 @@ const ActionBar = () => {
       <Button className={tw`px-1.5 py-1`} onPress={() => void setSidebar?.(<AddNodeSidebar />)} variant='ghost dark'>
         <FiPlus className={tw`size-5 text-on-inverse-low`} />
         Add Node
-      </Button>
-
-      <Button
-        className={tw`px-1.5 py-1`}
-        onPress={() => void setAgentPanelOpen?.((prev) => !prev)}
-        variant='ghost dark'
-      >
-        <FiCpu className={tw`size-5 text-on-inverse-low`} />
-        AI Agent
       </Button>
 
       {running ? (
