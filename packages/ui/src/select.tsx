@@ -1,6 +1,6 @@
 import { RefAttributes } from 'react';
 import * as RAC from 'react-aria-components';
-import { FiCheckCircle, FiChevronDown } from 'react-icons/fi';
+import { FiCheck, FiChevronDown } from 'react-icons/fi';
 import { Button, ButtonProps } from './button';
 import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { ListBox, ListBoxItem, ListBoxItemProps, ListBoxProps } from './list-box';
@@ -35,9 +35,20 @@ export const Select = <T extends object>({
 }: SelectProps<T>) => (
   <RAC.Select {...props} className={composeTailwindRenderProps(className, tw`group flex flex-col gap-1`)}>
     {label && <FieldLabel>{label}</FieldLabel>}
-    <Button className={triggerClassName!} variant={triggerVariant}>
-      <RAC.SelectValue>{renderValue}</RAC.SelectValue>
-      <FiChevronDown className={tw`-mr-1 size-4 text-on-neutral-low transition-transform group-open:rotate-180`} />
+    <Button
+      className={composeTailwindRenderProps(triggerClassName, tw`min-w-0 justify-between gap-2 text-left`)}
+      variant={triggerVariant}
+    >
+      <RAC.SelectValue className={tw`min-w-0 flex-1 truncate text-left placeholder-shown:text-on-neutral-low`}>
+        {renderValue}
+      </RAC.SelectValue>
+      <FiChevronDown
+        className={tw`
+          -mr-1 size-4 flex-none text-on-neutral-low transition-transform duration-150
+
+          group-open:rotate-180
+        `}
+      />
     </Button>
     {error && <FieldError>{error}</FieldError>}
     <Popover>
@@ -56,7 +67,7 @@ export const SelectItem = <T extends object>(props: ListBoxItemProps<T>) => (
       <>
         {children}
         <div className={tw`flex-1`} />
-        <FiCheckCircle className={tw`hidden size-3.5 stroke-[1.2px] text-success group-selected/list-item:block`} />
+        <FiCheck className={tw`invisible size-4 flex-none text-accent group-selected/list-item:visible`} />
       </>
     ))}
   </ListBoxItem>

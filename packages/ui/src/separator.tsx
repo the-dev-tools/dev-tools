@@ -6,7 +6,7 @@ export const separatorStyles = tv({
   base: tw`bg-neutral`,
   variants: {
     orientation: {
-      horizontal: tw`h-px w-full`,
+      horizontal: tw`h-px w-full in-[[role=menu],[role=listbox]]:my-1`,
       vertical: tw`w-px`,
     },
   },
