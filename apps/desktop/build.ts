@@ -25,6 +25,13 @@ const libFiles = (lib: string) => [`node_modules/${lib}/package.json`, `node_mod
  *   user-data folder from it, which is why `migrateDataDir` (src/main)
  *   moves "DevTools-Studio" into "Stresseur Studio" at startup.
  */
+/*
+ * Launcher name: "Stresseur Studio (DevTools)" for now, so people who still
+ * search for DevTools find the app (Spotlight, Launchpad, Dock, Start menu,
+ * Linux app menu). Display only: productName above keeps the user-data folder.
+ */
+const LAUNCHER_NAME = 'Stresseur Studio (DevTools)';
+
 const config: Configuration = {
   appId: 'com.electron.devtools-studio',
   artifactName: 'DevTools-Studio-${version}-${platform}-${arch}.${ext}',
@@ -37,6 +44,7 @@ const config: Configuration = {
   linux: {
     category: 'Development',
     // Linux lowercases the executable by default; pin today's name explicitly.
+    desktop: { entry: { Name: LAUNCHER_NAME } },
     executableName: 'devtools-studio',
     target: ['AppImage'],
   },
@@ -44,6 +52,7 @@ const config: Configuration = {
     category: 'public.app-category.developer-tools',
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
+    extendInfo: { CFBundleDisplayName: LAUNCHER_NAME },
     gatekeeperAssess: false,
     hardenedRuntime: true,
     type: 'distribution',
@@ -52,6 +61,7 @@ const config: Configuration = {
   nsis: {
     allowToChangeInstallationDirectory: true,
     oneClick: false,
+    shortcutName: LAUNCHER_NAME,
   },
   publish: { provider: 'custom' },
   win: {

@@ -16,12 +16,12 @@ import {
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { execFileSync } from 'node:child_process';
-import { existsSync, unlinkSync } from 'node:fs';
-import fs from 'node:fs';
+import fs, { existsSync, unlinkSync } from 'node:fs';
 import os from 'node:os';
 import nodePath from 'node:path';
 import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
+import * as account from './account';
 import { legacyDataDirs, migrateDataDir, type MigrationResult } from './migrate-data-dir';
 import { dismissRenameNotice, initRenameNotice, RENAME_NOTICE_FILE } from './rename-notice';
 import { CustomUpdateProvider, UpdateOptions } from './update';
@@ -328,6 +328,25 @@ const onReady = Effect.gen(function* () {
   ipcMain.on('update:start', () => void autoUpdater.downloadUpdate());
   autoUpdater.on('download-progress', (_) => void mainWindow.webContents.send('update:progress', _));
   autoUpdater.on('update-downloaded', () => void autoUpdater.quitAndInstall());
+
+  // Stresseur account (shares the CLI's saved login)
+  const credentialsFile = account.credentialsPath(app.getPath('appData'));
+  let signInAbort: AbortController | undefined;
+  ipcMain.handle('account:get', () => account.getAccount(credentialsFile));
+  ipcMain.on('account:sign-in', () => {
+    signInAbort?.abort();
+    const controller = (signInAbort = new AbortController());
+    void account.signIn({
+      file: credentialsFile,
+      onEvent: (event) => void mainWindow.webContents.send('account:event', event),
+      openUrl: (url) => shell.openExternal(url),
+      signal: controller.signal,
+      version: app.getVersion(),
+    });
+  });
+  ipcMain.on('account:cancel', () => void signInAbort?.abort());
+  ipcMain.handle('account:sign-out', () => account.signOut(credentialsFile));
+  ipcMain.on('account:open', () => void shell.openExternal(account.apiUrl()));
 
   ipcMain.handle('rename-notice:get', () => showRenameNotice);
   ipcMain.on('rename-notice:dismiss', () => void dismissRenameNotice(app.getPath('userData')));

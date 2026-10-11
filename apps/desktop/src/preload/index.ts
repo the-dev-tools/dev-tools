@@ -4,6 +4,19 @@ import { contextBridge, Dialog, ipcRenderer } from 'electron';
 import { ProgressInfo } from 'electron-updater';
 
 contextBridge.exposeInMainWorld('electron', {
+  account: {
+    cancel: () => void ipcRenderer.send('account:cancel'),
+    get: () => ipcRenderer.invoke('account:get'),
+    onEvent: (callback: (event: unknown) => void) => {
+      const listener = (_: unknown, event: unknown) => void callback(event);
+      ipcRenderer.on('account:event', listener);
+      return () => void ipcRenderer.off('account:event', listener);
+    },
+    open: () => void ipcRenderer.send('account:open'),
+    signIn: () => void ipcRenderer.send('account:sign-in'),
+    signOut: () => ipcRenderer.invoke('account:sign-out') as Promise<void>,
+  },
+
   dialog: <T extends keyof Dialog>(method: T, ...options: Parameters<Dialog[T]>) =>
     ipcRenderer.invoke('dialog', method, options),
   onClose: (callback: () => void) => ipcRenderer.on('on-close', callback),

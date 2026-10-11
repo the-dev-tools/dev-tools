@@ -7,6 +7,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
 import { routes } from '../routes';
+import { AccountButton } from './account';
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -38,6 +39,8 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
         {navbar}
 
         <div className='flex-1' />
+
+        <AccountButton />
 
         <Button className={tw`-mr-2 p-1 text-xl`} onPress={() => void toggleTheme()} variant='ghost dark'>
           {theme === 'light' && <FiSun />}
