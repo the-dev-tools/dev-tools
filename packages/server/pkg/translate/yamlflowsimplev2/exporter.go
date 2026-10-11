@@ -2,6 +2,7 @@
 package yamlflowsimplev2
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"slices"
@@ -80,6 +81,13 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	for _, a := range data.HTTPAsserts {
 		assertsMap[a.HttpID] = append(assertsMap[a.HttpID], a)
 	}
+
+	// Rows keep their display order so the exported YAML lists fields the way
+	// they are sent on the wire.
+	sortGroupsByDisplayOrder(headersMap, func(h mhttp.HTTPHeader) float64 { return float64(h.DisplayOrder) })
+	sortGroupsByDisplayOrder(paramsMap, func(p mhttp.HTTPSearchParam) float64 { return p.DisplayOrder })
+	sortGroupsByDisplayOrder(bodyFormMap, func(f mhttp.HTTPBodyForm) float64 { return float64(f.DisplayOrder) })
+	sortGroupsByDisplayOrder(bodyUrlMap, func(u mhttp.HTTPBodyUrlencoded) float64 { return float64(u.DisplayOrder) })
 
 	// Build lookup context for delta merging
 	deltaCtx := &deltaLookupContext{
@@ -1263,4 +1271,12 @@ func withCleanupEntities(data *ioworkspace.WorkspaceBundle) *ioworkspace.Workspa
 		}
 	}
 	return &merged
+}
+
+// sortGroupsByDisplayOrder stable-sorts each group by its display order, so
+// rows with equal order keep their incoming order.
+func sortGroupsByDisplayOrder[T any](groups map[idwrap.IDWrap][]T, order func(T) float64) {
+	for _, rows := range groups {
+		slices.SortStableFunc(rows, func(a, b T) int { return cmp.Compare(order(a), order(b)) })
+	}
 }
