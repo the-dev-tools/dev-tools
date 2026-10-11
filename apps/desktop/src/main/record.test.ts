@@ -107,7 +107,16 @@ void describe('init', { skip: process.platform === 'win32' && 'uses a shebang sc
     assert.deepEqual(api.stop(), { data: null, ok: true });
     const end = await finished();
     const types = events.map((_) => _.type).filter((_) => _ !== 'progress');
-    assert.deepEqual(types, ['detected', 'recording', 'recorded', 'generated', 'verified', 'verified', 'done', 'finished']);
+    assert.deepEqual(types, [
+      'detected',
+      'recording',
+      'recorded',
+      'generated',
+      'verified',
+      'verified',
+      'done',
+      'finished',
+    ]);
     assert.deepEqual(
       events.filter((_) => _.type === 'verified').map((_) => [_.run, _.passed, _.total]),
       [
@@ -117,7 +126,9 @@ void describe('init', { skip: process.platform === 'win32' && 'uses a shebang sc
     );
     assert.equal(end.code, 0);
     assert.equal(end.temporary, true);
-    assert.deepEqual(end.files, [{ flows: ['checkout'], path: 'shop/checkout.yamlflow.yaml', text: 'flows:\n  - name: checkout\n' }]);
+    assert.deepEqual(end.files, [
+      { flows: ['checkout'], path: 'shop/checkout.yamlflow.yaml', text: 'flows:\n  - name: checkout\n' },
+    ]);
     assert.deepEqual(end.env, { EMAIL: 'a@b.co', PASSWORD: 's3cret' });
     assert.deepEqual(fs.readdirSync(tmpRoot), []);
     assert.equal(api.isRunning(), false);
@@ -142,7 +153,10 @@ void describe('init', { skip: process.platform === 'win32' && 'uses a shebang sc
       events.find((_) => _.type === 'fix_prompt'),
       { prompt: 'Fix api-tests/shop/checkout.yamlflow.yaml: pay fails (500).', type: 'fix_prompt' },
     );
-    assert.deepEqual(events.find((_) => _.type === 'done'), { green: false, type: 'done' });
+    assert.deepEqual(
+      events.find((_) => _.type === 'done'),
+      { green: false, type: 'done' },
+    );
     assert.ok(!events.some((_) => _.type === 'error'), 'exit code 1 is a failed verification, not an error');
     assert.equal(end.code, 1);
     assert.equal(end.files.length, 1);

@@ -140,7 +140,12 @@ export const parseInitEvent = (value: unknown): InitEvent | undefined => {
     case 'detected': {
       const url = str(event['url']);
       if (url === undefined) return undefined;
-      return { ...optional('command', str(event['command'])), source: str(event['source']) ?? 'flag', type: 'detected', url };
+      return {
+        ...optional('command', str(event['command'])),
+        source: str(event['source']) ?? 'flag',
+        type: 'detected',
+        url,
+      };
     }
     case 'done':
       return { green: event['green'] === true, type: 'done' };
@@ -156,7 +161,9 @@ export const parseInitEvent = (value: unknown): InitEvent | undefined => {
       const files = (Array.isArray(event['files']) ? (event['files'] as unknown[]) : []).flatMap((entry) => {
         const file = record(entry);
         const filePath = str(file?.['path']);
-        return filePath === undefined ? [] : [{ flows: strings(file?.['flows']), path: filePath, steps: num(file?.['steps']) }];
+        return filePath === undefined
+          ? []
+          : [{ flows: strings(file?.['flows']), path: filePath, steps: num(file?.['steps']) }];
       });
       const env = record(event['env']);
       const envPath = str(env?.['path']);
@@ -197,7 +204,13 @@ export const parseInitEvent = (value: unknown): InitEvent | undefined => {
           },
         ];
       });
-      return { failures, passed: num(event['passed']), run: num(event['run']), total: num(event['total']), type: 'verified' };
+      return {
+        failures,
+        passed: num(event['passed']),
+        run: num(event['run']),
+        total: num(event['total']),
+        type: 'verified',
+      };
     }
     default:
       return undefined;
@@ -265,8 +278,7 @@ export const readDotEnv = (text: string, names: string[]) => {
     if (!match?.[1] || !wanted.has(match[1]) || match[1] in values) continue;
     let value = (match[2] ?? '').trim();
     const quote = value.startsWith('"') ? '"' : value.startsWith("'") ? "'" : undefined;
-    if (value.length >= 2 && quote && value.endsWith(quote))
-      value = value.slice(1, -1);
+    if (value.length >= 2 && quote && value.endsWith(quote)) value = value.slice(1, -1);
     values[match[1]] = value;
   }
   return values;
@@ -361,7 +373,8 @@ export const createRecorder = ({
     const { demo, dir, url } = record(options) ?? {};
     const isDemo = demo === true;
     const parsed = isHttpUrl(url);
-    if (!isDemo && !parsed) return { message: 'Enter the URL of your app, starting with http:// or https://.', ok: false };
+    if (!isDemo && !parsed)
+      return { message: 'Enter the URL of your app, starting with http:// or https://.', ok: false };
     if (dir !== undefined && (typeof dir !== 'string' || !path.isAbsolute(dir) || !(await isDirectory(dir))))
       return { message: 'Pick a folder that exists.', ok: false };
 
@@ -427,7 +440,8 @@ export const createRecorder = ({
         run = undefined;
         await withTimeout(exit, 5_000);
         if (temporary) await cleanup(runDir);
-        if (outcome.kind === 'spawn-error') return { message: `Could not run stresseur: ${outcome.message}`, ok: false };
+        if (outcome.kind === 'spawn-error')
+          return { message: `Could not run stresseur: ${outcome.message}`, ok: false };
         if (outcome.kind === 'timeout') return { message: 'stresseur init did not start.', ok: false };
         return {
           message: lastError ?? (tail(stderr) || `stresseur init exited with code ${String(outcome.code)}.`),
@@ -440,7 +454,9 @@ export const createRecorder = ({
         if (run !== current) return;
         if (code !== 0 && code !== 1 && !lastError)
           onEvent({
-            message: tail(stderr) || (signal ? `stresseur init was stopped (${signal}).` : `stresseur init exited with code ${String(code)}.`),
+            message:
+              tail(stderr) ||
+              (signal ? `stresseur init was stopped (${signal}).` : `stresseur init exited with code ${String(code)}.`),
             type: 'error',
           });
         const files = generated ? await readFiles(runDir, generated.files).catch(() => []) : [];

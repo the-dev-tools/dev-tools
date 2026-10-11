@@ -31,6 +31,7 @@ import {
   findPr,
   installSkill,
   openPr,
+  progressSteps,
   watchRepo,
 } from './launchpad';
 import { createLocalClones } from './localclone';
@@ -426,7 +427,14 @@ const onReady = Effect.gen(function* () {
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event);
   };
   const pickedDirs = createDirAllowlist();
-  const recorder = createRecorder({ binary: stresseurBinary, onEvent: (event) => void broadcast('record:event', event) });
+  const recorder = createRecorder({
+    binary: stresseurBinary,
+    onEvent: (event) => {
+      // A failed run's folder is kept for the coding agent: it may install the skill there.
+      if (event.type === 'finished' && event.temporary && event.files.length > 0) pickedDirs.add(event.dir);
+      broadcast('record:event', event);
+    },
+  });
   ipcMain.handle('record:start', (_event, options: unknown) => {
     const dir = (options as null | undefined | { dir?: unknown })?.dir;
     if (dir !== undefined && !pickedDirs.has(dir)) return { message: 'Pick the folder first.', ok: false };
@@ -444,7 +452,7 @@ const onReady = Effect.gen(function* () {
     const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
     const result = await dialog.showOpenDialog(window, {
       properties: ['openDirectory', 'createDirectory'],
-      title: typeof title === 'string' ? title : 'Pick your app\'s repo',
+      title: typeof title === 'string' ? title : "Pick your app's repo",
     });
     const dir = result.canceled ? undefined : result.filePaths[0];
     if (!dir) return null;
@@ -476,7 +484,7 @@ const onReady = Effect.gen(function* () {
     if (!pickedDirs.has(dir)) return false;
     unwatchRepo = watchRepo(dir, {
       findPr: (_) => findPr(_),
-      onProgress: (progress) => void broadcast('launchpad:progress', { dir, progress }),
+      onProgress: (progress) => void broadcast('launchpad:progress', { dir, progress, steps: progressSteps(progress) }),
     });
     return true;
   });

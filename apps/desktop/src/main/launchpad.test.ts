@@ -79,10 +79,13 @@ void describe('repo progress', () => {
     write('api-tests/shop/checkout.yamlflow.yaml', 'flows: []\n');
     write('api-tests/login.yamlflow.yaml', 'flows: []\n');
     write('api-tests/node_modules/x.yaml', '');
-    write('.stresseur/last-verify.json', lastVerify([
-      { passed: 4, status: 'passed', total: 4 },
-      { passed: 1, status: 'failed', total: 3 },
-    ]));
+    write(
+      '.stresseur/last-verify.json',
+      lastVerify([
+        { passed: 4, status: 'passed', total: 4 },
+        { passed: 1, status: 'failed', total: 3 },
+      ]),
+    );
     let progress = await scanRepo(repo, Date.now() + 60_000);
     assert.deepEqual(progress.flowFiles, ['login.yamlflow.yaml', 'shop/checkout.yamlflow.yaml']);
     assert.deepEqual(progress.checks, {
@@ -93,12 +96,20 @@ void describe('repo progress', () => {
       total: 7,
       verifiedAt: '2026-10-11T10:00:00.000Z',
     });
-    assert.deepEqual(progressSteps(progress), { checks: 'active', generated: 'done', pr: 'pending', recording: 'done' });
+    assert.deepEqual(progressSteps(progress), {
+      checks: 'active',
+      generated: 'done',
+      pr: 'pending',
+      recording: 'done',
+    });
 
-    write('.stresseur/last-verify.json', lastVerify([
-      { passed: 4, status: 'passed', total: 4 },
-      { passed: 3, status: 'passed', total: 3 },
-    ]));
+    write(
+      '.stresseur/last-verify.json',
+      lastVerify([
+        { passed: 4, status: 'passed', total: 4 },
+        { passed: 3, status: 'passed', total: 3 },
+      ]),
+    );
     progress = await scanRepo(repo);
     assert.equal(progress.checks?.green, true);
     const withPr: RepoProgress = { ...progress, pr: { url: 'https://github.com/a/b/pull/7' } };

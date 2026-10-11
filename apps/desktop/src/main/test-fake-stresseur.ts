@@ -85,4 +85,3 @@ export const writeFakeStresseur = (dir: string) => {
   fs.writeFileSync(bin, `#!${process.execPath}\n${FAKE_STRESSEUR}`, { mode: 0o755 });
   return bin;
 };
-

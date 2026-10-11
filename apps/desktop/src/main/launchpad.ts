@@ -75,8 +75,7 @@ const runIn = (bin: string, args: string[], cwd: string, timeoutMs = 120_000) =>
     });
   });
 
-const failure = (result: CommandResult, fallback: string) =>
-  tail([result.stderr]) || tail([result.stdout]) || fallback;
+const failure = (result: CommandResult, fallback: string) => tail([result.stderr]) || tail([result.stdout]) || fallback;
 
 export type Result<T> = { data: T; ok: true } | { message: string; ok: false };
 
@@ -95,7 +94,10 @@ export const agentsFromPaths = (paths: string[]): AgentName[] => {
   return (['Claude Code', 'Codex', 'Cursor'] as const).filter((_) => agents.has(_));
 };
 
-export const installSkill = async (bin: string, dir: string): Promise<Result<{ agents: AgentName[]; files: string[] }>> => {
+export const installSkill = async (
+  bin: string,
+  dir: string,
+): Promise<Result<{ agents: AgentName[]; files: string[] }>> => {
   const result = await runIn(bin, ['install-skill'], dir);
   if (result.code !== 0) return { message: failure(result, 'Could not add the skill.'), ok: false };
   const files = result.stdout
@@ -207,8 +209,11 @@ export const progressSteps = (progress: RepoProgress) => {
 
 const execText = (bin: string, args: string[], cwd: string) =>
   new Promise<string | undefined>((resolve) => {
-    execFile(bin, args, { cwd, timeout: 15_000, windowsHide: true }, (error, stdout) =>
-      void resolve(error ? undefined : stdout.trim()),
+    execFile(
+      bin,
+      args,
+      { cwd, timeout: 15_000, windowsHide: true },
+      (error, stdout) => void resolve(error ? undefined : stdout.trim()),
     );
   });
 
@@ -353,7 +358,8 @@ export const openPr = async (
   let output = '';
   for (const [bin, args] of steps) {
     const result = await runIn(bin, args, dir);
-    if (result.code !== 0) return { message: failure(result, `${path.basename(bin)} ${args[0] ?? ''} failed.`), ok: false };
+    if (result.code !== 0)
+      return { message: failure(result, `${path.basename(bin)} ${args[0] ?? ''} failed.`), ok: false };
     output = result.stdout;
   }
   const url = /https:\/\/\S+/.exec(output)?.[0];
