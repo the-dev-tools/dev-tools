@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ulid } from 'id128';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiChevronDown, FiCloud, FiRefreshCw } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
@@ -108,6 +108,12 @@ export const useRunLocally = (flowId: Uint8Array) => {
 };
 
 // Top bar controls for linked flows
+
+// The flow editor's Run menu asks the open cloud flow's controls to run it in the cloud.
+const cloudRunListeners = new Set<() => void>();
+export const requestCloudRun = () => {
+  for (const listener of cloudRunListeners) listener();
+};
 
 export const CloudFlowControls = () => {
   const { flowId } = routes.dashboard.workspace.flow.route.useLoaderData();
@@ -286,6 +292,14 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
       ));
     });
 
+  const runInCloudRef = useRef(runInCloud);
+  runInCloudRef.current = runInCloud;
+  useEffect(() => {
+    const listener = () => void runInCloudRef.current();
+    cloudRunListeners.add(listener);
+    return () => void cloudRunListeners.delete(listener);
+  }, []);
+
   const branch = repo?.default_branch ?? 'main';
 
   return (
@@ -326,15 +340,6 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
         variant='secondary'
       >
         {clone ? 'Save to clone' : 'Propose change'}
-      </Button>
-
-      <Button
-        className={tw`px-2 py-0.5 text-sm/5`}
-        isPending={busy === 'run'}
-        onPress={() => void runInCloud()}
-        variant='secondary'
-      >
-        Run in cloud
       </Button>
 
       <MenuTrigger>

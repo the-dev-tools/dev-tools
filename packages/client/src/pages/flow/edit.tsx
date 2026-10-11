@@ -15,7 +15,7 @@ import {
   useDragAndDrop,
 } from 'react-aria-components';
 import { createPortal } from 'react-dom';
-import { FiAlertTriangle, FiClock, FiCpu, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
+import { FiAlertTriangle, FiChevronDown, FiClock, FiCpu, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Group as PanelGroup, Panel as ResizablePanel } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
@@ -50,7 +50,7 @@ import { Table, TableBody, TableCell, TableColumn, TableFooter, TableHeader, Tab
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useTheme } from '@the-dev-tools/ui/theme';
-import { CloudFlowControls, useRunLocally } from '~/features/cloud';
+import { CloudFlowControls, requestCloudRun, useRunLocally } from '~/features/cloud';
 import { ReferenceContext, ReferenceField } from '~/features/expression';
 import { ColumnActionDelete } from '~/features/form-table';
 import { request, useApiCollection } from '~/shared/api';
@@ -767,10 +767,31 @@ const ActionBar = () => {
           Stop
         </Button>
       ) : (
-        <Button onPress={() => void runLocally.run()} variant='primary'>
-          <PlayCircleIcon className={tw`size-4`} />
-          {runLocally.isLinked ? 'Run locally' : 'Run'}
-        </Button>
+        <div className={tw`flex`}>
+          <Button className={tw`rounded-r-none`} onPress={() => void runLocally.run()} variant='primary'>
+            <PlayCircleIcon className={tw`size-4`} />
+            Run
+          </Button>
+
+          <MenuTrigger>
+            <Button
+              aria-label='Choose where to run'
+              className={tw`rounded-l-none border-l border-on-accent/30 px-1.5`}
+              variant='primary'
+            >
+              <FiChevronDown className={tw`size-4`} />
+            </Button>
+
+            <Menu disabledKeys={runLocally.isLinked ? [] : ['cloud']}>
+              <MenuItem id='local' onAction={() => void runLocally.run()}>
+                Run locally
+              </MenuItem>
+              <MenuItem id='cloud' onAction={() => void requestCloudRun()}>
+                {runLocally.isLinked ? 'Run in cloud…' : 'Run in cloud (flows from a Cloud repo)'}
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+        </div>
       )}
     </XF.Panel>
   );
