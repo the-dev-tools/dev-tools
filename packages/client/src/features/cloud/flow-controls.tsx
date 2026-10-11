@@ -17,6 +17,7 @@ import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { TextAreaField, TextInputField } from '@the-dev-tools/ui/text-field';
 import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { track } from '~/app/umami';
 import { request, useApiCollection } from '~/shared/api';
@@ -268,7 +269,15 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
       toastQueue.add({ title: 'Saved to your clone' }, { timeout: 4000 });
     });
 
-  const proposeChange = () =>
+  const proposeChange = async () => {
+    if (!cloud) return;
+    const pr = await dialogs.ask<ProposeInput>((done) => (
+      <ProposeDialog done={done} flowName={flowName} path={link.path} />
+    ));
+    if (pr) await openPullRequest(pr);
+  };
+
+  const openPullRequest = ({ description, title }: ProposeInput) =>
     withBusy('save', async () => {
       if (!cloud) return;
       const { path, yamlText } = await exportLink(transport, link);
@@ -276,6 +285,8 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
         base_sha: link.baseSha,
         content: yamlText,
         path: path || link.path,
+        title,
+        ...(description && { body: description }),
       });
 
       if (!result.ok) {
@@ -385,22 +396,34 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
         </Button>
       )}
 
-      <Button
-        className={tw`px-2 py-0.5 text-sm/5`}
-        isPending={busy === 'save'}
-        onPress={() => void (clone ? saveToClone() : proposeChange())}
-        variant='secondary'
-      >
-        {clone ? 'Save to clone' : 'Propose change'}
-      </Button>
+      {/* Soft-disabled (aria-disabled) so the tooltip still shows. */}
+      <TooltipTrigger delay={300} isDisabled={link.dirty}>
+        <Button
+          aria-disabled={!link.dirty}
+          className={twJoin(tw`px-2 py-0.5 text-sm/5`, !link.dirty && tw`cursor-not-allowed opacity-50`)}
+          isPending={busy === 'save'}
+          onPress={() => {
+            if (!link.dirty) return;
+            void (clone ? saveToClone() : proposeChange());
+          }}
+          variant='secondary'
+        >
+          {clone ? 'Save to clone' : 'Propose change'}
+        </Button>
+        <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>No changes yet</Tooltip>
+      </TooltipTrigger>
 
       <MenuTrigger>
         <Button aria-label='More cloud actions' className={tw`p-0.5`} variant='ghost'>
           <FiChevronDown className={tw`size-4 text-on-neutral-low`} />
         </Button>
 
-        <Menu>
-          {clone && <MenuItem onAction={() => void proposeChange()}>Propose change</MenuItem>}
+        <Menu disabledKeys={link.dirty ? [] : ['propose']}>
+          {clone && (
+            <MenuItem id='propose' onAction={() => void proposeChange()}>
+              Propose change
+            </MenuItem>
+          )}
           {cloudFlow && (
             <MenuItem
               onAction={() => {
@@ -421,6 +444,45 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
 
       <div className={twJoin(tw`h-4 w-px bg-neutral`)} />
     </>
+  );
+};
+
+interface ProposeInput {
+  description: string;
+  title: string;
+}
+
+interface ProposeDialogProps {
+  done: (value: null | ProposeInput) => void;
+  flowName: string;
+  path: string;
+}
+
+const ProposeDialog = ({ done, flowName, path }: ProposeDialogProps) => {
+  const [title, setTitle] = useState(`Update ${flowName} flow`);
+  const [description, setDescription] = useState('');
+
+  return (
+    <CloudDialog
+      actions={
+        <>
+          <Button onPress={() => void done(null)}>Cancel</Button>
+          <Button
+            isDisabled={!title.trim()}
+            onPress={() => void done({ description: description.trim(), title: title.trim() })}
+            variant='primary'
+          >
+            Open pull request
+          </Button>
+        </>
+      }
+      onClose={() => void done(null)}
+      title='Propose change'
+    >
+      <p className={tw`font-mono text-sm text-on-neutral-low`}>{path}</p>
+      <TextInputField label='Title' onChange={setTitle} value={title} />
+      <TextAreaField label='Description (optional)' onChange={setDescription} value={description} />
+    </CloudDialog>
   );
 };
 

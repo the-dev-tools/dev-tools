@@ -123,7 +123,7 @@ declare global {
         open: (url: string) => void;
         proposeChange: (
           repo: string,
-          change: { base_sha: string; content: string; path: string; title?: string },
+          change: { base_sha: string; body?: string; content: string; path: string; title?: string },
         ) => Promise<StresseurCloudResult<StresseurCloudPullRequest>>;
         repos: () => Promise<StresseurCloudResult<StresseurCloudRepos>>;
         run: (id: string) => Promise<StresseurCloudResult<StresseurCloudRun>>;

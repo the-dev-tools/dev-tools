@@ -226,17 +226,24 @@ export const createCloud = ({
     flows: (repo: unknown) => request('GET', `/repos/${segment(repo)}/flows`, { cached: true }),
 
     proposeChange: (repo: unknown, change: unknown) => {
-      const { base_sha, content, path: filePath, title } = (change ?? {}) as Record<string, unknown>;
+      const { base_sha, body, content, path: filePath, title } = (change ?? {}) as Record<string, unknown>;
       if (!isRepoFlowPath(filePath))
         return Promise.resolve(invalid('Flow files must be under api-tests/ and end in .yamlflow.yaml.'));
       if (
         typeof content !== 'string' ||
         typeof base_sha !== 'string' ||
-        (title !== undefined && typeof title !== 'string')
+        (title !== undefined && typeof title !== 'string') ||
+        (body !== undefined && typeof body !== 'string')
       )
         return Promise.resolve(invalid('The change is incomplete.'));
       return request('POST', `/repos/${segment(repo)}/pull-requests`, {
-        body: { base_sha, content, path: filePath, ...(title === undefined ? {} : { title }) },
+        body: {
+          base_sha,
+          content,
+          path: filePath,
+          ...(title === undefined ? {} : { title }),
+          ...(body ? { body } : {}),
+        },
       });
     },
 

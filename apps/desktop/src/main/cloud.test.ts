@@ -171,6 +171,24 @@ void describe('cloud requests', () => {
     assert.deepEqual(body, { base_sha: 'abc', content: 'flows: []\n', path: 'api-tests/checkout.yamlflow.yaml' });
   });
 
+  void it('sends a title and description when given', async () => {
+    await cloud().proposeChange('shop', {
+      base_sha: 'abc',
+      body: 'Adds a check.',
+      content: 'flows: []\n',
+      path: 'api-tests/checkout.yamlflow.yaml',
+      title: 'Update checkout flow',
+    });
+    const body = JSON.parse(calls[0]?.split('stsr_test ')[1] ?? '{}') as unknown;
+    assert.deepEqual(body, {
+      base_sha: 'abc',
+      body: 'Adds a check.',
+      content: 'flows: []\n',
+      path: 'api-tests/checkout.yamlflow.yaml',
+      title: 'Update checkout flow',
+    });
+  });
+
   void it('is signed out without credentials or for another API URL', async () => {
     fs.rmSync(credentialsFile);
     assert.deepEqual(await cloud().repos(), { error: { kind: 'signed-out' }, ok: false });
