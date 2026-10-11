@@ -27,7 +27,7 @@ import {
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Button } from '@the-dev-tools/ui/button';
 import { Checkbox } from '@the-dev-tools/ui/checkbox';
-import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
+import { VariableIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
@@ -42,7 +42,7 @@ import { useApiCollection } from '~/shared/api';
 import { eqStruct, getNextOrder, handleCollectionReorder, LiveQuery, pick, pickStruct } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { ExportDialog } from '~/widgets/export';
-import { ImportDialogTrigger } from '~/widgets/import';
+import { useImportDialog } from '~/widgets/import';
 
 export const EnvironmentsWidget = () => {
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
@@ -75,6 +75,8 @@ export const EnvironmentsWidget = () => {
   );
 
   const [manage, setManage] = useState<{ environmentId?: Uint8Array; isOpen: boolean }>({ isOpen: false });
+  const [exportOpen, setExportOpen] = useState(false);
+  const importDialog = useImportDialog();
 
   return (
     <div className={tw`flex items-center gap-1 border-b border-neutral px-3 py-2`}>
@@ -120,24 +122,28 @@ export const EnvironmentsWidget = () => {
 
       <div className={tw`flex-1`} />
 
-      <ImportDialogTrigger />
-
-      <ExportDialog />
-
-      <DialogTrigger
-        isOpen={manage.isOpen}
-        onOpenChange={(isOpen) => void setManage((_) => (isOpen ? { ...(_.environmentId ? _ : {}), isOpen } : { isOpen }))}
-      >
+      <MenuTrigger>
         <TooltipTrigger delay={750}>
-          <Button className={tw`p-1`} variant='ghost'>
-            <GlobalEnvironmentIcon className={tw`size-4 text-on-neutral-low`} />
+          <Button aria-label='More' className={tw`p-1`} variant='ghost'>
+            <FiMoreHorizontal className={tw`size-4 text-on-neutral-low`} />
           </Button>
-          <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>
-            Manage Variables & Environments
-          </Tooltip>
+          <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Import, export, variables</Tooltip>
         </TooltipTrigger>
-        <EnvironmentModal initialEnvironmentId={manage.environmentId} />
-      </DialogTrigger>
+
+        <Menu>
+          <MenuItem onAction={() => void importDialog.open()}>Import…</MenuItem>
+          <MenuItem onAction={() => void setExportOpen(true)}>Export…</MenuItem>
+          <MenuItem onAction={() => void setManage({ isOpen: true })}>Manage variables & environments…</MenuItem>
+        </Menu>
+      </MenuTrigger>
+
+      {importDialog.render}
+      <ExportDialog isOpen={exportOpen} onOpenChange={setExportOpen} />
+      <EnvironmentModal
+        initialEnvironmentId={manage.environmentId}
+        isOpen={manage.isOpen}
+        onOpenChange={(isOpen) => void setManage((_) => (isOpen ? { ..._, isOpen } : { isOpen }))}
+      />
     </div>
   );
 };
@@ -268,7 +274,13 @@ const PeekValue = ({ name, value }: { name: string; value: string }) => {
   );
 };
 
-const EnvironmentModal = ({ initialEnvironmentId }: { initialEnvironmentId?: Uint8Array | undefined }) => {
+interface EnvironmentModalProps {
+  initialEnvironmentId?: Uint8Array | undefined;
+  isOpen: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+}
+
+const EnvironmentModal = ({ initialEnvironmentId, isOpen, onOpenChange }: EnvironmentModalProps) => {
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
@@ -309,7 +321,7 @@ const EnvironmentModal = ({ initialEnvironmentId }: { initialEnvironmentId?: Uin
   });
 
   return (
-    <Modal>
+    <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
       <Dialog className={tw`h-full outline-hidden`}>
         {({ close }) => (
           <div className={tw`flex h-full`}>

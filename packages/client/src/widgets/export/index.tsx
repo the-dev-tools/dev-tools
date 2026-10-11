@@ -13,32 +13,34 @@ import { FileTree } from '~/features/file-system';
 import { useApiCollection, useConnectMutation } from '~/shared/api';
 import { routes } from '~/shared/routes';
 
-export const ExportDialog = () => {
+interface ExportDialogProps {
+  /** Controlled from elsewhere (e.g. a menu item): no trigger button is rendered. */
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}
+
+export const ExportDialog = ({ isOpen: controlledIsOpen, onOpenChange: controlledOnOpenChange }: ExportDialogProps) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
-  const [isOpen, setOpen] = useState(false);
+  const [isOpenState, setOpen] = useState(false);
+  const isOpen = controlledIsOpen ?? isOpenState;
   const [fileKeys, setFileKeys] = useState(new Set<Key>());
 
   const onOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
+    (controlledOnOpenChange ?? setOpen)(isOpen);
     if (!isOpen) return;
     setFileKeys(new Set());
   };
 
   const exportMutation = useConnectMutation(ExportService.method.export);
 
-  return (
-    <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
-      <TooltipTrigger delay={750}>
-        <Button className={tw`p-1`} variant='ghost'>
-          <TbFileExport className={tw`size-4 text-on-neutral-low`} />
-        </Button>
-        <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Export Files</Tooltip>
-      </TooltipTrigger>
-
-      <Modal style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
+  const modal = (
+      <Modal
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>
@@ -87,6 +89,20 @@ export const ExportDialog = () => {
           </div>
         </Dialog>
       </Modal>
+  );
+
+  if (controlledOnOpenChange) return modal;
+
+  return (
+    <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
+      <TooltipTrigger delay={750}>
+        <Button className={tw`p-1`} variant='ghost'>
+          <TbFileExport className={tw`size-4 text-on-neutral-low`} />
+        </Button>
+        <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Export Files</Tooltip>
+      </TooltipTrigger>
+
+      {modal}
     </DialogTrigger>
   );
 };
