@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
   useDragAndDrop,
 } from 'react-aria-components';
-import { FiEye, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { EnvironmentInsertSchema } from '@the-dev-tools/spec/buf/api/environment/v1/environment_pb';
 import {
@@ -226,12 +226,43 @@ const EnvironmentPeekSection = ({
           key={Ulid.construct(_.environmentVariableId).toCanonical()}
         >
           <span className={tw`truncate font-mono text-on-neutral`}>{_.key}</span>
-          <span className={tw`truncate font-mono text-on-neutral-low`} title={_.value}>
-            {_.value || '(empty)'}
-          </span>
+          <PeekValue name={_.key} value={_.value} />
         </div>
       ))}
     </div>
+  );
+};
+
+const secretKey = /pass|secret|token|key|auth|cookie|credential|private/i;
+
+const PeekValue = ({ name, value }: { name: string; value: string }) => {
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  if (!value || !secretKey.test(name))
+    return (
+      <span className={tw`truncate font-mono text-on-neutral-low`} title={value}>
+        {value || '(empty)'}
+      </span>
+    );
+
+  return (
+    <span className={tw`flex min-w-0 items-center gap-1`}>
+      <span className={tw`truncate font-mono text-on-neutral-low`} title={isRevealed ? value : undefined}>
+        {isRevealed ? value : '••••••'}
+      </span>
+      <Button
+        aria-label={isRevealed ? 'Hide value' : 'Show value'}
+        className={tw`shrink-0 p-0.5`}
+        onPress={() => void setIsRevealed(!isRevealed)}
+        variant='ghost'
+      >
+        {isRevealed ? (
+          <FiEyeOff className={tw`size-3 text-on-neutral-low`} />
+        ) : (
+          <FiEye className={tw`size-3 text-on-neutral-low`} />
+        )}
+      </Button>
+    </span>
   );
 };
 
