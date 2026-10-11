@@ -138,7 +138,8 @@ AI checks
   parallel and are cached in --judge-cache. The judge key comes from
   api_key_env, else STRESSEUR_JUDGE_API_KEY, else ANTHROPIC_API_KEY or
   OPENAI_API_KEY (the environment or ./.env); without one, judge checks are
-  skipped. Failed checks fail the flow only with quality: { fail_below: ... }.
+  skipped. With no judge provider set, the judge is Anthropic, or OpenAI when
+  OPENAI_API_KEY is the only key; judge: { provider: ... } always wins. Failed checks fail the flow only with quality: { fail_below: ... }.
   Load runs do not evaluate expect:.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
