@@ -661,18 +661,6 @@ func documentRoot(doc *yaml.Node) *yaml.Node {
 	return doc
 }
 
-func mappingValue(n *yaml.Node, key string) *yaml.Node {
-	if n == nil || n.Kind != yaml.MappingNode {
-		return nil
-	}
-	for i := 0; i+1 < len(n.Content); i += 2 {
-		if n.Content[i].Value == key {
-			return n.Content[i+1]
-		}
-	}
-	return nil
-}
-
 // nodesEqual compares two nodes by kind, resolved tag and value, ignoring style, comments and
 // positions.
 func nodesEqual(a, b *yaml.Node) bool {
