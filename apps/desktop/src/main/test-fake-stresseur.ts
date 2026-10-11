@@ -65,6 +65,24 @@ if (args[0] === 'init') {
     });
   }
   process.stdin.resume();
+} else if (args[0] === 'demo') {
+  if (!args.includes('--json')) process.exit(2);
+  if (process.env.FAKE_DEMO_PID) fs.appendFileSync(process.env.FAKE_DEMO_PID, process.pid + '\n');
+  if (mode === 'demo-fail') {
+    console.error('listen tcp :4599: address already in use');
+    process.exit(1);
+  }
+  process.stderr.write('Sample shop on http://localhost:4599\n');
+  if (mode !== 'demo-hang') {
+    process.stdout.write('starting\n');
+    emit({ type: 'app_ready', url: 'http://localhost:4599' });
+  }
+  let buffer = '';
+  process.stdin.setEncoding('utf8').on('data', (chunk) => {
+    buffer += chunk;
+    if (buffer.includes('done\n')) process.exit(0);
+  });
+  setInterval(() => {}, 1000);
 } else if (args[0] === 'install-skill') {
   if (mode === 'skill-conflict') {
     console.error('Refusing to overwrite existing file(s) not written by npx stresseur install-skill:');

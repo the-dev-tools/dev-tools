@@ -68,13 +68,16 @@ const useLaunchpadView = () =>
 
 const seenKey = 'stresseur.launchpad.seen';
 
+/** True until the launchpad has opened once (desktop first launch). */
+export const isFirstLaunch = () => !!recordApi() && readStored(seenKey) === null;
+
 /** The launchpad dialog. Opens by itself on the very first launch, never again unless chosen. */
 export const LaunchpadHost = () => {
   useFinishRun();
   const current = useLaunchpadView();
 
   useEffect(() => {
-    if (!recordApi() || readStored(seenKey) !== null) return;
+    if (!isFirstLaunch()) return;
     writeStored(seenKey, 'true');
     track('launchpad_first_run');
     openLaunchpad('choose');

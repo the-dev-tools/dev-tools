@@ -200,6 +200,12 @@ declare global {
           run: { environment: string; flow: string },
         ) => Promise<StresseurCloudResult<{ run_id: string; url: string }>>;
       };
+      /** Flows recorded with `init --demo`, run against `stresseur demo`. Flow ids are canonical ULIDs. */
+      demo?: {
+        mark: (flowIds: string[], env: Record<string, string>) => Promise<StresseurLocalResult<null>>;
+        /** #env: overrides for a local run: null for other flows; for a demo flow APP_URL of the started sample shop. */
+        runEnv: (flowId: string) => Promise<StresseurLocalResult<null | Record<string, string>>>;
+      };
       dialog: <T extends keyof Dialog>(method: T, ...options: Parameters<Dialog[T]>) => Promise<ReturnType<Dialog[T]>>;
       /** First-run launchpad. Repo commands take folders picked with `pickFolder` only. */
       launchpad?: {

@@ -13,7 +13,7 @@ import { request, useApiCollection } from '~/shared/api';
 import { getNextOrder, pick, queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { getRun, type InitRun, type RepoTarget, setRun, useInitRun } from './launchpad-run';
-import { cloudKeys, connectErrorText, pickFlow, upsertFlowFile, useNavigateToFlow } from './lib';
+import { cloudKeys, connectErrorText, demoApi, pickFlow, upsertFlowFile, useNavigateToFlow } from './lib';
 
 /** Imports generated flows into Files or a cloud repo, and opens the first one. */
 export const useImportFlows = () => {
@@ -60,8 +60,9 @@ export const useImportFlows = () => {
     }
   };
 
+  /** Imports into Files; the ids of the flows it made, in order. */
   const importLocal = async (files: StresseurGeneratedFile[]) => {
-    let first: Uint8Array | undefined;
+    const flowIds: Uint8Array[] = [];
     for (const file of files) {
       const input = { name: file.path, textData: file.text, workspaceId };
       let { message } = await request({ input, method: ImportService.method.import, transport });
@@ -71,9 +72,9 @@ export const useImportFlows = () => {
           method: ImportService.method.import,
           transport,
         }));
-      first ??= message.flowId;
+      if (message.flowId) flowIds.push(message.flowId);
     }
-    return first;
+    return flowIds;
   };
 
   const importRepo = async (destination: RepoTarget, files: StresseurGeneratedFile[]) => {
@@ -101,12 +102,23 @@ export const useImportFlows = () => {
     const files = run.finished?.files ?? [];
     if (files.length === 0) return;
     const appUrl = run.detected?.url ?? run.url;
+    const env = run.finished?.env ?? {};
     try {
-      const flowId =
-        to === 'cloud' && run.destination.kind === 'cloud'
-          ? await importRepo(run.destination.repo, files)
-          : await importLocal(files);
-      if (to === 'files') await ensureVariables({ ...(appUrl && { APP_URL: appUrl }), ...run.finished?.env });
+      let flowId: Uint8Array | undefined;
+      if (to === 'cloud' && run.destination.kind === 'cloud') flowId = await importRepo(run.destination.repo, files);
+      else {
+        const flowIds = await importLocal(files);
+        flowId = flowIds[0];
+        const demo = demoApi();
+        // Demo flows get APP_URL and the sample-shop login per run, so APP_URL in Global stays the user's app.
+        if (run.mode === 'demo' && demo) {
+          const marked = await demo.mark(
+            flowIds.map((_) => Ulid.construct(_).toCanonical()),
+            env,
+          );
+          if (!marked.ok) throw new Error(marked.message);
+        } else await ensureVariables({ ...(appUrl && { APP_URL: appUrl }), ...env });
+      }
       const where = to === 'cloud' && run.destination.kind === 'cloud' ? run.destination.repo.repo.full_name : 'Files';
       track('record_generated', { destination: run.destination.kind, files: files.length });
       setRun({ ...run, imported: { ...(flowId && { flowId }), where }, status: 'finished' });

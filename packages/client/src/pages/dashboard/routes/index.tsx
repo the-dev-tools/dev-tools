@@ -1,10 +1,10 @@
 import { create } from '@bufbuild/protobuf';
 import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { count, eq, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router';
 import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { RefObject, useMemo, useRef } from 'react';
+import { RefObject, useEffect, useMemo, useRef } from 'react';
 import { Dialog, Heading, ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
@@ -22,6 +22,7 @@ import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { isFirstLaunch } from '~/features/cloud';
 import { useApiCollection } from '~/shared/api';
 import { getNextOrder, handleCollectionReorder, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -44,13 +45,15 @@ function RouteComponent() {
 export const WorkspaceListPage = () => {
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const { data: workspaces } = useLiveQuery(
+  const { data: workspaces, isReady } = useLiveQuery(
     (_) =>
       _.from({ workspace: workspaceCollection })
         .orderBy((_) => _.workspace.order)
         .select((_) => pick(_.workspace, 'workspaceId', 'name', 'order')),
     [workspaceCollection],
   );
+
+  useFirstWorkspace(isReady && workspaces.length === 0);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -98,6 +101,32 @@ export const WorkspaceListPage = () => {
       </div>
     </div>
   );
+};
+
+/** A first launch has no workspace: make one and open it, where the launchpad starts. */
+const useFirstWorkspace = (empty: boolean) => {
+  const router = useRouter();
+  const navigate = useNavigate();
+  const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!empty || started.current || !isFirstLaunch()) return;
+    started.current = true;
+    const workspaceId = Ulid.generate();
+    void (async () => {
+      const transaction = workspaceCollection.utils.insert({
+        name: 'My Workspace',
+        order: await getNextOrder(workspaceCollection),
+        workspaceId: workspaceId.bytes,
+      });
+      await transaction.isPersisted.promise;
+      await navigate({
+        params: { workspaceIdCan: workspaceId.toCanonical() },
+        to: router.routesById[routes.dashboard.workspace.route.id].fullPath,
+      });
+    })();
+  }, [empty, navigate, router, workspaceCollection]);
 };
 
 interface ItemProps {

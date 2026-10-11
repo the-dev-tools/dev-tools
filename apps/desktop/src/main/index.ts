@@ -23,6 +23,7 @@ import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
 import * as account from './account';
 import { createCloud, isOpenableUrl } from './cloud';
+import { createDemoApp, createDemoFlows, demoRunEnv } from './demo';
 import {
   addCiCheck,
   agentLink,
@@ -445,6 +446,14 @@ const onReady = Effect.gen(function* () {
   app.on('before-quit', () => void recorder.dispose());
   app.on('will-quit', () => void recorder.dispose());
 
+  // Flows recorded with `init --demo` run against `stresseur demo`, started on their first local run
+  const demoApp = createDemoApp({ binary: stresseurBinary });
+  const demoFlows = createDemoFlows({ storeFile: path.join(app.getPath('userData'), 'demo-flows.json') });
+  ipcMain.handle('demo:mark', (_event, flowIds: unknown, env: unknown) => demoFlows.mark(flowIds, env));
+  ipcMain.handle('demo:run-env', (_event, flowId: unknown) => demoRunEnv(demoFlows, demoApp, flowId));
+  app.on('before-quit', () => void demoApp.dispose());
+  app.on('will-quit', () => void demoApp.dispose());
+
   // First-run launchpad
   const missingBinary = { message: 'The stresseur binary was not found.', ok: false } as const;
   const notPicked = { message: 'Pick the folder first.', ok: false } as const;
@@ -591,8 +600,12 @@ const desktop = pipe(
   Effect.scoped,
 );
 
-// Chromium's remote-debugging switch (used to drive the app in end-to-end checks) is not a CLI argument.
-const args = process.argv.slice(process.defaultApp ? 2 : 1).filter((_) => !_.startsWith('--remote-debugging-port='));
+// Chromium switches (remote debugging and a separate user-data folder, used to drive the app in
+// end-to-end checks) are not CLI arguments.
+const CHROMIUM_SWITCHES = ['--remote-debugging-port=', '--user-data-dir='];
+const args = process.argv
+  .slice(process.defaultApp ? 2 : 1)
+  .filter((arg) => !CHROMIUM_SWITCHES.some((_) => arg.startsWith(_)));
 const cli = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;

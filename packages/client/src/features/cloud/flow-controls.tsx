@@ -29,6 +29,7 @@ import {
   cloudErrorReason,
   cloudKeys,
   connectErrorText,
+  demoApi,
   envRefs,
   findFlowLink,
   localCloneApi,
@@ -113,8 +114,15 @@ export const useRunLocally = (flowId: Uint8Array) => {
 
   const run = async () => {
     if (!link) {
-      track('run_local', { linked: false });
-      await request({ input: { flowId }, method: FlowService.method.flowRun, transport });
+      // A flow from the sample shop runs against `stresseur demo`, started here when needed.
+      const demo = await demoApi()?.runEnv(Ulid.construct(flowId).toCanonical());
+      if (demo && !demo.ok) {
+        toastQueue.add({ title: demo.message }, { timeout: 5000 });
+        return;
+      }
+      const env = demo?.data ? Object.entries(demo.data).map(([key, value]) => ({ key, value })) : [];
+      track('run_local', { demo: env.length > 0, linked: false });
+      await request({ input: { env, flowId }, method: FlowService.method.flowRun, transport });
       return;
     }
 

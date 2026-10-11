@@ -69,6 +69,11 @@ contextBridge.exposeInMainWorld('electron', {
     stop: () => ipcRenderer.invoke('record:stop'),
   },
 
+  demo: {
+    mark: (flowIds: string[], env: Record<string, string>) => ipcRenderer.invoke('demo:mark', flowIds, env),
+    runEnv: (flowId: string) => ipcRenderer.invoke('demo:run-env', flowId),
+  },
+
   launchpad: {
     addCi: (dir: string) => ipcRenderer.invoke('launchpad:add-ci', dir),
     detect: () => ipcRenderer.invoke('launchpad:detect'),
