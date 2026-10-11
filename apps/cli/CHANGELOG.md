@@ -1,3 +1,9 @@
+## 1.6.1 (2026-10-11)
+
+### 🩹 Fixes
+
+- form_data and urlencoded fields keep their YAML order. ([](https://github.com/the-dev-tools/dev-tools/commit/))
+
 ## 1.6.0 (2026-10-11)
 
 ### 🚀 Features
