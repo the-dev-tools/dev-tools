@@ -337,6 +337,81 @@ are stored with the workspace, so they survive importing into the desktop app an
 again, copying and pasting nodes, and duplicating requests or flows. File-level settings are
 written back on each flow. The desktop app keeps them but doesn't show or run them yet.
 
+## Redirects (`follow_redirects:`) and `response.url`
+
+A request step follows redirects (up to 10) by default. `follow_redirects: false` returns
+the 30x response as is, so its status and `Location` header can be asserted:
+
+```yaml
+- request:
+    name: Login
+    method: POST
+    url: '{{ #env:APP_URL }}/login'
+    follow_redirects: false # default true
+    assertions:
+      - response.status == 303
+      - response.headers.Location == "/dashboard"
+```
+
+Every request step's response also has:
+
+- `response.url`, the final URL after redirects (the request's URL when none were followed);
+- `response.redirects`, how many redirects were followed.
+
+A page that bounces an expired session to a login page still answers 200, so assert where
+the request ended:
+
+```yaml
+assertions:
+  - response.status == 200
+  - '!(response.url contains "/login")'
+```
+
+`follow_redirects:` is file-only for now: `flow run` honors it and YAML export writes it
+back, but importing into the desktop app doesn't store it.
+
+## Cookies
+
+Request steps share one cookie jar per flow run, as a browser would. Cookies marked `Secure`
+are sent to `http://localhost`, `127.0.0.1`, `::1` and `*.localhost` over plain http,
+because browsers treat these hosts as secure contexts; other `http://` hosts never get
+`Secure` cookies. `{{ cookies.NAME }}` reads the latest value of a cookie, e.g. to copy a
+CSRF cookie into a header.
+
+## Data helpers
+
+Inside `{{ }}` in a URL, query parameter, header or body:
+
+| Helper                                                                                  | Example output                         |
+| --------------------------------------------------------------------------------------- | -------------------------------------- |
+| `uuid()`, `uuid("v4")`                                                                  | `8d98027f-8570-45cb-90ae-e8fa1d87dbf5` |
+| `uuid("v7")`                                                                            | time-ordered UUID                      |
+| `ulid()`                                                                                | `01M4NV160A1HBV5F7GCS14G6ZX`           |
+| `now()`                                                                                 | `2026-10-11T15:59:15.978+03:00`        |
+| `now().Unix()`, `now().UnixMilli()`                                                     | `1791734355`, `1791734355978`          |
+| `now().Format("2006-01-02")`                                                            | `2026-10-11` (Go layout)               |
+| `faker.email()`, `faker.username()`                                                     | `UYXLoaT@hlkmGwy.org`, `pGdIABo`       |
+| `faker.name()`, `faker.firstName()`, `faker.lastName()`, `faker.phoneNumber()`          |                                        |
+| `faker.password()`, `faker.url()`, `faker.domainName()`, `faker.ipv4()`, `faker.ipv6()` |                                        |
+| `faker.word()`, `faker.sentence()`, `faker.paragraph()`                                 |                                        |
+| `faker.date()`, `faker.timestamp()`, `faker.uuid()`, `faker.randomInt(min, max)`        |                                        |
+
+Each call makes a new value, so `user-{{ ulid() }}@example.test` gives every run its own
+account.
+
+## Environment variables (`#env:`)
+
+`{{ #env:NAME }}` reads `NAME` from the process environment. `flow run` also reads `./.env`
+and the flow file's directory's `.env`: the process environment wins over `./.env`, which
+wins over the flow directory's `.env`. Before anything runs, `flow run` checks every
+`#env:` name the flows to run can read (their steps, the flows they run with
+`run_sub_flow`, and everything outside `flows:`) and fails with one message listing the
+missing ones:
+
+```
+missing environment variables: APP_URL, APP_PASSWORD (referenced as {{ #env:NAME }}; set them or add them to .env)
+```
+
 ## Supported Steps
 
 - `manual_start`: Entry point for flow execution.

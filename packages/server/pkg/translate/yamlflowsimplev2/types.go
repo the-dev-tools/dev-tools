@@ -189,6 +189,9 @@ type YamlStepRequest struct {
 	Stream string `yaml:"stream,omitempty"`
 	// StreamTimeoutMS is the longest the stream may stay open (default 30000).
 	StreamTimeoutMS *int64 `yaml:"stream_timeout_ms,omitempty"`
+	// FollowRedirects: false returns a 30x response as is (status, Location header) instead
+	// of following it. Default true.
+	FollowRedirects *bool `yaml:"follow_redirects,omitempty"`
 }
 
 type YamlStepGraphQL struct {

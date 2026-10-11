@@ -1,9 +1,11 @@
 package httpclient
 
 import (
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -34,6 +36,30 @@ func (j *recordingJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	}
 	j.mu.Unlock()
 	j.Jar.SetCookies(u, cookies)
+}
+
+// Cookies returns the cookies to send to u. Browsers treat localhost as a secure context and
+// send Secure cookies to http://localhost, 127.0.0.1, ::1 and *.localhost; so does the jar, so
+// a local dev server that marks its session cookie Secure keeps working over plain http.
+// Other http hosts keep the normal rule: no Secure cookies.
+func (j *recordingJar) Cookies(u *url.URL) []*http.Cookie {
+	if u.Scheme == "http" && isLocalhost(u.Hostname()) {
+		secure := *u
+		secure.Scheme = "https"
+		return j.Jar.Cookies(&secure)
+	}
+	return j.Jar.Cookies(u)
+}
+
+// isLocalhost reports whether host is a loopback name or address browsers treat as a
+// secure context: localhost, *.localhost, 127.0.0.0/8 and ::1.
+func isLocalhost(host string) bool {
+	host = strings.TrimSuffix(strings.ToLower(host), ".")
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // Cookies returns the latest value of every cookie the client has received, by name. Empty

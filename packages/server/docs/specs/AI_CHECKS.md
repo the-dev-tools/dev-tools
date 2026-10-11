@@ -44,6 +44,12 @@ The engine adds these keys (additive; the Stresseur CLI's strict parser must lea
 | `stream: openai \| anthropic \| vercel-ai \| sse` | request step | Read the response as a stream and assemble its text with this preset |
 | `stream_timeout_ms`                               | request step | The longest the stream may stay open (default 30000)                 |
 | `max_ttft_ms`                                     | `expect:`    | `ttft` check: time to first token ≤ limit                            |
+| `follow_redirects: false`                         | request step | Return a 30x as is instead of following it (default true)            |
+
+Every request step's response also has `response.url` (the final URL after redirects) and
+`response.redirects` (how many were followed), so a step can assert it didn't end on a login
+page: `'!(response.url contains "/login")'`. See the yamlflow README for redirects, cookies,
+data helpers (`uuid()`, `ulid()`, `now()`, `faker.*`) and `#env:` / `.env` loading.
 
 `iterations:` and `quality.fail_below` across many runs belong to `stress ci`. The engine
 keeps `iterations:` for the round trip and otherwise ignores it.

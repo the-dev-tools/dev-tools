@@ -100,6 +100,10 @@ type WorkspaceBundle struct {
 
 	// HTTPStreams carries request steps' stream: settings, by HTTP request.
 	HTTPStreams []mhttp.HTTPStream
+
+	// HTTPNoRedirects lists the HTTP requests of steps with follow_redirects: false.
+	// File-only: the CLI applies it to the built nodes; the workspace DB does not store it.
+	HTTPNoRedirects []idwrap.IDWrap
 }
 
 // StepExpects returns every step's expect: block, cleanup steps included, by flow node ID.
@@ -469,4 +473,21 @@ func GetDefaultExportOptions(workspaceID idwrap.IDWrap) ExportOptions {
 		FilterByFlowIDs:     nil,
 		FilterByHTTPIDs:     nil,
 	}
+}
+
+// AllHTTPNoRedirects returns the HTTP requests of every step with follow_redirects: false,
+// cleanup steps included.
+func (wb *WorkspaceBundle) AllHTTPNoRedirects() map[idwrap.IDWrap]bool {
+	out := map[idwrap.IDWrap]bool{}
+	for _, id := range wb.HTTPNoRedirects {
+		out[id] = true
+	}
+	for _, c := range wb.FlowCleanups {
+		if c.Bundle != nil {
+			for _, id := range c.Bundle.HTTPNoRedirects {
+				out[id] = true
+			}
+		}
+	}
+	return out
 }

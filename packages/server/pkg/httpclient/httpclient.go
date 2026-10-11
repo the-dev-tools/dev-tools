@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,11 +23,47 @@ type HttpClient interface {
 
 const TimeoutRequest = 60 * time.Second
 
+// maxRedirects is how many redirects a request follows before failing, as net/http's default.
+const maxRedirects = 10
+
+type noRedirectsKey struct{}
+
+// WithoutRedirects marks a request context so a client from New returns a 30x response as is
+// instead of following it (the yamlflow request option follow_redirects: false). Other
+// requests on the same client still follow redirects.
+func WithoutRedirects(ctx context.Context) context.Context {
+	return context.WithValue(ctx, noRedirectsKey{}, true)
+}
+
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if noFollow, _ := req.Context().Value(noRedirectsKey{}).(bool); noFollow {
+		return http.ErrUseLastResponse
+	}
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+	}
+	return nil
+}
+
 func New() *http.Client {
 	return &http.Client{
-		Timeout: TimeoutRequest,
-		Jar:     newRecordingJar(),
+		Timeout:       TimeoutRequest,
+		Jar:           newRecordingJar(),
+		CheckRedirect: checkRedirect,
 	}
+}
+
+// finalURL returns the URL a response came from (after any redirects) and how many
+// redirects led there. Empty and zero for a response without its request (mock clients).
+func finalURL(resp *http.Response) (string, int) {
+	if resp.Request == nil || resp.Request.URL == nil {
+		return "", 0
+	}
+	redirects := 0
+	for r := resp.Request.Response; r != nil && r.Request != nil; r = r.Request.Response {
+		redirects++
+	}
+	return resp.Request.URL.String(), redirects
 }
 
 type Query struct {
@@ -51,6 +88,10 @@ type Response struct {
 	StatusCode int      `json:"statusCode"`
 	Body       []byte   `json:"body"`
 	Headers    []Header `json:"headers"`
+	// URL is the URL the response came from, after any redirects; Redirects is how many
+	// redirects were followed to get there.
+	URL       string `json:"url,omitempty"`
+	Redirects int    `json:"redirects,omitempty"`
 	// Stream is set when the response was read as a stream (see SendRequestAndConvertStream).
 	Stream *StreamResult `json:"stream,omitempty"`
 }
@@ -60,6 +101,10 @@ type ResponseVar struct {
 	Body       any               `json:"body"`
 	Headers    map[string]string `json:"headers"`
 	Duration   int32             `json:"duration"`
+	// URL is the final URL after redirects (response.url); Redirects how many were followed
+	// (response.redirects).
+	URL       string `json:"url"`
+	Redirects int    `json:"redirects"`
 	// Stream is the streamed response's result; StreamFields exposes it to expressions.
 	Stream *StreamResult `json:"-"`
 }
@@ -118,6 +163,8 @@ func ConvertResponseToVar(r Response) ResponseVar {
 		StatusCode: r.StatusCode,
 		Body:       body,
 		Headers:    headersMaps,
+		URL:        r.URL,
+		Redirects:  r.Redirects,
 		Stream:     r.Stream,
 	}
 }
@@ -173,10 +220,13 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 	if err != nil {
 		return Response{}, err
 	}
+	respURL, redirects := finalURL(resp)
 	return Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,
 		Headers:    ConvertHttpHeaderToHeaders(resp.Header),
+		URL:        respURL,
+		Redirects:  redirects,
 	}, nil
 }
 
@@ -214,10 +264,13 @@ func convertResponse(resp *http.Response) (Response, error) {
 		}
 	}
 
+	respURL, redirects := finalURL(resp)
 	return Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,
 		Headers:    ConvertHttpHeaderToHeaders(resp.Header),
+		URL:        respURL,
+		Redirects:  redirects,
 	}, nil
 }
 
