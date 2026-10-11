@@ -2,12 +2,20 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ulid } from 'id128';
 import { ReactNode, useEffect, useState } from 'react';
 import { MenuTrigger, Text, Tree } from 'react-aria-components';
-import { FiChevronDown, FiChevronRight, FiCloud, FiFileText, FiHardDrive, FiMoreHorizontal } from 'react-icons/fi';
+import {
+  FiChevronDown,
+  FiChevronRight,
+  FiCloud,
+  FiFileText,
+  FiFolder,
+  FiHardDrive,
+  FiMoreHorizontal,
+} from 'react-icons/fi';
 import { TbPin } from 'react-icons/tb';
 import { twJoin } from 'tailwind-merge';
 import { CloudLinkService } from '@the-dev-tools/spec/buf/api/cloud_link/v1/cloud_link_pb';
 import { Button } from '@the-dev-tools/ui/button';
-import { FlowsIcon } from '@the-dev-tools/ui/icons';
+import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -16,6 +24,7 @@ import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { track } from '~/app/umami';
 import { request } from '~/shared/api';
+import { useStoredFlag } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { useDialogHost } from './dialogs';
 import {
@@ -25,14 +34,12 @@ import {
   cloudKeys,
   connectErrorText,
   localCloneApi,
-  readFlag,
   readPinned,
   useApiUrl,
   useClone,
   useCloudAccount,
   useCloudFlows,
   useCloudRepos,
-  writeFlag,
   writePinned,
 } from './lib';
 import { CloudTarget, useSyncCloudFlow } from './open-flow';
@@ -40,13 +47,19 @@ import { RecordButton } from './record';
 
 const openKey = 'stresseur.cloud.open';
 
-/** Sidebar section below Files. Renders only in the desktop app. */
+/** Sidebar section. Renders only in the desktop app. */
 export const CloudSection = () => (cloudApi() ? <CloudSectionInner /> : null);
+
+/** Signed in to Stresseur: the Cloud section goes above Files. */
+export const useCloudFirst = () => {
+  const account = useCloudAccount();
+  return !!cloudApi() && account.kind === 'signed-in';
+};
 
 const CloudSectionInner = () => {
   const account = useCloudAccount();
   const repos = useCloudRepos();
-  const [isOpen, setIsOpen] = useState(() => readFlag(openKey, true));
+  const [isOpen, setIsOpen] = useStoredFlag(openKey, true);
 
   useEffect(() => {
     if (isOpen) track('cloud_section_opened');
@@ -61,10 +74,7 @@ const CloudSectionInner = () => {
         <Button
           aria-label={isOpen ? 'Collapse Cloud' : 'Expand Cloud'}
           className={tw`flex min-w-0 flex-1 items-center justify-start gap-2 p-0`}
-          onPress={() => {
-            writeFlag(openKey, !isOpen);
-            setIsOpen(!isOpen);
-          }}
+          onPress={() => void setIsOpen(!isOpen)}
           variant='ghost'
         >
           <FiCloud className={tw`size-5 shrink-0 text-on-neutral-low`} />
@@ -314,6 +324,7 @@ const RepoItem = ({ id, isPinned, onOpen, onTogglePin, opening, query, target }:
       (_) => repoMatches || _.name.toLowerCase().includes(query) || _.path.toLowerCase().includes(query),
     );
     const files = Map.groupBy(items, (_) => _.path);
+    const flowsPerFile = Map.groupBy(flows.data.data.flows, (_) => _.path);
 
     childItems =
       files.size === 0 ? (
@@ -321,26 +332,42 @@ const RepoItem = ({ id, isPinned, onOpen, onTogglePin, opening, query, target }:
           <span className={tw`text-sm text-on-neutral-low`}>No flows</span>
         </TreeItem>
       ) : (
-        [...files].map(([path, fileFlows]) => (
-          <TreeItem
-            childItems={fileFlows.map((flow) => {
-              const key = `${repo.slug}:${flow.path}:${flow.name}`;
-              return (
-                <TreeItem id={key} key={key} onAction={() => void onOpen(flow)} textValue={flow.name}>
-                  <CiDot flow={flow} />
-                  <Text className={tw`flex-1 truncate`}>{flow.name}</Text>
-                  {opening === key && <Spinner />}
-                </TreeItem>
-              );
-            })}
-            id={`${id}:${path}`}
-            key={path}
-            textValue={path}
-          >
-            <FiFileText className={tw`size-4 shrink-0 text-on-neutral-low`} />
-            <Text className={tw`flex-1 truncate`}>{path.replace(/^api-tests\//, '')}</Text>
-          </TreeItem>
-        ))
+        [...files].map(([path, fileFlows]) => {
+          // A file with one flow is a single row named after the file.
+          const [only] = fileFlows;
+          if (only && flowsPerFile.get(path)?.length === 1) {
+            const key = `${repo.slug}:${only.path}:${only.name}`;
+            const label = fileLabel(path).replace(/\.yamlflow\.yaml$/, '');
+            return (
+              <TreeItem id={key} key={key} onAction={() => void onOpen(only)} textValue={label}>
+                <CiDot flow={only} />
+                <Text className={tw`flex-1 truncate`}>{label}</Text>
+                {opening === key && <Spinner />}
+              </TreeItem>
+            );
+          }
+
+          return (
+            <TreeItem
+              childItems={fileFlows.map((flow) => {
+                const key = `${repo.slug}:${flow.path}:${flow.name}`;
+                return (
+                  <TreeItem id={key} key={key} onAction={() => void onOpen(flow)} textValue={flow.name}>
+                    <CiDot flow={flow} />
+                    <Text className={tw`flex-1 truncate`}>{flow.name}</Text>
+                    {opening === key && <Spinner />}
+                  </TreeItem>
+                );
+              })}
+              id={`${id}:${path}`}
+              key={path}
+              textValue={path}
+            >
+              <FiFileText className={tw`size-4 shrink-0 text-on-neutral-low`} />
+              <Text className={tw`flex-1 truncate`}>{fileLabel(path)}</Text>
+            </TreeItem>
+          );
+        })
       );
   }
 
@@ -352,7 +379,11 @@ const RepoItem = ({ id, isPinned, onOpen, onTogglePin, opening, query, target }:
       setIsExpanded={setIsExpanded}
       textValue={repo.full_name}
     >
-      <FlowsIcon className={tw`size-4 shrink-0 text-on-neutral-low`} />
+      {isExpanded ? (
+        <FolderOpenedIcon className={tw`size-4 shrink-0 text-on-neutral-low`} />
+      ) : (
+        <FiFolder className={tw`size-4 shrink-0 text-on-neutral-low`} />
+      )}
       <Text className={twJoin(tw`flex-1 truncate`, !repo.records_ci && tw`text-on-neutral-low`)}>{repo.full_name}</Text>
       {clone && <FiHardDrive aria-label='Local clone linked' className={tw`size-3.5 shrink-0 text-on-neutral-low`} />}
       {isPinned && <TbPin aria-label='Pinned' className={tw`size-3.5 shrink-0 text-on-neutral-low`} />}
@@ -376,6 +407,8 @@ const RepoItem = ({ id, isPinned, onOpen, onTogglePin, opening, query, target }:
     </TreeItem>
   );
 };
+
+const fileLabel = (path: string) => path.replace(/^api-tests\//, '');
 
 const CiDot = ({ flow }: { flow: StresseurCloudFlow }) => {
   const status = flow.last_ci?.status;

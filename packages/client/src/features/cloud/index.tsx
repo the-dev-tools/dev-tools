@@ -1,4 +1,4 @@
 export { CloudFlowControls, requestCloudRun, useRunLocally } from './flow-controls';
 export { useHiddenCloudFileIds } from './hidden';
 export { RecordStatus } from './record';
-export { CloudSection } from './sidebar';
+export { CloudSection, useCloudFirst } from './sidebar';

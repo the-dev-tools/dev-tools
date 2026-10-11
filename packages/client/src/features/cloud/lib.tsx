@@ -287,21 +287,4 @@ export const writePinned = (workspace: string, pinned: string[]) => {
   }
 };
 
-export const readFlag = (key: string, fallback: boolean) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw === null ? fallback : raw === 'true';
-  } catch {
-    return fallback;
-  }
-};
-
-export const writeFlag = (key: string, value: boolean) => {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-    // Ignore
-  }
-};
-
 export const shortSha = (sha: string) => sha.slice(0, 7);
