@@ -41,13 +41,14 @@ func mergeHTTPRequestDataStruct(base, override YamlRequestDefV2, usingTemplate b
 
 func convertToHTTPHeaders(yamlHeaders []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 	var headers []mhttp.HTTPHeader
-	for _, h := range yamlHeaders {
+	for i, h := range yamlHeaders {
 		headers = append(headers, mhttp.HTTPHeader{
-			ID:      idwrap.NewNow(),
-			HttpID:  httpID,
-			Key:     h.Name,
-			Value:   h.Value,
-			Enabled: h.Enabled,
+			ID:           idwrap.NewNow(),
+			HttpID:       httpID,
+			Key:          h.Name,
+			Value:        h.Value,
+			Enabled:      h.Enabled,
+			DisplayOrder: float32(i),
 		})
 	}
 	return headers
@@ -55,13 +56,14 @@ func convertToHTTPHeaders(yamlHeaders []YamlNameValuePairV2, httpID idwrap.IDWra
 
 func convertToHTTPSearchParams(yamlParams []YamlNameValuePairV2, httpID idwrap.IDWrap) []mhttp.HTTPSearchParam {
 	var params []mhttp.HTTPSearchParam
-	for _, p := range yamlParams {
+	for i, p := range yamlParams {
 		params = append(params, mhttp.HTTPSearchParam{
-			ID:      idwrap.NewNow(),
-			HttpID:  httpID,
-			Key:     p.Name,
-			Value:   p.Value,
-			Enabled: p.Enabled,
+			ID:           idwrap.NewNow(),
+			HttpID:       httpID,
+			Key:          p.Name,
+			Value:        p.Value,
+			Enabled:      p.Enabled,
+			DisplayOrder: float64(i),
 		})
 	}
 	return params
@@ -102,24 +104,26 @@ func convertBodyStruct(body *YamlBodyUnion, httpID idwrap.IDWrap, opts ConvertOp
 	switch strings.ToLower(body.Type) {
 	case BodyTypeFormData:
 		bodyKind = mhttp.HttpBodyKindFormData
-		for _, form := range body.Form {
+		for i, form := range body.Form {
 			bodyForms = append(bodyForms, mhttp.HTTPBodyForm{
-				ID:      idwrap.NewNow(),
-				HttpID:  httpID,
-				Key:     form.Name,
-				Value:   form.Value,
-				Enabled: form.Enabled,
+				ID:           idwrap.NewNow(),
+				HttpID:       httpID,
+				Key:          form.Name,
+				Value:        form.Value,
+				Enabled:      form.Enabled,
+				DisplayOrder: float32(i),
 			})
 		}
 	case BodyTypeUrlEncoded:
 		bodyKind = mhttp.HttpBodyKindUrlEncoded
-		for _, urlEncoded := range body.UrlEncoded {
+		for i, urlEncoded := range body.UrlEncoded {
 			bodyUrlencoded = append(bodyUrlencoded, mhttp.HTTPBodyUrlencoded{
-				ID:      idwrap.NewNow(),
-				HttpID:  httpID,
-				Key:     urlEncoded.Name,
-				Value:   urlEncoded.Value,
-				Enabled: urlEncoded.Enabled,
+				ID:           idwrap.NewNow(),
+				HttpID:       httpID,
+				Key:          urlEncoded.Name,
+				Value:        urlEncoded.Value,
+				Enabled:      urlEncoded.Enabled,
+				DisplayOrder: float32(i),
 			})
 		}
 	case BodyTypeJSON:
