@@ -1,3 +1,4 @@
+import { eq } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ulid } from 'id128';
 import { useEffect, useRef, useState } from 'react';
@@ -6,6 +7,11 @@ import { FiChevronDown, FiCloud, FiRefreshCw } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { CloudLink, CloudLinkService } from '@the-dev-tools/spec/buf/api/cloud_link/v1/cloud_link_pb';
 import { FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import {
+  EnvironmentCollectionSchema,
+  EnvironmentVariableCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/environment';
+import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
@@ -13,7 +19,8 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { track } from '~/app/umami';
-import { request } from '~/shared/api';
+import { request, useApiCollection } from '~/shared/api';
+import { pick, queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { CloudDialog, CloudErrorView, EnvPrompt, useDialogHost } from './dialogs';
 import {
@@ -54,12 +61,54 @@ const exportLink = async (transport: Parameters<typeof request>[0]['transport'],
 
 // Run locally (used by the flow editor's Run button)
 
+/** Names with a non-empty, enabled Studio variable in the selected environment or Global. #env: falls back to these. */
+const useStudioVariableNames = () => {
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+  const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
+  const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
+  const variableCollection = useApiCollection(EnvironmentVariableCollectionSchema);
+
+  return async () => {
+    const [workspace] = await queryCollection((_) =>
+      _.from({ workspace: workspaceCollection })
+        .where((_) => eq(_.workspace.workspaceId, workspaceId))
+        .select((_) => pick(_.workspace, 'selectedEnvironmentId')),
+    );
+    const selected = workspace?.selectedEnvironmentId && Ulid.construct(workspace.selectedEnvironmentId).toCanonical();
+
+    const environments = await queryCollection((_) =>
+      _.from({ environment: environmentCollection })
+        .where((_) => eq(_.environment.workspaceId, workspaceId))
+        .select((_) => pick(_.environment, 'environmentId', 'isGlobal')),
+    );
+    const inUse = new Set(
+      environments
+        .map((_) => ({ id: Ulid.construct(_.environmentId).toCanonical(), isGlobal: _.isGlobal }))
+        .filter((_) => _.isGlobal || _.id === selected)
+        .map((_) => _.id),
+    );
+
+    const variables = await queryCollection((_) =>
+      _.from({ variable: variableCollection }).select((_) =>
+        pick(_.variable, 'enabled', 'environmentId', 'key', 'value'),
+      ),
+    );
+
+    return new Set(
+      variables
+        .filter((_) => _.enabled && _.value !== '' && inUse.has(Ulid.construct(_.environmentId).toCanonical()))
+        .map((_) => _.key),
+    );
+  };
+};
+
 /** Runs the flow. For a linked flow it passes #env: values from the clone's .env, asking for missing ones. */
 export const useRunLocally = (flowId: Uint8Array) => {
   const { transport } = routes.root.useRouteContext();
   const toastQueue = useToastQueue();
   const dialogs = useDialogHost();
   const { link } = useFlowLink(flowId);
+  const studioVariableNames = useStudioVariableNames();
 
   const run = async () => {
     if (!link) {
@@ -85,7 +134,10 @@ export const useRunLocally = (flowId: Uint8Array) => {
       if (result.ok) values = result.data;
     }
 
-    const missing = names.filter((_) => values[_] === undefined);
+    // Studio variables answer #env: on the server, so only ask for names set nowhere.
+    const unset = names.filter((_) => values[_] === undefined);
+    const inStudio = unset.length > 0 ? await studioVariableNames() : new Set<string>();
+    const missing = unset.filter((_) => !inStudio.has(_));
     if (missing.length > 0) {
       const remembered = promptedEnv.get(link.repoSlug) ?? {};
       const entered = await dialogs.ask<Record<string, string>>((done) => (

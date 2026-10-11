@@ -113,7 +113,7 @@ export const EnvPrompt = ({ done, initial, names }: EnvPromptProps) => {
       onClose={() => void done(null)}
       title='Variables for this run'
     >
-      <p className={tw`text-on-neutral-low`}>Not in your clone&apos;s .env. Leave empty to skip.</p>
+      <p className={tw`text-on-neutral-low`}>Not in your clone&apos;s .env or Studio variables. Leave empty to skip.</p>
 
       {names.map((name) => (
         <TextInputField
