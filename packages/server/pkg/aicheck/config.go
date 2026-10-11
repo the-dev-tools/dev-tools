@@ -380,6 +380,9 @@ type Flow struct {
 	// Iterations is the flow's iterations: (for `stress ci`); 0 when unset.
 	Iterations int
 	Judge      JudgeConfig // merged and defaulted
+	// AutoProvider is true when no provider, model, base_url or api_key_env was set:
+	// the judge then follows the keys present (see JudgeFor).
+	AutoProvider bool
 	Quality    Quality     // merged
 	// Steps are the steps with an expect: block, in file order.
 	Steps []string
@@ -406,7 +409,9 @@ func NewFlow(name string, file *mexpect.Checks, flow mexpect.FlowSettings) (*Flo
 	if err := ValidateJudge(flowJudge); err != nil {
 		return nil, fmt.Errorf("flow %s judge: %w", name, err)
 	}
-	fl.Judge = JudgeDefaults(MergeJudge(fileJudge, flowJudge))
+	merged := MergeJudge(fileJudge, flowJudge)
+	fl.AutoProvider = merged.Provider == "" && merged.Model == "" && merged.BaseURL == "" && merged.APIKeyEnv == ""
+	fl.Judge = JudgeDefaults(merged)
 	q, err := ParseQuality(fileQuality)
 	if err != nil {
 		return nil, fmt.Errorf("file quality.%w", err)

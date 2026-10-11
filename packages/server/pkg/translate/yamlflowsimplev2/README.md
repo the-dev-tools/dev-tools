@@ -245,7 +245,7 @@ full design is in `docs/specs/AI_CHECKS.md`.
 
 ```yaml
 judge: # file level, optional; a flow's judge: overrides it key by key
-  provider: anthropic # anthropic (default) | openai (any OpenAI-compatible API)
+  provider: anthropic # anthropic | openai (any OpenAI-compatible API); unset: anthropic, or openai when OPENAI_API_KEY is the only key
   model: claude-haiku-4-5-20251001
   api_key_env: ANTHROPIC_API_KEY # optional
   samples: 3 # borderline re-judging without logprobs; 1 turns it off
@@ -282,7 +282,8 @@ Checks are `schema`, `latency`, `ttft`, `tokens` and `judge`:
   is re-judged `samples − 1` times and averaged.
 - **Judge key:** `api_key_env`, else `STRESSEUR_JUDGE_API_KEY`, else `ANTHROPIC_API_KEY` or
   `OPENAI_API_KEY`, read from the environment or `./.env`. Without a key, judge checks are
-  skipped with a notice.
+  skipped with a notice. With no `provider` (nor `model`, `base_url`, `api_key_env`) set, the
+  judge is Anthropic, or OpenAI when `OPENAI_API_KEY` is the only key present.
 - **Cache:** verdicts are cached in `--judge-cache` (default `.devtools/judge-cache.json`).
 - **Results:** `devtools flow run` prints the checks under the flow's table and writes them to
   the JSON report as each step's `checks[]`.

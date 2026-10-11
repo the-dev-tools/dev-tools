@@ -85,6 +85,7 @@ Judge: 1 call, 1.3 s
 The JSON report adds `checks[]` to each step (`kind`, `passed`, `score`, `reason`, `judge_model`, `cached`, `value`, `limit`, plus `skipped` and the judge's calls and tokens). It also adds `checks_status` and `judge` to each flow.
 
 - **Judge key:** `api_key_env`, else `STRESSEUR_JUDGE_API_KEY`, else `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, from the environment or `./.env`. Without one, judge checks are skipped and a notice says which variable to set.
+- **Judge provider:** `judge: { provider: anthropic | openai }`. When no provider, model, `base_url` or `api_key_env` is set, the judge is Anthropic, or OpenAI when `OPENAI_API_KEY` is the only key present.
 - **Cache:** verdicts are cached in `--judge-cache <path>` (default `.devtools/judge-cache.json`; `off` disables it). Keep the file between CI jobs so unchanged outputs are never judged twice.
 - **Exit code:** failed checks fail the flow only when the file or flow sets `quality: { fail_below: 90% }`; otherwise they only report.
 

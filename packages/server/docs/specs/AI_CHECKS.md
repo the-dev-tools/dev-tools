@@ -120,8 +120,12 @@ summaries and console lines.
 - **Keys:**
   - **Where:** `api_key_env` alone when set; otherwise `STRESSEUR_JUDGE_API_KEY`, then
     `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Both the process environment and `./.env` count.
+  - **Provider from the key:** with no `provider`, `model`, `base_url` or `api_key_env` set,
+    the judge is Anthropic, or OpenAI when `OPENAI_API_KEY` is the only key present. A
+    configured provider always wins.
   - **No key:** judge checks are skipped, and `flow run` prints once:
-    `Judge checks skipped: set ANTHROPIC_API_KEY or STRESSEUR_JUDGE_API_KEY.`
+    `Judge checks skipped: set ANTHROPIC_API_KEY or OPENAI_API_KEY (or STRESSEUR_JUDGE_API_KEY).`
+    With a provider set it names that provider's variable.
   - **Never stored:** the key is not written to the report or the cache.
 - **Cache:** a JSON file keyed on sha256 of (provider, model, base_url, samples, criteria, steps,
   min_score, input, output).

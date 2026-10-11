@@ -30,6 +30,20 @@ func NoKeyReason(cfg JudgeConfig) string {
 	return "no judge API key: set " + strings.Join(envs, " or ")
 }
 
+// autoNoKeyReason is why judge checks were skipped when the flow names no provider.
+const autoNoKeyReason = "no judge API key: set ANTHROPIC_API_KEY or OPENAI_API_KEY (or STRESSEUR_JUDGE_API_KEY)"
+
+// JudgeFor is a flow's judge for an environment. A flow that sets none of provider, model,
+// base_url and api_key_env judges with OpenAI when OPENAI_API_KEY is the only key set;
+// otherwise its configured (or default Anthropic) judge.
+func JudgeFor(fl *Flow, env map[string]string) JudgeConfig {
+	set := func(name string) bool { return strings.TrimSpace(env[name]) != "" }
+	if !fl.AutoProvider || set("STRESSEUR_JUDGE_API_KEY") || set("ANTHROPIC_API_KEY") || !set("OPENAI_API_KEY") {
+		return fl.Judge
+	}
+	return JudgeDefaults(JudgeConfig{Provider: ProviderOpenAI, Samples: fl.Judge.Samples})
+}
+
 // Stats is the judge's work over a command.
 type Stats struct {
 	Calls        int // API calls (borderline samples included)
@@ -66,7 +80,7 @@ type call struct {
 	err     error
 }
 
-func (e *Evaluator) client(cfg JudgeConfig) (*Client, string) {
+func (e *Evaluator) client(cfg JudgeConfig, auto bool) (*Client, string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	key := cfg.Provider + "\x00" + cfg.Model + "\x00" + cfg.BaseURL + "\x00" + cfg.APIKeyEnv
@@ -82,6 +96,9 @@ func (e *Evaluator) client(cfg JudgeConfig) (*Client, string) {
 	}
 	if apiKey == "" {
 		reason := NoKeyReason(cfg)
+		if auto {
+			reason = autoNoKeyReason
+		}
 		found := false
 		for _, r := range e.Stats.NoKey {
 			found = found || r == reason
@@ -123,6 +140,7 @@ func (e *Evaluator) EvaluateFlow(ctx context.Context, fl *Flow, runs []Run) Flow
 	out := FlowResult{Runs: make([]map[string][]Result, len(runs)), Summaries: map[string][]Summary{}}
 	var jobs []job
 	slots := map[[2]int]int{} // (run, step) → index of the judge result in out.Runs[run][step]
+	cfg := JudgeFor(fl, e.Env)
 	for ri, run := range runs {
 		out.Runs[ri] = map[string][]Result{}
 		for si, name := range fl.Steps {
@@ -133,7 +151,7 @@ func (e *Evaluator) EvaluateFlow(ctx context.Context, fl *Flow, runs []Run) Flow
 			spec := fl.Specs[name]
 			results := Deterministic(spec, name, run)
 			if spec.Judge != nil {
-				model := fl.Judge.Model
+				model := cfg.Model
 				r := Result{Kind: KindJudge, JudgeModel: &model}
 				input, missIn := Render(orDefault(spec.Judge.Input, "{{ request.body }}"), name, run)
 				output, missOut := Render(orDefault(spec.Judge.Output, "{{ response.body }}"), name, run)
@@ -172,7 +190,7 @@ func (e *Evaluator) EvaluateFlow(ctx context.Context, fl *Flow, runs []Run) Flow
 				defer wg.Done()
 				sem <- struct{}{}
 				defer func() { <-sem }()
-				results[i] = e.judge(ctx, fl.Judge, j)
+				results[i] = e.judge(ctx, cfg, fl.AutoProvider, j)
 			}(i, j)
 		}
 		wg.Wait()
@@ -192,7 +210,7 @@ func (e *Evaluator) EvaluateFlow(ctx context.Context, fl *Flow, runs []Run) Flow
 				perRun = append(perRun, rs)
 			}
 		}
-		out.Summaries[name] = Summarize(fl.Specs[name], fl.Judge.Model, fl.Quality, perRun)
+		out.Summaries[name] = Summarize(fl.Specs[name], cfg.Model, fl.Quality, perRun)
 	}
 	return out
 }
@@ -204,7 +222,7 @@ func orDefault(s, d string) string {
 	return s
 }
 
-func (e *Evaluator) judge(ctx context.Context, cfg JudgeConfig, j job) Result {
+func (e *Evaluator) judge(ctx context.Context, cfg JudgeConfig, auto bool, j job) Result {
 	model := cfg.Model
 	r := Result{Kind: KindJudge, JudgeModel: &model}
 	key := CacheKey(cfg, j.spec.Judge, j.input, j.output)
@@ -246,7 +264,7 @@ func (e *Evaluator) judge(ctx context.Context, cfg JudgeConfig, j job) Result {
 	e.mu.Unlock()
 	defer close(c.done)
 
-	client, noKey := e.client(cfg)
+	client, noKey := e.client(cfg, auto)
 	if client == nil {
 		c.err = &noKeyError{noKey}
 		r.Skipped, r.Reason = true, noKey
@@ -364,6 +382,11 @@ func Summarize(spec *Spec, judgeModel string, q Quality, perRun [][]Result) []Su
 		}
 		var scoreSum float64
 		var worst *Result
+		// Token values with their budgets: the summary keeps the first failing budget's
+		// (else the first budget's) values, so its max compares against its own limit.
+		var tokens [][2]float64
+		var tokenLimit *float64
+		tokenFailed := false
 		skipReason := ""
 		for _, rs := range perRun {
 			for i := range rs {
@@ -385,10 +408,14 @@ func Summarize(spec *Spec, judgeModel string, q Quality, perRun [][]Result) []Su
 					continue
 				}
 				s.Runs++
-				if kind == KindTokens && s.Threshold == nil && r.Limit != nil {
-					s.Threshold = ptr(*r.Limit)
-				}
-				if r.Value != nil {
+				if kind == KindTokens {
+					if r.Value != nil && r.Limit != nil {
+						tokens = append(tokens, [2]float64{*r.Value, *r.Limit})
+						if tokenLimit == nil || (!r.Passed && !tokenFailed) {
+							tokenLimit, tokenFailed = ptr(*r.Limit), !r.Passed
+						}
+					}
+				} else if r.Value != nil {
 					s.Values = append(s.Values, *r.Value)
 				}
 				if r.Score != nil {
@@ -400,6 +427,14 @@ func Summarize(spec *Spec, judgeModel string, q Quality, perRun [][]Result) []Su
 				}
 				if worst == nil || (r.Score != nil && worst.Score != nil && *r.Score < *worst.Score) {
 					worst = &r
+				}
+			}
+		}
+		if tokenLimit != nil {
+			s.Threshold = tokenLimit
+			for _, t := range tokens {
+				if t[1] == *tokenLimit {
+					s.Values = append(s.Values, t[0])
 				}
 			}
 		}

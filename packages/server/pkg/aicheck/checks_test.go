@@ -90,6 +90,12 @@ func TestTokens(t *testing.T) {
 	if !r.Passed || *r.Value != 61 || *r.Limit != 100 || r.Reason != "output 61 ≤ 100, total 861 ≤ 1000" {
 		t.Fatalf("%+v", r)
 	}
+	// The failing budget's value and limit, not the first budget's.
+	spec = mustParse(t, "            max_output_tokens: 100\n            max_total_tokens: 500\n")
+	r = Deterministic(spec, "Ask", run(t, 1, goodAsk))[0]
+	if r.Passed || *r.Value != 861 || *r.Limit != 500 || r.Reason != "total 861 > 500" {
+		t.Fatalf("%+v", r)
+	}
 	spec = mustParse(t, "            max_input_tokens: 500\n")
 	r = Deterministic(spec, "Ask", run(t, 1, goodAsk))[0]
 	if r.Passed || r.Reason != "input 800 > 500" {
@@ -119,5 +125,15 @@ func TestRender(t *testing.T) {
 	r.Steps["Ask"].Data["response"].(map[string]any)["body"] = map[string]any{"tool_calls": []any{map[string]any{"name": "lookup_order"}}}
 	if out, _ := Render("{{ response.body.tool_calls[0].name }}", "Ask", r); out != "lookup_order" {
 		t.Fatalf("index: %q", out)
+	}
+}
+
+func TestTokensSummaryUsesTheFailingBudget(t *testing.T) {
+	spec := mustParse(t, "            max_output_tokens: 100\n            max_total_tokens: 500\n")
+	pass := Result{Kind: KindTokens, Passed: true, Value: ptr(61), Limit: ptr(100)}
+	failing := Result{Kind: KindTokens, Value: ptr(861), Limit: ptr(500), Reason: "total 861 > 500"}
+	s := Summarize(spec, "", Quality{}, [][]Result{{pass}, {failing}})[0]
+	if *s.Threshold != 500 || len(s.Values) != 1 || s.Values[0] != 861 {
+		t.Fatalf("%+v", s)
 	}
 }
