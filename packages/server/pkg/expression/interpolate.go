@@ -158,7 +158,7 @@ func (e *UnifiedEnv) resolveEnvVar(varRef string, readVars map[string]any) (stri
 		return "", &EnvReferenceError{VarName: varRef, Cause: ErrEmptyPath}
 	}
 
-	value, ok := varsystem.LookupEnv(envName, varsystem.EnvOverridesFrom(e.data))
+	value, ok := varsystem.LookupEnvVars(envName, e.data)
 	if !ok {
 		return "", &EnvReferenceError{VarName: envName}
 	}

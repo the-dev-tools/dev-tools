@@ -1,9 +1,15 @@
+import { eq } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
+import { Ulid } from 'id128';
 import { useState, useSyncExternalStore } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiCircle, FiSquare, FiX } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { ImportMissingDataKind, ImportService } from '@the-dev-tools/spec/buf/api/import/v1/import_pb';
+import {
+  EnvironmentCollectionSchema,
+  EnvironmentVariableCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/environment';
 import { Button } from '@the-dev-tools/ui/button';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
@@ -11,7 +17,8 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { track } from '~/app/umami';
-import { request } from '~/shared/api';
+import { request, useApiCollection } from '~/shared/api';
+import { getNextOrder, pick, queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { CloudDialog, useDialogHost } from './dialogs';
 import {
@@ -30,7 +37,7 @@ import {
 
 type Destination =
   | { apiUrl: string; kind: 'repo'; repo: StresseurCloudRepo; workspaceSlug: string }
-  | { kind: 'files' };
+  | { appUrl: string; kind: 'files' };
 
 type RecordState =
   | { calls: number; destination: Destination; endpoints: number; kind: 'recording' }
@@ -123,7 +130,9 @@ const RecordDialog = ({ close }: { close: () => void }) => {
 
     const repo = choices.find((_) => _.slug === destination);
     const target: Destination =
-      repo && cloud && apiUrl ? { apiUrl, kind: 'repo', repo, workspaceSlug: cloud.workspace.slug } : { kind: 'files' };
+      repo && cloud && apiUrl
+        ? { apiUrl, kind: 'repo', repo, workspaceSlug: cloud.workspace.slug }
+        : { appUrl: url.trim(), kind: 'files' };
 
     setIsPending(true);
     const result = await api.start(url.trim());
@@ -240,6 +249,39 @@ const useStopRecording = () => {
   const queryClient = useQueryClient();
   const toastQueue = useToastQueue();
   const navigateToFlow = useNavigateToFlow();
+  const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
+  const variableCollection = useApiCollection(EnvironmentVariableCollectionSchema);
+
+  // Recorded flows call {{ #env:APP_URL }}. Locally that resolves to a Global Environment
+  // variable of the same name, so add it when it is missing (never overwrite one).
+  const ensureAppUrl = async (appUrl: string) => {
+    const globalEnv = (
+      await queryCollection((_) =>
+        _.from({ environment: environmentCollection })
+          .where((_) => eq(_.environment.workspaceId, workspaceId))
+          .where((_) => eq(_.environment.isGlobal, true))
+          .select((_) => pick(_.environment, 'environmentId')),
+      )
+    )[0];
+    if (!globalEnv) return;
+
+    const existing = await queryCollection((_) =>
+      _.from({ variable: variableCollection })
+        .where((_) => eq(_.variable.environmentId, globalEnv.environmentId))
+        .where((_) => eq(_.variable.key, 'APP_URL'))
+        .select((_) => pick(_.variable, 'environmentVariableId')),
+    );
+    if (existing.length > 0) return;
+
+    variableCollection.utils.insert({
+      enabled: true,
+      environmentId: globalEnv.environmentId,
+      environmentVariableId: Ulid.generate().bytes,
+      key: 'APP_URL',
+      order: await getNextOrder(variableCollection),
+      value: appUrl,
+    });
+  };
 
   const importLocal = async (files: StresseurGeneratedFile[]) => {
     let first: Uint8Array | undefined;
@@ -305,6 +347,7 @@ const useStopRecording = () => {
 
     try {
       const flowId = destination.kind === 'repo' ? await importRepo(destination, files) : await importLocal(files);
+      if (destination.kind === 'files') await ensureAppUrl(destination.appUrl);
       setRecordState({ kind: 'idle' });
       toastQueue.add({ title: flows === 1 ? '1 flow recorded' : `${flows} flows recorded` }, { timeout: 5000 });
       if (flowId) await navigateToFlow(flowId);

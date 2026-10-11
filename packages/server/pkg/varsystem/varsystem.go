@@ -415,13 +415,21 @@ func (vm VarMap) resolveIndirectValue(value string) (string, error) {
 }
 
 // readEnvRef resolves a #env: reference: the run's override (kept in the map as #env:NAME, see
-// NewVarMapFromAnyMap) first, then the process environment.
+// NewVarMapFromAnyMap) first, then the process environment, then a non-empty variable of the same
+// name (see LookupEnvVars).
 func (vm VarMap) readEnvRef(ref string) (string, error) {
 	name := envRefName(ref)
 	if v, ok := vm[envRefPrefix+name]; ok && name != "" {
 		return v.Value, nil
 	}
-	return ReadEnvValueAsString(ref)
+	value, err := ReadEnvValueAsString(ref)
+	if err == nil {
+		return value, nil
+	}
+	if v, ok := vm[name]; ok && name != "" && v.Value != "" {
+		return v.Value, nil
+	}
+	return "", err
 }
 
 // ExtractVarKeys extracts all variable keys from a string without resolving them.

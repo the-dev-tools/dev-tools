@@ -67,3 +67,16 @@ func LookupEnv(name string, overrides EnvOverrides) (string, bool) {
 	}
 	return os.LookupEnv(name)
 }
+
+// LookupEnvVars resolves #env:name for a run: its override, then the process environment, then
+// a non-empty run variable of the same name (a Studio environment variable such as APP_URL), so
+// flows written for the CLI's environment also run in Studio.
+func LookupEnvVars(name string, vars map[string]any) (string, bool) {
+	if v, ok := LookupEnv(name, EnvOverridesFrom(vars)); ok {
+		return v, true
+	}
+	if v, ok := vars[name].(string); ok && v != "" {
+		return v, true
+	}
+	return "", false
+}
