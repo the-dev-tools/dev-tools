@@ -26,12 +26,20 @@ const titleOf = (html: string) => {
   return title === '' ? undefined : title;
 };
 
-/** Ports that answer HTTP on localhost, in the order given. */
+// Server headers of system services on the usual dev ports: macOS's AirPlay receiver
+// answers on :5000 (Flask's default) and :7000. Matches the CLI's appdetect.
+const NOT_APPS = /\b(AirTunes|ControlCenter)\b/i;
+
+/** Ports where an app answers HTTP on localhost, in the order given. */
 export const detectDevServers = async (ports = DEV_PORTS, timeoutMs = 800): Promise<DevServer[]> => {
   const probe = async (port: number): Promise<DevServer | undefined> => {
     const url = `http://localhost:${String(port)}`;
     try {
       const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
+      if (NOT_APPS.test(response.headers.get('server') ?? '')) {
+        void response.body?.cancel();
+        return undefined;
+      }
       const type = response.headers.get('content-type') ?? '';
       const title = type.includes('html') ? titleOf((await response.text()).slice(0, 65_536)) : undefined;
       if (!type.includes('html')) void response.body?.cancel();

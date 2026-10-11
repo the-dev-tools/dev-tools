@@ -246,6 +246,29 @@ void describe('dev servers', () => {
       await new Promise((resolve) => server.close(resolve));
     }
   });
+
+  void it('skips macOS AirPlay', async () => {
+    const servers = ['AirTunes/870.14.1', 'ControlCenter'].map((name) =>
+      http.createServer((_req, res) => {
+        res.writeHead(403, { server: name });
+        res.end();
+      }),
+    );
+    const ports = await Promise.all(
+      servers.map(async (server) => {
+        await new Promise<void>((resolve) => void server.listen(0, 'localhost', resolve));
+        return (server.address() as AddressInfo).port;
+      }),
+    );
+    try {
+      assert.deepEqual(await detectDevServers(ports), []);
+    } finally {
+      for (const server of servers) {
+        server.closeAllConnections();
+        await new Promise((resolve) => server.close(resolve));
+      }
+    }
+  });
 });
 
 void describe('picked folders', () => {
