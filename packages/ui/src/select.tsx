@@ -39,7 +39,13 @@ export const Select = <T extends object>({
       className={composeTailwindRenderProps(triggerClassName, tw`min-w-0 justify-between gap-2 text-left`)}
       variant={triggerVariant}
     >
-      <RAC.SelectValue className={tw`min-w-0 flex-1 truncate text-left placeholder-shown:text-on-neutral-low`}>
+      <RAC.SelectValue className={tw`
+        min-w-0 truncate text-left
+
+        placeholder-shown:text-on-neutral-low
+
+        **:data-select-check:hidden
+      `}>
         {renderValue}
       </RAC.SelectValue>
       <FiChevronDown
@@ -66,8 +72,11 @@ export const SelectItem = <T extends object>(props: ListBoxItemProps<T>) => (
     {RAC.composeRenderProps(props.children, (children) => (
       <>
         {children}
-        <div className={tw`flex-1`} />
-        <FiCheck className={tw`invisible size-4 flex-none text-accent group-selected/list-item:visible`} />
+        <div className={tw`flex-1`} data-select-check />
+        <FiCheck
+          className={tw`invisible size-4 flex-none text-accent group-selected/list-item:visible`}
+          data-select-check
+        />
       </>
     ))}
   </ListBoxItem>
