@@ -499,7 +499,10 @@ const desktop = pipe(
   Effect.scoped,
 );
 
-const args = process.argv.slice(process.defaultApp ? 2 : 1);
+// Chromium's remote-debugging switch (used to drive the app in end-to-end checks) is not a CLI argument.
+const args = process.argv
+  .slice(process.defaultApp ? 2 : 1)
+  .filter((_) => !_.startsWith('--remote-debugging-port='));
 const cli = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;
