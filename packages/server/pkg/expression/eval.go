@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/expr-lang/expr"
@@ -264,10 +266,18 @@ func (e *UnifiedEnv) helperHas(path string) bool {
 	return e.Has(path)
 }
 
+// customFuncNames returns the env's custom function names, sorted and comma-joined.
+func (e *UnifiedEnv) customFuncNames() string {
+	if len(e.customFuncs) == 0 {
+		return ""
+	}
+	return strings.Join(slices.Sorted(maps.Keys(e.customFuncs)), ",")
+}
+
 // compileExpr compiles an expression with caching support.
 func (e *UnifiedEnv) compileExpr(exprStr string, mode compileMode, env map[string]any) (*vm.Program, error) {
 	// Try cache first
-	key := programCacheKey{expression: exprStr, mode: mode}
+	key := programCacheKey{expression: exprStr, mode: mode, funcs: e.customFuncNames()}
 	if cached, ok := programCache.Load(key); ok {
 		return cached.(*vm.Program), nil
 	}

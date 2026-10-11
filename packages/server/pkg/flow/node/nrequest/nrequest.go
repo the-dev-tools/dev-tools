@@ -25,6 +25,10 @@ type NodeRequest struct {
 	// stream: option). Nil still streams a text/event-stream response, as raw sse.
 	Stream *httpclient.StreamOptions
 
+	// NoFollowRedirects returns a 30x response as is instead of following it (the step's
+	// follow_redirects: false), so a flow can assert the redirect itself.
+	NoFollowRedirects bool
+
 	FlownNodeID idwrap.IDWrap
 	Name        string
 
@@ -92,6 +96,9 @@ func buildNodeRequestOutputMap(output NodeRequestOutput) map[string]any {
 		"body":     node.DeepCopyValue(output.Response.Body),
 		"headers":  cloneStringMapToAny(output.Response.Headers),
 		"duration": float64(output.Response.Duration),
+		// The final URL after redirects, and how many were followed.
+		"url":       output.Response.URL,
+		"redirects": float64(output.Response.Redirects),
 	}
 	for k, v := range output.Response.StreamFields() {
 		responseMap[k] = v
@@ -212,7 +219,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	// SendRequest expects exampleID for logging/metrics?
 	// It's used in `httpclient.SendRequestAndConvert`.
 	// I'll pass nr.HttpReq.ID.
-	resp, err := request.SendRequestStream(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient, nr.Stream)
+	sendCtx := ctx
+	if nr.NoFollowRedirects {
+		sendCtx = httpclient.WithoutRedirects(ctx)
+	}
+	resp, err := request.SendRequestStream(sendCtx, prepareOutput, nr.HttpReq.ID, nr.HttpClient, nr.Stream)
 	if err != nil {
 		result.Err = err
 		return result

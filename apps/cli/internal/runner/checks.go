@@ -16,7 +16,6 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/ioworkspace"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mexpect"
-	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mhttp"
 )
 
 // judgeTimeout bounds one judge HTTP call.
@@ -204,15 +203,19 @@ func (c *Checks) evaluate(ctx context.Context, flowID idwrap.IDWrap, result *mod
 	return nil
 }
 
-// ApplyStreams sets each request node's stream: options from its HTTP request's settings.
-func ApplyStreams(nodes map[idwrap.IDWrap]node.FlowNode, streams map[idwrap.IDWrap]mhttp.HTTPStream) {
+// ApplyRequestOptions sets each request node's stream: and follow_redirects: options from
+// its HTTP request's settings.
+func ApplyRequestOptions(nodes map[idwrap.IDWrap]node.FlowNode, services RunnerServices) {
 	for _, n := range nodes {
 		nr, ok := n.(*nrequest.NodeRequest)
 		if !ok {
 			continue
 		}
-		if s, ok := streams[nr.HttpReq.ID]; ok {
+		if s, ok := services.Streams[nr.HttpReq.ID]; ok {
 			nr.Stream = &httpclient.StreamOptions{Preset: s.Preset, Timeout: time.Duration(s.TimeoutMs) * time.Millisecond}
+		}
+		if services.NoRedirects[nr.HttpReq.ID] {
+			nr.NoFollowRedirects = true
 		}
 	}
 }

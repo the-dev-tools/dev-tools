@@ -252,6 +252,15 @@ AI checks
 			return fmt.Errorf("failed to parse YAML: %w", err)
 		}
 
+		// {{ #env:NAME }} reads the environment, then ./.env, then the flow file's .env;
+		// a missing name fails here, naming them all, instead of at the step that reads it.
+		if err := loadDotEnv(yamlflowFilePath); err != nil {
+			return err
+		}
+		if err := checkEnvReferences(fileData, flowsToRun(flowName, yamlData, runMultiple, loadOpts.Scenario)); err != nil {
+			return err
+		}
+
 		// Process credentials and build credential map
 		credentialMap, err := processYAMLCredentials(ctx, yamlData.Credentials, workspaceID, services)
 		if err != nil {
@@ -435,6 +444,7 @@ AI checks
 			JSClient:            jsClient,
 			Cleanups:            resolved.CleanupsByFlowID(),
 			Streams:             resolved.AllHTTPStreams(),
+			NoRedirects:         resolved.AllHTTPNoRedirects(),
 		}
 
 		if loadOpts.Enabled() {

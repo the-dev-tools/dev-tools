@@ -64,6 +64,7 @@ func SendRequestAndConvertStream(ctx context.Context, client HttpClient, req *Re
 	if opts == nil && !isEventStream(resp.Header.Get("Content-Type")) {
 		return convertResponse(resp)
 	}
+	respURL, redirects := finalURL(resp)
 	defer func() { _ = resp.Body.Close() }()
 
 	o := StreamOptions{Preset: StreamPresetSSE, Timeout: DefaultStreamTimeout}
@@ -98,6 +99,8 @@ func SendRequestAndConvertStream(ctx context.Context, client HttpClient, req *Re
 		StatusCode: resp.StatusCode,
 		Body:       body,
 		Headers:    ConvertHttpHeaderToHeaders(resp.Header),
+		URL:        respURL,
+		Redirects:  redirects,
 		Stream:     result,
 	}, nil
 }

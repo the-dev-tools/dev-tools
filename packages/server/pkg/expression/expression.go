@@ -79,6 +79,9 @@ const (
 type programCacheKey struct {
 	expression string
 	mode       compileMode
+	// funcs names the env's custom functions (WithFunc), sorted: a call to a custom
+	// now() must not reuse a program compiled against expr's built-in now().
+	funcs string
 }
 
 var (
