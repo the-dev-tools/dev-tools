@@ -18,7 +18,7 @@ import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { track } from '~/app/umami';
 import { request, useApiCollection } from '~/shared/api';
-import { getNextOrder, pick, queryCollection } from '~/shared/lib';
+import { getNextOrder, pick, queryCollection, readStored, writeStored } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { CloudDialog, useDialogHost } from './dialogs';
 import {
@@ -110,12 +110,15 @@ export const RecordButton = () => {
   );
 };
 
+const lastUrlKey = (workspaceId: Uint8Array) => `stresseur.record.url.${Ulid.construct(workspaceId).toCanonical()}`;
+
 const RecordDialog = ({ close }: { close: () => void }) => {
   const account = useCloudAccount();
   const repos = useCloudRepos();
   const apiUrl = useApiUrl();
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
-  const [url, setUrl] = useState('http://localhost:3000');
+  const [url, setUrl] = useState(() => readStored(lastUrlKey(workspaceId)) ?? 'http://localhost:3000');
   const [destination, setDestination] = useState('files');
   const [error, setError] = useState<string>();
   const [isPending, setIsPending] = useState(false);
@@ -144,6 +147,7 @@ const RecordDialog = ({ close }: { close: () => void }) => {
       return;
     }
 
+    writeStored(lastUrlKey(workspaceId), url.trim());
     track('record_start', { destination: target.kind });
     setRecordState({ calls: 0, destination: target, endpoints: 0, kind: 'recording' });
     close();
