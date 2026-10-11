@@ -5,12 +5,13 @@ import { createFileRoute, Outlet, useRouter } from '@tanstack/react-router';
 import { Config, pipe, Runtime, Schema } from 'effect';
 import { idEqual, Ulid } from 'id128';
 import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
-import { FiPlus } from 'react-icons/fi';
+import { FiHelpCircle, FiPlus } from 'react-icons/fi';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { FileCreateMenu, FileTree } from '~/features/file-system';
@@ -122,8 +123,30 @@ function RouteComponent() {
             <FileTree navigate showControls />
           </div>
 
-          <div className={tw`px-2.5 py-1.5 text-md/5 tracking-tight text-on-neutral`}>
-            DevTools v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
+          <div className={tw`flex items-center gap-2 px-2.5 py-1.5 text-md/5 tracking-tight text-on-neutral`}>
+            <span className={tw`flex-1 truncate`}>
+              Stresseur Studio v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
+            </span>
+
+            {/* Help links. On macOS they are also in the app menu; Windows and Linux have no menu bar. */}
+            <MenuTrigger>
+              <Button aria-label='Help' className={tw`p-0.5`} variant='ghost'>
+                <FiHelpCircle className={tw`size-4 text-on-neutral-low`} />
+              </Button>
+
+              <Menu>
+                <MenuItem
+                  href='https://stresseur.com/?utm_source=studio&utm_medium=app&utm_campaign=help_menu'
+                  target='_blank'
+                >
+                  Stresseur: AI test engineer
+                </MenuItem>
+
+                <MenuItem href='https://dev.tools' target='_blank'>
+                  About: Stresseur Studio, formerly DevTools Studio (dev.tools)
+                </MenuItem>
+              </Menu>
+            </MenuTrigger>
           </div>
         </Panel>
 

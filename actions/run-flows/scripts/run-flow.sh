@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Runs the resolved devtoolscli binary against the given yamlflow file.
+# Runs the resolved CLI binary (installed as "stresseur") against the given
+# yamlflow file.
 # Exits with devtoolscli's own exit code (0 on success, non-zero if any flow
 # failed) — the calling step uses continue-on-error so a failing run doesn't
 # skip the summary/output steps that follow it.
 #
 # Env in:
-#   CLI_BIN     - absolute path to the devtoolscli binary (from download-cli.sh)
+#   CLI_BIN     - absolute path to the CLI binary (from download-cli.sh)
 #   FILE        - path to the .yamlflow.yaml file (inputs.file)
 #   FLOW        - optional single flow name (inputs.flow)
 #   REPORT_DIR  - directory to write json/junit reports into (inputs.report-dir)
@@ -29,5 +30,5 @@ if [[ -n "${FLOW:-}" ]]; then
 fi
 args+=(--report console --report "json:${report_dir}/report.json" --report "junit:${report_dir}/junit.xml")
 
-echo "+ devtoolscli ${args[*]}"
+echo "+ $(basename "$CLI_BIN") ${args[*]}"
 "$CLI_BIN" "${args[@]}"

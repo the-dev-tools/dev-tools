@@ -4,10 +4,9 @@
   </a>
 </p>
 
-<h1 align="center">DevTools</h1>
+<h1 align="center">Stresseur Studio</h1>
 
-<!-- HEADS-UP-RENAME -->
-<p align="center">Heads up: on October 13, 2026, DevTools Studio becomes Stresseur Studio. It's the same app with the same flows, and it's still free, open source and local. You don't need to do anything.</p>
+<p align="center"><em>Formerly DevTools Studio</em></p>
 
 <p align="center">
 A free, open-source Postman-style API tester you run locally. Record browser requests, auto-generate chained tests, and ship them straight to your CI—no sign-ups, no cloud, just code.
@@ -19,6 +18,7 @@ A free, open-source Postman-style API tester you run locally. Record browser req
     <li><a href="#about-the-project">About the Project</a></li>
     <li><a href="#installation">Installation</a></li>
     <li><a href="#chrome-extension">Chrome Extension</a></li>
+    <li><a href="#stresseur">Stresseur</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
   </ol>
@@ -26,7 +26,7 @@ A free, open-source Postman-style API tester you run locally. Record browser req
 
 ## About the Project
 
-DevTools gives developers complete control over their API testing workflows:
+Stresseur Studio gives developers complete control over their API testing workflows:
 
 - **Browser Request Recording**: Automatically capture all API requests and responses from your browser sessions.
 - **No-code Test Generation**: Transform your recorded API requests into reusable test collections.
@@ -37,13 +37,13 @@ DevTools gives developers complete control over their API testing workflows:
 - **Privacy First**: Keep your sensitive API data and credentials secure on your own machine.
 - **Postman-Compatible**: Import from Postman-like JSON files and export collections for cross-platform compatibility.
 
-DevTools combines the best aspects of Postman's visual interface with the security and flexibility of local-first, code-driven development. No sign-ups, no cloud dependencies - just powerful API testing tools that integrate perfectly with your development workflow.
+Stresseur Studio combines the best aspects of Postman's visual interface with the security and flexibility of local-first, code-driven development. No sign-ups, no cloud dependencies - just powerful API testing tools that integrate perfectly with your development workflow.
 
 ### Postman-Style Request Interface
 
 ![Postman-style UI with form data](https://dev.tools/_next/static/media/first-request-jsonplaceholder-users-1.3351fec7.webp)
 
-The DevTools interface provides a familiar Postman-like experience for working with API requests. The screenshot above shows the request editor interface with form data input, allowing you to easily build, test, and organize your API requests without the cloud dependency.
+The Stresseur Studio interface provides a familiar Postman-like experience for working with API requests. The screenshot above shows the request editor interface with form data input, allowing you to easily build, test, and organize your API requests without the cloud dependency.
 
 ### Visual Flow Builder
 
@@ -62,7 +62,7 @@ This visual approach makes it easy to create sophisticated API workflows without
 
 ### CLI Tool
 
-Install the DevTools CLI with a single command:
+Install the Stresseur CLI (formerly DevTools CLI) with a single command:
 
 ```bash
 curl -fsSL https://sh.dev.tools/install.sh | bash
@@ -79,6 +79,7 @@ The installer will:
 - Automatically detect your platform (Linux, macOS, Windows)
 - Download the appropriate binary from the latest release
 - Install it to `/usr/local/bin` (customizable with `INSTALL_DIR` environment variable)
+- Make it available as both `stresseur` and `devtools`. The two names run the same binary and behave identically, so existing scripts and CI pipelines keep working.
 
 #### Manual Installation
 
@@ -88,15 +89,17 @@ You can also download pre-built binaries directly from the [releases page](https
 
 Download the desktop application for your platform from the [releases page](https://github.com/the-dev-tools/dev-tools/releases):
 
-- **macOS**: DevTools-{version}-darwin-{arch}.dmg
-- **Windows**: DevTools-{version}-win32-{arch}.exe
-- **Linux**: DevTools-{version}-linux-{arch}.AppImage
+- **macOS**: DevTools-Studio-{version}-darwin-{arch}.dmg
+- **Windows**: DevTools-Studio-{version}-win32-{arch}.exe
+- **Linux**: DevTools-Studio-{version}-linux-{arch}.AppImage
+
+The download file names still start with `DevTools-Studio` on purpose, and the app updates itself in place: your workspaces, flows and settings carry over.
 
 ## Chrome Extension
 
 [![Chrome Web Store Version](https://img.shields.io/chrome-web-store/v/bcnbbkdpnoeaaedhhnlefgpijlpbmije?logo=googlechrome&logoColor=white&label=API%20Recorder%20Extension)](https://chromewebstore.google.com/detail/api-recorder/bcnbbkdpnoeaaedhhnlefgpijlpbmije)
 
-The DevTools API Recorder extension captures your API interactions in real-time:
+The API Recorder extension captures your API interactions in real-time:
 
 - **One-Click Recording**: Start and pause API recording with a single click in any browser tab
 - **Request Organization**: Automatically categorizes requests by domain and endpoint
@@ -104,7 +107,11 @@ The DevTools API Recorder extension captures your API interactions in real-time:
 - **Response Inspection**: Examine API responses with syntax highlighting
 - **Secure & Private**: All captured data remains in your browser—nothing is transmitted to external servers
 
-The extension works seamlessly with the main DevTools application, allowing you to record APIs in your browser and then use them to build sophisticated test flows and documentation.
+The extension works seamlessly with Stresseur Studio, allowing you to record APIs in your browser and then use them to build sophisticated test flows and documentation.
+
+## Stresseur
+
+Stresseur Studio and Stresseur CLI are the free, open-source, local-first part of [Stresseur](https://stresseur.com), the AI test engineer for APIs. Stresseur also generates tests with AI and offers a GitHub bot that keeps your API tests up to date on every pull request. Learn more at [stresseur.com](https://stresseur.com).
 
 ## Contributing
 

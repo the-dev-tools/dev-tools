@@ -2,7 +2,7 @@ import { Outlet, useRouter } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { FiMoon, FiSun } from 'react-icons/fi';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
-import { Logo } from '@the-dev-tools/ui/illustrations';
+import { StresseurLogo } from '@the-dev-tools/ui/illustrations';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
@@ -30,7 +30,7 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
           to={router.routesById[routes.dashboard.index.id].fullPath}
           variant='ghost'
         >
-          <Logo className={tw`size-7`} />
+          <StresseurLogo className={tw`size-7`} />
         </ButtonAsRouteLink>
 
         <div className={tw`h-5 w-px bg-on-inverse-lower`} />

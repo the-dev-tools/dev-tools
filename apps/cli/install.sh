@@ -2,8 +2,10 @@
 
 set -e
 
-# DevTools CLI Installer Script
-# This script downloads and installs the DevTools CLI from GitHub releases
+# Stresseur CLI (formerly DevTools CLI) Installer Script
+# This script downloads and installs the Stresseur CLI from GitHub releases.
+# The binary is installed as "devtools" (unchanged, so existing scripts and CI
+# keep working) with a "stresseur" symlink next to it. Both names behave the same.
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,6 +17,7 @@ NC='\033[0m' # No Color
 REPO_OWNER="the-dev-tools"
 REPO_NAME="dev-tools"
 BINARY_NAME="devtools"
+ALIAS_NAME="stresseur"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Functions
@@ -153,7 +156,7 @@ download_binary() {
     local download_url="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/cli@${version}/${binary_name}"
     local temp_file="/tmp/${binary_name}"
     
-    print_info "Downloading DevTools CLI ${version} for ${platform}..."
+    print_info "Downloading Stresseur CLI (formerly DevTools CLI) ${version} for ${platform}..."
     
     if command -v curl &> /dev/null; then
         curl -fsSL -o "$temp_file" "$download_url" || {
@@ -263,7 +266,31 @@ install_binary() {
         exit 1
     }
     
-    print_success "DevTools CLI installed successfully to $install_path"
+    print_success "Stresseur CLI (formerly DevTools CLI) installed successfully to $install_path"
+}
+
+# Add the "stresseur" command as a relative symlink to the installed binary.
+# Never fails the install: on any problem it prints a note and returns.
+install_alias() {
+    local alias_path="${INSTALL_DIR}/${ALIAS_NAME}"
+
+    # Don't clobber a real file someone else put there.
+    if [ -e "$alias_path" ] && [ ! -L "$alias_path" ]; then
+        print_info "Skipped the '${ALIAS_NAME}' alias: $alias_path already exists and is not a symlink. '${BINARY_NAME}' works the same."
+        return 0
+    fi
+
+    local sudo_cmd=""
+    if [ ! -w "$INSTALL_DIR" ] && command -v sudo &> /dev/null; then
+        sudo_cmd="sudo"
+    fi
+
+    if $sudo_cmd ln -sfn "$BINARY_NAME" "$alias_path"; then
+        print_success "Added '${ALIAS_NAME}' command ($alias_path -> ${BINARY_NAME})"
+    else
+        print_info "Could not create the '${ALIAS_NAME}' alias at $alias_path. '${BINARY_NAME}' works the same."
+    fi
+    return 0
 }
 
 check_prerequisites() {
@@ -316,7 +343,7 @@ main() {
         esac
     done
     
-    print_info "DevTools CLI Installer"
+    print_info "Stresseur CLI (formerly DevTools CLI) Installer"
     
     check_prerequisites
     
@@ -345,10 +372,17 @@ main() {
     
     # Install binary
     install_binary "$binary_file"
+
+    # Add the "stresseur" alias next to it
+    install_alias
     
     # Verify installation
     if command -v "$BINARY_NAME" &> /dev/null; then
-        print_success "Installation complete! Run '${BINARY_NAME} version' to verify."
+        if [ -L "${INSTALL_DIR}/${ALIAS_NAME}" ]; then
+            print_success "Installation complete! Run '${ALIAS_NAME} version' (or '${BINARY_NAME} version') to verify."
+        else
+            print_success "Installation complete! Run '${BINARY_NAME} version' to verify."
+        fi
     else
         print_info "Installation complete! You may need to add ${INSTALL_DIR} to your PATH."
         print_info "Run 'export PATH=\$PATH:${INSTALL_DIR}' to add it to your current session."
