@@ -22,7 +22,10 @@ import nodePath from 'node:path';
 import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
 import * as account from './account';
+import { createCloud, isOpenableUrl } from './cloud';
+import { createLocalClones } from './localclone';
 import { legacyDataDirs, migrateDataDir, type MigrationResult } from './migrate-data-dir';
+import { createRecorder, resolveStresseurBinary } from './record';
 import { dismissRenameNotice, initRenameNotice, RENAME_NOTICE_FILE } from './rename-notice';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
@@ -347,6 +350,57 @@ const onReady = Effect.gen(function* () {
   ipcMain.on('account:cancel', () => void signInAbort?.abort());
   ipcMain.handle('account:sign-out', () => account.signOut(credentialsFile));
   ipcMain.on('account:open', () => void shell.openExternal(account.apiUrl()));
+
+  // Stresseur Cloud (/api/cli/studio/*); the token stays here
+  const cloud = createCloud({
+    cacheFile: path.join(app.getPath('userData'), 'cloud-cache.json'),
+    credentialsFile,
+  });
+  ipcMain.handle('cloud:api-url', () => account.apiUrl());
+  ipcMain.handle('cloud:repos', () => cloud.repos());
+  ipcMain.handle('cloud:flows', (_event, repo: unknown) => cloud.flows(repo));
+  ipcMain.handle('cloud:file', (_event, repo: unknown, filePath: unknown) => cloud.file(repo, filePath));
+  ipcMain.handle('cloud:environments', (_event, repo: unknown) => cloud.environments(repo));
+  ipcMain.handle('cloud:propose-change', (_event, repo: unknown, change: unknown) => cloud.proposeChange(repo, change));
+  ipcMain.handle('cloud:start-run', (_event, repo: unknown, run: unknown) => cloud.startRun(repo, run));
+  ipcMain.handle('cloud:run', (_event, id: unknown) => cloud.run(id));
+  ipcMain.on('cloud:open', (_event, url: unknown) => {
+    if (isOpenableUrl(url)) void shell.openExternal(url);
+  });
+
+  // Linked local clones
+  const localClones = createLocalClones({
+    pickDirectory: async (title) => {
+      const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+      const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    storeFile: path.join(app.getPath('userData'), 'local-clones.json'),
+  });
+  ipcMain.handle('local-clone:get', (_event, repo: unknown) => localClones.get(repo));
+  ipcMain.handle('local-clone:pick', (_event, repo: unknown) => localClones.pick(repo));
+  ipcMain.handle('local-clone:unlink', (_event, repo: unknown) => localClones.unlink(repo));
+  ipcMain.handle('local-clone:head', (_event, repo: unknown) => localClones.head(repo));
+  ipcMain.handle('local-clone:read', (_event, repo: unknown, filePath: unknown) => localClones.read(repo, filePath));
+  ipcMain.handle('local-clone:write', (_event, repo: unknown, filePath: unknown, text: unknown) =>
+    localClones.write(repo, filePath, text),
+  );
+  ipcMain.handle('local-clone:env-values', (_event, repo: unknown, names: unknown) =>
+    localClones.envValues(repo, names),
+  );
+
+  // Recording with the bundled stresseur binary
+  const recorder = createRecorder({
+    binary: () => resolveStresseurBinary({ isPackaged: app.isPackaged }),
+    onEvent: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send('record:event', event);
+    },
+  });
+  ipcMain.handle('record:start', (_event, url: unknown) => recorder.start(url));
+  ipcMain.handle('record:stop', () => recorder.stop());
+  ipcMain.handle('record:cancel', () => recorder.cancel());
+  app.on('before-quit', () => void recorder.dispose());
+  app.on('will-quit', () => void recorder.dispose());
 
   ipcMain.handle('rename-notice:get', () => showRenameNotice);
   ipcMain.on('rename-notice:dismiss', () => void dismissRenameNotice(app.getPath('userData')));

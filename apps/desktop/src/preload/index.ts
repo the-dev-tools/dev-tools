@@ -17,6 +17,40 @@ contextBridge.exposeInMainWorld('electron', {
     signOut: () => ipcRenderer.invoke('account:sign-out') as Promise<void>,
   },
 
+  cloud: {
+    apiUrl: () => ipcRenderer.invoke('cloud:api-url') as Promise<string>,
+    environments: (repo: string) => ipcRenderer.invoke('cloud:environments', repo),
+    file: (repo: string, path: string) => ipcRenderer.invoke('cloud:file', repo, path),
+    flows: (repo: string) => ipcRenderer.invoke('cloud:flows', repo),
+    open: (url: string) => void ipcRenderer.send('cloud:open', url),
+    proposeChange: (repo: string, change: unknown) => ipcRenderer.invoke('cloud:propose-change', repo, change),
+    repos: () => ipcRenderer.invoke('cloud:repos'),
+    run: (id: string) => ipcRenderer.invoke('cloud:run', id),
+    startRun: (repo: string, run: unknown) => ipcRenderer.invoke('cloud:start-run', repo, run),
+  },
+
+  localClone: {
+    envValues: (repo: string, names: string[]) => ipcRenderer.invoke('local-clone:env-values', repo, names),
+    get: (repo: string) => ipcRenderer.invoke('local-clone:get', repo) as Promise<null | string>,
+    head: (repo: string) => ipcRenderer.invoke('local-clone:head', repo),
+    pick: (repo: { full_name: string; slug: string }) =>
+      ipcRenderer.invoke('local-clone:pick', { full_name: repo.full_name, slug: repo.slug }),
+    read: (repo: string, path: string) => ipcRenderer.invoke('local-clone:read', repo, path),
+    unlink: (repo: string) => ipcRenderer.invoke('local-clone:unlink', repo) as Promise<void>,
+    write: (repo: string, path: string, text: string) => ipcRenderer.invoke('local-clone:write', repo, path, text),
+  },
+
+  record: {
+    cancel: () => ipcRenderer.invoke('record:cancel') as Promise<void>,
+    onEvent: (callback: (event: unknown) => void) => {
+      const listener = (_: unknown, event: unknown) => void callback(event);
+      ipcRenderer.on('record:event', listener);
+      return () => void ipcRenderer.off('record:event', listener);
+    },
+    start: (url: string) => ipcRenderer.invoke('record:start', url),
+    stop: () => ipcRenderer.invoke('record:stop'),
+  },
+
   dialog: <T extends keyof Dialog>(method: T, ...options: Parameters<Dialog[T]>) =>
     ipcRenderer.invoke('dialog', method, options),
   onClose: (callback: () => void) => ipcRenderer.on('on-close', callback),

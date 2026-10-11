@@ -20,7 +20,7 @@ export type SignInEvent =
   | { kind: 'failed'; message: string }
   | { kind: 'waiting'; url: string; userCode: string };
 
-interface Credentials extends Account {
+export interface Credentials extends Account {
   api_url: string;
   device_id: string;
   saved_at?: string;
@@ -33,7 +33,7 @@ export const apiUrl = () => (process.env['STRESSEUR_API_URL'] ?? 'https://app.st
 export const credentialsPath = (appDataDir: string) =>
   path.join(process.env['STRESSEUR_CONFIG_DIR'] ?? path.join(appDataDir, 'stresseur'), 'credentials.json');
 
-const readCredentials = async (file: string): Promise<Credentials | undefined> => {
+export const readCredentials = async (file: string): Promise<Credentials | undefined> => {
   try {
     const value = JSON.parse(await fs.readFile(file, 'utf8')) as Partial<Credentials>;
     if (typeof value.token !== 'string' || typeof value.api_url !== 'string') return undefined;
@@ -49,7 +49,9 @@ const toAccount = ({ user, workspace }: Account): Account => {
   return account;
 };
 
-const sameApi = (saved: Credentials | undefined) => saved?.api_url.replace(/\/+$/, '') === apiUrl();
+/** The saved login belongs to the API URL in use (STRESSEUR_API_URL or the default). */
+export const sameApi = (saved: Credentials | undefined): saved is Credentials =>
+  saved?.api_url.replace(/\/+$/, '') === apiUrl();
 
 interface RequestOptions {
   body?: string;

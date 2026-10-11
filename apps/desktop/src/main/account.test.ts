@@ -105,7 +105,10 @@ void describe('account', () => {
   });
 
   void it('treats a revoked token or another API URL as signed out', async () => {
-    fs.writeFileSync(file, JSON.stringify({ api_url: process.env['STRESSEUR_API_URL'], token: 'stsr_old', ...account }));
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ api_url: process.env['STRESSEUR_API_URL'], token: 'stsr_old', ...account }),
+    );
     assert.equal(await getAccount(file), null);
 
     fs.writeFileSync(file, JSON.stringify({ api_url: 'https://elsewhere.test', token: 'stsr_test', ...account }));
