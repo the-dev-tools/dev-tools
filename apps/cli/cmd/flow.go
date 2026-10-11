@@ -138,7 +138,8 @@ AI checks
   parallel and are cached in --judge-cache. The judge key comes from
   api_key_env, else STRESSEUR_JUDGE_API_KEY, else ANTHROPIC_API_KEY or
   OPENAI_API_KEY (the environment or ./.env); without one, judge checks are
-  skipped. Failed checks fail the flow only with quality: { fail_below: ... }.
+  skipped. With no judge provider set, the judge is Anthropic, or OpenAI when
+  OPENAI_API_KEY is the only key; judge: { provider: ... } always wins. Failed checks fail the flow only with quality: { fail_below: ... }.
   Load runs do not evaluate expect:.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -249,6 +250,15 @@ AI checks
 		var yamlData yamlflowsimplev2.YamlFlowFormatV2
 		if err := yaml.Unmarshal(fileData, &yamlData); err != nil {
 			return fmt.Errorf("failed to parse YAML: %w", err)
+		}
+
+		// {{ #env:NAME }} reads the environment, then ./.env, then the flow file's .env;
+		// a missing name fails here, naming them all, instead of at the step that reads it.
+		if err := loadDotEnv(yamlflowFilePath); err != nil {
+			return err
+		}
+		if err := checkEnvReferences(fileData, flowsToRun(flowName, yamlData, runMultiple, loadOpts.Scenario)); err != nil {
+			return err
 		}
 
 		// Process credentials and build credential map
@@ -434,6 +444,7 @@ AI checks
 			JSClient:            jsClient,
 			Cleanups:            resolved.CleanupsByFlowID(),
 			Streams:             resolved.AllHTTPStreams(),
+			NoRedirects:         resolved.AllHTTPNoRedirects(),
 		}
 
 		if loadOpts.Enabled() {

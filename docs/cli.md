@@ -89,10 +89,18 @@ Judge: 1 call, 1.3 s
 The JSON report adds `checks[]` to each step (`kind`, `passed`, `score`, `reason`, `judge_model`, `cached`, `value`, `limit`, plus `skipped` and the judge's calls and tokens). It also adds `checks_status` and `judge` to each flow.
 
 - **Judge key:** `api_key_env`, else `STRESSEUR_JUDGE_API_KEY`, else `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, from the environment or `./.env`. Without one, judge checks are skipped and a notice says which variable to set.
+- **Judge provider:** `judge: { provider: anthropic | openai }`. When no provider, model, `base_url` or `api_key_env` is set, the judge is Anthropic, or OpenAI when `OPENAI_API_KEY` is the only key present.
 - **Cache:** verdicts are cached in `--judge-cache <path>` (default `.devtools/judge-cache.json`; `off` disables it). Keep the file between CI jobs so unchanged outputs are never judged twice.
 - **Exit code:** failed checks fail the flow only when the file or flow sets `quality: { fail_below: 90% }`; otherwise they only report.
 
 Responses with `Content-Type: text/event-stream`, or from steps with `stream: openai | anthropic | vercel-ai | sse`, are read as they arrive. Assertions and `expect:` can then read `response.text`, `response.events`, `response.event_count` and `response.ttft_ms`. A stream still open after `stream_timeout_ms` (default 30000) fails the step.
+
+### Redirects, cookies and data helpers
+
+- **Redirects:** request steps follow redirects by default. `follow_redirects: false` on a step returns the 30x as is, so `response.status == 302` and `response.headers.Location` can be asserted. Every response has `response.url` (the final URL after redirects) and `response.redirects` (how many were followed), e.g. `'!(response.url contains "/login")'`.
+- **Cookies:** one cookie jar per run. `Secure` cookies are sent to `http://localhost`, `127.0.0.1`, `::1` and `*.localhost`, as browsers do; other `http://` hosts never get them.
+- **Data helpers** inside `{{ }}` in URLs, headers and bodies: `uuid()`, `uuid("v7")`, `ulid()`, `now()` (RFC 3339 with milliseconds), `now().Unix()`, `now().UnixMilli()`, `now().Format("2006-01-02")`, and `faker.email()`, `faker.username()`, `faker.name()`, `faker.password()`, `faker.randomInt(min, max)` and the rest of `faker.*` (see the yamlflow README).
+- **`#env:` and `.env`:** `{{ #env:NAME }}` reads the process environment, then `./.env`, then the flow file's directory's `.env` (the environment wins). Before running, `flow run` lists every missing `#env:` name the flows to run reference in one error, `missing environment variables: A, B (...)`, instead of failing at the step.
 
 ### Streams in HAR imports
 
@@ -251,7 +259,7 @@ The server requires the same environment variables as before (`DB_MODE`, `DB_NAM
 ## Debugging and Troubleshooting
 
 - **Flow not found**: Ensure the `run` entry or flow name matches the exported data exactly (case-sensitive). Use `stresseur flow run workspace.yamlflow.yaml` without a name to list flows.
-- **Missing environment variable**: When a `#env:NAME` override cannot resolve, the CLI logs the placeholder but continues with the stored value. Set the value explicitly in your CI environment or provide a literal fallback in the YAML.
+- **Missing environment variable**: `flow run` stops before running when a `{{ #env:NAME }}` the flows reference is set neither in the environment nor in `./.env` or the flow file's `.env`, and names every missing variable. Set them in your CI environment or a `.env` file.
 - **Node failures**: The console report shows the first error encountered. Re-run with `LOG_LEVEL=DEBUG` to see detailed HTTP preparation and assertion logs.
 - **External dependencies**: The CLI does not stub network calls. If you need deterministic runs, point your environment variables at mock servers or wrap the flows with conditionals.
 

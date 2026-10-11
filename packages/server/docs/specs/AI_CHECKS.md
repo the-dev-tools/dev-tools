@@ -44,6 +44,12 @@ The engine adds these keys (additive; the Stresseur CLI's strict parser must lea
 | `stream: openai \| anthropic \| vercel-ai \| sse` | request step | Read the response as a stream and assemble its text with this preset |
 | `stream_timeout_ms`                               | request step | The longest the stream may stay open (default 30000)                 |
 | `max_ttft_ms`                                     | `expect:`    | `ttft` check: time to first token ≤ limit                            |
+| `follow_redirects: false`                         | request step | Return a 30x as is instead of following it (default true)            |
+
+Every request step's response also has `response.url` (the final URL after redirects) and
+`response.redirects` (how many were followed), so a step can assert it didn't end on a login
+page: `'!(response.url contains "/login")'`. See the yamlflow README for redirects, cookies,
+data helpers (`uuid()`, `ulid()`, `now()`, `faker.*`) and `#env:` / `.env` loading.
 
 `iterations:` and `quality.fail_below` across many runs belong to `stress ci`. The engine
 keeps `iterations:` for the round trip and otherwise ignores it.
@@ -120,8 +126,12 @@ summaries and console lines.
 - **Keys:**
   - **Where:** `api_key_env` alone when set; otherwise `STRESSEUR_JUDGE_API_KEY`, then
     `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Both the process environment and `./.env` count.
+  - **Provider from the key:** with no `provider`, `model`, `base_url` or `api_key_env` set,
+    the judge is Anthropic, or OpenAI when `OPENAI_API_KEY` is the only key present. A
+    configured provider always wins.
   - **No key:** judge checks are skipped, and `flow run` prints once:
-    `Judge checks skipped: set ANTHROPIC_API_KEY or STRESSEUR_JUDGE_API_KEY.`
+    `Judge checks skipped: set ANTHROPIC_API_KEY or OPENAI_API_KEY (or STRESSEUR_JUDGE_API_KEY).`
+    With a provider set it names that provider's variable.
   - **Never stored:** the key is not written to the report or the cache.
 - **Cache:** a JSON file keyed on sha256 of (provider, model, base_url, samples, criteria, steps,
   min_score, input, output).

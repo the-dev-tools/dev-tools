@@ -43,6 +43,8 @@ type RunnerServices struct {
 	Cleanups map[idwrap.IDWrap]ioworkspace.FlowCleanup
 	// Streams holds request steps' stream: settings, by HTTP request ID.
 	Streams map[idwrap.IDWrap]mhttp.HTTPStream
+	// NoRedirects holds the HTTP requests of steps with follow_redirects: false.
+	NoRedirects map[idwrap.IDWrap]bool
 	// Checks evaluates the flows' AI checks after each run; nil when the file has none.
 	Checks *Checks
 }
@@ -284,7 +286,7 @@ func RunFlow(ctx context.Context, flowPtr *mflow.Flow, services RunnerServices, 
 	if err != nil {
 		return markFailure(err)
 	}
-	ApplyStreams(flowNodeMap, services.Streams)
+	ApplyRequestOptions(flowNodeMap, services)
 
 	// Build the cleanup nodes before anything runs, so a broken cleanup block
 	// fails the flow before it creates data it could not remove.

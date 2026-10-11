@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/expr-lang/expr"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
@@ -229,6 +230,10 @@ func isFileReference(varRef string) bool {
 	return strings.HasPrefix(strings.TrimSpace(varRef), FileRefPrefix)
 }
 
+// TimeLayout is how a time value (now(), date(...)) is written into a request: RFC 3339 with
+// milliseconds, e.g. 2026-10-11T15:59:15.978+03:00.
+const TimeLayout = "2006-01-02T15:04:05.000Z07:00"
+
 // anyToString converts any value to its string representation.
 func anyToString(v any) string {
 	if v == nil {
@@ -255,6 +260,10 @@ func anyToString(v any) string {
 		return fmt.Sprintf("%g", val)
 	case []byte:
 		return string(val)
+	case time.Time:
+		// {{ now() }} in a request: an ISO 8601 timestamp, not Go's time.String() (which
+		// carries the monotonic clock reading).
+		return val.Format(TimeLayout)
 	default:
 		return fmt.Sprintf("%v", val)
 	}

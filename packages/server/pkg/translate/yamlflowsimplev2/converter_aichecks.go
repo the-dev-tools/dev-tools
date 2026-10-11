@@ -18,9 +18,10 @@ import (
 // aiChecksConverter collects a file's AI checks and stream settings while its flows convert.
 // Cleanup steps' settings go into their cleanup's own bundle, next to their nodes.
 type aiChecksConverter struct {
-	checks  *mexpect.Checks
-	streams []mhttp.HTTPStream
-	baseDir string
+	checks      *mexpect.Checks
+	streams     []mhttp.HTTPStream
+	noRedirects []idwrap.IDWrap
+	baseDir     string
 }
 
 // stepTarget is where a step's node lives: its node and HTTP IDs, and the cleanup bundle
@@ -153,6 +154,13 @@ func (c *aiChecksConverter) addStep(flowName string, sw YamlStepWrapper, targets
 			}
 		}
 	}
+	if r := sw.Request; r != nil && r.FollowRedirects != nil && !*r.FollowRedirects && known && target.httpID != nil {
+		if target.cleanup != nil {
+			target.cleanup.HTTPNoRedirects = append(target.cleanup.HTTPNoRedirects, *target.httpID)
+		} else {
+			c.noRedirects = append(c.noRedirects, *target.httpID)
+		}
+	}
 	return nil
 }
 
@@ -189,6 +197,9 @@ func (c *aiChecksConverter) apply(result *ioworkspace.WorkspaceBundle) {
 	if len(c.streams) > 0 {
 		result.HTTPStreams = c.streams
 	}
+	if len(c.noRedirects) > 0 {
+		result.HTTPNoRedirects = c.noRedirects
+	}
 }
 
 // encodeNode turns a value into a YAML node for export; nil for a nil value.
@@ -200,9 +211,15 @@ func encodeNode(v any) (*yaml.Node, error) {
 	return n, nil
 }
 
-// exportStepAIChecks writes a step's expect: and stream: back into its YAML. httpID is the
-// request step's HTTP request (nil for other steps).
-func exportStepAIChecks(expects map[idwrap.IDWrap]mexpect.Expect, streams map[idwrap.IDWrap]mhttp.HTTPStream, nodeID idwrap.IDWrap, httpID *idwrap.IDWrap, sw *YamlStepWrapper) error {
+// stepRequestOptions are a file's per-request step options, by HTTP request ID.
+type stepRequestOptions struct {
+	streams     map[idwrap.IDWrap]mhttp.HTTPStream
+	noRedirects map[idwrap.IDWrap]bool
+}
+
+// exportStepAIChecks writes a step's expect:, stream: and follow_redirects: back into its
+// YAML. httpID is the request step's HTTP request (nil for other steps).
+func exportStepAIChecks(expects map[idwrap.IDWrap]mexpect.Expect, opts stepRequestOptions, nodeID idwrap.IDWrap, httpID *idwrap.IDWrap, sw *YamlStepWrapper) error {
 	if sw.Request == nil && sw.GraphQL == nil {
 		return nil
 	}
@@ -220,12 +237,16 @@ func exportStepAIChecks(expects map[idwrap.IDWrap]mexpect.Expect, streams map[id
 	if httpID == nil || sw.Request == nil {
 		return nil
 	}
-	if s, ok := streams[*httpID]; ok {
+	if s, ok := opts.streams[*httpID]; ok {
 		sw.Request.Stream = s.Preset
 		if s.TimeoutMs > 0 {
 			ms := s.TimeoutMs
 			sw.Request.StreamTimeoutMS = &ms
 		}
+	}
+	if opts.noRedirects[*httpID] {
+		follow := false
+		sw.Request.FollowRedirects = &follow
 	}
 	return nil
 }

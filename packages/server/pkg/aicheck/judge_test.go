@@ -321,6 +321,55 @@ func TestEvaluateFlowNoKeySkips(t *testing.T) {
 	}
 }
 
+func TestJudgeFollowsTheOnlyKey(t *testing.T) {
+	doc := `flows:
+  - name: F
+    steps:
+      - request:
+          name: Ask
+          url: /x
+          expect:
+            judge: { criteria: Explains how to cancel. }
+`
+	f, err := Parse([]byte(doc), ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fl := f.Flow("F")
+	if !fl.AutoProvider {
+		t.Fatal("no judge: block must follow the keys")
+	}
+	cases := []struct {
+		env      map[string]string
+		provider string
+	}{
+		{map[string]string{"OPENAI_API_KEY": "o"}, ProviderOpenAI},
+		{map[string]string{"OPENAI_API_KEY": "o", "ANTHROPIC_API_KEY": "a"}, ProviderAnthropic},
+		{map[string]string{"OPENAI_API_KEY": "o", "STRESSEUR_JUDGE_API_KEY": "s"}, ProviderAnthropic},
+		{map[string]string{}, ProviderAnthropic},
+	}
+	for _, c := range cases {
+		j := JudgeFor(fl, c.env)
+		if j.Provider != c.provider || j.Model != DefaultModels[c.provider] || j.BaseURL != DefaultBaseURLs[c.provider] {
+			t.Fatalf("%v: %+v", c.env, j)
+		}
+	}
+	// An explicit provider wins.
+	f, err = Parse([]byte("judge: { provider: anthropic }\n"+doc), ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fl := f.Flow("F"); fl.AutoProvider || JudgeFor(fl, map[string]string{"OPENAI_API_KEY": "o"}).Provider != ProviderAnthropic {
+		t.Fatal("explicit provider overridden")
+	}
+	// Without any key the notice names both.
+	ev := &Evaluator{Env: map[string]string{}}
+	res := ev.EvaluateFlow(context.Background(), fl, []Run{askRun(t, 10, "a")})
+	if r := res.Summaries["Ask"][0]; r.Reason != "no judge API key: set ANTHROPIC_API_KEY or OPENAI_API_KEY (or STRESSEUR_JUDGE_API_KEY)" {
+		t.Fatalf("%+v", r)
+	}
+}
+
 func TestEvaluateFlowMissingOutputNeverJudgesTemplate(t *testing.T) {
 	f := newFake(t, func(string, float64) int { return 5 })
 	fl := flowFor(t, f.srv.URL, "")
@@ -421,6 +470,15 @@ func TestLines(t *testing.T) {
 	}
 	got := strings.Join(SummaryLines("Ask", sums), "\n")
 	if got != "✓ Ask latency 12 of 12, p95 1.8 s ≤ 4 s\n✗ Ask judge 9 of 12, score 3.81 (min 4): Invents a refund policy. [below 90%]" {
+		t.Fatalf("got\n%s", got)
+	}
+	// Failing summaries say ">" when the value is over the limit.
+	over := []Summary{
+		{Kind: KindLatency, Runs: 2, Passed: 0, Status: StatusWarn, Threshold: ptr(500), Values: []float64{1800, 900}},
+		{Kind: KindTokens, Runs: 2, Passed: 1, Status: StatusWarn, Threshold: ptr(500), Values: []float64{861, 61}, Reason: "total 861 > 500"},
+	}
+	got = strings.Join(SummaryLines("Ask", over), "\n")
+	if got != "✗ Ask latency 0 of 2, p95 1.8 s > 500 ms\n✗ Ask tokens 1 of 2, max 861 > 500: total 861 > 500" {
 		t.Fatalf("got\n%s", got)
 	}
 	if StatsLine(Stats{Calls: 4, Cached: 8, Elapsed: 1100 * time.Millisecond}) != "Judge: 4 calls, 8 cached, 1.1 s" || StatsLine(Stats{}) != "" {

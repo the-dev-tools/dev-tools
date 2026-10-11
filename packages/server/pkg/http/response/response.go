@@ -86,6 +86,8 @@ func ResponseCreateHTTP(
 		"body":     responseVar.Body,
 		"headers":  responseVar.Headers,
 		"duration": lapse.Milliseconds(),
+		"url":       responseVar.URL,
+		"redirects": responseVar.Redirects,
 	}
 	for k, v := range responseVar.StreamFields() {
 		responseBinding[k] = v
@@ -227,6 +229,8 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 		"body":     responseVar.Body,
 		"headers":  responseVar.Headers,
 		"duration": lapse.Milliseconds(),
+		"url":       responseVar.URL,
+		"redirects": responseVar.Redirects,
 	}
 	for k, v := range responseVar.StreamFields() {
 		responseBinding[k] = v

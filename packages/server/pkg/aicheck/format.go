@@ -71,10 +71,12 @@ func SummaryLines(step string, sums []Summary) []string {
 		line := fmt.Sprintf("%s %s %s %d of %d", mark, step, s.Kind, s.Passed, s.Runs)
 		switch s.Kind {
 		case KindLatency, KindTTFT:
-			line += fmt.Sprintf(", p95 %s ≤ %s", FormatMS(Percentile(s.Values, 95)), FormatMS(*s.Threshold))
+			p95 := Percentile(s.Values, 95)
+			line += fmt.Sprintf(", p95 %s %s %s", FormatMS(p95), cmp(p95, *s.Threshold), FormatMS(*s.Threshold))
 		case KindTokens:
 			if len(s.Values) > 0 && s.Threshold != nil {
-				line += fmt.Sprintf(", max %s ≤ %s", formatNum(Percentile(s.Values, 100)), formatNum(*s.Threshold))
+				peak := Percentile(s.Values, 100)
+				line += fmt.Sprintf(", max %s %s %s", formatNum(peak), cmp(peak, *s.Threshold), formatNum(*s.Threshold))
 			}
 		case KindJudge:
 			if s.MeanScore != nil {
@@ -93,6 +95,14 @@ func SummaryLines(step string, sums []Summary) []string {
 		out = append(out, line)
 	}
 	return out
+}
+
+// cmp is the operator between a measured value and its limit: "≤" within it, ">" over it.
+func cmp(v, limit float64) string {
+	if v > limit {
+		return ">"
+	}
+	return "≤"
 }
 
 // StatsLine is the judge's work: "Judge: 4 calls, 8 cached, 1.1 s". "" when nothing was judged.

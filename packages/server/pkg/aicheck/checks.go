@@ -238,7 +238,8 @@ func checkTokens(spec *Spec, step string, run Run, responded bool) Result {
 		if !ok {
 			return fail(KindTokens, fmt.Sprintf("no %s token count in %s", b.which, path))
 		}
-		if r.Value == nil {
+		// Value and limit are the first failing budget's, else the first budget's.
+		if r.Value == nil || (r.Passed && n > *b.limit) {
 			r.Value, r.Limit = ptr(n), ptr(*b.limit)
 		}
 		if n > *b.limit {

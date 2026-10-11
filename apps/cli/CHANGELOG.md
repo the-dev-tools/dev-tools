@@ -1,3 +1,23 @@
+## 1.6.0 (2026-10-11)
+
+### 🚀 Features
+
+- Onboarding fixes for flows run against local apps: ([baead616](https://github.com/the-dev-tools/dev-tools/commit/baead616))
+
+  - `Secure` cookies are now sent to `http://localhost`, `127.0.0.1`, `::1` and `*.localhost`, as browsers do, so a local dev server's Secure session cookie keeps the session alive. Other `http://` hosts still never get them.
+  - `follow_redirects: false` on a request step returns the 30x as is, so the redirect itself can be asserted. Every response now has `response.url` (the final URL after redirects) and `response.redirects`, e.g. `'!(response.url contains "/login")'`. The option survives YAML export; the desktop app doesn't store it yet.
+  - `{{ now() }}` now writes an RFC 3339 timestamp (`2026-10-11T15:59:15.978+03:00`) instead of Go's internal time format. `uuid()`, `ulid()`, `now().Unix()` and `faker.*` are documented in the YAML README.
+  - `flow run` reads `./.env` and the flow file's directory's `.env` for `{{ #env:NAME }}` (the process environment wins), and before running lists every missing `#env:` name in one error instead of failing at the first step that reads one.
+
+
+### 🩹 Fixes
+
+- AI checks: with no judge provider configured, the judge uses OpenAI when `OPENAI_API_KEY` is the only key set (a configured `provider`, `model`, `base_url` or `api_key_env` still decides), and the no-key notice names both keys. A failing token check reports the budget that failed, not the first one, and `ci` summaries print `>` instead of `≤` when the p95 latency or max tokens is over its limit. ([76e47463](https://github.com/the-dev-tools/dev-tools/commit/76e47463))
+
+### ❤️ Thank You
+
+- moosebay
+
 ## 1.5.0 (2026-10-10)
 
 ### 🚀 Features
