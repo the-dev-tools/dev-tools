@@ -19,6 +19,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/httpclient"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	"github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/private/node_js_executor/v1/node_js_executorv1connect"
 )
 
@@ -41,6 +42,8 @@ type ExecutionParams struct {
 	Nodes    []mflow.Node
 	Edges    []mflow.Edge // Only valid edges (no orphaned source/target references)
 	FlowVars []mflow.FlowVariable
+	// EnvOverrides are values for #env: references that win over the process environment.
+	EnvOverrides varsystem.EnvOverrides
 }
 
 // ExecutionResult contains the outcome of a flow execution.
@@ -108,6 +111,7 @@ func (s *ServerSession) Prepare(ctx context.Context, params ExecutionParams) err
 	if err != nil {
 		return fmt.Errorf("failed to build execution variables: %w", err)
 	}
+	varsystem.WithEnvOverrides(baseVars, params.EnvOverrides)
 	s.baseVars = baseVars
 
 	edgeMap := mflow.NewEdgesMap(params.Edges)

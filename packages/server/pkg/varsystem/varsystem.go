@@ -38,6 +38,13 @@ func NewVarMapWithPrefix(vars []menv.Variable, prefix string) VarMap {
 func NewVarMapFromAnyMap(anyMap map[string]any) VarMap {
 	vars := make([]menv.Variable, 0)
 	for k, v := range anyMap {
+		// A run's #env: overrides become entries keyed by the reference itself (#env:NAME).
+		if o, ok := v.(EnvOverrides); ok && k == EnvOverridesKey {
+			for name, value := range o.values {
+				vars = append(vars, menv.Variable{VarKey: envRefPrefix + name, Value: value})
+			}
+			continue
+		}
 		HelperNewAny(&vars, v, k)
 	}
 	return NewVarMap(vars)
@@ -189,9 +196,15 @@ func IsFileReference(key string) bool {
 	return strings.HasPrefix(strings.TrimSpace(key), "#file:")
 }
 
+const envRefPrefix = "#env:"
+
 // IsEnvReference checks if a variable key refers to an environment variable (starts with "#env:")
 func IsEnvReference(key string) bool {
-	return strings.HasPrefix(strings.TrimSpace(key), "#env:")
+	return strings.HasPrefix(strings.TrimSpace(key), envRefPrefix)
+}
+
+func envRefName(ref string) string {
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(ref), envRefPrefix))
 }
 
 // VarMapTracker wraps a VarMap and tracks variable reads
@@ -260,7 +273,7 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 			vmt.ReadVars[key] = fileContent
 			result += raw[:startIndex] + fileContent
 		case IsEnvReference(key):
-			envValue, err := ReadEnvValueAsString(key)
+			envValue, err := vmt.VarMap.readEnvRef(key)
 			if err != nil {
 				return "", err
 			}
@@ -272,7 +285,7 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 				return "", fmt.Errorf("%s %w", key, ErrKeyNotFound)
 			}
 			// Track variable read
-			value, err := resolveIndirectValue(val.Value)
+			value, err := vmt.VarMap.resolveIndirectValue(val.Value)
 			if err != nil {
 				return "", err
 			}
@@ -311,8 +324,7 @@ func GetIsFileReferencePath(filePath string) string {
 
 // ReadEnvValueAsString resolves a #env: reference to its environment value.
 func ReadEnvValueAsString(ref string) (string, error) {
-	name := strings.TrimPrefix(strings.TrimSpace(ref), "#env:")
-	name = strings.TrimSpace(name)
+	name := envRefName(ref)
 	if name == "" {
 		return "", fmt.Errorf("invalid environment reference")
 	}
@@ -371,7 +383,7 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 			}
 			result += raw[:startIndex] + fileContent
 		case IsEnvReference(key):
-			envValue, err := ReadEnvValueAsString(key)
+			envValue, err := vm.readEnvRef(key)
 			if err != nil {
 				return "", err
 			}
@@ -381,7 +393,7 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 			if !ok {
 				return "", fmt.Errorf("%s %w", key, ErrKeyNotFound)
 			}
-			value, err := resolveIndirectValue(val.Value)
+			value, err := vm.resolveIndirectValue(val.Value)
 			if err != nil {
 				return "", err
 			}
@@ -394,12 +406,22 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 	return result, nil
 }
 
-func resolveIndirectValue(value string) (string, error) {
+func (vm VarMap) resolveIndirectValue(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if IsEnvReference(trimmed) {
-		return ReadEnvValueAsString(trimmed)
+		return vm.readEnvRef(trimmed)
 	}
 	return value, nil
+}
+
+// readEnvRef resolves a #env: reference: the run's override (kept in the map as #env:NAME, see
+// NewVarMapFromAnyMap) first, then the process environment.
+func (vm VarMap) readEnvRef(ref string) (string, error) {
+	name := envRefName(ref)
+	if v, ok := vm[envRefPrefix+name]; ok && name != "" {
+		return v.Value, nil
+	}
+	return ReadEnvValueAsString(ref)
 }
 
 // ExtractVarKeys extracts all variable keys from a string without resolving them.

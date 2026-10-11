@@ -9,6 +9,7 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/menv"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 // InterpolationResult holds the result of interpolation along with tracked reads.
@@ -157,7 +158,7 @@ func (e *UnifiedEnv) resolveEnvVar(varRef string, readVars map[string]any) (stri
 		return "", &EnvReferenceError{VarName: varRef, Cause: ErrEmptyPath}
 	}
 
-	value, ok := os.LookupEnv(envName)
+	value, ok := varsystem.LookupEnv(envName, varsystem.EnvOverridesFrom(e.data))
 	if !ok {
 		return "", &EnvReferenceError{VarName: envName}
 	}

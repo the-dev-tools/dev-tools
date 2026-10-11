@@ -4,6 +4,8 @@ package expression
 import (
 	"os"
 	"strings"
+
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 const (
@@ -67,7 +69,7 @@ func ReadEnvVar(envRef string) (string, error) {
 		return "", &EnvReferenceError{VarName: envRef, Cause: ErrEmptyPath}
 	}
 
-	value, ok := os.LookupEnv(name)
+	value, ok := varsystem.LookupEnv(name, varsystem.EnvOverrides{})
 	if !ok {
 		return "", &EnvReferenceError{VarName: name}
 	}
