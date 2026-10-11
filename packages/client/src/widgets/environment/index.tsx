@@ -80,7 +80,7 @@ export const EnvironmentsWidget = () => {
     <div className={tw`flex items-center gap-1 border-b border-neutral px-3 py-2`}>
       <Select
         aria-label='Environment'
-        className={tw`min-w-0 flex-1`}
+        className={tw`min-w-0`}
         items={environments}
         onChange={(selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
@@ -117,6 +117,8 @@ export const EnvironmentsWidget = () => {
         onEdit={(environmentId) => void setManage({ environmentId, isOpen: true })}
         selectedEnvironmentIdCan={selectedEnvironmentIdCan}
       />
+
+      <div className={tw`flex-1`} />
 
       <ImportDialogTrigger />
 
