@@ -364,6 +364,27 @@ const onReady = Effect.gen(function* () {
   ipcMain.handle('cloud:propose-change', (_event, repo: unknown, change: unknown) => cloud.proposeChange(repo, change));
   ipcMain.handle('cloud:start-run', (_event, repo: unknown, run: unknown) => cloud.startRun(repo, run));
   ipcMain.handle('cloud:run', (_event, id: unknown) => cloud.run(id));
+
+  // Claude on included AI credits: events go to the renderer as `cloud:ai-event` (id, message)
+  ipcMain.handle('cloud:ai-credits', () => cloud.aiCredits());
+  const aiStreams = new Map<string, AbortController>();
+  ipcMain.on('cloud:ai-messages', (event, id: unknown, body: unknown) => {
+    if (typeof id !== 'string' || aiStreams.has(id)) return;
+    const { sender } = event;
+    const post = (message: unknown) => {
+      if (!sender.isDestroyed()) sender.send('cloud:ai-event', id, message);
+    };
+    const controller = new AbortController();
+    aiStreams.set(id, controller);
+    void cloud
+      .aiMessages(body, (streamEvent) => void post({ event: streamEvent, kind: 'event' }), controller.signal)
+      .then((result) => void post({ kind: 'done', result }))
+      .finally(() => void aiStreams.delete(id));
+  });
+  ipcMain.on('cloud:ai-abort', (_event, id: unknown) => {
+    if (typeof id === 'string') aiStreams.get(id)?.abort();
+  });
+
   ipcMain.on('cloud:open', (_event, url: unknown) => {
     if (isOpenableUrl(url)) void shell.openExternal(url);
   });
@@ -500,9 +521,7 @@ const desktop = pipe(
 );
 
 // Chromium's remote-debugging switch (used to drive the app in end-to-end checks) is not a CLI argument.
-const args = process.argv
-  .slice(process.defaultApp ? 2 : 1)
-  .filter((_) => !_.startsWith('--remote-debugging-port='));
+const args = process.argv.slice(process.defaultApp ? 2 : 1).filter((_) => !_.startsWith('--remote-debugging-port='));
 const cli = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;

@@ -85,6 +85,14 @@ declare global {
     url: string;
   }
 
+  /** Included AI credits for the coding agent, this UTC month. */
+  interface StresseurAiCredits {
+    included: boolean;
+    limit_cents: number;
+    resets_at: string;
+    used_cents: number;
+  }
+
   type StresseurLocalResult<T> = { data: T; ok: true } | { message: string; ok: false };
 
   /** NDJSON events from `stresseur record --json`, plus Studio's own `generating`. */
@@ -115,6 +123,14 @@ declare global {
       };
       /** Stresseur Cloud API (/api/cli/studio/*). The token stays in the main process. */
       cloud?: {
+        aiAbort: (id: string) => void;
+        aiCredits: () => Promise<StresseurCloudResult<StresseurAiCredits>>;
+        /** Anthropic Messages on included AI credits; `onEvent` gets each stream event. */
+        aiMessages: (
+          id: string,
+          body: object,
+          onEvent: (event: unknown) => void,
+        ) => Promise<StresseurCloudResult<null>>;
         apiUrl: () => Promise<string>;
         environments: (repo: string) => Promise<StresseurCloudResult<{ environments: StresseurCloudEnvironment[] }>>;
         file: (repo: string, path: string) => Promise<StresseurCloudResult<StresseurCloudFile>>;

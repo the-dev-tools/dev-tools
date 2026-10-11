@@ -18,6 +18,24 @@ contextBridge.exposeInMainWorld('electron', {
   },
 
   cloud: {
+    aiAbort: (id: string) => void ipcRenderer.send('cloud:ai-abort', id),
+    aiCredits: () => ipcRenderer.invoke('cloud:ai-credits'),
+    /** Streams Claude events to `onEvent`; resolves with the result once the stream ends. */
+    aiMessages: (id: string, body: unknown, onEvent: (event: unknown) => void) =>
+      new Promise((resolve) => {
+        const listener = (
+          _: unknown,
+          eventId: unknown,
+          message: { event?: unknown; kind: string; result?: unknown },
+        ) => {
+          if (eventId !== id) return;
+          if (message.kind === 'event') return void onEvent(message.event);
+          ipcRenderer.off('cloud:ai-event', listener);
+          resolve(message.result);
+        };
+        ipcRenderer.on('cloud:ai-event', listener);
+        ipcRenderer.send('cloud:ai-messages', id, body);
+      }),
     apiUrl: () => ipcRenderer.invoke('cloud:api-url') as Promise<string>,
     environments: (repo: string) => ipcRenderer.invoke('cloud:environments', repo),
     file: (repo: string, path: string) => ipcRenderer.invoke('cloud:file', repo, path),

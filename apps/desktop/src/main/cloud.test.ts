@@ -22,6 +22,12 @@ const repos = {
   workspace: { name: 'Acme', slug: 'acme' },
 };
 
+const aiStream = [
+  'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":12}}}\n\n',
+  'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hi"}}\n\n',
+  'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+];
+
 let server: Server;
 let dir: string;
 let credentialsFile: string;
@@ -58,6 +64,14 @@ beforeEach(async () => {
         return void json(200, { path: new URL(req.url, 'http://x').searchParams.get('path'), text: 'flows: []' });
       if (req.url === '/api/cli/studio/repos/shop/pull-requests' && req.method === 'POST')
         return void json(200, { branch: 'stresseur/studio/u/1', main_moved: false, number: 7, url: 'https://gh/pr/7' });
+      if (req.url === '/api/cli/studio/ai/messages' && req.method === 'POST') {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        // Split mid-event to check the reader buffers lines.
+        const sse = aiStream.join('');
+        res.write(sse.slice(0, 30));
+        res.end(sse.slice(30));
+        return;
+      }
       json(404, { error: 'not_found', message: 'Not found.' });
     });
   });
@@ -92,6 +106,8 @@ void describe('cloud allow-list', () => {
     assert.ok(isAllowedStudioRequest('POST', '/repos/shop/pull-requests'));
     assert.ok(isAllowedStudioRequest('POST', '/repos/shop/runs'));
     assert.ok(isAllowedStudioRequest('GET', '/runs/r_1'));
+    assert.ok(isAllowedStudioRequest('GET', '/ai/credits'));
+    assert.ok(isAllowedStudioRequest('POST', '/ai/messages'));
 
     assert.ok(!isAllowedStudioRequest('POST', '/repos'));
     assert.ok(!isAllowedStudioRequest('DELETE', '/repos/shop/flows'));
@@ -101,6 +117,8 @@ void describe('cloud allow-list', () => {
     assert.ok(!isAllowedStudioRequest('GET', '/repos/../flows'));
     assert.ok(!isAllowedStudioRequest('GET', '/runs/..'));
     assert.ok(!isAllowedStudioRequest('GET', '/whoami'));
+    assert.ok(!isAllowedStudioRequest('GET', '/ai/messages'));
+    assert.ok(!isAllowedStudioRequest('POST', '/ai/credits'));
     assert.ok(!isAllowedStudioRequest('GET', '/repos/shop/files?path=x&token=1'));
   });
 
@@ -268,5 +286,67 @@ void describe('cloud requests', () => {
       }),
     );
     assert.deepEqual(await offline.repos(), { error: { kind: 'offline' }, ok: false });
+  });
+});
+
+void describe('included AI credits', () => {
+  void it('streams Claude events and always asks for a stream', async () => {
+    const events: unknown[] = [];
+    const result = await cloud().aiMessages({ messages: [], stream: false }, (event) => void events.push(event));
+    assert.deepEqual(result, { data: null, ok: true });
+    assert.deepEqual(
+      events.map((_) => (_ as { type: string }).type),
+      ['message_start', 'content_block_delta', 'message_stop'],
+    );
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0]?.startsWith('POST /api/cli/studio/ai/messages Bearer stsr_test {"messages":[],"stream":true}'));
+  });
+
+  void it('maps a 402 with Upgrade, and refuses a non-object body', async () => {
+    reply = (url) =>
+      url === '/api/cli/studio/ai/messages'
+        ? {
+            body: {
+              error: 'plan_limit',
+              fix_url: 'https://app.stresseur.test/acme/usage',
+              message: "This month's $50 of AI credits is used up.",
+              upgrade: true,
+            },
+            status: 402,
+          }
+        : undefined;
+    const result = await cloud().aiMessages({ messages: [] }, () => undefined);
+    assert.deepEqual(result, {
+      error: {
+        code: 'plan_limit',
+        fixUrl: 'https://app.stresseur.test/acme/usage',
+        kind: 'error',
+        message: "This month's $50 of AI credits is used up.",
+        upgrade: true,
+      },
+      ok: false,
+    });
+
+    const bad = await cloud().aiMessages('hi', () => undefined);
+    assert.ok(!bad.ok && bad.error.kind === 'error' && bad.error.code === 'invalid_request');
+    assert.equal(calls.length, 1);
+  });
+
+  void it('reads credits', async () => {
+    reply = (url) =>
+      url === '/api/cli/studio/ai/credits'
+        ? {
+            body: { included: true, limit_cents: 5000, resets_at: '2026-11-01T00:00:00.000Z', used_cents: 900 },
+            status: 200,
+          }
+        : undefined;
+    const result = await cloud().aiCredits();
+    assert.ok(result.ok);
+    assert.deepEqual(result.data, {
+      included: true,
+      limit_cents: 5000,
+      resets_at: '2026-11-01T00:00:00.000Z',
+      used_cents: 900,
+    });
   });
 });

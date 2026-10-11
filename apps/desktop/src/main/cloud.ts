@@ -5,6 +5,8 @@
  * mapped error.
  *
  * Only the endpoints of the contract can be called (see `isAllowedStudioRequest`).
+ * `aiMessages` streams Claude on the workspace's included AI credits: the main
+ * process parses the SSE and hands each event to the caller.
  * Repo and flow lists (and fetched flow files) are cached in the user-data
  * folder and returned with `offline: true` when the network is down.
  */
@@ -35,6 +37,8 @@ const ALLOWED: { method: Method; pattern: RegExp }[] = [
   { method: 'POST', pattern: new RegExp(`^/repos/${SEGMENT}/pull-requests$`) },
   { method: 'POST', pattern: new RegExp(`^/repos/${SEGMENT}/runs$`) },
   { method: 'GET', pattern: new RegExp(`^/runs/${SEGMENT}$`) },
+  { method: 'GET', pattern: /^\/ai\/credits$/ },
+  { method: 'POST', pattern: /^\/ai\/messages$/ },
 ];
 
 /** True only for the contract's endpoints (path relative to /api/cli/studio, query included). */
@@ -155,6 +159,36 @@ interface RequestOptions {
   cached?: boolean;
 }
 
+/** Longest a Claude stream may run (the server caps max_tokens). */
+const AI_TIMEOUT_MS = 10 * 60_000;
+
+/** Calls `onEvent` with each JSON `data:` payload of an SSE body. */
+const readSse = async (body: ReadableStream<Uint8Array>, onEvent: (event: unknown) => void) => {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const line = (raw: string) => {
+    const text = raw.replace(/\r$/, '');
+    if (!text.startsWith('data:')) return;
+    try {
+      onEvent(JSON.parse(text.slice(5).trim()));
+    } catch {
+      // Not JSON (keep-alive or a partial line at the end): skip.
+    }
+  };
+  const reader = body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let index: number;
+    while ((index = buffer.indexOf('\n')) >= 0) {
+      line(buffer.slice(0, index));
+      buffer = buffer.slice(index + 1);
+    }
+  }
+  line(buffer);
+};
+
 export const createCloud = ({
   cacheFile,
   credentialsFile,
@@ -163,42 +197,58 @@ export const createCloud = ({
 }: CloudOptions) => {
   const cache = createCache(cacheFile);
 
-  const request = async <T>(
+  type Sent = { cacheKey: string; error?: undefined; response: Response } | { cacheKey?: string; error: CloudError };
+
+  /** Sends one allow-listed request with the saved token; never throws. */
+  const send = async (
     method: Method,
     pathAndQuery: string,
-    { body, cached = false }: RequestOptions = {},
-  ): Promise<CloudResult<T>> => {
+    body: unknown,
+    { accept = 'application/json', signal = AbortSignal.timeout(timeoutMs) } = {},
+  ): Promise<Sent> => {
     if (!isAllowedStudioRequest(method, pathAndQuery))
-      return { error: { code: 'not_allowed', kind: 'error', message: 'This request is not allowed.' }, ok: false };
+      return { error: { code: 'not_allowed', kind: 'error', message: 'This request is not allowed.' } };
 
     const saved = await readCredentials(credentialsFile);
-    if (!sameApi(saved)) return { error: { kind: 'signed-out' }, ok: false };
+    if (!sameApi(saved)) return { error: { kind: 'signed-out' } };
 
     const base = apiUrl();
     // The cache is per API URL and workspace; the file may lack a workspace.
     const workspace = (saved as Partial<Credentials>).workspace?.slug ?? '';
-    const key = [base, workspace, method, pathAndQuery].join(' ');
+    const cacheKey = [base, workspace, method, pathAndQuery].join(' ');
 
-    let response: Response;
     try {
-      response = await fetchImpl(`${base}${STUDIO_PREFIX}${pathAndQuery}`, {
+      const response = await fetchImpl(`${base}${STUDIO_PREFIX}${pathAndQuery}`, {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         headers: {
-          Accept: 'application/json',
+          Accept: accept,
           Authorization: `Bearer ${saved.token}`,
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         method,
         redirect: 'error',
-        signal: AbortSignal.timeout(timeoutMs),
+        signal,
       });
+      return { cacheKey, response };
     } catch {
-      if (cached) {
-        const data = await cache.get(key);
+      return { cacheKey, error: { kind: 'offline' } };
+    }
+  };
+
+  const request = async <T>(
+    method: Method,
+    pathAndQuery: string,
+    { body, cached = false }: RequestOptions = {},
+  ): Promise<CloudResult<T>> => {
+    const sent = await send(method, pathAndQuery, body);
+    if (sent.error) {
+      if (cached && sent.error.kind === 'offline' && sent.cacheKey) {
+        const data = await cache.get(sent.cacheKey);
         if (data !== undefined) return { data: data as T, offline: true, ok: true };
       }
-      return { error: { kind: 'offline' }, ok: false };
+      return { error: sent.error, ok: false };
     }
+    const { cacheKey: key, response } = sent;
 
     if (!response.ok) return { error: await mapError(response), ok: false };
 
@@ -216,6 +266,43 @@ export const createCloud = ({
   };
 
   return {
+    aiCredits: () => request('GET', '/ai/credits'),
+
+    /**
+     * Claude on included AI credits (`POST /ai/messages`, always streamed).
+     * Resolves when the stream ends; errors before the stream are mapped like
+     * any other request.
+     */
+    aiMessages: async (
+      body: unknown,
+      onEvent: (event: unknown) => void,
+      signal?: AbortSignal,
+    ): Promise<CloudResult<null>> => {
+      if (!body || typeof body !== 'object' || Array.isArray(body)) return invalid('The request is not an object.');
+      const timeout = AbortSignal.timeout(AI_TIMEOUT_MS);
+      const sent = await send(
+        'POST',
+        '/ai/messages',
+        { ...body, stream: true },
+        { accept: 'text/event-stream', signal: signal ? AbortSignal.any([signal, timeout]) : timeout },
+      );
+      if (sent.error) return { error: sent.error, ok: false };
+      const { response } = sent;
+      if (!response.ok) return { error: await mapError(response), ok: false };
+      if (!response.body)
+        return {
+          error: { code: 'bad_response', kind: 'error', message: 'Stresseur Cloud sent an empty response.' },
+          ok: false,
+        };
+      try {
+        await readSse(response.body, onEvent);
+      } catch {
+        if (signal?.aborted) return { error: { code: 'aborted', kind: 'error', message: 'Stopped.' }, ok: false };
+        return { error: { kind: 'offline' }, ok: false };
+      }
+      return { data: null, ok: true };
+    },
+
     environments: (repo: unknown) => request('GET', `/repos/${segment(repo)}/environments`),
 
     file: (repo: unknown, filePath: unknown) =>
