@@ -7,8 +7,17 @@ import remarkGfm from 'remark-gfm';
 import { NodeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { type Message, type ToolCall, useAgentChat } from '~/features/agent';
-import { type AgentProvider, useAgentProviderKey } from '~/features/agent/use-agent-provider-key';
+import {
+  type AgentProvider,
+  creditsUsedUp,
+  formatCreditsLeft,
+  type Message,
+  type OwnKeyProvider,
+  type ToolCall,
+  useAgentChat,
+  useAgentCredits,
+  useAgentProviderKey,
+} from '~/features/agent';
 import { useApiCollection } from '~/shared/api';
 import { FlowContext } from './context';
 import { useFlowSelection } from './selection';
@@ -60,7 +69,7 @@ const getToolBrief = (args: Record<string, unknown>): null | string => {
 };
 
 const PROVIDER_OPTIONS: Record<
-  AgentProvider,
+  OwnKeyProvider,
   { keyLabel: string; keysUrl: string; label: string; placeholder: string }
 > = {
   anthropic: {
@@ -83,16 +92,34 @@ const PROVIDER_OPTIONS: Record<
   },
 };
 
+const STRESSEUR_LABEL = 'Stresseur (included)';
+
+/** Provider choices: included credits first when the workspace has them. */
+const providerChoices = (included: boolean): [AgentProvider, string][] => [
+  ...(included ? [['stresseur', STRESSEUR_LABEL] as [AgentProvider, string]] : []),
+  ...(Object.keys(PROVIDER_OPTIONS) as OwnKeyProvider[]).map((id): [AgentProvider, string] => [
+    id,
+    PROVIDER_OPTIONS[id].label,
+  ]),
+];
+
+/** Shown where a key is asked for, in the desktop app only. */
+const PAID_PLANS_LINE = 'Paid plans include AI credits.';
+
 export const AgentPanel = () => {
   const { flowId, setAgentPanelOpen } = use(FlowContext);
-  const { apiKey, provider, setApiKey, setProvider } = useAgentProviderKey();
+  const credits = useAgentCredits();
+  const included = credits.kind === 'ready' && credits.credits.included;
+  const { apiKey, ownProvider, provider, setApiKey, setProvider } = useAgentProviderKey({ included });
   const { deselectAll, deselectNodes, selectedNodeIds } = useFlowSelection();
-  const { cancel, clearMessages, error, isLoading, messages, sendMessage, streamingContent } = useAgentChat({
-    apiKey,
-    flowId,
-    provider,
-    selectedNodeIds,
-  });
+  const { cancel, clearMessages, cloudError, error, isLoading, messages, sendMessage, streamingContent } = useAgentChat(
+    {
+      apiKey,
+      flowId,
+      provider,
+      selectedNodeIds,
+    },
+  );
 
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -159,6 +186,10 @@ export const AgentPanel = () => {
     setProvider(nextProvider);
   };
 
+  const ready = provider === 'stresseur' || !!apiKey;
+  const cloud = typeof window === 'undefined' ? undefined : window.electron.cloud;
+  const upgradeUrl = cloudError?.kind === 'error' && cloudError.upgrade ? cloudError.fixUrl : undefined;
+
   return (
     <div className={tw`flex h-full flex-col overflow-hidden bg-(--surface-1) text-sm text-(--text-primary)`}>
       {/* Header */}
@@ -193,7 +224,9 @@ export const AgentPanel = () => {
         </Button>
       </div>
 
-      {apiKey ? (
+      {!ready && credits.kind === 'loading' ? (
+        <div className={tw`flex-1`} />
+      ) : ready ? (
         <>
           {/* Messages */}
           <div className={tw`flex-1 overflow-x-hidden overflow-y-auto px-2 pt-1 pb-2 select-text`}>
@@ -220,6 +253,26 @@ export const AgentPanel = () => {
             )}
 
             {error && <div className={tw`mt-2 text-(--text-error)`}>{error}</div>}
+            {cloudError && provider === 'stresseur' && (
+              <div className={tw`mt-1.5 flex items-center gap-3 text-xs`}>
+                <button
+                  className={tw`text-(--brand-secondary) hover:underline`}
+                  onClick={() => void handleProviderChange(ownProvider)}
+                  type='button'
+                >
+                  Use your own key
+                </button>
+                {upgradeUrl && (
+                  <button
+                    className={tw`text-(--brand-secondary) hover:underline`}
+                    onClick={() => void cloud?.open(upgradeUrl)}
+                    type='button'
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Input */}
@@ -259,13 +312,26 @@ export const AgentPanel = () => {
               />
             </div>
             <div className={tw`flex items-center justify-between pt-1.5`}>
-              <AgentSettingsPopover
-                apiKey={apiKey}
-                isLoading={isLoading}
-                onProviderChange={handleProviderChange}
-                onSubmit={setApiKey}
-                provider={provider}
-              />
+              <div className={tw`flex min-w-0 items-center gap-2`}>
+                <AgentSettingsPopover
+                  apiKey={apiKey}
+                  included={included}
+                  isLoading={isLoading}
+                  onProviderChange={handleProviderChange}
+                  onSubmit={setApiKey}
+                  provider={provider}
+                />
+                {provider === 'stresseur' && credits.kind === 'ready' && (
+                  <span
+                    className={tw`
+                      truncate text-[11px]
+                      ${creditsUsedUp(credits.credits) ? 'text-(--text-error)' : 'text-(--text-subtle)'}
+                    `}
+                  >
+                    {formatCreditsLeft(credits.credits)}
+                  </span>
+                )}
+              </div>
               {isLoading ? (
                 <AbortButton onClick={cancel} />
               ) : (
@@ -275,7 +341,13 @@ export const AgentPanel = () => {
           </div>
         </>
       ) : (
-        <ApiKeyPrompt onProviderChange={handleProviderChange} onSubmit={setApiKey} provider={provider} />
+        <ApiKeyPrompt
+          included={included}
+          onProviderChange={handleProviderChange}
+          onSubmit={setApiKey}
+          provider={provider}
+          showPaidPlansLine={!!cloud && !included}
+        />
       )}
     </div>
   );
@@ -354,13 +426,17 @@ const SelectedNodesBar = ({ deselectAll, deselectNodes, selectedNodeIds }: Selec
 };
 
 const ApiKeyPrompt = ({
+  included,
   onProviderChange,
   onSubmit,
   provider,
+  showPaidPlansLine,
 }: {
+  included: boolean;
   onProviderChange: (provider: AgentProvider) => void;
   onSubmit: (key: string) => void;
-  provider: AgentProvider;
+  provider: OwnKeyProvider;
+  showPaidPlansLine: boolean;
 }) => {
   const [value, setValue] = useState('');
   const providerOption = PROVIDER_OPTIONS[provider];
@@ -385,7 +461,7 @@ const ApiKeyPrompt = ({
   return (
     <div className={tw`flex flex-1 flex-col items-center justify-center gap-3 px-4`}>
       <div className={tw`flex w-full flex-col gap-1 rounded-[6px] border border-(--border-1) bg-(--surface-4) p-1`}>
-        {(Object.keys(PROVIDER_OPTIONS) as AgentProvider[]).map((id) => (
+        {providerChoices(included).map(([id, label]) => (
           <button
             className={tw`
               w-full rounded-[4px] px-2 py-1 text-left text-xs font-medium transition-colors
@@ -395,7 +471,7 @@ const ApiKeyPrompt = ({
             onClick={() => void onProviderChange(id)}
             type='button'
           >
-            {PROVIDER_OPTIONS[id].label}
+            {label}
           </button>
         ))}
       </div>
@@ -413,6 +489,7 @@ const ApiKeyPrompt = ({
           </a>{' '}
           to use the agent.
         </p>
+        {showPaidPlansLine && <p className={tw`mt-1 text-xs text-(--text-subtle)`}>{PAID_PLANS_LINE}</p>}
       </div>
       <div className={tw`flex w-full gap-2`}>
         <input
@@ -450,12 +527,14 @@ const ApiKeyPrompt = ({
 
 const AgentSettingsPopover = ({
   apiKey,
+  included,
   isLoading,
   onProviderChange,
   onSubmit,
   provider,
 }: {
   apiKey: string;
+  included: boolean;
   isLoading: boolean;
   onProviderChange: (provider: AgentProvider) => void;
   onSubmit: (key: string) => void;
@@ -467,7 +546,8 @@ const AgentSettingsPopover = ({
   const [popoverWidth, setPopoverWidth] = useState(320);
   const [value, setValue] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
-  const providerOption = PROVIDER_OPTIONS[provider];
+  const providerOption = provider === 'stresseur' ? null : PROVIDER_OPTIONS[provider];
+  const needsKey = provider !== 'stresseur' && !apiKey;
 
   useEffect(() => {
     setEditing(false);
@@ -572,7 +652,7 @@ const AgentSettingsPopover = ({
         type='button'
       >
         <FiSettings className={tw`size-3.5`} />
-        {!apiKey && <span className={tw`absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-(--status-error)`} />}
+        {needsKey && <span className={tw`absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-(--status-error)`} />}
       </button>
 
       {open && (
@@ -585,7 +665,9 @@ const AgentSettingsPopover = ({
         >
           <div className={tw`mb-1 flex items-center justify-between`}>
             <span className={tw`text-xs font-medium text-(--text-primary)`}>Agent Settings</span>
-            {!apiKey ? (
+            {provider === 'stresseur' ? (
+              <span className={tw`text-[11px] text-(--text-muted)`}>No key needed</span>
+            ) : !apiKey ? (
               <span className={tw`text-[11px] text-(--text-error)`}>Missing API key</span>
             ) : (
               <span className={tw`text-[11px] text-(--text-muted)`}>Key saved</span>
@@ -593,7 +675,7 @@ const AgentSettingsPopover = ({
           </div>
 
           <div className={tw`flex w-full flex-col gap-1 rounded-[6px] border border-(--border-1) bg-(--surface-5) p-1`}>
-            {(Object.keys(PROVIDER_OPTIONS) as AgentProvider[]).map((id) => (
+            {providerChoices(included).map(([id, label]) => (
               <button
                 className={tw`
                   w-full rounded-[4px] px-2 py-1 text-left text-xs font-medium transition-colors
@@ -604,16 +686,17 @@ const AgentSettingsPopover = ({
                 onClick={() => void handleProviderClick(id)}
                 type='button'
               >
-                {PROVIDER_OPTIONS[id].label}
+                {label}
               </button>
             ))}
           </div>
 
-          <div className={tw`mt-1.5 flex items-center gap-2`}>
-            {editing || !apiKey ? (
-              <>
-                <input
-                  className={tw`
+          {providerOption ? (
+            <div className={tw`mt-1.5 flex items-center gap-2`}>
+              {editing || !apiKey ? (
+                <>
+                  <input
+                    className={tw`
                     flex-1 rounded-[4px] border border-(--border-1) bg-(--surface-4) px-2 py-1 text-xs
                     text-(--text-primary)
 
@@ -623,26 +706,26 @@ const AgentSettingsPopover = ({
 
                     disabled:text-(--text-subtle)
                   `}
-                  disabled={isLoading}
-                  onChange={(e) => void setValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSubmit();
-                    }
-                    if (e.key === 'Escape') {
-                      e.preventDefault();
-                      setOpen(false);
-                      setEditing(false);
-                      setValue('');
-                    }
-                  }}
-                  placeholder={providerOption.placeholder}
-                  type='password'
-                  value={value}
-                />
-                <button
-                  className={tw`
+                    disabled={isLoading}
+                    onChange={(e) => void setValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSubmit();
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setOpen(false);
+                        setEditing(false);
+                        setValue('');
+                      }
+                    }}
+                    placeholder={providerOption.placeholder}
+                    type='password'
+                    value={value}
+                  />
+                  <button
+                    className={tw`
                     rounded-[4px] bg-(--text-primary) px-2 py-1 text-xs font-medium text-(--text-inverse)
                     transition-colors
 
@@ -650,34 +733,39 @@ const AgentSettingsPopover = ({
 
                     disabled:bg-(--text-muted)
                   `}
-                  disabled={isLoading || !value.trim()}
-                  onClick={handleSubmit}
-                  type='button'
-                >
-                  Save
-                </button>
-              </>
-            ) : (
-              <>
-                <a
-                  className={tw`text-xs text-(--brand-secondary) underline`}
-                  href={providerOption.keysUrl}
-                  rel='noreferrer'
-                  target='_blank'
-                >
-                  {providerOption.keyLabel}
-                </a>
-                <button
-                  className={tw`text-xs text-(--brand-secondary) hover:underline`}
-                  disabled={isLoading}
-                  onClick={() => void setEditing(true)}
-                  type='button'
-                >
-                  Edit key
-                </button>
-              </>
-            )}
-          </div>
+                    disabled={isLoading || !value.trim()}
+                    onClick={handleSubmit}
+                    type='button'
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <a
+                    className={tw`text-xs text-(--brand-secondary) underline`}
+                    href={providerOption.keysUrl}
+                    rel='noreferrer'
+                    target='_blank'
+                  >
+                    {providerOption.keyLabel}
+                  </a>
+                  <button
+                    className={tw`text-xs text-(--brand-secondary) hover:underline`}
+                    disabled={isLoading}
+                    onClick={() => void setEditing(true)}
+                    type='button'
+                  >
+                    Edit key
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <p className={tw`mt-1.5 text-[11px] text-(--text-muted)`}>
+              Claude on your workspace&apos;s plan. Pick a provider above to use your own key.
+            </p>
+          )}
         </div>
       )}
     </div>

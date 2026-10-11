@@ -34,7 +34,7 @@ import {
 import { useApiCollection } from '~/shared/api';
 import { queryCollection } from '~/shared/lib';
 import { routes } from '~/shared/routes';
-import type { AgentProvider } from './use-agent-provider-key';
+import type { AgentProvider, OwnKeyProvider } from './use-agent-provider-key';
 import { AgentLogger } from './agent-logger';
 import {
   buildCompactStateSummary,
@@ -47,7 +47,15 @@ import {
 } from './context-builder';
 import { defaultHorizontalConfig, layoutNodes } from './layout';
 import { type Collections, executeToolCall, type ToolExecutorContext } from './tool-executor';
+import {
+  STRESSEUR_MODEL,
+  StresseurCloudRequestError,
+  streamStresseurTurn,
+  type StreamedTurn,
+  toStresseurRequest,
+} from './stresseur-provider';
 import { allToolSchemas } from './tool-schemas';
+import { refreshAgentCredits } from './use-agent-credits';
 import {
   type AgentChatState,
   formatToolAsOpenAI,
@@ -58,16 +66,16 @@ import {
   type ToolSchema,
 } from './types';
 
-const DEFAULT_MODELS: Record<AgentProvider, string> = {
+const DEFAULT_MODELS: Record<OwnKeyProvider, string> = {
   anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-5',
   openrouter: 'minimax/minimax-m2.5',
 };
 
 const createProviderClient = (
-  provider: AgentProvider,
+  provider: OwnKeyProvider,
   apiKey: string,
-): { client: OpenAI; model: string; providerName: AgentProvider } => {
+): { client: OpenAI; model: string; providerName: OwnKeyProvider } => {
   if (provider === 'openrouter') {
     return {
       client: new OpenAI({
@@ -116,20 +124,6 @@ const safeStringify = (value: unknown): string =>
 // Streaming helpers
 // ---------------------------------------------------------------------------
 
-interface StreamedMessage {
-  content: null | string;
-  tool_calls?: {
-    function: { arguments: string; name: string };
-    id: string;
-    type: 'function';
-  }[];
-}
-
-interface StreamMeta {
-  finishReason: null | string | undefined;
-  usage: unknown;
-}
-
 /**
  * Consumes an OpenAI streaming response, accumulating content and tool calls.
  * Calls `onContent` with the accumulated text after every content delta so the
@@ -138,7 +132,7 @@ interface StreamMeta {
 const consumeStream = async (
   stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
   onContent: (accumulated: string) => void,
-): Promise<{ message: StreamedMessage; meta: StreamMeta }> => {
+): Promise<StreamedTurn> => {
   let content = '';
   let hasContent = false;
   const toolCallsMap = new Map<number, { arguments: string; id: string; name: string }>();
@@ -591,6 +585,7 @@ interface UseAgentChatOptions {
 }
 
 const createInitialAgentChatState = (): AgentChatState => ({
+  cloudError: null,
   error: null,
   isLoading: false,
   messages: [],
@@ -713,7 +708,9 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
       const abortController = new AbortController();
       chatStore.setAbortController(flowIdKey, abortController);
 
-      const { client: openai, model, providerName } = createProviderClient(provider, apiKey);
+      const ownClient = provider === 'stresseur' ? null : createProviderClient(provider, apiKey);
+      const model = ownClient?.model ?? STRESSEUR_MODEL;
+      const providerName = ownClient?.providerName ?? provider;
 
       // Use ref to get latest flowContext at execution time
       const currentFlowContext = {
@@ -788,6 +785,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
 
       chatStore.setState(flowIdKey, (prev) => ({
         ...prev,
+        cloudError: null,
         error: null,
         isLoading: true,
         messages: [...prev.messages, userMessage],
@@ -817,18 +815,22 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
           chatStore.setState(flowIdKey, (prev) => ({ ...prev, streamingContent: content }));
         };
 
-        let stream = await openai.chat.completions.create(
-          {
-            messages: openAIMessages,
-            model,
-            stream: true,
-            tool_choice: 'auto',
-            tools,
-          },
-          { signal: abortController.signal },
-        );
+        /** One model turn over the current messages, on the user's key or on included credits. */
+        const streamTurn = async (): Promise<StreamedTurn> => {
+          if (!ownClient)
+            return streamStresseurTurn(
+              toStresseurRequest(openAIMessages, tools),
+              abortController.signal,
+              updateStreamingContent,
+            );
+          const stream = await ownClient.client.chat.completions.create(
+            { messages: openAIMessages, model, stream: true, tool_choice: 'auto', tools },
+            { signal: abortController.signal },
+          );
+          return consumeStream(stream, updateStreamingContent);
+        };
 
-        let { message: streamedMsg, meta } = await consumeStream(stream, updateStreamingContent);
+        let { message: streamedMsg, meta } = await streamTurn();
         chatStore.setState(flowIdKey, (prev) => ({ ...prev, streamingContent: '' }));
 
         logger.logApiResponse(performance.now() - apiStart, meta.finishReason, meta.usage);
@@ -956,18 +958,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
             logger.logApiRequest(`${providerName}:${model}`, openAIMessages.length, true);
             apiStart = performance.now();
 
-            stream = await openai.chat.completions.create(
-              {
-                messages: openAIMessages,
-                model,
-                stream: true,
-                tool_choice: 'auto',
-                tools,
-              },
-              { signal: abortController.signal },
-            );
-
-            ({ message: streamedMsg, meta } = await consumeStream(stream, updateStreamingContent));
+            ({ message: streamedMsg, meta } = await streamTurn());
             chatStore.setState(flowIdKey, (prev) => ({ ...prev, streamingContent: '' }));
 
             logger.logApiResponse(performance.now() - apiStart, meta.finishReason, meta.usage);
@@ -1026,12 +1017,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
           logger.logApiRequest(`${providerName}:${model}`, openAIMessages.length, true);
           apiStart = performance.now();
 
-          stream = await openai.chat.completions.create(
-            { messages: openAIMessages, model, stream: true, tool_choice: 'auto', tools },
-            { signal: abortController.signal },
-          );
-
-          ({ message: streamedMsg, meta } = await consumeStream(stream, updateStreamingContent));
+          ({ message: streamedMsg, meta } = await streamTurn());
           chatStore.setState(flowIdKey, (prev) => ({ ...prev, streamingContent: '' }));
 
           logger.logApiResponse(performance.now() - apiStart, meta.finishReason, meta.usage);
@@ -1058,6 +1044,20 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
         if (error instanceof Error && error.name === 'AbortError') {
           logger.logSessionEnd(false, true);
           chatStore.setState(flowIdKey, (prev) => ({ ...prev, isLoading: false, streamingContent: '' }));
+          return;
+        }
+
+        // Included credits: keep the Cloud error so the panel can offer "Use your own key" / "Upgrade".
+        if (error instanceof StresseurCloudRequestError) {
+          logger.logError(error, 'sendMessage');
+          logger.logSessionEnd(false, false);
+          chatStore.setState(flowIdKey, (prev) => ({
+            ...prev,
+            cloudError: error.error,
+            error: error.message,
+            isLoading: false,
+            streamingContent: '',
+          }));
           return;
         }
 
@@ -1090,6 +1090,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
         if (chatStore.getAbortController(flowIdKey) === abortController) {
           chatStore.setAbortController(flowIdKey, null);
         }
+        if (provider === 'stresseur') void refreshAgentCredits();
       }
     },
     [
@@ -1125,12 +1126,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
   const clearMessages = useCallback(() => {
     chatStore.getAbortController(flowIdKey)?.abort();
     chatStore.setAbortController(flowIdKey, null);
-    chatStore.setState(flowIdKey, {
-      error: null,
-      isLoading: false,
-      messages: [],
-      streamingContent: '',
-    });
+    chatStore.setState(flowIdKey, createInitialAgentChatState());
   }, [flowIdKey]);
 
   const cancel = useCallback(() => {
@@ -1142,6 +1138,7 @@ export const useAgentChat = ({ apiKey, flowId, provider, selectedNodeIds }: UseA
   return {
     cancel,
     clearMessages,
+    cloudError: state.cloudError,
     error: state.error,
     isLoading: state.isLoading,
     messages: state.messages,
