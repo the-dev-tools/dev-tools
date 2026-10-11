@@ -65,8 +65,25 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.on('record:event', listener);
       return () => void ipcRenderer.off('record:event', listener);
     },
-    start: (url: string) => ipcRenderer.invoke('record:start', url),
+    start: (options: { demo?: boolean; dir?: string; url?: string }) => ipcRenderer.invoke('record:start', options),
     stop: () => ipcRenderer.invoke('record:stop'),
+  },
+
+  launchpad: {
+    addCi: (dir: string) => ipcRenderer.invoke('launchpad:add-ci', dir),
+    detect: () => ipcRenderer.invoke('launchpad:detect'),
+    installSkill: (dir: string) => ipcRenderer.invoke('launchpad:install-skill', dir),
+    onProgress: (callback: (event: unknown) => void) => {
+      const listener = (_: unknown, event: unknown) => void callback(event);
+      ipcRenderer.on('launchpad:progress', listener);
+      return () => void ipcRenderer.off('launchpad:progress', listener);
+    },
+    openAgent: (agent: 'claude' | 'cursor', dir: string, prompt: string) =>
+      ipcRenderer.invoke('launchpad:open-agent', agent, dir, prompt) as Promise<boolean>,
+    openPr: (dir: string) => ipcRenderer.invoke('launchpad:open-pr', dir),
+    pickFolder: (title?: string) => ipcRenderer.invoke('launchpad:pick-folder', title) as Promise<null | string>,
+    unwatch: () => ipcRenderer.invoke('launchpad:unwatch') as Promise<void>,
+    watch: (dir: string) => ipcRenderer.invoke('launchpad:watch', dir) as Promise<boolean>,
   },
 
   dialog: <T extends keyof Dialog>(method: T, ...options: Parameters<Dialog[T]>) =>

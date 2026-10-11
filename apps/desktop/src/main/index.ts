@@ -23,6 +23,16 @@ import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
 import * as account from './account';
 import { createCloud, isOpenableUrl } from './cloud';
+import {
+  addCiCheck,
+  agentLink,
+  createDirAllowlist,
+  detectDevServers,
+  findPr,
+  installSkill,
+  openPr,
+  watchRepo,
+} from './launchpad';
 import { createLocalClones } from './localclone';
 import { legacyDataDirs, migrateDataDir, type MigrationResult } from './migrate-data-dir';
 import { createRecorder, resolveStresseurBinary } from './record';
@@ -410,18 +420,71 @@ const onReady = Effect.gen(function* () {
     localClones.envValues(repo, names),
   );
 
-  // Recording with the bundled stresseur binary
-  const recorder = createRecorder({
-    binary: () => resolveStresseurBinary({ isPackaged: app.isPackaged }),
-    onEvent: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) window.webContents.send('record:event', event);
-    },
+  // Recording with the bundled stresseur binary (`init --json`)
+  const stresseurBinary = () => resolveStresseurBinary({ isPackaged: app.isPackaged });
+  const broadcast = (channel: string, event: unknown) => {
+    for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event);
+  };
+  const pickedDirs = createDirAllowlist();
+  const recorder = createRecorder({ binary: stresseurBinary, onEvent: (event) => void broadcast('record:event', event) });
+  ipcMain.handle('record:start', (_event, options: unknown) => {
+    const dir = (options as null | undefined | { dir?: unknown })?.dir;
+    if (dir !== undefined && !pickedDirs.has(dir)) return { message: 'Pick the folder first.', ok: false };
+    return recorder.start(options);
   });
-  ipcMain.handle('record:start', (_event, url: unknown) => recorder.start(url));
   ipcMain.handle('record:stop', () => recorder.stop());
   ipcMain.handle('record:cancel', () => recorder.cancel());
   app.on('before-quit', () => void recorder.dispose());
   app.on('will-quit', () => void recorder.dispose());
+
+  // First-run launchpad
+  const missingBinary = { message: 'The stresseur binary was not found.', ok: false } as const;
+  const notPicked = { message: 'Pick the folder first.', ok: false } as const;
+  ipcMain.handle('launchpad:pick-folder', async (_event, title: unknown) => {
+    const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: typeof title === 'string' ? title : 'Pick your app\'s repo',
+    });
+    const dir = result.canceled ? undefined : result.filePaths[0];
+    if (!dir) return null;
+    pickedDirs.add(dir);
+    return dir;
+  });
+  ipcMain.handle('launchpad:detect', () => detectDevServers());
+  ipcMain.handle('launchpad:install-skill', (_event, dir: unknown) => {
+    const bin = stresseurBinary();
+    if (!bin) return missingBinary;
+    return pickedDirs.has(dir) ? installSkill(bin, dir) : notPicked;
+  });
+  ipcMain.handle('launchpad:open-agent', async (_event, agent: unknown, dir: unknown, prompt: unknown) => {
+    const url = agentLink(agent, pickedDirs.has(dir) ? dir : undefined, prompt);
+    if (!url) return false;
+    await shell.openExternal(url);
+    return true;
+  });
+  ipcMain.handle('launchpad:add-ci', (_event, dir: unknown) => {
+    const bin = stresseurBinary();
+    if (!bin) return missingBinary;
+    return pickedDirs.has(dir) ? addCiCheck(bin, dir) : notPicked;
+  });
+  ipcMain.handle('launchpad:open-pr', (_event, dir: unknown) => (pickedDirs.has(dir) ? openPr(dir) : notPicked));
+  let unwatchRepo: (() => void) | undefined;
+  ipcMain.handle('launchpad:watch', (_event, dir: unknown) => {
+    unwatchRepo?.();
+    unwatchRepo = undefined;
+    if (!pickedDirs.has(dir)) return false;
+    unwatchRepo = watchRepo(dir, {
+      findPr: (_) => findPr(_),
+      onProgress: (progress) => void broadcast('launchpad:progress', { dir, progress }),
+    });
+    return true;
+  });
+  ipcMain.handle('launchpad:unwatch', () => {
+    unwatchRepo?.();
+    unwatchRepo = undefined;
+  });
+  app.on('will-quit', () => void unwatchRepo?.());
 
   ipcMain.handle('rename-notice:get', () => showRenameNotice);
   ipcMain.on('rename-notice:dismiss', () => void dismissRenameNotice(app.getPath('userData')));

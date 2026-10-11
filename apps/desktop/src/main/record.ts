@@ -1,10 +1,12 @@
 /**
- * Recording with the bundled `stresseur` binary:
- * `record --browser <url> --dir <tmp> --json` streams NDJSON events, closing its
- * stdin stops it, then `generate --dir <tmp> --out <tmp>/api-tests --no-verify
- * --no-upload --json` writes the flows, which are returned as text. The
- * temporary folder is removed afterwards. One recording at a time; the process
- * tree is killed when Studio quits.
+ * Recording with the bundled `stresseur` binary: `init --json --stop-on-stdin-eof
+ * --no-ci --no-pr --dir <dir> (--url <url> | --demo)` detects the app, records it in a
+ * fresh browser, generates flows and runs them twice, streaming NDJSON events that go
+ * to the renderer as they come. A `done` line on stdin ends the recording. When it
+ * exits, a `finished` event carries the generated files (as text) and, for a
+ * temporary folder, the recorded .env values, and the temporary folder is removed
+ * (kept when verification failed, so a coding agent can fix it there). One run at a
+ * time; the process tree is killed when Studio quits.
  */
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { existsSync, promises as fs, rmSync, statSync } from 'node:fs';
@@ -12,21 +14,64 @@ import os from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 
-export type RecordEvent =
-  | { calls: number; endpoints: number; sessions: number; type: 'progress' }
-  | { calls: number; endpoints?: number; sessions: number; type: 'stopped' }
-  | { message: string; type: 'error' }
-  | { proxy_url: string; type: 'started' }
-  | { type: 'generating' };
+export interface InitFailure {
+  flow: string;
+  hint?: string;
+  reason: string;
+  step: string;
+}
+
+/** The `init --json` events (see the init contract). */
+export type InitEvent =
+  | { browser: string; proxy_url: string; type: 'recording' }
+  | { calls: number; endpoints: number; type: 'progress' }
+  | { calls: number; sessions: number; type: 'recorded' }
+  | { command: string; type: 'starting_app' }
+  | { command?: string; source: string; type: 'detected'; url: string }
+  | { commands?: string[]; type: 'pr'; url?: string }
+  | { env?: { names: string[]; path: string }; files: InitFile[]; type: 'generated' }
+  | { failures: InitFailure[]; passed: number; run: number; total: number; type: 'verified' }
+  | { green: boolean; type: 'done' }
+  | { hint?: string; message: string; type: 'error' }
+  | { path: string; type: 'ci'; warnings: string[] }
+  | { prompt: string; type: 'fix_prompt' }
+  | { type: 'app_ready'; url: string };
+
+export interface InitFile {
+  flows: string[];
+  path: string;
+  steps: number;
+}
 
 export interface GeneratedFile {
   flows: string[];
-  /** Relative to the generated api-tests folder. */
+  /** Relative to the api-tests folder (or the run folder when outside it). */
   path: string;
   text: string;
 }
 
+/** Studio's own event, after the process exits. */
+export interface FinishedEvent {
+  code: null | number;
+  /** The run folder: the repo, or a temporary folder (kept only when verification failed). */
+  dir: string;
+  /** Values of the recorded .env names, read from a temporary folder only. */
+  env: Record<string, string>;
+  files: GeneratedFile[];
+  temporary: boolean;
+  type: 'finished';
+}
+
+export type RecordEvent = FinishedEvent | InitEvent;
+
 export type RecordResult<T> = { data: T; ok: true } | { message: string; ok: false };
+
+export interface StartOptions {
+  demo?: boolean;
+  /** Repo folder to write flows into; a temporary folder when missing. */
+  dir?: string;
+  url?: string;
+}
 
 interface BinaryOptions {
   env?: NodeJS.ProcessEnv;
@@ -69,47 +114,93 @@ export const resolveStresseurBinary = ({
   return undefined;
 };
 
-const isRecordEvent = (value: unknown): value is RecordEvent => {
-  if (!value || typeof value !== 'object') return false;
-  const event = value as Record<string, unknown>;
-  switch (event['type']) {
-    case 'error':
-      return typeof event['message'] === 'string';
-    case 'progress':
-      return typeof event['calls'] === 'number';
-    case 'started':
-      return typeof event['proxy_url'] === 'string';
-    case 'stopped':
-      return typeof event['calls'] === 'number';
-    default:
-      return false;
-  }
-};
+// Event parsing: only the contract's fields reach the renderer.
 
-/** Keeps only the fields of the contract, so nothing else reaches the renderer. */
-const pickEvent = (event: RecordEvent): RecordEvent => {
-  const number = (value: unknown) => (typeof value === 'number' ? value : 0);
-  switch (event.type) {
-    case 'error':
-      return { message: event.message, type: 'error' };
-    case 'generating':
-      return { type: 'generating' };
+const str = (value: unknown) => (typeof value === 'string' ? value : undefined);
+const num = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+const strings = (value: unknown) =>
+  Array.isArray(value) ? value.filter((_): _ is string => typeof _ === 'string') : [];
+const record = (value: unknown) =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+const optional = <K extends string>(key: K, value: string | undefined) =>
+  (value === undefined ? {} : { [key]: value }) as Partial<Record<K, string>>;
+
+export const parseInitEvent = (value: unknown): InitEvent | undefined => {
+  const event = record(value);
+  if (!event) return undefined;
+  switch (event['type']) {
+    case 'app_ready': {
+      const url = str(event['url']);
+      return url === undefined ? undefined : { type: 'app_ready', url };
+    }
+    case 'ci': {
+      const ciPath = str(event['path']);
+      return ciPath === undefined ? undefined : { path: ciPath, type: 'ci', warnings: strings(event['warnings']) };
+    }
+    case 'detected': {
+      const url = str(event['url']);
+      if (url === undefined) return undefined;
+      return { ...optional('command', str(event['command'])), source: str(event['source']) ?? 'flag', type: 'detected', url };
+    }
+    case 'done':
+      return { green: event['green'] === true, type: 'done' };
+    case 'error': {
+      const message = str(event['message']);
+      return message === undefined ? undefined : { ...optional('hint', str(event['hint'])), message, type: 'error' };
+    }
+    case 'fix_prompt': {
+      const prompt = str(event['prompt']);
+      return prompt === undefined ? undefined : { prompt, type: 'fix_prompt' };
+    }
+    case 'generated': {
+      const files = (Array.isArray(event['files']) ? (event['files'] as unknown[]) : []).flatMap((entry) => {
+        const file = record(entry);
+        const filePath = str(file?.['path']);
+        return filePath === undefined ? [] : [{ flows: strings(file?.['flows']), path: filePath, steps: num(file?.['steps']) }];
+      });
+      const env = record(event['env']);
+      const envPath = str(env?.['path']);
+      return {
+        ...(envPath !== undefined && { env: { names: strings(env?.['names']), path: envPath } }),
+        files,
+        type: 'generated',
+      };
+    }
+    case 'pr': {
+      const commands = Array.isArray(event['commands']) ? strings(event['commands']) : undefined;
+      return { ...(commands && { commands }), ...optional('url', str(event['url'])), type: 'pr' };
+    }
     case 'progress':
-      return {
-        calls: number(event.calls),
-        endpoints: number(event.endpoints),
-        sessions: number(event.sessions),
-        type: 'progress',
-      };
-    case 'started':
-      return { proxy_url: event.proxy_url, type: 'started' };
-    case 'stopped':
-      return {
-        calls: number(event.calls),
-        ...(typeof event.endpoints === 'number' ? { endpoints: event.endpoints } : {}),
-        sessions: number(event.sessions),
-        type: 'stopped',
-      };
+      return { calls: num(event['calls']), endpoints: num(event['endpoints']), type: 'progress' };
+    case 'recorded':
+      return { calls: num(event['calls']), sessions: num(event['sessions']), type: 'recorded' };
+    case 'recording': {
+      const proxy = str(event['proxy_url']);
+      return proxy === undefined
+        ? undefined
+        : { browser: str(event['browser']) ?? 'default', proxy_url: proxy, type: 'recording' };
+    }
+    case 'starting_app': {
+      const command = str(event['command']);
+      return command === undefined ? undefined : { command, type: 'starting_app' };
+    }
+    case 'verified': {
+      const failures = (Array.isArray(event['failures']) ? (event['failures'] as unknown[]) : []).flatMap((entry) => {
+        const failure = record(entry);
+        if (!failure) return [];
+        return [
+          {
+            flow: str(failure['flow']) ?? '',
+            ...optional('hint', str(failure['hint'])),
+            reason: str(failure['reason']) ?? '',
+            step: str(failure['step']) ?? '',
+          },
+        ];
+      });
+      return { failures, passed: num(event['passed']), run: num(event['run']), total: num(event['total']), type: 'verified' };
+    }
+    default:
+      return undefined;
   }
 };
 
@@ -126,7 +217,7 @@ const parseLines = (child: ChildProcess, onJson: (value: unknown) => void) => {
   });
 };
 
-const tail = (chunks: string[]) => chunks.join('').trim().split('\n').slice(-3).join('\n');
+export const tail = (chunks: string[]) => chunks.join('').trim().split('\n').slice(-3).join('\n');
 
 /** Kills a process and its children: taskkill /T on Windows, the process group elsewhere. */
 export const killTree = (child: ChildProcess, signal: NodeJS.Signals = 'SIGKILL') => {
@@ -147,7 +238,7 @@ export const killTree = (child: ChildProcess, signal: NodeJS.Signals = 'SIGKILL'
   }
 };
 
-const exited = (child: ChildProcess) =>
+export const exited = (child: ChildProcess) =>
   new Promise<{ code: null | number; signal: NodeJS.Signals | null }>((resolve) => {
     if (child.exitCode !== null || child.signalCode !== null) {
       resolve({ code: child.exitCode, signal: child.signalCode });
@@ -165,24 +256,65 @@ const withTimeout = <T>(promise: Promise<T>, ms: number) =>
     });
   });
 
+/** KEY=VALUE lines, optional `export ` and matching quotes; only the given names. */
+export const readDotEnv = (text: string, names: string[]) => {
+  const wanted = new Set(names);
+  const values: Record<string, string> = {};
+  for (const raw of text.split(/\r?\n/)) {
+    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(raw);
+    if (!match?.[1] || !wanted.has(match[1]) || match[1] in values) continue;
+    let value = (match[2] ?? '').trim();
+    const quote = value.startsWith('"') ? '"' : value.startsWith("'") ? "'" : undefined;
+    if (value.length >= 2 && quote && value.endsWith(quote))
+      value = value.slice(1, -1);
+    values[match[1]] = value;
+  }
+  return values;
+};
+
 export interface RecorderOptions {
   /** Resolved lazily, so a missing binary only fails the Record action. */
   binary: () => string | undefined;
   onEvent: (event: RecordEvent) => void;
-  /** How long `start` waits for the `started` event. */
+  /** How long `start` waits for the first event. */
   startTimeoutMs?: number;
-  /** How long `stop` waits for `record` to exit after stdin closes, before killing it. */
+  /** How long a stopped recording may take to report `recorded` before it is killed. */
   stopTimeoutMs?: number;
-  /** Parent of the temporary recording folders (default: the OS temp folder). */
+  /** Parent of the temporary folders (default: the OS temp folder). */
   tmpRoot?: string;
 }
 
-interface Recording {
+interface Run {
   child: ChildProcess;
   dir: string;
   exit: Promise<{ code: null | number; signal: NodeJS.Signals | null }>;
-  stderr: string[];
+  recorded: boolean;
+  stopTimer?: NodeJS.Timeout;
+  temporary: boolean;
 }
+
+const isHttpUrl = (url: unknown) => {
+  try {
+    const parsed = typeof url === 'string' ? new URL(url) : undefined;
+    return parsed?.protocol === 'http:' || parsed?.protocol === 'https:' ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const isDirectory = async (dir: string) => (await fs.stat(dir).catch(() => undefined))?.isDirectory() === true;
+
+/** The CLI equivalent of a run, for "Show command". */
+export const initArgs = ({ demo, dir, url }: { demo: boolean; dir: string; url?: string | undefined }) => [
+  'init',
+  '--json',
+  ...(demo ? ['--demo'] : ['--url', url ?? '']),
+  '--dir',
+  dir,
+  '--stop-on-stdin-eof',
+  '--no-ci',
+  '--no-pr',
+];
 
 export const createRecorder = ({
   binary,
@@ -191,70 +323,97 @@ export const createRecorder = ({
   stopTimeoutMs = 15_000,
   tmpRoot = os.tmpdir(),
 }: RecorderOptions) => {
-  let recording: Recording | undefined;
-  /** Every process this recorder started and that may still run. */
-  const children = new Set<ChildProcess>();
+  let run: Run | undefined;
   let busy = false;
-
-  const launch = (bin: string, args: string[]) => {
-    const child = spawn(bin, args, {
-      // A process group of its own, so the browser it opens can be killed with it.
-      detached: process.platform !== 'win32',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
-    children.add(child);
-    child.once('exit', () => void children.delete(child));
-    child.once('error', () => void children.delete(child));
-    const stderr: string[] = [];
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-      stderr.push(chunk);
-      if (stderr.length > 50) stderr.shift();
-    });
-    child.stdin.on('error', () => undefined);
-    return { child, stderr };
-  };
 
   const cleanup = async (dir: string) => {
     await fs.rm(dir, { force: true, recursive: true }).catch(() => undefined);
   };
 
-  const start = async (url: unknown): Promise<RecordResult<null>> => {
-    if (recording || busy) return { message: 'A recording is already running.', ok: false };
-    let parsed: undefined | URL;
-    try {
-      parsed = typeof url === 'string' ? new URL(url) : undefined;
-    } catch {
-      parsed = undefined;
+  /** Generated files under the run folder, as text. */
+  const readFiles = async (dir: string, files: InitFile[]) => {
+    const dirReal = await fs.realpath(dir).catch(() => dir);
+    const testsReal = path.join(dirReal, 'api-tests');
+    const out: GeneratedFile[] = [];
+    for (const file of files) {
+      const real = await fs.realpath(path.resolve(dirReal, file.path)).catch(() => undefined);
+      if (!real?.startsWith(dirReal + path.sep)) continue;
+      const base = real.startsWith(testsReal + path.sep) ? testsReal : dirReal;
+      out.push({
+        flows: file.flows,
+        path: path.relative(base, real).split(path.sep).join('/'),
+        text: await fs.readFile(real, 'utf8'),
+      });
     }
-    if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:'))
-      return { message: 'Enter the URL of your app, starting with http:// or https://.', ok: false };
+    return out;
+  };
+
+  const readEnv = async (dir: string, env: undefined | { names: string[]; path: string }) => {
+    if (!env || env.names.length === 0) return {};
+    const dirReal = await fs.realpath(dir).catch(() => dir);
+    const real = await fs.realpath(path.resolve(dirReal, env.path)).catch(() => undefined);
+    if (!real?.startsWith(dirReal + path.sep)) return {};
+    return readDotEnv(await fs.readFile(real, 'utf8').catch(() => ''), env.names);
+  };
+
+  const start = async (options: unknown): Promise<RecordResult<{ args: string[]; dir: string }>> => {
+    if (run || busy) return { message: 'A recording is already running.', ok: false };
+    const { demo, dir, url } = record(options) ?? {};
+    const isDemo = demo === true;
+    const parsed = isHttpUrl(url);
+    if (!isDemo && !parsed) return { message: 'Enter the URL of your app, starting with http:// or https://.', ok: false };
+    if (dir !== undefined && (typeof dir !== 'string' || !path.isAbsolute(dir) || !(await isDirectory(dir))))
+      return { message: 'Pick a folder that exists.', ok: false };
 
     const bin = binary();
     if (!bin) return { message: 'The stresseur binary was not found.', ok: false };
 
     busy = true;
     try {
-      const dir = await fs.mkdtemp(path.join(tmpRoot, 'stresseur-record-'));
-      const { child, stderr } = launch(bin, ['record', '--browser', parsed.href, '--dir', dir, '--json']);
+      const temporary = dir === undefined;
+      const runDir = typeof dir === 'string' ? dir : await fs.mkdtemp(path.join(tmpRoot, 'stresseur-init-'));
+      const args = initArgs({ demo: isDemo, dir: runDir, url: parsed?.href });
+      const child = spawn(bin, args, {
+        cwd: runDir,
+        // A process group of its own, so the app and browser it starts can be killed with it.
+        detached: process.platform !== 'win32',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      });
+      child.stdin.on('error', () => undefined);
+      const stderr: string[] = [];
+      child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+        stderr.push(chunk);
+        if (stderr.length > 50) stderr.shift();
+      });
       const exit = exited(child);
-      const current: Recording = { child, dir, exit, stderr };
-      recording = current;
+      const current: Run = { child, dir: runDir, exit, recorded: false, temporary };
+      run = current;
 
+      let generated: Extract<InitEvent, { type: 'generated' }> | undefined;
+      let green = false;
       let lastError: string | undefined;
-      let resolveStarted: (started: boolean) => void = () => undefined;
-      const started = new Promise<boolean>((resolve) => (resolveStarted = resolve));
+      let resolveFirst: () => void = () => undefined;
+      const first = new Promise<void>((resolve) => (resolveFirst = resolve));
       parseLines(child, (value) => {
-        if (!isRecordEvent(value)) return;
-        if (value.type === 'error') lastError = value.message;
-        if (value.type === 'started') resolveStarted(true);
-        onEvent(pickEvent(value));
+        const event = parseInitEvent(value);
+        if (!event) return;
+        // An error before anything else fails `start` instead.
+        if (event.type !== 'error') resolveFirst();
+        if (event.type === 'recorded') {
+          current.recorded = true;
+          clearTimeout(current.stopTimer);
+        }
+        if (event.type === 'generated') generated = event;
+        if (event.type === 'done') green = event.green;
+        if (event.type === 'error') lastError = event.hint ? `${event.message} ${event.hint}` : event.message;
+        if (run === current) onEvent(event);
       });
       const spawnError = new Promise<string>((resolve) => child.once('error', (error) => void resolve(error.message)));
 
       let timer: NodeJS.Timeout | undefined;
       const outcome = await Promise.race([
-        started.then(() => ({ kind: 'started' as const })),
+        first.then(() => ({ kind: 'started' as const })),
         exit.then(({ code }) => ({ code, kind: 'exited' as const })),
         spawnError.then((message) => ({ kind: 'spawn-error' as const, message })),
         new Promise<{ kind: 'timeout' }>((resolve) => {
@@ -262,121 +421,81 @@ export const createRecorder = ({
         }),
       ]);
       clearTimeout(timer);
-      if (outcome.kind === 'started') {
-        // Report an unexpected exit (crash, browser closed) to the renderer.
-        void exit.then(({ code, signal }) => {
-          if (recording !== current || code === 0 || signal !== null) return;
+
+      if (outcome.kind !== 'started') {
+        killTree(child);
+        run = undefined;
+        await withTimeout(exit, 5_000);
+        if (temporary) await cleanup(runDir);
+        if (outcome.kind === 'spawn-error') return { message: `Could not run stresseur: ${outcome.message}`, ok: false };
+        if (outcome.kind === 'timeout') return { message: 'stresseur init did not start.', ok: false };
+        return {
+          message: lastError ?? (tail(stderr) || `stresseur init exited with code ${String(outcome.code)}.`),
+          ok: false,
+        };
+      }
+
+      void exit.then(async ({ code, signal }) => {
+        clearTimeout(current.stopTimer);
+        if (run !== current) return;
+        if (code !== 0 && code !== 1 && !lastError)
           onEvent({
-            message: lastError ?? (tail(stderr) || `Recording exited with code ${String(code)}.`),
+            message: tail(stderr) || (signal ? `stresseur init was stopped (${signal}).` : `stresseur init exited with code ${String(code)}.`),
             type: 'error',
           });
-        });
-        return { data: null, ok: true };
-      }
-
-      killTree(child);
-      recording = undefined;
-      await withTimeout(exit, 5_000);
-      await cleanup(dir);
-      if (outcome.kind === 'spawn-error') return { message: `Could not run stresseur: ${outcome.message}`, ok: false };
-      if (outcome.kind === 'timeout') return { message: 'The recording did not start.', ok: false };
-      return {
-        message: lastError ?? (tail(stderr) || `stresseur record exited with code ${String(outcome.code)}.`),
-        ok: false,
-      };
-    } finally {
-      busy = false;
-    }
-  };
-
-  const generate = async (dir: string): Promise<RecordResult<GeneratedFile[]>> => {
-    const bin = binary();
-    if (!bin) return { message: 'The stresseur binary was not found.', ok: false };
-    const out = path.join(dir, 'api-tests');
-    const { child, stderr } = launch(bin, [
-      'generate',
-      '--dir',
-      dir,
-      '--out',
-      out,
-      '--no-verify',
-      '--no-upload',
-      '--json',
-    ]);
-    child.stdin.end();
-
-    let generated: undefined | { files?: unknown };
-    let lastError: string | undefined;
-    parseLines(child, (value) => {
-      if (!value || typeof value !== 'object') return;
-      const event = value as Record<string, unknown>;
-      if (event['type'] === 'generated') generated = event;
-      if (event['type'] === 'error' && typeof event['message'] === 'string') lastError = event['message'];
-    });
-    const spawnError = new Promise<string>((resolve) => child.once('error', (error) => void resolve(error.message)));
-    const result = await Promise.race([exited(child), spawnError]);
-    if (typeof result === 'string') return { message: `Could not run stresseur: ${result}`, ok: false };
-    if (result.code !== 0 || !generated)
-      return {
-        message: lastError ?? (tail(stderr) || `stresseur generate exited with code ${String(result.code)}.`),
-        ok: false,
-      };
-
-    const outReal = await fs.realpath(out).catch(() => out);
-    const files: GeneratedFile[] = [];
-    for (const entry of Array.isArray(generated.files) ? (generated.files as unknown[]) : []) {
-      const { flows, path: filePath } = (entry ?? {}) as Record<string, unknown>;
-      if (typeof filePath !== 'string') continue;
-      const real = await fs.realpath(path.resolve(out, filePath)).catch(() => undefined);
-      if (!real?.startsWith(outReal + path.sep)) continue;
-      files.push({
-        flows: Array.isArray(flows) ? flows.filter((_): _ is string => typeof _ === 'string') : [],
-        path: path.relative(outReal, real).split(path.sep).join('/'),
-        text: await fs.readFile(real, 'utf8'),
+        const files = generated ? await readFiles(runDir, generated.files).catch(() => []) : [];
+        const env = temporary ? await readEnv(runDir, generated?.env).catch(() => ({})) : {};
+        // Keep a failed run's folder for the coding agent; a green or empty one goes.
+        const keep = temporary && !green && files.length > 0;
+        if (temporary && !keep) await cleanup(runDir);
+        if (run !== current) return;
+        run = undefined;
+        onEvent({ code, dir: runDir, env, files, temporary, type: 'finished' });
       });
-    }
-    return { data: files, ok: true };
-  };
 
-  const stop = async (): Promise<RecordResult<GeneratedFile[]>> => {
-    const current = recording;
-    if (!current || busy) return { message: 'No recording is running.', ok: false };
-    busy = true;
-    try {
-      current.child.stdin?.end();
-      if ((await withTimeout(current.exit, stopTimeoutMs)) === undefined) {
-        killTree(current.child);
-        await withTimeout(current.exit, 5_000);
-      }
-      if (recording !== current) return { message: 'The recording was cancelled.', ok: false };
-      onEvent({ type: 'generating' });
-      return await generate(current.dir);
+      return { data: { args, dir: runDir }, ok: true };
     } finally {
-      if (recording === current) recording = undefined;
       busy = false;
-      await cleanup(current.dir);
     }
   };
 
-  /** Stops everything without generating, and removes the recording. */
+  /** Ends the recording: generating and verifying go on, reported as events. */
+  const stop = (): RecordResult<null> => {
+    const current = run;
+    if (!current) return { message: 'No recording is running.', ok: false };
+    if (current.recorded) return { data: null, ok: true };
+    current.child.stdin?.write('done\n');
+    clearTimeout(current.stopTimer);
+    current.stopTimer = setTimeout(() => {
+      if (run !== current || current.recorded) return;
+      onEvent({ message: 'The recording did not stop.', type: 'error' });
+      killTree(current.child);
+    }, stopTimeoutMs);
+    return { data: null, ok: true };
+  };
+
+  /** Stops everything and removes a temporary folder. */
   const cancel = async () => {
-    const current = recording;
-    recording = undefined;
-    const running = [...children];
-    for (const child of running) killTree(child);
-    await Promise.all(running.map((_) => withTimeout(exited(_), 5_000)));
-    if (current) await cleanup(current.dir);
+    const current = run;
+    run = undefined;
+    if (!current) return;
+    clearTimeout(current.stopTimer);
+    killTree(current.child);
+    await withTimeout(current.exit, 5_000);
+    if (current.temporary) await cleanup(current.dir);
   };
 
   /** Synchronous kill for app quit. */
   const dispose = () => {
-    const current = recording;
-    recording = undefined;
-    for (const child of children) killTree(child);
-    if (current && existsSync(current.dir)) rmSync(current.dir, { force: true, recursive: true });
+    const current = run;
+    run = undefined;
+    if (!current) return;
+    clearTimeout(current.stopTimer);
+    killTree(current.child);
+    if (current.temporary && existsSync(current.dir)) rmSync(current.dir, { force: true, recursive: true });
   };
 
-  return { cancel, dispose, isRecording: () => recording !== undefined, start, stop };
+  return { cancel, dispose, isRunning: () => run !== undefined, start, stop };
 };
 
 export type Recorder = ReturnType<typeof createRecorder>;
