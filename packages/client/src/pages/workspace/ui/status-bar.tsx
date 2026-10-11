@@ -14,7 +14,6 @@ import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
-import { RecordStatus } from '~/features/cloud';
 import { useApiCollection } from '~/shared/api';
 import { eqStruct, pick } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -48,8 +47,6 @@ export const StatusBar = () => {
         <FiTerminal className={tw`size-3`} />
         <span>Logs</span>
       </ButtonAsRouteLink>
-
-      <RecordStatus />
 
       <div className={tw`flex-1`} />
 

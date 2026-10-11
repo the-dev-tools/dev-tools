@@ -43,7 +43,6 @@ import {
   writePinned,
 } from './lib';
 import { CloudTarget, useSyncCloudFlow } from './open-flow';
-import { RecordButton } from './record';
 
 const openKey = 'stresseur.cloud.open';
 
@@ -90,8 +89,6 @@ const CloudSectionInner = () => {
         </Button>
 
         {offline && <span className={tw`text-xs text-on-neutral-low`}>Offline</span>}
-
-        <RecordButton />
 
         {workspace && (
           <MenuTrigger>

@@ -14,7 +14,7 @@ import { CollectionIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { CloudSection, useCloudFirst } from '~/features/cloud';
+import { CloudSection, RecordControl, useCloudFirst } from '~/features/cloud';
 import { FileCreateMenu, FileTree } from '~/features/file-system';
 import { useApiCollection } from '~/shared/api';
 import { pick, useStoredFlag } from '~/shared/lib';
@@ -68,6 +68,7 @@ function RouteComponent() {
 
   return (
     <DashboardLayout
+      actions={<RecordControl />}
       navbar={
         <>
           <ButtonAsRouteLink

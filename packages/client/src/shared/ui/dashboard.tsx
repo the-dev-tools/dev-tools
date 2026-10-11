@@ -10,11 +10,13 @@ import { routes } from '../routes';
 import { AccountButton } from './account';
 
 interface DashboardLayoutProps {
+  /** Right side of the header, before the account. */
+  actions?: React.ReactNode;
   children?: React.ReactNode;
   navbar?: React.ReactNode;
 }
 
-export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ actions, children, navbar }: DashboardLayoutProps) => {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
 
@@ -39,6 +41,8 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
         {navbar}
 
         <div className='flex-1' />
+
+        {actions}
 
         <AccountButton />
 

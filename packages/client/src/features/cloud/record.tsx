@@ -4,7 +4,6 @@ import { Ulid } from 'id128';
 import { useState, useSyncExternalStore } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiCircle, FiSquare, FiX } from 'react-icons/fi';
-import { twJoin } from 'tailwind-merge';
 import { ImportMissingDataKind, ImportService } from '@the-dev-tools/spec/buf/api/import/v1/import_pb';
 import {
   EnvironmentCollectionSchema,
@@ -33,7 +32,7 @@ import {
   useNavigateToFlow,
 } from './lib';
 
-// Recording state, shared by the sidebar button and the status bar.
+// Recording state, module-level so it survives the header remounting.
 
 type Destination =
   | { apiUrl: string; kind: 'repo'; repo: StresseurCloudRepo; workspaceSlug: string }
@@ -79,34 +78,81 @@ const subscribeRecord = (listener: () => void) => {
 
 const useRecordState = () => useSyncExternalStore(subscribeRecord, () => recordState);
 
-// Sidebar button + dialog
+// Header control: Record when idle, live state while recording.
 
-export const RecordButton = () => {
+export const RecordControl = () => {
   const dialogs = useDialogHost();
   const state = useRecordState();
+  const stop = useStopRecording();
 
   if (!recordApi()) return null;
 
+  const text = tw`flex items-center gap-2 text-xs/4 font-normal tracking-tight text-on-inverse`;
+
+  if (state.kind === 'recording')
+    return (
+      <div className={text}>
+        <FiCircle className={tw`size-2.5 animate-pulse fill-danger stroke-danger`} />
+        <span>{state.calls === 1 ? '1 call' : `${state.calls} calls`}</span>
+        <Button className={tw`gap-1 px-1.5 py-0.5 text-xs/4`} onPress={() => void stop(state)} variant='ghost dark'>
+          <FiSquare className={tw`size-3`} />
+          Stop
+        </Button>
+        <Button
+          aria-label='Cancel recording'
+          className={tw`p-0.5`}
+          onPress={() =>
+            void recordApi()
+              ?.cancel()
+              .then(() => void setRecordState({ kind: 'idle' }))
+          }
+          variant='ghost dark'
+        >
+          <FiX className={tw`size-3`} />
+        </Button>
+      </div>
+    );
+
+  if (state.kind === 'generating' || state.kind === 'importing')
+    return (
+      <div className={text}>
+        <Spinner />
+        <span>{state.kind === 'generating' ? 'Generating flows' : 'Importing'}</span>
+      </div>
+    );
+
   return (
-    <>
+    <div className={text}>
       {dialogs.render}
+
+      {state.kind === 'error' && (
+        <>
+          <span className={tw`max-w-72 truncate text-danger`}>{state.message}</span>
+          <Button
+            aria-label='Dismiss'
+            className={tw`p-0.5`}
+            onPress={() => void setRecordState({ kind: 'idle' })}
+            variant='ghost dark'
+          >
+            <FiX className={tw`size-3`} />
+          </Button>
+        </>
+      )}
 
       <TooltipTrigger delay={750}>
         <Button
-          aria-label='Record'
-          className={tw`gap-1 px-1.5 py-0.5 text-sm/5`}
-          isDisabled={state.kind !== 'idle' && state.kind !== 'error'}
+          className={tw`gap-1.5 px-2 py-1 text-xs/4 font-semibold`}
           onPress={() => void dialogs.show((close) => <RecordDialog close={close} />)}
-          variant='ghost'
+          variant='ghost dark'
         >
-          <FiCircle className={tw`size-3 fill-danger stroke-danger`} />
+          <FiCircle className={tw`size-2.5 fill-danger stroke-danger`} />
           Record
         </Button>
         <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>
           Record your app and get flows
         </Tooltip>
       </TooltipTrigger>
-    </>
+    </div>
   );
 };
 
@@ -185,65 +231,6 @@ const RecordDialog = ({ close }: { close: () => void }) => {
 
       {error && <p className={tw`text-danger`}>{error}</p>}
     </CloudDialog>
-  );
-};
-
-// Status bar
-
-export const RecordStatus = () => {
-  const state = useRecordState();
-  const stop = useStopRecording();
-
-  if (!recordApi() || state.kind === 'idle') return null;
-
-  const text = tw`text-xs/4 tracking-tight text-on-neutral`;
-
-  if (state.kind === 'error')
-    return (
-      <div className={twJoin(tw`flex items-center gap-1`, text)}>
-        <span className={tw`max-w-96 truncate text-danger`}>{state.message}</span>
-        <Button
-          aria-label='Dismiss'
-          className={tw`p-0.5`}
-          onPress={() => void setRecordState({ kind: 'idle' })}
-          variant='ghost'
-        >
-          <FiX className={tw`size-3 text-on-neutral-low`} />
-        </Button>
-      </div>
-    );
-
-  if (state.kind === 'recording')
-    return (
-      <div className={twJoin(tw`flex items-center gap-2`, text)}>
-        <FiCircle className={tw`size-2.5 animate-pulse fill-danger stroke-danger`} />
-        <span>
-          {state.calls} calls, {state.endpoints} endpoints
-        </span>
-        <Button className={tw`gap-1 px-1.5 py-0.5 text-xs/4`} onPress={() => void stop(state)} variant='ghost'>
-          <FiSquare className={tw`size-3`} />
-          Stop
-        </Button>
-        <Button
-          aria-label='Cancel recording'
-          className={tw`p-0.5`}
-          onPress={() =>
-            void recordApi()
-              ?.cancel()
-              .then(() => void setRecordState({ kind: 'idle' }))
-          }
-          variant='ghost'
-        >
-          <FiX className={tw`size-3 text-on-neutral-low`} />
-        </Button>
-      </div>
-    );
-
-  return (
-    <div className={twJoin(tw`flex items-center gap-2`, text)}>
-      <Spinner />
-      <span>{state.kind === 'generating' ? 'Generating flows' : 'Importing'}</span>
-    </div>
   );
 };
 
