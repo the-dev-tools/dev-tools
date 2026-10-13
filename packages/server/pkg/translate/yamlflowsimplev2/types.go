@@ -352,11 +352,19 @@ func (h *HeaderMapOrSlice) UnmarshalYAML(value *yaml.Node) error {
 		*h = list
 		return nil
 	}
-	// Try map
-	var m map[string]string
-	if err := value.Decode(&m); err == nil {
-		var res []YamlNameValuePairV2
-		for k, v := range m {
+	// Try map. Walk the mapping node's key/value pairs instead of decoding into
+	// a Go map so the YAML order survives: field order matters on the wire for
+	// form bodies and some servers.
+	if value.Kind == yaml.MappingNode {
+		res := make([]YamlNameValuePairV2, 0, len(value.Content)/2)
+		for i := 0; i+1 < len(value.Content); i += 2 {
+			var k, v string
+			if err := value.Content[i].Decode(&k); err != nil {
+				return fmt.Errorf("expected string key for headers/params: %w", err)
+			}
+			if err := value.Content[i+1].Decode(&v); err != nil {
+				return fmt.Errorf("expected string value for %q: %w", k, err)
+			}
 			res = append(res, YamlNameValuePairV2{
 				Name:    k,
 				Value:   v,
@@ -370,23 +378,28 @@ func (h *HeaderMapOrSlice) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (h HeaderMapOrSlice) MarshalYAML() (interface{}, error) {
-	// Simplify to map if possible (all enabled, no descriptions)
-	canSimplify := true
-	m := make(map[string]string)
-	for _, item := range h {
-		if !item.Enabled || item.Description != "" {
-			canSimplify = false
-			break
-		}
-		m[item.Name] = item.Value
-	}
-	if canSimplify && len(h) > 0 {
-		return m, nil
-	}
 	if len(h) == 0 {
 		return nil, nil // Omit if empty
 	}
-	return []YamlNameValuePairV2(h), nil
+	// Simplify to a mapping if possible (all enabled, no descriptions, unique
+	// names). Build the node by hand so entries keep their order.
+	m := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	seen := make(map[string]struct{}, len(h))
+	for _, item := range h {
+		if _, dup := seen[item.Name]; dup || !item.Enabled || item.Description != "" {
+			return []YamlNameValuePairV2(h), nil
+		}
+		seen[item.Name] = struct{}{}
+		var k, v yaml.Node
+		if err := k.Encode(item.Name); err != nil {
+			return nil, err
+		}
+		if err := v.Encode(item.Value); err != nil {
+			return nil, err
+		}
+		m.Content = append(m.Content, &k, &v)
+	}
+	return m, nil
 }
 
 // YamlBodyUnion handles flexible body parsing

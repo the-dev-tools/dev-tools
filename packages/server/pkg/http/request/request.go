@@ -308,7 +308,7 @@ func PrepareHTTPRequestWithTracking(
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
 		}
 	case mhttp.HttpBodyKindUrlEncoded:
-		urlVal := url.Values{}
+		var urlVal orderedForm
 		for _, u := range activeUrlBody {
 			bodyKey, err := interpolate(u.Key)
 			if err != nil {
@@ -319,9 +319,9 @@ func PrepareHTTPRequestWithTracking(
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 
-			urlVal.Add(bodyKey, bodyValue)
+			urlVal.add(bodyKey, bodyValue)
 		}
-		encodedData := urlVal.Encode()
+		encodedData := urlVal.encode()
 		_, err = bodyBytes.WriteString(encodedData)
 		if err != nil {
 			return nil, err
@@ -825,7 +825,7 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
 		}
 	case mhttp.HttpBodyKindUrlEncoded:
-		urlVal := url.Values{}
+		var urlVal orderedForm
 		for _, url := range urlBody {
 			if varsystem.CheckIsVar(url.Key) {
 				key := varsystem.GetVarKeyFromRaw(url.Value)
@@ -844,9 +844,9 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 				}
 			}
 
-			urlVal.Add(url.Key, url.Value)
+			urlVal.add(url.Key, url.Value)
 		}
-		endpoint.Url += urlVal.Encode()
+		endpoint.Url += urlVal.encode()
 	}
 
 	if compressType != compress.CompressTypeNone {
@@ -1133,7 +1133,7 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
 		}
 	case mhttp.HttpBodyKindUrlEncoded:
-		urlVal := url.Values{}
+		var urlVal orderedForm
 		for _, url := range urlBody {
 			bodyKey := url.Key
 			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
@@ -1152,9 +1152,9 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 				bodyValue = resolvedValue
 			}
 
-			urlVal.Add(bodyKey, bodyValue)
+			urlVal.add(bodyKey, bodyValue)
 		}
-		endpoint.Url += urlVal.Encode()
+		endpoint.Url += urlVal.encode()
 	}
 
 	if compressType != compress.CompressTypeNone {
@@ -1406,4 +1406,17 @@ func orderAsserts(asserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	})
 
 	return ordered
+}
+
+// orderedForm builds an application/x-www-form-urlencoded string that keeps
+// fields in insertion order. url.Values sorts keys, but some servers (e.g.
+// Next.js server actions) depend on the order fields were defined in.
+type orderedForm []string
+
+func (f *orderedForm) add(key, value string) {
+	*f = append(*f, url.QueryEscape(key)+"="+url.QueryEscape(value))
+}
+
+func (f orderedForm) encode() string {
+	return strings.Join(f, "&")
 }

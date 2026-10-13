@@ -29,8 +29,8 @@ requests:
         Accept: application/json
         X-Trace-Id: golden-trace
       query_params:
-        limit: "20"
         page: "1"
+        limit: "20"
       assertions:
         - response.status == 200
         - response.body.ok == true
