@@ -140,7 +140,7 @@ export const runSteps = (run: InitRun): Step[] => {
   const recording = run.recorded
     ? plural(run.recorded.calls, 'call')
     : run.recording
-      ? `${plural(run.calls, 'call')} · use your app, then click Done here or in the browser`
+      ? `${plural(run.calls, 'call')} · use your app, then click Done`
       : undefined;
 
   return [

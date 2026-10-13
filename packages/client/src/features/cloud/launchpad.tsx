@@ -280,18 +280,18 @@ const ChooseView = () => {
 
       <div className={tw`flex flex-col gap-3`}>
         <Choice
-          description='Your coding agent records your app, writes the flows, gets them green and opens a PR.'
+          description='It records your app, writes passing flows and opens a PR.'
           icon={<FiTerminal />}
           onPress={() => {
             track('launchpad_choice', { choice: 'agent' });
             openLaunchpad('agent');
           }}
           recommended
-          title='Set it up with your coding agent'
+          title='Use your coding agent'
         />
 
         <Choice
-          description='Use your app in a browser. Studio writes the flows and runs them twice.'
+          description='Click through your app. Studio writes the flows.'
           icon={<FiCircle className={tw`fill-danger stroke-danger`} />}
           onPress={() => {
             track('launchpad_choice', { choice: 'record' });
@@ -301,7 +301,7 @@ const ChooseView = () => {
         />
 
         <Choice
-          description='The whole loop on a sample app. Nothing to set up.'
+          description='See it work on a sample app.'
           icon={<FiShoppingBag />}
           onPress={() => {
             track('launchpad_choice', { choice: 'demo' });
@@ -365,7 +365,7 @@ const AgentView = () => {
   };
 
   return (
-    <Frame back='choose' title='Set it up with your coding agent'>
+    <Frame back='choose' title='Use your coding agent'>
       <ol className={tw`flex flex-col gap-4`}>
         <StepRow detail={dir} label="Your app's repo" state={dir ? 'done' : 'active'}>
           <div>
@@ -457,7 +457,7 @@ const AgentProgress = ({ dir, onStarted }: { dir: string; onStarted: (started: b
 
   return (
     <div className={tw`flex flex-col gap-3 border-t border-neutral pt-4`}>
-      <span className={tw`text-sm/5 font-semibold text-on-neutral-low`}>Your agent&apos;s progress</span>
+      <span className={tw`text-sm/5 font-semibold text-on-neutral-low`}>Progress</span>
 
       <ol className={tw`flex flex-col gap-3`}>
         <StepRow
@@ -473,7 +473,7 @@ const AgentProgress = ({ dir, onStarted }: { dir: string; onStarted: (started: b
         <StepRow
           detail={
             checks &&
-            `${String(checks.passedFlows)}/${String(checks.flows)} flows passing · ${String(checks.passed)}/${String(checks.total)} steps`
+            `${String(checks.passedFlows)} of ${String(checks.flows)} ${checks.flows === 1 ? 'flow' : 'flows'} passing`
           }
           label='Checks green'
           state={steps?.checks ?? 'pending'}
@@ -495,11 +495,7 @@ const AgentProgress = ({ dir, onStarted }: { dir: string; onStarted: (started: b
         )}
         {files > 0 && (
           <StepRow
-            detail={
-              progress?.pr
-                ? 'Merge the PR to run them on every PR. Open them here to edit and run locally.'
-                : 'Open them here to edit and run locally.'
-            }
+            detail={progress?.pr ? 'Merge the PR to run them in CI.' : undefined}
             label='Open in Studio'
             state={opened ? 'done' : 'current'}
           >
@@ -527,6 +523,7 @@ const OpenFolderFlows = ({ dir, onOpened, opened }: { dir: string; onOpened: () 
       if (result.data.files.length === 0) return void setError('No flows in api-tests/ yet.');
       await importFolder(result.data.files, result.data.env);
       onOpened();
+      closeLaunchpad();
     } catch (cause) {
       setError(connectErrorText(cause));
     } finally {
@@ -619,11 +616,9 @@ const RecordView = () => {
         <TextInputField label='App URL' onChange={setUrl} placeholder='http://localhost:3000' value={url} />
 
         {servers === undefined ? (
-          <span className={tw`text-sm/5 text-on-neutral-low`}>Looking for running dev servers…</span>
+          <span className={tw`text-sm/5 text-on-neutral-low`}>Looking for your app…</span>
         ) : servers.length === 0 ? (
-          <span className={tw`text-sm/5 text-on-neutral-low`}>
-            No dev server on 3000, 5173, 4321, 8000, 5000 or 8080. Start yours, or enter its URL.
-          </span>
+          <span className={tw`text-sm/5 text-on-neutral-low`}>No app running. Start yours or enter its URL.</span>
         ) : (
           <div className={tw`flex flex-wrap items-center gap-1.5`}>
             <span className={tw`text-sm/5 text-on-neutral-low`}>Running:</span>
@@ -642,10 +637,10 @@ const RecordView = () => {
       </div>
 
       <RadioGroup label='Save flows to' onChange={(value) => void setKind(value as DestinationKind)} value={kind}>
-        <Radio value='files'>Files (this computer)</Radio>
+        <Radio value='files'>Files</Radio>
 
         <div className={tw`flex items-center gap-3`}>
-          <Radio value='folder'>A repo folder</Radio>
+          <Radio value='folder'>Repo folder</Radio>
           {kind === 'folder' && (
             <Button
               className={tw`min-w-0 gap-1.5 px-2 py-0.5 text-xs/4`}
@@ -859,7 +854,7 @@ const RepoActions = ({ dir, green, onOpen }: { dir: string; green: boolean; onOp
       {pr?.url && <p className={tw`text-sm/5 text-on-neutral-low`}>{`PR opened: ${pr.url}`}</p>}
       {pr?.commands && (
         <div className={tw`flex flex-col gap-1.5`}>
-          <span className={tw`text-sm/5 text-on-neutral-low`}>No gh here. Run:</span>
+          <span className={tw`text-sm/5 text-on-neutral-low`}>Run:</span>
           <CodeBlock>{pr.commands.join('\n')}</CodeBlock>
           <div>
             <CopyButton text={pr.commands.join('\n')} />
@@ -911,9 +906,7 @@ const FixWithAgent = ({ run }: { run: InitRun }) => {
         </>
       ) : (
         <div className={tw`flex items-center gap-3`}>
-          <span className={tw`flex-1 text-sm/5 text-on-neutral-low`}>
-            Your coding agent can fix this. Studio adds the skill and copies a prompt with the failure.
-          </span>
+          <span className={tw`flex-1 text-sm/5 text-on-neutral-low`}>Your coding agent can fix this.</span>
           <Button isPending={isPending} onPress={() => void fix()} variant='primary'>
             Fix with your coding agent
           </Button>

@@ -218,7 +218,10 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
     refetchInterval: 10_000,
   }).data;
 
-  const latestSha = clone ? cloneHead : repo?.head_sha;
+  // A flow that so far exists only on a PR branch is at that PR's commit, not the default branch's head.
+  const flowSha = cloudFlow?.commit_sha ?? repo?.head_sha;
+  const onPr = !!cloudFlow?.commit_sha && !!repo?.head_sha && cloudFlow.commit_sha !== repo.head_sha;
+  const latestSha = clone ? cloneHead : flowSha;
   const isBehind = !!latestSha && !!link.baseSha && latestSha !== link.baseSha;
   const [busy, setBusy] = useState<string>();
 
@@ -371,7 +374,7 @@ const LinkedFlowControls = ({ flowName, link }: LinkedFlowControlsProps) => {
     return () => void cloudRunListeners.delete(listener);
   }, []);
 
-  const branch = repo?.default_branch ?? 'main';
+  const branch = onPr && !clone ? 'PR' : (repo?.default_branch ?? 'main');
 
   return (
     <>

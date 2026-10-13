@@ -40,6 +40,8 @@ declare global {
   }
 
   interface StresseurCloudFlow {
+    /** The commit this version is at: the head on the default branch, a PR's commit before it merges. Older Clouds omit it. */
+    commit_sha?: null | string;
     last_ci: null | { at: string; status: 'failed' | 'passed'; url: string };
     line?: number;
     name: string;
