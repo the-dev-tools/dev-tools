@@ -122,6 +122,7 @@ catalog:
   react-timeago: 8.3.0
   remark-gfm: 4.0.1
   storybook: 10.2.16
+  stresseur: 0.4.0
   swc-node: 1.0.0
   syncpack: 13.0.4
   tailwind-merge: 3.5.0

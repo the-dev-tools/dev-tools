@@ -333,6 +333,9 @@ catalogs:
     storybook:
       specifier: 10.2.16
       version: 10.2.16
+    stresseur:
+      specifier: 0.4.0
+      version: 0.4.0
     swc-node:
       specifier: 1.0.0
       version: 1.0.0
@@ -661,6 +664,9 @@ importers:
       remark-gfm:
         specifier: 'catalog:'
         version: 4.0.1
+      stresseur:
+        specifier: 'catalog:'
+        version: 0.4.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.2.1
@@ -4750,6 +4756,11 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  '@stresseur/win32-x64@0.4.0':
+    resolution: {integrity: sha512-5E5h7TAN8ud77jTDNX2i0JfJplzgpQjd70tXadguFwMsBGMdKYdoeozEqyagLfn618e5gaNV3z4OdVmSgeawAQ==}
+    cpu: [x64]
+    os: [win32]
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0':
     resolution: {integrity: sha512-b9MIk7yhdS1pMCZM8VeNfUlSKVRhsHZNMl5O9SfaX0l0t5wjdgu4IDzGB8bpnGBBOjGST3rRFVsaaEtI4W6f7g==}
@@ -10161,6 +10172,31 @@ packages:
 
   streamx@2.23.0:
     resolution: {integrity: sha512-kn+e44esVfn2Fa/O0CPFcex27fjIL6MkVae0Mm6q+E6f0hWv578YCERbv+4m02cjxvDsPKLnmxral/rR6lBMAg==}
+
+  stresseur-darwin-arm64@0.4.0:
+    resolution: {integrity: sha512-reOCpoj7CdKRyVpvIdbj/1LYAk9z1QpwJRkaexLtjYLBoXqpRcj6LgXEMLFzcGfmGdyzTI9bSk37iXFRLtZrWg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  stresseur-darwin-x64@0.4.0:
+    resolution: {integrity: sha512-mVk8qpG7+PvxblQU8Uufnw87OjeQmQ0G728fwmpqMs85lIC4PkmLGoHH9YUE6iuMPLAdk/x4RLtw5egGnA+cmQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  stresseur-linux-arm64@0.4.0:
+    resolution: {integrity: sha512-FCxVxnEi7+bykrVHM+egOsCRo+CK5dYK9N5l+CxtxYYZP+YkZTmxU8Qo/eSrtVCU3pzxlVW9cDIdgnTj9XTj2A==}
+    cpu: [arm64]
+    os: [linux]
+
+  stresseur-linux-x64@0.4.0:
+    resolution: {integrity: sha512-6zamQRpWymXpAOS/50Oo1r302l6xU3XDNqd/WWQjOmJ3zutIqDpxZEE6ULhbigXPZ5PwNHQ2Cz5IDlqVzqHEvw==}
+    cpu: [x64]
+    os: [linux]
+
+  stresseur@0.4.0:
+    resolution: {integrity: sha512-/hcDnhIccZ05Ei3xH+IGsXIQ83LmMC79Dh4qQHgcadCH6GFAGMDYaRhjUOWg4qGMGdQ9gFfEEKw7KByUwc/Hig==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   string-hash@1.1.3:
     resolution: {integrity: sha512-kJUvRUFK49aub+a7T1nNE66EJbZBMnBgoC1UbCZ5n6bsZKBRga4KgBRTMn/pFkeCZSYtNeSyMxPDM0AXWELk2A==}
@@ -15736,6 +15772,9 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
+
+  '@stresseur/win32-x64@0.4.0':
+    optional: true
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0(@babel/core@7.29.0)':
     dependencies:
@@ -22109,6 +22148,26 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
+
+  stresseur-darwin-arm64@0.4.0:
+    optional: true
+
+  stresseur-darwin-x64@0.4.0:
+    optional: true
+
+  stresseur-linux-arm64@0.4.0:
+    optional: true
+
+  stresseur-linux-x64@0.4.0:
+    optional: true
+
+  stresseur@0.4.0:
+    optionalDependencies:
+      '@stresseur/win32-x64': 0.4.0
+      stresseur-darwin-arm64: 0.4.0
+      stresseur-darwin-x64: 0.4.0
+      stresseur-linux-arm64: 0.4.0
+      stresseur-linux-x64: 0.4.0
 
   string-hash@1.1.3: {}
 

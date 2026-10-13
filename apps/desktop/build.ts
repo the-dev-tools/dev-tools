@@ -13,7 +13,8 @@ const libFiles = (lib: string) => [`node_modules/${lib}/package.json`, `node_mod
  * `stresseur` (`stresseur.exe` on Windows); src/main/record.ts runs it from
  * process.resourcesPath. Source: $STRESSEUR_BIN (a built binary), else the npm
  * platform package the `stresseur` launcher uses: `stresseur-<os>-<arch>` or
- * `@stresseur/win32-<arch>`, file `bin/stress(.exe)`. `dev` does not run this
+ * `@stresseur/win32-<arch>`, file `bin/stress(.exe)`. Its version is pinned by
+ * the `stresseur` devDependency (pnpm-workspace.yaml catalog). `dev` does not run this
  * file; it finds the binary through STRESSEUR_BIN or PATH.
  */
 const STRESSEUR_EXE = process.platform === 'win32' ? 'stresseur.exe' : 'stresseur';

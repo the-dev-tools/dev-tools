@@ -46,6 +46,7 @@
     "react-dom": "catalog:",
     "react-markdown": "catalog:",
     "remark-gfm": "catalog:",
+    "stresseur": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "undici": "catalog:",
