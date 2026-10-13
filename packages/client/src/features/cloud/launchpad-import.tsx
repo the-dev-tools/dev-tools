@@ -15,12 +15,10 @@ import { routes } from '~/shared/routes';
 import { getRun, type InitRun, type RepoTarget, setRun, useInitRun } from './launchpad-run';
 import { cloudKeys, connectErrorText, demoApi, pickFlow, upsertFlowFile, useNavigateToFlow } from './lib';
 
-/** Imports generated flows into Files or a cloud repo, and opens the first one. */
-export const useImportFlows = () => {
+/** Imports flow files into Files, and adds the Global variables they need. */
+const useLocalImport = () => {
   const { transport } = routes.root.useRouteContext();
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
-  const queryClient = useQueryClient();
-  const navigateToFlow = useNavigateToFlow();
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
   const variableCollection = useApiCollection(EnvironmentVariableCollectionSchema);
 
@@ -76,6 +74,30 @@ export const useImportFlows = () => {
     }
     return flowIds;
   };
+
+  return { ensureVariables, importLocal };
+};
+
+/** Opens a repo's api-tests flows in Files (the coding-agent path), then the first flow. */
+export const useImportFolder = () => {
+  const { ensureVariables, importLocal } = useLocalImport();
+  const navigateToFlow = useNavigateToFlow();
+  return async (files: StresseurGeneratedFile[], env: Record<string, string>) => {
+    const flowIds = await importLocal(files);
+    await ensureVariables(env);
+    track('launchpad_agent_opened', { files: files.length });
+    if (flowIds[0]) await navigateToFlow(flowIds[0]);
+    return flowIds.length;
+  };
+};
+
+/** Imports generated flows into Files or a cloud repo, and opens the first one. */
+export const useImportFlows = () => {
+  const { transport } = routes.root.useRouteContext();
+  const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
+  const queryClient = useQueryClient();
+  const navigateToFlow = useNavigateToFlow();
+  const { ensureVariables, importLocal } = useLocalImport();
 
   const importRepo = async (destination: RepoTarget, files: StresseurGeneratedFile[]) => {
     let first: Uint8Array | undefined;

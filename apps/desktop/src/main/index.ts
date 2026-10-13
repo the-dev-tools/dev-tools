@@ -33,6 +33,7 @@ import {
   installSkill,
   openPr,
   progressSteps,
+  readRepoFlows,
   watchRepo,
 } from './launchpad';
 import { createLocalClones } from './localclone';
@@ -501,6 +502,10 @@ const onReady = Effect.gen(function* () {
       onProgress: (progress) => void broadcast('launchpad:progress', { dir, progress, steps: progressSteps(progress) }),
     });
     return true;
+  });
+  ipcMain.handle('launchpad:read-flows', async (_event, dir: unknown) => {
+    if (!pickedDirs.has(dir)) return { message: 'Pick the folder first.', ok: false };
+    return { data: await readRepoFlows(dir), ok: true };
   });
   ipcMain.handle('launchpad:unwatch', () => {
     unwatchRepo?.();

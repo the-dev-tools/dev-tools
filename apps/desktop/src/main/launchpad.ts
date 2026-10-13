@@ -7,7 +7,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { promises as fs, type FSWatcher, watch } from 'node:fs';
 import path from 'node:path';
-import { exited, killTree, tail } from './record.ts';
+import { exited, killTree, readDotEnv, tail } from './record.ts';
 
 // Running dev servers
 
@@ -183,6 +183,23 @@ const readChecks = async (dir: string): Promise<RepoProgress['checks']> => {
   }
 };
 
+/** A repo's api-tests flows, for opening in Studio, and the .env values they reference (never others). */
+export const readRepoFlows = async (dir: string) => {
+  const testsDir = path.join(dir, 'api-tests');
+  const files: { flows: string[]; path: string; text: string }[] = [];
+  for (const rel of await walkFlows(testsDir)) {
+    const text = await fs.readFile(path.join(testsDir, rel), 'utf8').catch(() => undefined);
+    if (text === undefined) continue;
+    const flows = [...text.matchAll(/^ {2}- name:\s*["']?([^"'\n#]+?)["']?\s*$/gm)].map((_) => _[1] ?? '');
+    files.push({ flows: flows.filter(Boolean), path: rel, text });
+  }
+  const names = [
+    ...new Set(files.flatMap((_) => [..._.text.matchAll(/#env:([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1] ?? ''))),
+  ];
+  const env = names.length ? readDotEnv(await fs.readFile(path.join(dir, '.env'), 'utf8').catch(() => ''), names) : {};
+  return { env, files };
+};
+
 /** Recording counts as active while recording.db changed in the last `activeMs`. */
 export const scanRepo = async (dir: string, now = Date.now(), activeMs = 10_000): Promise<RepoProgress> => {
   const db = await fs.stat(path.join(dir, '.stresseur', 'recording.db')).catch(() => undefined);
@@ -196,7 +213,7 @@ export const scanRepo = async (dir: string, now = Date.now(), activeMs = 10_000)
   };
 };
 
-export type StepState = 'active' | 'done' | 'pending';
+export type StepState = 'active' | 'done' | 'failed' | 'pending';
 
 /** The progress view's four steps, from a scan. */
 export const progressSteps = (progress: RepoProgress) => {
@@ -208,7 +225,8 @@ export const progressSteps = (progress: RepoProgress) => {
       : 'pending';
   const green = progress.checks?.green === true;
   return {
-    checks: green ? 'done' : progress.checks ? 'active' : 'pending',
+    // Red is a result, not work in progress: the agent may have stopped (or opened the PR anyway).
+    checks: green ? 'done' : progress.checks ? 'failed' : 'pending',
     generated: generated ? 'done' : 'pending',
     pr: progress.pr ? 'done' : 'pending',
     recording,

@@ -21,7 +21,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { track } from '~/app/umami';
 import { readStored, writeStored } from '~/shared/lib';
-import { useFinishRun, useImportFlows } from './launchpad-import';
+import { useFinishRun, useImportFlows, useImportFolder } from './launchpad-import';
 import {
   AGENT_PROMPT,
   cancelRun,
@@ -38,7 +38,16 @@ import {
   stopRecording,
   useInitRun,
 } from './launchpad-run';
-import { cloudApi, launchpadApi, recordApi, useApiUrl, useCloudAccount, useCloudRepos, useNavigateToFlow } from './lib';
+import {
+  cloudApi,
+  connectErrorText,
+  launchpadApi,
+  recordApi,
+  useApiUrl,
+  useCloudAccount,
+  useCloudRepos,
+  useNavigateToFlow,
+} from './lib';
 
 // Which launchpad view is open, module-level so the header and the overview can open it.
 
@@ -167,8 +176,12 @@ const CodeBlock = ({ children }: { children: string }) => (
   </pre>
 );
 
-const StateIcon = ({ state }: { state: StepState }) => {
+/** `current`: the user's turn, so no spinner. */
+type RowState = 'current' | StepState;
+
+const StateIcon = ({ state }: { state: RowState }) => {
   const box = tw`flex size-5 shrink-0 items-center justify-center`;
+  if (state === 'current') return <FiCircle className={tw`size-5 shrink-0 text-accent`} />;
   if (state === 'active')
     return (
       <span className={box}>
@@ -185,7 +198,7 @@ interface StepRowProps {
   command?: string;
   detail?: ReactNode;
   label: string;
-  state: StepState;
+  state: RowState;
 }
 
 const StepRow = ({ children, command, detail, label, state }: StepRowProps) => {
@@ -317,10 +330,16 @@ const ChooseView = () => {
 
 // Coding agent
 
+/** Survives Back and Close for this session: progress is read from the repo, so the folder is enough. */
+const agentSetup: { dir?: string; skill?: { agents: string[] } } = {};
+
 const AgentView = () => {
   const api = launchpadApi();
-  const [dir, setDir] = useState<string>();
-  const [skill, setSkill] = useState<{ agents: string[] }>();
+  const [dir, setDirState] = useState(agentSetup.dir);
+  const [skill, setSkillState] = useState(agentSetup.skill);
+  const setDir = (next: string) => void setDirState((agentSetup.dir = next));
+  const setSkill = (next: undefined | { agents: string[] }) => void setSkillState((agentSetup.skill = next));
+  const [agentStarted, setAgentStarted] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -373,12 +392,12 @@ const AgentView = () => {
           {error && <p className={tw`text-sm/5 text-danger`}>{error}</p>}
         </StepRow>
 
-        <StepRow label='Paste this prompt' state={skill ? 'active' : 'pending'}>
+        <StepRow label='Paste this prompt' state={agentStarted ? 'done' : skill ? 'current' : 'pending'}>
           {skill && dir && <PromptActions dir={dir} prompt={AGENT_PROMPT} />}
         </StepRow>
       </ol>
 
-      {skill && dir && <AgentProgress dir={dir} />}
+      {skill && dir && <AgentProgress dir={dir} onStarted={setAgentStarted} />}
     </Frame>
   );
 };
@@ -413,8 +432,12 @@ const PromptActions = ({ dir, prompt }: { dir: string; prompt: string }) => {
 };
 
 /** Follows the agent in the repo: api-tests/ and .stresseur/, and the PR when `gh` finds one. */
-const AgentProgress = ({ dir }: { dir: string }) => {
+const AgentProgress = ({ dir, onStarted }: { dir: string; onStarted: (started: boolean) => void }) => {
   const [event, setEvent] = useState<StresseurRepoProgressEvent>();
+  const [opened, setOpened] = useState(false);
+
+  const started = event !== undefined && event.steps.recording !== 'pending';
+  useEffect(() => void onStarted(started), [onStarted, started]);
 
   useEffect(() => {
     const api = launchpadApi();
@@ -470,7 +493,55 @@ const AgentProgress = ({ dir }: { dir: string }) => {
             state='done'
           />
         )}
+        {files > 0 && (
+          <StepRow
+            detail={
+              progress?.pr
+                ? 'Merge the PR to run them on every PR. Open them here to edit and run locally.'
+                : 'Open them here to edit and run locally.'
+            }
+            label='Open in Studio'
+            state={opened ? 'done' : 'current'}
+          >
+            <OpenFolderFlows dir={dir} onOpened={() => void setOpened(true)} opened={opened} />
+          </StepRow>
+        )}
       </ol>
+    </div>
+  );
+};
+
+const OpenFolderFlows = ({ dir, onOpened, opened }: { dir: string; onOpened: () => void; opened: boolean }) => {
+  const importFolder = useImportFolder();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  const open = async () => {
+    const api = launchpadApi();
+    if (!api) return;
+    setPending(true);
+    setError(undefined);
+    try {
+      const result = await api.readFlows(dir);
+      if (!result.ok) return void setError(result.message);
+      if (result.data.files.length === 0) return void setError('No flows in api-tests/ yet.');
+      await importFolder(result.data.files, result.data.env);
+      onOpened();
+    } catch (cause) {
+      setError(connectErrorText(cause));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className={tw`flex flex-col gap-1.5`}>
+      <div>
+        <Button isDisabled={opened} isPending={pending} onPress={() => void open()} variant='primary'>
+          {opened ? 'Opened in Files' : 'Open in Studio'}
+        </Button>
+      </div>
+      {error && <p className={tw`text-sm/5 text-danger`}>{error}</p>}
     </div>
   );
 };

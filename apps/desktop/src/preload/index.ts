@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('launchpad:open-agent', agent, dir, prompt) as Promise<boolean>,
     openPr: (dir: string) => ipcRenderer.invoke('launchpad:open-pr', dir),
     pickFolder: (title?: string) => ipcRenderer.invoke('launchpad:pick-folder', title) as Promise<null | string>,
+    readFlows: (dir: string) => ipcRenderer.invoke('launchpad:read-flows', dir),
     unwatch: () => ipcRenderer.invoke('launchpad:unwatch') as Promise<void>,
     watch: (dir: string) => ipcRenderer.invoke('launchpad:watch', dir) as Promise<boolean>,
   },

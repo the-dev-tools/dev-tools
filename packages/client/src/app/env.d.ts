@@ -147,7 +147,7 @@ declare global {
     url: string;
   }
 
-  type StresseurStepState = 'active' | 'done' | 'pending';
+  type StresseurStepState = 'active' | 'done' | 'failed' | 'pending';
 
   interface StresseurRepoProgress {
     checks?: { flows: number; green: boolean; passed: number; passedFlows: number; total: number; verifiedAt: string };
@@ -217,6 +217,9 @@ declare global {
         openAgent: (agent: 'claude' | 'cursor', dir: string, prompt: string) => Promise<boolean>;
         openPr: (dir: string) => Promise<StresseurLocalResult<{ commands?: string[]; url?: string }>>;
         pickFolder: (title?: string) => Promise<null | string>;
+        readFlows: (
+          dir: string,
+        ) => Promise<StresseurLocalResult<{ env: Record<string, string>; files: StresseurGeneratedFile[] }>>;
         unwatch: () => Promise<void>;
         watch: (dir: string) => Promise<boolean>;
       };

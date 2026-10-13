@@ -14,6 +14,7 @@ import {
   installSkill,
   openPr,
   progressSteps,
+  readRepoFlows,
   type RepoProgress,
   scanRepo,
   watchRepo,
@@ -75,7 +76,7 @@ void describe('repo progress', () => {
     assert.equal(progressSteps(await scanRepo(repo, now + 60_000)).recording, 'done');
   });
 
-  void it('generated flows, then checks: active while red, done when every flow passed', async () => {
+  void it('generated flows, then checks: failed while red (no spinner), done when every flow passed', async () => {
     write('api-tests/shop/checkout.yamlflow.yaml', 'flows: []\n');
     write('api-tests/login.yamlflow.yaml', 'flows: []\n');
     write('api-tests/node_modules/x.yaml', '');
@@ -97,11 +98,13 @@ void describe('repo progress', () => {
       verifiedAt: '2026-10-11T10:00:00.000Z',
     });
     assert.deepEqual(progressSteps(progress), {
-      checks: 'active',
+      checks: 'failed',
       generated: 'done',
       pr: 'pending',
       recording: 'done',
     });
+    // A PR opened on red checks stays failed, not in progress.
+    assert.equal(progressSteps({ ...progress, pr: { url: 'https://github.com/a/b/pull/1' } }).checks, 'failed');
 
     write(
       '.stresseur/last-verify.json',
@@ -278,5 +281,36 @@ void describe('picked folders', () => {
     assert.ok(dirs.has('/r/app/'));
     assert.ok(!dirs.has('/r'));
     assert.ok(!dirs.has(3));
+  });
+});
+
+void describe('readRepoFlows', () => {
+  const write = (rel: string, text: string) => {
+    fs.mkdirSync(nodePath.dirname(nodePath.join(repo, rel)), { recursive: true });
+    fs.writeFileSync(nodePath.join(repo, rel), text);
+  };
+
+  void it('reads api-tests flows with their names, and only the .env values they use', async () => {
+    write(
+      'api-tests/shop/checkout.yamlflow.yaml',
+      'flows:\n  - name: checkout\n    steps:\n      - request:\n          url: "{{ #env:APP_URL }}/cart"\n  - name: smoke\n',
+    );
+    write('api-tests/login.yamlflow.yaml', 'flows:\n  - name: login\n    password: "{{#env:SHOP_PASSWORD}}"\n');
+    write('.env', 'APP_URL=http://localhost:3000\nSHOP_PASSWORD="hunter2"\nUNRELATED=secret\n');
+
+    const result = await readRepoFlows(repo);
+    assert.deepEqual(
+      result.files.map((_) => ({ flows: _.flows, path: _.path })),
+      [
+        { flows: ['login'], path: 'login.yamlflow.yaml' },
+        { flows: ['checkout', 'smoke'], path: 'shop/checkout.yamlflow.yaml' },
+      ],
+    );
+    assert.match(result.files[1]?.text ?? '', /#env:APP_URL/);
+    assert.deepEqual(result.env, { APP_URL: 'http://localhost:3000', SHOP_PASSWORD: 'hunter2' });
+  });
+
+  void it('returns no files and no env for a repo without api-tests', async () => {
+    assert.deepEqual(await readRepoFlows(repo), { env: {}, files: [] });
   });
 });
