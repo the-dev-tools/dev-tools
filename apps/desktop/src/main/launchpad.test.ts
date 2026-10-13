@@ -310,6 +310,12 @@ void describe('readRepoFlows', () => {
     assert.deepEqual(result.env, { APP_URL: 'http://localhost:3000', SHOP_PASSWORD: 'hunter2' });
   });
 
+  void it('gives older flows STRESSEUR_BASE_URL from APP_URL, as the CLI does', async () => {
+    write('api-tests/old.yamlflow.yaml', 'flows:\n  - name: old\n    url: "{{ #env:STRESSEUR_BASE_URL }}/x"\n');
+    write('.env', 'APP_URL=http://localhost:3000\n');
+    assert.deepEqual((await readRepoFlows(repo)).env, { STRESSEUR_BASE_URL: 'http://localhost:3000' });
+  });
+
   void it('returns no files and no env for a repo without api-tests', async () => {
     assert.deepEqual(await readRepoFlows(repo), { env: {}, files: [] });
   });

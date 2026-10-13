@@ -196,7 +196,18 @@ export const readRepoFlows = async (dir: string) => {
   const names = [
     ...new Set(files.flatMap((_) => [..._.text.matchAll(/#env:([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1] ?? ''))),
   ];
-  const env = names.length ? readDotEnv(await fs.readFile(path.join(dir, '.env'), 'utf8').catch(() => ''), names) : {};
+  // APP_URL was STRESSEUR_BASE_URL before 0.4; the CLI sets both from either, so do the same.
+  const appUrlNames = ['APP_URL', 'STRESSEUR_BASE_URL'];
+  const wanted = names.some((_) => appUrlNames.includes(_)) ? [...new Set([...names, ...appUrlNames])] : names;
+  const found = wanted.length
+    ? readDotEnv(await fs.readFile(path.join(dir, '.env'), 'utf8').catch(() => ''), wanted)
+    : {};
+  const appUrl = found['APP_URL'] ?? found['STRESSEUR_BASE_URL'];
+  const env: Record<string, string> = {};
+  for (const name of names) {
+    const value = appUrlNames.includes(name) ? appUrl : found[name];
+    if (value !== undefined) env[name] = value;
+  }
   return { env, files };
 };
 
