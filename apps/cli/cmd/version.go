@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -20,18 +19,9 @@ var version = "v0.1.0"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of Stresseur CLI (formerly DevTools CLI)",
-	Long:  `All software has versions. This is Stresseur CLI's (formerly DevTools CLI)`,
+	Short: "Print the version number of DevToolsCLI",
+	Long:  `All software has versions. This is DevToolsCLI's`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Print(versionLine(os.Args[0], version))
+		fmt.Printf("DevToolsCLI %s\n", version)
 	},
-}
-
-// versionLine returns the `version` output. Invoked under a legacy name
-// (devtools, devtoolscli, ...) it is byte-identical to the pre-rename output.
-func versionLine(arg0, v string) string {
-	if invokedAsStresseur(arg0) {
-		return fmt.Sprintf("Stresseur CLI %s (formerly DevTools CLI)\n", v)
-	}
-	return fmt.Sprintf("DevToolsCLI %s\n", v)
 }
