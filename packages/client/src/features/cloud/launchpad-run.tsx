@@ -228,7 +228,7 @@ export const readLastUrl = () => readStored(lastUrlKey);
 
 export const startRun = async (options: { destination: Destination; mode: 'demo' | 'record'; url?: string }) => {
   const api = recordApi();
-  if (!api) return { message: 'Recording needs Stresseur Studio for desktop.', ok: false as const };
+  if (!api) return { message: 'Recording needs DevTools Studio for desktop.', ok: false as const };
   const { destination, mode, url } = options;
   // Before `start`: its first events arrive before it resolves.
   setRun({ calls: 0, destination, mode, status: 'running', ...(url && { url }), verified: [] });

@@ -120,7 +120,7 @@ function RouteComponent() {
 
           <div className={tw`flex items-center gap-2 px-2.5 py-1.5 text-md/5 tracking-tight text-on-neutral`}>
             <span className={tw`flex-1 truncate`}>
-              Stresseur Studio v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
+              DevTools Studio v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
             </span>
 
             {/* Help links. On macOS they are also in the app menu; Windows and Linux have no menu bar. */}
@@ -138,7 +138,7 @@ function RouteComponent() {
                 </MenuItem>
 
                 <MenuItem href='https://dev.tools' target='_blank'>
-                  About: Stresseur Studio, formerly DevTools Studio (dev.tools)
+                  About DevTools Studio (dev.tools)
                 </MenuItem>
               </Menu>
             </MenuTrigger>
