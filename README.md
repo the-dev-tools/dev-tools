@@ -4,9 +4,7 @@
   </a>
 </p>
 
-<h1 align="center">Stresseur Studio</h1>
-
-<p align="center"><em>Formerly DevTools Studio</em></p>
+<h1 align="center">DevTools Studio</h1>
 
 <p align="center">
 A free, open-source Postman-style API tester you run locally. Record browser requests, auto-generate chained tests, and ship them straight to your CI—no sign-ups, no cloud, just code.
@@ -26,7 +24,7 @@ A free, open-source Postman-style API tester you run locally. Record browser req
 
 ## About the Project
 
-Stresseur Studio gives developers complete control over their API testing workflows:
+DevTools Studio gives developers complete control over their API testing workflows:
 
 - **Browser Request Recording**: Automatically capture all API requests and responses from your browser sessions.
 - **No-code Test Generation**: Transform your recorded API requests into reusable test collections.
@@ -37,13 +35,13 @@ Stresseur Studio gives developers complete control over their API testing workfl
 - **Privacy First**: Keep your sensitive API data and credentials secure on your own machine.
 - **Postman-Compatible**: Import from Postman-like JSON files and export collections for cross-platform compatibility.
 
-Stresseur Studio combines the best aspects of Postman's visual interface with the security and flexibility of local-first, code-driven development. No sign-ups, no cloud dependencies - just powerful API testing tools that integrate perfectly with your development workflow.
+DevTools Studio combines the best aspects of Postman's visual interface with the security and flexibility of local-first, code-driven development. No sign-ups, no cloud dependencies - just powerful API testing tools that integrate perfectly with your development workflow.
 
 ### Postman-Style Request Interface
 
 ![Postman-style UI with form data](https://dev.tools/_next/static/media/first-request-jsonplaceholder-users-1.3351fec7.webp)
 
-The Stresseur Studio interface provides a familiar Postman-like experience for working with API requests. The screenshot above shows the request editor interface with form data input, allowing you to easily build, test, and organize your API requests without the cloud dependency.
+The DevTools Studio interface provides a familiar Postman-like experience for working with API requests. The screenshot above shows the request editor interface with form data input, allowing you to easily build, test, and organize your API requests without the cloud dependency.
 
 ### Visual Flow Builder
 
@@ -107,11 +105,11 @@ The API Recorder extension captures your API interactions in real-time:
 - **Response Inspection**: Examine API responses with syntax highlighting
 - **Secure & Private**: All captured data remains in your browser—nothing is transmitted to external servers
 
-The extension works seamlessly with Stresseur Studio, allowing you to record APIs in your browser and then use them to build sophisticated test flows and documentation.
+The extension works seamlessly with DevTools Studio, allowing you to record APIs in your browser and then use them to build sophisticated test flows and documentation.
 
 ## Stresseur
 
-Stresseur Studio and Stresseur CLI are the free, open-source, local-first part of [Stresseur](https://stresseur.com), the AI test engineer for APIs. Stresseur also generates tests with AI and offers a GitHub bot that keeps your API tests up to date on every pull request. Learn more at [stresseur.com](https://stresseur.com).
+DevTools Studio and the CLI are the free, open-source, local-first part of [Stresseur](https://stresseur.com), the AI test engineer for APIs. Stresseur also generates tests with AI and offers a GitHub bot that keeps your API tests up to date on every pull request. Learn more at [stresseur.com](https://stresseur.com).
 
 ## Contributing
 

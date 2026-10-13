@@ -74,19 +74,14 @@ and dispatches platform-specific build workflows (Electron Builder, Go binaries,
 
 ## Project Overview
 
-Stresseur Studio (formerly DevTools Studio) is a local-first, open-source API testing platform (Postman alternative) — desktop app, CLI, and Chrome extension. Features request recording, visual flow building, and CI/CD integration.
+DevTools is a local-first, open-source API testing platform (Postman alternative) — desktop app, CLI, and Chrome extension. Features request recording, visual flow building, and CI/CD integration.
 
 ## Naming
 
-- **User-facing names:** the desktop app is **Stresseur Studio** and the CLI is **Stresseur CLI** (both "formerly DevTools …"). DevTools / dev.tools remains the umbrella brand. Use the new names in UI text, docs and help output.
-- **Internal identifiers keep their devtools names on purpose. Do not rename them**, even when it looks like leftover cleanup. Renaming any of these breaks existing installs, CI pipelines or saved data:
-  - appId `com.electron.devtools-studio`, `extraMetadata.name` `DevTools-Studio`, `executableName`, and release asset names (`DevTools-Studio-*`, `devtools-cli-*`) in `apps/desktop/build.ts` / `apps/cli/taskfile.yaml`
-  - legacy user-data folder names in `apps/desktop/src/main/migrate-data-dir.ts` (only ever add new ones)
-  - the `migrateDataDir` + rename-notice call at desktop startup: keep it in every future release. Users skip updates, so someone on 1.1.x (or 0.2.x) can jump straight to any later version and still needs the move
-  - package names (`@the-dev-tools/*`), Go module paths (`github.com/the-dev-tools/dev-tools/...`), the `devtoolsdb` package, the TypeSpec `DevTools` namespace
-  - the `devtools` / `devtoolscli` CLI names, `DEVTOOLS_*` env vars, `.devtools.yaml`, `.devtools-reports`, and every `actions/run-flows` input and output
-  - socket/pipe names (`the-dev-tools`), virtual hosts (`the-dev-tools:0`, `devtools-cli:0`), the JWT issuer/audience `devtools-server`, MIME keys like `application/x-devtools-reference`
-- `stresseur` is an additional CLI name for the same binary, and `STRESSEUR_*` env vars are accepted alongside `DEVTOOLS_*` (the new one wins when both are set). See `rename-inventory.md` for the full list.
+- **The desktop app is DevTools Studio** in every user-facing place (window title, Dock/launcher, copy, installer, data folder). A rename to "Stresseur Studio" is planned for a later release; `rename-inventory.md` lists what it will touch. Do not rename the app before then.
+- Names of the separate Stresseur products the app talks to stay as they are: Stresseur Cloud, "Sign in to Stresseur", the bundled `stresseur` binary, stresseur.com links.
+- `stresseur` is an additional CLI name for the same binary, and `STRESSEUR_*` env vars are accepted alongside `DEVTOOLS_*` (the new one wins when both are set).
+- **Internal identifiers keep their devtools names. Do not rename them**: appId `com.electron.devtools-studio`, `extraMetadata.name` `DevTools-Studio` (it sets the user-data folder and the release asset names in `apps/desktop/build.ts`), package names (`@the-dev-tools/*`), Go module paths, `devtoolsdb`, the TypeSpec `DevTools` namespace, `DEVTOOLS_*` env vars, `.devtools.yaml`, `actions/run-flows` inputs and outputs, socket/pipe names, the JWT issuer/audience `devtools-server`.
 
 ## Architecture
 

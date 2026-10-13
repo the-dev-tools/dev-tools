@@ -4,7 +4,7 @@ _Formerly DevTools CLI._
 
 ## Overview
 
-The Stresseur CLI (`stresseur`, formerly DevTools CLI) is the command-line companion to the desktop application, Stresseur Studio. It lets you execute exported workspaces, validate flows in continuous integration pipelines, and produce machine-readable reports. The CLI runs everything locally against an in-memory SQLite database, mirroring the behaviour of the server so you can rely on consistent results between manual testing and automated checks.
+The Stresseur CLI (`stresseur`, formerly DevTools CLI) is the command-line companion to the desktop application, DevTools Studio. It lets you execute exported workspaces, validate flows in continuous integration pipelines, and produce machine-readable reports. The CLI runs everything locally against an in-memory SQLite database, mirroring the behaviour of the server so you can rely on consistent results between manual testing and automated checks.
 
 ## Installation
 
