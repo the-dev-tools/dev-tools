@@ -1,6 +1,6 @@
 // Product naming and links for the "download Studio" suggestion.
 //
-// TODO(rename-day): on Oct 13, 2026 DevTools Studio becomes "Stresseur Studio".
+// TODO(rename-day): in an upcoming release DevTools Studio becomes "Stresseur Studio".
 // Changing STUDIO_NAME below is the only edit needed in this extension; the
 // extension's own name ("API Recorder") stays as is.
 export const STUDIO_NAME = 'DevTools Studio';
