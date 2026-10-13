@@ -40,13 +40,7 @@ export const Select = <T extends object>({
       variant={triggerVariant}
     >
       <RAC.SelectValue
-        className={tw`
-        min-w-0 truncate text-left
-
-        placeholder-shown:text-on-neutral-low
-
-        **:data-select-check:hidden
-      `}
+        className={tw`min-w-0 truncate text-left placeholder-shown:text-on-neutral-low **:data-select-check:hidden`}
       >
         {renderValue}
       </RAC.SelectValue>

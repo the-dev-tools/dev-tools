@@ -21,7 +21,7 @@ export const NumberField = ({ className = '', groupClassName, label, ...props }:
       className={composeTailwindRenderProps(
         groupClassName,
         focusVisibleRingStyles(),
-        tw`flex min-w-0 rounded-md border border-neutral text-md leading-5 text-on-neutral`,
+        tw`flex min-w-0 rounded-md border border-neutral text-md/5 text-on-neutral`,
       )}
     >
       <RAC.Button className={tw`flex size-8 items-center justify-center border-r border-neutral`} slot='decrement'>

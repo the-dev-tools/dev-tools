@@ -15,11 +15,11 @@ export interface TreeItemProps<T extends object>
   extends Omit<RAC.TreeItemProps, 'children' | 'textValue'>, RefAttributes<HTMLDivElement> {
   childItems?: ReactNode;
   children: RAC.TreeItemContentProps['children'];
+  draggable?: boolean;
   isExpanded?: boolean;
   isLoading?: boolean;
   item?: CollectionProps<T>['children'];
   items?: T[];
-  draggable?: boolean;
   onContextMenu?: ComponentProps<'div'>['onContextMenu'];
   onDragStart?: ComponentProps<'div'>['onDragStart'];
   onExpand?: () => void;
@@ -66,8 +66,8 @@ export const TreeItem = <T extends object>({
         className,
         focusVisibleRingStyles(),
         tw`
-          group/tree-item cursor-pointer rounded-md bg-transparent px-3 py-1.5 text-md leading-5 font-medium
-          tracking-tight text-on-neutral
+          group/tree-item cursor-pointer rounded-md bg-transparent px-3 py-1.5 text-md/5 font-medium tracking-tight
+          text-on-neutral
 
           hover:bg-neutral-low
 

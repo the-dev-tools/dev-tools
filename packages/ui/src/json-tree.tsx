@@ -79,7 +79,7 @@ export const JsonTreeItem = ({ id = 'root', jsonIndex, jsonKey, jsonValue }: Jso
       textValue={valueText ?? jsonKey ?? indexText ?? ''}
       {...(itemProps as TreeItemProps<object>)}
     >
-      {jsonKey && <span className={tw`font-mono text-xs leading-5 text-danger`}>{jsonKey}</span>}
+      {jsonKey && <span className={tw`font-mono text-xs/5 text-danger`}>{jsonKey}</span>}
 
       {indexText && (
         <span className={tw`rounded-sm bg-neutral px-2 py-0.5 text-xs font-medium tracking-tight text-on-neutral-low`}>
@@ -87,14 +87,12 @@ export const JsonTreeItem = ({ id = 'root', jsonIndex, jsonKey, jsonValue }: Jso
         </span>
       )}
 
-      {quantity && (
-        <span className={tw`text-xs leading-5 font-medium tracking-tight text-on-neutral-low`}>{quantity}</span>
-      )}
+      {quantity && <span className={tw`text-xs/5 font-medium tracking-tight text-on-neutral-low`}>{quantity}</span>}
 
       {valueText && (
         <>
-          <span className={tw`font-mono text-xs leading-5 text-on-neutral`}>:</span>
-          <span className={tw`flex-1 font-mono text-xs leading-5 break-all text-info`}>{valueText}</span>
+          <span className={tw`font-mono text-xs/5 text-on-neutral`}>:</span>
+          <span className={tw`flex-1 font-mono text-xs/5 break-all text-info`}>{valueText}</span>
         </>
       )}
     </TreeItem>

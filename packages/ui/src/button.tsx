@@ -10,7 +10,7 @@ export const buttonStyles = tv({
   extend: focusVisibleRingStyles,
   base: tw`
     relative flex cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-md border border-transparent
-    bg-transparent px-4 py-1.5 text-sm leading-5 font-medium tracking-tight select-none
+    bg-transparent px-4 py-1.5 text-sm/5 font-medium tracking-tight select-none
 
     disabled:cursor-not-allowed
 
