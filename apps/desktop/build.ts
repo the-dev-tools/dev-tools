@@ -9,33 +9,6 @@ import nodePath from 'node:path';
 const libFiles = (lib: string) => [`node_modules/${lib}/package.json`, `node_modules/${lib}/dist`];
 
 /*
- * Naming: the app is displayed as "Stresseur Studio", but everything that
- * identifies an existing install keeps its DevTools-Studio value, so upgrades
- * happen in place. Do not change the pinned values below.
- *
- * - appId: was implicit (`com.electron.` + lowercased `name`). It is the macOS
- *   bundle ID, and on Windows it seeds the NSIS GUID (uninstall key, upgrade
- *   detection) and the AppUserModelID (taskbar pins).
- * - executableName: `DevTools-Studio.exe` / `DevTools-Studio.app` / `devtools-studio`.
- *   It also names the Windows install folder, so existing shortcuts, pinned
- *   taskbar items and the in-place upgrade keep pointing at the same path.
- * - artifactName: release asset names are read by the auto-updater metadata,
- *   README, install docs and the dev.tools download page. Hardcoded prefix,
- *   because `${productName}` would now expand to "Stresseur Studio".
- * - extraMetadata.name: keep; it feeds the updater cache folder
- *   (`devtools-studio-updater`) and the default appId.
- * - extraMetadata.productName: the display name. Electron derives the
- *   user-data folder from it, which is why `migrateDataDir` (src/main)
- *   moves "DevTools-Studio" into "Stresseur Studio" at startup.
- */
-/*
- * Launcher name: "Stresseur Studio (DevTools)" for now, so people who still
- * search for DevTools find the app (Spotlight, Launchpad, Dock, Start menu,
- * Linux app menu). Display only: productName above keeps the user-data folder.
- */
-const LAUNCHER_NAME = 'Stresseur Studio (DevTools)';
-
-/*
  * The stresseur binary (record / generate), shipped in Resources as
  * `stresseur` (`stresseur.exe` on Windows); src/main/record.ts runs it from
  * process.resourcesPath. Source: $STRESSEUR_BIN (a built binary), else the npm
@@ -99,21 +72,15 @@ const config: Configuration = {
     if (context.electronPlatformName !== 'win32') chmodSync(packed, 0o755);
     return Promise.resolve();
   },
-  appId: 'com.electron.devtools-studio',
-  artifactName: 'DevTools-Studio-${version}-${platform}-${arch}.${ext}',
-  executableName: 'DevTools-Studio',
+  artifactName: '${productName}-${version}-${platform}-${arch}.${ext}',
   extraMetadata: {
     name: 'DevTools-Studio',
-    productName: 'Stresseur Studio',
   },
   // Signed on Windows by signtoolOptions.sign (electron-builder signs .exe extra resources).
   extraResources: [{ from: stresseurBinary, to: STRESSEUR_EXE }],
   files: ['!**/*', 'out', ...libFiles('@the-dev-tools/server'), ...libFiles('@the-dev-tools/worker-js')],
   linux: {
     category: 'Development',
-    // Linux lowercases the executable by default; pin today's name explicitly.
-    desktop: { entry: { Name: LAUNCHER_NAME } },
-    executableName: 'devtools-studio',
     target: ['AppImage'],
   },
   mac: {
@@ -122,7 +89,6 @@ const config: Configuration = {
     category: 'public.app-category.developer-tools',
     entitlements: 'build/entitlements.mac.plist',
     entitlementsInherit: 'build/entitlements.mac.plist',
-    extendInfo: { CFBundleDisplayName: LAUNCHER_NAME },
     gatekeeperAssess: false,
     hardenedRuntime: true,
     type: 'distribution',
@@ -131,7 +97,6 @@ const config: Configuration = {
   nsis: {
     allowToChangeInstallationDirectory: true,
     oneClick: false,
-    shortcutName: LAUNCHER_NAME,
   },
   publish: { provider: 'custom' },
   win: {

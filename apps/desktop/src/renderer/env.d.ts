@@ -8,11 +8,6 @@ declare global {
       onClose: (callback: () => void) => void;
       onCloseDone: () => void;
 
-      renameNotice: {
-        dismiss: () => void;
-        get: () => Promise<boolean>;
-      };
-
       server: {
         wipeAndRestart: () => Promise<void>;
       };

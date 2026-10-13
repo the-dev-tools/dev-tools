@@ -16,7 +16,7 @@ import {
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { execFileSync } from 'node:child_process';
-import fs, { existsSync, unlinkSync } from 'node:fs';
+import fs, { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import os from 'node:os';
 import nodePath from 'node:path';
 import { Agent } from 'undici';
@@ -36,43 +36,14 @@ import {
   watchRepo,
 } from './launchpad';
 import { createLocalClones } from './localclone';
-import { legacyDataDirs, migrateDataDir, type MigrationResult } from './migrate-data-dir';
 import { createRecorder, resolveStresseurBinary } from './record';
-import { dismissRenameNotice, initRenameNotice, RENAME_NOTICE_FILE } from './rename-notice';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
-/** Display name. Identifiers (appId, executable, user-data legacy names, sockets) keep their devtools names on purpose. */
-const PRODUCT_NAME = 'Stresseur Studio';
+const PRODUCT_NAME = 'DevTools Studio';
 
 /** Links to Stresseur carry UTM tags, since a desktop app sends no referrer. */
 const stresseurUrl = (campaign: string) =>
   `https://stresseur.com/?utm_source=studio&utm_medium=app&utm_campaign=${campaign}`;
-
-/**
- * Bring user data over from the pre-rename folder ("DevTools-Studio", and older).
- *
- * This must stay at the top of the main process: it runs before Chromium writes
- * into the user-data folder, before the Go server opens `state.db`, and before
- * anything else reads or writes files there. Dev builds (unpackaged) use their
- * own folder and never touch an installed app's data.
- */
-const userDataMigration: MigrationResult = app.isPackaged
-  ? migrateDataDir({
-      carryFiles: [RENAME_NOTICE_FILE],
-      legacyDirs: legacyDataDirs(app.getPath('appData')),
-      log: (_) => void console.log(_),
-      userDataDir: app.getPath('userData'),
-    })
-  : { kind: 'current' };
-
-// If the migration could not complete, keep using the intact legacy folder for
-// this session so the user still sees their data; the next launch retries.
-if (userDataMigration.kind === 'failed') {
-  app.setPath('userData', userDataMigration.from);
-  app.setPath('sessionData', userDataMigration.from);
-}
-
-const showRenameNotice = initRenameNotice(app.getPath('userData'), userDataMigration);
 
 /**
  * On macOS, detect whether the current process is running under Rosetta 2
@@ -205,9 +176,43 @@ const createWindow = Effect.gen(function* () {
   return mainWindow;
 });
 
+/** Migrate database from old data directories if needed. */
+const migrateDataDir = () => {
+  const newDir = app.getPath('userData');
+  const newDb = nodePath.join(newDir, 'state.db');
+
+  // If the current data directory already has a database, nothing to do.
+  if (existsSync(newDb)) return;
+
+  const appData = app.getPath('appData');
+  // Check old directories in reverse-chronological order (prefer most recent data).
+  // 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
+  const oldDirs = [nodePath.join(appData, 'DevTools Studio'), nodePath.join(appData, 'DevTools')];
+
+  const sourceDir = oldDirs.find((dir) => existsSync(nodePath.join(dir, 'state.db')));
+  if (!sourceDir) return;
+
+  console.log(`Migrating database from ${sourceDir} to ${newDir}`);
+  mkdirSync(newDir, { recursive: true });
+
+  for (const suffix of ['', '-wal', '-shm']) {
+    const src = nodePath.join(sourceDir, `state.db${suffix}`);
+    const dst = nodePath.join(newDir, `state.db${suffix}`);
+    try {
+      copyFileSync(src, dst);
+      console.log(`Copied state.db${suffix}`);
+    } catch {
+      // WAL/SHM may not exist, safe to ignore
+    }
+  }
+  console.log('Data directory migration complete');
+};
+
 const server = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;
+
+    yield* Effect.sync(migrateDataDir);
 
     const dist = yield* pipe(
       import.meta.resolve('@the-dev-tools/server'),
@@ -263,14 +268,14 @@ const worker = pipe(
 
 /**
  * macOS application menu: Electron's default menu, with an About panel and a
- * Help menu for the new name. Windows and Linux hide the menu bar in
+ * Help menu. Windows and Linux hide the menu bar in
  * production (`setMenu(null)`), so they get the same links in the app itself.
  */
 const createMacMenu = () => {
   app.setAboutPanelOptions({
     applicationName: PRODUCT_NAME,
     applicationVersion: app.getVersion(),
-    credits: 'Formerly DevTools Studio\nhttps://dev.tools',
+    credits: 'https://dev.tools',
   });
 
   return Menu.buildFromTemplate([
@@ -502,9 +507,6 @@ const onReady = Effect.gen(function* () {
     unwatchRepo = undefined;
   });
   app.on('will-quit', () => void unwatchRepo?.());
-
-  ipcMain.handle('rename-notice:get', () => showRenameNotice);
-  ipcMain.on('rename-notice:dismiss', () => void dismissRenameNotice(app.getPath('userData')));
 
   ipcMain.handle('server:wipe-and-restart', () => {
     const dbDir = app.getPath('userData');

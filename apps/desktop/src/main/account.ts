@@ -125,7 +125,7 @@ export const signIn = async ({ file, onEvent, openUrl, signal, version }: SignIn
   let code: DeviceCode;
   try {
     const response = await request('/api/cli/device-codes', {
-      body: JSON.stringify({ client_version: `Stresseur Studio ${version}`, device_name: os.hostname() }),
+      body: JSON.stringify({ client_version: `DevTools Studio ${version}`, device_name: os.hostname() }),
       method: 'POST',
     });
     if (!response.ok) {
