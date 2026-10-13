@@ -246,7 +246,7 @@ const Choice = ({ description, icon, onPress, recommended, title }: ChoiceProps)
       <span className={tw`flex items-center gap-2 font-semibold text-on-neutral`}>
         {title}
         {recommended && (
-          <span className={tw`rounded-sm bg-accent-lowest px-1.5 py-0.5 text-xs/4 font-medium text-accent`}>
+          <span className={tw`rounded-sm bg-neutral-low px-1.5 py-0.5 text-xs/4 font-medium text-on-neutral-low`}>
             Recommended
           </span>
         )}
