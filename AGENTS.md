@@ -78,7 +78,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 
 ## Naming
 
-- **The desktop app is DevTools Studio** in every user-facing place (window title, Dock/launcher, copy, installer, data folder). A rename to "Stresseur Studio" is planned for a later release; `rename-inventory.md` lists what it will touch. Do not rename the app before then.
+- **Window/app name is DevTools Studio**: window title, `<title>`, macOS app/Dock/menu name, launcher, installer, bundle ID, executable, release asset names and the user-data folder (`DevTools-Studio`) stay as in 1.1.3. Inside the app (logo, icons, in-app copy) it is Stresseur Studio. The full rename (window name, data folder) is planned for a later release; `rename-inventory.md` lists what it will touch. Do not change the window/app name or data folder before then.
 - Names of the separate Stresseur products the app talks to stay as they are: Stresseur Cloud, "Sign in to Stresseur", the bundled `stresseur` binary, stresseur.com links.
 - `stresseur` is an additional CLI name for the same binary, and `STRESSEUR_*` env vars are accepted alongside `DEVTOOLS_*` (the new one wins when both are set).
 - **Internal identifiers keep their devtools names. Do not rename them**: appId `com.electron.devtools-studio`, `extraMetadata.name` `DevTools-Studio` (it sets the user-data folder and the release asset names in `apps/desktop/build.ts`), package names (`@the-dev-tools/*`), Go module paths, `devtoolsdb`, the TypeSpec `DevTools` namespace, `DEVTOOLS_*` env vars, `.devtools.yaml`, `actions/run-flows` inputs and outputs, socket/pipe names, the JWT issuer/audience `devtools-server`.
