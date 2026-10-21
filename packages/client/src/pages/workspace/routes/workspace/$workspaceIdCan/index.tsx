@@ -24,12 +24,10 @@ export const Route = createFileRoute('/(dashboard)/(workspace)/workspace/$worksp
 function RouteComponent() {
   return (
     <div className={tw`px-4 py-16 text-center`}>
-      <span className={tw`block text-xl/6 font-semibold tracking-tight text-on-neutral`}>
-        Discover what you can do in Stresseur Studio
-      </span>
+      <span className={tw`block text-xl/6 font-semibold tracking-tight text-on-neutral`}>Start testing your API</span>
 
       <span className={tw`block text-xs/5 tracking-tight text-on-neutral-low`}>
-        Discover the tools to make your workflow easier and faster.
+        Record your app, import a collection, or build a request or flow by hand.
       </span>
 
       <div className={tw`mx-auto mt-5 flex max-w-4xl justify-center gap-4`}>
@@ -81,7 +79,7 @@ const GetStartedButton = () => {
 
   return (
     <CtaButton
-      description='API tests from your app'
+      description='Record tests from your app'
       icon={
         <CtaIcon className={tw`bg-accent`}>
           <FiPlay />
@@ -99,7 +97,7 @@ const ImportButton = () => {
   return (
     <>
       <CtaButton
-        description='Import Collections and Flows'
+        description='Collections, HAR files and flows'
         icon={
           <CtaIcon className={tw`bg-amber-600`}>
             <FileImportIcon />
@@ -125,7 +123,7 @@ const NewHttpButton = () => {
 
   return (
     <CtaButton
-      description='Easy to test your API'
+      description='Send one request'
       icon={
         <CtaIcon className={tw`bg-cyan-600`}>
           <SendRequestIcon />
@@ -169,7 +167,7 @@ const NewFlowButton = () => {
 
   return (
     <CtaButton
-      description='Easy request with flows'
+      description='Chain requests into a test'
       icon={
         <CtaIcon className={tw`bg-green-600`}>
           <FlowsIcon />

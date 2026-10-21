@@ -5,6 +5,7 @@ import {
   FiCheckCircle,
   FiCircle,
   FiCopy,
+  FiDisc,
   FiFolder,
   FiShoppingBag,
   FiTerminal,
@@ -276,7 +277,7 @@ const ChooseView = () => {
 
   return (
     <Frame title='Get started'>
-      <p className={tw`text-on-neutral-low`}>API tests from the way you use your app.</p>
+      <p className={tw`text-on-neutral-low`}>Record your app once. Studio turns the API calls into tests.</p>
 
       <div className={tw`flex flex-col gap-3`}>
         <Choice
@@ -292,7 +293,7 @@ const ChooseView = () => {
 
         <Choice
           description='Click through your app. Studio writes the flows.'
-          icon={<FiCircle className={tw`fill-danger stroke-danger`} />}
+          icon={<FiDisc />}
           onPress={() => {
             track('launchpad_choice', { choice: 'record' });
             openLaunchpad(run?.status === 'running' ? 'run' : 'record');
@@ -366,8 +367,9 @@ const AgentView = () => {
 
   return (
     <Frame back='choose' title='Use your coding agent'>
+      <p className={tw`text-on-neutral-low`}>Pick the repo, add the skill, then paste the prompt into your agent.</p>
       <ol className={tw`flex flex-col gap-4`}>
-        <StepRow detail={dir} label="Your app's repo" state={dir ? 'done' : 'active'}>
+        <StepRow detail={dir} label="Your app's repo" state={dir ? 'done' : 'current'}>
           <div>
             <Button className={tw`gap-1.5`} onPress={() => void pick()}>
               <FiFolder className={tw`size-3.5`} />
@@ -380,7 +382,7 @@ const AgentView = () => {
           command='npx stresseur install-skill'
           detail={skill && (skill.agents.length > 0 ? `Added for ${skill.agents.join(', ')}` : 'Added')}
           label='Add the Stresseur skill'
-          state={skill ? 'done' : error ? 'failed' : dir ? 'active' : 'pending'}
+          state={skill ? 'done' : error ? 'failed' : isPending ? 'active' : dir ? 'current' : 'pending'}
         >
           {dir && !skill && (
             <div>
@@ -462,12 +464,20 @@ const AgentProgress = ({ dir, onStarted }: { dir: string; onStarted: (started: b
       <ol className={tw`flex flex-col gap-3`}>
         <StepRow
           detail={steps?.recording === 'active' ? 'Use your app in the browser it opened' : undefined}
-          label={steps?.recording === 'active' ? 'Recording…' : 'Recorded'}
+          label={
+            steps?.recording === 'active' ? 'Recording…' : steps?.recording === 'done' ? 'Recorded' : 'Record your app'
+          }
           state={steps?.recording ?? 'pending'}
         />
         <StepRow
           detail={files > 0 ? `${String(files)} ${files === 1 ? 'file' : 'files'} in api-tests/` : undefined}
-          label='Flows generated'
+          label={
+            steps?.generated === 'done'
+              ? 'Flows generated'
+              : steps?.generated === 'active'
+                ? 'Generating flows'
+                : 'Generate flows'
+          }
           state={steps?.generated ?? 'pending'}
         />
         <StepRow
@@ -475,7 +485,9 @@ const AgentProgress = ({ dir, onStarted }: { dir: string; onStarted: (started: b
             checks &&
             `${String(checks.passedFlows)} of ${String(checks.flows)} ${checks.flows === 1 ? 'flow' : 'flows'} passing`
           }
-          label='Checks green'
+          label={
+            steps?.checks === 'done' ? 'Checks green' : steps?.checks === 'failed' ? 'Checks failing' : 'Checks pass'
+          }
           state={steps?.checks ?? 'pending'}
         />
         {progress?.pr && (

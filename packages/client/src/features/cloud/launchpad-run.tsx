@@ -128,6 +128,12 @@ export const runSteps = (run: InitRun): Step[] => {
     return failed ? 'failed' : 'active';
   };
 
+  // Past tense only once a step happened: "Generate flows" → "Generating flows" → "Generated".
+  const word = (key: StepKey, [todo, doing, did]: [string, string, string]) => {
+    const st = state(key);
+    return st === 'done' || (key === 'verified' && st === 'failed') ? did : st === 'active' ? doing : todo;
+  };
+
   const envNames = run.generated?.env?.names ?? [];
   const flows = run.generated?.files.reduce((sum, _) => sum + _.flows.length, 0) ?? 0;
 
@@ -148,14 +154,15 @@ export const runSteps = (run: InitRun): Step[] => {
       command: initCommand(run),
       ...(detected && { detail: detected }),
       key: 'detected',
-      label: run.mode === 'demo' ? 'Sample shop' : 'Detected',
+      label:
+        run.mode === 'demo' ? 'Sample shop' : word('detected', ['Find your app', 'Finding your app', 'Found your app']),
       state: state('detected'),
     },
     {
       command: `npx stresseur record --browser ${quote(url)}`,
       ...(recording && { detail: recording }),
       key: 'recording',
-      label: 'Recording',
+      label: word('recording', ['Record', 'Recording', 'Recorded']),
       state: state('recording'),
     },
     {
@@ -169,7 +176,7 @@ export const runSteps = (run: InitRun): Step[] => {
           .join(' · '),
       }),
       key: 'generated',
-      label: 'Generated',
+      label: word('generated', ['Generate flows', 'Generating flows', 'Generated']),
       state: state('generated'),
     },
     {
@@ -181,7 +188,7 @@ export const runSteps = (run: InitRun): Step[] => {
         ...(last.failures.length > 0 && { failures: last.failures }),
       }),
       key: 'verified',
-      label: 'Ran twice',
+      label: word('verified', ['Run twice', 'Running twice', 'Ran twice']),
       state: state('verified'),
     },
   ];
