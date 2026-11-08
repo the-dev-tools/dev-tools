@@ -1,8 +1,8 @@
 <!-- HEADS-UP-RENAME -->
 
-# DevTools Studio is becoming Stresseur Studio on October 13, 2026
+# DevTools Studio is becoming Stresseur Studio
 
-On October 13, 2026, DevTools Studio becomes **Stresseur Studio**, and the CLI gets a second name, `stresseur`.
+In an upcoming release, DevTools Studio becomes **Stresseur Studio**, and the CLI gets a second name, `stresseur`.
 
 **What changes:** the name in the app, the docs, the README and the API Recorder extension.
 
