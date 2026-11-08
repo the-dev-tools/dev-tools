@@ -65,6 +65,22 @@ type AuthVerification struct {
 	UpdatedAt  int64
 }
 
+type CloudLink struct {
+	FileID             idwrap.IDWrap
+	WorkspaceID        idwrap.IDWrap
+	Kind               string
+	ApiUrl             string
+	CloudWorkspaceSlug string
+	RepoSlug           string
+	Path               string
+	BaseSha            string
+	LocalDir           string
+	Dirty              bool
+	SourceText         string
+	CleanYaml          string
+	UpdatedAt          int64
+}
+
 type Credential struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap

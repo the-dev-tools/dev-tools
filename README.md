@@ -88,9 +88,9 @@ You can also download pre-built binaries directly from the [releases page](https
 
 Download the desktop application for your platform from the [releases page](https://github.com/the-dev-tools/dev-tools/releases):
 
-- **macOS**: DevTools-{version}-darwin-{arch}.dmg
-- **Windows**: DevTools-{version}-win32-{arch}.exe
-- **Linux**: DevTools-{version}-linux-{arch}.AppImage
+- **macOS**: DevTools-Studio-{version}-darwin-{arch}.dmg
+- **Windows**: DevTools-Studio-{version}-win32-{arch}.exe
+- **Linux**: DevTools-Studio-{version}-linux-{arch}.AppImage
 
 ## Chrome Extension
 

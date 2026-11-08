@@ -25,6 +25,8 @@ export interface ToolResult {
 }
 
 export interface AgentChatState {
+  /** Set when included AI credits refused the request (402 and the like). */
+  cloudError: null | StresseurCloudError;
   error: null | string;
   isLoading: boolean;
   messages: Message[];

@@ -8,7 +8,9 @@
   "main": "./out/main/index.js",
   "scripts": {
     "build": "electron-vite build && node build.ts",
-    "dev": "electron-vite dev"
+    "dev": "electron-vite dev",
+    "test": "node --test src/main/*.test.ts",
+    "test:ci": "node --test src/main/*.test.ts"
   },
   "dependencies": {
     "@the-dev-tools/server": "workspace:^",
@@ -44,6 +46,7 @@
     "react-dom": "catalog:",
     "react-markdown": "catalog:",
     "remark-gfm": "catalog:",
+    "stresseur": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "undici": "catalog:",

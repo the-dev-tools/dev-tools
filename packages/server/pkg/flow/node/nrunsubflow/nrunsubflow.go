@@ -10,6 +10,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/flow/node/nai"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 )
 
 // SubFlowExecutor loads and runs a target sub-flow. Implementations live in
@@ -87,6 +88,11 @@ func (n *NodeRunSubFlow) RunSync(ctx context.Context, req *node.FlowNodeRequest)
 			}
 		}
 		inputVars[input.ParamName] = val
+	}
+
+	// The sub-flow resolves #env: like its caller.
+	if overrides := varsystem.EnvOverridesFrom(varMapCopy); overrides.Len() > 0 {
+		inputVars[varsystem.EnvOverridesKey] = overrides
 	}
 
 	// Execute the sub-flow

@@ -76,6 +76,14 @@ and dispatches platform-specific build workflows (Electron Builder, Go binaries,
 
 DevTools is a local-first, open-source API testing platform (Postman alternative) — desktop app, CLI, and Chrome extension. Features request recording, visual flow building, and CI/CD integration.
 
+## Naming
+
+- **Window/app name is DevTools Studio**: window title, `<title>`, macOS app/Dock/menu name, launcher, installer, bundle ID, executable, release asset names and the user-data folder (`DevTools-Studio`) stay as in 1.1.3. Inside the app (logo, icons, in-app copy) it is Stresseur Studio. The full rename (window name, data folder) is planned for a later release. Do not change the window/app name or data folder before then.
+- **Copy budget (onboarding, setup screens, empty states, panels)**: one title of 6–7 words (9 max) and one or two sentences, 13–17 words in total, saying what the screen or box does, at 8th-grade reading level. Everything else is controls, data or labels. No AI slop.
+- Names of the separate Stresseur products the app talks to stay as they are: Stresseur Cloud, "Sign in to Stresseur", the bundled `stresseur` binary, stresseur.com links.
+- `stresseur` is an additional CLI name for the same binary, and `STRESSEUR_*` env vars are accepted alongside `DEVTOOLS_*` (the new one wins when both are set).
+- **Internal identifiers keep their devtools names. Do not rename them**: appId `com.electron.devtools-studio`, `extraMetadata.name` `DevTools-Studio` (it sets the user-data folder and the release asset names in `apps/desktop/build.ts`), package names (`@the-dev-tools/*`), Go module paths, `devtoolsdb`, the TypeSpec `DevTools` namespace, `DEVTOOLS_*` env vars, `.devtools.yaml`, `actions/run-flows` inputs and outputs, socket/pipe names, the JWT issuer/audience `devtools-server`.
+
 ## Architecture
 
 ### Monorepo Structure
@@ -122,7 +130,7 @@ Large RPC handlers are split by concern: `rhttp_crud.go`, `rhttp_exec.go`, `rhtt
 - **State:** Effect-TS + TanStack Query
 - **Formatting:** Prettier (single quotes, JSX single quotes). ESLint with perfectionist import sorting
 - **Dependencies:** Pnpm catalog mode (strict) — all versions centralized in `pnpm-workspace.yaml`
-- **No TS unit tests** — quality enforced via ESLint + strict TypeScript
+- **No TS unit tests** — quality enforced via ESLint + strict TypeScript. Exception: pure main-process modules in `apps/desktop/src/main` have `node --test` tests (`*.test.ts`, run by `desktop:test`)
 
 ## Go Patterns
 

@@ -7,7 +7,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { addGlobalLayer, App as Client, configProviderFromMetaEnv, runtimeAtom } from '@the-dev-tools/client';
 import { Button } from '@the-dev-tools/ui/button';
-import { Logo } from '@the-dev-tools/ui/illustrations';
+import { StresseurLogo } from '@the-dev-tools/ui/illustrations';
 import { ProgressBar } from '@the-dev-tools/ui/progress-bar';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { setTheme } from '@the-dev-tools/ui/theme';
@@ -62,8 +62,8 @@ const UpdateAvailable = ({ children }: UpdateAvailableProps) => {
     <div className={tw`flex h-full flex-col items-center gap-8 p-16`}>
       <div className={tw`text-center`}>
         <div className={tw`flex items-center gap-4 text-4xl font-semibold`}>
-          <Logo className={tw`size-10`} />
-          DevTools Studio
+          <StresseurLogo className={tw`size-10`} />
+          Stresseur Studio
         </div>
 
         <div className={tw`mt-2 text-2xl`}>Update available!</div>
@@ -122,8 +122,8 @@ const UpdateProgress = () => {
 
 const LoadingScreen = () => (
   <div className={tw`flex h-full flex-col items-center justify-center gap-4`}>
-    <Logo className={tw`size-10 animate-pulse`} />
-    <div className={tw`text-on-neutral-low`}>Starting DevTools Studio...</div>
+    <StresseurLogo className={tw`size-10 animate-pulse`} />
+    <div className={tw`text-on-neutral-low`}>Starting Stresseur Studio...</div>
   </div>
 );
 
@@ -132,7 +132,7 @@ const StartupError = () => {
 
   return (
     <div className={tw`flex h-full flex-col items-center justify-center gap-6 p-16`}>
-      <Logo className={tw`size-10`} />
+      <StresseurLogo className={tw`size-10`} />
 
       <div className={tw`text-center`}>
         <div className={tw`text-xl font-medium text-on-neutral`}>Failed to connect to the server</div>

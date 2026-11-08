@@ -5,17 +5,19 @@ import { createFileRoute, Outlet, useRouter } from '@tanstack/react-router';
 import { Config, pipe, Runtime, Schema } from 'effect';
 import { idEqual, Ulid } from 'id128';
 import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
-import { FiPlus } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiHelpCircle, FiPlus } from 'react-icons/fi';
 import { Panel, Group as PanelGroup, useDefaultLayout } from 'react-resizable-panels';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
+import { Menu, MenuItem } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { CloudSection, LaunchpadHost, RecordControl, useCloudFirst } from '~/features/cloud';
 import { FileCreateMenu, FileTree } from '~/features/file-system';
 import { useApiCollection } from '~/shared/api';
-import { pick } from '~/shared/lib';
+import { pick, useStoredFlag } from '~/shared/lib';
 import { routes } from '~/shared/routes';
 import { DashboardLayout } from '~/shared/ui';
 import { EnvironmentsWidget } from '~/widgets/environment';
@@ -58,12 +60,20 @@ function RouteComponent() {
 
   const workspaceOutletLayout = useDefaultLayout({ id: 'workspace-outlet' });
 
+  const cloudFirst = useCloudFirst();
+
   if (!workspace) return null;
 
   // const baseRoute: ToOptions = { params: { workspaceIdCan }, to: workspaceRouteApi.id };
 
   return (
     <DashboardLayout
+      actions={
+        <>
+          <RecordControl />
+          <LaunchpadHost />
+        </>
+      }
       navbar={
         <>
           <ButtonAsRouteLink
@@ -101,29 +111,37 @@ function RouteComponent() {
               <h2 className={tw`text-md/5 font-semibold tracking-tight text-on-neutral`}>Overview</h2>
             </ButtonAsRouteLink>
 
-            <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
-              <CollectionIcon className={tw`size-5 text-on-neutral-low`} />
-              <h2 className={tw`flex-1 text-md/5 font-semibold tracking-tight text-on-neutral`}>Files</h2>
+            {cloudFirst && <CloudSection />}
 
-              <MenuTrigger>
-                <TooltipTrigger delay={750}>
-                  <Button className={tw`bg-neutral p-0.5`} variant='ghost'>
-                    <FiPlus className={tw`size-4 stroke-[1.2px] text-on-neutral-low`} />
-                  </Button>
-                  <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>
-                    Add New File
-                  </Tooltip>
-                </TooltipTrigger>
+            <FilesSection />
 
-                <FileCreateMenu navigate />
-              </MenuTrigger>
-            </div>
-
-            <FileTree navigate showControls />
+            {!cloudFirst && <CloudSection />}
           </div>
 
-          <div className={tw`px-2.5 py-1.5 text-md/5 tracking-tight text-on-neutral`}>
-            DevTools v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
+          <div className={tw`flex items-center gap-2 px-2.5 py-1.5 text-md/5 tracking-tight text-on-neutral`}>
+            <span className={tw`flex-1 truncate`}>
+              Stresseur Studio v{pipe(Config.string('VERSION'), Config.withDefault('[DEV]'), Runtime.runSync(runtime))}
+            </span>
+
+            {/* Help links. On macOS they are also in the app menu; Windows and Linux have no menu bar. */}
+            <MenuTrigger>
+              <Button aria-label='Help' className={tw`p-0.5`} variant='ghost'>
+                <FiHelpCircle className={tw`size-4 text-on-neutral-low`} />
+              </Button>
+
+              <Menu>
+                <MenuItem
+                  href='https://stresseur.com/?utm_source=studio&utm_medium=app&utm_campaign=help_menu'
+                  target='_blank'
+                >
+                  Stresseur: AI test engineer
+                </MenuItem>
+
+                <MenuItem href='https://dev.tools' target='_blank'>
+                  About: Stresseur Studio, formerly DevTools Studio (dev.tools)
+                </MenuItem>
+              </Menu>
+            </MenuTrigger>
           </div>
         </Panel>
 
@@ -144,3 +162,41 @@ function RouteComponent() {
     </DashboardLayout>
   );
 }
+
+const FilesSection = () => {
+  const [isOpen, setIsOpen] = useStoredFlag('studio.sidebar.files.open', true);
+
+  return (
+    <div className={tw`flex flex-col gap-2`}>
+      <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
+        <Button
+          aria-label={isOpen ? 'Collapse Files' : 'Expand Files'}
+          className={tw`flex min-w-0 flex-1 items-center justify-start gap-2 p-0`}
+          onPress={() => void setIsOpen(!isOpen)}
+          variant='ghost'
+        >
+          <CollectionIcon className={tw`size-5 shrink-0 text-on-neutral-low`} />
+          <h2 className={tw`text-md/5 font-semibold tracking-tight text-on-neutral`}>Files</h2>
+          {isOpen ? (
+            <FiChevronDown className={tw`size-3.5 shrink-0 text-on-neutral-low`} />
+          ) : (
+            <FiChevronRight className={tw`size-3.5 shrink-0 text-on-neutral-low`} />
+          )}
+        </Button>
+
+        <MenuTrigger>
+          <TooltipTrigger delay={750}>
+            <Button className={tw`bg-neutral p-0.5`} variant='ghost'>
+              <FiPlus className={tw`size-4 stroke-[1.2px] text-on-neutral-low`} />
+            </Button>
+            <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Add New File</Tooltip>
+          </TooltipTrigger>
+
+          <FileCreateMenu navigate />
+        </MenuTrigger>
+      </div>
+
+      {isOpen && <FileTree navigate showControls />}
+    </div>
+  );
+};

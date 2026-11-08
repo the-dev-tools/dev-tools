@@ -76,7 +76,7 @@ export const FileDropZone = ({
         <>
           <CloudUploadIcon className={tw`size-7 text-on-neutral-low`} />
 
-          <RAC.Text className={tw`mb-1 text-sm leading-5 font-semibold tracking-tight text-on-neutral`} slot='label'>
+          <RAC.Text className={tw`mb-1 text-sm/5 font-semibold tracking-tight text-on-neutral`} slot='label'>
             Drag and drop your files or
           </RAC.Text>
 
@@ -100,11 +100,11 @@ const FilePreview = ({ file, onRemove }: FilePreviewProps) => (
       <FiFile className={tw`size-5 text-on-neutral-low`} />
     </div>
 
-    <div className={tw`w-full truncate text-center text-md leading-5 font-medium tracking-tight text-on-neutral`}>
+    <div className={tw`w-full truncate text-center text-md/5 font-medium tracking-tight text-on-neutral`}>
       {file.name}
     </div>
 
-    <div className={tw`text-xs leading-4 tracking-tight text-on-neutral-low`}>{formatSize(file.size)}</div>
+    <div className={tw`text-xs/4 tracking-tight text-on-neutral-low`}>{formatSize(file.size)}</div>
 
     {onRemove && (
       <Button className={tw`mt-1 p-1`} onPress={() => void onRemove()} variant='ghost'>

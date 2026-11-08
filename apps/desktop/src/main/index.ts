@@ -2,16 +2,49 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, nativeTheme, protocol, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Dialog,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  protocol,
+  shell,
+} from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
-import fs from 'node:fs';
+import fs, { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import os from 'node:os';
 import nodePath from 'node:path';
 import { Agent } from 'undici';
 import icon from '../../build/icon.ico?asset';
+import * as account from './account';
+import { createCloud, isOpenableUrl } from './cloud';
+import { createDemoApp, createDemoFlows, demoRunEnv } from './demo';
+import {
+  addCiCheck,
+  agentLink,
+  createDirAllowlist,
+  detectDevServers,
+  findPr,
+  installSkill,
+  openPr,
+  progressSteps,
+  readRepoFlows,
+  watchRepo,
+} from './launchpad';
+import { createLocalClones } from './localclone';
+import { createRecorder, resolveStresseurBinary } from './record';
 import { CustomUpdateProvider, UpdateOptions } from './update';
+
+const PRODUCT_NAME = 'DevTools Studio';
+
+/** Links to Stresseur carry UTM tags, since a desktop app sends no referrer. */
+const stresseurUrl = (campaign: string) =>
+  `https://stresseur.com/?utm_source=studio&utm_medium=app&utm_campaign=${campaign}`;
 
 /**
  * On macOS, detect whether the current process is running under Rosetta 2
@@ -40,7 +73,7 @@ const warnOnArchitectureMismatch = () => {
     cancelId: 1,
     defaultId: 0,
     detail:
-      'The x64 (Intel) build of DevTools Studio is running under Rosetta 2 on an Apple Silicon Mac. ' +
+      `The x64 (Intel) build of ${PRODUCT_NAME} is running under Rosetta 2 on an Apple Silicon Mac. ` +
       'This makes the window slow to open and the UI sluggish. Install the arm64 (Apple Silicon) build for native performance.',
     message: 'Wrong architecture installed',
     type: 'warning',
@@ -73,7 +106,7 @@ const createWindow = Effect.gen(function* () {
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#18181b' : 'white',
     height: 600,
     icon,
-    title: 'DevTools Studio',
+    title: PRODUCT_NAME,
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
     },
@@ -154,8 +187,12 @@ const migrateDataDir = () => {
 
   const appData = app.getPath('appData');
   // Check old directories in reverse-chronological order (prefer most recent data).
-  // 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
-  const oldDirs = [nodePath.join(appData, 'DevTools Studio'), nodePath.join(appData, 'DevTools')];
+  // 1.2.0 pre-release builds used "Stresseur Studio", 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
+  const oldDirs = [
+    nodePath.join(appData, 'Stresseur Studio'),
+    nodePath.join(appData, 'DevTools Studio'),
+    nodePath.join(appData, 'DevTools'),
+  ];
 
   const sourceDir = oldDirs.find((dir) => existsSync(nodePath.join(dir, 'state.db')));
   if (!sourceDir) return;
@@ -234,6 +271,35 @@ const worker = pipe(
   Effect.ensuring(Console.log('Worker exited')),
 );
 
+/**
+ * macOS application menu: Electron's default menu, with an About panel and a
+ * Help menu. Windows and Linux hide the menu bar in
+ * production (`setMenu(null)`), so they get the same links in the app itself.
+ */
+const createMacMenu = () => {
+  app.setAboutPanelOptions({
+    applicationName: PRODUCT_NAME,
+    applicationVersion: app.getVersion(),
+    credits: 'https://dev.tools',
+  });
+
+  return Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        { click: () => void shell.openExternal(stresseurUrl('help_menu')), label: 'Stresseur: AI test engineer' },
+        { type: 'separator' },
+        { click: () => void shell.openExternal('https://dev.tools'), label: 'DevTools (dev.tools)' },
+      ],
+    },
+  ]);
+};
+
 const onReady = Effect.gen(function* () {
   const path = yield* Path.Path;
 
@@ -272,6 +338,8 @@ const onReady = Effect.gen(function* () {
     return fetch(request).catch(() => new Response(null, { status: 503 }));
   });
 
+  if (os.platform() === 'darwin') Menu.setApplicationMenu(createMacMenu());
+
   const mainWindow = yield* createWindow;
 
   ipcMain.handle('dialog', <T extends keyof Dialog>(_event: unknown, method: T, ...options: Parameters<Dialog[T]>) => {
@@ -285,6 +353,169 @@ const onReady = Effect.gen(function* () {
   ipcMain.on('update:start', () => void autoUpdater.downloadUpdate());
   autoUpdater.on('download-progress', (_) => void mainWindow.webContents.send('update:progress', _));
   autoUpdater.on('update-downloaded', () => void autoUpdater.quitAndInstall());
+
+  // Stresseur account (shares the CLI's saved login)
+  const credentialsFile = account.credentialsPath(app.getPath('appData'));
+  let signInAbort: AbortController | undefined;
+  ipcMain.handle('account:get', () => account.getAccount(credentialsFile));
+  ipcMain.on('account:sign-in', () => {
+    signInAbort?.abort();
+    const controller = (signInAbort = new AbortController());
+    void account.signIn({
+      file: credentialsFile,
+      onEvent: (event) => void mainWindow.webContents.send('account:event', event),
+      openUrl: (url) => shell.openExternal(url),
+      signal: controller.signal,
+      version: app.getVersion(),
+    });
+  });
+  ipcMain.on('account:cancel', () => void signInAbort?.abort());
+  ipcMain.handle('account:sign-out', () => account.signOut(credentialsFile));
+  ipcMain.on('account:open', () => void shell.openExternal(account.apiUrl()));
+
+  // Stresseur Cloud (/api/cli/studio/*); the token stays here
+  const cloud = createCloud({
+    cacheFile: path.join(app.getPath('userData'), 'cloud-cache.json'),
+    credentialsFile,
+  });
+  ipcMain.handle('cloud:api-url', () => account.apiUrl());
+  ipcMain.handle('cloud:repos', () => cloud.repos());
+  ipcMain.handle('cloud:flows', (_event, repo: unknown) => cloud.flows(repo));
+  ipcMain.handle('cloud:file', (_event, repo: unknown, filePath: unknown) => cloud.file(repo, filePath));
+  ipcMain.handle('cloud:environments', (_event, repo: unknown) => cloud.environments(repo));
+  ipcMain.handle('cloud:propose-change', (_event, repo: unknown, change: unknown) => cloud.proposeChange(repo, change));
+  ipcMain.handle('cloud:start-run', (_event, repo: unknown, run: unknown) => cloud.startRun(repo, run));
+  ipcMain.handle('cloud:run', (_event, id: unknown) => cloud.run(id));
+
+  // Claude on included AI credits: events go to the renderer as `cloud:ai-event` (id, message)
+  ipcMain.handle('cloud:ai-credits', () => cloud.aiCredits());
+  const aiStreams = new Map<string, AbortController>();
+  ipcMain.on('cloud:ai-messages', (event, id: unknown, body: unknown) => {
+    if (typeof id !== 'string' || aiStreams.has(id)) return;
+    const { sender } = event;
+    const post = (message: unknown) => {
+      if (!sender.isDestroyed()) sender.send('cloud:ai-event', id, message);
+    };
+    const controller = new AbortController();
+    aiStreams.set(id, controller);
+    void cloud
+      .aiMessages(body, (streamEvent) => void post({ event: streamEvent, kind: 'event' }), controller.signal)
+      .then((result) => void post({ kind: 'done', result }))
+      .finally(() => void aiStreams.delete(id));
+  });
+  ipcMain.on('cloud:ai-abort', (_event, id: unknown) => {
+    if (typeof id === 'string') aiStreams.get(id)?.abort();
+  });
+
+  ipcMain.on('cloud:open', (_event, url: unknown) => {
+    if (isOpenableUrl(url)) void shell.openExternal(url);
+  });
+
+  // Linked local clones
+  const localClones = createLocalClones({
+    pickDirectory: async (title) => {
+      const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+      const result = await dialog.showOpenDialog(window, { properties: ['openDirectory'], title });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    storeFile: path.join(app.getPath('userData'), 'local-clones.json'),
+  });
+  ipcMain.handle('local-clone:get', (_event, repo: unknown) => localClones.get(repo));
+  ipcMain.handle('local-clone:pick', (_event, repo: unknown) => localClones.pick(repo));
+  ipcMain.handle('local-clone:unlink', (_event, repo: unknown) => localClones.unlink(repo));
+  ipcMain.handle('local-clone:head', (_event, repo: unknown) => localClones.head(repo));
+  ipcMain.handle('local-clone:read', (_event, repo: unknown, filePath: unknown) => localClones.read(repo, filePath));
+  ipcMain.handle('local-clone:write', (_event, repo: unknown, filePath: unknown, text: unknown) =>
+    localClones.write(repo, filePath, text),
+  );
+  ipcMain.handle('local-clone:env-values', (_event, repo: unknown, names: unknown) =>
+    localClones.envValues(repo, names),
+  );
+
+  // Recording with the bundled stresseur binary (`init --json`)
+  const stresseurBinary = () => resolveStresseurBinary({ isPackaged: app.isPackaged });
+  const broadcast = (channel: string, event: unknown) => {
+    for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event);
+  };
+  const pickedDirs = createDirAllowlist();
+  const recorder = createRecorder({
+    binary: stresseurBinary,
+    onEvent: (event) => {
+      // A failed run's folder is kept for the coding agent: it may install the skill there.
+      if (event.type === 'finished' && event.temporary && event.files.length > 0) pickedDirs.add(event.dir);
+      broadcast('record:event', event);
+    },
+  });
+  ipcMain.handle('record:start', (_event, options: unknown) => {
+    const dir = (options as null | undefined | { dir?: unknown })?.dir;
+    if (dir !== undefined && !pickedDirs.has(dir)) return { message: 'Pick the folder first.', ok: false };
+    return recorder.start(options);
+  });
+  ipcMain.handle('record:stop', () => recorder.stop());
+  ipcMain.handle('record:cancel', () => recorder.cancel());
+  app.on('before-quit', () => void recorder.dispose());
+  app.on('will-quit', () => void recorder.dispose());
+
+  // Flows recorded with `init --demo` run against `stresseur demo`, started on their first local run
+  const demoApp = createDemoApp({ binary: stresseurBinary });
+  const demoFlows = createDemoFlows({ storeFile: path.join(app.getPath('userData'), 'demo-flows.json') });
+  ipcMain.handle('demo:mark', (_event, flowIds: unknown, env: unknown) => demoFlows.mark(flowIds, env));
+  ipcMain.handle('demo:run-env', (_event, flowId: unknown) => demoRunEnv(demoFlows, demoApp, flowId));
+  app.on('before-quit', () => void demoApp.dispose());
+  app.on('will-quit', () => void demoApp.dispose());
+
+  // First-run launchpad
+  const missingBinary = { message: 'The stresseur binary was not found.', ok: false } as const;
+  const notPicked = { message: 'Pick the folder first.', ok: false } as const;
+  ipcMain.handle('launchpad:pick-folder', async (_event, title: unknown) => {
+    const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: typeof title === 'string' ? title : "Pick your app's repo",
+    });
+    const dir = result.canceled ? undefined : result.filePaths[0];
+    if (!dir) return null;
+    pickedDirs.add(dir);
+    return dir;
+  });
+  ipcMain.handle('launchpad:detect', () => detectDevServers());
+  ipcMain.handle('launchpad:install-skill', (_event, dir: unknown) => {
+    const bin = stresseurBinary();
+    if (!bin) return missingBinary;
+    return pickedDirs.has(dir) ? installSkill(bin, dir) : notPicked;
+  });
+  ipcMain.handle('launchpad:open-agent', async (_event, agent: unknown, dir: unknown, prompt: unknown) => {
+    const url = agentLink(agent, pickedDirs.has(dir) ? dir : undefined, prompt);
+    if (!url) return false;
+    await shell.openExternal(url);
+    return true;
+  });
+  ipcMain.handle('launchpad:add-ci', (_event, dir: unknown) => {
+    const bin = stresseurBinary();
+    if (!bin) return missingBinary;
+    return pickedDirs.has(dir) ? addCiCheck(bin, dir) : notPicked;
+  });
+  ipcMain.handle('launchpad:open-pr', (_event, dir: unknown) => (pickedDirs.has(dir) ? openPr(dir) : notPicked));
+  let unwatchRepo: (() => void) | undefined;
+  ipcMain.handle('launchpad:watch', (_event, dir: unknown) => {
+    unwatchRepo?.();
+    unwatchRepo = undefined;
+    if (!pickedDirs.has(dir)) return false;
+    unwatchRepo = watchRepo(dir, {
+      findPr: (_) => findPr(_),
+      onProgress: (progress) => void broadcast('launchpad:progress', { dir, progress, steps: progressSteps(progress) }),
+    });
+    return true;
+  });
+  ipcMain.handle('launchpad:read-flows', async (_event, dir: unknown) => {
+    if (!pickedDirs.has(dir)) return { message: 'Pick the folder first.', ok: false };
+    return { data: await readRepoFlows(dir), ok: true };
+  });
+  ipcMain.handle('launchpad:unwatch', () => {
+    unwatchRepo?.();
+    unwatchRepo = undefined;
+  });
+  app.on('will-quit', () => void unwatchRepo?.());
 
   ipcMain.handle('server:wipe-and-restart', () => {
     const dbDir = app.getPath('userData');
@@ -380,7 +611,12 @@ const desktop = pipe(
   Effect.scoped,
 );
 
-const args = process.argv.slice(process.defaultApp ? 2 : 1);
+// Chromium switches (remote debugging and a separate user-data folder, used to drive the app in
+// end-to-end checks) are not CLI arguments.
+const CHROMIUM_SWITCHES = ['--remote-debugging-port=', '--user-data-dir='];
+const args = process.argv
+  .slice(process.defaultApp ? 2 : 1)
+  .filter((arg) => !CHROMIUM_SWITCHES.some((_) => arg.startsWith(_)));
 const cli = pipe(
   Effect.gen(function* () {
     const path = yield* Path.Path;

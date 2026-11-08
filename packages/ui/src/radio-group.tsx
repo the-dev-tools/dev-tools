@@ -49,7 +49,7 @@ export const RadioGroup = ({ children, className, error, label, ...props }: Radi
 export const radioStyles = tv({
   slots: {
     base: tw`
-      group/radio flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-on-neutral
+      group/radio flex cursor-pointer items-center gap-1.5 text-md/5 font-medium tracking-tight text-on-neutral
 
       disabled:text-on-neutral-lower
     `,

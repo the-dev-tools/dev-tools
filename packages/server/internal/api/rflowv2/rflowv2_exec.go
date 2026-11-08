@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -17,6 +18,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sflow"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/varsystem"
 	flowv1 "github.com/the-dev-tools/dev-tools/packages/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -32,6 +34,11 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 
 	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 		return nil, err
+	}
+
+	envOverrides, err := envOverridesFromRequest(req.Msg.GetEnv())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	flow, err := s.fs.GetFlow(ctx, flowID)
@@ -124,7 +131,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			cancel()
 		}()
 
-		duration, execErr := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, nodeIDMapping)
+		duration, execErr := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, nodeIDMapping, envOverrides)
 
 		// Copy final node/edge states from parent to version (best-effort).
 		// Use Background() because bgCtx may be cancelled on FlowStop.
@@ -162,6 +169,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	edges []mflow.Edge,
 	flowVars []mflow.FlowVariable,
 	nodeIDMapping map[string]idwrap.IDWrap,
+	envOverrides varsystem.EnvOverrides,
 ) (int32, error) {
 	// Filter orphaned edges (source or target node missing)
 	validEdges := filterValidEdges(nodes, edges)
@@ -186,10 +194,11 @@ func (s *FlowServiceV2RPC) executeFlow(
 	session := s.sessionFactory.Create(proc)
 
 	if err := session.Prepare(ctx, flowexec.ExecutionParams{
-		Flow:     flow,
-		Nodes:    nodes,
-		Edges:    validEdges,
-		FlowVars: flowVars,
+		Flow:         flow,
+		Nodes:        nodes,
+		Edges:        validEdges,
+		FlowVars:     flowVars,
+		EnvOverrides: envOverrides,
 	}); err != nil {
 		return 0, err
 	}
@@ -201,6 +210,19 @@ func (s *FlowServiceV2RPC) executeFlow(
 	// Execute flow and wait for result processing
 	result, err := session.Run(ctx)
 	return result.Duration, err
+}
+
+// envOverridesFromRequest turns a FlowRun request's env into #env: overrides for the run.
+func envOverridesFromRequest(env []*flowv1.FlowRunEnvVar) (varsystem.EnvOverrides, error) {
+	values := make(map[string]string, len(env))
+	for _, v := range env {
+		key := strings.TrimSpace(v.GetKey())
+		if key == "" {
+			return varsystem.EnvOverrides{}, errors.New("env var key is required")
+		}
+		values[key] = v.GetValue()
+	}
+	return varsystem.NewEnvOverrides(values), nil
 }
 
 // filterValidEdges removes edges whose source or target node is missing.

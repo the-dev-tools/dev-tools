@@ -991,6 +991,17 @@ sql:
               import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### cloud_link table
+          - column: 'cloud_link.file_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'cloud_link.workspace_id'
+            go_type:
+              import: 'github.com/the-dev-tools/dev-tools/packages/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
           ### flow_ai_checks table
           - column: 'flow_ai_checks.flow_id'
             go_type:

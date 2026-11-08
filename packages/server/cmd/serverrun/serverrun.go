@@ -23,6 +23,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwauth"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcodec"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/middleware/mwcompress"
+	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcloudlink"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rcredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/renv"
 	"github.com/the-dev-tools/dev-tools/packages/server/internal/api/rexportv2"
@@ -46,6 +47,7 @@ import (
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/mflow"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/model/muser"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/mutation"
+	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scloudlink"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/scredential"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/senv"
 	"github.com/the-dev-tools/dev-tools/packages/server/pkg/service/sfile"
@@ -545,6 +547,29 @@ func Run() error {
 		flowSrvV2.MutationPublisher(),
 		httpSrv.MutationPublisher(),
 	})
+
+	// Cloud links: repos and flow files from Stresseur Cloud
+	cloudLinkSrv := rcloudlink.New(rcloudlink.CloudLinkRPCDeps{
+		DB:      currentDB,
+		Queries: queries,
+		User:    userService,
+		Readers: rcloudlink.CloudLinkRPCReaders{
+			CloudLink: scloudlink.NewReader(currentDB),
+			File:      sfile.NewReader(currentDB, logger),
+			Flow:      flowReader,
+		},
+		Streamers: rcloudlink.CloudLinkRPCStreamers{
+			File: streamers.File,
+			Flow: streamers.Flow,
+		},
+		Publisher: mutation.MultiPublisher{
+			flowSrvV2.MutationPublisher(),
+			httpSrv.MutationPublisher(),
+		},
+		DeletePublisher: registry,
+		Logger:          logger,
+	})
+	newServiceManager.addService(rcloudlink.CreateService(cloudLinkSrv, optionsAll))
 
 	logSrv := rlog.New(streamers.Log)
 	newServiceManager.addService(rlog.CreateService(logSrv, optionsAll))

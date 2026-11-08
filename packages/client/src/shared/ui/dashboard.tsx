@@ -2,18 +2,21 @@ import { Outlet, useRouter } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { FiMoon, FiSun } from 'react-icons/fi';
 import { Button, ButtonAsRouteLink } from '@the-dev-tools/ui/button';
-import { Logo } from '@the-dev-tools/ui/illustrations';
+import { StresseurLogo } from '@the-dev-tools/ui/illustrations';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useTheme } from '@the-dev-tools/ui/theme';
 import { routes } from '../routes';
+import { AccountButton } from './account';
 
 interface DashboardLayoutProps {
+  /** Right side of the header, before the account. */
+  actions?: React.ReactNode;
   children?: React.ReactNode;
   navbar?: React.ReactNode;
 }
 
-export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ actions, children, navbar }: DashboardLayoutProps) => {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
 
@@ -30,7 +33,7 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
           to={router.routesById[routes.dashboard.index.id].fullPath}
           variant='ghost'
         >
-          <Logo className={tw`size-7`} />
+          <StresseurLogo className={tw`size-7`} />
         </ButtonAsRouteLink>
 
         <div className={tw`h-5 w-px bg-on-inverse-lower`} />
@@ -38,6 +41,10 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => {
         {navbar}
 
         <div className='flex-1' />
+
+        {actions}
+
+        <AccountButton />
 
         <Button className={tw`-mr-2 p-1 text-xl`} onPress={() => void toggleTheme()} variant='ghost dark'>
           {theme === 'light' && <FiSun />}

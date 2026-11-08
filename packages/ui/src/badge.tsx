@@ -2,7 +2,7 @@ import { tv, VariantProps } from 'tailwind-variants';
 import { tw } from './tailwind-literal';
 
 export const badgeStyles = tv({
-  base: tw`inline-flex shrink-0 items-center justify-center rounded-md text-xs leading-4 font-semibold`,
+  base: tw`inline-flex shrink-0 items-center justify-center rounded-md text-xs/4 font-semibold`,
   variants: {
     color: {
       amber: tw`border-amber-200 bg-amber-100 text-amber-600`,

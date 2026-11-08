@@ -10,7 +10,7 @@ export interface FieldLabelProps extends RAC.LabelProps {}
 export const FieldLabel = ({ className, ...props }: FieldLabelProps) => (
   <RAC.Label
     {...props}
-    className={twMerge(className, tw`flex items-center text-sm leading-5 font-medium tracking-tight text-on-neutral`)}
+    className={twMerge(className, tw`flex items-center text-sm/5 font-medium tracking-tight text-on-neutral`)}
   />
 );
 

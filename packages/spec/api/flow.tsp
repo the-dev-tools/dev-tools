@@ -18,10 +18,16 @@ model FlowDuplicateRequest {
 
 op FlowDuplicate(...FlowDuplicateRequest): {};
 
+model FlowRunEnvVar {
+  key: string;
+  value: string;
+}
+
 @AITools.aiTool(#{ category: AITools.ToolCategory.Execution, title: "Run Flow" })
 @doc("Execute a workflow from the start node.")
 model FlowRunRequest {
   @doc("The ULID of the workflow to run") flowId: Id;
+  @doc("Values for #env: references, used before the process environment") env?: FlowRunEnvVar[];
 }
 
 op FlowRun(...FlowRunRequest): {};

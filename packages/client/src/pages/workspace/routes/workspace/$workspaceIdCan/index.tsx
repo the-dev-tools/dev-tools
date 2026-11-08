@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { Ulid } from 'id128';
 import { ReactNode } from 'react';
 import * as RAC from 'react-aria-components';
+import { FiPlay } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
@@ -10,6 +11,7 @@ import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flo
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { FileImportIcon, FlowsIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { openLaunchpad, recordApi } from '~/features/cloud';
 import { useApiCollection } from '~/shared/api';
 import { getNextOrder } from '~/shared/lib';
 import { routes } from '~/shared/routes';
@@ -22,15 +24,14 @@ export const Route = createFileRoute('/(dashboard)/(workspace)/workspace/$worksp
 function RouteComponent() {
   return (
     <div className={tw`px-4 py-16 text-center`}>
-      <span className={tw`block text-xl/6 font-semibold tracking-tight text-on-neutral`}>
-        Discover what you can do in DevTools
-      </span>
+      <span className={tw`block text-xl/6 font-semibold tracking-tight text-on-neutral`}>Start testing your API</span>
 
       <span className={tw`block text-xs/5 tracking-tight text-on-neutral-low`}>
-        Discover the tools to make your workflow easier and faster.
+        Record your app, import a collection, or build a request or flow by hand.
       </span>
 
       <div className={tw`mx-auto mt-5 flex max-w-4xl justify-center gap-4`}>
+        <GetStartedButton />
         <ImportButton />
         <NewHttpButton />
         <NewFlowButton />
@@ -72,13 +73,31 @@ const CtaIcon = ({ children, className }: CtaIconProps) => (
   <div className={twJoin(tw`rounded-full p-2 text-2xl text-on-inverse`, className)}>{children}</div>
 );
 
+/** Opens the launchpad (desktop only: it runs the stresseur CLI). */
+const GetStartedButton = () => {
+  if (!recordApi()) return null;
+
+  return (
+    <CtaButton
+      description='Record tests from your app'
+      icon={
+        <CtaIcon className={tw`bg-accent`}>
+          <FiPlay />
+        </CtaIcon>
+      }
+      onPress={() => void openLaunchpad('choose')}
+      title='Get started'
+    />
+  );
+};
+
 const ImportButton = () => {
   const dialog = useImportDialog();
 
   return (
     <>
       <CtaButton
-        description='Import Collections and Flows'
+        description='Collections, HAR files and flows'
         icon={
           <CtaIcon className={tw`bg-amber-600`}>
             <FileImportIcon />
@@ -104,7 +123,7 @@ const NewHttpButton = () => {
 
   return (
     <CtaButton
-      description='Easy to test your API'
+      description='Send one request'
       icon={
         <CtaIcon className={tw`bg-cyan-600`}>
           <SendRequestIcon />
@@ -148,7 +167,7 @@ const NewFlowButton = () => {
 
   return (
     <CtaButton
-      description='Easy request with flows'
+      description='Chain requests into a test'
       icon={
         <CtaIcon className={tw`bg-green-600`}>
           <FlowsIcon />

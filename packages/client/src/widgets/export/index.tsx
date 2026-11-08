@@ -13,21 +13,86 @@ import { FileTree } from '~/features/file-system';
 import { useApiCollection, useConnectMutation } from '~/shared/api';
 import { routes } from '~/shared/routes';
 
-export const ExportDialog = () => {
+interface ExportDialogProps {
+  /** Controlled from elsewhere (e.g. a menu item): no trigger button is rendered. */
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}
+
+export const ExportDialog = ({ isOpen: controlledIsOpen, onOpenChange: controlledOnOpenChange }: ExportDialogProps) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { workspaceId } = routes.dashboard.workspace.route.useLoaderData();
 
-  const [isOpen, setOpen] = useState(false);
+  const [isOpenState, setOpen] = useState(false);
+  const isOpen = controlledIsOpen ?? isOpenState;
   const [fileKeys, setFileKeys] = useState(new Set<Key>());
 
   const onOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
+    (controlledOnOpenChange ?? setOpen)(isOpen);
     if (!isOpen) return;
     setFileKeys(new Set());
   };
 
   const exportMutation = useConnectMutation(ExportService.method.export);
+
+  const modal = (
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}
+    >
+      <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
+        <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
+          <div className={tw`flex items-center justify-between`}>
+            <div className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
+
+            <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
+              <FiX className={tw`size-5 text-on-neutral-low`} />
+            </Button>
+          </div>
+
+          <div className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>
+            Please select the files that you would like to export.
+          </div>
+
+          <div className={tw`flex-1 overflow-auto py-1.5`}>
+            <FileTree
+              onSelectionChange={(selection) => {
+                if (selection === 'all') return;
+                setFileKeys(selection);
+              }}
+              selectedKeys={fileKeys}
+              selectionMode='multiple'
+            />
+          </div>
+        </div>
+
+        <div className={tw`flex justify-end gap-2 border-t border-neutral px-6 py-3`}>
+          <Button onPress={() => void onOpenChange(false)}>Cancel</Button>
+
+          <Button
+            isDisabled={fileKeys.size === 0}
+            onPress={async () => {
+              const fileIds = pipe(
+                Array.fromIterable(fileKeys),
+                Array.map((_) => fileCollection.utils.parseKeyUnsafe(_.toString()).fileId),
+              );
+
+              const { data, name } = await exportMutation.mutateAsync({ fileIds, workspaceId });
+              saveFile({ blobParts: [data], name });
+              onOpenChange(false);
+            }}
+            variant='primary'
+          >
+            Export
+          </Button>
+        </div>
+      </Dialog>
+    </Modal>
+  );
+
+  if (controlledOnOpenChange) return modal;
 
   return (
     <DialogTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -38,55 +103,7 @@ export const ExportDialog = () => {
         <Tooltip className={tw`rounded-md bg-inverse px-2 py-1 text-xs text-on-inverse`}>Export Files</Tooltip>
       </TooltipTrigger>
 
-      <Modal style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
-        <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
-          <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
-            <div className={tw`flex items-center justify-between`}>
-              <div className={tw`text-xl/6 font-semibold tracking-tighter text-on-neutral`}>Export Files</div>
-
-              <Button className={tw`p-1`} onPress={() => void onOpenChange(false)} variant='ghost'>
-                <FiX className={tw`size-5 text-on-neutral-low`} />
-              </Button>
-            </div>
-
-            <div className={tw`text-xs/5 tracking-tight text-on-neutral-low`}>
-              Please select the files that you would like to export.
-            </div>
-
-            <div className={tw`flex-1 overflow-auto py-1.5`}>
-              <FileTree
-                onSelectionChange={(selection) => {
-                  if (selection === 'all') return;
-                  setFileKeys(selection);
-                }}
-                selectedKeys={fileKeys}
-                selectionMode='multiple'
-              />
-            </div>
-          </div>
-
-          <div className={tw`flex justify-end gap-2 border-t border-neutral px-6 py-3`}>
-            <Button onPress={() => void onOpenChange(false)}>Cancel</Button>
-
-            <Button
-              isDisabled={fileKeys.size === 0}
-              onPress={async () => {
-                const fileIds = pipe(
-                  Array.fromIterable(fileKeys),
-                  Array.map((_) => fileCollection.utils.parseKeyUnsafe(_.toString()).fileId),
-                );
-
-                const { data, name } = await exportMutation.mutateAsync({ fileIds, workspaceId });
-                saveFile({ blobParts: [data], name });
-                onOpenChange(false);
-              }}
-              variant='primary'
-            >
-              Export
-            </Button>
-          </div>
-        </Dialog>
-      </Modal>
+      {modal}
     </DialogTrigger>
   );
 };

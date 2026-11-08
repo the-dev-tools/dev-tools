@@ -26,7 +26,7 @@ export const Default: Story = {
         <Modal {...props}>
           <Dialog className={tw`flex h-full flex-col p-4 outline-hidden`}>
             <h1 className={tw`mb-1 leading-5 font-semibold tracking-tight text-on-neutral`}>Delete workspace?</h1>
-            <span className={tw`text-sm leading-5 font-medium tracking-tight text-on-neutral-low`}>
+            <span className={tw`text-sm/5 font-medium tracking-tight text-on-neutral-low`}>
               This action will remove the workspace permanently
             </span>
 

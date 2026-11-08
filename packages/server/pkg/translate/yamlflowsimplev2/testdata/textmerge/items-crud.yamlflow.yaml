@@ -1,0 +1,48 @@
+# Demo flow for the Stresseur demo target (loadgen/demo-target): log in, create an item, read it, delete it.
+workspace_name: Demo target
+flows:
+  - name: items-crud
+    steps:
+      - manual_start:
+          name: Start
+      - request:
+          name: PostLogin
+          depends_on: Start
+          method: POST
+          url: '{{ #env:STRESSEUR_BASE_URL }}/api/login'
+          body:
+            type: json
+            json:
+              username: demo
+              password: '{{ #env:STRESSEUR_PASSWORD }}'
+          assertions:
+            - response.status == 200
+      - request:
+          name: PostItems
+          depends_on: PostLogin
+          method: POST
+          url: '{{ #env:STRESSEUR_BASE_URL }}/api/items'
+          headers:
+            Authorization: 'Bearer {{ PostLogin.response.body.token }}'
+          body:
+            type: json
+            json:
+              name: load
+          assertions:
+            - response.status == 201
+      - request:
+          name: GetItem
+          depends_on: PostItems
+          method: GET
+          url: '{{ #env:STRESSEUR_BASE_URL }}/api/items/{{ PostItems.response.body.id }}'
+          headers:
+            Authorization: 'Bearer {{ PostLogin.response.body.token }}'
+          assertions:
+            - response.status == 200
+    cleanup:
+      - request:
+          name: DeleteItem
+          method: DELETE
+          url: '{{ #env:STRESSEUR_BASE_URL }}/api/items/{{ PostItems.response.body.id }}'
+          headers:
+            Authorization: 'Bearer {{ PostLogin.response.body.token }}'

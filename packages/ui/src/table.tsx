@@ -27,7 +27,7 @@ export const Table = ({ children, className, containerClassName, ...props }: Tab
       <RAC.Table
         className={composeTailwindRenderProps(
           className,
-          tw`w-full overflow-hidden border-inherit text-md leading-5 text-on-neutral`,
+          tw`w-full overflow-hidden border-inherit text-md/5 text-on-neutral`,
         )}
         // @ts-expect-error patched workaround until fixed upstream https://github.com/adobe/react-spectrum/issues/2328
         isKeyboardNavigationDisabled

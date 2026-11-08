@@ -361,7 +361,7 @@ func TestGraphQLDeltaColumnsCreated(t *testing.T) {
 // TestMigrationCount ensures no migrations are accidentally omitted.
 func TestMigrationCount(t *testing.T) {
 	migrations := migrate.List()
-	const expectedCount = 12
+	const expectedCount = 13
 	if len(migrations) != expectedCount {
 		t.Errorf("expected %d registered migrations, got %d — update this count if you added/removed a migration", expectedCount, len(migrations))
 	}
@@ -568,6 +568,20 @@ func TestAIChecksTablesCreated(t *testing.T) {
 		for _, col := range columns {
 			assertColumnExists(t, ctx, db, table, col)
 		}
+	}
+}
+
+// TestCloudLinkTableCreated verifies the cloud_link migration.
+func TestCloudLinkTableCreated(t *testing.T) {
+	ctx := context.Background()
+	db := runAllMigrations(t, ctx)
+
+	assertTableExists(t, ctx, db, "cloud_link")
+	for _, col := range []string{
+		"file_id", "workspace_id", "kind", "api_url", "cloud_workspace_slug", "repo_slug", "path",
+		"base_sha", "local_dir", "dirty", "source_text", "clean_yaml", "updated_at",
+	} {
+		assertColumnExists(t, ctx, db, "cloud_link", col)
 	}
 }
 
