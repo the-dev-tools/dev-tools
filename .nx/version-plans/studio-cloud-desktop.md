@@ -4,6 +4,8 @@ desktop: minor
 
 Studio now works with Stresseur Cloud, records your app's API calls and has a launchpad for first runs.
 
+Inside the app, Studio now carries the Stresseur name and logo. It's the same app, with the same flows, data and settings, and it's still free, open source and local. The CLI and GitHub Action are unchanged. You don't need to do anything.
+
 - Sign in to Stresseur from the app. Signed in, a Cloud section lists your repos and their flows.
 - Run a flow on your machine or in Stresseur Cloud from the Run button. Send edits back to the repo with Propose change.
 - Record your app's API calls into flows with the bundled `stresseur` binary. Save them to Files, a cloud repo, or both.

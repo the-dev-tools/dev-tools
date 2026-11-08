@@ -187,8 +187,12 @@ const migrateDataDir = () => {
 
   const appData = app.getPath('appData');
   // Check old directories in reverse-chronological order (prefer most recent data).
-  // 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
-  const oldDirs = [nodePath.join(appData, 'DevTools Studio'), nodePath.join(appData, 'DevTools')];
+  // 1.2.0 pre-release builds used "Stresseur Studio", 0.2.0 used "DevTools Studio" (space), 0.1.x used "DevTools".
+  const oldDirs = [
+    nodePath.join(appData, 'Stresseur Studio'),
+    nodePath.join(appData, 'DevTools Studio'),
+    nodePath.join(appData, 'DevTools'),
+  ];
 
   const sourceDir = oldDirs.find((dir) => existsSync(nodePath.join(dir, 'state.db')));
   if (!sourceDir) return;
