@@ -80,7 +80,7 @@ detect_platform() {
 # repository's cli@ tags, or nothing if none can be found.
 latest_stable_version() {
     local refs_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/matching-refs/tags/cli@"
-    curl -s "$refs_url" \
+    curl -s -H "X-GitHub-Api-Version: 2026-03-10" "$refs_url" \
         | grep -o '"ref": *"refs/tags/cli@[^"]*"' \
         | sed -E 's#.*refs/tags/cli@([^"]*)".*#\1#' \
         | grep -v -e '-' \
@@ -94,7 +94,7 @@ get_version() {
     if [ -n "$requested_version" ]; then
         # Verify the requested version exists
         local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${requested_version}"
-        local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
+        local release_check=$(curl -s -o /dev/null -w "%{http_code}" -H "X-GitHub-Api-Version: 2026-03-10" "$release_url")
         
         if [ "$release_check" != "200" ]; then
             print_error "Release cli@${requested_version} not found."
@@ -129,7 +129,7 @@ get_version() {
 
         # Verify the release exists
         local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${version}"
-        local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
+        local release_check=$(curl -s -o /dev/null -w "%{http_code}" -H "X-GitHub-Api-Version: 2026-03-10" "$release_url")
         
         if [ "$release_check" != "200" ]; then
             print_error "Release cli@${version} not found. It may not be published yet."
